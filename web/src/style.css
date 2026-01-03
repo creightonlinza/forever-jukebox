@@ -17,7 +17,7 @@
   --title-accent: #f1c47a;
   --title-glow: rgba(241, 196, 122, 0.6);
   --muted: #b9c0cc;
-  --edge-stroke: rgba(74, 199, 255, 0.12);
+  --edge-stroke: rgba(74, 198, 255, 0.55);
   --edge-selected: #ff5b5b;
   --viz-bg: radial-gradient(circle at 50% 50%, #232b3d 0%, #0f1115 70%);
   --viz-shadow: rgba(74, 199, 255, 0.12);
