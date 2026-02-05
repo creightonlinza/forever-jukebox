@@ -189,29 +189,27 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                 )
                             }
                         }
-                        if (!playback.isCasting) {
-                            IconButton(
-                                onClick = { showTuning = true },
-                                modifier = Modifier.size(SmallButtonHeight)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Tune,
-                                    contentDescription = "Tune",
-                                    tint = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = { showInfo = true },
-                                modifier = Modifier.size(SmallButtonHeight)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Info,
-                                    contentDescription = "Info",
-                                    tint = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                        IconButton(
+                            onClick = { showTuning = true },
+                            modifier = Modifier.size(SmallButtonHeight)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Tune,
+                                contentDescription = "Tune",
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = { showInfo = true },
+                            modifier = Modifier.size(SmallButtonHeight)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Info,
+                                contentDescription = "Info",
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                         IconButton(
                             onClick = {

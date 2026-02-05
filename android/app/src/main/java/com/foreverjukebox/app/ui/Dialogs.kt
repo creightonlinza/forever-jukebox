@@ -157,11 +157,14 @@ fun TuningDialog(
 @Composable
 fun BaseUrlDialog(initialValue: String, onSave: (String) -> Unit) {
     var urlInput by remember { mutableStateOf(initialValue) }
+    val trimmed = urlInput.trim()
+    val isValidUrl = remember(trimmed) { isValidBaseUrl(trimmed) }
     AlertDialog(
         onDismissRequest = {},
         confirmButton = {
             Button(
-                onClick = { onSave(urlInput) },
+                onClick = { onSave(trimmed) },
+                enabled = isValidUrl,
                 colors = pillButtonColors(),
                 border = pillButtonBorder(),
                 shape = PillShape,
@@ -179,6 +182,7 @@ fun BaseUrlDialog(initialValue: String, onSave: (String) -> Unit) {
                 label = { Text("Example: http://192.168.1.100") },
                 textStyle = MaterialTheme.typography.bodySmall,
                 singleLine = true,
+                isError = trimmed.isNotEmpty() && !isValidUrl,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Done
@@ -186,8 +190,23 @@ fun BaseUrlDialog(initialValue: String, onSave: (String) -> Unit) {
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.heightIn(min = SmallFieldMinHeight)
             )
+            if (trimmed.isNotEmpty() && !isValidUrl) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Enter a valid http(s) URL.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     )
+}
+
+private fun isValidBaseUrl(value: String): Boolean {
+    val parsed = runCatching { android.net.Uri.parse(value) }.getOrNull() ?: return false
+    val scheme = parsed.scheme?.lowercase()
+    if (scheme != "http" && scheme != "https") return false
+    return !parsed.host.isNullOrBlank()
 }
 
 @Composable

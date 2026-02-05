@@ -266,7 +266,7 @@ private fun SettingsDialog(
                     contentPadding = SmallButtonPadding,
                     modifier = Modifier.height(SmallButtonHeight)
                 ) {
-                    Text("Clear $cacheLabel cache", style = MaterialTheme.typography.labelSmall)
+                    Text("Clear $cacheLabel", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
