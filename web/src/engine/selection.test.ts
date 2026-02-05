@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectNextBeatIndex } from "./selection";
+import { selectNextBeatIndex, shouldRandomBranch } from "./selection";
 import { JukeboxConfig, JukeboxGraphState, QuantumBase } from "./types";
 
 function makeBeat(which: number): QuantumBase {
@@ -193,5 +193,45 @@ describe("selectNextBeatIndex", () => {
     );
     expect(selection.index).toBe(0);
     expect(selection.jumped).toBe(false);
+  });
+});
+
+describe("shouldRandomBranch", () => {
+  const config: JukeboxConfig = {
+    maxBranches: 4,
+    maxBranchThreshold: 80,
+    currentThreshold: 60,
+    addLastEdge: true,
+    justBackwards: false,
+    justLongBranches: false,
+    removeSequentialBranches: false,
+    minRandomBranchChance: 0.1,
+    maxRandomBranchChance: 0.3,
+    randomBranchChanceDelta: 0.05,
+    minLongBranch: 1,
+  };
+  const graph: JukeboxGraphState = {
+    computedThreshold: 60,
+    currentThreshold: 60,
+    lastBranchPoint: 99,
+    totalBeats: 2,
+    longestReach: 0,
+    allEdges: [],
+  };
+
+  it("ramps branch chance and clamps to max", () => {
+    const beat = makeBeat(0);
+    const state = { curRandomBranchChance: 0.28 };
+    const shouldBranch = shouldRandomBranch(beat, graph, config, () => 0.99, state);
+    expect(shouldBranch).toBe(false);
+    expect(state.curRandomBranchChance).toBe(0.3);
+  });
+
+  it("resets branch chance to min when branching", () => {
+    const beat = makeBeat(0);
+    const state = { curRandomBranchChance: 0.25 };
+    const shouldBranch = shouldRandomBranch(beat, graph, config, () => 0.0, state);
+    expect(shouldBranch).toBe(true);
+    expect(state.curRandomBranchChance).toBe(0.1);
   });
 });

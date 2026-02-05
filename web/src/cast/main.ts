@@ -332,8 +332,9 @@ async function bootstrap() {
     null;
   let idleStopTimer: number | null = null;
   let idleKeepaliveTimer: number | null = null;
+  // Clamp DPR to reduce fill-rate on Chromecast hardware.
   Object.defineProperty(window, "devicePixelRatio", {
-    value: 1,
+    value: 1.5,
     configurable: true,
   });
   let viz: JukeboxViz | null = null;
@@ -442,6 +443,7 @@ async function bootstrap() {
         return;
       }
       const beatChanged = engineState.currentBeatIndex !== state.lastBeatIndex;
+      // Only repaint the viz on beat changes/jumps to keep Cast lightweight.
       if (!beatChanged && !engineState.lastJumped) {
         return;
       }

@@ -37,6 +37,7 @@ export function backgroundSetTimeout(
   delay = 0,
   ...args: unknown[]
 ): number {
+  // Use a worker-backed timer when hidden to avoid aggressive background throttling.
   if (!worker || !isDocumentHidden) {
     return nativeSetTimeout(callback, delay, ...args);
   }

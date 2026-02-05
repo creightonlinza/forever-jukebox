@@ -26,6 +26,7 @@ const DEFAULT_CONFIG: JukeboxConfig = {
 };
 
 const TICK_INTERVAL_MS = 50;
+// Timing buffers for scheduling jumps smoothly across audio backends.
 const RESYNC_TOLERANCE_SECONDS = 0.05;
 const LOOKAHEAD_SECONDS = 0.05;
 const JUMP_LATE_TOLERANCE_SECONDS = 0.04;
@@ -270,6 +271,8 @@ export class JukeboxEngine {
     if (this.currentBeatIndex >= 0 && lastTickTime !== null) {
       const crossedTransition =
         lastTickTime < this.nextTransitionTime && currentTime >= this.nextTransitionTime;
+      // Allow scheduling a jump slightly early so audio backends have time to queue
+      // the transition; this avoids glitches when timing jitter is present.
       const inLookaheadWindow =
         lastTickTime < this.nextTransitionTime - LOOKAHEAD_SECONDS &&
         currentTime >= this.nextTransitionTime - LOOKAHEAD_SECONDS;

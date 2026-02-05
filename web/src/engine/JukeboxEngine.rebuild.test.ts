@@ -115,4 +115,39 @@ describe("JukeboxEngine rebuildGraph", () => {
     const rebuilt = engine.getGraphState()?.allEdges[0];
     expect(rebuilt?.deleted).toBe(true);
   });
+
+  it("keeps deleted edges filtered out of neighbors after rebuild", () => {
+    const mockedBuild = vi.mocked(buildJumpGraph);
+    mockedBuild.mockImplementation((analysis: TrackAnalysis) => {
+      const edge: Edge = {
+        id: 0,
+        src: analysis.beats[0],
+        dest: analysis.beats[1],
+        distance: 10,
+        deleted: false,
+      };
+      analysis.beats[0].neighbors = [edge];
+      analysis.beats[0].allNeighbors = [edge];
+      return {
+        computedThreshold: 10,
+        currentThreshold: 10,
+        lastBranchPoint: 1,
+        totalBeats: analysis.beats.length,
+        longestReach: 0,
+        allEdges: [edge],
+      } satisfies JukeboxGraphState;
+    });
+
+    const engine = new JukeboxEngine(makePlayer());
+    engine.loadAnalysis(makeAnalysisPayload());
+    const graph = engine.getGraphState();
+    const edge = graph?.allEdges[0];
+    if (!edge) {
+      throw new Error("Expected a graph edge to exist");
+    }
+    engine.deleteEdge(edge);
+    engine.rebuildGraph();
+    const beat = (engine as unknown as { beats: TrackAnalysis["beats"] }).beats[0];
+    expect(beat.neighbors.find((candidate) => candidate.deleted)).toBeUndefined();
+  });
 });
