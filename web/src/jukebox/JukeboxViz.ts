@@ -49,6 +49,7 @@ class CanvasViz {
   private currentIndex = -1;
   private jumpLine: JumpLine | null = null;
   private selectedEdge: Edge | null = null;
+  private overlayRafId: number | null = null;
 
   private onSelect: ((index: number) => void) | null = null;
   private onEdgeSelect: ((edge: Edge | null) => void) | null = null;
@@ -101,6 +102,8 @@ class CanvasViz {
     if (visible && this.data) {
       this.drawBase();
       this.drawOverlay();
+    } else {
+      this.cancelOverlayAnimation();
     }
   }
 
@@ -137,6 +140,7 @@ class CanvasViz {
     this.currentIndex = -1;
     this.jumpLine = null;
     this.selectedEdge = null;
+    this.cancelOverlayAnimation();
     this.drawOverlay();
   }
 
@@ -148,6 +152,7 @@ class CanvasViz {
     this.positions = [];
     this.edgeGeometry = new WeakMap();
     this.bendCache.clear();
+    this.cancelOverlayAnimation();
   }
 
   setOnSelect(handler: (index: number) => void) {
@@ -335,6 +340,7 @@ class CanvasViz {
     const { width, height } = this.size;
     this.overlayCtx.clearRect(0, 0, width, height);
     if (!this.data || !this.visible) {
+      this.cancelOverlayAnimation();
       return;
     }
     if (this.selectedEdge && !this.selectedEdge.deleted) {
@@ -374,10 +380,32 @@ class CanvasViz {
             this.overlayCtx.stroke();
           }
         }
+        this.requestOverlayAnimation();
       } else {
         this.jumpLine = null;
+        this.cancelOverlayAnimation();
       }
+    } else {
+      this.cancelOverlayAnimation();
     }
+  }
+
+  private requestOverlayAnimation() {
+    if (this.overlayRafId !== null) {
+      return;
+    }
+    this.overlayRafId = window.requestAnimationFrame(() => {
+      this.overlayRafId = null;
+      this.drawOverlay();
+    });
+  }
+
+  private cancelOverlayAnimation() {
+    if (this.overlayRafId === null) {
+      return;
+    }
+    window.cancelAnimationFrame(this.overlayRafId);
+    this.overlayRafId = null;
   }
 
   private resolveBeatJumpColor(alpha: number) {

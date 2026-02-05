@@ -13,7 +13,8 @@ type CastCustomData = {
 };
 
 type CastCommand = {
-  type?: "play" | "stop" | "getStatus";
+  type?: "play" | "stop" | "getStatus" | "setTuning";
+  tuningParams?: string | null;
 };
 
 type CastStatus = {
@@ -373,18 +374,19 @@ async function bootstrap() {
       return;
     }
     const target = senderId || lastCastSenderId || "*";
-    const isLoading = state.loadToken > 0 && !!state.currentTrackId && !state.vizData;
+    const isLoading =
+      state.loadToken > 0 && !!state.currentTrackId && !state.vizData;
     const hasTrack = !!state.currentTrackId;
     const isPlaying = player.isPlaying();
     const playbackState = error
       ? "error"
       : !hasTrack
-          ? "idle"
-          : isLoading
-              ? "loading"
-              : isPlaying
-                  ? "playing"
-                  : "paused";
+        ? "idle"
+        : isLoading
+          ? "loading"
+          : isPlaying
+            ? "playing"
+            : "paused";
     const status: CastStatus = {
       type: "status",
       songId: state.currentTrackId,
@@ -489,7 +491,10 @@ async function bootstrap() {
     elements.listenTime.textContent = formatDuration(elapsed / 1000);
   }, 500);
 
-  async function startTrack(trackId: string, tuningParams: string | null = null) {
+  async function startTrack(
+    trackId: string,
+    tuningParams: string | null = null,
+  ) {
     clearIdleStopTimer();
     stopIdleKeepAlive();
     if (!trackId) {
@@ -566,7 +571,9 @@ async function bootstrap() {
       if (parsedTuning?.deletedEdgeIds?.length) {
         const graph = engine.getGraphState();
         if (graph) {
-          const edgeById = new Map(graph.allEdges.map((edge) => [edge.id, edge]));
+          const edgeById = new Map(
+            graph.allEdges.map((edge) => [edge.id, edge]),
+          );
           for (const id of parsedTuning.deletedEdgeIds) {
             const edge = edgeById.get(id);
             if (edge) {
@@ -634,11 +641,53 @@ async function bootstrap() {
     }
   }
 
+  function applyTuningUpdate(tuningParams: string | null) {
+    if (!engine || !defaultConfig || !state.currentTrackId) {
+      return;
+    }
+    engine.updateConfig(defaultConfig);
+    engine.clearDeletedEdges();
+    const parsedTuning = parseTuningParams(tuningParams, defaultConfig);
+    if (parsedTuning) {
+      engine.updateConfig(parsedTuning.config);
+    }
+    engine.rebuildGraph();
+    if (parsedTuning?.deletedEdgeIds?.length) {
+      const graph = engine.getGraphState();
+      if (graph) {
+        const edgeById = new Map(graph.allEdges.map((edge) => [edge.id, edge]));
+        for (const id of parsedTuning.deletedEdgeIds) {
+          const edge = edgeById.get(id);
+          if (edge) {
+            engine.deleteEdge(edge);
+          }
+        }
+        engine.rebuildGraph();
+      }
+    }
+    state.vizData = engine.getVisualizationData();
+    if (state.vizData) {
+      if (!viz) {
+        createViz();
+      }
+      if (viz) {
+        viz.setData(state.vizData);
+        viz.setVisible(true);
+      }
+    } else if (viz) {
+      viz.reset();
+    }
+  }
+
   function handleCastCommand(command: CastCommand, senderId?: string) {
     if (senderId) {
       lastCastSenderId = senderId;
     }
     if (!engine || !player) {
+      return;
+    }
+    if (command.type === "setTuning") {
+      applyTuningUpdate(command.tuningParams ?? null);
       return;
     }
     if (command.type === "play") {
