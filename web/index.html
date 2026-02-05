@@ -439,60 +439,76 @@
           </div>
           <div class="modal-body">
             <label>
-              Branch Similarity Threshold: <span id="threshold-val">0</span>
+              <div class="label-line">
+                Branch Similarity Threshold:
+                <span id="threshold-val">2</span>
+              </div>
+              <div class="hint">
+                Computed default threshold:
+                <span id="computed-threshold">-</span>
+              </div>
               <input
                 id="threshold"
                 type="range"
-                min="0"
+                min="2"
                 max="80"
-                step="5"
-                value="0"
+                step="2"
+                value="2"
               />
             </label>
-            <div class="hint">
-              Computed threshold: <span id="computed-threshold">-</span>
-            </div>
             <label>
-              Branch Probability Min: <span id="min-prob-val">18%</span>
+              <div class="label-line">
+                Branch Probability Min:
+                <span id="min-prob-val">18%</span>
+              </div>
               <input
                 id="min-prob"
                 type="range"
                 min="0"
                 max="100"
-                step="1"
+                step="2"
                 value="18"
               />
             </label>
             <label>
-              Branch Probability Max: <span id="max-prob-val">50%</span>
+              <div class="label-line">
+                Branch Probability Max:
+                <span id="max-prob-val">50%</span>
+              </div>
               <input
                 id="max-prob"
                 type="range"
                 min="0"
                 max="100"
-                step="1"
+                step="2"
                 value="50"
               />
             </label>
             <label>
-              Branch Ramp Speed: <span id="ramp-val">10%</span>
+              <div class="label-line">
+                Branch Ramp Speed:
+                <span id="ramp-val">10%</span>
+              </div>
               <input
                 id="ramp"
                 type="range"
                 min="0"
                 max="100"
-                step="5"
+                step="2"
                 value="10"
               />
             </label>
             <label>
-              Volume: <span id="volume-val">50</span>
+              <div class="label-line">
+                Volume:
+                <span id="volume-val">50</span>
+              </div>
               <input
                 id="volume"
                 type="range"
                 min="0"
                 max="100"
-                step="5"
+                step="2"
                 value="50"
               />
             </label>

@@ -389,7 +389,14 @@ label {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding-bottom: 10px;
   font-size: 14px;
+}
+
+.label-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 button {

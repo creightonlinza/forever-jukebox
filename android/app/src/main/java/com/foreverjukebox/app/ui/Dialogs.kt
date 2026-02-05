@@ -122,13 +122,33 @@ fun TuningDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Branch Similarity Threshold: ${threshold.toInt()}")
-                Slider(value = threshold, onValueChange = { threshold = it }, valueRange = 0f..80f, steps = 15)
+                Slider(
+                    value = threshold,
+                    onValueChange = { threshold = it },
+                    valueRange = 2f..80f,
+                    steps = 38
+                )
                 Text("Branch Probability Min: ${minProb.toInt()}%")
-                Slider(value = minProb, onValueChange = { minProb = it }, valueRange = 0f..100f)
+                Slider(
+                    value = minProb,
+                    onValueChange = { minProb = it },
+                    valueRange = 0f..100f,
+                    steps = 49
+                )
                 Text("Branch Probability Max: ${maxProb.toInt()}%")
-                Slider(value = maxProb, onValueChange = { maxProb = it }, valueRange = 0f..100f)
+                Slider(
+                    value = maxProb,
+                    onValueChange = { maxProb = it },
+                    valueRange = 0f..100f,
+                    steps = 49
+                )
                 Text("Branch Ramp Speed: ${ramp.toInt()}%")
-                Slider(value = ramp, onValueChange = { ramp = it }, valueRange = 0f..100f, steps = 10)
+                Slider(
+                    value = ramp,
+                    onValueChange = { ramp = it },
+                    valueRange = 0f..100f,
+                    steps = 49
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = addLastEdge, onCheckedChange = { addLastEdge = it })
                     Spacer(modifier = Modifier.width(8.dp))
