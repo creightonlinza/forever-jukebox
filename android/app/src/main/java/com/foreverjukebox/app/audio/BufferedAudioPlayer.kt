@@ -65,15 +65,20 @@ class BufferedAudioPlayer : JukeboxPlayer {
         }
     }
 
-    override fun scheduleJump(targetTime: Double, transitionTime: Double) {
+    override fun scheduleJump(targetTime: Double, audioStart: Double) {
         if (nativeHandle != 0L) {
-            nativeScheduleJump(nativeHandle, targetTime, transitionTime)
+            nativeScheduleJump(nativeHandle, targetTime, audioStart)
         }
     }
 
     override fun getCurrentTime(): Double {
         if (nativeHandle == 0L) return 0.0
         return nativeGetCurrentTime(nativeHandle)
+    }
+
+    override fun getAudioTime(): Double {
+        if (nativeHandle == 0L) return 0.0
+        return nativeGetAudioTime(nativeHandle)
     }
 
     override fun isPlaying(): Boolean {
@@ -253,8 +258,9 @@ class BufferedAudioPlayer : JukeboxPlayer {
     private external fun nativePause(handle: Long)
     private external fun nativeStop(handle: Long)
     private external fun nativeSeek(handle: Long, timeSeconds: Double)
-    private external fun nativeScheduleJump(handle: Long, targetTime: Double, transitionTime: Double)
+    private external fun nativeScheduleJump(handle: Long, targetTime: Double, audioStart: Double)
     private external fun nativeGetCurrentTime(handle: Long): Double
+    private external fun nativeGetAudioTime(handle: Long): Double
     private external fun nativeIsPlaying(handle: Long): Boolean
     private external fun nativeRelease(handle: Long)
 

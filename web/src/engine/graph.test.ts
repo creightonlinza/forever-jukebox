@@ -167,4 +167,24 @@ describe("buildJumpGraph", () => {
     expect(graph.currentThreshold).toBe(graph.computedThreshold);
     expect(graph.currentThreshold).toBeGreaterThan(0);
   });
+
+  it("keeps computed threshold when currentThreshold is provided", () => {
+    const analysis = normalizeAnalysis(makeAnalysis());
+    const config: JukeboxConfig = {
+      maxBranches: 3,
+      maxBranchThreshold: 80,
+      currentThreshold: 60,
+      addLastEdge: true,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 1,
+    };
+    const graph = buildJumpGraph(analysis, config);
+    expect(graph.currentThreshold).toBe(60);
+    expect(graph.computedThreshold).toBeGreaterThan(0);
+  });
 });
