@@ -398,6 +398,36 @@ export function togglePlayback(context: AppContext) {
   }
 }
 
+export function startJukeboxFromBeat(context: AppContext, index: number) {
+  const { engine, player, state } = context;
+  if (state.playMode !== "jukebox") {
+    return;
+  }
+  if (player.getDuration() === null) {
+    console.warn("Audio not loaded");
+    return;
+  }
+  const beat = state.vizData?.beats[index];
+  if (!beat) {
+    return;
+  }
+
+  player.seek(beat.start);
+  engine.seekToBeat(index);
+  state.lastBeatIndex = index;
+  if (!state.isRunning) {
+    engine.startJukebox(false);
+    engine.play();
+    state.lastPlayStamp = performance.now();
+    state.isRunning = true;
+    startListenTimer(context);
+    updatePlayButton(context, true);
+    if (document.fullscreenElement) {
+      requestWakeLock(context);
+    }
+  }
+}
+
 export function startAutocanonizerPlayback(context: AppContext, index: number) {
   const { autocanonizer, engine, elements, player, state } = context;
   if (!autocanonizer.isReady()) {

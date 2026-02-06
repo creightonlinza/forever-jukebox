@@ -89,6 +89,10 @@ export class BufferedAudioPlayer {
     return Math.max(0, Math.min(this.buffer.duration, time));
   }
 
+  getAudioTime(): number {
+    return this.context.currentTime;
+  }
+
   isPlaying(): boolean {
     return this.playing;
   }
@@ -111,13 +115,11 @@ export class BufferedAudioPlayer {
     return this.volume;
   }
 
-  scheduleJump(targetTime: number, transitionTime: number) {
+  scheduleJump(targetTime: number, audioStart: number) {
     if (!this.buffer || !this.playing) {
       return;
     }
-    const currentTrackTime = this.getCurrentTime();
-    const delta = Math.max(0, transitionTime - currentTrackTime);
-    const audioStart = this.context.currentTime + delta;
+    const startTime = audioStart === 0 ? this.context.currentTime : audioStart;
     const source = this.context.createBufferSource();
     source.buffer = this.buffer;
     source.connect(this.masterGain);
@@ -132,19 +134,19 @@ export class BufferedAudioPlayer {
       }
     };
     const duration = this.buffer.duration - targetTime;
-    source.start(audioStart, targetTime, Math.max(0, duration));
+    source.start(startTime, targetTime, Math.max(0, duration));
     if (this.source) {
       this.source.onended = null;
       try {
-        this.source.stop(audioStart);
+        this.source.stop(startTime);
       } catch {
         // no-op
       }
     }
     this.clearPendingSwap();
     this.pendingSource = source;
-    this.pendingStartAt = audioStart - targetTime;
-    this.pendingSwapAt = audioStart;
+    this.pendingStartAt = startTime - targetTime;
+    this.pendingSwapAt = startTime;
   }
 
   private stopSource() {

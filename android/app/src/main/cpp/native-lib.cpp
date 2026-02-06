@@ -57,6 +57,7 @@ public:
         mAudioData.assign(data, data + frames * static_cast<size_t>(mChannelCount));
         mTotalFrames = static_cast<int64_t>(frames);
         mReadFrame.store(0);
+        mAudioFrame.store(0);
         mHasJump.store(false);
     }
 
@@ -79,6 +80,7 @@ public:
             mStream->requestStop();
         }
         mReadFrame.store(0);
+        mAudioFrame.store(0);
         mIsPlaying.store(false);
     }
 
@@ -88,18 +90,23 @@ public:
         mHasJump.store(false);
     }
 
-    void scheduleJump(double targetTime, double transitionTime) {
+    void scheduleJump(double targetTime, double audioStartTime) {
         const int64_t targetFrame =
             static_cast<int64_t>(targetTime * static_cast<double>(mSampleRate));
         const int64_t transitionFrame =
-            static_cast<int64_t>(transitionTime * static_cast<double>(mSampleRate));
+            static_cast<int64_t>(audioStartTime * static_cast<double>(mSampleRate));
         mJumpToFrame.store(targetFrame < 0 ? 0 : targetFrame);
-        mJumpAtFrame.store(transitionFrame < 0 ? 0 : transitionFrame);
+        mJumpAtAudioFrame.store(transitionFrame < 0 ? 0 : transitionFrame);
         mHasJump.store(true);
     }
 
     double getCurrentTimeSeconds() const {
         const int64_t frame = mReadFrame.load();
+        return static_cast<double>(frame) / static_cast<double>(mSampleRate);
+    }
+
+    double getAudioTimeSeconds() const {
+        const int64_t frame = mAudioFrame.load();
         return static_cast<double>(frame) / static_cast<double>(mSampleRate);
     }
 
@@ -117,10 +124,11 @@ public:
         int32_t numFrames) override {
         auto* output = static_cast<int16_t*>(audioData);
         int64_t currentFrame = mReadFrame.load();
+        int64_t audioFrame = mAudioFrame.load();
 
         if (mHasJump.load()) {
-            const int64_t jumpAt = mJumpAtFrame.load();
-            if (jumpAt <= currentFrame) {
+            const int64_t jumpAt = mJumpAtAudioFrame.load();
+            if (jumpAt <= audioFrame) {
                 currentFrame = mJumpToFrame.load();
                 mHasJump.store(false);
             }
@@ -130,20 +138,21 @@ public:
         while (framesRemaining > 0) {
             int32_t chunkFrames = framesRemaining;
             if (mHasJump.load()) {
-                const int64_t jumpAt = mJumpAtFrame.load();
-                if (jumpAt >= currentFrame && jumpAt < currentFrame + framesRemaining) {
-                    chunkFrames = static_cast<int32_t>(jumpAt - currentFrame);
+                const int64_t jumpAt = mJumpAtAudioFrame.load();
+                if (jumpAt >= audioFrame && jumpAt < audioFrame + framesRemaining) {
+                    chunkFrames = static_cast<int32_t>(jumpAt - audioFrame);
                 }
             }
 
             renderFrames(output, currentFrame, chunkFrames);
             currentFrame += chunkFrames;
+            audioFrame += chunkFrames;
             output += chunkFrames * mChannelCount;
             framesRemaining -= chunkFrames;
 
             if (mHasJump.load()) {
-                const int64_t jumpAt = mJumpAtFrame.load();
-                if (jumpAt == currentFrame) {
+                const int64_t jumpAt = mJumpAtAudioFrame.load();
+                if (jumpAt == audioFrame) {
                     currentFrame = mJumpToFrame.load();
                     mHasJump.store(false);
                 }
@@ -151,6 +160,7 @@ public:
         }
 
         mReadFrame.store(currentFrame);
+        mAudioFrame.store(audioFrame);
         return oboe::DataCallbackResult::Continue;
     }
 
@@ -204,7 +214,8 @@ private:
     std::mutex mDataMutex;
     int64_t mTotalFrames = 0;
     std::atomic<int64_t> mReadFrame{0};
-    std::atomic<int64_t> mJumpAtFrame{0};
+    std::atomic<int64_t> mAudioFrame{0};
+    std::atomic<int64_t> mJumpAtAudioFrame{0};
     std::atomic<int64_t> mJumpToFrame{0};
     std::atomic<bool> mHasJump{false};
     std::atomic<bool> mIsPlaying{false};
@@ -271,9 +282,9 @@ Java_com_foreverjukebox_app_audio_BufferedAudioPlayer_nativeSeek(
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_foreverjukebox_app_audio_BufferedAudioPlayer_nativeScheduleJump(
-    JNIEnv*, jobject, jlong handle, jdouble targetTime, jdouble transitionTime) {
+    JNIEnv*, jobject, jlong handle, jdouble targetTime, jdouble audioStart) {
     auto* player = toPlayer(handle);
-    if (player) player->scheduleJump(targetTime, transitionTime);
+    if (player) player->scheduleJump(targetTime, audioStart);
 }
 
 extern "C" JNIEXPORT jdouble JNICALL
@@ -281,6 +292,13 @@ Java_com_foreverjukebox_app_audio_BufferedAudioPlayer_nativeGetCurrentTime(
     JNIEnv*, jobject, jlong handle) {
     auto* player = toPlayer(handle);
     return player ? player->getCurrentTimeSeconds() : 0.0;
+}
+
+extern "C" JNIEXPORT jdouble JNICALL
+Java_com_foreverjukebox_app_audio_BufferedAudioPlayer_nativeGetAudioTime(
+    JNIEnv*, jobject, jlong handle) {
+    auto* player = toPlayer(handle);
+    return player ? player->getAudioTimeSeconds() : 0.0;
 }
 
 extern "C" JNIEXPORT jboolean JNICALL

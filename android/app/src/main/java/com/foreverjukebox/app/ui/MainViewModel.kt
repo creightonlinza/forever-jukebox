@@ -1014,6 +1014,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (index < 0 || index >= data.beats.size) return
         val beat = data.beats[index]
         controller.player.seek(beat.start)
+        engine.seekToBeat(index)
         _state.update { it.copy(playback = it.playback.copy(currentBeatIndex = index)) }
     }
 

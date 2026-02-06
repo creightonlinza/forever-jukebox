@@ -25,6 +25,7 @@ function makePlayer(): JukeboxPlayer {
     seek: vi.fn(),
     scheduleJump: vi.fn(),
     getCurrentTime: () => 0,
+    getAudioTime: () => 0,
     isPlaying: () => true,
   };
 }

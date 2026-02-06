@@ -28,6 +28,7 @@ type PlaybackUiDeps = {
   ) => void;
   stopPlayback: (context: AppContext) => void;
   togglePlayback: (context: AppContext) => void;
+  startJukeboxFromBeat: (context: AppContext, index: number) => void;
   startAutocanonizerPlayback: (context: AppContext, index: number) => void;
   updateTrackUrl: (
     youtubeId: string,
@@ -68,6 +69,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     showToast,
     stopPlayback,
     togglePlayback,
+    startJukeboxFromBeat,
     startAutocanonizerPlayback,
     updateTrackUrl,
     navigateToTab,
@@ -233,8 +235,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if (!beat) {
       return;
     }
-    player.seek(beat.start);
-    state.lastBeatIndex = index;
+    startJukeboxFromBeat(context, index);
     jukebox.update(index, true, null);
   }
 
