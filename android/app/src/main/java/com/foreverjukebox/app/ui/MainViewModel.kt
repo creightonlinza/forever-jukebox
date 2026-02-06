@@ -699,26 +699,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             return
         }
-        if (!current.audioLoaded || !current.analysisLoaded) return
+        if (!current.analysisLoaded) return
         if (!current.isRunning) {
-            try {
-                val running = controller.togglePlayback()
-                playbackCoordinator.updateListenTimeDisplay()
-                _state.update {
-                    it.copy(
-                        playback = it.playback.copy(
-                            beatsPlayed = 0,
-                            currentBeatIndex = -1,
-                            isRunning = running
+            viewModelScope.launch {
+                if (!current.audioLoaded || !controller.player.hasAudio()) {
+                    val ready = playbackCoordinator.ensureAudioReady()
+                    if (!ready) {
+                        playbackCoordinator.setAnalysisError("Audio unavailable. Reload the track.")
+                        return@launch
+                    }
+                }
+                try {
+                    val running = controller.togglePlayback()
+                    playbackCoordinator.updateListenTimeDisplay()
+                    _state.update {
+                        it.copy(
+                            playback = it.playback.copy(
+                                beatsPlayed = 0,
+                                currentBeatIndex = -1,
+                                isRunning = running
+                            )
                         )
-                    )
+                    }
+                    if (running) {
+                        playbackCoordinator.startListenTimer()
+                        ForegroundPlaybackService.start(getApplication())
+                    }
+                } catch (err: Exception) {
+                    playbackCoordinator.setAnalysisError("Playback failed.")
                 }
-                if (running) {
-                    playbackCoordinator.startListenTimer()
-                    ForegroundPlaybackService.start(getApplication())
-                }
-            } catch (err: Exception) {
-                playbackCoordinator.setAnalysisError("Playback failed.")
             }
         } else {
             controller.stopPlayback()

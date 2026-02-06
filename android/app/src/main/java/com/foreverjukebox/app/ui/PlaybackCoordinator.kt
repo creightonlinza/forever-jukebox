@@ -433,7 +433,7 @@ class PlaybackCoordinator(
         val vizData = engine.getVisualizationData()
         val audioDuration = controller.player.getDurationSeconds()
         val hasAnalysis = vizData != null
-        val hasAudio = audioDuration != null
+        val hasAudio = controller.player.hasAudio() && audioDuration != null
         if (!hasAnalysis && !hasAudio) return
         val title = controller.getTrackTitle()
         val artist = controller.getTrackArtist()
@@ -463,6 +463,44 @@ class PlaybackCoordinator(
         if (controller.isPlaying()) {
             startListenTimer()
         }
+    }
+
+    suspend fun ensureAudioReady(): Boolean {
+        if (controller.player.hasAudio()) {
+            return true
+        }
+        val playback = getState().playback
+        val cachedId = playback.lastYouTubeId ?: lastJobId
+        if (cachedId.isNullOrBlank()) {
+            return false
+        }
+        val cachedAudio = audioFile(cachedId)
+        if (cachedAudio.exists()) {
+            setAudioLoading(true)
+            setAnalysisProgress(0, "Loading audio")
+            try {
+                withContext(Dispatchers.Default) {
+                    controller.player.loadFile(cachedAudio) { percent ->
+                        scope.launch(Dispatchers.Main) {
+                            setDecodeProgress(percent)
+                        }
+                    }
+                }
+                updatePlaybackState { it.copy(audioLoaded = true, audioLoading = false) }
+                return true
+            } catch (_: OutOfMemoryError) {
+                withContext(Dispatchers.IO) {
+                    cachedAudio.delete()
+                }
+                updatePlaybackState { it.copy(audioLoading = false, audioLoaded = false) }
+                return false
+            } catch (_: Exception) {
+                updatePlaybackState { it.copy(audioLoading = false, audioLoaded = false) }
+                return false
+            }
+        }
+        val jobId = playback.lastJobId ?: return false
+        return loadAudioFromJob(jobId)
     }
 
     fun syncTuningState() {

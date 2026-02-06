@@ -85,6 +85,10 @@ class BufferedAudioPlayer : JukeboxPlayer {
         return nativeHandle != 0L && nativeIsPlaying(nativeHandle)
     }
 
+    fun hasAudio(): Boolean {
+        return nativeHandle != 0L && durationSeconds != null
+    }
+
     fun getDurationSeconds(): Double? {
         return durationSeconds
     }
