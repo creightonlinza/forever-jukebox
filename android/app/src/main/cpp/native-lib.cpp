@@ -20,36 +20,52 @@ public:
 
     bool open() {
         std::lock_guard<std::mutex> lock(mStreamMutex);
-        oboe::AudioStreamBuilder builder;
-        builder.setDirection(oboe::Direction::Output)
-            ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
-            ->setSharingMode(oboe::SharingMode::Shared)
-            ->setUsage(oboe::Usage::Media)
-            ->setContentType(oboe::ContentType::Music)
-            ->setSampleRate(mSampleRate)
-            ->setChannelCount(mChannelCount)
-            ->setFormat(oboe::AudioFormat::I16)
-            ->setDataCallback(this)
-            ->setErrorCallback(this);
-
-        if (builder.openStream(mStream) != oboe::Result::OK) {
-            __android_log_print(ANDROID_LOG_ERROR, kLogTag, "Failed to open Oboe stream");
-            return false;
-        }
-        const int32_t burst = mStream->getFramesPerBurst();
-        if (burst > 0) {
-            mStream->setBufferSizeInFrames(burst * 2);
-        }
-        return true;
+        return openLocked();
     }
 
     void close() {
         std::lock_guard<std::mutex> lock(mStreamMutex);
-        if (mStream) {
-            mStream->requestStop();
-            mStream->close();
-            mStream.reset();
+        closeLocked();
+    }
+
+    void play() {
+        std::lock_guard<std::mutex> lock(mStreamMutex);
+        if (!ensureStreamLocked()) {
+            mIsPlaying.store(false);
+            return;
         }
+        auto result = mStream->requestStart();
+        if (result != oboe::Result::OK) {
+            closeLocked();
+            if (ensureStreamLocked()) {
+                result = mStream->requestStart();
+            }
+        }
+        mIsPlaying.store(result == oboe::Result::OK);
+    }
+
+    void pause() {
+        std::lock_guard<std::mutex> lock(mStreamMutex);
+        if (mStream) {
+            auto result = mStream->requestPause();
+            if (result != oboe::Result::OK) {
+                closeLocked();
+            }
+        }
+        mIsPlaying.store(false);
+    }
+
+    void stop() {
+        std::lock_guard<std::mutex> lock(mStreamMutex);
+        if (mStream) {
+            auto result = mStream->requestStop();
+            if (result != oboe::Result::OK) {
+                closeLocked();
+            }
+        }
+        mReadFrame.store(0);
+        mAudioFrame.store(0);
+        mIsPlaying.store(false);
     }
 
     void loadPcm(const int16_t* data, size_t frames) {
@@ -59,29 +75,6 @@ public:
         mReadFrame.store(0);
         mAudioFrame.store(0);
         mHasJump.store(false);
-    }
-
-    void play() {
-        if (mStream) {
-            mStream->requestStart();
-            mIsPlaying.store(true);
-        }
-    }
-
-    void pause() {
-        if (mStream) {
-            mStream->requestPause();
-            mIsPlaying.store(false);
-        }
-    }
-
-    void stop() {
-        if (mStream) {
-            mStream->requestStop();
-        }
-        mReadFrame.store(0);
-        mAudioFrame.store(0);
-        mIsPlaying.store(false);
     }
 
     void seekSeconds(double seconds) {
@@ -112,6 +105,10 @@ public:
 
     bool isPlaying() const {
         return mIsPlaying.load();
+    }
+
+    bool hasAudio() const {
+        return mTotalFrames > 0 && !mAudioData.empty();
     }
 
     int32_t getChannelCount() const {
@@ -171,12 +168,62 @@ public:
                             "Audio stream closed with error: %s",
                             oboe::convertToText(error));
         const bool wasPlaying = mIsPlaying.load();
-        if (open() && wasPlaying && mStream) {
-            mStream->requestStart();
+        if (open()) {
+            if (wasPlaying && mStream) {
+                auto result = mStream->requestStart();
+                mIsPlaying.store(result == oboe::Result::OK);
+            }
+        } else {
+            mIsPlaying.store(false);
         }
     }
 
 private:
+    bool openLocked() {
+        oboe::AudioStreamBuilder builder;
+        builder.setDirection(oboe::Direction::Output)
+            ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+            ->setSharingMode(oboe::SharingMode::Shared)
+            ->setUsage(oboe::Usage::Media)
+            ->setContentType(oboe::ContentType::Music)
+            ->setSampleRate(mSampleRate)
+            ->setChannelCount(mChannelCount)
+            ->setFormat(oboe::AudioFormat::I16)
+            ->setDataCallback(this)
+            ->setErrorCallback(this);
+
+        if (builder.openStream(mStream) != oboe::Result::OK) {
+            __android_log_print(ANDROID_LOG_ERROR, kLogTag, "Failed to open Oboe stream");
+            return false;
+        }
+        const int32_t burst = mStream->getFramesPerBurst();
+        if (burst > 0) {
+            mStream->setBufferSizeInFrames(burst * 2);
+        }
+        return true;
+    }
+
+    void closeLocked() {
+        if (mStream) {
+            mStream->requestStop();
+            mStream->close();
+            mStream.reset();
+        }
+    }
+
+    bool ensureStreamLocked() {
+        if (!mStream) {
+            return openLocked();
+        }
+        const auto state = mStream->getState();
+        if (state == oboe::StreamState::Closed ||
+            state == oboe::StreamState::Disconnected) {
+            closeLocked();
+            return openLocked();
+        }
+        return true;
+    }
+
     void renderFrames(int16_t* output, int64_t startFrame, int32_t frames) {
         const int64_t totalFrames = mTotalFrames;
         const int32_t channels = mChannelCount;
@@ -306,6 +353,13 @@ Java_com_foreverjukebox_app_audio_BufferedAudioPlayer_nativeIsPlaying(
     JNIEnv*, jobject, jlong handle) {
     auto* player = toPlayer(handle);
     return player && player->isPlaying();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_foreverjukebox_app_audio_BufferedAudioPlayer_nativeHasAudio(
+    JNIEnv*, jobject, jlong handle) {
+    auto* player = toPlayer(handle);
+    return player && player->hasAudio();
 }
 
 extern "C" JNIEXPORT void JNICALL

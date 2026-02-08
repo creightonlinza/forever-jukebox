@@ -525,10 +525,10 @@ async function bootstrap() {
     elements.listenTime.textContent = "00:00:00";
     elements.beatsPlayed.textContent = "0";
     elements.title.textContent = "The Forever Jukebox";
-    state.lastBeatIndex = null;
-    state.vizData = null;
     state.trackTitle = null;
     state.trackArtist = null;
+    state.lastBeatIndex = null;
+    state.vizData = null;
     if (viz) {
       viz.reset();
       viz.setVisible(false);

@@ -710,6 +710,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 try {
+                    if (controller.getTrackTitle().isNullOrBlank() && !current.trackTitle.isNullOrBlank()) {
+                        controller.setTrackMeta(current.trackTitle, current.trackArtist)
+                    }
                     val running = controller.togglePlayback()
                     playbackCoordinator.updateListenTimeDisplay()
                     _state.update {
@@ -724,8 +727,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (running) {
                         playbackCoordinator.startListenTimer()
                         ForegroundPlaybackService.start(getApplication())
+                    } else {
+                        playbackCoordinator.stopListenTimer()
+                        ForegroundPlaybackService.stop(getApplication())
+                        playbackCoordinator.setAnalysisError("Playback failed.")
                     }
                 } catch (err: Exception) {
+                    playbackCoordinator.stopListenTimer()
+                    ForegroundPlaybackService.stop(getApplication())
                     playbackCoordinator.setAnalysisError("Playback failed.")
                 }
             }

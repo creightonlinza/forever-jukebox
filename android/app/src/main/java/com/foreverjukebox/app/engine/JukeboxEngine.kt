@@ -230,29 +230,47 @@ class JukeboxEngine(
         val currentGraph = graph ?: return
         val currentIndex = currentBeatIndex
         val beatsCount = beats.size
-        val nextIndex = currentIndex + 1
-        val wrappedIndex = if (nextIndex >= beatsCount) 0 else nextIndex
-        val seed = beats[wrappedIndex]
-        branchState.curRandomBranchChance = curRandomBranchChance
-        val selection = selectNextBeatIndex(
-            seed,
-            currentGraph,
-            config,
-            rng,
-            branchState,
-            forceBranch
-        )
-        curRandomBranchChance = branchState.curRandomBranchChance
-        val chosenIndex = if (selection.second) selection.first else wrappedIndex
-        val wrappedToStart = wrappedIndex == 0 && currentIndex == beatsCount - 1
-        if (selection.second || wrappedToStart) {
-            val targetBeat = beats[chosenIndex]
+        var chosenIndex = 0
+        var shouldJump = false
+        var jumpFromIndex: Int? = null
+
+        if (currentIndex >= 0) {
+            val nextIndex = currentIndex + 1
+            val wrappedIndex = if (nextIndex >= beatsCount) 0 else nextIndex
+            val seed = beats[wrappedIndex]
+            branchState.curRandomBranchChance = curRandomBranchChance
+            val selection = selectNextBeatIndex(
+                seed,
+                currentGraph,
+                config,
+                rng,
+                branchState,
+                forceBranch
+            )
+            curRandomBranchChance = branchState.curRandomBranchChance
+            shouldJump = selection.second
+            chosenIndex = if (shouldJump) selection.first else wrappedIndex
+            val wrappedToStart = wrappedIndex == 0 && currentIndex == beatsCount - 1
+            if (wrappedToStart) {
+                shouldJump = true
+            }
+            jumpFromIndex = if (shouldJump) {
+                if (selection.second) seed.which else currentIndex
+            } else {
+                null
+            }
+        }
+
+        val targetBeat = beats[chosenIndex]
+        if (shouldJump) {
             val targetTime = targetBeat.start
             player.scheduleJump(targetTime, audioTime)
             lastJumped = true
             lastJumpTime = targetTime
-            lastJumpFromIndex = if (selection.second) seed.which else currentIndex
+            lastJumpFromIndex = jumpFromIndex
         } else {
+            lastJumped = false
+            lastJumpTime = null
             lastJumpFromIndex = null
         }
 
@@ -281,11 +299,20 @@ class JukeboxEngine(
 
     private fun applyDeletedEdges() {
         val current = graph ?: return
+        val currentAnalysis = analysis ?: return
         if (deletedEdgeKeys.isEmpty()) return
         for (edge in current.allEdges) {
             if (deletedEdgeKeys.contains(edgeKey(edge.src.which, edge.dest.which))) {
                 edge.deleted = true
             }
+        }
+        for (beat in currentAnalysis.beats) {
+            for (edge in beat.allNeighbors) {
+                if (deletedEdgeKeys.contains(edgeKey(edge.src.which, edge.dest.which))) {
+                    edge.deleted = true
+                }
+            }
+            beat.neighbors = beat.neighbors.filter { !it.deleted }.toMutableList()
         }
     }
 

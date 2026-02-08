@@ -86,7 +86,7 @@ class BufferedAudioPlayer : JukeboxPlayer {
     }
 
     fun hasAudio(): Boolean {
-        return nativeHandle != 0L && durationSeconds != null
+        return nativeHandle != 0L && nativeHasAudio(nativeHandle) && durationSeconds != null
     }
 
     fun getDurationSeconds(): Double? {
@@ -266,6 +266,7 @@ class BufferedAudioPlayer : JukeboxPlayer {
     private external fun nativeGetCurrentTime(handle: Long): Double
     private external fun nativeGetAudioTime(handle: Long): Double
     private external fun nativeIsPlaying(handle: Long): Boolean
+    private external fun nativeHasAudio(handle: Long): Boolean
     private external fun nativeRelease(handle: Long)
 
     companion object {

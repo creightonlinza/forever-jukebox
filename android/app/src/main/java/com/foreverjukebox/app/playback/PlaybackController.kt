@@ -28,14 +28,22 @@ class PlaybackController {
 
     fun togglePlayback(): Boolean {
         if (!isRunning) {
+            if (!player.hasAudio()) {
+                return false
+            }
             engine.stopJukebox()
             engine.resetStats()
             playTimerMs = 0L
             lastPlayStamp = null
             engine.startJukebox()
             engine.play()
-            lastPlayStamp = SystemClock.elapsedRealtime()
-            isRunning = true
+            if (player.isPlaying()) {
+                lastPlayStamp = SystemClock.elapsedRealtime()
+                isRunning = true
+            } else {
+                engine.stopJukebox()
+                isRunning = false
+            }
         } else {
             engine.stopJukebox()
             if (lastPlayStamp != null) {
