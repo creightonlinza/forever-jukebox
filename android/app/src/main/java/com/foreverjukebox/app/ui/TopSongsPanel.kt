@@ -54,8 +54,11 @@ import com.foreverjukebox.app.data.TopSongItem
 @Composable
 fun TopSongsPanel(
     items: List<TopSongItem>,
+    recentItems: List<TopSongItem>,
     favorites: List<FavoriteTrack>,
     loading: Boolean,
+    recentLoading: Boolean,
+    topSongsLimit: Int,
     activeTab: TopSongsTab,
     onTabSelected: (TopSongsTab) -> Unit,
     onSelect: (String, String?, String?, String?, FavoriteSourceType) -> Unit,
@@ -108,7 +111,7 @@ fun TopSongsPanel(
         ) {
             TopSongsTabs(activeTab = activeTab, onTabSelected = onTabSelected)
             if (activeTab == TopSongsTab.TopSongs) {
-                Text("Top 25", style = MaterialTheme.typography.labelLarge)
+                Text("Top $topSongsLimit", style = MaterialTheme.typography.labelLarge)
                 if (loading) {
                     Text("Loading top songs…", style = MaterialTheme.typography.bodySmall)
                 } else if (items.isEmpty()) {
@@ -116,6 +119,57 @@ fun TopSongsPanel(
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         itemsIndexed(items) { index, item ->
+                            val title = item.title
+                            val artist = item.artist
+                            val displayTitle = title ?: "Untitled"
+                            val displayArtist = artist ?: ""
+                            val youtubeId = item.youtubeId ?: return@itemsIndexed
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onSelect(
+                                            youtubeId,
+                                            title,
+                                            artist,
+                                            null,
+                                            FavoriteSourceType.Youtube
+                                        )
+                                    },
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "${index + 1}.",
+                                    modifier = Modifier.alignByBaseline(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (displayArtist.isNotBlank()) {
+                                        "$displayTitle — $displayArtist"
+                                    } else {
+                                        displayTitle
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .alignByBaseline(),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            } else if (activeTab == TopSongsTab.Recent) {
+                Text("Last $topSongsLimit Played", style = MaterialTheme.typography.labelLarge)
+                if (recentLoading) {
+                    Text("Loading recent plays…", style = MaterialTheme.typography.bodySmall)
+                } else if (recentItems.isEmpty()) {
+                    Text("No recent plays yet.", style = MaterialTheme.typography.bodySmall)
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        itemsIndexed(recentItems) { index, item ->
                             val title = item.title
                             val artist = item.artist
                             val displayTitle = title ?: "Untitled"
@@ -420,6 +474,12 @@ private fun TopSongsTabs(activeTab: TopSongsTab, onTabSelected: (TopSongsTab) ->
             text = "Top Songs",
             active = activeTab == TopSongsTab.TopSongs,
             onClick = { onTabSelected(TopSongsTab.TopSongs) }
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        SubTabButton(
+            text = "Recently Played",
+            active = activeTab == TopSongsTab.Recent,
+            onClick = { onTabSelected(TopSongsTab.Recent) }
         )
         Spacer(modifier = Modifier.weight(1f))
         SubTabButton(

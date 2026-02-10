@@ -4,6 +4,9 @@ type TopSongsDeps = {
   fetchTopSongs: (limit: number) => Promise<
     Array<{ title?: string; artist?: string; youtube_id?: string }>
   >;
+  fetchRecentSongs: (limit: number) => Promise<
+    Array<{ title?: string; artist?: string; youtube_id?: string }>
+  >;
   loadTrackByYouTubeId: (youtubeId: string) => void;
   navigateToTabWithState: (
     tabId: "top" | "search" | "play" | "faq",
@@ -18,20 +21,30 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
   const {
     elements,
     fetchTopSongs,
+    fetchRecentSongs,
     loadTrackByYouTubeId,
     navigateToTabWithState,
     limit,
   } = deps;
 
-  async function fetchTopSongsList() {
-    elements.topSongsList.textContent = "Loading top songs…";
+  async function renderSongList(options: {
+    listEl: HTMLOListElement;
+    fetchItems: () => Promise<
+      Array<{ title?: string; artist?: string; youtube_id?: string }>
+    >;
+    loadingText: string;
+    emptyText: string;
+    errorPrefix: string;
+  }) {
+    const { listEl, fetchItems, loadingText, emptyText, errorPrefix } = options;
+    listEl.textContent = loadingText;
     try {
-      const items = await fetchTopSongs(limit);
+      const items = await fetchItems();
       if (items.length === 0) {
-        elements.topSongsList.textContent = "No plays recorded yet.";
+        listEl.textContent = emptyText;
         return;
       }
-      elements.topSongsList.innerHTML = "";
+      listEl.innerHTML = "";
       for (const item of items.slice(0, limit)) {
         const title = typeof item.title === "string" ? item.title : "Untitled";
         const artist = typeof item.artist === "string" ? item.artist : "";
@@ -48,14 +61,33 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
         } else {
           li.textContent = artist ? `${title} — ${artist}` : title;
         }
-        elements.topSongsList.appendChild(li);
+        listEl.appendChild(li);
       }
     } catch (err) {
-      elements.topSongsList.textContent = `Top songs unavailable: ${String(
-        err,
-      )}`;
+      listEl.textContent = `${errorPrefix} unavailable: ${String(err)}`;
     }
   }
+
+  function fetchTopSongsList() {
+    return renderSongList({
+      listEl: elements.topSongsList,
+      fetchItems: () => fetchTopSongs(limit),
+      loadingText: "Loading top songs…",
+      emptyText: "No plays recorded yet.",
+      errorPrefix: "Top songs",
+    });
+  }
+
+  function fetchRecentSongsList() {
+    return renderSongList({
+      listEl: elements.recentSongsList,
+      fetchItems: () => fetchRecentSongs(limit),
+      loadingText: "Loading recent plays…",
+      emptyText: "No recent plays yet.",
+      errorPrefix: "Recent plays",
+    });
+  }
+
 
   function handleTopSongClick(event: Event) {
     event.preventDefault();
@@ -68,5 +100,5 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     loadTrackByYouTubeId(youtubeId);
   }
 
-  return { fetchTopSongsList };
+  return { fetchTopSongsList, fetchRecentSongsList };
 }

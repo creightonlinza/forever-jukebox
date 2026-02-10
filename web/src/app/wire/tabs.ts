@@ -11,6 +11,7 @@ type TabsDeps = {
     tabId: TabId,
     options?: { replace?: boolean; youtubeId?: string | null },
   ) => void;
+  onTopSongsTabChange?: (tabId: "top" | "recent" | "favorites") => void;
   onFaqOpen?: () => void;
 };
 
@@ -25,17 +26,23 @@ export function createTabsHandlers(deps: TabsDeps) {
     onFaqOpen,
   } = deps;
 
-  function setTopSongsTab(tabId: "top" | "favorites") {
+  function setTopSongsTab(tabId: "top" | "recent" | "favorites") {
     state.topSongsTab = tabId;
     elements.topSongsTabs.forEach((button) => {
       button.classList.toggle("active", button.dataset.topSubtab === tabId);
     });
     elements.topSongsList.classList.toggle("hidden", tabId !== "top");
+    elements.recentSongsList.classList.toggle("hidden", tabId !== "recent");
     elements.favoritesList.classList.toggle("hidden", tabId !== "favorites");
     elements.topListTitle.textContent =
-      tabId === "top" ? `Top ${TOP_SONGS_LIMIT}` : "Favorites";
+      tabId === "top"
+        ? `Top ${TOP_SONGS_LIMIT}`
+        : tabId === "recent"
+          ? `Last ${TOP_SONGS_LIMIT} Played`
+          : "Favorites";
     favoritesHandlers.closeFavoritesSyncMenu();
     favoritesHandlers.updateFavoritesSyncControls();
+    deps.onTopSongsTabChange?.(tabId);
   }
 
   function setSearchTab(tabId: "search" | "upload") {
@@ -51,7 +58,11 @@ export function createTabsHandlers(deps: TabsDeps) {
 
   function handleTopSongsTabClick(event: Event) {
     const button = event.currentTarget as HTMLButtonElement | null;
-    const tabId = button?.dataset.topSubtab as "top" | "favorites" | undefined;
+    const tabId = button?.dataset.topSubtab as
+      | "top"
+      | "recent"
+      | "favorites"
+      | undefined;
     if (!tabId) {
       return;
     }

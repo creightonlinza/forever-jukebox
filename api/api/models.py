@@ -63,6 +63,10 @@ class TopSongsResponse(BaseModel):
     items: list[TopSongItem]
 
 
+class RecentSongsResponse(BaseModel):
+    items: list[TopSongItem]
+
+
 class PlayCountResponse(BaseModel):
     id: str
     play_count: int

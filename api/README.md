@@ -130,10 +130,16 @@ Increment play count:
 curl -X POST "/api/plays/<id>"
 ```
 
-Fetch top tracks (defaults to 20):
+Fetch top songs:
 
 ```bash
-curl "/api/top?limit=20"
+curl "/api/top?limit=25"
+```
+
+Fetch recently played songs:
+
+```bash
+curl "/api/recent?limit=25"
 ```
 
 Create a favorites sync code:

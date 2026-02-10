@@ -289,3 +289,33 @@ def get_top_tracks(db_path: Path, limit: int = 10) -> list[dict]:
         }
         for row in rows
     ]
+
+
+def get_recent_tracks(db_path: Path, limit: int = 10) -> list[dict]:
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT id, track_title, track_artist, youtube_id, play_count
+            FROM jobs
+            WHERE track_title IS NOT NULL
+              AND track_title != ''
+              AND (
+                (COALESCE(is_user_supplied, 0) = 0 AND track_artist IS NOT NULL AND track_artist != '')
+                OR (COALESCE(is_user_supplied, 0) = 1 AND youtube_id IS NOT NULL AND youtube_id != '')
+              )
+              AND play_count > 0
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [
+        {
+            "id": row[0],
+            "title": row[1],
+            "artist": row[2],
+            "youtube_id": row[3],
+            "play_count": row[4],
+        }
+        for row in rows
+    ]

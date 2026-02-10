@@ -12,6 +12,7 @@ import com.foreverjukebox.app.data.FavoriteSourceType
 import com.foreverjukebox.app.data.FavoriteTrack
 import com.foreverjukebox.app.data.SpotifySearchItem
 import com.foreverjukebox.app.data.ThemeMode
+import com.foreverjukebox.app.data.TOP_SONGS_LIMIT
 import com.foreverjukebox.app.playback.ForegroundPlaybackService
 import com.foreverjukebox.app.playback.PlaybackControllerHolder
 import com.foreverjukebox.app.visualization.JumpLine
@@ -44,6 +45,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var refreshTopSongsJob: Job? = null
     private var topSongsLoaded = false
+    private var recentSongsLoaded = false
     private var appConfigLoaded = false
     private val tabHistory = ArrayDeque<TabId>()
     private val castController = CastController(getApplication())
@@ -89,6 +91,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     if (state.value.activeTab == TabId.Top && !topSongsLoaded) {
                         refreshTopSongs()
+                    }
+                    if (state.value.activeTab == TabId.Top &&
+                        state.value.topSongsTab == TopSongsTab.Recent &&
+                        !recentSongsLoaded
+                    ) {
+                        refreshRecentSongs()
                     }
                     favoritesController.maybeHydrateFavoritesFromSync()
                 }
@@ -194,6 +202,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setTopSongsTab(tab: TopSongsTab) {
         _state.update { it.copy(topSongsTab = tab) }
+        if (tab == TopSongsTab.TopSongs) {
+            scheduleTopSongsRefresh()
+        }
+        if (tab == TopSongsTab.Recent) {
+            scheduleRecentSongsRefresh()
+        }
     }
 
     fun refreshFavoritesFromSync() {
@@ -237,6 +251,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshTopSongsJob = viewModelScope.launch {
             delay(250)
             refreshTopSongs()
+        }
+    }
+
+    private fun scheduleRecentSongsRefresh() {
+        val baseUrl = state.value.baseUrl
+        if (baseUrl.isBlank() || recentSongsLoaded) return
+        refreshTopSongsJob?.cancel()
+        refreshTopSongsJob = viewModelScope.launch {
+            delay(250)
+            refreshRecentSongs()
         }
     }
 
@@ -311,12 +335,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             updateSearchState { it.copy(topSongsLoading = true) }
             try {
-                val items = api.fetchTopSongs(baseUrl)
+                val items = api.fetchTopSongs(baseUrl, TOP_SONGS_LIMIT)
                 updateSearchState { it.copy(topSongs = items) }
             } catch (err: Exception) {
                 updateSearchState { it.copy(topSongs = emptyList()) }
             } finally {
                 updateSearchState { it.copy(topSongsLoading = false) }
+            }
+        }
+    }
+
+    fun refreshRecentSongs() {
+        val baseUrl = state.value.baseUrl
+        if (baseUrl.isBlank()) return
+        recentSongsLoaded = true
+        viewModelScope.launch {
+            updateSearchState { it.copy(recentSongsLoading = true) }
+            try {
+                val items = api.fetchRecentSongs(baseUrl, TOP_SONGS_LIMIT)
+                updateSearchState { it.copy(recentSongs = items) }
+            } catch (err: Exception) {
+                updateSearchState { it.copy(recentSongs = emptyList()) }
+            } finally {
+                updateSearchState { it.copy(recentSongsLoading = false) }
             }
         }
     }
