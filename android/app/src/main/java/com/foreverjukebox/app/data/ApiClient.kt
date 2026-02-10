@@ -1,5 +1,4 @@
 package com.foreverjukebox.app.data
-
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -70,8 +69,15 @@ class ApiClient(private val json: Json = Json { ignoreUnknownKeys = true }) {
         return getJson(url)
     }
 
-    suspend fun fetchTopSongs(baseUrl: String, limit: Int = 25): List<TopSongItem> {
+    suspend fun fetchTopSongs(baseUrl: String, limit: Int = TOP_SONGS_LIMIT): List<TopSongItem> {
         val url = buildUrl(baseUrl, ApiPaths.TOP) {
+            addQueryParameter("limit", limit.toString())
+        }
+        return getJson<TopSongsResponse>(url).items
+    }
+
+    suspend fun fetchRecentSongs(baseUrl: String, limit: Int = TOP_SONGS_LIMIT): List<TopSongItem> {
+        val url = buildUrl(baseUrl, ApiPaths.RECENT) {
             addQueryParameter("limit", limit.toString())
         }
         return getJson<TopSongsResponse>(url).items
@@ -236,6 +242,7 @@ class ApiClient(private val json: Json = Json { ignoreUnknownKeys = true }) {
         val ANALYSIS_YOUTUBE = listOf("api", "analysis", "youtube")
         val JOB_BY_TRACK = listOf("api", "jobs", "by-track")
         val TOP = listOf("api", "top")
+        val RECENT = listOf("api", "recent")
         val APP_CONFIG = listOf("api", "app-config")
         val FAVORITES_SYNC = listOf("api", "favorites", "sync")
 

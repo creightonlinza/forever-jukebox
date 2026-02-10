@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.foreverjukebox.app.data.TOP_SONGS_LIMIT
 
 @Composable
 fun ForeverJukeboxApp(viewModel: MainViewModel) {
@@ -41,8 +42,11 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
             when (state.activeTab) {
                 TabId.Top -> TopSongsPanel(
                     items = state.search.topSongs,
+                    recentItems = state.search.recentSongs,
                     favorites = state.favorites,
                     loading = state.search.topSongsLoading,
+                    recentLoading = state.search.recentSongsLoading,
+                    topSongsLimit = TOP_SONGS_LIMIT,
                     activeTab = state.topSongsTab,
                     onTabSelected = viewModel::setTopSongsTab,
                     onSelect = { id, title, artist, tuningParams, sourceType ->

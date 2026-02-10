@@ -19,6 +19,7 @@ import {
   fetchAppConfig,
   fetchFavoritesSync,
   fetchTopSongs,
+  fetchRecentSongs,
   createFavoritesSync,
   updateFavoritesSync,
   startYoutubeAnalysis,
@@ -127,6 +128,8 @@ export function bootstrap() {
     shiftBranching: false,
     selectedEdge: null,
     topSongsRefreshTimer: null,
+    topSongsLoaded: false,
+    recentSongsLoaded: false,
     trackDurationSec: null,
     trackTitle: null,
     trackArtist: null,
@@ -246,11 +249,48 @@ export function bootstrap() {
     syncTuningParamsState,
     setPlayMode: playbackHandlers.setPlayMode,
   });
+  const topSongsHandlers = createTopSongsHandlers({
+    elements,
+    fetchTopSongs,
+    fetchRecentSongs,
+    limit: TOP_SONGS_LIMIT,
+    loadTrackByYouTubeId: (youtubeId: string) =>
+      loadTrackByYouTubeId(context, playbackDeps, youtubeId),
+    navigateToTabWithState: navigationHandlers.navigateToTabWithState,
+  });
   const tabsHandlers = createTabsHandlers({
     elements,
     state,
     favoritesHandlers,
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
+    onTopSongsTabChange: (tabId) => {
+      if (tabId === "top") {
+        if (state.topSongsLoaded) {
+          return;
+        }
+        topSongsHandlers
+          .fetchTopSongsList()
+          .then(() => {
+            state.topSongsLoaded = true;
+          })
+          .catch((err) => {
+            console.warn(`Top songs load failed: ${String(err)}`);
+          });
+      }
+      if (tabId === "recent") {
+        if (state.recentSongsLoaded) {
+          return;
+        }
+        topSongsHandlers
+          .fetchRecentSongsList()
+          .then(() => {
+            state.recentSongsLoaded = true;
+          })
+          .catch((err) => {
+            console.warn(`Recent songs load failed: ${String(err)}`);
+          });
+      }
+    },
     onFaqOpen: () => {
       cacheHandlers.refreshCacheButton().catch((err) => {
         console.warn(`Cache size failed: ${String(err)}`);
@@ -311,14 +351,6 @@ export function bootstrap() {
     isFavorite,
     removeFavorite,
   });
-  const topSongsHandlers = createTopSongsHandlers({
-    elements,
-    fetchTopSongs,
-    limit: TOP_SONGS_LIMIT,
-    loadTrackByYouTubeId: (youtubeId: string) =>
-      loadTrackByYouTubeId(context, playbackDeps, youtubeId),
-    navigateToTabWithState: navigationHandlers.navigateToTabWithState,
-  });
   const themeHandlers = createThemeHandlers({
     context,
     elements,
@@ -353,9 +385,6 @@ export function bootstrap() {
   elements.playTabButton.disabled = true;
   setAnalysisStatus(context, "Select a track to begin.", false);
   applyTheme(context, initialTheme);
-  topSongsHandlers.fetchTopSongsList().catch((err) => {
-    console.warn(`Top songs load failed: ${String(err)}`);
-  });
   loadAppConfig()
     .then((config) => {
       if (config) {

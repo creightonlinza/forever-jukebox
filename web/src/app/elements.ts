@@ -337,6 +337,10 @@ export function getElements() {
     document.querySelector<HTMLOListElement>("#top-songs"),
     "#top-songs"
   );
+  const recentSongsList = requireElement(
+    document.querySelector<HTMLOListElement>("#recent-songs"),
+    "#recent-songs"
+  );
   const favoritesList = requireElement(
     document.querySelector<HTMLOListElement>("#favorites-list"),
     "#favorites-list"
@@ -463,6 +467,7 @@ export function getElements() {
     searchResults,
     searchHint,
     topSongsList,
+    recentSongsList,
     favoritesList,
     topSongsTabs,
     topListTitle,

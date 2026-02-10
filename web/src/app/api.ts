@@ -63,6 +63,8 @@ export type TopSongItem = {
   youtube_id?: string;
 };
 
+export type RecentSongItem = TopSongItem;
+
 export type AppConfig = {
   allow_user_upload: boolean;
   allow_user_youtube: boolean;
@@ -264,6 +266,11 @@ export async function searchYoutube(query: string, duration: number) {
 export async function fetchTopSongs(limit: number) {
   const data = await fetchJson(`/api/top?limit=${encodeURIComponent(limit)}`);
   return Array.isArray(data?.items) ? (data.items as TopSongItem[]) : [];
+}
+
+export async function fetchRecentSongs(limit: number) {
+  const data = await fetchJson(`/api/recent?limit=${encodeURIComponent(limit)}`);
+  return Array.isArray(data?.items) ? (data.items as RecentSongItem[]) : [];
 }
 
 export async function fetchAppConfig(): Promise<AppConfig> {

@@ -19,6 +19,7 @@ from ..db import (
     get_job,
     get_job_by_track,
     get_job_by_youtube_id,
+    get_recent_tracks,
     get_top_tracks,
     increment_job_plays,
     set_job_play_count,
@@ -34,6 +35,7 @@ from ..models import (
     JobProgress,
     PlayCountResponse,
     PlayCountUpdate,
+    RecentSongsResponse,
     TopSongsResponse,
 )
 from ..paths import DB_PATH, STORAGE_ROOT
@@ -551,9 +553,16 @@ def set_play_count(
 
 
 @router.get("/api/top")
-def get_top_songs(limit: int = Query(20, ge=1, le=50)) -> JSONResponse:
+def get_top_songs(limit: int = Query(10, ge=1, le=50)) -> JSONResponse:
     items = get_top_tracks(DB_PATH, limit=limit)
     payload = TopSongsResponse(items=items)
+    return JSONResponse(payload.model_dump(), status_code=200)
+
+
+@router.get("/api/recent")
+def get_recent_songs(limit: int = Query(10, ge=1, le=50)) -> JSONResponse:
+    items = get_recent_tracks(DB_PATH, limit=limit)
+    payload = RecentSongsResponse(items=items)
     return JSONResponse(payload.model_dump(), status_code=200)
 
 
