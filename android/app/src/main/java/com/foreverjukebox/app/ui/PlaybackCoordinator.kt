@@ -506,15 +506,14 @@ class PlaybackCoordinator(
     fun syncTuningState() {
         val config = engine.getConfig()
         val graph = engine.getGraphState()
-        val thresholdValue =
-            if (config.currentThreshold == 0 && graph != null) {
-                graph.currentThreshold
-            } else {
-                config.currentThreshold
+        updateState { state ->
+            val thresholdValue = when {
+                config.currentThreshold != 0 -> config.currentThreshold
+                graph != null -> graph.currentThreshold
+                else -> state.tuning.threshold
             }
-        updateState {
-            it.copy(
-                tuning = it.tuning.copy(
+            state.copy(
+                tuning = state.tuning.copy(
                     threshold = thresholdValue,
                     minProb = (config.minRandomBranchChance * 100).toInt(),
                     maxProb = (config.maxRandomBranchChance * 100).toInt(),

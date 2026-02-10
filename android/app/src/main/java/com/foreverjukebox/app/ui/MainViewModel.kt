@@ -1056,8 +1056,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val vizData = withContext(Dispatchers.Default) {
                 val current = engine.getConfig()
+                val graph = engine.getGraphState()
+                val useAutoThreshold =
+                    current.currentThreshold == 0 && graph != null && threshold == graph.currentThreshold
                 val nextConfig = current.copy(
-                    currentThreshold = threshold,
+                    currentThreshold = if (useAutoThreshold) 0 else threshold,
                     minRandomBranchChance = minProb,
                     maxRandomBranchChance = maxProb,
                     randomBranchChanceDelta = ramp,
@@ -1082,7 +1085,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val vizData = withContext(Dispatchers.Default) {
                 engine.clearDeletedEdges()
-                engine.updateConfig(defaultConfig)
+                engine.updateConfig(defaultConfig.copy(currentThreshold = 0))
                 engine.rebuildGraph()
                 engine.getVisualizationData()
             }

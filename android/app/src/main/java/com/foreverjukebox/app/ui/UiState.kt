@@ -78,7 +78,7 @@ data class PlaybackState(
 )
 
 data class TuningState(
-    val threshold: Int = 0,
+    val threshold: Int = 2,
     val minProb: Int = 18,
     val maxProb: Int = 50,
     val ramp: Int = 10,
