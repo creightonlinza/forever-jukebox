@@ -79,8 +79,7 @@ export function Faq() {
         <h2>Where is analysis stored?</h2>
         <p>
           Analysis is stored locally in your browser (OPFS when available,
-          otherwise IndexedDB). You can export the JSON any time from the Listen
-          screen.
+          otherwise IndexedDB).
         </p>
 
         <h2>How can I tune the Jukebox?</h2>
@@ -120,21 +119,16 @@ export function Faq() {
           <li>Essentia: audio features and DSP toolkits.</li>
         </ul>
 
-        <div className="faq-cache">
-          <h2>Analysis Cache</h2>
-          <p>
-            Current used space: <strong>{usageMb} MB</strong>
-          </p>
-          <button
-            className="tab-btn faq-cache__button"
-            type="button"
-            disabled={isClearing || isLoadingUsage || usageBytes <= 0}
-            onClick={onClearCache}
-          >
-            {isClearing ? "Clearing..." : `Clear ${usageMb}MB`}
-          </button>
-          {cacheMessage ? <p className="faq-cache__status">{cacheMessage}</p> : null}
-        </div>
+        <h2>Analysis Cache</h2>
+        <button
+          className="tab-btn"
+          type="button"
+          disabled={isClearing || isLoadingUsage || usageBytes <= 0}
+          onClick={onClearCache}
+        >
+          {isClearing ? "Clearing..." : `Clear ${usageMb}MB`}
+        </button>
+        {cacheMessage ? <p>{cacheMessage}</p> : null}
       </div>
     </section>
   );

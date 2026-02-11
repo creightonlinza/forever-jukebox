@@ -74,7 +74,7 @@ function AppLayout() {
 
 export function App() {
   return (
-    <BrowserRouter basename="/offline">
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AppStateProvider>
         <AppLayout />
       </AppStateProvider>

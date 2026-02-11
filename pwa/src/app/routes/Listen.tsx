@@ -5,9 +5,7 @@ import { AudioDecoder } from "@/core/infrastructure/audio/AudioDecoder";
 import { createAnalysisCache } from "@/core/infrastructure/cache/analysisCache";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
-import { APP_VERSION } from "@/shared/utils/appVersion";
 import { formatDuration } from "@/shared/utils/format";
-import { formatExportJson, saveExportJson } from "@/shared/utils/exportJson";
 import { BufferedAudioPlayer } from "@/shared/jukebox/audio/BufferedAudioPlayer";
 import { Edge, JukeboxConfig, JukeboxEngine } from "@/shared/jukebox/engine";
 import { JukeboxController } from "@/shared/jukebox/viz/JukeboxController";
@@ -55,10 +53,8 @@ export function Listen() {
   const { file, setIsListenLoading } = useAppState();
   const [analysis, setAnalysis] = React.useState<AnalysisOutput | null>(null);
   const [readyFileKey, setReadyFileKey] = React.useState<string | null>(null);
-  const [fingerprint, setFingerprint] = React.useState<string | null>(null);
   const [progressStage, setProgressStage] = React.useState<AnalyzeStage>("loading");
   const [progressMessage, setProgressMessage] = React.useState<string | null>(null);
-  const [fromCache, setFromCache] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
@@ -157,7 +153,6 @@ export function Listen() {
     setAnalysis(null);
     setReadyFileKey(null);
     analysisRef.current = null;
-    setFromCache(false);
     setSelectedEdge(null);
 
     usecase
@@ -186,8 +181,6 @@ export function Listen() {
         analysisRef.current = result.analysis;
         setAnalysis(result.analysis);
         setReadyFileKey(fileKey);
-        setFingerprint(result.fingerprint);
-        setFromCache(result.fromCache);
         await playerRef.current?.loadBuffer(result.audioBuffer);
         initializeEngine(result.analysis);
       })
@@ -504,19 +497,6 @@ export function Listen() {
     setIsTuningOpen(false);
   };
 
-  const onExport = async () => {
-    if (!analysis || !fingerprint || !file) {
-      return;
-    }
-    const json = formatExportJson(analysis, {
-      createdAt: new Date().toISOString(),
-      appVersion: APP_VERSION,
-      fingerprint,
-    });
-    const safeName = file.name.replace(/\.[^/.]+$/, "");
-    await saveExportJson(`${safeName}-analysis.json`, json);
-  };
-
   const onToggleFullscreen = async () => {
     if (!vizPanelRef.current) {
       return;
@@ -552,7 +532,7 @@ export function Listen() {
 
   const graph = engineRef.current?.getGraphState();
   const totalBeats = graph?.totalBeats ?? analysis?.beats.length ?? 0;
-  const totalBranches = graph?.allEdges.filter((edge) => !edge.deleted).length ?? 0;
+  const totalBranches = engineRef.current?.getVisualizationData()?.edges.length ?? 0;
   const deletedBranches = graph?.allEdges.filter((edge) => edge.deleted).length ?? 0;
   const vizCount = vizControllerRef.current?.getCount() ?? 1;
   const currentFileKey = file ? `${file.name}:${file.size}:${file.lastModified}` : null;
@@ -577,7 +557,7 @@ export function Listen() {
 
       {error ? <div className="error">{error}</div> : null}
 
-      <div className="play-title">{file.name}{fromCache ? " (cached)" : ""}</div>
+      <div className="play-title">{file.name}</div>
 
       {showPlaybackUi ? (
         <div className="menu-bar">
@@ -620,16 +600,6 @@ export function Listen() {
               aria-label="Info"
             >
               <SymbolIcon className="info-icon" name="info" />
-            </button>
-            <button
-              className="copy-toggle"
-              type="button"
-              onClick={onExport}
-              disabled={!analysis}
-              title="Export analysis JSON"
-              aria-label="Export analysis JSON"
-            >
-              <SymbolIcon className="copy-icon" name="download" />
             </button>
           </div>
         </div>
