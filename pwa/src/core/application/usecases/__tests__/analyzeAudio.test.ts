@@ -81,4 +81,46 @@ describe("AnalyzeAudioUseCase", () => {
     expect(result.fromCache).toBe(true);
     expect(analysisPort.analyze).not.toHaveBeenCalled();
   });
+
+  it("reports mapped overall progress percentages in monotonic order", async () => {
+    const analysisPort: AnalysisPort = {
+      analyze: vi.fn(async ({ onProgress }) => {
+        onProgress?.({ stage: "beats", progress: 0.4, message: "Detecting beats" });
+        onProgress?.({ stage: "features", progress: 0.5, message: "Extracting features" });
+        onProgress?.({ stage: "segments", progress: 1, message: "Extracting segments" });
+        onProgress?.({ stage: "building", progress: 0.5, message: "Building analysis" });
+        return analysis;
+      }),
+    };
+    const cache: AnalysisCachePort = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => undefined),
+      clear: vi.fn(async () => undefined),
+    };
+    const decoder: AudioDecoderPort = {
+      decode: vi.fn(async () => new FakeAudioBuffer() as unknown as AudioBuffer),
+    };
+
+    const reported: Array<{ stage: string; progress: number }> = [];
+    const usecase = new AnalyzeAudioUseCase(analysisPort, cache, decoder);
+    await usecase.execute({
+      file: makeFile(),
+      onProgress: (progress) => {
+        reported.push({ stage: progress.stage, progress: progress.progress });
+      },
+    });
+
+    expect(reported[0]).toEqual({ stage: "loading", progress: 0 });
+    expect(reported.some((entry) => entry.stage === "beats" && entry.progress === 40)).toBe(true);
+    expect(reported.some((entry) => entry.stage === "segments" && entry.progress === 85)).toBe(
+      true
+    );
+    expect(reported.some((entry) => entry.stage === "building" && entry.progress === 92.5)).toBe(
+      true
+    );
+    expect(reported[reported.length - 1]).toEqual({ stage: "ready", progress: 100 });
+    for (let i = 1; i < reported.length; i += 1) {
+      expect(reported[i].progress).toBeGreaterThanOrEqual(reported[i - 1].progress);
+    }
+  });
 });

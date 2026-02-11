@@ -55,6 +55,7 @@ export function Listen() {
   const [readyFileKey, setReadyFileKey] = React.useState<string | null>(null);
   const [progressStage, setProgressStage] = React.useState<AnalyzeStage>("loading");
   const [progressMessage, setProgressMessage] = React.useState<string | null>(null);
+  const [progressPercent, setProgressPercent] = React.useState<number | null>(0);
   const [error, setError] = React.useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
@@ -150,6 +151,7 @@ export function Listen() {
 
     setIsAnalyzing(true);
     setError(null);
+    setProgressPercent(0);
     setAnalysis(null);
     setReadyFileKey(null);
     analysisRef.current = null;
@@ -169,6 +171,7 @@ export function Listen() {
           } else {
             setProgressStage(progress.stage);
           }
+          setProgressPercent(progress.progress);
           if (progress.message) {
             setProgressMessage(progress.message);
           }
@@ -551,7 +554,11 @@ export function Listen() {
     <section className="listen-page">
       {isAnalyzing ? (
         <div className="panel" id="play-status">
-          <ProgressSteps steps={steps} currentMessage={progressMessage} />
+          <ProgressSteps
+            steps={steps}
+            currentMessage={progressMessage}
+            currentProgress={progressPercent}
+          />
         </div>
       ) : null}
 

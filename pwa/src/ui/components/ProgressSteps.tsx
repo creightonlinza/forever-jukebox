@@ -7,13 +7,21 @@ export type ProgressStep = {
 type ProgressStepsProps = {
   steps: ProgressStep[];
   currentMessage?: string | null;
+  currentProgress?: number | null;
 };
 
-export function ProgressSteps({ steps, currentMessage }: ProgressStepsProps) {
+export function ProgressSteps({
+  steps,
+  currentMessage,
+  currentProgress,
+}: ProgressStepsProps) {
   return (
     <div className="progress">
       <div className="progress__header">
-        <p className="progress__title">Analysis progress</p>
+        <p className="progress__title">
+          Analysis Progress
+          {typeof currentProgress === "number" ? `: ${Math.round(currentProgress)}%` : ""}
+        </p>
         {currentMessage ? <p className="progress__message">{currentMessage}</p> : null}
       </div>
       <ul className="progress__list">

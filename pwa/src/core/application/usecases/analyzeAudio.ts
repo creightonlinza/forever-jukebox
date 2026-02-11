@@ -41,14 +41,25 @@ export class AnalyzeAudioUseCase {
     onProgress?: (progress: AnalyzeProgress) => void;
   }): Promise<AnalyzeAudioResult> {
     const { file, force = false, onProgress } = options;
-    onProgress?.({ stage: "loading", progress: 0, message: "Loading file" });
+    let lastProgress = 0;
+    const reportProgress = (
+      stage: AnalyzeStage,
+      progress: number,
+      message?: string
+    ) => {
+      const clamped = Math.max(lastProgress, Math.min(100, progress));
+      lastProgress = clamped;
+      onProgress?.({ stage, progress: clamped, message });
+    };
+
+    reportProgress("loading", 0, "Loading file");
 
     const fingerprint = await computeFingerprint(file);
 
     const decodePromise = (async () => {
-      onProgress?.({ stage: "decoding", progress: 0.1, message: "Decoding audio" });
+      reportProgress("decoding", 2, "Decoding audio");
       const buffer = await this.decoder.decode(file);
-      onProgress?.({ stage: "decoding", progress: 1, message: "Decoding audio" });
+      reportProgress("decoding", 10, "Decoding audio");
       return buffer;
     })();
 
@@ -58,7 +69,7 @@ export class AnalyzeAudioUseCase {
         try {
           const audioBuffer = await decodePromise;
           const analysis = validateAnalysis(cached);
-          onProgress?.({ stage: "cached", progress: 1, message: "Loaded cached analysis" });
+          reportProgress("cached", 100, "Loaded cached analysis");
           return { analysis, audioBuffer, fingerprint, fromCache: true };
         } catch {
           // Fall back to re-analysis if cached data is invalid.
@@ -81,13 +92,14 @@ export class AnalyzeAudioUseCase {
       onProgress: (progress) => {
         const stage = mapStage(progress.stage);
         const message = progress.message;
-        onProgress?.({ stage, progress: progress.progress, message });
+        const pct = mapToOverallProgress(stage, progress.progress);
+        reportProgress(stage, pct, message);
       },
     });
 
     const validated = validateAnalysis(analysis);
     await this.cache.set(fingerprint, validated);
-    onProgress?.({ stage: "ready", progress: 1, message: "Ready" });
+    reportProgress("ready", 100, "Ready");
 
     return { analysis: validated, audioBuffer, fingerprint, fromCache: false };
   }
@@ -114,4 +126,30 @@ function inferTitle(name: string) {
 
 function mapStage(stage: "beats" | "features" | "segments" | "building"): AnalyzeStage {
   return stage;
+}
+
+function clamp01(value: number) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function mapToOverallProgress(stage: AnalyzeStage, progress: number): number {
+  const p = clamp01(progress);
+  if (stage === "beats") {
+    // Worker reports beats stage in [0, 0.4], map it to 10..40.
+    const normalized = Math.min(1, p / 0.4);
+    return 10 + normalized * 30;
+  }
+  if (stage === "features" || stage === "segments") {
+    return 45 + p * 40;
+  }
+  if (stage === "building") {
+    return 85 + p * 15;
+  }
+  if (stage === "ready" || stage === "cached") {
+    return 100;
+  }
+  if (stage === "decoding") {
+    return p * 10;
+  }
+  return 0;
 }
