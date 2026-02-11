@@ -1,4 +1,55 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  clearAllAnalysisCache,
+  getAnalysisCacheBytes,
+} from "@/core/infrastructure/cache/analysisCache";
+
+function formatMegabytes(bytes: number) {
+  const mb = Math.max(0, bytes) / (1024 * 1024);
+  const rounded = mb.toFixed(1);
+  return rounded.endsWith(".0") ? rounded.slice(0, -2) : rounded;
+}
+
 export function Faq() {
+  const [usageBytes, setUsageBytes] = useState(0);
+  const [isLoadingUsage, setIsLoadingUsage] = useState(true);
+  const [isClearing, setIsClearing] = useState(false);
+  const [cacheMessage, setCacheMessage] = useState<string | null>(null);
+
+  const usageMb = useMemo(() => formatMegabytes(usageBytes), [usageBytes]);
+
+  const refreshUsage = useCallback(async () => {
+    setIsLoadingUsage(true);
+    try {
+      const bytes = await getAnalysisCacheBytes();
+      setUsageBytes(bytes);
+    } catch (err) {
+      console.warn(`Failed to load cache usage: ${String(err)}`);
+      setUsageBytes(0);
+    } finally {
+      setIsLoadingUsage(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshUsage();
+  }, [refreshUsage]);
+
+  const onClearCache = useCallback(async () => {
+    setIsClearing(true);
+    setCacheMessage(null);
+    try {
+      await clearAllAnalysisCache();
+      await refreshUsage();
+      setCacheMessage("Analysis cache cleared.");
+    } catch (err) {
+      console.warn(`Failed to clear analysis cache: ${String(err)}`);
+      setCacheMessage("Unable to clear analysis cache.");
+    } finally {
+      setIsClearing(false);
+    }
+  }, [refreshUsage]);
+
   return (
     <section className="panel panel--faq">
       <h1>FAQ</h1>
@@ -41,11 +92,49 @@ export function Faq() {
 
         <h2>Credits</h2>
         <ul>
-          <li>Original inspiration: Paul Lamere and the Infinite Jukebox.</li>
-          <li>The Forever Jukebox: Creighton Linza.</li>
-          <li>madmom: beat and downbeat tracking.</li>
+          <li>
+            Original inspiration: Paul Lamere and the{" "}
+            <a
+              href="https://musicmachinery.com/2012/11/12/the-infinite-jukebox/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Infinite Jukebox
+            </a>
+            .
+          </li>
+          <li>
+            The Forever Jukebox:{" "}
+            <a href="https://creighton.dev" target="_blank" rel="noreferrer">
+              Creighton Linza
+            </a>
+            .
+          </li>
+          <li>
+            madmom WASM port:{" "}
+            <a href="https://github.com/creightonlinza/madmom-beats-port">
+              creightonlinza/madmom-beats-port
+            </a>
+            .
+          </li>
           <li>Essentia: audio features and DSP toolkits.</li>
         </ul>
+
+        <div className="faq-cache">
+          <h2>Analysis Cache</h2>
+          <p>
+            Current used space: <strong>{usageMb} MB</strong>
+          </p>
+          <button
+            className="tab-btn faq-cache__button"
+            type="button"
+            disabled={isClearing || isLoadingUsage || usageBytes <= 0}
+            onClick={onClearCache}
+          >
+            {isClearing ? "Clearing..." : `Clear ${usageMb}MB`}
+          </button>
+          {cacheMessage ? <p className="faq-cache__status">{cacheMessage}</p> : null}
+        </div>
       </div>
     </section>
   );

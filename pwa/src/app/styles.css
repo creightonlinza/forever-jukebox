@@ -83,9 +83,9 @@ a {
 
 .hero-title {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .hero-title-neon {
@@ -308,6 +308,13 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+}
+
+.fullscreen-toggle:disabled,
+.viz-btn:disabled,
+.modal-close:disabled {
+  cursor: not-allowed;
 }
 
 .play-icon,
@@ -396,6 +403,7 @@ a {
   background: var(--surface-panel);
   color: var(--text);
   font-size: 12px;
+  cursor: pointer;
 }
 
 .viz-btn.active {
@@ -677,6 +685,21 @@ label {
 
 .faq a:hover {
   text-decoration: underline;
+}
+
+.faq-cache {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-panel);
+}
+
+.faq-cache__button {
+  margin-top: 4px;
+}
+
+.faq-cache__status {
+  margin: 10px 0 0;
+  color: var(--muted);
 }
 
 @media (max-width: 960px) {

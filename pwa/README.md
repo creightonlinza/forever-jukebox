@@ -1,6 +1,10 @@
-# Forever Jukebox PWA (Offline Only)
+# Forever Jukebox PWA
 
-This is a standalone, offline-first desktop PWA for local audio only. It runs the Forever Jukebox analysis pipeline entirely in the browser, in a dedicated worker, and never talks to any backend.
+Standalone, offline PWA for local audio analysis and playback.
+
+- Runs analysis entirely in-browser (no backend calls).
+- Uses dedicated workers for beat/downbeat detection and feature extraction.
+- Supports installable desktop PWA behavior.
 
 ## Quick start
 
@@ -10,73 +14,42 @@ npm install
 npm run dev
 ```
 
-Build + preview:
+## Scripts
 
 ```bash
-npm run build
-npm run preview
+npm run dev      # local dev server
+npm run build    # production build
+npm run preview  # preview production build
+npm run test     # unit tests
 ```
 
-Tests:
+## Install as desktop app
 
-```bash
-npm run test
-```
-
-## Install as a desktop PWA
-
-1. Open the app in Chrome or Edge.
-2. Use the Install button in the header or the browser install icon.
-3. Launch from your OS app list.
+1. Open in Chrome or Edge.
+2. Click the browser install icon or the in-app install button.
+3. Launch from your OS app list/dock.
 
 ## Offline behavior
 
-- The app shell and assets are precached via Workbox (vite-plugin-pwa).
-- Once installed, navigations and assets are served cache-only.
-- Network requests to non-self origins are blocked at runtime and by CSP.
+- App shell/assets are precached with Workbox (`vite-plugin-pwa`).
+- Once cached, navigation and static assets load offline.
+- CSP and runtime behavior restrict the app to self-origin resources.
 
-## Analysis storage
+## Analysis pipeline
 
-- Cached analysis is stored by fingerprint (name + size + lastModified + hash of first bytes).
-- Storage uses OPFS when available, otherwise IndexedDB.
+- Worker orchestration: `src/workers/analysis.worker.ts`
+- Beat/downbeat model worker: `public/madmom/worker.js`
+- Feature/segmentation worker: `src/workers/essentia.worker.ts`
+- Audio decode: Web Audio API (`decodeAudioData`)
 
-## Reused modules and origins
+madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-port)
 
-- `src/shared/jukebox/engine/*`
-  Copied from `web/src/engine/*` on 2026-02-11.
-- `src/shared/jukebox/viz/JukeboxViz.ts`
-  Copied from `web/src/jukebox/JukeboxViz.ts` on 2026-02-11.
-- `src/shared/jukebox/viz/JukeboxController.ts`
-  Copied from `web/src/jukebox/JukeboxController.ts` on 2026-02-11.
-- `src/shared/jukebox/audio/BufferedAudioPlayer.ts`
-  Copied from `web/src/audio/BufferedAudioPlayer.ts` on 2026-02-11.
-- `src/shared/jukebox/background/backgroundTimer.ts`
-  Copied from `web/src/shared/backgroundTimer.ts` on 2026-02-11.
-- `src/shared/jukebox/constants/visualization.ts`
-  Copied from `web/src/app/constants.ts` on 2026-02-11.
-- `src/workers/essentia.worker.ts`
-  Copied from `web/src/workers/essentia.worker.ts` on 2026-02-11.
-- `public/madmom/*`
-  Copied from `web/public/madmom/*` on 2026-02-11.
-- `public/worker.js`
-  Copied from `web/public/worker.js` on 2026-02-11.
-- `public/icons/icon-192.png`, `public/icons/icon-512.png`
-  Copied from `web/public/logo.png` on 2026-02-11.
-- `public/fonts/tilt-neon.ttf`
-  Copied from `android/app/src/main/res/font/tilt_neon_regular.ttf` on 2026-02-11.
+## Storage and cache
 
-## Deltas vs original
+- Analysis cache key: fingerprint (`name + size + lastModified + first-bytes hash`)
+- Backends: OPFS when available, otherwise IndexedDB
+- Cache controls and usage are available in the FAQ screen
 
-- The analysis pipeline runs in a dedicated worker (`src/workers/analysis.worker.ts`).
-- No Spotify/YouTube/search/UI codepaths are present.
-- Offline-only CSP is enforced.
-- OPFS/IndexedDB caching is new.
-- Export JSON includes metadata (createdAt, appVersion, fingerprint).
-- The Listen screen uses local SVG control icons to avoid external icon font dependencies.
+## Output
 
-## Assumptions
-
-- The madmom WASM worker and model files in `public/madmom/` are the same ones used by the browser analysis demo.
-- The Android font file is acceptable for desktop PWA usage and bundling.
-- Material Symbols web font is not vendored in-repo, so icon controls use local SVG glyphs.
-- Audio decoding uses the Web Audio API and does not require additional codecs beyond the browser defaults.
+- Exported analysis JSON includes metadata (`createdAt`, `appVersion`, `fingerprint`)

@@ -396,8 +396,14 @@ async function analyzeAudio(options: {
 }) {
   const { channels, sampleRate, duration, trackMeta } = options;
   const mono = downmixToMono(channels);
-  const madmomSamples = resampleLinear(mono, sampleRate, MADMOM_SAMPLE_RATE);
-  const essentiaSamples = resampleLinear(mono, sampleRate, ESSENTIA_SAMPLE_RATE);
+  // Match backend path ordering: decode/downmix -> 22.05k base -> 44.1k for madmom.
+  const baseSamples = resampleLinear(mono, sampleRate, ESSENTIA_SAMPLE_RATE);
+  const essentiaSamples = baseSamples;
+  const madmomSamples = resampleLinear(
+    baseSamples,
+    ESSENTIA_SAMPLE_RATE,
+    MADMOM_SAMPLE_RATE
+  );
 
   postProgress("beats", 0.05, "Detecting beats");
   const madmomStageProgress: Record<string, number> = {

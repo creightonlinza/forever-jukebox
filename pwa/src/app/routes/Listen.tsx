@@ -52,8 +52,9 @@ type TuneFormState = {
 };
 
 export function Listen() {
-  const { file } = useAppState();
+  const { file, setIsListenLoading } = useAppState();
   const [analysis, setAnalysis] = React.useState<AnalysisOutput | null>(null);
+  const [readyFileKey, setReadyFileKey] = React.useState<string | null>(null);
   const [fingerprint, setFingerprint] = React.useState<string | null>(null);
   const [progressStage, setProgressStage] = React.useState<AnalyzeStage>("loading");
   const [progressMessage, setProgressMessage] = React.useState<string | null>(null);
@@ -125,9 +126,17 @@ export function Listen() {
   }, []);
 
   React.useEffect(() => {
+    setIsListenLoading(isAnalyzing);
+    return () => {
+      setIsListenLoading(false);
+    };
+  }, [isAnalyzing, setIsListenLoading]);
+
+  React.useEffect(() => {
     if (!file || !playerRef.current) {
       return;
     }
+    const fileKey = `${file.name}:${file.size}:${file.lastModified}`;
     let cancelled = false;
 
     const analysisPort = new AnalysisWorkerClient();
@@ -146,6 +155,7 @@ export function Listen() {
     setIsAnalyzing(true);
     setError(null);
     setAnalysis(null);
+    setReadyFileKey(null);
     analysisRef.current = null;
     setFromCache(false);
     setSelectedEdge(null);
@@ -175,6 +185,7 @@ export function Listen() {
         }
         analysisRef.current = result.analysis;
         setAnalysis(result.analysis);
+        setReadyFileKey(fileKey);
         setFingerprint(result.fingerprint);
         setFromCache(result.fromCache);
         await playerRef.current?.loadBuffer(result.audioBuffer);
@@ -544,6 +555,8 @@ export function Listen() {
   const totalBranches = graph?.allEdges.filter((edge) => !edge.deleted).length ?? 0;
   const deletedBranches = graph?.allEdges.filter((edge) => edge.deleted).length ?? 0;
   const vizCount = vizControllerRef.current?.getCount() ?? 1;
+  const currentFileKey = file ? `${file.name}:${file.size}:${file.lastModified}` : null;
+  const showPlaybackUi = Boolean(analysis) && !isAnalyzing && readyFileKey === currentFileKey;
 
   if (!file) {
     return (
@@ -566,61 +579,63 @@ export function Listen() {
 
       <div className="play-title">{file.name}{fromCache ? " (cached)" : ""}</div>
 
-      <div className="menu-bar">
-        <div className="menu-left">
-          <button
-            id="play"
-            className="play-toggle"
-            type="button"
-            onClick={togglePlayback}
-            disabled={!analysis}
-            title={isRunning ? "Stop" : "Play"}
-            aria-label={isRunning ? "Stop" : "Play"}
-          >
-            <SymbolIcon className="play-icon" name={isRunning ? "stop" : "play_arrow"} />
-            <span className="play-text">{isRunning ? "Stop" : "Play"}</span>
-          </button>
+      {showPlaybackUi ? (
+        <div className="menu-bar">
+          <div className="menu-left">
+            <button
+              id="play"
+              className="play-toggle"
+              type="button"
+              onClick={togglePlayback}
+              disabled={!analysis}
+              title={isRunning ? "Stop" : "Play"}
+              aria-label={isRunning ? "Stop" : "Play"}
+            >
+              <SymbolIcon className="play-icon" name={isRunning ? "stop" : "play_arrow"} />
+              <span className="play-text">{isRunning ? "Stop" : "Play"}</span>
+            </button>
+          </div>
+          <div className="menu-right">
+            <button
+              id="tuning"
+              className="tune-toggle"
+              type="button"
+              onClick={() => {
+                syncTuneFormFromEngine();
+                setIsTuningOpen(true);
+              }}
+              disabled={!analysis}
+              title="Tune"
+              aria-label="Tune"
+            >
+              <SymbolIcon className="tune-icon" name="tune" />
+            </button>
+            <button
+              id="track-info"
+              className="info-toggle"
+              type="button"
+              onClick={() => setIsInfoOpen(true)}
+              disabled={!analysis}
+              title="Info"
+              aria-label="Info"
+            >
+              <SymbolIcon className="info-icon" name="info" />
+            </button>
+            <button
+              className="copy-toggle"
+              type="button"
+              onClick={onExport}
+              disabled={!analysis}
+              title="Export analysis JSON"
+              aria-label="Export analysis JSON"
+            >
+              <SymbolIcon className="copy-icon" name="download" />
+            </button>
+          </div>
         </div>
-        <div className="menu-right">
-          <button
-            id="tuning"
-            className="tune-toggle"
-            type="button"
-            onClick={() => {
-              syncTuneFormFromEngine();
-              setIsTuningOpen(true);
-            }}
-            disabled={!analysis}
-            title="Tune"
-            aria-label="Tune"
-          >
-            <SymbolIcon className="tune-icon" name="tune" />
-          </button>
-          <button
-            id="track-info"
-            className="info-toggle"
-            type="button"
-            onClick={() => setIsInfoOpen(true)}
-            disabled={!analysis}
-            title="Info"
-            aria-label="Info"
-          >
-            <SymbolIcon className="info-icon" name="info" />
-          </button>
-          <button
-            className="copy-toggle"
-            type="button"
-            onClick={onExport}
-            disabled={!analysis}
-            title="Export analysis JSON"
-            aria-label="Export analysis JSON"
-          >
-            <SymbolIcon className="copy-icon" name="download" />
-          </button>
-        </div>
-      </div>
+      ) : null}
 
-      <div id="viz-panel" ref={vizPanelRef}>
+      <div id="viz-panel" ref={vizPanelRef} hidden={!showPlaybackUi}>
         <div id="jukebox-viz" className="viz">
           <div id="viz-layer" className="viz-layer" ref={vizLayerRef} />
           <div className="viz-top">
