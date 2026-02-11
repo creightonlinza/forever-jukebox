@@ -1,4 +1,10 @@
-import { BrowserRouter, Link, Route, Routes, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Link,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { AppStateProvider, useAppState } from "./state/AppState";
 import { Home } from "./routes/Home";
 import { Listen } from "./routes/Listen";
@@ -9,14 +15,19 @@ function AppLayout() {
   const location = useLocation();
   const { isListenLoading } = useAppState();
   const { canInstall, promptInstall } = useInstallPrompt();
-  const hideTabsWhileLoading = location.pathname === "/listen" && isListenLoading;
+  const hideTabsWhileLoading =
+    location.pathname === "/listen" && isListenLoading;
 
   return (
     <div className="app">
       <header className="hero">
         <div className="hero-actions">
           {canInstall ? (
-            <button className="tab-btn" type="button" onClick={() => void promptInstall()}>
+            <button
+              className="tab-btn"
+              type="button"
+              onClick={() => void promptInstall()}
+            >
               Install
             </button>
           ) : null}
@@ -24,17 +35,26 @@ function AppLayout() {
         <div className="hero-main">
           <div className="hero-title">
             <h1 className="hero-title-neon">THE FOREVER JUKEBOX</h1>
-            <span className="hero-subtitle">Desktop App</span>
+            <span className="hero-subtitle">Offline Desktop App</span>
           </div>
           {!hideTabsWhileLoading ? (
             <nav className="tabs" aria-label="Primary">
-              <Link className={`tab-btn ${location.pathname === "/" ? "active" : ""}`} to="/">
+              <Link
+                className={`tab-btn ${location.pathname === "/" ? "active" : ""}`}
+                to="/"
+              >
                 Home
               </Link>
-              <Link className={`tab-btn ${location.pathname === "/listen" ? "active" : ""}`} to="/listen">
+              <Link
+                className={`tab-btn ${location.pathname === "/listen" ? "active" : ""}`}
+                to="/listen"
+              >
                 Listen
               </Link>
-              <Link className={`tab-btn ${location.pathname === "/faq" ? "active" : ""}`} to="/faq">
+              <Link
+                className={`tab-btn ${location.pathname === "/faq" ? "active" : ""}`}
+                to="/faq"
+              >
                 FAQ
               </Link>
             </nav>
@@ -54,7 +74,7 @@ function AppLayout() {
 
 export function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/offline">
       <AppStateProvider>
         <AppLayout />
       </AppStateProvider>
