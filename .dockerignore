@@ -11,3 +11,4 @@ api/storage/
 engine/.venv/
 web/node_modules/
 web/dist/
+pwa/dist/

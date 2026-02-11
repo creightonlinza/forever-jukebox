@@ -1,6 +1,6 @@
 # Deployment (Docker)
 
-This setup builds the web UI and runs the API + worker in one container.
+This setup builds the web UI, builds the offline PWA, and runs the API + worker in one container.
 
 ## Build
 
@@ -26,7 +26,7 @@ docker run \
 
 Notes:
 
-- The API serves the UI at `/` and JSON at `/api/*`.
+- The API serves the web UI at `/`, the offline PWA at `/offline/`, and JSON at `/api/*`.
 - Persist `api/storage/` with a volume (EBS/EFS on AWS); container storage is ephemeral.
 - Optional: set `PORT` to change the internal listen port (defaults to 8000).
 - Optional: set `WORKER_COUNT` (default `1`) to control worker concurrency.

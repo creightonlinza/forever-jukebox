@@ -5,9 +5,9 @@
 The Forever Jukebox is a self-hosted, end-to-end system that analyzes audio,
 serves the results via a lightweight API, and powers a refreshed Infinite
 Jukebox-style web UI with branching playback and multiple visualizations. It
-also includes a native Android app for on-device playback. It replaces reliance
-on the deprecated Spotify Audio Analysis engine by generating similar
-beat/segment/section data locally.
+also includes an installable offline PWA and a native Android app for on-device
+playback. It replaces reliance on the deprecated Spotify Audio Analysis engine
+by generating similar beat/segment/section data locally.
 
 ## Credits
 
@@ -27,6 +27,7 @@ beat/segment/section data locally.
 - `engine/` — The Forever Jukebox Audio Analysis (generator + calibration bundle).
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI (see `web/README.md` for details).
+- `pwa/` — Offline/local analysis PWA. Co-hosted in production at `/offline/`.
 - `android/` — Native Android app (see `android/README.md` for details).
 - `schema.json` — JSON schema reference for analysis output.
 
@@ -50,7 +51,7 @@ Android (native app):
 
 ## Docker (production)
 
-Build and run the container with Docker Compose (serves UI + API):
+Build and run the container with Docker Compose (serves web UI + offline PWA + API):
 
 ```bash
 export SPOTIFY_CLIENT_ID=...
@@ -70,13 +71,18 @@ docker compose up --build
 You can also put these values in a `.env` file (same directory as
 `docker-compose.yml`) and Compose will load them automatically.
 
-Open the UI at `http://localhost:8000/`. The UI is served at `/` and API routes
-are under `/api/*`. The Compose file uses a named Docker volume (`storage`) to
-persist `/app/api/storage`.
+Open:
+
+- Web UI: `http://localhost:8000/`
+- Offline PWA: `http://localhost:8000/offline/`
+
+API routes are under `/api/*`. The Compose file uses a named Docker volume
+(`storage`) to persist `/app/api/storage`.
 
 For standalone setup, see:
 
 - [`engine/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/engine/README.md)
 - [`api/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/api/README.md)
 - [`web/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/web/README.md)
+- [`pwa/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/pwa/README.md)
 - [`android/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/android/README.md)
