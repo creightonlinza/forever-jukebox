@@ -55,9 +55,27 @@ export function Faq() {
       <div className="faq">
         <h2>What is The Forever Jukebox?</h2>
         <p>
-          The Forever Jukebox is an open-source modernization of Paul Lamere’s
-          Infinite Jukebox and Autocanonizer — rebuilt from the ground up by
-          Creighton Linza. It generates a forever-evolving version of any song.
+          The Forever Jukebox is an open-source modernization of Paul Lamere’s{" "}
+          <a
+            href="https://musicmachinery.com/2012/11/12/the-infinite-jukebox/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Infinite Jukebox
+          </a>{" "}
+          and{" "}
+          <a
+            href="https://musicmachinery.com/2014/03/18/how-the-autocanonizer-works/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Autocanonizer
+          </a>{" "}
+          apps — rebuilt from the ground up by{" "}
+          <a href="https://creighton.dev" target="_blank" rel="noreferrer">
+            Creighton Linza
+          </a>
+          . It generates a forever-evolving version of any song.
         </p>
 
         <h2>How does it work?</h2>
@@ -67,58 +85,39 @@ export function Faq() {
           each beat, the player may jump to a different, sonically similar point
           based on timbre, loudness, segment duration, and beat position. The
           visualization maps the possible jump paths.
+          <br />
+          <br />
+          The full source code is available in the{" "}
+          <a
+            href="https://github.com/creightonlinza/forever-jukebox/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            forever-jukebox
+          </a>{" "}
+          repository.
         </p>
 
         <h2>Why does the first analysis take time?</h2>
         <p>
           Beat tracking and feature extraction are compute-heavy. The first run
-          caches the analysis so reloading the same file is instant.
-        </p>
-
-        <h2>Where is analysis stored?</h2>
-        <p>
-          Analysis is stored locally in your browser (OPFS when available,
-          otherwise IndexedDB).
+          caches the analysis, so reloading the same file is instant.
         </p>
 
         <h2>How can I tune the Jukebox?</h2>
         <ul>
-          <li>Open the Tune panel to adjust thresholds and branch probability.</li>
+          <li>
+            Open the Tune panel to adjust thresholds and branch probability.
+          </li>
           <li>Use the checkboxes to allow or restrict certain branch types.</li>
           <li>Select a branch in the visualization and delete it.</li>
         </ul>
 
-        <h2>Credits</h2>
-        <ul>
-          <li>
-            Original inspiration: Paul Lamere and the{" "}
-            <a
-              href="https://musicmachinery.com/2012/11/12/the-infinite-jukebox/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Infinite Jukebox
-            </a>
-            .
-          </li>
-          <li>
-            The Forever Jukebox:{" "}
-            <a href="https://creighton.dev" target="_blank" rel="noreferrer">
-              Creighton Linza
-            </a>
-            .
-          </li>
-          <li>
-            madmom WASM port:{" "}
-            <a href="https://github.com/creightonlinza/madmom-beats-port">
-              creightonlinza/madmom-beats-port
-            </a>
-            .
-          </li>
-          <li>Essentia: audio features and DSP toolkits.</li>
-        </ul>
-
-        <h2>Analysis Cache</h2>
+        <h2>Where is analysis stored?</h2>
+        <p>
+          Analysis is stored locally in your browser. You can clear it at any
+          time:
+        </p>
         <button
           className="tab-btn"
           type="button"
