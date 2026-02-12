@@ -10,6 +10,7 @@ import { APP_VERSION } from "@/shared/utils/appVersion";
 import { formatExportJson, saveExportJson } from "@/shared/utils/exportJson";
 import { BufferedAudioPlayer } from "@/shared/jukebox/audio/BufferedAudioPlayer";
 import { Edge, JukeboxConfig, JukeboxEngine } from "@/shared/jukebox/engine";
+import { AutocanonizerController } from "@/shared/jukebox/autocanonizer/AutocanonizerController";
 import { JukeboxController } from "@/shared/jukebox/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
 import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
@@ -37,6 +38,10 @@ const DEFAULT_CONFIG: JukeboxConfig = {
   randomBranchChanceDelta: 0.1,
   minLongBranch: 0,
 };
+
+const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
+
+type PlayMode = "jukebox" | "autocanonizer";
 
 function buildAnalysisExportName(fileName: string) {
   const base = fileName.replace(/\.[^.]+$/, "").trim();
@@ -74,6 +79,14 @@ export function Listen() {
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [activeVizIndex, setActiveVizIndex] = React.useState(0);
+  const [playMode, setPlayMode] = React.useState<PlayMode>("jukebox");
+  const [finishOutSong, setFinishOutSong] = React.useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(CANONIZER_FINISH_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
   const [tuneForm, setTuneForm] = React.useState<TuneFormState>({
     threshold: 0,
     computedThreshold: 0,
@@ -89,9 +102,13 @@ export function Listen() {
 
   const vizPanelRef = React.useRef<HTMLDivElement | null>(null);
   const vizLayerRef = React.useRef<HTMLDivElement | null>(null);
+  const canonizerLayerRef = React.useRef<HTMLDivElement | null>(null);
   const vizControllerRef = React.useRef<JukeboxController | null>(null);
+  const autocanonizerRef = React.useRef<AutocanonizerController | null>(null);
   const engineRef = React.useRef<JukeboxEngine | null>(null);
   const playerRef = React.useRef<BufferedAudioPlayer | null>(null);
+  const isRunningRef = React.useRef(false);
+  const playModeRef = React.useRef<PlayMode>("jukebox");
   const lastBeatRef = React.useRef<number | null>(null);
   const playTimerMsRef = React.useRef(0);
   const lastPlayStampRef = React.useRef<number | null>(null);
@@ -111,23 +128,75 @@ export function Listen() {
   }, [activeVizIndex]);
 
   React.useEffect(() => {
-    if (!vizLayerRef.current) {
+    if (!vizLayerRef.current || !canonizerLayerRef.current) {
       return;
     }
     const controller = new JukeboxController(vizLayerRef.current);
+    const autocanonizer = new AutocanonizerController(canonizerLayerRef.current);
     vizControllerRef.current = controller;
+    autocanonizerRef.current = autocanonizer;
+
+    controller.setVisible(playModeRef.current === "jukebox");
+    autocanonizer.setVisible(playModeRef.current === "autocanonizer");
+    autocanonizer.setFinishOutSong(finishOutSong);
+    autocanonizer.setOnBeat((index) => {
+      setBeatsPlayed(index + 1);
+      lastBeatRef.current = index;
+    });
+    autocanonizer.setOnEnded(() => {
+      if (!isRunningRef.current) {
+        return;
+      }
+      stopPlayback();
+    });
+    autocanonizer.setOnSelect((index) => {
+      if (playModeRef.current !== "autocanonizer") {
+        return;
+      }
+      startAutocanonizerPlayback(index);
+    });
 
     const resizeObserver = new ResizeObserver(() => {
       controller.resizeActive();
+      autocanonizer.resizeNow();
     });
-    resizeObserver.observe(vizLayerRef.current);
+    resizeObserver.observe(vizPanelRef.current ?? vizLayerRef.current);
 
     return () => {
       resizeObserver.disconnect();
       controller.reset();
+      autocanonizer.reset();
       vizControllerRef.current = null;
+      autocanonizerRef.current = null;
     };
   }, []);
+
+  React.useEffect(() => {
+    isRunningRef.current = isRunning;
+  }, [isRunning]);
+
+  React.useEffect(() => {
+    playModeRef.current = playMode;
+    vizControllerRef.current?.setVisible(playMode === "jukebox");
+    autocanonizerRef.current?.setVisible(playMode === "autocanonizer");
+    if (playMode === "autocanonizer") {
+      autocanonizerRef.current?.resizeNow();
+    } else {
+      vizControllerRef.current?.resizeActive();
+    }
+  }, [playMode]);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        CANONIZER_FINISH_STORAGE_KEY,
+        String(finishOutSong)
+      );
+    } catch {
+      // ignore storage failures
+    }
+    autocanonizerRef.current?.setFinishOutSong(finishOutSong);
+  }, [finishOutSong]);
 
   React.useEffect(() => {
     setIsListenLoading(isAnalyzing);
@@ -149,6 +218,7 @@ export function Listen() {
     const usecase = new AnalyzeAudioUseCase(analysisPort, cache, decoder);
 
     engineRef.current?.stopJukebox();
+    autocanonizerRef.current?.stop();
     playTimerMsRef.current = 0;
     lastPlayStampRef.current = null;
     lastBeatRef.current = null;
@@ -192,6 +262,10 @@ export function Listen() {
         setAnalysis(result.analysis);
         setReadyFileKey(fileKey);
         await playerRef.current?.loadBuffer(result.audioBuffer);
+        autocanonizerRef.current?.setAudio(
+          playerRef.current?.getBuffer() ?? null,
+          playerRef.current?.getContext() ?? null
+        );
         initializeEngine(result.analysis);
       })
       .catch((err) => {
@@ -235,18 +309,23 @@ export function Listen() {
         togglePlayback();
         return;
       }
-      if ((event.key === "Delete" || event.key === "Backspace") && selectedEdge && !selectedEdge.deleted) {
+      if (
+        playMode === "jukebox" &&
+        (event.key === "Delete" || event.key === "Backspace") &&
+        selectedEdge &&
+        !selectedEdge.deleted
+      ) {
         event.preventDefault();
         deleteSelectedBranch();
         return;
       }
-      if (event.key === "Shift" && isRunning) {
+      if (playMode === "jukebox" && event.key === "Shift" && isRunning) {
         engineRef.current?.setForceBranch(true);
       }
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "Shift") {
+      if (playMode === "jukebox" && event.key === "Shift") {
         engineRef.current?.setForceBranch(false);
       }
     };
@@ -257,13 +336,17 @@ export function Listen() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [selectedEdge, isRunning, isTuningOpen, isInfoOpen]);
+  }, [selectedEdge, isRunning, isTuningOpen, isInfoOpen, playMode]);
 
   React.useEffect(() => {
     const onFullscreen = () => {
       const active = document.fullscreenElement === vizPanelRef.current;
       setIsFullscreen(active);
-      vizControllerRef.current?.resizeActive();
+      if (playModeRef.current === "autocanonizer") {
+        autocanonizerRef.current?.resizeNow();
+      } else {
+        vizControllerRef.current?.resizeActive();
+      }
       if (active) {
         void requestWakeLock();
       } else {
@@ -312,6 +395,36 @@ export function Listen() {
     wakeLockRef.current = null;
   };
 
+  function stopPlayback() {
+    if (playModeRef.current === "autocanonizer") {
+      autocanonizerRef.current?.stop();
+      playerRef.current?.stop();
+    }
+    engineRef.current?.stopJukebox();
+    if (lastPlayStampRef.current !== null) {
+      playTimerMsRef.current += performance.now() - lastPlayStampRef.current;
+      lastPlayStampRef.current = null;
+    }
+    setIsRunning(false);
+  }
+
+  const onSetPlayMode = (mode: PlayMode) => {
+    if (playMode === mode) {
+      return;
+    }
+    if (isRunningRef.current) {
+      stopPlayback();
+    }
+    playModeRef.current = mode;
+    setPlayMode(mode);
+    if (mode === "autocanonizer") {
+      setIsTuningOpen(false);
+      setIsInfoOpen(false);
+      setSelectedEdge(null);
+      vizControllerRef.current?.setSelectedEdge(null);
+    }
+  };
+
   const initializeEngine = (analysisData: AnalysisOutput) => {
     if (!playerRef.current) {
       return;
@@ -330,15 +443,22 @@ export function Listen() {
       }
     });
     engineRef.current = engine;
+    autocanonizerRef.current?.setAnalysis(analysisData, analysisData.track?.duration);
 
     const vizData = engine.getVisualizationData();
     if (vizData) {
       vizControllerRef.current?.setData(vizData);
     }
     vizControllerRef.current?.setOnSelect((index) => {
+      if (playModeRef.current !== "jukebox") {
+        return;
+      }
       startFromBeat(index, analysisData);
     });
     vizControllerRef.current?.setOnEdgeSelect((edge) => {
+      if (playModeRef.current !== "jukebox") {
+        return;
+      }
       setSelectedEdge(edge);
       vizControllerRef.current?.setSelectedEdgeActive(edge);
     });
@@ -381,6 +501,10 @@ export function Listen() {
       return;
     }
     if (!isRunning) {
+      if (playMode === "autocanonizer") {
+        startAutocanonizerPlayback(0);
+        return;
+      }
       engine.stopJukebox();
       engine.resetStats();
       playTimerMsRef.current = 0;
@@ -399,16 +523,14 @@ export function Listen() {
       }
       return;
     }
-
-    engine.stopJukebox();
-    if (lastPlayStampRef.current !== null) {
-      playTimerMsRef.current += performance.now() - lastPlayStampRef.current;
-      lastPlayStampRef.current = null;
-    }
-    setIsRunning(false);
+    stopPlayback();
   };
 
   const startFromBeat = (index: number, analysisData?: AnalysisOutput | null) => {
+    if (playMode === "autocanonizer") {
+      startAutocanonizerPlayback(index);
+      return;
+    }
     const player = playerRef.current;
     const engine = engineRef.current;
     const activeAnalysis = analysisData ?? analysisRef.current;
@@ -434,6 +556,30 @@ export function Listen() {
         void requestWakeLock();
       }
     }
+  };
+
+  const startAutocanonizerPlayback = (index: number) => {
+    const autocanonizer = autocanonizerRef.current;
+    const engine = engineRef.current;
+    const player = playerRef.current;
+    if (!autocanonizer || !engine || !player || !autocanonizer.isReady()) {
+      return false;
+    }
+    player.stop();
+    engine.stopJukebox();
+    playTimerMsRef.current = 0;
+    lastPlayStampRef.current = null;
+    setListenSeconds(0);
+    setBeatsPlayed(0);
+    lastBeatRef.current = null;
+    autocanonizer.resetVisualization();
+    autocanonizer.startAtIndex(index);
+    lastPlayStampRef.current = performance.now();
+    setIsRunning(true);
+    if (document.fullscreenElement === vizPanelRef.current) {
+      void requestWakeLock();
+    }
+    return true;
   };
 
   const deleteSelectedBranch = () => {
@@ -482,7 +628,9 @@ export function Listen() {
     if (data) {
       vizControllerRef.current?.setData(data);
     }
-    player.setVolume(tuneForm.volume / 100);
+    const volume = tuneForm.volume / 100;
+    player.setVolume(volume);
+    autocanonizerRef.current?.setVolume(volume);
     syncTuneFormFromEngine();
     setIsTuningOpen(false);
   };
@@ -503,6 +651,7 @@ export function Listen() {
     vizControllerRef.current?.setSelectedEdge(null);
     setSelectedEdge(null);
     player.setVolume(0.5);
+    autocanonizerRef.current?.setVolume(0.5);
     syncTuneFormFromEngine();
     setIsTuningOpen(false);
   };
@@ -552,6 +701,9 @@ export function Listen() {
   };
 
   const onSetActiveViz = (index: number) => {
+    if (playMode === "autocanonizer") {
+      return;
+    }
     vizControllerRef.current?.setActiveIndex(index);
     setActiveVizIndex(index);
   };
@@ -581,6 +733,8 @@ export function Listen() {
       </section>
     );
   }
+  const displayTitle =
+    playMode === "autocanonizer" ? `${file.name} (autocanonized)` : file.name;
 
   return (
     <section className="listen-page">
@@ -596,7 +750,7 @@ export function Listen() {
 
       {error ? <div className="error">{error}</div> : null}
 
-      <div className="play-title">{file.name}</div>
+      <div className="play-title">{displayTitle}</div>
 
       {showPlaybackUi ? (
         <div className="menu-bar">
@@ -617,13 +771,13 @@ export function Listen() {
           <div className="menu-right">
             <button
               id="tuning"
-              className="tune-toggle"
+              className={`tune-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
               type="button"
               onClick={() => {
                 syncTuneFormFromEngine();
                 setIsTuningOpen(true);
               }}
-              disabled={!analysis}
+              disabled={!analysis || playMode === "autocanonizer"}
               title="Tune"
               aria-label="Tune"
             >
@@ -631,10 +785,10 @@ export function Listen() {
             </button>
             <button
               id="track-info"
-              className="info-toggle"
+              className={`info-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
               type="button"
               onClick={() => setIsInfoOpen(true)}
-              disabled={!analysis}
+              disabled={!analysis || playMode === "autocanonizer"}
               title="Info"
               aria-label="Info"
             >
@@ -656,9 +810,29 @@ export function Listen() {
       ) : null}
 
       <div id="viz-panel" ref={vizPanelRef} hidden={!showPlaybackUi}>
-        <div id="jukebox-viz" className="viz">
+        <div id="jukebox-viz" className={`viz ${playMode === "autocanonizer" ? "is-canonizer" : ""}`}>
           <div id="viz-layer" className="viz-layer" ref={vizLayerRef} />
+          <div id="canonizer-layer" className="canonizer-layer" ref={canonizerLayerRef} />
           <div className="viz-top">
+            <div className="viz-actions">
+              <span className="viz-label">Mode:</span>
+              <button
+                className={`viz-btn ${playMode === "jukebox" ? "active" : ""}`}
+                type="button"
+                data-play-mode="jukebox"
+                onClick={() => onSetPlayMode("jukebox")}
+              >
+                Jukebox
+              </button>
+              <button
+                className={`viz-btn ${playMode === "autocanonizer" ? "active" : ""}`}
+                type="button"
+                data-play-mode="autocanonizer"
+                onClick={() => onSetPlayMode("autocanonizer")}
+              >
+                Autocanonizer
+              </button>
+            </div>
             <div className="viz-controls">
               <span className="viz-label">Visualization:</span>
               {Array.from({ length: vizCount }, (_, index) => (
@@ -666,11 +840,22 @@ export function Listen() {
                   key={index}
                   className={`viz-btn ${index === activeVizIndex ? "active" : ""}`}
                   type="button"
+                  data-viz={index}
                   onClick={() => onSetActiveViz(index)}
+                  disabled={playMode === "autocanonizer"}
                 >
                   {index + 1}
                 </button>
               ))}
+            </div>
+            <div className="canonizer-finish">
+              <input
+                id="canonizer-finish"
+                type="checkbox"
+                checked={finishOutSong}
+                onChange={(event) => setFinishOutSong(event.target.checked)}
+              />
+              <span>Finish out the song</span>
             </div>
           </div>
           <div className="viz-bottom" id="viz-stats">
@@ -688,13 +873,13 @@ export function Listen() {
                 <span className="play-text">{isRunning ? "Stop" : "Play"}</span>
               </button>
               <div className="viz-info">
-                <div className="viz-title" id="viz-now-playing">{file.name}</div>
+                <div className="viz-title" id="viz-now-playing">{displayTitle}</div>
                 <div className="viz-meta">
                   <span>Listen Time:</span>
                   <span>{formatDuration(listenSeconds)}</span>
-                  <span className="viz-divider">·</span>
-                  <span>Total Beats:</span>
-                  <span>{beatsPlayed}</span>
+                  <span className={`viz-divider ${playMode === "autocanonizer" ? "is-hidden" : ""}`}>·</span>
+                  <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>Total Beats:</span>
+                  <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsPlayed}</span>
                 </div>
               </div>
             </div>

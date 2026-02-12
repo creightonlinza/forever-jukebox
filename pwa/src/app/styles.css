@@ -351,6 +351,10 @@ a {
   cursor: pointer;
 }
 
+.is-hidden {
+  display: none !important;
+}
+
 .fullscreen-toggle:disabled,
 .viz-btn:disabled,
 .modal-close:disabled {
@@ -378,6 +382,10 @@ a {
   position: relative;
   overflow: hidden;
   cursor: pointer;
+}
+
+#jukebox-viz.is-canonizer {
+  cursor: default;
 }
 
 #viz-panel:fullscreen {
@@ -417,6 +425,26 @@ a {
   z-index: 1;
 }
 
+.canonizer-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: none;
+}
+
+.canonizer-layer canvas {
+  position: absolute;
+  inset: 0;
+}
+
+#jukebox-viz.is-canonizer .canonizer-layer {
+  display: block;
+}
+
+#jukebox-viz.is-canonizer .viz-layer {
+  display: none;
+}
+
 .viz-top {
   position: absolute;
   top: 12px;
@@ -431,10 +459,38 @@ a {
 .viz-controls {
   display: inline-flex;
   align-items: center;
-  margin-left: auto;
   gap: 6px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.viz-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+#jukebox-viz.is-canonizer .viz-controls [data-viz],
+#jukebox-viz.is-canonizer .viz-controls .viz-label {
+  display: none;
+}
+
+#jukebox-viz:not(.is-canonizer) .canonizer-finish {
+  display: none;
+}
+
+.canonizer-finish {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.canonizer-finish input {
+  accent-color: var(--accent);
 }
 
 .viz-btn {
