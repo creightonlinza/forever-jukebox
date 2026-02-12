@@ -20,9 +20,11 @@ function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
   return (
     <div className="install-gate">
       <section className="install-gate__panel">
-        <h1 className="hero-title-neon install-gate__title">THE FOREVER JUKEBOX</h1>
+        <h1 className="hero-title-neon install-gate__title">
+          THE FOREVER JUKEBOX
+        </h1>
         <p className="install-gate__subtitle">
-          Install to use the offline desktop app.
+          Install to use the offline app.
         </p>
         <p className="install-gate__hint">
           {canInstall
@@ -30,7 +32,11 @@ function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
             : "Use your browser menu (Install app/Add to Home Screen), then open the installed app."}
         </p>
         {canInstall ? (
-          <button className="tab-btn install-gate__action" type="button" onClick={() => void promptInstall()}>
+          <button
+            className="tab-btn install-gate__action"
+            type="button"
+            onClick={() => void promptInstall()}
+          >
             Install
           </button>
         ) : null}
@@ -47,7 +53,9 @@ function AppLayout() {
     location.pathname === "/listen" && isListenLoading;
 
   if (!isGateUnlocked) {
-    return <InstallGate canInstall={canInstall} promptInstall={promptInstall} />;
+    return (
+      <InstallGate canInstall={canInstall} promptInstall={promptInstall} />
+    );
   }
 
   return (
@@ -57,7 +65,7 @@ function AppLayout() {
         <div className="hero-main">
           <div className="hero-title">
             <h1 className="hero-title-neon">THE FOREVER JUKEBOX</h1>
-            <span className="hero-subtitle">Offline Desktop App - BETA</span>
+            <span className="hero-subtitle">Offline App</span>
           </div>
           {!hideTabsWhileLoading ? (
             <nav className="tabs" aria-label="Primary">
