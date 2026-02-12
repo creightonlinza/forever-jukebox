@@ -6,6 +6,8 @@ import { createAnalysisCache } from "@/core/infrastructure/cache/analysisCache";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import { formatDuration } from "@/shared/utils/format";
+import { APP_VERSION } from "@/shared/utils/appVersion";
+import { formatExportJson, saveExportJson } from "@/shared/utils/exportJson";
 import { BufferedAudioPlayer } from "@/shared/jukebox/audio/BufferedAudioPlayer";
 import { Edge, JukeboxConfig, JukeboxEngine } from "@/shared/jukebox/engine";
 import { JukeboxController } from "@/shared/jukebox/viz/JukeboxController";
@@ -35,6 +37,11 @@ const DEFAULT_CONFIG: JukeboxConfig = {
   randomBranchChanceDelta: 0.1,
   minLongBranch: 0,
 };
+
+function buildAnalysisExportName(fileName: string) {
+  const base = fileName.replace(/\.[^.]+$/, "").trim();
+  return `${base || "analysis"}.analysis.json`;
+}
 
 type TuneFormState = {
   threshold: number;
@@ -500,6 +507,31 @@ export function Listen() {
     setIsTuningOpen(false);
   };
 
+  const onDownloadAnalysis = async () => {
+    const activeAnalysis = analysisRef.current ?? analysis;
+    if (!activeAnalysis || !file) {
+      return;
+    }
+    const fingerprint = `${file.name}:${file.size}:${file.lastModified}`;
+    const filename = buildAnalysisExportName(file.name);
+    const metadata = {
+      createdAt: new Date().toISOString(),
+      appVersion: APP_VERSION,
+      fingerprint,
+    };
+    try {
+      const json = formatExportJson(activeAnalysis, metadata);
+      await saveExportJson(filename, json);
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : "";
+      if (name === "AbortError") {
+        return;
+      }
+      console.warn(`Failed to export analysis JSON: ${String(err)}`);
+      setError("Unable to download analysis JSON.");
+    }
+  };
+
   const onToggleFullscreen = async () => {
     if (!vizPanelRef.current) {
       return;
@@ -607,6 +639,17 @@ export function Listen() {
               aria-label="Info"
             >
               <SymbolIcon className="info-icon" name="info" />
+            </button>
+            <button
+              id="track-analysis"
+              className="copy-toggle"
+              type="button"
+              onClick={() => void onDownloadAnalysis()}
+              disabled={!analysis}
+              title="Download analysis JSON"
+              aria-label="Download analysis JSON"
+            >
+              <SymbolIcon className="copy-icon" name="download" />
             </button>
           </div>
         </div>

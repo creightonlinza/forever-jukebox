@@ -19,7 +19,11 @@ export function initBackgroundTimer(): void {
     return;
   }
   try {
-    worker = new Worker("/worker.js");
+    const workerUrl = new URL(
+      `${import.meta.env.BASE_URL}worker.js`,
+      window.location.origin
+    );
+    worker = new Worker(workerUrl);
     worker.onmessage = handleWorkerMessage;
     worker.onerror = handleWorkerError;
   } catch (err) {

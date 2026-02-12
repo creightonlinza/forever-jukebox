@@ -26,7 +26,7 @@ export default defineConfig(({ command }) => {
       react(),
       VitePWA({
         registerType: "autoUpdate",
-        includeAssets: ["favicon.png", "favicon-512.png", "fonts/*", "worker.js", "madmom/**"],
+        includeAssets: ["favicon.png", "favicon-512.png", "worker.js", "madmom/**"],
         devOptions: {
           enabled: command === "serve",
           suppressWarnings: command === "serve",

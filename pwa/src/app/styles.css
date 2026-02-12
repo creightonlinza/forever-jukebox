@@ -1,6 +1,6 @@
 @font-face {
   font-family: "Tilt Neon";
-  src: url("/fonts/tilt-neon.ttf") format("truetype");
+  src: url("./tilt-neon.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -55,6 +55,46 @@ a {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.install-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.install-gate__panel {
+  width: min(560px, 100%);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-panel);
+  border-radius: 12px;
+  padding: 28px 22px;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  text-align: center;
+}
+
+.install-gate__title {
+  margin: 0;
+}
+
+.install-gate__subtitle {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.install-gate__action {
+  min-width: 160px;
+}
+
+.install-gate__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .hero {
