@@ -41,7 +41,6 @@ export function Faq() {
     try {
       await clearAllAnalysisCache();
       await refreshUsage();
-      setCacheMessage("Analysis cache cleared.");
     } catch (err) {
       console.warn(`Failed to clear analysis cache: ${String(err)}`);
       setCacheMessage("Unable to clear analysis cache.");

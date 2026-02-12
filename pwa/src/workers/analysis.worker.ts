@@ -86,7 +86,11 @@ async function runMadmomAnalysis(
   onProgress?: (stage: string, progress: number) => void
 ): Promise<MadmomResult> {
   return new Promise((resolve, reject) => {
-    const worker = new Worker("/madmom/worker.js", { type: "module" });
+    const madmomWorkerUrl = new URL(
+      `${import.meta.env.BASE_URL}madmom/worker.js`,
+      self.location.origin
+    );
+    const worker = new Worker(madmomWorkerUrl, { type: "module" });
     const handleMessage = (event: MessageEvent<MadmomMessage>) => {
       const data = event.data;
       if (!data) {

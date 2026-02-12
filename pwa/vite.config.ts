@@ -10,6 +10,10 @@ export default defineConfig(({ command }) => {
 
   return {
     base: appBase,
+    server: {
+      port: 5174,
+      strictPort: true,
+    },
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
     },

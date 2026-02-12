@@ -35,7 +35,7 @@ function AppLayout() {
         <div className="hero-main">
           <div className="hero-title">
             <h1 className="hero-title-neon">THE FOREVER JUKEBOX</h1>
-            <span className="hero-subtitle">Offline Desktop App</span>
+            <span className="hero-subtitle">Offline Desktop App - BETA</span>
           </div>
           {!hideTabsWhileLoading ? (
             <nav className="tabs" aria-label="Primary">
