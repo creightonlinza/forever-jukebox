@@ -285,7 +285,7 @@ fun buildJumpGraph(analysis: TrackAnalysis, config: JukeboxConfig): JukeboxGraph
     precalculateNearestNeighbors(quanta, config.maxBranches, config.maxBranchThreshold, allEdges)
 
     val computedThreshold = run {
-        val targetBranchCount = quanta.size / TARGET_BRANCH_DIVISOR
+        val targetBranchCount = quanta.size.toDouble() / TARGET_BRANCH_DIVISOR.toDouble()
         var t = THRESHOLD_START
         while (t < config.maxBranchThreshold) {
             val count = collectNearestNeighbors(quanta, t, config)
