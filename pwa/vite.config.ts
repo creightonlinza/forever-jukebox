@@ -25,7 +25,10 @@ export default defineConfig(({ command }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: "autoUpdate",
+        injectRegister: null,
+        // Avoid forced app reloads during long-running analysis/playback.
+        // Updates are applied on next launch/reload instead of mid-session.
+        registerType: "prompt",
         includeAssets: ["favicon.png", "favicon-512.png", "worker.js", "madmom/**"],
         devOptions: {
           enabled: command === "serve",
@@ -60,7 +63,7 @@ export default defineConfig(({ command }) => {
           ...(isDev
             ? {}
             : {
-                maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+                maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
                 globPatterns: ["**/*.{js,css,html,wasm,json,webmanifest,png,svg,ico,ttf,woff,woff2}"],
                 runtimeCaching: [
                   {

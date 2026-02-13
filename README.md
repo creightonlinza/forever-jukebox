@@ -26,9 +26,9 @@ by generating similar beat/segment/section data locally.
 
 - `engine/` — The Forever Jukebox Audio Analysis (generator + calibration bundle).
 - `api/` — REST API + worker that calls the engine.
-- `web/` — Web UI (see `web/README.md` for details).
+- `web/` — Web UI.
 - `pwa/` — Offline/local analysis PWA. Co-hosted in production at `/offline/`.
-- `android/` — Native Android app (see `android/README.md` for details).
+- `android/` — Native Android app.
 - `schema.json` — JSON schema reference for analysis output.
 
 ## Quick Start

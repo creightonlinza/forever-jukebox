@@ -3,9 +3,7 @@ import type { TrackMeta } from "@/shared/jukebox/engine/types";
 import {
   computeSections,
   computeTempo,
-  downmixToMono,
   makeQuanta,
-  resampleLinear,
 } from "./analysis/helpers";
 import type { Quantum, Segment } from "./analysis/helpers";
 
@@ -21,8 +19,8 @@ type AnalysisResult = {
 
 type AnalyzeMessage = {
   type: "analyze";
-  channels: Float32Array[];
-  sampleRate: number;
+  mono22050: Float32Array;
+  mono44100: Float32Array;
   duration: number;
   trackMeta?: TrackMeta;
 };
@@ -49,9 +47,7 @@ const DEFAULT_SEGMENTATION = {
 };
 
 type MadmomResult = {
-  activations: { fps: number; data: number[][] };
   events: Array<[number, number, number]>;
-  meta?: { sample_rate?: number };
 };
 
 type EssentiaResult = {
@@ -167,21 +163,17 @@ async function runEssentiaAnalysis(
 }
 
 async function analyzeAudio(options: {
-  channels: Float32Array[];
-  sampleRate: number;
+  mono22050: Float32Array;
+  mono44100: Float32Array;
   duration: number;
   trackMeta?: TrackMeta;
 }) {
-  const { channels, sampleRate, duration, trackMeta } = options;
-  const mono = downmixToMono(channels);
-  // Match backend path ordering: decode/downmix -> 22.05k base -> 44.1k for madmom.
-  const baseSamples = resampleLinear(mono, sampleRate, ESSENTIA_SAMPLE_RATE);
-  const essentiaSamples = baseSamples;
-  const madmomSamples = resampleLinear(
-    baseSamples,
-    ESSENTIA_SAMPLE_RATE,
-    MADMOM_SAMPLE_RATE
-  );
+  const { mono22050, mono44100, duration, trackMeta } = options;
+  if (mono22050.length === 0 || mono44100.length === 0) {
+    throw new Error("Decoded audio is empty");
+  }
+  const essentiaSamples = mono22050;
+  const madmomSamples = mono44100;
 
   postProgress("beats", 0.05, "Detecting beats");
   const madmomStageProgress: Record<string, number> = {

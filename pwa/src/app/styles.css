@@ -126,6 +126,8 @@ a {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .hero-title-neon {
@@ -210,9 +212,11 @@ a {
 
 .tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 8px;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .tab-btn {
@@ -297,7 +301,7 @@ a {
   align-items: center;
   padding: 16px 0;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .menu-left,
@@ -305,7 +309,17 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.menu-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.menu-right {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .play-toggle {
@@ -787,16 +801,6 @@ label {
 @media (max-width: 960px) {
   .hero-main {
     margin-top: 0;
-  }
-
-  .tabs {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .menu-bar {
-    flex-direction: column;
-    align-items: flex-start;
   }
 
   .checkbox-row {

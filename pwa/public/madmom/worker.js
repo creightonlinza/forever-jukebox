@@ -1,10 +1,45 @@
 import init, { analyze_json_with_model_progress } from './pkg/rhythm_wasm.js';
-import { buildBeatEvents, buildEnergy, refineEventTimes } from './refinement.js';
 
 let ready = false;
 let readyPromise = null;
 let modelJson = null;
 let modelWeights = null;
+
+function clamp01(value) {
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+function toBeatEvents(raw) {
+  const beatTimes = Array.isArray(raw?.beat_times) ? raw.beat_times : [];
+  const beatNumbers = Array.isArray(raw?.beat_numbers) ? raw.beat_numbers : [];
+  const beatConfidences = Array.isArray(raw?.beat_confidences)
+    ? raw.beat_confidences
+    : [];
+  const count = beatTimes.length;
+  if (beatNumbers.length !== count || beatConfidences.length !== count) {
+    throw new Error('Invalid madmom output: beat arrays length mismatch');
+  }
+
+  const events = [];
+  let lastTime = -Infinity;
+  for (let i = 0; i < count; i += 1) {
+    const timeSec = Number(beatTimes[i]);
+    const beatInBar = Math.max(1, Math.floor(Number(beatNumbers[i]) || 1));
+    const confidence = clamp01(Number(beatConfidences[i]));
+    if (!Number.isFinite(timeSec)) {
+      continue;
+    }
+    if (timeSec <= lastTime) {
+      throw new Error('Invalid madmom output: beat_times must be strictly increasing');
+    }
+    lastTime = timeSec;
+    events.push([timeSec, beatInBar, confidence]);
+  }
+  return events;
+}
 
 async function ensureReady() {
   if (ready) return;
@@ -40,15 +75,10 @@ self.onmessage = async (event) => {
       modelWeights,
       progressCb
     );
-    const fps = 100;
-    const activations = raw.activations || { beat: [], downbeat: [] };
-    const data = activations.beat.map((b, i) => [b, activations.downbeat[i]]);
-    const energy = buildEnergy(activations);
-    const beats = refineEventTimes(raw.events?.beats || [], energy, fps);
-    const downbeats = refineEventTimes(raw.events?.downbeats || [], energy, fps);
-    const events = buildBeatEvents(beats, downbeats, fps);
+    const fps = Number(raw?.fps) || 100;
+    const events = toBeatEvents(raw);
     const result = {
-      activations: { fps, data },
+      activations: { fps, data: [] },
       events,
       meta: { sample_rate: sampleRate },
     };

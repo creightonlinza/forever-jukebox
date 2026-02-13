@@ -40,7 +40,9 @@ npm run test     # unit tests
 - Worker orchestration: `src/workers/analysis.worker.ts`
 - Beat/downbeat model worker: `public/madmom/worker.js`
 - Feature/segmentation worker: `src/workers/essentia.worker.ts`
-- Audio decode: Web Audio API (`decodeAudioData`)
+- Audio decode/resample for analysis: `ffmpeg.wasm` (mono PCM at 22.05kHz + 44.1kHz)
+- Playback buffer decode: Web Audio API (`decodeAudioData`) from ffmpeg-generated WAV
+- madmom worker consumes backend-parity arrays (`beat_times`, `beat_numbers`, `beat_confidences`)
 
 madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-port)
 

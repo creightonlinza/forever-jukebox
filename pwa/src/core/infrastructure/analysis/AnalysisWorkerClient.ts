@@ -23,16 +23,16 @@ type WorkerMessage = WorkerProgress | WorkerResult | WorkerError;
 
 type AnalyzeRequest = {
   type: "analyze";
-  channels: Float32Array[];
-  sampleRate: number;
+  mono22050: Float32Array;
+  mono44100: Float32Array;
   duration: number;
   trackMeta?: TrackMeta;
 };
 
 export class AnalysisWorkerClient implements AnalysisPort {
   async analyze(options: {
-    channels: Float32Array[];
-    sampleRate: number;
+    mono22050: Float32Array;
+    mono44100: Float32Array;
     duration: number;
     trackMeta?: TrackMeta;
     onProgress?: (progress: AnalysisProgress) => void;
@@ -77,13 +77,13 @@ export class AnalysisWorkerClient implements AnalysisPort {
 
       const payload: AnalyzeRequest = {
         type: "analyze",
-        channels: options.channels.map((channel) => channel.slice()),
-        sampleRate: options.sampleRate,
+        mono22050: options.mono22050.slice(),
+        mono44100: options.mono44100.slice(),
         duration: options.duration,
         trackMeta: options.trackMeta,
       };
 
-      const transfer = payload.channels.map((channel) => channel.buffer);
+      const transfer = [payload.mono22050.buffer, payload.mono44100.buffer];
       worker.postMessage(payload, transfer);
     });
   }

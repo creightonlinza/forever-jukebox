@@ -58,16 +58,16 @@ export class AnalyzeAudioUseCase {
 
     const decodePromise = (async () => {
       reportProgress("decoding", 2, "Decoding audio");
-      const buffer = await this.decoder.decode(file);
+      const decoded = await this.decoder.decode(file);
       reportProgress("decoding", 10, "Decoding audio");
-      return buffer;
+      return decoded;
     })();
 
     if (!force) {
       const cached = await this.cache.get(fingerprint);
       if (cached) {
         try {
-          const audioBuffer = await decodePromise;
+          const { audioBuffer } = await decodePromise;
           const analysis = validateAnalysis(cached);
           reportProgress("cached", 100, "Loaded cached analysis");
           return { analysis, audioBuffer, fingerprint, fromCache: true };
@@ -77,17 +77,18 @@ export class AnalyzeAudioUseCase {
       }
     }
 
-    const audioBuffer = await decodePromise;
-    const channels = getChannels(audioBuffer);
+    const decoded = await decodePromise;
+    const audioBuffer = decoded.audioBuffer;
+    const analysisAudio = decoded.analysisAudio;
     const trackMeta: TrackMeta = {
       title: inferTitle(file.name),
-      duration: audioBuffer.duration,
+      duration: analysisAudio.duration,
     };
 
     const analysis = await this.analysisPort.analyze({
-      channels,
-      sampleRate: audioBuffer.sampleRate,
-      duration: audioBuffer.duration,
+      mono22050: analysisAudio.mono22050,
+      mono44100: analysisAudio.mono44100,
+      duration: analysisAudio.duration,
       trackMeta,
       onProgress: (progress) => {
         const stage = mapStage(progress.stage);
@@ -103,17 +104,6 @@ export class AnalyzeAudioUseCase {
 
     return { analysis: validated, audioBuffer, fingerprint, fromCache: false };
   }
-}
-
-function getChannels(buffer: AudioBuffer) {
-  const channels: Float32Array[] = [];
-  for (let i = 0; i < buffer.numberOfChannels; i += 1) {
-    channels.push(buffer.getChannelData(i).slice());
-  }
-  if (channels.length === 0) {
-    channels.push(new Float32Array(buffer.length));
-  }
-  return channels;
 }
 
 function inferTitle(name: string) {

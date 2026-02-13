@@ -1,4 +1,8 @@
-import { AudioDecoderPort } from "@/core/domain/ports/AudioDecoderPort";
+import type {
+  AudioDecoderPort,
+  DecodedAudio,
+} from "@/core/domain/ports/AudioDecoderPort";
+import { prepareAudioWithFfmpeg } from "./ffmpegAudio";
 
 export class AudioDecoder implements AudioDecoderPort {
   private context: AudioContext;
@@ -7,9 +11,19 @@ export class AudioDecoder implements AudioDecoderPort {
     this.context = context ?? new AudioContext();
   }
 
-  async decode(file: File): Promise<AudioBuffer> {
-    const buffer = await file.arrayBuffer();
-    return this.context.decodeAudioData(buffer.slice(0));
+  async decode(file: File): Promise<DecodedAudio> {
+    const prepared = await prepareAudioWithFfmpeg(file);
+    const wavBuffer = new Uint8Array(prepared.playbackWav.byteLength);
+    wavBuffer.set(prepared.playbackWav);
+    const audioBuffer = await this.context.decodeAudioData(wavBuffer.buffer);
+    return {
+      audioBuffer,
+      analysisAudio: {
+        mono22050: prepared.mono22050,
+        mono44100: prepared.mono44100,
+        duration: prepared.duration,
+      },
+    };
   }
 
   getContext(): AudioContext {

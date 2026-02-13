@@ -35,6 +35,17 @@ class FakeAudioBuffer {
   }
 }
 
+function makeDecodedAudio() {
+  return {
+    audioBuffer: new FakeAudioBuffer() as unknown as AudioBuffer,
+    analysisAudio: {
+      mono22050: new Float32Array([0, 0, 0, 0]),
+      mono44100: new Float32Array([0, 0, 0, 0]),
+      duration: 1,
+    },
+  };
+}
+
 function makeFile() {
   return new File([new Uint8Array([1, 2, 3])], "song.wav", { lastModified: 1234 });
 }
@@ -50,7 +61,7 @@ describe("AnalyzeAudioUseCase", () => {
       clear: vi.fn(async () => undefined),
     };
     const decoder: AudioDecoderPort = {
-      decode: vi.fn(async () => new FakeAudioBuffer() as unknown as AudioBuffer),
+      decode: vi.fn(async () => makeDecodedAudio()),
     };
 
     const usecase = new AnalyzeAudioUseCase(analysisPort, cache, decoder);
@@ -59,6 +70,13 @@ describe("AnalyzeAudioUseCase", () => {
     expect(result.analysis).toEqual(analysis);
     expect(result.fromCache).toBe(false);
     expect(analysisPort.analyze).toHaveBeenCalled();
+    expect(analysisPort.analyze).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mono22050: expect.any(Float32Array),
+        mono44100: expect.any(Float32Array),
+        duration: 1,
+      })
+    );
     expect(cache.set).toHaveBeenCalled();
   });
 
@@ -72,7 +90,7 @@ describe("AnalyzeAudioUseCase", () => {
       clear: vi.fn(async () => undefined),
     };
     const decoder: AudioDecoderPort = {
-      decode: vi.fn(async () => new FakeAudioBuffer() as unknown as AudioBuffer),
+      decode: vi.fn(async () => makeDecodedAudio()),
     };
 
     const usecase = new AnalyzeAudioUseCase(analysisPort, cache, decoder);
@@ -98,7 +116,7 @@ describe("AnalyzeAudioUseCase", () => {
       clear: vi.fn(async () => undefined),
     };
     const decoder: AudioDecoderPort = {
-      decode: vi.fn(async () => new FakeAudioBuffer() as unknown as AudioBuffer),
+      decode: vi.fn(async () => makeDecodedAudio()),
     };
 
     const reported: Array<{ stage: string; progress: number }> = [];

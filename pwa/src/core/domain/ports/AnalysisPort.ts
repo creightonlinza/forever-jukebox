@@ -9,8 +9,8 @@ export type AnalysisProgress = {
 
 export interface AnalysisPort {
   analyze(options: {
-    channels: Float32Array[];
-    sampleRate: number;
+    mono22050: Float32Array;
+    mono44100: Float32Array;
     duration: number;
     trackMeta?: TrackMeta;
     onProgress?: (progress: AnalysisProgress) => void;
