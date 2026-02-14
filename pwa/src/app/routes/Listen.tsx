@@ -6,10 +6,16 @@ import { createAnalysisCache } from "@/core/infrastructure/cache/analysisCache";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import { formatDuration } from "@/shared/utils/format";
-import { APP_VERSION } from "@/shared/utils/appVersion";
-import { formatExportJson, saveExportJson } from "@/shared/utils/exportJson";
+import {
+  pickBinaryExportFile,
+  saveExportBinary,
+} from "@/shared/utils/exportJson";
 import { BufferedAudioPlayer } from "@/shared/jukebox/audio/BufferedAudioPlayer";
 import { Edge, JukeboxConfig, JukeboxEngine } from "@/shared/jukebox/engine";
+import {
+  exportJukeboxAudio,
+  type JukeboxExportProgress,
+} from "@/shared/jukebox/export";
 import { AutocanonizerController } from "@/shared/jukebox/autocanonizer/AutocanonizerController";
 import { JukeboxController } from "@/shared/jukebox/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
@@ -40,12 +46,14 @@ const DEFAULT_CONFIG: JukeboxConfig = {
 };
 
 const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
+const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 
 type PlayMode = "jukebox" | "autocanonizer";
+type AudioExportFormat = "mp3" | "wav";
 
-function buildAnalysisExportName(fileName: string) {
+function buildAudioExportName(fileName: string, extension: string) {
   const base = fileName.replace(/\.[^.]+$/, "").trim();
-  return `${base || "analysis"}.analysis.json`;
+  return `${base || "jukebox"}_forever.${extension}`;
 }
 
 type TuneFormState = {
@@ -60,6 +68,30 @@ type TuneFormState = {
   justLongBranches: boolean;
   removeSequentialBranches: boolean;
 };
+
+type ExportFormState = {
+  durationSeconds: number;
+  format: AudioExportFormat;
+  bitrateKbps: number;
+};
+
+function createSessionSeed(): number {
+  if ("crypto" in globalThis && "getRandomValues" in globalThis.crypto) {
+    const arr = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(arr);
+    return arr[0] >>> 0;
+  }
+  return Math.floor(Math.random() * 0xffffffff) >>> 0;
+}
+
+function waitForNextPaint(): Promise<void> {
+  if ("requestAnimationFrame" in window) {
+    return new Promise((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  }
+  return Promise.resolve();
+}
 
 export function Listen() {
   const { file, setIsListenLoading } = useAppState();
@@ -98,6 +130,16 @@ export function Listen() {
     justBackwards: DEFAULT_CONFIG.justBackwards,
     justLongBranches: DEFAULT_CONFIG.justLongBranches,
     removeSequentialBranches: DEFAULT_CONFIG.removeSequentialBranches,
+  });
+  const [isExportOpen, setIsExportOpen] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
+  const [exportError, setExportError] = React.useState<string | null>(null);
+  const [exportProgress, setExportProgress] =
+    React.useState<JukeboxExportProgress | null>(null);
+  const [exportForm, setExportForm] = React.useState<ExportFormState>({
+    durationSeconds: 60,
+    format: "mp3",
+    bitrateKbps: 192,
   });
 
   const vizPanelRef = React.useRef<HTMLDivElement | null>(null);
@@ -206,6 +248,18 @@ export function Listen() {
   }, [isAnalyzing, setIsListenLoading]);
 
   React.useEffect(() => {
+    const duration = analysis?.track?.duration;
+    if (!duration || !Number.isFinite(duration) || duration <= 0) {
+      return;
+    }
+    const rounded = Math.max(5, Math.round(duration));
+    setExportForm((prev) => ({
+      ...prev,
+      durationSeconds: Math.min(MAX_EXPORT_DURATION_SECONDS, rounded),
+    }));
+  }, [analysis]);
+
+  React.useEffect(() => {
     if (!file || !playerRef.current) {
       return;
     }
@@ -233,6 +287,10 @@ export function Listen() {
     setReadyFileKey(null);
     analysisRef.current = null;
     setSelectedEdge(null);
+    setIsExportOpen(false);
+    setIsExporting(false);
+    setExportError(null);
+    setExportProgress(null);
 
     usecase
       .execute({
@@ -301,7 +359,7 @@ export function Listen() {
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isTuningOpen || isInfoOpen) {
+      if (isTuningOpen || isInfoOpen || isExportOpen) {
         return;
       }
       if (event.code === "Space") {
@@ -336,7 +394,7 @@ export function Listen() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [selectedEdge, isRunning, isTuningOpen, isInfoOpen, playMode]);
+  }, [selectedEdge, isRunning, isTuningOpen, isInfoOpen, isExportOpen, playMode]);
 
   React.useEffect(() => {
     const onFullscreen = () => {
@@ -429,7 +487,10 @@ export function Listen() {
     if (!playerRef.current) {
       return;
     }
-    const engine = new JukeboxEngine(playerRef.current);
+    const engine = new JukeboxEngine(playerRef.current, {
+      randomMode: "seeded",
+      seed: createSessionSeed(),
+    });
     engine.loadAnalysis(analysisData);
     engine.onUpdate((state) => {
       setBeatsPlayed(state.beatsPlayed);
@@ -656,28 +717,109 @@ export function Listen() {
     setIsTuningOpen(false);
   };
 
-  const onDownloadAnalysis = async () => {
+  const onExportJukeboxAudio = async () => {
     const activeAnalysis = analysisRef.current ?? analysis;
-    if (!activeAnalysis || !file) {
+    const player = playerRef.current;
+    const engine = engineRef.current;
+    if (!activeAnalysis || !player || !engine || !file) {
       return;
     }
-    const fingerprint = `${file.name}:${file.size}:${file.lastModified}`;
-    const filename = buildAnalysisExportName(file.name);
-    const metadata = {
-      createdAt: new Date().toISOString(),
-      appVersion: APP_VERSION,
-      fingerprint,
-    };
+
+    const sourceBuffer = player.getBuffer();
+    if (!sourceBuffer) {
+      setExportError("Playback buffer is not ready yet.");
+      return;
+    }
+
+    const durationSeconds = Number(exportForm.durationSeconds);
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+      setExportError("Export duration must be a positive number of seconds.");
+      return;
+    }
+    if (durationSeconds > MAX_EXPORT_DURATION_SECONDS) {
+      setExportError(
+        `Export duration is capped at ${MAX_EXPORT_DURATION_SECONDS / 60} minutes.`,
+      );
+      return;
+    }
+
+    const requestedExtension = exportForm.format;
+    const requestedFilename = buildAudioExportName(file.name, requestedExtension);
+    const requestedDescription =
+      requestedExtension === "mp3" ? "MP3 Audio" : "WAV Audio";
+    const requestedMimeType =
+      requestedExtension === "mp3" ? "audio/mpeg" : "audio/wav";
+
+    let pickedHandle: Awaited<ReturnType<typeof pickBinaryExportFile>> = null;
     try {
-      const json = formatExportJson(activeAnalysis, metadata);
-      await saveExportJson(filename, json);
+      pickedHandle = await pickBinaryExportFile(requestedFilename, {
+        mimeType: requestedMimeType,
+        description: requestedDescription,
+        extension: `.${requestedExtension}`,
+      });
     } catch (err) {
       const name = err instanceof DOMException ? err.name : "";
       if (name === "AbortError") {
         return;
       }
-      console.warn(`Failed to export analysis JSON: ${String(err)}`);
-      setError("Unable to download analysis JSON.");
+      setExportError("Unable to open the file save dialog.");
+      return;
+    }
+
+    setExportError(null);
+    setExportProgress({
+      stage: "planning",
+      message: "Initializing export",
+      percent: 0,
+    });
+    setIsExporting(true);
+    await waitForNextPaint();
+
+    try {
+      const deletedEdges =
+        engine
+          .getGraphState()
+          ?.allEdges.filter((edge) => edge.deleted)
+          .map((edge) => ({ src: edge.src.which, dest: edge.dest.which })) ?? [];
+
+      const result = await exportJukeboxAudio({
+        analysis: activeAnalysis,
+        sourceBuffer,
+        config: engine.getConfig(),
+        deletedEdges,
+        durationSeconds,
+        format: exportForm.format,
+        bitrateKbps: exportForm.format === "mp3" ? exportForm.bitrateKbps : undefined,
+        gain: player.getVolume(),
+        randomMode: "seeded",
+        seed: createSessionSeed(),
+        onProgress: (progress) => setExportProgress(progress),
+      });
+
+      const extension = result.extension;
+      const filename = buildAudioExportName(file.name, extension);
+      const description =
+        extension === "mp3" ? "MP3 Audio" : "WAV Audio";
+      await saveExportBinary(
+        filename,
+        result.bytes,
+        {
+          mimeType: result.mimeType,
+          description,
+          extension: `.${extension}`,
+        },
+        extension === requestedExtension ? pickedHandle : null,
+      );
+      setIsExportOpen(false);
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : "";
+      if (name === "AbortError") {
+        return;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      setExportError(message || "Audio export failed.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -795,13 +937,17 @@ export function Listen() {
               <SymbolIcon className="info-icon" name="info" />
             </button>
             <button
-              id="track-analysis"
-              className="copy-toggle"
+              id="track-audio-export"
+              className={`copy-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
               type="button"
-              onClick={() => void onDownloadAnalysis()}
-              disabled={!analysis}
-              title="Download analysis JSON"
-              aria-label="Download analysis JSON"
+              onClick={() => {
+                setExportError(null);
+                setExportProgress(null);
+                setIsExportOpen(true);
+              }}
+              disabled={!analysis || isExporting || playMode === "autocanonizer"}
+              title="Export jukebox audio"
+              aria-label="Export jukebox audio"
             >
               <SymbolIcon className="copy-icon" name="download" />
             </button>
@@ -896,6 +1042,119 @@ export function Listen() {
           </div>
         </div>
       </div>
+
+      {isExportOpen ? (
+        <div
+          className="modal open"
+          onClick={(event) =>
+            event.target === event.currentTarget && !isExporting && setIsExportOpen(false)
+          }
+        >
+          <div className="modal-panel">
+            <div className="modal-header">
+              <h2>Export Jukebox Audio</h2>
+              <button
+                className="modal-close"
+                type="button"
+                onClick={() => setIsExportOpen(false)}
+                aria-label="Close"
+                disabled={isExporting}
+              >
+                <SymbolIcon className="modal-close-icon" name="close" />
+              </button>
+            </div>
+            <div className="modal-body export-body">
+              <p className="export-note">
+                Exports using current tuning and deleted branches.
+              </p>
+              <label>
+                <div className="label-line">
+                  Export Duration:
+                  <span>{formatDuration(exportForm.durationSeconds)}</span>
+                </div>
+                <input
+                  className="field-input"
+                  type="number"
+                  min={5}
+                  max={MAX_EXPORT_DURATION_SECONDS}
+                  step={5}
+                  value={exportForm.durationSeconds}
+                  disabled={isExporting}
+                  onChange={(event) =>
+                    setExportForm((prev) => ({
+                      ...prev,
+                      durationSeconds: Number(event.target.value),
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                <div className="label-line">Format:</div>
+                <select
+                  className="field-input"
+                  value={exportForm.format}
+                  disabled={isExporting}
+                  onChange={(event) =>
+                    setExportForm((prev) => ({
+                      ...prev,
+                      format: event.target.value as AudioExportFormat,
+                    }))
+                  }
+                >
+                  <option value="mp3">MP3 (compressed)</option>
+                  <option value="wav">WAV (lossless)</option>
+                </select>
+              </label>
+              {exportForm.format === "mp3" ? (
+                <label>
+                  <div className="label-line">
+                    MP3 Bitrate:
+                    <span>{exportForm.bitrateKbps} kbps</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={64}
+                    max={320}
+                    step={32}
+                    value={exportForm.bitrateKbps}
+                    disabled={isExporting}
+                    onChange={(event) =>
+                      setExportForm((prev) => ({
+                        ...prev,
+                        bitrateKbps: Number(event.target.value),
+                      }))
+                    }
+                  />
+                </label>
+              ) : null}
+              {exportProgress ? (
+                <div className="export-status">
+                  {exportProgress.message} ({Math.round(exportProgress.percent)}%)
+                </div>
+              ) : null}
+              {exportError ? <div className="error">{exportError}</div> : null}
+            </div>
+            <div className="modal-footer">
+              <button
+                className="tab-btn"
+                type="button"
+                onClick={() => setIsExportOpen(false)}
+                disabled={isExporting}
+              >
+                Cancel
+              </button>
+              <button
+                className="tab-btn"
+                type="button"
+                onClick={() => void onExportJukeboxAudio()}
+                disabled={isExporting}
+              >
+                {isExporting ? "Exporting..." : "Export Audio"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isTuningOpen ? (
         <div className="modal open" onClick={(event) => event.target === event.currentTarget && setIsTuningOpen(false)}>

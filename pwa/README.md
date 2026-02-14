@@ -52,6 +52,13 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
 - Backends: OPFS when available, otherwise IndexedDB
 - Cache controls and usage are available in the FAQ screen
 
-## Output
+## Jukebox audio export
 
-- Exported analysis JSON includes metadata (`createdAt`, `appVersion`, `fingerprint`)
+- Export playable jukebox output directly from the Listen screen.
+- Export uses current tuning + deleted branches and a fresh seeded random run.
+- Formats:
+  - MP3 (compressed)
+  - WAV (lossless)
+- Max export length: 7200 seconds (2 hours).
+- Long MP3 exports are rendered/encoded in chunks to avoid browser memory spikes.
+- Very long WAV exports can still hit browser memory limits; use MP3 for long durations.

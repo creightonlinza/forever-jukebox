@@ -717,6 +717,40 @@ a {
   gap: 12px;
 }
 
+.field-input {
+  width: 100%;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--surface-control);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.field-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-body {
+  gap: 14px;
+}
+
+.export-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.export-status {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-control);
+  background: rgba(var(--text-rgb), 0.05);
+  color: var(--text);
+  font-size: 13px;
+}
+
 label {
   display: flex;
   flex-direction: column;

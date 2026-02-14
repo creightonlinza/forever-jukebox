@@ -1,4 +1,4 @@
-import React, { act } from "react";
+import { act } from "react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
@@ -279,8 +279,13 @@ describe("Listen autocanonizer behavior", () => {
     });
     mockAppState.setIsListenLoading.mockReset();
     window.localStorage.clear();
-    vi.spyOn(window, "setInterval").mockImplementation(() => 1);
-    vi.spyOn(window, "clearInterval").mockImplementation(() => {});
+    vi.spyOn(window, "setInterval").mockImplementation(
+      ((() =>
+        1 as unknown as ReturnType<typeof window.setInterval>) as unknown) as typeof window.setInterval
+    );
+    vi.spyOn(window, "clearInterval").mockImplementation(
+      ((_id: ReturnType<typeof window.setInterval>) => {}) as typeof window.clearInterval
+    );
   });
 
   afterEach(() => {
@@ -353,6 +358,37 @@ describe("Listen autocanonizer behavior", () => {
 
     expect(window.localStorage.getItem("fj-canonizer-finish")).toBe("false");
     expect(instance.setFinishOutSong).toHaveBeenLastCalledWith(false);
+    rendered.unmount();
+  });
+
+  it("shows export modal with 2-hour max and compressed mp3 label", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    const exportButton = getRequired<HTMLButtonElement>(
+      rendered.container,
+      "#track-audio-export"
+    );
+    await click(exportButton);
+
+    const durationInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      '.export-body input[type=\"number\"]'
+    );
+    expect(durationInput.max).toBe("7200");
+
+    const formatSelect = getRequired<HTMLSelectElement>(
+      rendered.container,
+      ".export-body select"
+    );
+    const mp3Option = Array.from(formatSelect.options).find(
+      (option) => option.value === "mp3"
+    );
+    expect(mp3Option?.textContent).toBe("MP3 (compressed)");
+    expect(rendered.container.textContent).not.toContain(
+      "Match Current Playback Exactly"
+    );
+
     rendered.unmount();
   });
 });
