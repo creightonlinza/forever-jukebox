@@ -41,6 +41,44 @@ body {
   justify-content: flex-end;
 }
 
+.offline-banner {
+  position: absolute;
+  top: 2px;
+  left: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 110px;
+  height: 24px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, black);
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--bg);
+  font-family: "Tilt Neon", sans-serif;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.offline-banner-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.offline-banner:hover,
+.offline-banner:focus-visible {
+  background: color-mix(in srgb, var(--accent) 86%, white);
+  color: var(--bg);
+  outline: none;
+}
+
 .hero-main {
   margin-top: 16px;
   display: flex;
@@ -1245,6 +1283,10 @@ button:hover {
 @media (max-width: 720px) {
   .hero {
     padding-top: 42px;
+  }
+
+  .offline-banner {
+    left: 12px;
   }
 
   .theme-toggle {
