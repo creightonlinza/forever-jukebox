@@ -1,5 +1,6 @@
 package com.foreverjukebox.app.ui
 
+import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.data.SpotifySearchItem
 import com.foreverjukebox.app.data.ThemeMode
 import com.foreverjukebox.app.data.TopSongItem
@@ -8,8 +9,10 @@ import com.foreverjukebox.app.data.FavoriteTrack
 import com.foreverjukebox.app.engine.VisualizationData
 import com.foreverjukebox.app.visualization.JumpLine
 import kotlinx.serialization.Serializable
+import java.net.URI
 
 enum class TabId {
+    Input,
     Top,
     Search,
     Play,
@@ -24,9 +27,11 @@ enum class TopSongsTab {
 }
 
 data class UiState(
+    val appMode: AppMode? = null,
     val baseUrl: String = "",
     val castEnabled: Boolean = false,
-    val showBaseUrlPrompt: Boolean = true,
+    val showAppModeGate: Boolean = true,
+    val showBaseUrlPrompt: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.System,
     val activeTab: TabId = TabId.Top,
     val topSongsTab: TopSongsTab = TopSongsTab.TopSongs,
@@ -100,3 +105,44 @@ data class TrackMetaJson(
     val artist: String? = null,
     val duration: Double? = null
 )
+
+val serverModeTabs: List<TabId> = listOf(TabId.Top, TabId.Search, TabId.Play, TabId.Faq)
+val localModeTabs: List<TabId> = listOf(TabId.Input, TabId.Play, TabId.Faq)
+val defaultOnboardingMode: AppMode = AppMode.Local
+
+fun tabsForMode(mode: AppMode?): List<TabId> {
+    return when (mode) {
+        AppMode.Local -> localModeTabs
+        AppMode.Server, null -> serverModeTabs
+    }
+}
+
+fun defaultTabForMode(mode: AppMode?): TabId {
+    return when (mode) {
+        AppMode.Local -> TabId.Input
+        AppMode.Server, null -> TabId.Top
+    }
+}
+
+fun coerceTabForMode(mode: AppMode?, tabId: TabId): TabId {
+    return if (tabsForMode(mode).contains(tabId)) {
+        tabId
+    } else {
+        defaultTabForMode(mode)
+    }
+}
+
+fun shouldShowAppModeGate(mode: AppMode?): Boolean = mode == null
+
+fun shouldShowBaseUrlPrompt(mode: AppMode?, baseUrl: String): Boolean {
+    return mode == AppMode.Server && !isValidBaseUrl(baseUrl)
+}
+
+fun isValidBaseUrl(value: String): Boolean {
+    val trimmed = value.trim()
+    if (trimmed.isBlank()) return false
+    val parsed = runCatching { URI(trimmed) }.getOrNull() ?: return false
+    val scheme = parsed.scheme?.lowercase()
+    if (scheme != "http" && scheme != "https") return false
+    return !parsed.host.isNullOrBlank()
+}

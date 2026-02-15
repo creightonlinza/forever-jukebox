@@ -28,60 +28,67 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(16.dp)
         ) {
-            HeaderBar(
-                state = state,
-                onEditBaseUrl = { viewModel.setBaseUrl(it) },
-                onThemeChange = viewModel::setThemeMode,
-                onRefreshCacheSize = viewModel::refreshCacheSize,
-                onClearCache = viewModel::clearCache,
-                onTabSelected = viewModel::setActiveTab,
-                onCastSessionStarted = {}
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            when (state.activeTab) {
-                TabId.Top -> TopSongsPanel(
-                    items = state.search.topSongs,
-                    risingItems = state.search.risingSongs,
-                    recentItems = state.search.recentSongs,
-                    favorites = state.favorites,
-                    loading = state.search.topSongsLoading,
-                    risingLoading = state.search.risingSongsLoading,
-                    recentLoading = state.search.recentSongsLoading,
-                    topSongsLimit = TOP_SONGS_LIMIT,
-                    activeTab = state.topSongsTab,
-                    onTabSelected = viewModel::setTopSongsTab,
-                    onSelect = { id, title, artist, tuningParams, sourceType ->
-                        when (sourceType) {
-                            com.foreverjukebox.app.data.FavoriteSourceType.Upload ->
-                                viewModel.loadTrackByJobId(id, title, artist, tuningParams)
-                            com.foreverjukebox.app.data.FavoriteSourceType.Youtube ->
-                                viewModel.loadTrackByYoutubeId(id, title, artist, tuningParams)
-                        }
-                    },
-                    onRemoveFavorite = viewModel::removeFavorite,
-                    favoritesSyncCode = state.favoritesSyncCode,
-                    allowFavoritesSync = state.allowFavoritesSync,
-                    onRefreshSync = viewModel::refreshFavoritesFromSync,
-                    onCreateSync = viewModel::createFavoritesSyncCode,
-                    onFetchSync = viewModel::fetchFavoritesPreview,
-                    onApplySync = viewModel::applyFavoritesSync
-                )
-                TabId.Search -> SearchPanel(
+            if (state.showAppModeGate) {
+                TitleOnlyHeaderBar()
+            } else {
+                HeaderBar(
                     state = state,
-                    onSearch = viewModel::runSpotifySearch,
-                    onSpotifySelect = viewModel::selectSpotifyTrack,
-                    onYoutubeSelect = viewModel::startYoutubeAnalysis
+                    onEditBaseUrl = { viewModel.setBaseUrl(it) },
+                    onThemeChange = viewModel::setThemeMode,
+                    onAppModeChange = viewModel::setAppMode,
+                    onRefreshCacheSize = viewModel::refreshCacheSize,
+                    onClearCache = viewModel::clearCache,
+                    onTabSelected = viewModel::setActiveTab,
+                    onCastSessionStarted = {}
                 )
-                TabId.Play -> PlayPanel(state = state, viewModel = viewModel)
-                TabId.Faq -> FaqPanel()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                when (state.activeTab) {
+                    TabId.Input -> InputPanel()
+                    TabId.Top -> TopSongsPanel(
+                        items = state.search.topSongs,
+                        risingItems = state.search.risingSongs,
+                        recentItems = state.search.recentSongs,
+                        favorites = state.favorites,
+                        loading = state.search.topSongsLoading,
+                        risingLoading = state.search.risingSongsLoading,
+                        recentLoading = state.search.recentSongsLoading,
+                        topSongsLimit = TOP_SONGS_LIMIT,
+                        activeTab = state.topSongsTab,
+                        onTabSelected = viewModel::setTopSongsTab,
+                        onSelect = { id, title, artist, tuningParams, sourceType ->
+                            when (sourceType) {
+                                com.foreverjukebox.app.data.FavoriteSourceType.Upload ->
+                                    viewModel.loadTrackByJobId(id, title, artist, tuningParams)
+                                com.foreverjukebox.app.data.FavoriteSourceType.Youtube ->
+                                    viewModel.loadTrackByYoutubeId(id, title, artist, tuningParams)
+                            }
+                        },
+                        onRemoveFavorite = viewModel::removeFavorite,
+                        favoritesSyncCode = state.favoritesSyncCode,
+                        allowFavoritesSync = state.allowFavoritesSync,
+                        onRefreshSync = viewModel::refreshFavoritesFromSync,
+                        onCreateSync = viewModel::createFavoritesSyncCode,
+                        onFetchSync = viewModel::fetchFavoritesPreview,
+                        onApplySync = viewModel::applyFavoritesSync
+                    )
+                    TabId.Search -> SearchPanel(
+                        state = state,
+                        onSearch = viewModel::runSpotifySearch,
+                        onSpotifySelect = viewModel::selectSpotifyTrack,
+                        onYoutubeSelect = viewModel::startYoutubeAnalysis
+                    )
+                    TabId.Play -> PlayPanel(state = state, viewModel = viewModel)
+                    TabId.Faq -> FaqPanel()
+                }
             }
         }
 
-        if (state.showBaseUrlPrompt) {
-            BaseUrlDialog(
+        if (state.showAppModeGate) {
+            AppModeDialog(
+                initialMode = defaultOnboardingMode,
                 initialValue = state.baseUrl,
-                onSave = viewModel::setBaseUrl
+                onConfirm = viewModel::completeAppModeOnboarding
             )
         }
     }

@@ -6,6 +6,7 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.foreverjukebox.app.data.ApiClient
+import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.data.AppPreferences
 import com.foreverjukebox.app.data.AnalysisResponse
 import com.foreverjukebox.app.data.FavoriteSourceType
@@ -74,39 +75,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
+            preferences.appMode.collect { mode ->
+                _state.update { current ->
+                    val resolvedAppId = CastAppIdResolver.resolve(getApplication(), current.baseUrl)
+                    val nextActiveTab = coerceTabForMode(mode, current.activeTab)
+                    current.copy(
+                        appMode = mode,
+                        activeTab = nextActiveTab,
+                        showAppModeGate = shouldShowAppModeGate(mode),
+                        showBaseUrlPrompt = shouldShowBaseUrlPrompt(mode, current.baseUrl),
+                        castEnabled = mode == AppMode.Server && !resolvedAppId.isNullOrBlank()
+                    )
+                }
+                maybeRefreshServerDataForCurrentState()
+            }
+        }
+        viewModelScope.launch {
             preferences.baseUrl.collect { url ->
                 val resolvedAppId = CastAppIdResolver.resolve(getApplication(), url)
                 _state.update { current ->
+                    val mode = current.appMode
                     current.copy(
                         baseUrl = url.orEmpty(),
-                        showBaseUrlPrompt = url.isNullOrBlank(),
-                        castEnabled = !resolvedAppId.isNullOrBlank()
+                        showBaseUrlPrompt = shouldShowBaseUrlPrompt(mode, url.orEmpty()),
+                        castEnabled = mode == AppMode.Server && !resolvedAppId.isNullOrBlank()
                     )
                 }
-                if (!url.isNullOrBlank()) {
-                    if (!appConfigLoaded) {
-                        appConfigLoaded = true
-                        viewModelScope.launch {
-                            runCatching { api.getAppConfig(url).also { preferences.setAppConfig(it) } }
-                        }
-                    }
-                    if (state.value.activeTab == TabId.Top && !topSongsLoaded) {
-                        refreshTopSongs()
-                    }
-                    if (state.value.activeTab == TabId.Top &&
-                        state.value.topSongsTab == TopSongsTab.Rising &&
-                        !risingSongsLoaded
-                    ) {
-                        refreshRisingSongs()
-                    }
-                    if (state.value.activeTab == TabId.Top &&
-                        state.value.topSongsTab == TopSongsTab.Recent &&
-                        !recentSongsLoaded
-                    ) {
-                        refreshRecentSongs()
-                    }
-                    favoritesController.maybeHydrateFavoritesFromSync()
-                }
+                maybeRefreshServerDataForCurrentState()
             }
         }
         viewModelScope.launch {
@@ -177,10 +172,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setBaseUrl(url: String) {
+        val trimmedUrl = url.trim()
+        _state.update {
+            it.copy(
+                baseUrl = trimmedUrl,
+                showBaseUrlPrompt = shouldShowBaseUrlPrompt(it.appMode, trimmedUrl)
+            )
+        }
         viewModelScope.launch {
-            preferences.setBaseUrl(url.trim())
-            delay(100)
-            refreshTopSongs()
+            preferences.setBaseUrl(trimmedUrl)
+            if (state.value.appMode == AppMode.Server) {
+                delay(100)
+                refreshTopSongs()
+            }
         }
     }
 
@@ -190,12 +194,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setAppMode(mode: AppMode) {
+        if (state.value.appMode == mode) return
+        resetRuntimeForModeChange(mode)
+        viewModelScope.launch {
+            preferences.setAppMode(mode)
+        }
+        maybeRefreshServerDataForCurrentState()
+    }
+
+    fun completeAppModeOnboarding(mode: AppMode, baseUrl: String) {
+        if (mode == AppMode.Server) {
+            setBaseUrl(baseUrl)
+        }
+        setAppMode(mode)
+    }
+
     fun setActiveTab(tabId: TabId) {
-        if (tabId == TabId.Top && state.value.activeTab == TabId.Top) {
+        val resolvedTab = coerceTabForMode(state.value.appMode, tabId)
+        if (resolvedTab == TabId.Top && state.value.activeTab == TabId.Top) {
             setTopSongsTab(TopSongsTab.TopSongs)
             return
         }
-        applyActiveTab(tabId, recordHistory = true)
+        applyActiveTab(resolvedTab, recordHistory = true)
     }
 
     fun canNavigateBack(): Boolean = tabHistory.isNotEmpty()
@@ -237,20 +258,85 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun applyActiveTab(tabId: TabId, recordHistory: Boolean) {
+        val resolvedTab = coerceTabForMode(state.value.appMode, tabId)
         val current = state.value.activeTab
-        if (tabId == current) return
+        if (resolvedTab == current) return
         if (recordHistory && tabHistory.lastOrNull() != current) {
             tabHistory.addLast(current)
         }
         _state.update {
-            val nextTopTab = if (tabId == TabId.Top) TopSongsTab.TopSongs else it.topSongsTab
-            it.copy(activeTab = tabId, topSongsTab = nextTopTab)
+            val nextTopTab = if (resolvedTab == TabId.Top) TopSongsTab.TopSongs else it.topSongsTab
+            it.copy(activeTab = resolvedTab, topSongsTab = nextTopTab)
         }
-        if (tabId == TabId.Top) {
+        if (resolvedTab == TabId.Top) {
             scheduleTopSongsRefresh()
         }
-        if (tabId != TabId.Play) {
+        if (resolvedTab != TabId.Play) {
             _state.update { it.copy(playback = it.playback.copy()) }
+        }
+    }
+
+    private fun maybeRefreshServerDataForCurrentState() {
+        val currentState = state.value
+        if (currentState.appMode != AppMode.Server) return
+        val baseUrl = currentState.baseUrl
+        if (baseUrl.isBlank()) return
+        if (!appConfigLoaded) {
+            appConfigLoaded = true
+            viewModelScope.launch {
+                runCatching { api.getAppConfig(baseUrl).also { preferences.setAppConfig(it) } }
+            }
+        }
+        if (currentState.activeTab == TabId.Top && !topSongsLoaded) {
+            refreshTopSongs()
+        }
+        if (currentState.activeTab == TabId.Top &&
+            currentState.topSongsTab == TopSongsTab.Rising &&
+            !risingSongsLoaded
+        ) {
+            refreshRisingSongs()
+        }
+        if (currentState.activeTab == TabId.Top &&
+            currentState.topSongsTab == TopSongsTab.Recent &&
+            !recentSongsLoaded
+        ) {
+            refreshRecentSongs()
+        }
+        favoritesController.maybeHydrateFavoritesFromSync()
+    }
+
+    private fun resetRuntimeForModeChange(targetMode: AppMode) {
+        refreshTopSongsJob?.cancel()
+        refreshTopSongsJob = null
+        topSongsLoaded = false
+        risingSongsLoaded = false
+        recentSongsLoaded = false
+        appConfigLoaded = false
+        tabHistory.clear()
+
+        if (targetMode == AppMode.Local || state.value.playback.isCasting) {
+            runCatching { castController.endSession() }
+        }
+        castController.resetStatusListener()
+        playbackCoordinator.resetForNewTrack()
+        engine.clearAnalysis()
+        controller.player.clear()
+        controller.setTrackMeta(null, null)
+        ForegroundPlaybackService.stop(getApplication())
+
+        _state.update { current ->
+            val resolvedAppId = CastAppIdResolver.resolve(getApplication(), current.baseUrl)
+            current.copy(
+                appMode = targetMode,
+                showAppModeGate = false,
+                showBaseUrlPrompt = shouldShowBaseUrlPrompt(targetMode, current.baseUrl),
+                castEnabled = targetMode == AppMode.Server && !resolvedAppId.isNullOrBlank(),
+                activeTab = defaultTabForMode(targetMode),
+                topSongsTab = TopSongsTab.TopSongs,
+                search = SearchState(),
+                playback = PlaybackState(),
+                tuning = TuningState()
+            )
         }
     }
 
@@ -1082,7 +1168,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             playbackCoordinator.resetForNewTrack()
-            _state.update { it.copy(activeTab = TabId.Top, topSongsTab = TopSongsTab.TopSongs) }
+            _state.update {
+                val nextTab = defaultTabForMode(it.appMode)
+                it.copy(activeTab = nextTab, topSongsTab = TopSongsTab.TopSongs)
+            }
             tabHistory.removeLastOrNull()?.let { last ->
                 if (last != TabId.Play) {
                     tabHistory.addLast(last)
@@ -1102,7 +1191,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         engine.clearAnalysis()
         controller.player.clear()
         controller.setTrackMeta(null, null)
-        _state.update { it.copy(activeTab = TabId.Top, topSongsTab = TopSongsTab.TopSongs) }
+        _state.update {
+            val nextTab = defaultTabForMode(it.appMode)
+            it.copy(activeTab = nextTab, topSongsTab = TopSongsTab.TopSongs)
+        }
     }
 
     fun selectBeat(index: Int) {

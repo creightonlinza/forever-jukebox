@@ -23,33 +23,31 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun TabBar(state: UiState, onTabSelected: (TabId) -> Unit) {
     val shouldPulseListen = state.playback.isRunning && state.activeTab != TabId.Play
+    val tabs = tabsForMode(state.appMode)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        TabButton(
-            text = "Top Songs",
-            active = state.activeTab == TabId.Top,
-            onClick = { onTabSelected(TabId.Top) }
-        )
-        TabButton(
-            text = "Search",
-            active = state.activeTab == TabId.Search,
-            onClick = { onTabSelected(TabId.Search) }
-        )
-        TabButton(
-            text = "Listen",
-            active = state.activeTab == TabId.Play,
-            pulse = shouldPulseListen,
-            onClick = { onTabSelected(TabId.Play) }
-        )
-        TabButton(
-            text = "FAQ",
-            active = state.activeTab == TabId.Faq,
-            onClick = { onTabSelected(TabId.Faq) }
-        )
+        tabs.forEach { tabId ->
+            TabButton(
+                text = tabLabel(tabId),
+                active = state.activeTab == tabId,
+                pulse = tabId == TabId.Play && shouldPulseListen,
+                onClick = { onTabSelected(tabId) }
+            )
+        }
+    }
+}
+
+private fun tabLabel(tabId: TabId): String {
+    return when (tabId) {
+        TabId.Input -> "Input"
+        TabId.Top -> "Top Songs"
+        TabId.Search -> "Search"
+        TabId.Play -> "Listen"
+        TabId.Faq -> "FAQ"
     }
 }
 

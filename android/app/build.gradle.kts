@@ -101,4 +101,5 @@ dependencies {
     implementation("com.google.android.gms:play-services-cast-framework:21.4.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling:1.6.8")
+    testImplementation("junit:junit:4.13.2")
 }

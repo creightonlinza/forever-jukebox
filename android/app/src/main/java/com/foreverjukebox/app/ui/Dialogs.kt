@@ -17,8 +17,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,8 +25,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.foreverjukebox.app.data.AppMode
 
 @Composable
 fun TuningDialog(
@@ -175,58 +175,68 @@ fun TuningDialog(
 }
 
 @Composable
-fun BaseUrlDialog(initialValue: String, onSave: (String) -> Unit) {
-    var urlInput by remember { mutableStateOf(initialValue) }
-    val trimmed = urlInput.trim()
-    val isValidUrl = remember(trimmed) { isValidBaseUrl(trimmed) }
+fun AppModeDialog(
+    initialMode: AppMode = AppMode.Local,
+    initialValue: String = "",
+    onConfirm: (AppMode, String) -> Unit
+) {
+    var selectedMode by remember(initialMode) { mutableStateOf(initialMode) }
+    var urlInput by remember(initialValue) { mutableStateOf(initialValue) }
+    val trimmedUrl = urlInput.trim()
+    val requiresServerUrl = selectedMode == AppMode.Server
+    val isValidServerUrl = isValidBaseUrl(trimmedUrl)
+    val canConfirm = !requiresServerUrl || isValidServerUrl
     AlertDialog(
         onDismissRequest = {},
         confirmButton = {
             Button(
-                onClick = { onSave(trimmed) },
-                enabled = isValidUrl,
+                onClick = { onConfirm(selectedMode, trimmedUrl) },
+                enabled = canConfirm,
                 colors = pillButtonColors(),
                 border = pillButtonBorder(),
                 shape = PillShape,
                 contentPadding = SmallButtonPadding,
                 modifier = Modifier.height(SmallButtonHeight)
             ) {
-                Text("Save", style = MaterialTheme.typography.labelSmall)
+                Text("OK", style = MaterialTheme.typography.labelSmall)
             }
         },
-        title = { Text("API Base URL") },
+        title = { Text("App Mode") },
         text = {
-            OutlinedTextField(
-                value = urlInput,
-                onValueChange = { urlInput = it },
-                label = { Text("Example: http://192.168.1.100") },
-                textStyle = MaterialTheme.typography.bodySmall,
-                singleLine = true,
-                isError = trimmed.isNotEmpty() && !isValidUrl,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Done
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.heightIn(min = SmallFieldMinHeight)
-            )
-            if (trimmed.isNotEmpty() && !isValidUrl) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Enter a valid http(s) URL.",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Choose how this app connects.")
+                AppModeSliderToggle(
+                    selectedMode = selectedMode,
+                    onModeChange = { selectedMode = it },
+                    modifier = Modifier.height(SmallButtonHeight)
                 )
+                if (requiresServerUrl) {
+                    Text("API Base URL")
+                    OutlinedTextField(
+                        value = urlInput,
+                        onValueChange = { urlInput = it },
+                        label = { Text("Example: http://192.168.1.100") },
+                        textStyle = MaterialTheme.typography.bodySmall,
+                        singleLine = true,
+                        isError = trimmedUrl.isNotEmpty() && !isValidServerUrl,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Done
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.heightIn(min = SmallFieldMinHeight)
+                    )
+                    if (trimmedUrl.isNotEmpty() && !isValidServerUrl) {
+                        Text(
+                            "Enter a valid http(s) URL.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             }
         }
     )
-}
-
-private fun isValidBaseUrl(value: String): Boolean {
-    val parsed = runCatching { android.net.Uri.parse(value) }.getOrNull() ?: return false
-    val scheme = parsed.scheme?.lowercase()
-    if (scheme != "http" && scheme != "https") return false
-    return !parsed.host.isNullOrBlank()
 }
 
 @Composable
