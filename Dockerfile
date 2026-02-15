@@ -7,6 +7,13 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
+FROM --platform=$BUILDPLATFORM node:20-slim AS pwa-build
+WORKDIR /app/pwa
+COPY pwa/package*.json ./
+RUN npm ci
+COPY pwa/ ./
+RUN npm run build
+
 # Force amd64 so pip can use Essentia's manylinux x86_64 wheel (no source builds)
 FROM --platform=linux/amd64 python:3.10-slim-bookworm AS runtime
 
@@ -52,6 +59,7 @@ RUN curl -fsSL "https://github.com/denoland/deno/releases/download/v${DENO_VERSI
 COPY api/ ./api/
 COPY engine/ ./engine/
 COPY --from=web-build /app/web/dist ./web/dist
+COPY --from=pwa-build /app/pwa/dist ./web/dist/offline
 COPY docker/entrypoint.sh /app/entrypoint.sh
 
 RUN chmod +x /app/entrypoint.sh

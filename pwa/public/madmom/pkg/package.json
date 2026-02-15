@@ -1,0 +1,16 @@
+{
+  "name": "rhythm_wasm",
+  "type": "module",
+  "version": "2.0.0",
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "rhythm_wasm_bg.wasm",
+    "rhythm_wasm.js",
+    "rhythm_wasm.d.ts"
+  ],
+  "main": "rhythm_wasm.js",
+  "types": "rhythm_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

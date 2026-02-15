@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from starlette.responses import Response
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -71,6 +71,18 @@ if WEB_DIST.exists():
             cast_entry = WEB_DIST / "cast-receiver.html"
             if cast_entry.exists():
                 return FileResponse(cast_entry)
+        if full_path == "offline":
+            return RedirectResponse(url="/offline/", status_code=308)
+        if full_path.startswith("offline/"):
+            offline_dist = WEB_DIST / "offline"
+            offline_index = offline_dist / "index.html"
+            if offline_index.exists():
+                if full_path == "offline/":
+                    return FileResponse(offline_index)
+                offline_candidate = (WEB_DIST / full_path).resolve()
+                if offline_candidate.is_file() and offline_candidate.is_relative_to(offline_dist):
+                    return FileResponse(offline_candidate)
+                return FileResponse(offline_index)
         candidate = (WEB_DIST / full_path).resolve()
         if candidate.is_file():
             return FileResponse(candidate)
