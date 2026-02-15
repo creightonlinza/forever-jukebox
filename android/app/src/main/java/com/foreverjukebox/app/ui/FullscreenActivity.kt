@@ -172,10 +172,7 @@ private fun FullscreenScreen(
                 jumpLine = jumpLine,
                 positioner = positioners.getOrNull(activeVizIndex) ?: positioners.first(),
                 onSelectBeat = { index ->
-                    val data = vizData ?: return@JukeboxVisualization
-                    if (index < 0 || index >= data.beats.size) return@JukeboxVisualization
-                    val beat = data.beats[index]
-                    controller.player.seek(beat.start)
+                    if (!controller.seekToBeat(index, vizData)) return@JukeboxVisualization
                     currentBeatIndex = index
                 },
                 modifier = Modifier.size(squareSize)

@@ -54,9 +54,11 @@ import com.foreverjukebox.app.data.TopSongItem
 @Composable
 fun TopSongsPanel(
     items: List<TopSongItem>,
+    risingItems: List<TopSongItem>,
     recentItems: List<TopSongItem>,
     favorites: List<FavoriteTrack>,
     loading: Boolean,
+    risingLoading: Boolean,
     recentLoading: Boolean,
     topSongsLimit: Int,
     activeTab: TopSongsTab,
@@ -119,6 +121,57 @@ fun TopSongsPanel(
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         itemsIndexed(items) { index, item ->
+                            val title = item.title
+                            val artist = item.artist
+                            val displayTitle = title ?: "Untitled"
+                            val displayArtist = artist ?: ""
+                            val youtubeId = item.youtubeId ?: return@itemsIndexed
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onSelect(
+                                            youtubeId,
+                                            title,
+                                            artist,
+                                            null,
+                                            FavoriteSourceType.Youtube
+                                        )
+                                    },
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "${index + 1}.",
+                                    modifier = Modifier.alignByBaseline(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (displayArtist.isNotBlank()) {
+                                        "$displayTitle — $displayArtist"
+                                    } else {
+                                        displayTitle
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .alignByBaseline(),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            } else if (activeTab == TopSongsTab.Rising) {
+                Text("Rising", style = MaterialTheme.typography.labelLarge)
+                if (risingLoading) {
+                    Text("Loading rising songs…", style = MaterialTheme.typography.bodySmall)
+                } else if (risingItems.isEmpty()) {
+                    Text("No rising songs yet.", style = MaterialTheme.typography.bodySmall)
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        itemsIndexed(risingItems) { index, item ->
                             val title = item.title
                             val artist = item.artist
                             val displayTitle = title ?: "Untitled"
@@ -471,13 +524,19 @@ private fun TopSongsTabs(activeTab: TopSongsTab, onTabSelected: (TopSongsTab) ->
         horizontalArrangement = Arrangement.Start
     ) {
         SubTabButton(
-            text = "Top Songs",
+            text = "All Time",
             active = activeTab == TopSongsTab.TopSongs,
             onClick = { onTabSelected(TopSongsTab.TopSongs) }
         )
         Spacer(modifier = Modifier.width(8.dp))
         SubTabButton(
-            text = "Recently Played",
+            text = "Rising",
+            active = activeTab == TopSongsTab.Rising,
+            onClick = { onTabSelected(TopSongsTab.Rising) }
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        SubTabButton(
+            text = "Recents",
             active = activeTab == TopSongsTab.Recent,
             onClick = { onTabSelected(TopSongsTab.Recent) }
         )

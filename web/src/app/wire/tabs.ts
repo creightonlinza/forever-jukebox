@@ -11,7 +11,7 @@ type TabsDeps = {
     tabId: TabId,
     options?: { replace?: boolean; youtubeId?: string | null },
   ) => void;
-  onTopSongsTabChange?: (tabId: "top" | "recent" | "favorites") => void;
+  onTopSongsTabChange?: (tabId: "top" | "rising" | "recent" | "favorites") => void;
   onFaqOpen?: () => void;
 };
 
@@ -26,17 +26,20 @@ export function createTabsHandlers(deps: TabsDeps) {
     onFaqOpen,
   } = deps;
 
-  function setTopSongsTab(tabId: "top" | "recent" | "favorites") {
+  function setTopSongsTab(tabId: "top" | "rising" | "recent" | "favorites") {
     state.topSongsTab = tabId;
     elements.topSongsTabs.forEach((button) => {
       button.classList.toggle("active", button.dataset.topSubtab === tabId);
     });
     elements.topSongsList.classList.toggle("hidden", tabId !== "top");
+    elements.risingSongsList.classList.toggle("hidden", tabId !== "rising");
     elements.recentSongsList.classList.toggle("hidden", tabId !== "recent");
     elements.favoritesList.classList.toggle("hidden", tabId !== "favorites");
     elements.topListTitle.textContent =
       tabId === "top"
         ? `Top ${TOP_SONGS_LIMIT}`
+        : tabId === "rising"
+          ? "Rising"
         : tabId === "recent"
           ? `Last ${TOP_SONGS_LIMIT} Played`
           : "Favorites";
@@ -60,6 +63,7 @@ export function createTabsHandlers(deps: TabsDeps) {
     const button = event.currentTarget as HTMLButtonElement | null;
     const tabId = button?.dataset.topSubtab as
       | "top"
+      | "rising"
       | "recent"
       | "favorites"
       | undefined;
@@ -92,9 +96,6 @@ export function createTabsHandlers(deps: TabsDeps) {
     }
     if (tabId === "search") {
       setSearchTab("search");
-    }
-    if (tabId === "play" && !state.lastYouTubeId && !state.lastJobId) {
-      return;
     }
     navigateToTabWithState(tabId);
     if (tabId === "faq") {

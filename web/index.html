@@ -60,7 +60,7 @@
               Top Songs
             </button>
             <button class="tab-btn" data-tab-button="search">Search</button>
-            <button class="tab-btn" data-tab-button="play" disabled>
+            <button class="tab-btn" data-tab-button="play">
               Listen
             </button>
             <button class="tab-btn" data-tab-button="faq">FAQ</button>
@@ -70,10 +70,13 @@
       <section class="panel tab-panel" data-tab-panel="top">
         <div class="subtabs" id="top-subtabs">
           <button class="subtab-btn active" data-top-subtab="top">
-            Top Songs
+            All Time
+          </button>
+          <button class="subtab-btn" data-top-subtab="rising">
+            Rising
           </button>
           <button class="subtab-btn" data-top-subtab="recent">
-            Recently Played
+            Recents
           </button>
           <span class="subtab-spacer" aria-hidden="true"></span>
           <button class="subtab-btn" data-top-subtab="favorites">
@@ -128,6 +131,9 @@
         </div>
         <ol class="top-list" id="top-songs">
           Loading top songs…
+        </ol>
+        <ol class="top-list hidden" id="rising-songs">
+          Loading rising songs…
         </ol>
         <ol class="top-list hidden" id="recent-songs">
           Loading recent plays…
@@ -197,7 +203,7 @@
             ></div>
             <div class="status-progress" id="analysis-progress"></div>
             <div class="status-text" id="analysis-status">
-              Select a track to begin.
+              No song selected.
             </div>
           </div>
         </div>

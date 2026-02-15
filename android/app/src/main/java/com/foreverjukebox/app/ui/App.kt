@@ -42,9 +42,11 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
             when (state.activeTab) {
                 TabId.Top -> TopSongsPanel(
                     items = state.search.topSongs,
+                    risingItems = state.search.risingSongs,
                     recentItems = state.search.recentSongs,
                     favorites = state.favorites,
                     loading = state.search.topSongsLoading,
+                    risingLoading = state.search.risingSongsLoading,
                     recentLoading = state.search.recentSongsLoading,
                     topSongsLimit = TOP_SONGS_LIMIT,
                     activeTab = state.topSongsTab,

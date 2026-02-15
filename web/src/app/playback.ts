@@ -160,14 +160,12 @@ export function updateTrackInfo(context: AppContext) {
 
 export function updateVizVisibility(context: AppContext) {
   const { autocanonizer, elements, jukebox, state } = context;
-  const hasTrack = Boolean(state.lastYouTubeId || state.lastJobId);
   if (state.audioLoaded && state.analysisLoaded) {
     elements.playStatusPanel.classList.add("hidden");
     elements.playMenu.classList.remove("hidden");
     elements.vizPanel.classList.remove("hidden");
     elements.playButton.classList.remove("hidden");
     updatePlayButton(context, state.isRunning);
-    elements.playTabButton.disabled = false;
     if (state.playMode === "autocanonizer") {
       autocanonizer.resizeNow();
     } else {
@@ -181,7 +179,6 @@ export function updateVizVisibility(context: AppContext) {
     elements.playMenu.classList.add("hidden");
     elements.vizPanel.classList.add("hidden");
     elements.playButton.classList.add("hidden");
-    elements.playTabButton.disabled = !hasTrack;
     elements.vizButtons.forEach((button) => {
       button.disabled = true;
     });
@@ -524,6 +521,9 @@ export function resetForNewTrack(
   engine.updateConfig({ ...defaultConfig });
   syncTuningUI(context);
   elements.playTitle.textContent = "";
+  elements.analysisStatus.textContent = "No song selected.";
+  elements.analysisSpinner.classList.add("hidden");
+  elements.analysisProgress.textContent = "";
   state.trackDurationSec = null;
   state.trackTitle = null;
   state.trackArtist = null;

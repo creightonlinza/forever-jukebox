@@ -6,6 +6,7 @@ import com.foreverjukebox.app.audio.BufferedAudioPlayer
 import com.foreverjukebox.app.engine.JukeboxEngine
 import com.foreverjukebox.app.engine.JukeboxEngineOptions
 import com.foreverjukebox.app.engine.RandomMode
+import com.foreverjukebox.app.engine.VisualizationData
 
 class PlaybackController {
     val player = BufferedAudioPlayer()
@@ -85,6 +86,15 @@ class PlaybackController {
 
     fun getTrackDurationMs(): Long? {
         return player.getDurationSeconds()?.let { (it * 1000.0).toLong() }
+    }
+
+    fun seekToBeat(index: Int, data: VisualizationData? = engine.getVisualizationData()): Boolean {
+        val beats = data?.beats ?: return false
+        if (index !in beats.indices) return false
+        val beat = beats[index]
+        player.seek(beat.start)
+        engine.seekToBeat(index)
+        return true
     }
 }
 

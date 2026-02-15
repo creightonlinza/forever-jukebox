@@ -42,9 +42,6 @@ fun TabBar(state: UiState, onTabSelected: (TabId) -> Unit) {
         TabButton(
             text = "Listen",
             active = state.activeTab == TabId.Play,
-            enabled = state.playback.isCasting ||
-                state.playback.lastYouTubeId != null ||
-                state.playback.lastJobId != null,
             pulse = shouldPulseListen,
             onClick = { onTabSelected(TabId.Play) }
         )
