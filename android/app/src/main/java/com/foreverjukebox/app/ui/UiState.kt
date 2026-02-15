@@ -18,6 +18,7 @@ enum class TabId {
 
 enum class TopSongsTab {
     TopSongs,
+    Rising,
     Recent,
     Favorites
 }
@@ -42,6 +43,8 @@ data class SearchState(
     val query: String = "",
     val topSongs: List<TopSongItem> = emptyList(),
     val topSongsLoading: Boolean = false,
+    val risingSongs: List<TopSongItem> = emptyList(),
+    val risingSongsLoading: Boolean = false,
     val recentSongs: List<TopSongItem> = emptyList(),
     val recentSongsLoading: Boolean = false,
     val spotifyResults: List<SpotifySearchItem> = emptyList(),

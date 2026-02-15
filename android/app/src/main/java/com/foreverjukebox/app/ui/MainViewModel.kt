@@ -45,6 +45,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var refreshTopSongsJob: Job? = null
     private var topSongsLoaded = false
+    private var risingSongsLoaded = false
     private var recentSongsLoaded = false
     private var appConfigLoaded = false
     private val tabHistory = ArrayDeque<TabId>()
@@ -91,6 +92,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     if (state.value.activeTab == TabId.Top && !topSongsLoaded) {
                         refreshTopSongs()
+                    }
+                    if (state.value.activeTab == TabId.Top &&
+                        state.value.topSongsTab == TopSongsTab.Rising &&
+                        !risingSongsLoaded
+                    ) {
+                        refreshRisingSongs()
                     }
                     if (state.value.activeTab == TabId.Top &&
                         state.value.topSongsTab == TopSongsTab.Recent &&
@@ -205,6 +212,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (tab == TopSongsTab.TopSongs) {
             scheduleTopSongsRefresh()
         }
+        if (tab == TopSongsTab.Rising) {
+            scheduleRisingSongsRefresh()
+        }
         if (tab == TopSongsTab.Recent) {
             scheduleRecentSongsRefresh()
         }
@@ -261,6 +271,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshTopSongsJob = viewModelScope.launch {
             delay(250)
             refreshRecentSongs()
+        }
+    }
+
+    private fun scheduleRisingSongsRefresh() {
+        val baseUrl = state.value.baseUrl
+        if (baseUrl.isBlank() || risingSongsLoaded) return
+        refreshTopSongsJob?.cancel()
+        refreshTopSongsJob = viewModelScope.launch {
+            delay(250)
+            refreshRisingSongs()
         }
     }
 
@@ -358,6 +378,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 updateSearchState { it.copy(recentSongs = emptyList()) }
             } finally {
                 updateSearchState { it.copy(recentSongsLoading = false) }
+            }
+        }
+    }
+
+    fun refreshRisingSongs() {
+        val baseUrl = state.value.baseUrl
+        if (baseUrl.isBlank()) return
+        risingSongsLoaded = true
+        viewModelScope.launch {
+            updateSearchState { it.copy(risingSongsLoading = true) }
+            try {
+                val items = api.fetchRisingSongs(baseUrl)
+                updateSearchState { it.copy(risingSongs = items) }
+            } catch (err: Exception) {
+                updateSearchState { it.copy(risingSongs = emptyList()) }
+            } finally {
+                updateSearchState { it.copy(risingSongsLoading = false) }
             }
         }
     }
@@ -1069,11 +1106,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectBeat(index: Int) {
-        val data = state.value.playback.vizData ?: return
-        if (index < 0 || index >= data.beats.size) return
-        val beat = data.beats[index]
-        controller.player.seek(beat.start)
-        engine.seekToBeat(index)
+        val data = state.value.playback.vizData
+        if (!controller.seekToBeat(index, data)) return
         _state.update { it.copy(playback = it.playback.copy(currentBeatIndex = index)) }
     }
 

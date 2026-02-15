@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -261,24 +261,59 @@ def update_job_track_metadata(
         conn.commit()
 
 
-def get_top_tracks(db_path: Path, limit: int = 10) -> list[dict]:
-    with sqlite3.connect(db_path) as conn:
-        rows = conn.execute(
-            """
-            SELECT id, track_title, track_artist, youtube_id, play_count
-            FROM jobs
-            WHERE track_title IS NOT NULL
+def get_top_tracks(
+    db_path: Path,
+    limit: int = 10,
+    touched_within_days: int | None = None,
+    exclude_top_n: int | None = None,
+) -> list[dict]:
+    cutoff: str | None = None
+    if touched_within_days is not None:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=touched_within_days)).isoformat()
+
+    base_filter = """
+            track_title IS NOT NULL
               AND track_title != ''
               AND (
                 (COALESCE(is_user_supplied, 0) = 0 AND track_artist IS NOT NULL AND track_artist != '')
                 OR (COALESCE(is_user_supplied, 0) = 1 AND youtube_id IS NOT NULL AND youtube_id != '')
               )
               AND play_count > 0
-            ORDER BY play_count DESC, updated_at DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+    """
+
+    query = """
+            SELECT id, track_title, track_artist, youtube_id, play_count
+            FROM jobs
+            WHERE
+    """
+    query += base_filter
+
+    if exclude_top_n is not None:
+        query += (
+            """
+              AND id NOT IN (
+                SELECT id
+                FROM jobs
+                WHERE
+            """
+            + base_filter
+            + """
+                ORDER BY play_count DESC, updated_at DESC
+                LIMIT ?
+              )
+            """
+        )
+    params: list[object] = []
+    if exclude_top_n is not None:
+        params.append(exclude_top_n)
+    if cutoff is not None:
+        query += "\n              AND updated_at >= ?"
+        params.append(cutoff)
+    query += "\n            ORDER BY play_count DESC, updated_at DESC\n            LIMIT ?"
+    params.append(limit)
+
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(query, tuple(params)).fetchall()
     return [
         {
             "id": row[0],

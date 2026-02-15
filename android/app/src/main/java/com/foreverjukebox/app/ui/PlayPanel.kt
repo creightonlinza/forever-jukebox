@@ -327,6 +327,14 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                     }
                 }
             }
+        } else if (
+            !playback.isCasting &&
+            !playback.analysisInFlight &&
+            !playback.analysisCalculating &&
+            !playback.audioLoading &&
+            playback.analysisErrorMessage.isNullOrBlank()
+        ) {
+            Text("No song selected.", color = MaterialTheme.colorScheme.onBackground)
         }
     }
 

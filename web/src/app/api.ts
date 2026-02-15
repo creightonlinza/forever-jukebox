@@ -268,6 +268,16 @@ export async function fetchTopSongs(limit: number) {
   return Array.isArray(data?.items) ? (data.items as TopSongItem[]) : [];
 }
 
+export async function fetchRisingSongs() {
+  const params = new URLSearchParams({
+    limit: "10",
+    days: "7",
+    exclude_top_n: "25",
+  });
+  const data = await fetchJson(`/api/top?${params.toString()}`);
+  return Array.isArray(data?.items) ? (data.items as TopSongItem[]) : [];
+}
+
 export async function fetchRecentSongs(limit: number) {
   const data = await fetchJson(`/api/recent?limit=${encodeURIComponent(limit)}`);
   return Array.isArray(data?.items) ? (data.items as RecentSongItem[]) : [];

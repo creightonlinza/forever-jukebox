@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fetchAnalysis,
   fetchTopSongs,
+  fetchRisingSongs,
   fetchRecentSongs,
   fetchAppConfig,
   fetchFavoritesSync,
@@ -82,6 +83,14 @@ describe("api", () => {
       createResponse(200, { items: [{ title: "Song" }] }),
     );
     const result = await fetchRecentSongs(3);
+    expect(result.length).toBe(1);
+  });
+
+  it("fetches rising songs", async () => {
+    (fetch as any).mockResolvedValue(
+      createResponse(200, { items: [{ title: "Song" }] }),
+    );
+    const result = await fetchRisingSongs();
     expect(result.length).toBe(1);
   });
 

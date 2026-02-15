@@ -19,6 +19,7 @@ import {
   fetchAppConfig,
   fetchFavoritesSync,
   fetchTopSongs,
+  fetchRisingSongs,
   fetchRecentSongs,
   createFavoritesSync,
   updateFavoritesSync,
@@ -129,6 +130,7 @@ export function bootstrap() {
     selectedEdge: null,
     topSongsRefreshTimer: null,
     topSongsLoaded: false,
+    risingSongsLoaded: false,
     recentSongsLoaded: false,
     trackDurationSec: null,
     trackTitle: null,
@@ -252,6 +254,7 @@ export function bootstrap() {
   const topSongsHandlers = createTopSongsHandlers({
     elements,
     fetchTopSongs,
+    fetchRisingSongs,
     fetchRecentSongs,
     limit: TOP_SONGS_LIMIT,
     loadTrackByYouTubeId: (youtubeId: string) =>
@@ -275,6 +278,19 @@ export function bootstrap() {
           })
           .catch((err) => {
             console.warn(`Top songs load failed: ${String(err)}`);
+          });
+      }
+      if (tabId === "rising") {
+        if (state.risingSongsLoaded) {
+          return;
+        }
+        topSongsHandlers
+          .fetchRisingSongsList()
+          .then(() => {
+            state.risingSongsLoaded = true;
+          })
+          .catch((err) => {
+            console.warn(`Rising songs load failed: ${String(err)}`);
           });
       }
       if (tabId === "recent") {
@@ -382,8 +398,7 @@ export function bootstrap() {
   playbackHandlers.initializePlayback();
 
   navigationHandlers.setActiveTabWithRefresh("top");
-  elements.playTabButton.disabled = true;
-  setAnalysisStatus(context, "Select a track to begin.", false);
+  setAnalysisStatus(context, "No song selected.", false);
   applyTheme(context, initialTheme);
   loadAppConfig()
     .then((config) => {
