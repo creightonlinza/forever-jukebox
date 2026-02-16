@@ -45,7 +45,7 @@ Then open the web UI at `http://localhost:5173`.
 
 Android (native app):
 
-- [`Debug Release APK`](https://github.com/creightonlinza/forever-jukebox/releases/tag/android-debug-latest)
+- [Release APK](https://github.com/creightonlinza/forever-jukebox/releases)
 - Must be pointed toward a running API and worker
 - Full source available in `android/`
 

@@ -241,7 +241,8 @@ private fun SettingsDialog(
     val canSave = !requiresServerUrl || isValidBaseUrl(trimmedUrl)
     val cacheLabel = formatCacheSize(state.cacheSizeBytes)
     val cacheEnabled = state.cacheSizeBytes > 0
-    val versionLabel = "v${BuildConfig.VERSION_NAME}"
+    val normalizedVersionName = BuildConfig.VERSION_NAME.removePrefix("v").removePrefix("V")
+    val versionLabel = "v$normalizedVersionName"
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {

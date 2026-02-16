@@ -24,6 +24,62 @@ Native Android port (Jetpack Compose) for 1:1 feature parity against the web UI.
 ./gradlew assembleDebug
 ```
 
+## Create a release keystore (one-time)
+
+Keep this file safe and backed up. You must reuse the same keystore for all
+future updates of the same Android app signing identity.
+
+```bash
+cd android
+keytool -genkeypair -v \
+  -keystore release.keystore \
+  -alias release \
+  -keyalg RSA \
+  -keysize 4096 \
+  -validity 10000
+```
+
+## Local release build
+
+1. Copy `keystore.properties.example` to `keystore.properties`.
+2. Set the values to match your keystore password + alias.
+3. Build release artifacts:
+
+```bash
+cd android
+./gradlew :app:assembleRelease :app:bundleRelease
+```
+
+Outputs:
+
+- APK: `app/build/outputs/apk/release/app-release.apk`
+- App Bundle: `app/build/outputs/bundle/release/*.aab`
+
+## GitHub Actions release build
+
+Workflow: `.github/workflows/android-release.yml`
+
+Add these repository secrets:
+
+- `KEY_BASE64`
+- `KEYSTORE_PASS`
+
+`KEYSTORE_PASS` is used as both keystore password and key password.
+The workflow hardcodes key alias `release`.
+
+Generate `KEY_BASE64` from your local keystore:
+
+```bash
+base64 < android/release.keystore | tr -d '\n'
+```
+
+Then run the `Build Release APK` workflow from GitHub Actions and provide a
+release tag (for example `v2026.02.01`). The workflow creates signing files at
+runtime and Gradle signs the release APK directly.
+
+The same tag value is passed into Gradle as `APP_VERSION_TAG`, which becomes
+the app `versionName` (for example, `v2026.02.01`).
+
 ## Notes
 
 - The native engine/visualization port mirrors the web logic in `web/src/engine` and `web/src/visualization`.

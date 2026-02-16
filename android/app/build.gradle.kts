@@ -5,6 +5,7 @@ import java.io.File
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.util.Properties
 import java.util.zip.ZipInputStream
 
 plugins {
@@ -22,6 +23,34 @@ val madmomBeatsPortFfiZipUrl = madmomBeatsPortFfiZipUrlProperty.orElse(
 )
 val madmomBeatsPortFfiZipCache = layout.buildDirectory.file("downloads/madmom-beats-port-v$madmomBeatsPortFfiVersion-android.zip")
 val madmomBeatsPortFfiGeneratedJniLibs = layout.buildDirectory.dir("generated/madmom_beats_port_ffi/jniLibs")
+val keystoreProperties = Properties().apply {
+    val propertiesFile = rootProject.file("keystore.properties")
+    if (propertiesFile.exists()) {
+        propertiesFile.inputStream().use(::load)
+    }
+}
+
+fun resolveReleaseSigningValue(propertyName: String, envName: String): String? {
+    val propertyValue = keystoreProperties.getProperty(propertyName)?.trim().orEmpty()
+    if (propertyValue.isNotEmpty()) {
+        return propertyValue
+    }
+    val envValue = System.getenv(envName)?.trim().orEmpty()
+    return envValue.ifEmpty { null }
+}
+
+val releaseStoreFilePath = resolveReleaseSigningValue("storeFile", "ANDROID_STORE_FILE")
+val releaseStorePassword = resolveReleaseSigningValue("storePassword", "ANDROID_STORE_PASSWORD")
+val releaseKeyAlias = resolveReleaseSigningValue("keyAlias", "ANDROID_KEY_ALIAS")
+val releaseKeyPassword = resolveReleaseSigningValue("keyPassword", "ANDROID_KEY_PASSWORD")
+val releaseStoreFile = releaseStoreFilePath?.let(rootProject::file)
+val hasReleaseSigningCredentials = listOf(
+    releaseStoreFilePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+val hasReleaseSigningConfig = hasReleaseSigningCredentials && releaseStoreFile?.exists() == true
 
 val prepareMadmomBeatsPortFfiJniLibs by tasks.registering {
     description = "Fetches madmom_beats_port_ffi Android binaries and stages ABI jniLibs for packaging."
@@ -92,8 +121,9 @@ android {
     ndkVersion = "29.0.14206865"
 
     val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+    val versionTag = System.getenv("APP_VERSION_TAG")?.trim().orEmpty()
     val versionStamp = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy.MM"))
-    val ciVersionName = "$versionStamp.$runNumber"
+    val ciVersionName = if (versionTag.isNotEmpty()) versionTag else "$versionStamp.$runNumber"
 
     defaultConfig {
         applicationId = "com.foreverjukebox.app"
@@ -109,12 +139,28 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
+    }
+
     buildTypes {
         debug {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
         }
         release {
             isMinifyEnabled = false
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             manifestPlaceholders["usesCleartextTraffic"] = "false"
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -158,10 +204,7 @@ android {
 
     splits {
         abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = false
+            isEnable = false
         }
     }
 
