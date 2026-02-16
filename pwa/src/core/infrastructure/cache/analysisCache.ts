@@ -84,8 +84,14 @@ async function getOpfsAnalysisBytes(): Promise<number> {
   try {
     const root = await navigator.storage.getDirectory();
     const dir = await root.getDirectoryHandle("analysis");
+    const dirWithValues = dir as unknown as {
+      values?: () => AsyncIterable<FileSystemHandle>;
+    };
+    if (typeof dirWithValues.values !== "function") {
+      return 0;
+    }
     let total = 0;
-    for await (const handle of dir.values()) {
+    for await (const handle of dirWithValues.values()) {
       if (handle.kind !== "file") {
         continue;
       }

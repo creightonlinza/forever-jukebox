@@ -1,15 +1,15 @@
 {
-  "name": "rhythm_wasm",
+  "name": "madmom_beats_port_wasm",
   "type": "module",
-  "version": "2.0.0",
+  "version": "4.0.0",
   "license": "MIT OR Apache-2.0",
   "files": [
-    "rhythm_wasm_bg.wasm",
-    "rhythm_wasm.js",
-    "rhythm_wasm.d.ts"
+    "madmom_beats_port_wasm_bg.wasm",
+    "madmom_beats_port_wasm.js",
+    "madmom_beats_port_wasm.d.ts"
   ],
-  "main": "rhythm_wasm.js",
-  "types": "rhythm_wasm.d.ts",
+  "main": "madmom_beats_port_wasm.js",
+  "types": "madmom_beats_port_wasm.d.ts",
   "sideEffects": [
     "./snippets/*"
   ]
