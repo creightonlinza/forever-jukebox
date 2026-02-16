@@ -2,7 +2,7 @@ import init, {
   analyze_json_with_model_progress,
   default_config_json,
   validate_config_json,
-} from "./pkg/rhythm_wasm.js";
+} from "./pkg/madmom_beats_port_wasm.js";
 
 let ready = false;
 let readyPromise = null;

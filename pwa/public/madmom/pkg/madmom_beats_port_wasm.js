@@ -1,4 +1,4 @@
-/* @ts-self-types="./rhythm_wasm.d.ts" */
+/* @ts-self-types="./madmom_beats_port_wasm.d.ts" */
 
 /**
  * @param {Float32Array} samples
@@ -153,7 +153,7 @@ function __wbg_get_imports() {
     };
     return {
         __proto__: null,
-        "./rhythm_wasm_bg.js": import0,
+        "./madmom_beats_port_wasm_bg.js": import0,
     };
 }
 
@@ -370,7 +370,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        module_or_path = new URL('rhythm_wasm_bg.wasm', import.meta.url);
+        module_or_path = new URL('madmom_beats_port_wasm_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 
