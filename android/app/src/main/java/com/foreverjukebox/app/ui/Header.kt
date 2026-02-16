@@ -103,20 +103,27 @@ fun HeaderBar(
         ).value
         val glow = 0.45f + (0.55f * flicker)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "THE FOREVER JUKEBOX",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontFamily = neonFontFamily,
-                    letterSpacing = 2.sp,
-                    shadow = Shadow(
-                        color = MaterialTheme.colorScheme.secondary.copy(alpha = glow),
-                        offset = Offset(0f, 0f),
-                        blurRadius = 18f * glow
-                    )
-                ),
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.9f * flicker),
-                fontWeight = FontWeight.Bold
-            )
+            Column {
+                Text(
+                    text = "THE FOREVER JUKEBOX",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontFamily = neonFontFamily,
+                        letterSpacing = 2.sp,
+                        shadow = Shadow(
+                            color = MaterialTheme.colorScheme.secondary.copy(alpha = glow),
+                            offset = Offset(0f, 0f),
+                            blurRadius = 18f * glow
+                        )
+                    ),
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.9f * flicker),
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Mode: ${appModeLabel(state.appMode)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             if (state.appMode == AppMode.Server) {
                 CastRouteButton(
@@ -234,6 +241,9 @@ private fun SettingsDialog(
 ) {
     var urlInput by remember(state.baseUrl) { mutableStateOf(state.baseUrl) }
     var selectedMode by remember(state.appMode) { mutableStateOf(state.appMode ?: defaultOnboardingMode) }
+    val trimmedUrl = urlInput.trim()
+    val requiresServerUrl = selectedMode == AppMode.Server
+    val canSave = !requiresServerUrl || isValidBaseUrl(trimmedUrl)
     val cacheLabel = formatCacheSize(state.cacheSizeBytes)
     val cacheEnabled = state.cacheSizeBytes > 0
     val versionLabel = "v${BuildConfig.VERSION_NAME}"
@@ -246,9 +256,15 @@ private fun SettingsDialog(
             ) {
                 Button(
                     onClick = {
-                        onEditBaseUrl(urlInput)
+                        if (selectedMode == AppMode.Server) {
+                            onEditBaseUrl(trimmedUrl)
+                        }
+                        if (selectedMode != state.appMode) {
+                            onAppModeChange(selectedMode)
+                        }
                         onDismiss()
                     },
+                    enabled = canSave,
                     colors = pillButtonColors(),
                     border = pillButtonBorder(),
                     shape = PillShape,
@@ -276,10 +292,7 @@ private fun SettingsDialog(
                 Text("App Mode")
                 AppModeSliderToggle(
                     selectedMode = selectedMode,
-                    onModeChange = { mode ->
-                        selectedMode = mode
-                        onAppModeChange(mode)
-                    },
+                    onModeChange = { mode -> selectedMode = mode },
                     modifier = Modifier.height(SmallButtonHeight)
                 )
                 if (selectedMode == AppMode.Server) {
@@ -359,4 +372,10 @@ private fun formatCacheSize(bytes: Long): String {
     } else {
         String.format(Locale.US, "%.1fMB", rounded)
     }
+}
+
+private fun appModeLabel(mode: AppMode?): String = when (mode) {
+    AppMode.Local -> "Local"
+    AppMode.Server -> "Server"
+    null -> "Unknown"
 }

@@ -44,7 +44,12 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 when (state.activeTab) {
-                    TabId.Input -> InputPanel()
+                    TabId.Input -> InputPanel(
+                        state = state,
+                        onOpenFile = viewModel::startLocalAnalysis,
+                        onCancelAnalysis = viewModel::cancelLocalAnalysis,
+                        onSaveAnalysis = viewModel::exportLatestLocalAnalysis
+                    )
                     TabId.Top -> TopSongsPanel(
                         items = state.search.topSongs,
                         risingItems = state.search.risingSongs,

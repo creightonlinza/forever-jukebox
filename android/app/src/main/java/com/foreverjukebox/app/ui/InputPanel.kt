@@ -1,20 +1,63 @@
 package com.foreverjukebox.app.ui
 
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.foreverjukebox.app.BuildConfig
 
 @Composable
-fun InputPanel() {
+fun InputPanel(
+    state: UiState,
+    onOpenFile: (Uri, String?) -> Unit,
+    onCancelAnalysis: () -> Unit,
+    onSaveAnalysis: (Uri) -> Unit
+) {
+    val context = LocalContext.current
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
+        val title = context.contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+        }
+        onOpenFile(uri, title)
+    }
+    val saveAnalysisLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            onSaveAnalysis(uri)
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -28,17 +71,46 @@ fun InputPanel() {
         ) {
             Text("Input (Open File)", style = MaterialTheme.typography.labelLarge)
             Text(
-                "Local mode is active. Use this screen to load a local audio file in a future update."
+                "Local mode runs analysis fully on-device. Pick a file to analyze and open in Listen."
             )
-            OutlinedButton(
-                onClick = {},
-                enabled = false,
-                colors = pillOutlinedButtonColors(),
+            if (!state.localSelectedFileName.isNullOrBlank()) {
+                Text(
+                    text = "Selected: ${state.localSelectedFileName}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Button(
+                onClick = { filePicker.launch(arrayOf("audio/*")) },
+                colors = pillButtonColors(),
                 border = pillButtonBorder(),
                 shape = PillShape,
                 contentPadding = SmallButtonPadding
             ) {
-                Text("Open File (Coming Soon)")
+                Text("Open File")
+            }
+            if (state.playback.analysisInFlight || state.playback.analysisCalculating || state.playback.audioLoading) {
+                OutlinedButton(
+                    onClick = onCancelAnalysis,
+                    colors = pillOutlinedButtonColors(),
+                    border = pillButtonBorder(),
+                    shape = PillShape,
+                    contentPadding = SmallButtonPadding
+                ) {
+                    Text("Cancel Analysis")
+                }
+            }
+            if (BuildConfig.DEBUG && !state.localAnalysisJsonPath.isNullOrBlank()) {
+                OutlinedButton(
+                    onClick = {
+                        saveAnalysisLauncher.launch("forever-jukebox-analysis-${System.currentTimeMillis()}.json")
+                    },
+                    colors = pillOutlinedButtonColors(),
+                    border = pillButtonBorder(),
+                    shape = PillShape,
+                    contentPadding = SmallButtonPadding
+                ) {
+                    Text("Save Analysis (Debug)")
+                }
             }
         }
     }

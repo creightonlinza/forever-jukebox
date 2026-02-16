@@ -1,11 +1,89 @@
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.io.File
+import java.net.URI
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.zip.ZipInputStream
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+val madmomBeatsPortFfiAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+val madmomBeatsPortFfiVersion = "4.0.0"
+val madmomBeatsPortFfiZipUrlProperty = providers.gradleProperty("madmomBeatsPortFfiZipUrl")
+val madmomBeatsPortFfiZipPathProperty = providers.gradleProperty("madmomBeatsPortFfiZipPath")
+val madmomBeatsPortFfiZipUrl = madmomBeatsPortFfiZipUrlProperty.orElse(
+    "https://github.com/creightonlinza/madmom-beats-port/releases/download/v$madmomBeatsPortFfiVersion/madmom-beats-port-v$madmomBeatsPortFfiVersion-android.zip"
+)
+val madmomBeatsPortFfiZipCache = layout.buildDirectory.file("downloads/madmom-beats-port-v$madmomBeatsPortFfiVersion-android.zip")
+val madmomBeatsPortFfiGeneratedJniLibs = layout.buildDirectory.dir("generated/madmom_beats_port_ffi/jniLibs")
+
+val prepareMadmomBeatsPortFfiJniLibs by tasks.registering {
+    description = "Fetches madmom_beats_port_ffi Android binaries and stages ABI jniLibs for packaging."
+    outputs.dir(madmomBeatsPortFfiGeneratedJniLibs)
+
+    doLast {
+        val outputRoot = madmomBeatsPortFfiGeneratedJniLibs.get().asFile
+        if (outputRoot.exists()) {
+            outputRoot.deleteRecursively()
+        }
+        outputRoot.mkdirs()
+
+        val localZipPath = madmomBeatsPortFfiZipPathProperty.orNull?.trim().orEmpty()
+        val zipFile = if (localZipPath.isNotEmpty()) {
+            file(localZipPath)
+        } else {
+            val cached = madmomBeatsPortFfiZipCache.get().asFile
+            if (!cached.exists()) {
+                cached.parentFile.mkdirs()
+                logger.lifecycle("Downloading madmom_beats_port_ffi release: ${madmomBeatsPortFfiZipUrl.get()}")
+                URI.create(madmomBeatsPortFfiZipUrl.get()).toURL().openStream().use { input ->
+                    Files.copy(input, cached.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+            }
+            cached
+        }
+
+        if (!zipFile.exists()) {
+            throw GradleException(
+                "madmom_beats_port_ffi release zip was not found: ${zipFile.absolutePath}"
+            )
+        }
+
+        val copiedAbis = mutableSetOf<String>()
+        ZipInputStream(zipFile.inputStream().buffered()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                val name = entry.name
+                if (!entry.isDirectory && name.endsWith("/libmadmom_beats_port_ffi.so")) {
+                    val abi = madmomBeatsPortFfiAbis.firstOrNull { name.contains("/$it/") }
+                    if (abi != null) {
+                        val abiDir = File(outputRoot, abi)
+                        abiDir.mkdirs()
+                        val outputSo = File(abiDir, "libmadmom_beats_port_ffi.so")
+                        outputSo.outputStream().use { out ->
+                            zis.copyTo(out)
+                        }
+                        copiedAbis += abi
+                    }
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        }
+
+        val missingAbis = madmomBeatsPortFfiAbis.filterNot { copiedAbis.contains(it) }
+        if (missingAbis.isNotEmpty()) {
+            throw GradleException(
+                "madmom_beats_port_ffi zip missing required ABIs: ${missingAbis.joinToString(", ")}"
+            )
+        }
+    }
 }
 
 android {
@@ -66,15 +144,34 @@ android {
         }
     }
 
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("src/main/jniLibs", madmomBeatsPortFfiGeneratedJniLibs)
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
+    }
+
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(prepareMadmomBeatsPortFfiJniLibs)
 }
 
 dependencies {
@@ -102,4 +199,5 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling:1.6.8")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }

@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.positioners
 import com.foreverjukebox.app.visualization.visualizationLabels
@@ -137,6 +138,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                 val isFavorite = playback.lastYouTubeId?.let { id ->
                     state.favorites.any { it.uniqueSongId == id }
                 } == true
+                val showServerActions = state.appMode == AppMode.Server
                 val themeTokens = LocalThemeTokens.current
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -211,45 +213,47 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                 modifier = Modifier.size(20.dp)
                             )
                         }
-                        IconButton(
-                            onClick = {
-                                val id = playback.lastYouTubeId ?: return@IconButton
-                                val baseUrl = state.baseUrl.trim().trimEnd('/')
-                                val url = "$baseUrl/listen/$id"
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, url)
-                                }
-                                context.startActivity(Intent.createChooser(shareIntent, "Share Forever Jukebox link"))
-                            },
-                            modifier = Modifier.size(SmallButtonHeight)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Share,
-                                contentDescription = "Share",
-                                tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        IconButton(
-                            onClick = {
-                                if (playback.lastYouTubeId == null) return@IconButton
-                                val limitReached = viewModel.toggleFavoriteForCurrent()
-                                val message = when {
-                                    limitReached -> "Maximum favorites reached (100)."
-                                    isFavorite -> "Removed from Favorites"
-                                    else -> "Added to Favorites"
-                                }
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.size(SmallButtonHeight)
-                        ) {
-                            Icon(
-                                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
-                                tint = themeTokens.beatFill,
-                                modifier = Modifier.size(20.dp)
-                            )
+                        if (showServerActions) {
+                            IconButton(
+                                onClick = {
+                                    val id = playback.lastYouTubeId ?: return@IconButton
+                                    val baseUrl = state.baseUrl.trim().trimEnd('/')
+                                    val url = "$baseUrl/listen/$id"
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, url)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share Forever Jukebox link"))
+                                },
+                                modifier = Modifier.size(SmallButtonHeight)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Share,
+                                    contentDescription = "Share",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    if (playback.lastYouTubeId == null) return@IconButton
+                                    val limitReached = viewModel.toggleFavoriteForCurrent()
+                                    val message = when {
+                                        limitReached -> "Maximum favorites reached (100)."
+                                        isFavorite -> "Removed from Favorites"
+                                        else -> "Added to Favorites"
+                                    }
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.size(SmallButtonHeight)
+                            ) {
+                                Icon(
+                                    imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                    contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
+                                    tint = themeTokens.beatFill,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }

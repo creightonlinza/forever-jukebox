@@ -10,3 +10,14 @@ local.properties
 /captures/
 .externalNativeBuild/
 .cxx/
+
+# Android local-analysis native third-party artifacts
+app/src/main/jniLibs/*/libmadmom_beats_port_ffi.so
+third_party/essentia/android/*/*.so
+third_party/madmom_beats_port_ffi/android/*/*.so
+
+# Essentia local fetch/build outputs
+third_party/essentia/prebuilt/
+third_party/essentia/built/
+third_party/essentia/src/
+third_party/essentia/.work/

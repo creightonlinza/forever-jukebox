@@ -3,6 +3,7 @@ package com.foreverjukebox.app.ui
 import android.app.Application
 import android.net.Uri
 import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.foreverjukebox.app.data.ApiClient
@@ -14,6 +15,11 @@ import com.foreverjukebox.app.data.FavoriteTrack
 import com.foreverjukebox.app.data.SpotifySearchItem
 import com.foreverjukebox.app.data.ThemeMode
 import com.foreverjukebox.app.data.TOP_SONGS_LIMIT
+import com.foreverjukebox.app.local.LocalAnalysisArtifact
+import com.foreverjukebox.app.local.LocalAnalysisService
+import com.foreverjukebox.app.local.LocalAnalysisUpdate
+import com.foreverjukebox.app.local.NativeLocalAnalysisNotReadyException
+import com.foreverjukebox.app.local.UnsupportedAudioFormatException
 import com.foreverjukebox.app.playback.ForegroundPlaybackService
 import com.foreverjukebox.app.playback.PlaybackControllerHolder
 import com.foreverjukebox.app.visualization.JumpLine
@@ -32,6 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlin.math.roundToInt
 import org.json.JSONObject
+import java.io.File
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = AppPreferences(application)
@@ -40,11 +47,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val engine = controller.engine
     private val defaultConfig = engine.getConfig()
     private val json = Json { ignoreUnknownKeys = true }
+    private val localAnalysisService = LocalAnalysisService.create(application)
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state
 
     private var refreshTopSongsJob: Job? = null
+    private var localAnalysisJob: Job? = null
     private var topSongsLoaded = false
     private var risingSongsLoaded = false
     private var recentSongsLoaded = false
@@ -166,6 +175,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        cancelLocalAnalysisInternal(showCancelledMessage = false)
         super.onCleared()
         playbackCoordinator.onCleared()
         controller.player.release()
@@ -191,6 +201,78 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             preferences.setThemeMode(mode)
+        }
+    }
+
+    fun startLocalAnalysis(uri: Uri, displayName: String?) {
+        if (state.value.appMode != AppMode.Local) return
+        cancelLocalAnalysisInternal(showCancelledMessage = false)
+        val resolvedName = displayName?.takeIf { it.isNotBlank() } ?: "Local Track"
+        _state.update {
+            it.copy(
+                localSelectedFileName = resolvedName,
+                localAnalysisJsonPath = null
+            )
+        }
+        playbackCoordinator.resetForNewTrack()
+        applyActiveTab(TabId.Play, recordHistory = true)
+        playbackCoordinator.setAnalysisQueued(1, "Processing audio")
+        localAnalysisJob = viewModelScope.launch {
+            try {
+                localAnalysisService.analyze(uri.toString(), resolvedName).collect { update ->
+                    when (update) {
+                        is LocalAnalysisUpdate.Progress -> {
+                            playbackCoordinator.setAnalysisProgress(
+                                update.percent,
+                                update.status
+                            )
+                        }
+
+                        is LocalAnalysisUpdate.Completed -> {
+                            applyLocalAnalysisArtifact(update.artifact)
+                        }
+                    }
+                }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                // No-op: user cancelled.
+            } catch (_: UnsupportedAudioFormatException) {
+                playbackCoordinator.setAnalysisError("Unsupported audio format")
+                applyActiveTab(TabId.Input, recordHistory = true)
+            } catch (error: NativeLocalAnalysisNotReadyException) {
+                playbackCoordinator.setAnalysisError(
+                    error.message ?: "Native local analysis is unavailable."
+                )
+                applyActiveTab(TabId.Input, recordHistory = true)
+            } catch (error: Exception) {
+                runCatching { Log.e(TAG, "Local analysis failed", error) }
+                val message = error.message?.takeIf { it.isNotBlank() } ?: "Local analysis failed."
+                playbackCoordinator.setAnalysisError(message)
+                applyActiveTab(TabId.Input, recordHistory = true)
+            } finally {
+                localAnalysisJob = null
+            }
+        }
+    }
+
+    fun cancelLocalAnalysis() {
+        cancelLocalAnalysisInternal(showCancelledMessage = true)
+    }
+
+    fun exportLatestLocalAnalysis(targetUri: Uri) {
+        val sourcePath = state.value.localAnalysisJsonPath ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val source = File(sourcePath)
+            val resolver = getApplication<Application>().contentResolver
+            val exported = runCatching {
+                resolver.openOutputStream(targetUri)?.use { output ->
+                    source.inputStream().use { input -> input.copyTo(output) }
+                } ?: error("Failed to open export destination.")
+            }.isSuccess
+            if (exported) {
+                showToast("Analysis exported")
+            } else {
+                showToast("Failed to export analysis")
+            }
         }
     }
 
@@ -259,6 +341,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun applyActiveTab(tabId: TabId, recordHistory: Boolean) {
         val resolvedTab = coerceTabForMode(state.value.appMode, tabId)
+        if (resolvedTab != TabId.Play &&
+            state.value.appMode == AppMode.Local &&
+            localAnalysisJob?.isActive == true
+        ) {
+            cancelLocalAnalysisInternal(showCancelledMessage = true)
+        }
         val current = state.value.activeTab
         if (resolvedTab == current) return
         if (recordHistory && tabHistory.lastOrNull() != current) {
@@ -306,6 +394,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun resetRuntimeForModeChange(targetMode: AppMode) {
+        cancelLocalAnalysisInternal(showCancelledMessage = false)
         refreshTopSongsJob?.cancel()
         refreshTopSongsJob = null
         topSongsLoaded = false
@@ -331,6 +420,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 showAppModeGate = false,
                 showBaseUrlPrompt = shouldShowBaseUrlPrompt(targetMode, current.baseUrl),
                 castEnabled = targetMode == AppMode.Server && !resolvedAppId.isNullOrBlank(),
+                localSelectedFileName = null,
+                localAnalysisJsonPath = null,
                 activeTab = defaultTabForMode(targetMode),
                 topSongsTab = TopSongsTab.TopSongs,
                 search = SearchState(),
@@ -338,6 +429,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 tuning = TuningState()
             )
         }
+    }
+
+    private fun cancelLocalAnalysisInternal(showCancelledMessage: Boolean) {
+        localAnalysisService.cancel()
+        localAnalysisJob?.cancel()
+        localAnalysisJob = null
+        if (showCancelledMessage) {
+            playbackCoordinator.setAnalysisError("Analysis cancelled.")
+        }
+    }
+
+    private suspend fun applyLocalAnalysisArtifact(artifact: LocalAnalysisArtifact) {
+        _state.update {
+            it.copy(
+                localSelectedFileName = artifact.title ?: it.localSelectedFileName,
+                localAnalysisJsonPath = artifact.analysisJsonFile.absolutePath
+            )
+        }
+        playbackCoordinator.setAudioLoading(true)
+        playbackCoordinator.setAnalysisProgress(95, "Wrapping up")
+        withContext(Dispatchers.Default) {
+            controller.player.loadUri(getApplication(), Uri.parse(artifact.sourceUri)) { percent ->
+                viewModelScope.launch(Dispatchers.Main) {
+                    playbackCoordinator.setDecodeProgress(percent)
+                }
+            }
+        }
+        _state.update {
+            it.copy(
+                playback = it.playback.copy(
+                    audioLoaded = true,
+                    audioLoading = false,
+                    lastYouTubeId = artifact.localId,
+                    trackTitle = artifact.title,
+                    trackArtist = artifact.artist
+                )
+            )
+        }
+        playbackCoordinator.applyAnalysisResult(
+            AnalysisResponse(
+                status = "complete",
+                youtubeId = artifact.localId,
+                result = artifact.analysisJson
+            )
+        )
+        applyActiveTab(TabId.Play, recordHistory = true)
     }
 
     private fun scheduleTopSongsRefresh() {
@@ -1187,6 +1324,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteSelectedEdge() = Unit
 
     fun prepareForExit() {
+        cancelLocalAnalysisInternal(showCancelledMessage = false)
         playbackCoordinator.resetForNewTrack()
         engine.clearAnalysis()
         controller.player.clear()
@@ -1297,6 +1435,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
+        private const val TAG = "MainViewModel"
         private const val MAX_FAVORITES = 100
         private const val CAST_COMMAND_NAMESPACE = "urn:x-cast:com.foreverjukebox.app"
     }

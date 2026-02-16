@@ -32,6 +32,8 @@ data class UiState(
     val castEnabled: Boolean = false,
     val showAppModeGate: Boolean = true,
     val showBaseUrlPrompt: Boolean = false,
+    val localSelectedFileName: String? = null,
+    val localAnalysisJsonPath: String? = null,
     val themeMode: ThemeMode = ThemeMode.System,
     val activeTab: TabId = TabId.Top,
     val topSongsTab: TopSongsTab = TopSongsTab.TopSongs,
