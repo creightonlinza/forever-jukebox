@@ -24,7 +24,6 @@ import com.foreverjukebox.app.BuildConfig
 fun InputPanel(
     state: UiState,
     onOpenFile: (Uri, String?) -> Unit,
-    onCancelAnalysis: () -> Unit,
     onSaveAnalysis: (Uri) -> Unit
 ) {
     val context = LocalContext.current
@@ -69,16 +68,10 @@ fun InputPanel(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Input (Open File)", style = MaterialTheme.typography.labelLarge)
+            Text("Input", style = MaterialTheme.typography.labelLarge)
             Text(
-                "Local mode runs analysis fully on-device. Pick a file to analyze and open in Listen."
+                "Local mode runs analysis fully on-device and caches the result for faster future playback."
             )
-            if (!state.localSelectedFileName.isNullOrBlank()) {
-                Text(
-                    text = "Selected: ${state.localSelectedFileName}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
             Button(
                 onClick = { filePicker.launch(arrayOf("audio/*")) },
                 colors = pillButtonColors(),
@@ -88,16 +81,16 @@ fun InputPanel(
             ) {
                 Text("Open File")
             }
-            if (state.playback.analysisInFlight || state.playback.analysisCalculating || state.playback.audioLoading) {
-                OutlinedButton(
-                    onClick = onCancelAnalysis,
-                    colors = pillOutlinedButtonColors(),
-                    border = pillButtonBorder(),
-                    shape = PillShape,
-                    contentPadding = SmallButtonPadding
-                ) {
-                    Text("Cancel Analysis")
-                }
+            if (!state.localSelectedFileName.isNullOrBlank()) {
+                Text(
+                    text = "Selected: ${state.localSelectedFileName}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                Text(
+                    text = "Choose an audio file to begin analysis.",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
             if (BuildConfig.DEBUG && !state.localAnalysisJsonPath.isNullOrBlank()) {
                 OutlinedButton(

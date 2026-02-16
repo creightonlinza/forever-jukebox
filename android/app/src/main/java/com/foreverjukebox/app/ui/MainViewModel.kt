@@ -206,7 +206,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startLocalAnalysis(uri: Uri, displayName: String?) {
         if (state.value.appMode != AppMode.Local) return
-        cancelLocalAnalysisInternal(showCancelledMessage = false)
+        if (shouldCancelLocalAnalysisOnInputChange(
+                mode = state.value.appMode,
+                isLocalAnalysisRunning = localAnalysisJob?.isActive == true
+            )
+        ) {
+            cancelLocalAnalysisInternal(showCancelledMessage = false)
+        }
         val resolvedName = displayName?.takeIf { it.isNotBlank() } ?: "Local Track"
         _state.update {
             it.copy(
@@ -255,7 +261,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun cancelLocalAnalysis() {
-        cancelLocalAnalysisInternal(showCancelledMessage = true)
+        cancelLocalAnalysisInternal(showCancelledMessage = false)
+        playbackCoordinator.resetForNewTrack()
+        _state.update { current -> stateAfterLocalAnalysisCancel(current) }
     }
 
     fun exportLatestLocalAnalysis(targetUri: Uri) {
@@ -341,9 +349,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun applyActiveTab(tabId: TabId, recordHistory: Boolean) {
         val resolvedTab = coerceTabForMode(state.value.appMode, tabId)
-        if (resolvedTab != TabId.Play &&
-            state.value.appMode == AppMode.Local &&
-            localAnalysisJob?.isActive == true
+        if (shouldCancelLocalAnalysisOnTabChange(
+                mode = state.value.appMode,
+                isLocalAnalysisRunning = localAnalysisJob?.isActive == true,
+                targetTab = resolvedTab
+            )
         ) {
             cancelLocalAnalysisInternal(showCancelledMessage = true)
         }
@@ -415,18 +425,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         _state.update { current ->
             val resolvedAppId = CastAppIdResolver.resolve(getApplication(), current.baseUrl)
-            current.copy(
-                appMode = targetMode,
-                showAppModeGate = false,
-                showBaseUrlPrompt = shouldShowBaseUrlPrompt(targetMode, current.baseUrl),
-                castEnabled = targetMode == AppMode.Server && !resolvedAppId.isNullOrBlank(),
-                localSelectedFileName = null,
-                localAnalysisJsonPath = null,
-                activeTab = defaultTabForMode(targetMode),
-                topSongsTab = TopSongsTab.TopSongs,
-                search = SearchState(),
-                playback = PlaybackState(),
-                tuning = TuningState()
+            stateAfterModeChangeReset(
+                current = current,
+                targetMode = targetMode,
+                castEnabled = targetMode == AppMode.Server && !resolvedAppId.isNullOrBlank()
             )
         }
     }
@@ -448,7 +450,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         playbackCoordinator.setAudioLoading(true)
-        playbackCoordinator.setAnalysisProgress(95, "Wrapping up")
+        playbackCoordinator.setAnalysisProgress(0, "Loading audio")
         withContext(Dispatchers.Default) {
             controller.player.loadUri(getApplication(), Uri.parse(artifact.sourceUri)) { percent ->
                 viewModelScope.launch(Dispatchers.Main) {

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
@@ -65,59 +66,75 @@ fun TuningDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            Button(
-                onClick = {
-                    val minVal = minProb.coerceAtMost(maxProb) / 100.0
-                    val maxVal = maxProb.coerceAtLeast(minProb) / 100.0
-                    val rampVal = ramp / 100.0
-                    onApply(
-                        threshold.toInt(),
-                        minVal,
-                        maxVal,
-                        rampVal,
-                        addLastEdge,
-                        justBackwards,
-                        justLong,
-                        removeSequential
-                    )
-                    onDismiss()
-                },
-                colors = pillButtonColors(),
-                border = pillButtonBorder(),
-                shape = PillShape,
-                contentPadding = SmallButtonPadding,
-                modifier = Modifier.height(SmallButtonHeight)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Apply", style = MaterialTheme.typography.labelSmall)
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            onReset()
+                            onDismiss()
+                        },
+                        colors = pillOutlinedButtonColors(),
+                        border = pillButtonBorder(),
+                        shape = PillShape,
+                        contentPadding = SmallButtonPadding,
+                        modifier = Modifier.height(SmallButtonHeight)
+                    ) {
+                        Text("Reset", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.weight(2f),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        colors = pillOutlinedButtonColors(),
+                        border = pillButtonBorder(),
+                        shape = PillShape,
+                        contentPadding = SmallButtonPadding,
+                        modifier = Modifier.height(SmallButtonHeight)
+                    ) {
+                        Text("Close", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Button(
+                        onClick = {
+                            val minVal = minProb.coerceAtMost(maxProb) / 100.0
+                            val maxVal = maxProb.coerceAtLeast(minProb) / 100.0
+                            val rampVal = ramp / 100.0
+                            onApply(
+                                threshold.toInt(),
+                                minVal,
+                                maxVal,
+                                rampVal,
+                                addLastEdge,
+                                justBackwards,
+                                justLong,
+                                removeSequential
+                            )
+                            onDismiss()
+                        },
+                        colors = pillButtonColors(),
+                        border = pillButtonBorder(),
+                        shape = PillShape,
+                        contentPadding = SmallButtonPadding,
+                        modifier = Modifier.height(SmallButtonHeight)
+                    ) {
+                        Text("Apply", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        onReset()
-                        onDismiss()
-                    },
-                    colors = pillOutlinedButtonColors(),
-                    border = pillButtonBorder(),
-                    shape = PillShape,
-                    contentPadding = SmallButtonPadding,
-                    modifier = Modifier.height(SmallButtonHeight)
-                ) {
-                    Text("Reset", style = MaterialTheme.typography.labelSmall)
-                }
-                OutlinedButton(
-                    onClick = onDismiss,
-                    colors = pillOutlinedButtonColors(),
-                    border = pillButtonBorder(),
-                    shape = PillShape,
-                    contentPadding = SmallButtonPadding,
-                    modifier = Modifier.height(SmallButtonHeight)
-                ) {
-                    Text("Close", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        },
+        dismissButton = {},
         title = { Text("Tuning") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

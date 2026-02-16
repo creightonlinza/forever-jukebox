@@ -118,11 +118,6 @@ fun HeaderBar(
                     color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.9f * flicker),
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "Mode: ${appModeLabel(state.appMode)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
-                )
             }
             Spacer(modifier = Modifier.weight(1f))
             if (state.appMode == AppMode.Server) {
@@ -372,10 +367,4 @@ private fun formatCacheSize(bytes: Long): String {
     } else {
         String.format(Locale.US, "%.1fMB", rounded)
     }
-}
-
-private fun appModeLabel(mode: AppMode?): String = when (mode) {
-    AppMode.Local -> "Local"
-    AppMode.Server -> "Server"
-    null -> "Unknown"
 }

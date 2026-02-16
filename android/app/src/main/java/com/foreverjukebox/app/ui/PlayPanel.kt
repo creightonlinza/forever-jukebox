@@ -51,7 +51,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.positioners
 import com.foreverjukebox.app.visualization.visualizationLabels
@@ -111,7 +110,9 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                     playback.analysisInFlight -> playback.analysisMessage ?: "Fetching audio"
                     playback.audioLoading -> "Fetching audio"
                     else -> null
-                }
+                },
+                showCancel = shouldShowLocalLoadingCancel(state.appMode, playback),
+                onCancel = viewModel::cancelLocalAnalysis
             )
         }
 
@@ -138,7 +139,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                 val isFavorite = playback.lastYouTubeId?.let { id ->
                     state.favorites.any { it.uniqueSongId == id }
                 } == true
-                val showServerActions = state.appMode == AppMode.Server
+                val showServerActions = shouldShowServerListenActions(state.appMode)
                 val themeTokens = LocalThemeTokens.current
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -338,7 +339,19 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
             !playback.audioLoading &&
             playback.analysisErrorMessage.isNullOrBlank()
         ) {
-            Text("No song selected.", color = MaterialTheme.colorScheme.onBackground)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "No song selected.",
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
         }
     }
 
@@ -402,7 +415,12 @@ private fun CastingPanel(
 }
 
 @Composable
-private fun LoadingStatus(progress: Int?, label: String?) {
+private fun LoadingStatus(
+    progress: Int?,
+    label: String?,
+    showCancel: Boolean = false,
+    onCancel: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -434,6 +452,20 @@ private fun LoadingStatus(progress: Int?, label: String?) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+        if (showCancel) {
+            OutlinedButton(
+                onClick = onCancel,
+                colors = pillOutlinedButtonColors(),
+                border = pillButtonBorder(),
+                shape = PillShape,
+                contentPadding = SmallButtonPadding,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .height(SmallButtonHeight)
+            ) {
+                Text("Cancel Analysis", style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }

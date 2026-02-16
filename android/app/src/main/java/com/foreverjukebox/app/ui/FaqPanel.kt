@@ -2,6 +2,7 @@ package com.foreverjukebox.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -43,50 +44,79 @@ fun FaqPanel() {
         ) {
             Text("FAQ", style = MaterialTheme.typography.labelLarge)
             Text("What the what?", fontWeight = FontWeight.Bold)
-            Text("The Forever Jukebox is a fully open source, end-to-end modernization and reimagining of the Infinite Jukebox, a web app created by Paul Lamere in 2012 that lets you search a song on Spotify, match it to YouTube audio, and generate a forever-changing version of the song.")
+            val whatText = buildAnnotatedString {
+                append("The Forever Jukebox is an open-source modernization of Paul Lamere's ")
+                pushStringAnnotation(
+                    tag = "URL",
+                    annotation = "https://musicmachinery.com/2012/11/12/the-infinite-jukebox/"
+                )
+                withStyle(linkStyle) { append("Infinite Jukebox") }
+                pop()
+                append(" — rebuilt from the ground up by ")
+                pushStringAnnotation(tag = "URL", annotation = "https://creighton.dev/")
+                withStyle(linkStyle) { append("Creighton") }
+                pop()
+                append(". It generates a forever-evolving version of any song.")
+            }
+            ClickableText(
+                text = whatText,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                onClick = { offset ->
+                    val annotation = whatText.getStringAnnotations("URL", offset, offset).firstOrNull()
+                    annotation?.let { link -> uriHandler.openUri(link.item) }
+                }
+            )
+
             Text("How does it work?", fontWeight = FontWeight.Bold)
-            Text("The app uses the Spotify API for searching track data, and YouTube for the audio. The audio gets analyzed by the Forever Jukebox Analysis Engine, an attempt to approximate Spotify's legacy analysis, which has since been deprecated. The engine determines beats, segments, and other features and passes them to the frontend, which then plays the audio beat by beat. At each beat there is a chance to jump to a different part of the song that sounds similar. Similarity uses features like timbre, loudness, duration, and beat position. The visualization shows the possible jump paths for each beat.")
+            Text(
+                "Audio is processed by the Forever Jukebox Analysis Engine, which approximates Spotify’s legacy Echo Nest analysis (now deprecated) by extracting beats, segments, and related features. Those features drive beat-synchronous playback in the frontend. On each beat, the player may jump to a different, sonically similar point in the track based on timbre, loudness, segment duration, and beat position. The visualizations map these potential jump paths for every beat."
+            )
+            val sourceText = buildAnnotatedString {
+                append("The full source code is available in the ")
+                pushStringAnnotation(
+                    tag = "URL",
+                    annotation = "https://github.com/creightonlinza/forever-jukebox/"
+                )
+                withStyle(linkStyle) { append("forever-jukebox") }
+                pop()
+                append(" repository.")
+            }
+            ClickableText(
+                text = sourceText,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                onClick = { offset ->
+                    val annotation = sourceText.getStringAnnotations("URL", offset, offset).firstOrNull()
+                    annotation?.let { link -> uriHandler.openUri(link.item) }
+                }
+            )
+
             Text("How can I tune the Jukebox?", fontWeight = FontWeight.Bold)
-            Text("Use the Tune button to open the tuning panel. Lower the threshold for higher audio continuity; raise it for more branches. Adjust branch probability min/max and ramp speed to shape how often jumps happen. Use the toggles to allow or restrict certain branch types.")
-            Text("Credits", fontWeight = FontWeight.Bold)
-            val creditsLine1 = buildAnnotatedString {
-                append("The Forever Jukebox & Analysis Engine by ")
-                pushStringAnnotation(tag = "URL", annotation = "https://creighton.dev")
-                withStyle(linkStyle) {
-                    append("Creighton")
-                }
-                pop()
-                append(".")
-            }
-            ClickableText(
-                text = creditsLine1,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onSurface
-                ),
-                onClick = { offset ->
-                    val annotation = creditsLine1.getStringAnnotations("URL", offset, offset).firstOrNull()
-                    annotation?.let { link -> uriHandler.openUri(link.item) }
-                }
-            )
-            val creditsLine2 = buildAnnotatedString {
-                append("Based off of ")
-                pushStringAnnotation(tag = "URL", annotation = "https://musicmachinery.com/")
-                withStyle(linkStyle) {
-                    append("Paul Lamere")
-                }
-                pop()
-                append("'s original Infinite Jukebox.")
-            }
-            ClickableText(
-                text = creditsLine2,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onSurface
-                ),
-                onClick = { offset ->
-                    val annotation = creditsLine2.getStringAnnotations("URL", offset, offset).firstOrNull()
-                    annotation?.let { link -> uriHandler.openUri(link.item) }
-                }
-            )
+            BulletListItem("Click the Tune button to open the tuning panel.")
+            BulletListItem("Lower the threshold for higher audio continuity; raise it for more branches.")
+            BulletListItem("Adjust branch probability min/max and ramp speed to shape how often jumps happen.")
+            BulletListItem("Use the checkboxes to allow or restrict certain branch types.")
+
+            Text("How do Favorites work? (server mode only)", fontWeight = FontWeight.Bold)
+            BulletListItem("Favorites are saved/unsaved by clicking the star icon on a song. They are stored locally in your browser and can optionally be synced across devices using a sync code obtained from the Favorites sync menu.")
+            BulletListItem("When you favorite a song, its tuning is saved too, so future loads restore your chosen parameters.")
+            BulletListItem("Use Reset in the Tune panel to restore default tuning (must be re-favorited to save changes).")
         }
+    }
+}
+
+@Composable
+private fun BulletListItem(text: String) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text("•")
+        Text(
+            text = text,
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .weight(1f)
+        )
     }
 }

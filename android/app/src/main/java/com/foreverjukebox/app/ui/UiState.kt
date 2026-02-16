@@ -140,6 +140,63 @@ fun shouldShowBaseUrlPrompt(mode: AppMode?, baseUrl: String): Boolean {
     return mode == AppMode.Server && !isValidBaseUrl(baseUrl)
 }
 
+fun shouldShowServerListenActions(mode: AppMode?): Boolean = mode == AppMode.Server
+
+fun shouldShowLocalLoadingCancel(mode: AppMode?, playback: PlaybackState): Boolean {
+    return mode == AppMode.Local &&
+        !playback.isCasting &&
+        (playback.analysisInFlight || playback.analysisCalculating || playback.audioLoading)
+}
+
+fun shouldCancelLocalAnalysisOnTabChange(
+    mode: AppMode?,
+    isLocalAnalysisRunning: Boolean,
+    targetTab: TabId
+): Boolean {
+    if (mode != AppMode.Local || !isLocalAnalysisRunning) {
+        return false
+    }
+    return when (targetTab) {
+        TabId.Input, TabId.Play, TabId.Faq -> false
+        TabId.Top, TabId.Search -> false
+    }
+}
+
+fun shouldCancelLocalAnalysisOnInputChange(
+    mode: AppMode?,
+    isLocalAnalysisRunning: Boolean
+): Boolean {
+    return mode == AppMode.Local && isLocalAnalysisRunning
+}
+
+fun stateAfterModeChangeReset(
+    current: UiState,
+    targetMode: AppMode,
+    castEnabled: Boolean
+): UiState {
+    return current.copy(
+        appMode = targetMode,
+        showAppModeGate = false,
+        showBaseUrlPrompt = shouldShowBaseUrlPrompt(targetMode, current.baseUrl),
+        castEnabled = castEnabled,
+        localSelectedFileName = null,
+        localAnalysisJsonPath = null,
+        activeTab = defaultTabForMode(targetMode),
+        topSongsTab = TopSongsTab.TopSongs,
+        search = SearchState(),
+        playback = PlaybackState(),
+        tuning = TuningState()
+    )
+}
+
+fun stateAfterLocalAnalysisCancel(current: UiState): UiState {
+    return current.copy(
+        activeTab = TabId.Input,
+        localSelectedFileName = null,
+        localAnalysisJsonPath = null
+    )
+}
+
 fun isValidBaseUrl(value: String): Boolean {
     val trimmed = value.trim()
     if (trimmed.isBlank()) return false

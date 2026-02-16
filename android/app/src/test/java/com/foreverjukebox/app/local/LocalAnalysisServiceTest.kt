@@ -5,9 +5,13 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.security.MessageDigest
 import java.nio.file.Files
 
 class LocalAnalysisServiceTest {
@@ -53,6 +57,103 @@ class LocalAnalysisServiceTest {
         assertTrue(completed.artifact.analysisJsonFile.readText().contains("\"engine_version\""))
         assertTrue(completed.artifact.sourceUri.startsWith("file:///"))
     }
+
+    @Test
+    fun usesCachedAnalysisWithoutReRunningDecoderOrAnalyzer() = runTest {
+        val cacheDir = Files.createTempDirectory("fj-local-analysis-test").toFile()
+        val uri = "file:///tmp/already-analyzed.mp3"
+        val cacheKey = analysisCacheKey(uri)
+        val cachedFile = File(cacheDir, "$cacheKey.analysis.json")
+        cachedFile.writeText(
+            """
+            {
+              "engine_version": 2,
+              "track": {
+                "title": "Cached Track",
+                "artist": "Cached Artist",
+                "duration": 1.0,
+                "tempo": 120,
+                "time_signature": 4
+              },
+              "sections": [],
+              "bars": [],
+              "beats": [],
+              "tatums": [],
+              "segments": []
+            }
+            """.trimIndent()
+        )
+
+        val decoder = CountingDecoder()
+        val resampler = CountingResampler()
+        val analyzer = CountingAnalyzer()
+        val service = LocalAnalysisService(
+            decoder = decoder,
+            resampler = resampler,
+            analyzer = analyzer,
+            modelExtractor = NoopModelProvider(),
+            cacheDir = cacheDir
+        )
+
+        val updates = service.analyze(uri, "Fallback Track").toList()
+        val progressEvents = updates.filterIsInstance<LocalAnalysisUpdate.Progress>()
+        val completed = updates.filterIsInstance<LocalAnalysisUpdate.Completed>().single()
+
+        assertEquals(0, decoder.calls)
+        assertEquals(0, resampler.calls)
+        assertEquals(0, analyzer.calls)
+        assertFalse(progressEvents.isEmpty())
+        assertTrue(progressEvents.all { it.status == "Wrapping up" })
+        assertEquals("Cached Track", completed.artifact.title)
+        assertEquals("Cached Artist", completed.artifact.artist)
+        assertEquals(cachedFile.absolutePath, completed.artifact.analysisJsonFile.absolutePath)
+    }
+
+    @Test
+    fun propagatesUnsupportedAudioFormatError() = runTest {
+        val cacheDir = Files.createTempDirectory("fj-local-analysis-test").toFile()
+        val service = LocalAnalysisService(
+            decoder = ThrowingDecoder(UnsupportedAudioFormatException("Unsupported audio format")),
+            resampler = PassThroughResampler(),
+            analyzer = FakeAnalyzer(),
+            modelExtractor = NoopModelProvider(),
+            cacheDir = cacheDir
+        )
+
+        val error = runCatching {
+            service.analyze("file:///tmp/unsupported.xyz", "Fixture Track").toList()
+        }.exceptionOrNull()
+
+        assertNotNull(error)
+        assertTrue(error is UnsupportedAudioFormatException)
+        assertEquals("Unsupported audio format", error?.message)
+    }
+
+    @Test
+    fun propagatesGenericDecoderFailure() = runTest {
+        val cacheDir = Files.createTempDirectory("fj-local-analysis-test").toFile()
+        val service = LocalAnalysisService(
+            decoder = ThrowingDecoder(IllegalStateException("decoder blew up")),
+            resampler = PassThroughResampler(),
+            analyzer = FakeAnalyzer(),
+            modelExtractor = NoopModelProvider(),
+            cacheDir = cacheDir
+        )
+
+        val error = runCatching {
+            service.analyze("file:///tmp/bad.mp3", "Fixture Track").toList()
+        }.exceptionOrNull()
+
+        assertNotNull(error)
+        assertTrue(error is IllegalStateException)
+        assertEquals("decoder blew up", error?.message)
+    }
+
+    private fun analysisCacheKey(uriString: String): String {
+        val hash = MessageDigest.getInstance("SHA-256")
+            .digest(uriString.toByteArray(Charsets.UTF_8))
+        return hash.take(8).joinToString("") { "%02x".format(it) }
+    }
 }
 
 private class FakeDecoder : LocalAudioDecoderPort {
@@ -75,6 +176,15 @@ private class FakeDecoder : LocalAudioDecoderPort {
 
 private class PassThroughResampler : AudioResampler {
     override fun resample(samples: FloatArray, fromRate: Int, toRate: Int): FloatArray = samples
+}
+
+private class CountingResampler : AudioResampler {
+    var calls: Int = 0
+
+    override fun resample(samples: FloatArray, fromRate: Int, toRate: Int): FloatArray {
+        calls += 1
+        return samples
+    }
 }
 
 private class FakeAnalyzer : LocalAnalyzer {
@@ -114,6 +224,44 @@ private class FakeAnalyzer : LocalAnalyzer {
                 put("time_signature", JsonPrimitive(4))
             }
         )
+    }
+}
+
+private class CountingAnalyzer : LocalAnalyzer {
+    var calls: Int = 0
+
+    override suspend fun analyze(
+        mono22050: FloatArray,
+        mono44100: FloatArray,
+        durationSeconds: Double,
+        title: String?,
+        artist: String?,
+        madmomBeatsPortModels: List<File>,
+        onStageProgress: (stage: String, percent: Int) -> Unit
+    ) = run {
+        calls += 1
+        throw AssertionError("Analyzer should not be called for cached analysis")
+    }
+}
+
+private class CountingDecoder : LocalAudioDecoderPort {
+    var calls: Int = 0
+
+    override suspend fun decodeToMono(
+        uriString: String,
+        onDecodeProgress: (Int) -> Unit
+    ): DecodedLocalAudio {
+        calls += 1
+        throw AssertionError("Decoder should not be called for cached analysis")
+    }
+}
+
+private class ThrowingDecoder(private val error: Exception) : LocalAudioDecoderPort {
+    override suspend fun decodeToMono(
+        uriString: String,
+        onDecodeProgress: (Int) -> Unit
+    ): DecodedLocalAudio {
+        throw error
     }
 }
 
