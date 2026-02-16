@@ -47,10 +47,7 @@ const DEFAULT_SEGMENTATION = {
 };
 
 type MadmomResult = {
-  fps: number;
-  beat_times: number[];
-  beat_numbers: number[];
-  beat_confidences: number[];
+  events: Array<[number, number, number]>;
 };
 
 type EssentiaResult = {
@@ -207,11 +204,14 @@ async function analyzeAudio(options: {
     }
   );
 
-  const beatTimes = Array.isArray(madmom.beat_times) ? madmom.beat_times.slice() : [];
-  const beatNumbers = Array.isArray(madmom.beat_numbers) ? madmom.beat_numbers.slice() : [];
-  const beatConfidences = Array.isArray(madmom.beat_confidences)
-    ? madmom.beat_confidences.slice()
-    : [];
+  const beatTimes: number[] = [];
+  const beatNumbers: number[] = [];
+  const beatConfidences: number[] = [];
+  for (const event of madmom.events) {
+    beatTimes.push(event[0]);
+    beatNumbers.push(event[1]);
+    beatConfidences.push(event[2]);
+  }
   if (beatTimes.length === 0) {
     beatTimes.push(0);
     beatNumbers.push(1);

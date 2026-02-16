@@ -7,10 +7,6 @@ export function analyze_json_with_model(samples: Float32Array, sample_rate: numb
 
 export function analyze_json_with_model_progress(samples: Float32Array, sample_rate: number, config_json: string | null | undefined, model_json: string, weights_npz: Uint8Array, progress_cb: Function): any;
 
-export function default_config_json(): string;
-
-export function validate_config_json(config_json?: string | null): any;
-
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -18,15 +14,12 @@ export interface InitOutput {
     readonly analyze_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly analyze_json_with_model: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
     readonly analyze_json_with_model_progress: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: any) => [number, number, number];
-    readonly default_config_json: () => [number, number, number, number];
-    readonly validate_config_json: (a: number, b: number) => any;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __externref_table_dealloc: (a: number) => void;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_start: () => void;
 }
 
