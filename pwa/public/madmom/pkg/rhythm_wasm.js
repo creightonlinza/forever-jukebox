@@ -67,6 +67,39 @@ export function analyze_json_with_model_progress(samples, sample_rate, config_js
     return takeFromExternrefTable0(ret[0]);
 }
 
+/**
+ * @returns {string}
+ */
+export function default_config_json() {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.default_config_json();
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * @param {string | null} [config_json]
+ * @returns {any}
+ */
+export function validate_config_json(config_json) {
+    var ptr0 = isLikeNone(config_json) ? 0 : passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.validate_config_json(ptr0, len0);
+    return ret;
+}
+
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,

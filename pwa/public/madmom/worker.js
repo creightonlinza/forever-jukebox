@@ -1,9 +1,14 @@
-import init, { analyze_json_with_model_progress } from './pkg/rhythm_wasm.js';
+import init, {
+  analyze_json_with_model_progress,
+  default_config_json,
+  validate_config_json,
+} from "./pkg/rhythm_wasm.js";
 
 let ready = false;
 let readyPromise = null;
 let modelJson = null;
 let modelWeights = null;
+let configJson = null;
 
 function clamp01(value) {
   if (!Number.isFinite(value)) return 0;
@@ -52,9 +57,16 @@ async function ensureReady() {
     modelJson = await modelRes.text();
   }
   if (!modelWeights) {
-    const weightsRes = await fetch('./models/downbeats_blstm_weights.npz');
+    const weightsRes = await fetch("./models/downbeats_blstm_weights.npz");
     const buf = await weightsRes.arrayBuffer();
     modelWeights = new Uint8Array(buf);
+  }
+  if (!configJson) {
+    configJson = default_config_json();
+    const validation = validate_config_json(configJson);
+    if (validation !== null) {
+      throw new Error(`Invalid madmom default config: ${JSON.stringify(validation)}`);
+    }
   }
   ready = true;
 }
@@ -70,7 +82,7 @@ self.onmessage = async (event) => {
     const raw = analyze_json_with_model_progress(
       samples,
       sampleRate,
-      null,
+      configJson,
       modelJson,
       modelWeights,
       progressCb
