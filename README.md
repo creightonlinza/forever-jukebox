@@ -33,7 +33,11 @@ Then open the web UI at `http://localhost:5173`.
 ## Android (native app):
 
 - Download: [GitHub Releases](https://github.com/creightonlinza/forever-jukebox/releases/latest)
-- Signature (SHA-256): `B5:30:EB:FD:C1:7E:C2:D0:1A:2E:9A:9D:D9:DD:02:CA:5D:2F:E0:7A:E2:C6:E5:F8:45:E7:FF:41:FD:78:B4:4D`
+- Signature (SHA-256):
+
+```bash
+  B5:30:EB:FD:C1:7E:C2:D0:1A:2E:9A:9D:D9:DD:02:CA:5D:2F:E0:7A:E2:C6:E5:F8:45:E7:FF:41:FD:78:B4:4D
+```
 
 ## Docker (production)
 
