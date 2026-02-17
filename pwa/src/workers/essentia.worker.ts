@@ -63,37 +63,27 @@ self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
       frameTimes[i] = start / sr;
 
       const frameVec = essentia.arrayToVector(frame);
-      const windowed = essentia.Windowing(
-        frameVec,
-        true,
-        frameSize,
-        "hann",
-        0,
-        true
-      ).frame;
+      const windowed = essentia.Windowing(frameVec).frame;
       const spectrum = essentia.Spectrum(windowed, frameSize).spectrum;
       const mfcc = essentia.MFCC(
         spectrum,
-        2,
+        undefined,
         11025,
         frameSize / 2 + 1,
-        0,
-        "dbamp",
-        0,
-        "unit_sum",
-        40,
-        13,
-        sr
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        13
       ).mfcc;
-      const maxFreq = Math.min(5000, sr / 2);
       const peaks = essentia.SpectralPeaks(
         spectrum,
         1e-6,
-        maxFreq,
-        100,
-        0,
-        "magnitude",
-        sr
+        undefined,
+        undefined,
+        undefined,
+        "magnitude"
       );
       let hpcp: unknown;
       if (typeof peaks.frequencies?.size === "function" && peaks.frequencies.size() === 0) {
@@ -102,19 +92,17 @@ self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
         hpcp = essentia.HPCP(
           peaks.frequencies,
           peaks.magnitudes,
-          true,
-          500,
-          0,
-          maxFreq,
-          false,
-          40,
-          false,
-          "unitMax",
-          440,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
           sr,
-          12,
-          "squaredCosine",
-          1
+          12
         ).hpcp;
       }
       const rms = essentia.RMS(frameVec).rms;
