@@ -1,7 +1,6 @@
 package com.foreverjukebox.app.cast
 
 import android.content.Context
-import com.google.android.gms.cast.CastMediaControlIntent
 import com.google.android.gms.cast.framework.CastOptions
 import com.google.android.gms.cast.framework.OptionsProvider
 import com.google.android.gms.cast.framework.SessionProvider
@@ -13,7 +12,10 @@ class ForeverJukeboxCastOptionsProvider : OptionsProvider {
     override fun getCastOptions(context: Context): CastOptions {
         val baseUrl = runBlocking { AppPreferences(context).baseUrl.first() }
         val appId = CastAppIdResolver.resolve(context, baseUrl)
-            ?: CastMediaControlIntent.DEFAULT_MEDIA_RECEIVER_APPLICATION_ID
+            ?: CastAppIdResolver.resolveAny(context)
+            ?: throw IllegalStateException(
+                "No Cast receiver app ID configured in cast_app_ids.json"
+            )
         return CastOptions.Builder()
             .setReceiverApplicationId(appId)
             .setResumeSavedSession(true)
