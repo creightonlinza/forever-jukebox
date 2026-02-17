@@ -9,31 +9,18 @@ also includes an installable offline PWA and a native Android app for on-device
 playback. It replaces reliance on the deprecated Spotify Audio Analysis engine
 by generating similar beat/segment/section data locally.
 
-## Credits
-
-- The Echo Nest / Spotify Audio Analysis: foundational analysis schema and ideas.
-- The Infinite Jukebox (Paul Lamere): original interactive concept and UX inspiration.
-- EternalJukebox: continued inspiration for infinite playback experiences.
-- madmom: beat/downbeat tracking models and utilities.
-- Essentia: audio features and DSP toolkits.
-- Remixatron: beat-aligned segmentation concepts and madmom usage.
-- numpy, scipy: DSP and math.
-- ffmpeg: audio decoding.
-- yt-dlp: YouTube search metadata and audio.
-- OpenAI Codex (GPT-5): implementation guidance and tooling.
-
 ## Structure
 
-- `engine/` — The Forever Jukebox Audio Analysis (generator + calibration bundle).
+- `engine/` — The Forever Jukebox Audio Analysis (generator + optional calibration bundle).
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI.
-- `pwa/` — Offline/local analysis PWA. Co-hosted in production at `/offline/`.
+- `pwa/` — Offline/local analysis PWA that can also export jukebox audio.
 - `android/` — Native Android app.
 - `schema.json` — JSON schema reference for analysis output.
 
 ## Quick Start
 
-Prereqs: Python 3, npm (Node.js).
+Prereqs: Python 3.10, npm (Node.js).
 
 All-in-one (dev):
 
@@ -43,11 +30,10 @@ All-in-one (dev):
 
 Then open the web UI at `http://localhost:5173`.
 
-Android (native app):
+## Android (native app):
 
-- [Release APK](https://github.com/creightonlinza/forever-jukebox/releases)
-- Must be pointed toward a running API and worker
-- Full source available in `android/`
+- Download: [GitHub Releases](https://github.com/creightonlinza/forever-jukebox/releases/latest)
+- Signature (SHA-256): `B5:30:EB:FD:C1:7E:C2:D0:1A:2E:9A:9D:D9:DD:02:CA:5D:2F:E0:7A:E2:C6:E5:F8:45:E7:FF:41:FD:78:B4:4D`
 
 ## Docker (production)
 
@@ -79,10 +65,21 @@ Open:
 API routes are under `/api/*`. The Compose file uses a named Docker volume
 (`storage`) to persist `/app/api/storage`.
 
-For standalone setup, see:
+## For standalone setup, see:
 
 - [`engine/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/engine/README.md)
 - [`api/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/api/README.md)
 - [`web/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/web/README.md)
 - [`pwa/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/pwa/README.md)
 - [`android/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/android/README.md)
+
+## Credits
+
+- The Infinite Jukebox (Paul Lamere): original interactive concept and UX inspiration.
+- The Echo Nest / Spotify Audio Analysis: foundational analysis schema and ideas.
+- EternalJukebox: keeping the dream alive.
+- madmom: beat/downbeat tracking models and utilities.
+- Essentia: audio features and DSP toolkits.
+- ffmpeg: audio decoding.
+- yt-dlp: YouTube search metadata and audio.
+- OpenAI Codex (GPT-5): implementation guidance and tooling.
