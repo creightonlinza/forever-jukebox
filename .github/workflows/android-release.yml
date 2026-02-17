@@ -33,6 +33,10 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
+      - name: Prepare Essentia Native Artifacts
+        run: ./third_party/essentia/fetch_prebuilt_from_rn_essentia_static.sh
+        working-directory: android
+
       - name: Validate signing secrets
         env:
           KEY_BASE64: ${{ secrets.KEY_BASE64 }}

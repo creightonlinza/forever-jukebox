@@ -46,8 +46,7 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
                 when (state.activeTab) {
                     TabId.Input -> InputPanel(
                         state = state,
-                        onOpenFile = viewModel::startLocalAnalysis,
-                        onSaveAnalysis = viewModel::exportLatestLocalAnalysis
+                        onOpenFile = viewModel::startLocalAnalysis
                     )
                     TabId.Top -> TopSongsPanel(
                         items = state.search.topSongs,

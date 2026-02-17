@@ -23,6 +23,7 @@ val madmomBeatsPortFfiZipUrl = madmomBeatsPortFfiZipUrlProperty.orElse(
 )
 val madmomBeatsPortFfiZipCache = layout.buildDirectory.file("downloads/madmom-beats-port-v$madmomBeatsPortFfiVersion-android.zip")
 val madmomBeatsPortFfiGeneratedJniLibs = layout.buildDirectory.dir("generated/madmom_beats_port_ffi/jniLibs")
+val essentiaSharedJniLibsDir = file("third_party/essentia/android")
 val keystoreProperties = Properties().apply {
     val propertiesFile = rootProject.file("keystore.properties")
     if (propertiesFile.exists()) {
@@ -131,6 +132,9 @@ android {
         targetSdk = 36
         versionCode = runNumber
         versionName = ciVersionName
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
 
         externalNativeBuild {
             cmake {
@@ -192,7 +196,7 @@ android {
 
     sourceSets {
         getByName("main") {
-            jniLibs.srcDirs("src/main/jniLibs", madmomBeatsPortFfiGeneratedJniLibs)
+            jniLibs.srcDirs("src/main/jniLibs", madmomBeatsPortFfiGeneratedJniLibs, essentiaSharedJniLibsDir)
         }
     }
 

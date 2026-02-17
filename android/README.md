@@ -18,6 +18,30 @@ Native Android port (Jetpack Compose) for 1:1 feature parity against the web UI.
 2. Ensure the API and worker are running.
 3. Set the API base URL in the app when prompted (e.g. `http://10.0.2.2:8000` for the emulator).
 
+## Local Mode Native Dependency (Essentia)
+
+Local mode feature extraction requires Essentia native artifacts. If you see an
+error about Essentia not being linked into `local_analysis_jni`, fetch prebuilt
+Android artifacts:
+
+```bash
+cd android
+./third_party/essentia/fetch_prebuilt_from_rn_essentia_static.sh
+```
+
+This populates:
+
+- `third_party/essentia/prebuilt/active/<abi>/libessentia.a`
+- `third_party/essentia/prebuilt/active/include/essentia/...`
+
+The release workflow (`.github/workflows/android-release.yml`) runs this
+prebuilt fetch script automatically, so you do not need to commit Essentia
+artifacts.
+
+Optional advanced path: build Essentia from upstream source using
+`./third_party/essentia/build_android_from_upstream.sh` (requires
+`pkg-config` + `eigen3` development headers).
+
 ## Debug APK build
 
 ```bash

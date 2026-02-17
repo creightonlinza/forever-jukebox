@@ -110,6 +110,31 @@ class LocalAnalysisServiceTest {
     }
 
     @Test
+    fun reusesCachedAnalysisAcrossDifferentUrisWithSameCacheFingerprint() = runTest {
+        val cacheDir = Files.createTempDirectory("fj-local-analysis-test").toFile()
+        val sharedKey = "shared-local-file"
+        val decoder = CountingSuccessfulDecoder()
+        val resampler = CountingResampler()
+        val analyzer = CountingSuccessfulAnalyzer()
+        val service = LocalAnalysisService(
+            decoder = decoder,
+            resampler = resampler,
+            analyzer = analyzer,
+            modelExtractor = NoopModelProvider(),
+            cacheDir = cacheDir,
+            cacheKeyResolver = LocalAnalysisCacheKeyResolver { sharedKey }
+        )
+
+        service.analyze("content://provider/audio/123", "Fixture Track").toList()
+        service.analyze("content://provider/document/audio/xyz", "Fixture Track").toList()
+
+        assertEquals(1, decoder.calls)
+        assertEquals(2, resampler.calls)
+        assertEquals(1, analyzer.calls)
+        assertTrue(File(cacheDir, "$sharedKey.analysis.json").exists())
+    }
+
+    @Test
     fun propagatesUnsupportedAudioFormatError() = runTest {
         val cacheDir = Files.createTempDirectory("fj-local-analysis-test").toFile()
         val service = LocalAnalysisService(
@@ -262,12 +287,66 @@ private class CountingDecoder : LocalAudioDecoderPort {
     }
 }
 
+private class CountingSuccessfulDecoder : LocalAudioDecoderPort {
+    var calls: Int = 0
+
+    override suspend fun decodeToMono(
+        uriString: String,
+        onDecodeProgress: (Int) -> Unit
+    ): DecodedLocalAudio {
+        calls += 1
+        onDecodeProgress(100)
+        return DecodedLocalAudio(
+            monoSamples = FloatArray(22_050) { 0f },
+            sampleRate = 22_050,
+            durationSeconds = 1.0,
+            sourceUri = uriString,
+            displayName = "Fixture Track"
+        )
+    }
+}
+
 private class ThrowingDecoder(private val error: Exception) : LocalAudioDecoderPort {
     override suspend fun decodeToMono(
         uriString: String,
         onDecodeProgress: (Int) -> Unit
     ): DecodedLocalAudio {
         throw error
+    }
+}
+
+private class CountingSuccessfulAnalyzer : LocalAnalyzer {
+    var calls: Int = 0
+
+    override suspend fun analyze(
+        essentiaSamples: FloatArray,
+        essentiaSampleRate: Int,
+        madmomSamples: FloatArray,
+        madmomSampleRate: Int,
+        essentiaProfile: String?,
+        durationSeconds: Double,
+        title: String?,
+        artist: String?,
+        madmomBeatsPortModels: List<File>,
+        onStageProgress: (stage: String, percent: Int) -> Unit
+    ) = buildJsonObject {
+        calls += 1
+        onStageProgress("madmom beats", 100)
+        put("engine_version", JsonPrimitive(2))
+        put("sections", buildJsonArray { })
+        put("bars", buildJsonArray { })
+        put("beats", buildJsonArray { })
+        put("tatums", buildJsonArray { })
+        put("segments", buildJsonArray { })
+        put(
+            "track",
+            buildJsonObject {
+                put("title", JsonPrimitive(title ?: "Fixture Track"))
+                put("duration", JsonPrimitive(durationSeconds))
+                put("tempo", JsonPrimitive(120))
+                put("time_signature", JsonPrimitive(4))
+            }
+        )
     }
 }
 

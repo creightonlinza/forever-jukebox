@@ -773,7 +773,7 @@ Java_com_foreverjukebox_app_local_NativeAnalysisBridge_nativeEssentiaExtractFeat
     jint hopSize,
     jstring profile) {
 #if !defined(FJ_HAS_ESSENTIA)
-    set_essentia_error("Essentia static library is not linked into local_analysis_jni");
+    set_essentia_error("Essentia is not linked into local_analysis_jni");
     return nullptr;
 #else
     if (samples == nullptr || sampleRate <= 0 || frameSize <= 0 || hopSize <= 0) {

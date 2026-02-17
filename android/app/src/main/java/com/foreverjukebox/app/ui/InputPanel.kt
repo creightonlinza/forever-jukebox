@@ -12,19 +12,16 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.foreverjukebox.app.BuildConfig
 
 @Composable
 fun InputPanel(
     state: UiState,
-    onOpenFile: (Uri, String?) -> Unit,
-    onSaveAnalysis: (Uri) -> Unit
+    onOpenFile: (Uri, String?) -> Unit
 ) {
     val context = LocalContext.current
     val filePicker = rememberLauncherForActivityResult(
@@ -49,14 +46,6 @@ fun InputPanel(
         }
         onOpenFile(uri, title)
     }
-    val saveAnalysisLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        if (uri != null) {
-            onSaveAnalysis(uri)
-        }
-    }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -91,19 +80,6 @@ fun InputPanel(
                     text = "Choose an audio file to begin analysis.",
                     style = MaterialTheme.typography.bodySmall
                 )
-            }
-            if (BuildConfig.DEBUG && !state.localAnalysisJsonPath.isNullOrBlank()) {
-                OutlinedButton(
-                    onClick = {
-                        saveAnalysisLauncher.launch("forever-jukebox-analysis-${System.currentTimeMillis()}.json")
-                    },
-                    colors = pillOutlinedButtonColors(),
-                    border = pillButtonBorder(),
-                    shape = PillShape,
-                    contentPadding = SmallButtonPadding
-                ) {
-                    Text("Save Analysis (Debug)")
-                }
             }
         }
     }

@@ -27,10 +27,16 @@ Active artifacts are expected at:
 - `android/third_party/essentia/prebuilt/active/include/...`
 - `android/third_party/essentia/prebuilt/active/SOURCE.txt`
 
+Alternative (from upstream source-build helper script):
+
+- `android/third_party/essentia/android/<abi>/libessentia.so`
+- `android/third_party/essentia/android/include/...`
+
 ABIs:
 
 - `arm64-v8a`
 - `armeabi-v7a`
+- `x86`
 - `x86_64`
 
 ## Build Integration
@@ -39,13 +45,25 @@ CMake (`android/app/src/main/cpp/CMakeLists.txt`) links static Essentia into `lo
 
 - Preferred static path: `android/third_party/essentia/prebuilt/active/<abi>/libessentia.a`
 - Fallback static path: `android/third_party/essentia/built/<abi>/libessentia.a`
+- Fallback shared path: `android/third_party/essentia/android/<abi>/libessentia.so` (from `build_android_from_upstream.sh`)
 
 If no Essentia static artifact exists for the ABI, Essentia JNI methods return a clear runtime error.
+
+## Recommended Automation
+
+Use `android/third_party/essentia/fetch_prebuilt_from_rn_essentia_static.sh` to
+populate `prebuilt/active` from `deeeed/rn-essentia-static`.
+
+By default the script is pinned to commit
+`476d5cfa763ad8950bf91f876788e7d6739fdecc` for reproducible builds.
+You can override for testing with `ESSENTIA_PREBUILT_REF=<branch|tag|commit>`.
+
+The Android release GitHub workflow runs this script before tests/build.
 
 ## Maintenance Notes
 
 - This repo is pinned to the current Essentia integration layout and does not require regular version churn.
-- If artifacts are ever refreshed, keep ABI coverage (`arm64-v8a`, `armeabi-v7a`, `x86_64`) and preserve no-FFmpeg linkage expectations.
+- If artifacts are ever refreshed, keep ABI coverage (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) and preserve no-FFmpeg linkage expectations.
 
 ## Fallback for non-PIC static builds
 
@@ -59,3 +77,10 @@ If linking static Essentia into `local_analysis_jni.so` fails with relocation/PI
 
 - Essentia is AGPLv3.
 - License text is in `android/third_party/essentia/LICENSES/ESSENTIA-AGPLv3.txt`.
+
+## Upstream Build Helper Requirements
+
+`android/third_party/essentia/build_android_from_upstream.sh` expects:
+
+- `pkg-config`
+- `eigen3` headers discoverable as `pkg-config --exists eigen3`

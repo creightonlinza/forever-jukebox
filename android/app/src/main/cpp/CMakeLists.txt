@@ -53,6 +53,16 @@ set(FJ_ESSENTIA_PREBUILT_A "${FJ_THIRD_PARTY_DIR}/essentia/prebuilt/active/${AND
 set(FJ_ESSENTIA_PREBUILT_INCLUDE_DIR "${FJ_THIRD_PARTY_DIR}/essentia/prebuilt/active/include")
 set(FJ_ESSENTIA_BUILT_A "${FJ_THIRD_PARTY_DIR}/essentia/built/${ANDROID_ABI}/libessentia.a")
 set(FJ_ESSENTIA_BUILT_INCLUDE_DIR "${FJ_THIRD_PARTY_DIR}/essentia/built/include")
+set(FJ_ESSENTIA_ANDROID_SO "${FJ_THIRD_PARTY_DIR}/essentia/android/${ANDROID_ABI}/libessentia.so")
+set(FJ_ESSENTIA_ANDROID_INCLUDE_DIR "${FJ_THIRD_PARTY_DIR}/essentia/android/include")
+set(FJ_ESSENTIA_WORK_INCLUDE_DIR "${FJ_THIRD_PARTY_DIR}/essentia/.work/essentia/src")
+set(FJ_REQUIRE_ESSENTIA ON)
+
+# Reconfigure when Essentia artifacts are added/removed so ABI builds do not
+# stay stuck in a no-Essentia state after files appear.
+file(GLOB FJ_ESSENTIA_PREBUILT_GLOB CONFIGURE_DEPENDS "${FJ_THIRD_PARTY_DIR}/essentia/prebuilt/active/*/libessentia.a")
+file(GLOB FJ_ESSENTIA_BUILT_GLOB CONFIGURE_DEPENDS "${FJ_THIRD_PARTY_DIR}/essentia/built/*/libessentia.a")
+file(GLOB FJ_ESSENTIA_ANDROID_SO_GLOB CONFIGURE_DEPENDS "${FJ_THIRD_PARTY_DIR}/essentia/android/*/libessentia.so")
 
 set(FJ_SPEEXDSP_RESAMPLE_C "${FJ_SPEEXDSP_DIR}/libspeexdsp/resample.c")
 if (EXISTS "${FJ_SPEEXDSP_RESAMPLE_C}")
@@ -90,4 +100,23 @@ elseif (EXISTS "${FJ_ESSENTIA_BUILT_A}")
     if (EXISTS "${FJ_ESSENTIA_BUILT_INCLUDE_DIR}")
         target_include_directories(local_analysis_jni PRIVATE "${FJ_ESSENTIA_BUILT_INCLUDE_DIR}")
     endif()
+elseif (EXISTS "${FJ_ESSENTIA_ANDROID_SO}")
+    add_library(essentia_shared_android SHARED IMPORTED)
+    set_target_properties(essentia_shared_android PROPERTIES IMPORTED_LOCATION "${FJ_ESSENTIA_ANDROID_SO}")
+    target_link_libraries(local_analysis_jni essentia_shared_android)
+    target_compile_definitions(local_analysis_jni PRIVATE FJ_HAS_ESSENTIA=1)
+    target_compile_options(local_analysis_jni PRIVATE -Wno-undefined-var-template)
+    if (EXISTS "${FJ_ESSENTIA_ANDROID_INCLUDE_DIR}")
+        target_include_directories(local_analysis_jni PRIVATE "${FJ_ESSENTIA_ANDROID_INCLUDE_DIR}")
+    elseif (EXISTS "${FJ_ESSENTIA_WORK_INCLUDE_DIR}")
+        target_include_directories(local_analysis_jni PRIVATE "${FJ_ESSENTIA_WORK_INCLUDE_DIR}")
+    endif()
+elseif (FJ_REQUIRE_ESSENTIA)
+    message(FATAL_ERROR
+        "Essentia library for ABI ${ANDROID_ABI} is missing. Expected one of:\n"
+        "  ${FJ_ESSENTIA_PREBUILT_A}\n"
+        "  ${FJ_ESSENTIA_BUILT_A}\n"
+        "  ${FJ_ESSENTIA_ANDROID_SO}\n"
+        "Run android/third_party/essentia/fetch_prebuilt_from_rn_essentia_static.sh first."
+    )
 endif()

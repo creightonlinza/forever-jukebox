@@ -1,6 +1,9 @@
 package com.foreverjukebox.app.local
 
 import android.content.Context
+import android.net.Uri
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +22,20 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 
+fun interface LocalAnalysisCacheKeyResolver {
+    suspend fun resolve(uriString: String): String
+}
+
+private fun shortSha256(raw: String): String {
+    val hash = MessageDigest.getInstance("SHA-256")
+        .digest(raw.toByteArray(Charsets.UTF_8))
+    return hash.take(8).joinToString("") { "%02x".format(it) }
+}
+
+private object UriStringCacheKeyResolver : LocalAnalysisCacheKeyResolver {
+    override suspend fun resolve(uriString: String): String = shortSha256(uriString)
+}
+
 private data class AnalyzerInputs(
     val essentiaSamples: FloatArray,
     val essentiaSampleRate: Int,
@@ -32,7 +49,8 @@ class LocalAnalysisService(
     private val resampler: AudioResampler,
     private val analyzer: LocalAnalyzer,
     private val modelExtractor: MadmomBeatsPortModelProvider,
-    private val cacheDir: File
+    private val cacheDir: File,
+    private val cacheKeyResolver: LocalAnalysisCacheKeyResolver = UriStringCacheKeyResolver
 ) {
     private val cancelled = AtomicBoolean(false)
     private val json = Json { ignoreUnknownKeys = true }
@@ -51,7 +69,11 @@ class LocalAnalysisService(
         if (!cacheDir.exists()) {
             cacheDir.mkdirs()
         }
-        val cacheKey = analysisCacheKey(uriString)
+        val cacheKey = runCatching {
+            cacheKeyResolver.resolve(uriString)
+        }.getOrElse {
+            shortSha256(uriString)
+        }
         val localId = "local-$cacheKey"
         val analysisFile = cacheDir.resolve("$cacheKey.analysis.json")
         logInfo("Local analysis start: localId=$localId")
@@ -189,6 +211,7 @@ class LocalAnalysisService(
 
     companion object {
         private const val TAG = "LocalAnalysisService"
+        private const val ANALYSIS_CACHE_KEY_VERSION = "v2"
 
         private fun heapSummary(): String {
             val runtime = Runtime.getRuntime()
@@ -205,12 +228,6 @@ class LocalAnalysisService(
             runCatching { Log.e(TAG, message, error) }
         }
 
-        private fun analysisCacheKey(uriString: String): String {
-            val hash = MessageDigest.getInstance("SHA-256")
-                .digest(uriString.toByteArray(Charsets.UTF_8))
-            return hash.take(8).joinToString("") { "%02x".format(it) }
-        }
-
         private fun extractTrackField(analysisJson: JsonElement, field: String): String? {
             val track = analysisJson.jsonObject["track"]?.jsonObject ?: return null
             return (track[field] as? JsonPrimitive)?.contentOrNull
@@ -222,8 +239,111 @@ class LocalAnalysisService(
                 resampler = NativeSpeexAudioResampler(),
                 analyzer = NativeLocalAnalyzer(),
                 modelExtractor = MadmomBeatsPortModelExtractor(context),
-                cacheDir = File(context.cacheDir, "jukebox-cache")
+                cacheDir = File(context.cacheDir, "jukebox-cache"),
+                cacheKeyResolver = AndroidLocalAnalysisCacheKeyResolver(context)
             )
+        }
+
+        private class AndroidLocalAnalysisCacheKeyResolver(
+            private val context: Context
+        ) : LocalAnalysisCacheKeyResolver {
+            override suspend fun resolve(uriString: String): String = withContext(Dispatchers.IO) {
+                val uri = runCatching { Uri.parse(uriString) }.getOrNull()
+                    ?: return@withContext shortSha256(uriString)
+
+                val metadata = if (uri.scheme.equals("file", ignoreCase = true)) {
+                    OpenableMetadata(null, null, null)
+                } else {
+                    queryOpenableMetadata(uri)
+                }
+                val hasMetadata = !metadata.displayName.isNullOrBlank() ||
+                    metadata.size != null ||
+                    metadata.lastModified != null
+
+                val fingerprint = buildString {
+                    append(ANALYSIS_CACHE_KEY_VERSION)
+                    append("|scheme=").append(uri.scheme.orEmpty())
+                    append("|authority=").append(uri.authority.orEmpty())
+
+                    val documentId = runCatching {
+                        if (DocumentsContract.isDocumentUri(context, uri)) {
+                            DocumentsContract.getDocumentId(uri)
+                        } else {
+                            null
+                        }
+                    }.getOrNull()
+
+                    if (!documentId.isNullOrBlank()) {
+                        append("|docId=").append(documentId)
+                    }
+
+                    if (uri.scheme.equals("file", ignoreCase = true)) {
+                        val path = uri.path.orEmpty()
+                        val file = File(path)
+                        append("|path=").append(path)
+                        if (file.exists()) {
+                            append("|size=").append(file.length())
+                            append("|modified=").append(file.lastModified())
+                        }
+                    } else {
+                        metadata.displayName?.let { append("|name=").append(it) }
+                        metadata.size?.let { append("|size=").append(it) }
+                        metadata.lastModified?.let { append("|modified=").append(it) }
+                    }
+
+                    if (
+                        documentId.isNullOrBlank() &&
+                        !uri.scheme.equals("file", ignoreCase = true) &&
+                        !hasMetadata
+                    ) {
+                        append("|uri=").append(uriString)
+                    }
+                }
+
+                return@withContext shortSha256(fingerprint)
+            }
+
+            private data class OpenableMetadata(
+                val displayName: String?,
+                val size: Long?,
+                val lastModified: Long?
+            )
+
+            private fun queryOpenableMetadata(uri: Uri): OpenableMetadata {
+                return runCatching {
+                    val projection = arrayOf(
+                        OpenableColumns.DISPLAY_NAME,
+                        OpenableColumns.SIZE,
+                        DocumentsContract.Document.COLUMN_LAST_MODIFIED
+                    )
+                    context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                        if (!cursor.moveToFirst()) {
+                            return@use OpenableMetadata(null, null, null)
+                        }
+                        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                        val modifiedIndex =
+                            cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+                        OpenableMetadata(
+                            displayName = if (nameIndex >= 0 && !cursor.isNull(nameIndex)) {
+                                cursor.getString(nameIndex)
+                            } else {
+                                null
+                            },
+                            size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                                cursor.getLong(sizeIndex)
+                            } else {
+                                null
+                            },
+                            lastModified = if (modifiedIndex >= 0 && !cursor.isNull(modifiedIndex)) {
+                                cursor.getLong(modifiedIndex)
+                            } else {
+                                null
+                            }
+                        )
+                    } ?: OpenableMetadata(null, null, null)
+                }.getOrDefault(OpenableMetadata(null, null, null))
+            }
         }
     }
 }

@@ -38,7 +38,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlin.math.roundToInt
 import org.json.JSONObject
-import java.io.File
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = AppPreferences(application)
@@ -264,24 +263,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         cancelLocalAnalysisInternal(showCancelledMessage = false)
         playbackCoordinator.resetForNewTrack()
         _state.update { current -> stateAfterLocalAnalysisCancel(current) }
-    }
-
-    fun exportLatestLocalAnalysis(targetUri: Uri) {
-        val sourcePath = state.value.localAnalysisJsonPath ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            val source = File(sourcePath)
-            val resolver = getApplication<Application>().contentResolver
-            val exported = runCatching {
-                resolver.openOutputStream(targetUri)?.use { output ->
-                    source.inputStream().use { input -> input.copyTo(output) }
-                } ?: error("Failed to open export destination.")
-            }.isSuccess
-            if (exported) {
-                showToast("Analysis exported")
-            } else {
-                showToast("Failed to export analysis")
-            }
-        }
     }
 
     fun setAppMode(mode: AppMode) {
