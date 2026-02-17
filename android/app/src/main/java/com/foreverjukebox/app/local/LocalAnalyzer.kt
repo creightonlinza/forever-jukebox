@@ -105,29 +105,47 @@ class NativeLocalAnalyzer(
         onStageProgress: (stage: String, percent: Int) -> Unit
     ): JsonElement {
         currentCoroutineContext().ensureActive()
-        onStageProgress("Essentia features", 5)
+        var essentiaProgressPercent = -1
+        onStageProgress("Essentia features", 0)
 
         val essentiaJson = NativeAnalysisBridge.essentiaExtractFeaturesJson(
             samples = essentiaSamples,
             sampleRate = essentiaSampleRate,
             frameSize = ESSENTIA_FRAME_SIZE,
             hopSize = ESSENTIA_HOP_SIZE,
-            profile = essentiaProfile
+            profile = essentiaProfile,
+            progressCallback = NativeAnalysisBridge.EssentiaProgressCallback { progress ->
+                val mapped = (progress.coerceIn(0f, 1f) * 100f).toInt().coerceIn(0, 100)
+                if (mapped > essentiaProgressPercent) {
+                    essentiaProgressPercent = mapped
+                    onStageProgress("Essentia features", mapped)
+                }
+            }
         ) ?: throw NativeLocalAnalysisNotReadyException(
             NativeAnalysisBridge.essentiaLastErrorMessage()
                 ?: "Essentia feature extraction failed"
         )
 
         val features = json.decodeFromString<EssentiaFeaturePayload>(essentiaJson)
-        onStageProgress("Essentia features", 100)
+        if (essentiaProgressPercent < 100) {
+            onStageProgress("Essentia features", 100)
+        }
         currentCoroutineContext().ensureActive()
 
         val madmomBeatsPortConfigJson = buildMadmomBeatsPortConfigJson(madmomBeatsPortModels)
-        onStageProgress("madmom beats", 10)
+        var madmomProgressPercent = -1
+        onStageProgress("madmom beats", 0)
         val madmomBeatsPortJson = NativeAnalysisBridge.madmomBeatsPortAnalyzeJson(
             samples = madmomSamples,
             sampleRate = madmomSampleRate,
-            configJson = madmomBeatsPortConfigJson
+            configJson = madmomBeatsPortConfigJson,
+            progressCallback = NativeAnalysisBridge.MadmomBeatsPortProgressCallback { stage, progress ->
+                val mapped = mapMadmomStageProgress(stage, progress)
+                if (mapped > madmomProgressPercent) {
+                    madmomProgressPercent = mapped
+                    onStageProgress("madmom beats", mapped)
+                }
+            }
         ) ?: throw NativeLocalAnalysisNotReadyException(
             NativeAnalysisBridge.madmomBeatsPortLastErrorMessage() ?: "madmom_beats_port_ffi analysis failed"
         )
@@ -138,7 +156,9 @@ class NativeLocalAnalyzer(
                 "Failed to parse madmom_beats_port output JSON: ${error.message}"
             )
         }
-        onStageProgress("madmom beats", 100)
+        if (madmomProgressPercent < 100) {
+            onStageProgress("madmom beats", 100)
+        }
 
         val beatTimes = madmomBeatsPort.beatTimes.ifEmpty { listOf(0.0) }
         val beatNumbers = if (madmomBeatsPort.beatNumbers.isNotEmpty()) {
@@ -222,6 +242,17 @@ class NativeLocalAnalyzer(
                 }
             )
         }
+    }
+
+    private fun mapMadmomStageProgress(stage: Int, progress: Float): Int {
+        val clamped = progress.coerceIn(0f, 1f)
+        val normalized = when (stage) {
+            0 -> clamped * 0.35f
+            1 -> 0.35f + (clamped * 0.55f)
+            2 -> 0.90f + (clamped * 0.10f)
+            else -> clamped
+        }
+        return (normalized * 100f).toInt().coerceIn(0, 100)
     }
 
     private fun buildMadmomBeatsPortConfigJson(models: List<File>): String {

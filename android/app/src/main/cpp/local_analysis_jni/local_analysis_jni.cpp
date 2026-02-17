@@ -51,7 +51,9 @@ std::string get_madmom_beats_port_error() {
 }
 
 struct MadmomBeatsPortSymbols {
+    using ProgressFn = void (*)(uint32_t, float, void*);
     using AnalyzeFn = char* (*)(const float*, size_t, uint32_t, const char*);
+    using AnalyzeWithProgressFn = char* (*)(const float*, size_t, uint32_t, const char*, ProgressFn, void*);
     using DefaultConfigFn = char* (*)();
     using ValidateConfigFn = char* (*)(const char*);
     using LastErrorFn = char* (*)();
@@ -60,6 +62,7 @@ struct MadmomBeatsPortSymbols {
 
     void* handle = nullptr;
     AnalyzeFn analyze = nullptr;
+    AnalyzeWithProgressFn analyze_with_progress = nullptr;
     DefaultConfigFn default_config = nullptr;
     ValidateConfigFn validate_config = nullptr;
     LastErrorFn last_error = nullptr;
@@ -100,6 +103,10 @@ bool ensure_madmom_beats_port_loaded() {
     symbols.analyze = reinterpret_cast<MadmomBeatsPortSymbols::AnalyzeFn>(dlsym(symbols.handle, "madmom_beats_port_analyze_json"));
     const char* analyze_err_cstr = dlerror();
     const std::string analyze_err = analyze_err_cstr == nullptr ? "" : analyze_err_cstr;
+    symbols.analyze_with_progress = reinterpret_cast<MadmomBeatsPortSymbols::AnalyzeWithProgressFn>(
+        dlsym(symbols.handle, "madmom_beats_port_analyze_json_with_progress")
+    );
+    dlerror();
     symbols.last_error = reinterpret_cast<MadmomBeatsPortSymbols::LastErrorFn>(dlsym(symbols.handle, "madmom_beats_port_last_error_message"));
     const char* last_error_err_cstr = dlerror();
     const std::string last_error_err = last_error_err_cstr == nullptr ? "" : last_error_err_cstr;
@@ -138,6 +145,7 @@ bool ensure_madmom_beats_port_loaded() {
             symbols.handle = nullptr;
         }
         symbols.analyze = nullptr;
+        symbols.analyze_with_progress = nullptr;
         symbols.last_error = nullptr;
         symbols.free_string = nullptr;
         return false;
@@ -156,6 +164,51 @@ std::string take_madmom_beats_port_string(char* value, const MadmomBeatsPortSymb
         symbols.free_string(value);
     }
     return result;
+}
+
+struct JniMadmomProgressContext {
+    JNIEnv* env = nullptr;
+    jobject callback = nullptr;
+    jmethodID method = nullptr;
+};
+
+void madmom_progress_bridge(uint32_t stage, float progress, void* user_data) {
+    auto* context = reinterpret_cast<JniMadmomProgressContext*>(user_data);
+    if (context == nullptr || context->env == nullptr || context->callback == nullptr || context->method == nullptr) {
+        return;
+    }
+    context->env->CallVoidMethod(
+        context->callback,
+        context->method,
+        static_cast<jint>(stage),
+        static_cast<jfloat>(progress)
+    );
+    if (context->env->ExceptionCheck()) {
+        context->env->ExceptionClear();
+    }
+}
+
+using EssentiaProgressFn = void (*)(float, void*);
+
+struct JniEssentiaProgressContext {
+    JNIEnv* env = nullptr;
+    jobject callback = nullptr;
+    jmethodID method = nullptr;
+};
+
+void essentia_progress_bridge(float progress, void* user_data) {
+    auto* context = reinterpret_cast<JniEssentiaProgressContext*>(user_data);
+    if (context == nullptr || context->env == nullptr || context->callback == nullptr || context->method == nullptr) {
+        return;
+    }
+    context->env->CallVoidMethod(
+        context->callback,
+        context->method,
+        static_cast<jfloat>(progress)
+    );
+    if (context->env->ExceptionCheck()) {
+        context->env->ExceptionClear();
+    }
 }
 
 void append_vector_json(std::ostringstream& out, const std::vector<double>& values) {
@@ -304,6 +357,8 @@ bool extract_essentia_features(
     int frame_size,
     int hop_size,
     const std::string& profile,
+    EssentiaProgressFn progress_fn,
+    void* progress_user_data,
     std::string* json_out,
     std::string* error_out
 ) {
@@ -445,6 +500,10 @@ bool extract_essentia_features(
         mfcc_rows.reserve(static_cast<size_t>(frame_count));
         hpcp_rows.reserve(static_cast<size_t>(frame_count));
         rms_db.reserve(static_cast<size_t>(frame_count));
+        const int progress_stride = std::max(1, frame_count / 400);
+        if (progress_fn != nullptr) {
+            progress_fn(0.0f, progress_user_data);
+        }
 
         for (int frame_index = 0; frame_index < frame_count; ++frame_index) {
             if (g_cancelled.load()) {
@@ -511,6 +570,15 @@ bool extract_essentia_features(
             mfcc_rows.push_back(std::move(mfcc_row));
             hpcp_rows.push_back(std::move(hpcp_row));
             rms_db.push_back(rms_value_db);
+
+            if (
+                progress_fn != nullptr &&
+                (frame_index == frame_count - 1 || (frame_index % progress_stride) == 0)
+            ) {
+                const float progress = static_cast<float>(frame_index + 1) /
+                    static_cast<float>(frame_count);
+                progress_fn(progress, progress_user_data);
+            }
         }
 
         std::ostringstream json;
@@ -657,7 +725,8 @@ Java_com_foreverjukebox_app_local_NativeAnalysisBridge_nativeMadmomBeatsPortAnal
     jobject /* thiz */,
     jfloatArray samples,
     jint sampleRate,
-    jstring configJson) {
+    jstring configJson,
+    jobject progressCallback) {
     if (!ensure_madmom_beats_port_loaded()) {
         return nullptr;
     }
@@ -698,12 +767,35 @@ Java_com_foreverjukebox_app_local_NativeAnalysisBridge_nativeMadmomBeatsPortAnal
         }
     }
 
-    char* out = symbols.analyze(
-        reinterpret_cast<const float*>(data),
-        static_cast<size_t>(length),
-        static_cast<uint32_t>(sampleRate),
-        config
-    );
+    JniMadmomProgressContext progress_context;
+    progress_context.env = env;
+    if (progressCallback != nullptr) {
+        progress_context.callback = progressCallback;
+        jclass callback_class = env->GetObjectClass(progressCallback);
+        if (callback_class != nullptr) {
+            progress_context.method = env->GetMethodID(callback_class, "onProgress", "(IF)V");
+            env->DeleteLocalRef(callback_class);
+        }
+    }
+
+    char* out = nullptr;
+    if (symbols.analyze_with_progress != nullptr && progress_context.method != nullptr) {
+        out = symbols.analyze_with_progress(
+            reinterpret_cast<const float*>(data),
+            static_cast<size_t>(length),
+            static_cast<uint32_t>(sampleRate),
+            config,
+            madmom_progress_bridge,
+            &progress_context
+        );
+    } else {
+        out = symbols.analyze(
+            reinterpret_cast<const float*>(data),
+            static_cast<size_t>(length),
+            static_cast<uint32_t>(sampleRate),
+            config
+        );
+    }
 
     if (configJson != nullptr && config != nullptr) {
         env->ReleaseStringUTFChars(configJson, config);
@@ -771,7 +863,8 @@ Java_com_foreverjukebox_app_local_NativeAnalysisBridge_nativeEssentiaExtractFeat
     jint sampleRate,
     jint frameSize,
     jint hopSize,
-    jstring profile) {
+    jstring profile,
+    jobject progressCallback) {
 #if !defined(FJ_HAS_ESSENTIA)
     set_essentia_error("Essentia is not linked into local_analysis_jni");
     return nullptr;
@@ -802,12 +895,28 @@ Java_com_foreverjukebox_app_local_NativeAnalysisBridge_nativeEssentiaExtractFeat
 
     std::string features_json;
     std::string error;
+    JniEssentiaProgressContext progress_context;
+    EssentiaProgressFn progress_fn = nullptr;
+    progress_context.env = env;
+    if (progressCallback != nullptr) {
+        progress_context.callback = progressCallback;
+        jclass callback_class = env->GetObjectClass(progressCallback);
+        if (callback_class != nullptr) {
+            progress_context.method = env->GetMethodID(callback_class, "onProgress", "(F)V");
+            env->DeleteLocalRef(callback_class);
+            if (progress_context.method != nullptr) {
+                progress_fn = essentia_progress_bridge;
+            }
+        }
+    }
     const bool ok = extract_essentia_features(
         samples_vec,
         static_cast<int>(sampleRate),
         static_cast<int>(frameSize),
         static_cast<int>(hopSize),
         profile_value,
+        progress_fn,
+        progress_fn != nullptr ? &progress_context : nullptr,
         &features_json,
         &error
     );

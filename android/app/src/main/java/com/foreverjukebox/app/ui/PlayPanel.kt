@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.positioners
 import com.foreverjukebox.app.visualization.visualizationLabels
@@ -100,6 +101,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
         if (!playback.isCasting && !playback.analysisErrorMessage.isNullOrBlank()) {
             ErrorStatus(
                 message = playback.analysisErrorMessage,
+                showRetry = state.appMode == AppMode.Server,
                 onRetry = { viewModel.retryFailedLoad() }
             )
         } else if (!playback.isCasting && (playback.analysisInFlight || playback.analysisCalculating || playback.audioLoading)) {
@@ -471,7 +473,11 @@ private fun LoadingStatus(
 }
 
 @Composable
-private fun ErrorStatus(message: String, onRetry: () -> Unit) {
+private fun ErrorStatus(
+    message: String,
+    showRetry: Boolean,
+    onRetry: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -483,17 +489,19 @@ private fun ErrorStatus(message: String, onRetry: () -> Unit) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        IconButton(
-            onClick = onRetry,
-            modifier = Modifier
-                .padding(top = 8.dp)
-                .size(SmallButtonHeight)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Refresh,
-                contentDescription = "Retry",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        if (showRetry) {
+            IconButton(
+                onClick = onRetry,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .size(SmallButtonHeight)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = "Retry",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

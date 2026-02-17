@@ -1,6 +1,14 @@
 package com.foreverjukebox.app.local
 
 object NativeAnalysisBridge {
+    fun interface MadmomBeatsPortProgressCallback {
+        fun onProgress(stage: Int, progress: Float)
+    }
+
+    fun interface EssentiaProgressCallback {
+        fun onProgress(progress: Float)
+    }
+
     private val nativeLoadError: String? by lazy {
         try {
             System.loadLibrary("local_analysis_jni")
@@ -37,10 +45,11 @@ object NativeAnalysisBridge {
     fun madmomBeatsPortAnalyzeJson(
         samples: FloatArray,
         sampleRate: Int,
-        configJson: String?
+        configJson: String?,
+        progressCallback: MadmomBeatsPortProgressCallback? = null
     ): String? {
         ensureLoaded()
-        return nativeMadmomBeatsPortAnalyzeJson(samples, sampleRate, configJson)
+        return nativeMadmomBeatsPortAnalyzeJson(samples, sampleRate, configJson, progressCallback)
     }
 
     fun madmomBeatsPortDefaultConfigJson(): String? {
@@ -60,10 +69,18 @@ object NativeAnalysisBridge {
         sampleRate: Int,
         frameSize: Int,
         hopSize: Int,
-        profile: String? = null
+        profile: String? = null,
+        progressCallback: EssentiaProgressCallback? = null
     ): String? {
         ensureLoaded()
-        return nativeEssentiaExtractFeaturesJson(samples, sampleRate, frameSize, hopSize, profile)
+        return nativeEssentiaExtractFeaturesJson(
+            samples,
+            sampleRate,
+            frameSize,
+            hopSize,
+            profile,
+            progressCallback
+        )
     }
 
     fun essentiaLastErrorMessage(): String? {
@@ -85,7 +102,8 @@ object NativeAnalysisBridge {
     private external fun nativeMadmomBeatsPortAnalyzeJson(
         samples: FloatArray,
         sampleRate: Int,
-        configJson: String?
+        configJson: String?,
+        progressCallback: MadmomBeatsPortProgressCallback?
     ): String?
 
     private external fun nativeMadmomBeatsPortDefaultConfigJson(): String?
@@ -97,7 +115,8 @@ object NativeAnalysisBridge {
         sampleRate: Int,
         frameSize: Int,
         hopSize: Int,
-        profile: String?
+        profile: String?,
+        progressCallback: EssentiaProgressCallback?
     ): String?
 
     private external fun nativeEssentiaLastErrorMessage(): String?

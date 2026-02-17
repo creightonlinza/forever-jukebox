@@ -160,11 +160,17 @@ class LocalAnalysisService(
                     madmomBeatsPortModels = madmomBeatsPortModels
                 ) { stage, stagePercent ->
                     val mapped = when (stage) {
+                        "Essentia features" -> 45 + (stagePercent * 0.24).toInt()
                         "madmom beats" -> 70 + (stagePercent * 0.20).toInt()
                         else -> null
                     }
                     if (mapped != null) {
-                        emitProgress(mapped, "Processing beats")
+                        val status = when (stage) {
+                            "Essentia features" -> "Processing features"
+                            "madmom beats" -> "Processing beats"
+                            else -> "Processing audio"
+                        }
+                        emitProgress(mapped, status)
                     }
                 }
                 logInfo("Stage Analyzer complete: heap=${heapSummary()}")

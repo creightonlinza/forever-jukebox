@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.foreverjukebox.app.data.FavoriteSourceType
 import com.foreverjukebox.app.data.TOP_SONGS_LIMIT
 
 @Composable
@@ -61,9 +62,9 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
                         onTabSelected = viewModel::setTopSongsTab,
                         onSelect = { id, title, artist, tuningParams, sourceType ->
                             when (sourceType) {
-                                com.foreverjukebox.app.data.FavoriteSourceType.Upload ->
+                                FavoriteSourceType.Upload ->
                                     viewModel.loadTrackByJobId(id, title, artist, tuningParams)
-                                com.foreverjukebox.app.data.FavoriteSourceType.Youtube ->
+                                FavoriteSourceType.Youtube ->
                                     viewModel.loadTrackByYoutubeId(id, title, artist, tuningParams)
                             }
                         },
