@@ -27,10 +27,16 @@ On macOS you can also install Essentia via Homebrew (`brew install essentia`).
 ## CLI Usage
 
 ```bash
-python -m app.main /path/to/audio.m4a -o /path/to/output.json --calibration calibration.json
+python -m app.main /path/to/audio.m4a -o /path/to/output.json
+```
+
+Optional calibration usage:
+
+```bash
+python -m app.main /path/to/audio.m4a -o /path/to/output.json --calibration /path/to/calibration.json
 ```
 
 ## Notes
 
 - `ffmpeg` must be installed and available in `PATH` for audio decoding.
-- `--calibration` is optional; omit it to use defaults.
+- `--calibration` is optional and not used in the default flow.

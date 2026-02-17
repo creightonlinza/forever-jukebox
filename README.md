@@ -11,7 +11,7 @@ by generating similar beat/segment/section data locally.
 
 ## Structure
 
-- `engine/` — The Forever Jukebox Audio Analysis (generator + optional calibration bundle).
+- `engine/` — The Forever Jukebox audio analysis engine (with optional calibration support).
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI.
 - `pwa/` — Offline/local analysis PWA that can also export jukebox audio.
@@ -56,7 +56,7 @@ export ALLOW_FAVORITES_SYNC=false
 docker compose up --build
 ```
 
-`ENGINE_CONFIG` is optional; set it only if you want a calibration bundle.
+`ENGINE_CONFIG` is optional and unused by default; set it only when you explicitly want to use calibration parameters.
 
 You can also put these values in a `.env` file (same directory as
 `docker-compose.yml`) and Compose will load them automatically.
