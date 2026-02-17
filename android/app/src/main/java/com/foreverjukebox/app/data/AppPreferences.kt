@@ -24,6 +24,7 @@ enum class ThemeMode {
 class AppPreferences(private val context: Context) {
     companion object {
         private val KEY_BASE_URL = stringPreferencesKey("base_url")
+        private val KEY_APP_MODE = stringPreferencesKey("app_mode")
         private val KEY_THEME = stringPreferencesKey("theme")
         private val KEY_VIZ_INDEX = intPreferencesKey("viz_index")
         private val KEY_FAVORITES = stringPreferencesKey("favorites")
@@ -35,6 +36,10 @@ class AppPreferences(private val context: Context) {
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { prefs ->
         prefs[KEY_BASE_URL]
+    }
+
+    val appMode: Flow<AppMode?> = context.dataStore.data.map { prefs ->
+        appModeFromString(prefs[KEY_APP_MODE])
     }
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
@@ -61,6 +66,12 @@ class AppPreferences(private val context: Context) {
     suspend fun setBaseUrl(url: String) {
         context.dataStore.edit { prefs ->
             prefs[KEY_BASE_URL] = url
+        }
+    }
+
+    suspend fun setAppMode(mode: AppMode) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_APP_MODE] = mode.name
         }
     }
 
@@ -114,6 +125,14 @@ class AppPreferences(private val context: Context) {
             ThemeMode.Light.name -> ThemeMode.Light
             ThemeMode.Dark.name -> ThemeMode.Dark
             else -> ThemeMode.System
+        }
+    }
+
+    private fun appModeFromString(raw: String?): AppMode? {
+        return when (raw) {
+            AppMode.Local.name -> AppMode.Local
+            AppMode.Server.name -> AppMode.Server
+            else -> null
         }
     }
 }

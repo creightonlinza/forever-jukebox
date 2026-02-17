@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
@@ -17,8 +18,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,8 +26,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.foreverjukebox.app.data.AppMode
 
 @Composable
 fun TuningDialog(
@@ -65,59 +66,75 @@ fun TuningDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            Button(
-                onClick = {
-                    val minVal = minProb.coerceAtMost(maxProb) / 100.0
-                    val maxVal = maxProb.coerceAtLeast(minProb) / 100.0
-                    val rampVal = ramp / 100.0
-                    onApply(
-                        threshold.toInt(),
-                        minVal,
-                        maxVal,
-                        rampVal,
-                        addLastEdge,
-                        justBackwards,
-                        justLong,
-                        removeSequential
-                    )
-                    onDismiss()
-                },
-                colors = pillButtonColors(),
-                border = pillButtonBorder(),
-                shape = PillShape,
-                contentPadding = SmallButtonPadding,
-                modifier = Modifier.height(SmallButtonHeight)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Apply", style = MaterialTheme.typography.labelSmall)
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            onReset()
+                            onDismiss()
+                        },
+                        colors = pillOutlinedButtonColors(),
+                        border = pillButtonBorder(),
+                        shape = PillShape,
+                        contentPadding = SmallButtonPadding,
+                        modifier = Modifier.height(SmallButtonHeight)
+                    ) {
+                        Text("Reset", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.weight(2f),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        colors = pillOutlinedButtonColors(),
+                        border = pillButtonBorder(),
+                        shape = PillShape,
+                        contentPadding = SmallButtonPadding,
+                        modifier = Modifier.height(SmallButtonHeight)
+                    ) {
+                        Text("Close", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Button(
+                        onClick = {
+                            val minVal = minProb.coerceAtMost(maxProb) / 100.0
+                            val maxVal = maxProb.coerceAtLeast(minProb) / 100.0
+                            val rampVal = ramp / 100.0
+                            onApply(
+                                threshold.toInt(),
+                                minVal,
+                                maxVal,
+                                rampVal,
+                                addLastEdge,
+                                justBackwards,
+                                justLong,
+                                removeSequential
+                            )
+                            onDismiss()
+                        },
+                        colors = pillButtonColors(),
+                        border = pillButtonBorder(),
+                        shape = PillShape,
+                        contentPadding = SmallButtonPadding,
+                        modifier = Modifier.height(SmallButtonHeight)
+                    ) {
+                        Text("Apply", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        onReset()
-                        onDismiss()
-                    },
-                    colors = pillOutlinedButtonColors(),
-                    border = pillButtonBorder(),
-                    shape = PillShape,
-                    contentPadding = SmallButtonPadding,
-                    modifier = Modifier.height(SmallButtonHeight)
-                ) {
-                    Text("Reset", style = MaterialTheme.typography.labelSmall)
-                }
-                OutlinedButton(
-                    onClick = onDismiss,
-                    colors = pillOutlinedButtonColors(),
-                    border = pillButtonBorder(),
-                    shape = PillShape,
-                    contentPadding = SmallButtonPadding,
-                    modifier = Modifier.height(SmallButtonHeight)
-                ) {
-                    Text("Close", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        },
+        dismissButton = {},
         title = { Text("Tuning") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -175,58 +192,68 @@ fun TuningDialog(
 }
 
 @Composable
-fun BaseUrlDialog(initialValue: String, onSave: (String) -> Unit) {
-    var urlInput by remember { mutableStateOf(initialValue) }
-    val trimmed = urlInput.trim()
-    val isValidUrl = remember(trimmed) { isValidBaseUrl(trimmed) }
+fun AppModeDialog(
+    initialMode: AppMode = AppMode.Local,
+    initialValue: String = "",
+    onConfirm: (AppMode, String) -> Unit
+) {
+    var selectedMode by remember(initialMode) { mutableStateOf(initialMode) }
+    var urlInput by remember(initialValue) { mutableStateOf(initialValue) }
+    val trimmedUrl = urlInput.trim()
+    val requiresServerUrl = selectedMode == AppMode.Server
+    val isValidServerUrl = isValidBaseUrl(trimmedUrl)
+    val canConfirm = !requiresServerUrl || isValidServerUrl
     AlertDialog(
         onDismissRequest = {},
         confirmButton = {
             Button(
-                onClick = { onSave(trimmed) },
-                enabled = isValidUrl,
+                onClick = { onConfirm(selectedMode, trimmedUrl) },
+                enabled = canConfirm,
                 colors = pillButtonColors(),
                 border = pillButtonBorder(),
                 shape = PillShape,
                 contentPadding = SmallButtonPadding,
                 modifier = Modifier.height(SmallButtonHeight)
             ) {
-                Text("Save", style = MaterialTheme.typography.labelSmall)
+                Text("OK", style = MaterialTheme.typography.labelSmall)
             }
         },
-        title = { Text("API Base URL") },
+        title = { Text("App Mode") },
         text = {
-            OutlinedTextField(
-                value = urlInput,
-                onValueChange = { urlInput = it },
-                label = { Text("Example: http://192.168.1.100") },
-                textStyle = MaterialTheme.typography.bodySmall,
-                singleLine = true,
-                isError = trimmed.isNotEmpty() && !isValidUrl,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Done
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.heightIn(min = SmallFieldMinHeight)
-            )
-            if (trimmed.isNotEmpty() && !isValidUrl) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Enter a valid http(s) URL.",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Choose how this app connects.")
+                AppModeSliderToggle(
+                    selectedMode = selectedMode,
+                    onModeChange = { selectedMode = it },
+                    modifier = Modifier.height(SmallButtonHeight)
                 )
+                if (requiresServerUrl) {
+                    Text("API Base URL")
+                    OutlinedTextField(
+                        value = urlInput,
+                        onValueChange = { urlInput = it },
+                        label = { Text("Example: http://192.168.1.100") },
+                        textStyle = MaterialTheme.typography.bodySmall,
+                        singleLine = true,
+                        isError = trimmedUrl.isNotEmpty() && !isValidServerUrl,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Done
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.heightIn(min = SmallFieldMinHeight)
+                    )
+                    if (trimmedUrl.isNotEmpty() && !isValidServerUrl) {
+                        Text(
+                            "Enter a valid http(s) URL.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             }
         }
     )
-}
-
-private fun isValidBaseUrl(value: String): Boolean {
-    val parsed = runCatching { android.net.Uri.parse(value) }.getOrNull() ?: return false
-    val scheme = parsed.scheme?.lowercase()
-    if (scheme != "http" && scheme != "https") return false
-    return !parsed.host.isNullOrBlank()
 }
 
 @Composable

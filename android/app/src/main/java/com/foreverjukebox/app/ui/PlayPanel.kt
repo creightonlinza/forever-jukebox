@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.positioners
 import com.foreverjukebox.app.visualization.visualizationLabels
@@ -100,6 +101,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
         if (!playback.isCasting && !playback.analysisErrorMessage.isNullOrBlank()) {
             ErrorStatus(
                 message = playback.analysisErrorMessage,
+                showRetry = state.appMode == AppMode.Server,
                 onRetry = { viewModel.retryFailedLoad() }
             )
         } else if (!playback.isCasting && (playback.analysisInFlight || playback.analysisCalculating || playback.audioLoading)) {
@@ -110,7 +112,9 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                     playback.analysisInFlight -> playback.analysisMessage ?: "Fetching audio"
                     playback.audioLoading -> "Fetching audio"
                     else -> null
-                }
+                },
+                showCancel = shouldShowLocalLoadingCancel(state.appMode, playback),
+                onCancel = viewModel::cancelLocalAnalysis
             )
         }
 
@@ -137,6 +141,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                 val isFavorite = playback.lastYouTubeId?.let { id ->
                     state.favorites.any { it.uniqueSongId == id }
                 } == true
+                val showServerActions = shouldShowServerListenActions(state.appMode)
                 val themeTokens = LocalThemeTokens.current
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -211,45 +216,47 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                 modifier = Modifier.size(20.dp)
                             )
                         }
-                        IconButton(
-                            onClick = {
-                                val id = playback.lastYouTubeId ?: return@IconButton
-                                val baseUrl = state.baseUrl.trim().trimEnd('/')
-                                val url = "$baseUrl/listen/$id"
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, url)
-                                }
-                                context.startActivity(Intent.createChooser(shareIntent, "Share Forever Jukebox link"))
-                            },
-                            modifier = Modifier.size(SmallButtonHeight)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Share,
-                                contentDescription = "Share",
-                                tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        IconButton(
-                            onClick = {
-                                if (playback.lastYouTubeId == null) return@IconButton
-                                val limitReached = viewModel.toggleFavoriteForCurrent()
-                                val message = when {
-                                    limitReached -> "Maximum favorites reached (100)."
-                                    isFavorite -> "Removed from Favorites"
-                                    else -> "Added to Favorites"
-                                }
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.size(SmallButtonHeight)
-                        ) {
-                            Icon(
-                                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
-                                tint = themeTokens.beatFill,
-                                modifier = Modifier.size(20.dp)
-                            )
+                        if (showServerActions) {
+                            IconButton(
+                                onClick = {
+                                    val id = playback.lastYouTubeId ?: return@IconButton
+                                    val baseUrl = state.baseUrl.trim().trimEnd('/')
+                                    val url = "$baseUrl/listen/$id"
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, url)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share Forever Jukebox link"))
+                                },
+                                modifier = Modifier.size(SmallButtonHeight)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Share,
+                                    contentDescription = "Share",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    if (playback.lastYouTubeId == null) return@IconButton
+                                    val limitReached = viewModel.toggleFavoriteForCurrent()
+                                    val message = when {
+                                        limitReached -> "Maximum favorites reached (100)."
+                                        isFavorite -> "Removed from Favorites"
+                                        else -> "Added to Favorites"
+                                    }
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.size(SmallButtonHeight)
+                            ) {
+                                Icon(
+                                    imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                    contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
+                                    tint = themeTokens.beatFill,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -334,7 +341,19 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
             !playback.audioLoading &&
             playback.analysisErrorMessage.isNullOrBlank()
         ) {
-            Text("No song selected.", color = MaterialTheme.colorScheme.onBackground)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "No song selected.",
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
         }
     }
 
@@ -398,7 +417,12 @@ private fun CastingPanel(
 }
 
 @Composable
-private fun LoadingStatus(progress: Int?, label: String?) {
+private fun LoadingStatus(
+    progress: Int?,
+    label: String?,
+    showCancel: Boolean = false,
+    onCancel: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -431,11 +455,29 @@ private fun LoadingStatus(progress: Int?, label: String?) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        if (showCancel) {
+            OutlinedButton(
+                onClick = onCancel,
+                colors = pillOutlinedButtonColors(),
+                border = pillButtonBorder(),
+                shape = PillShape,
+                contentPadding = SmallButtonPadding,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .height(SmallButtonHeight)
+            ) {
+                Text("Cancel Analysis", style = MaterialTheme.typography.labelSmall)
+            }
+        }
     }
 }
 
 @Composable
-private fun ErrorStatus(message: String, onRetry: () -> Unit) {
+private fun ErrorStatus(
+    message: String,
+    showRetry: Boolean,
+    onRetry: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -447,17 +489,19 @@ private fun ErrorStatus(message: String, onRetry: () -> Unit) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        IconButton(
-            onClick = onRetry,
-            modifier = Modifier
-                .padding(top = 8.dp)
-                .size(SmallButtonHeight)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Refresh,
-                contentDescription = "Retry",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        if (showRetry) {
+            IconButton(
+                onClick = onRetry,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .size(SmallButtonHeight)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = "Retry",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

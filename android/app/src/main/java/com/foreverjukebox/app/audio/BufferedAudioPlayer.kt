@@ -1,8 +1,10 @@
 package com.foreverjukebox.app.audio
 
+import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.net.Uri
 import com.foreverjukebox.app.engine.JukeboxPlayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,7 +25,32 @@ class BufferedAudioPlayer : JukeboxPlayer {
         durationSeconds = null
         releaseNativePlayer()
         val decoded = withContext(Dispatchers.IO) {
-            decodeToPcm(file, onProgress)
+            decodeToPcm(
+                onProgress = onProgress,
+                configureDataSource = { extractor -> extractor.setDataSource(file.absolutePath) }
+            )
+        }
+        sampleRate = decoded.sampleRate
+        channelCount = decoded.channelCount
+        durationSeconds = decoded.durationSeconds
+        ensureNativePlayer()
+        nativeLoadPcm(nativeHandle, decoded.data)
+    }
+
+    suspend fun loadUri(
+        context: Context,
+        uri: Uri,
+        onProgress: ((Int) -> Unit)? = null
+    ) {
+        durationSeconds = null
+        releaseNativePlayer()
+        val decoded = withContext(Dispatchers.IO) {
+            decodeToPcm(
+                onProgress = onProgress,
+                configureDataSource = { extractor ->
+                    extractor.setDataSource(context, uri, emptyMap())
+                }
+            )
         }
         sampleRate = decoded.sampleRate
         channelCount = decoded.channelCount
@@ -105,11 +132,11 @@ class BufferedAudioPlayer : JukeboxPlayer {
     }
 
     private fun decodeToPcm(
-        file: File,
-        onProgress: ((Int) -> Unit)?
+        onProgress: ((Int) -> Unit)?,
+        configureDataSource: (MediaExtractor) -> Unit
     ): DecodedAudio {
         val extractor = MediaExtractor()
-        extractor.setDataSource(file.absolutePath)
+        configureDataSource(extractor)
         var audioTrackIndex = -1
         var format: MediaFormat? = null
         for (i in 0 until extractor.trackCount) {

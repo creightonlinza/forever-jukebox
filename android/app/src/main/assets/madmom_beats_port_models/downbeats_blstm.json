@@ -1,0 +1,1693 @@
+{
+  "version": 1,
+  "networks": [
+    {
+      "layers": [
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net0_layer0_fwd_ig_weights",
+              "bias": "net0_layer0_fwd_ig_bias",
+              "recurrent_weights": "net0_layer0_fwd_ig_recurrent",
+              "peephole_weights": "net0_layer0_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net0_layer0_fwd_fg_weights",
+              "bias": "net0_layer0_fwd_fg_bias",
+              "recurrent_weights": "net0_layer0_fwd_fg_recurrent",
+              "peephole_weights": "net0_layer0_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net0_layer0_fwd_cell_weights",
+              "bias": "net0_layer0_fwd_cell_bias",
+              "recurrent_weights": "net0_layer0_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net0_layer0_fwd_og_weights",
+              "bias": "net0_layer0_fwd_og_bias",
+              "recurrent_weights": "net0_layer0_fwd_og_recurrent",
+              "peephole_weights": "net0_layer0_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net0_layer0_bwd_ig_weights",
+              "bias": "net0_layer0_bwd_ig_bias",
+              "recurrent_weights": "net0_layer0_bwd_ig_recurrent",
+              "peephole_weights": "net0_layer0_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net0_layer0_bwd_fg_weights",
+              "bias": "net0_layer0_bwd_fg_bias",
+              "recurrent_weights": "net0_layer0_bwd_fg_recurrent",
+              "peephole_weights": "net0_layer0_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net0_layer0_bwd_cell_weights",
+              "bias": "net0_layer0_bwd_cell_bias",
+              "recurrent_weights": "net0_layer0_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net0_layer0_bwd_og_weights",
+              "bias": "net0_layer0_bwd_og_bias",
+              "recurrent_weights": "net0_layer0_bwd_og_recurrent",
+              "peephole_weights": "net0_layer0_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net0_layer1_fwd_ig_weights",
+              "bias": "net0_layer1_fwd_ig_bias",
+              "recurrent_weights": "net0_layer1_fwd_ig_recurrent",
+              "peephole_weights": "net0_layer1_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net0_layer1_fwd_fg_weights",
+              "bias": "net0_layer1_fwd_fg_bias",
+              "recurrent_weights": "net0_layer1_fwd_fg_recurrent",
+              "peephole_weights": "net0_layer1_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net0_layer1_fwd_cell_weights",
+              "bias": "net0_layer1_fwd_cell_bias",
+              "recurrent_weights": "net0_layer1_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net0_layer1_fwd_og_weights",
+              "bias": "net0_layer1_fwd_og_bias",
+              "recurrent_weights": "net0_layer1_fwd_og_recurrent",
+              "peephole_weights": "net0_layer1_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net0_layer1_bwd_ig_weights",
+              "bias": "net0_layer1_bwd_ig_bias",
+              "recurrent_weights": "net0_layer1_bwd_ig_recurrent",
+              "peephole_weights": "net0_layer1_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net0_layer1_bwd_fg_weights",
+              "bias": "net0_layer1_bwd_fg_bias",
+              "recurrent_weights": "net0_layer1_bwd_fg_recurrent",
+              "peephole_weights": "net0_layer1_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net0_layer1_bwd_cell_weights",
+              "bias": "net0_layer1_bwd_cell_bias",
+              "recurrent_weights": "net0_layer1_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net0_layer1_bwd_og_weights",
+              "bias": "net0_layer1_bwd_og_bias",
+              "recurrent_weights": "net0_layer1_bwd_og_recurrent",
+              "peephole_weights": "net0_layer1_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net0_layer2_fwd_ig_weights",
+              "bias": "net0_layer2_fwd_ig_bias",
+              "recurrent_weights": "net0_layer2_fwd_ig_recurrent",
+              "peephole_weights": "net0_layer2_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net0_layer2_fwd_fg_weights",
+              "bias": "net0_layer2_fwd_fg_bias",
+              "recurrent_weights": "net0_layer2_fwd_fg_recurrent",
+              "peephole_weights": "net0_layer2_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net0_layer2_fwd_cell_weights",
+              "bias": "net0_layer2_fwd_cell_bias",
+              "recurrent_weights": "net0_layer2_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net0_layer2_fwd_og_weights",
+              "bias": "net0_layer2_fwd_og_bias",
+              "recurrent_weights": "net0_layer2_fwd_og_recurrent",
+              "peephole_weights": "net0_layer2_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net0_layer2_bwd_ig_weights",
+              "bias": "net0_layer2_bwd_ig_bias",
+              "recurrent_weights": "net0_layer2_bwd_ig_recurrent",
+              "peephole_weights": "net0_layer2_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net0_layer2_bwd_fg_weights",
+              "bias": "net0_layer2_bwd_fg_bias",
+              "recurrent_weights": "net0_layer2_bwd_fg_recurrent",
+              "peephole_weights": "net0_layer2_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net0_layer2_bwd_cell_weights",
+              "bias": "net0_layer2_bwd_cell_bias",
+              "recurrent_weights": "net0_layer2_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net0_layer2_bwd_og_weights",
+              "bias": "net0_layer2_bwd_og_bias",
+              "recurrent_weights": "net0_layer2_bwd_og_recurrent",
+              "peephole_weights": "net0_layer2_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "feedforward",
+          "weights": "net0_layer3_weights",
+          "bias": "net0_layer3_bias",
+          "activation": "softmax"
+        }
+      ]
+    },
+    {
+      "layers": [
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net1_layer0_fwd_ig_weights",
+              "bias": "net1_layer0_fwd_ig_bias",
+              "recurrent_weights": "net1_layer0_fwd_ig_recurrent",
+              "peephole_weights": "net1_layer0_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net1_layer0_fwd_fg_weights",
+              "bias": "net1_layer0_fwd_fg_bias",
+              "recurrent_weights": "net1_layer0_fwd_fg_recurrent",
+              "peephole_weights": "net1_layer0_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net1_layer0_fwd_cell_weights",
+              "bias": "net1_layer0_fwd_cell_bias",
+              "recurrent_weights": "net1_layer0_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net1_layer0_fwd_og_weights",
+              "bias": "net1_layer0_fwd_og_bias",
+              "recurrent_weights": "net1_layer0_fwd_og_recurrent",
+              "peephole_weights": "net1_layer0_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net1_layer0_bwd_ig_weights",
+              "bias": "net1_layer0_bwd_ig_bias",
+              "recurrent_weights": "net1_layer0_bwd_ig_recurrent",
+              "peephole_weights": "net1_layer0_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net1_layer0_bwd_fg_weights",
+              "bias": "net1_layer0_bwd_fg_bias",
+              "recurrent_weights": "net1_layer0_bwd_fg_recurrent",
+              "peephole_weights": "net1_layer0_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net1_layer0_bwd_cell_weights",
+              "bias": "net1_layer0_bwd_cell_bias",
+              "recurrent_weights": "net1_layer0_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net1_layer0_bwd_og_weights",
+              "bias": "net1_layer0_bwd_og_bias",
+              "recurrent_weights": "net1_layer0_bwd_og_recurrent",
+              "peephole_weights": "net1_layer0_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net1_layer1_fwd_ig_weights",
+              "bias": "net1_layer1_fwd_ig_bias",
+              "recurrent_weights": "net1_layer1_fwd_ig_recurrent",
+              "peephole_weights": "net1_layer1_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net1_layer1_fwd_fg_weights",
+              "bias": "net1_layer1_fwd_fg_bias",
+              "recurrent_weights": "net1_layer1_fwd_fg_recurrent",
+              "peephole_weights": "net1_layer1_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net1_layer1_fwd_cell_weights",
+              "bias": "net1_layer1_fwd_cell_bias",
+              "recurrent_weights": "net1_layer1_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net1_layer1_fwd_og_weights",
+              "bias": "net1_layer1_fwd_og_bias",
+              "recurrent_weights": "net1_layer1_fwd_og_recurrent",
+              "peephole_weights": "net1_layer1_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net1_layer1_bwd_ig_weights",
+              "bias": "net1_layer1_bwd_ig_bias",
+              "recurrent_weights": "net1_layer1_bwd_ig_recurrent",
+              "peephole_weights": "net1_layer1_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net1_layer1_bwd_fg_weights",
+              "bias": "net1_layer1_bwd_fg_bias",
+              "recurrent_weights": "net1_layer1_bwd_fg_recurrent",
+              "peephole_weights": "net1_layer1_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net1_layer1_bwd_cell_weights",
+              "bias": "net1_layer1_bwd_cell_bias",
+              "recurrent_weights": "net1_layer1_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net1_layer1_bwd_og_weights",
+              "bias": "net1_layer1_bwd_og_bias",
+              "recurrent_weights": "net1_layer1_bwd_og_recurrent",
+              "peephole_weights": "net1_layer1_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net1_layer2_fwd_ig_weights",
+              "bias": "net1_layer2_fwd_ig_bias",
+              "recurrent_weights": "net1_layer2_fwd_ig_recurrent",
+              "peephole_weights": "net1_layer2_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net1_layer2_fwd_fg_weights",
+              "bias": "net1_layer2_fwd_fg_bias",
+              "recurrent_weights": "net1_layer2_fwd_fg_recurrent",
+              "peephole_weights": "net1_layer2_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net1_layer2_fwd_cell_weights",
+              "bias": "net1_layer2_fwd_cell_bias",
+              "recurrent_weights": "net1_layer2_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net1_layer2_fwd_og_weights",
+              "bias": "net1_layer2_fwd_og_bias",
+              "recurrent_weights": "net1_layer2_fwd_og_recurrent",
+              "peephole_weights": "net1_layer2_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net1_layer2_bwd_ig_weights",
+              "bias": "net1_layer2_bwd_ig_bias",
+              "recurrent_weights": "net1_layer2_bwd_ig_recurrent",
+              "peephole_weights": "net1_layer2_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net1_layer2_bwd_fg_weights",
+              "bias": "net1_layer2_bwd_fg_bias",
+              "recurrent_weights": "net1_layer2_bwd_fg_recurrent",
+              "peephole_weights": "net1_layer2_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net1_layer2_bwd_cell_weights",
+              "bias": "net1_layer2_bwd_cell_bias",
+              "recurrent_weights": "net1_layer2_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net1_layer2_bwd_og_weights",
+              "bias": "net1_layer2_bwd_og_bias",
+              "recurrent_weights": "net1_layer2_bwd_og_recurrent",
+              "peephole_weights": "net1_layer2_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "feedforward",
+          "weights": "net1_layer3_weights",
+          "bias": "net1_layer3_bias",
+          "activation": "softmax"
+        }
+      ]
+    },
+    {
+      "layers": [
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net2_layer0_fwd_ig_weights",
+              "bias": "net2_layer0_fwd_ig_bias",
+              "recurrent_weights": "net2_layer0_fwd_ig_recurrent",
+              "peephole_weights": "net2_layer0_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net2_layer0_fwd_fg_weights",
+              "bias": "net2_layer0_fwd_fg_bias",
+              "recurrent_weights": "net2_layer0_fwd_fg_recurrent",
+              "peephole_weights": "net2_layer0_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net2_layer0_fwd_cell_weights",
+              "bias": "net2_layer0_fwd_cell_bias",
+              "recurrent_weights": "net2_layer0_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net2_layer0_fwd_og_weights",
+              "bias": "net2_layer0_fwd_og_bias",
+              "recurrent_weights": "net2_layer0_fwd_og_recurrent",
+              "peephole_weights": "net2_layer0_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net2_layer0_bwd_ig_weights",
+              "bias": "net2_layer0_bwd_ig_bias",
+              "recurrent_weights": "net2_layer0_bwd_ig_recurrent",
+              "peephole_weights": "net2_layer0_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net2_layer0_bwd_fg_weights",
+              "bias": "net2_layer0_bwd_fg_bias",
+              "recurrent_weights": "net2_layer0_bwd_fg_recurrent",
+              "peephole_weights": "net2_layer0_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net2_layer0_bwd_cell_weights",
+              "bias": "net2_layer0_bwd_cell_bias",
+              "recurrent_weights": "net2_layer0_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net2_layer0_bwd_og_weights",
+              "bias": "net2_layer0_bwd_og_bias",
+              "recurrent_weights": "net2_layer0_bwd_og_recurrent",
+              "peephole_weights": "net2_layer0_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net2_layer1_fwd_ig_weights",
+              "bias": "net2_layer1_fwd_ig_bias",
+              "recurrent_weights": "net2_layer1_fwd_ig_recurrent",
+              "peephole_weights": "net2_layer1_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net2_layer1_fwd_fg_weights",
+              "bias": "net2_layer1_fwd_fg_bias",
+              "recurrent_weights": "net2_layer1_fwd_fg_recurrent",
+              "peephole_weights": "net2_layer1_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net2_layer1_fwd_cell_weights",
+              "bias": "net2_layer1_fwd_cell_bias",
+              "recurrent_weights": "net2_layer1_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net2_layer1_fwd_og_weights",
+              "bias": "net2_layer1_fwd_og_bias",
+              "recurrent_weights": "net2_layer1_fwd_og_recurrent",
+              "peephole_weights": "net2_layer1_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net2_layer1_bwd_ig_weights",
+              "bias": "net2_layer1_bwd_ig_bias",
+              "recurrent_weights": "net2_layer1_bwd_ig_recurrent",
+              "peephole_weights": "net2_layer1_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net2_layer1_bwd_fg_weights",
+              "bias": "net2_layer1_bwd_fg_bias",
+              "recurrent_weights": "net2_layer1_bwd_fg_recurrent",
+              "peephole_weights": "net2_layer1_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net2_layer1_bwd_cell_weights",
+              "bias": "net2_layer1_bwd_cell_bias",
+              "recurrent_weights": "net2_layer1_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net2_layer1_bwd_og_weights",
+              "bias": "net2_layer1_bwd_og_bias",
+              "recurrent_weights": "net2_layer1_bwd_og_recurrent",
+              "peephole_weights": "net2_layer1_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net2_layer2_fwd_ig_weights",
+              "bias": "net2_layer2_fwd_ig_bias",
+              "recurrent_weights": "net2_layer2_fwd_ig_recurrent",
+              "peephole_weights": "net2_layer2_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net2_layer2_fwd_fg_weights",
+              "bias": "net2_layer2_fwd_fg_bias",
+              "recurrent_weights": "net2_layer2_fwd_fg_recurrent",
+              "peephole_weights": "net2_layer2_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net2_layer2_fwd_cell_weights",
+              "bias": "net2_layer2_fwd_cell_bias",
+              "recurrent_weights": "net2_layer2_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net2_layer2_fwd_og_weights",
+              "bias": "net2_layer2_fwd_og_bias",
+              "recurrent_weights": "net2_layer2_fwd_og_recurrent",
+              "peephole_weights": "net2_layer2_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net2_layer2_bwd_ig_weights",
+              "bias": "net2_layer2_bwd_ig_bias",
+              "recurrent_weights": "net2_layer2_bwd_ig_recurrent",
+              "peephole_weights": "net2_layer2_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net2_layer2_bwd_fg_weights",
+              "bias": "net2_layer2_bwd_fg_bias",
+              "recurrent_weights": "net2_layer2_bwd_fg_recurrent",
+              "peephole_weights": "net2_layer2_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net2_layer2_bwd_cell_weights",
+              "bias": "net2_layer2_bwd_cell_bias",
+              "recurrent_weights": "net2_layer2_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net2_layer2_bwd_og_weights",
+              "bias": "net2_layer2_bwd_og_bias",
+              "recurrent_weights": "net2_layer2_bwd_og_recurrent",
+              "peephole_weights": "net2_layer2_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "feedforward",
+          "weights": "net2_layer3_weights",
+          "bias": "net2_layer3_bias",
+          "activation": "softmax"
+        }
+      ]
+    },
+    {
+      "layers": [
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net3_layer0_fwd_ig_weights",
+              "bias": "net3_layer0_fwd_ig_bias",
+              "recurrent_weights": "net3_layer0_fwd_ig_recurrent",
+              "peephole_weights": "net3_layer0_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net3_layer0_fwd_fg_weights",
+              "bias": "net3_layer0_fwd_fg_bias",
+              "recurrent_weights": "net3_layer0_fwd_fg_recurrent",
+              "peephole_weights": "net3_layer0_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net3_layer0_fwd_cell_weights",
+              "bias": "net3_layer0_fwd_cell_bias",
+              "recurrent_weights": "net3_layer0_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net3_layer0_fwd_og_weights",
+              "bias": "net3_layer0_fwd_og_bias",
+              "recurrent_weights": "net3_layer0_fwd_og_recurrent",
+              "peephole_weights": "net3_layer0_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net3_layer0_bwd_ig_weights",
+              "bias": "net3_layer0_bwd_ig_bias",
+              "recurrent_weights": "net3_layer0_bwd_ig_recurrent",
+              "peephole_weights": "net3_layer0_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net3_layer0_bwd_fg_weights",
+              "bias": "net3_layer0_bwd_fg_bias",
+              "recurrent_weights": "net3_layer0_bwd_fg_recurrent",
+              "peephole_weights": "net3_layer0_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net3_layer0_bwd_cell_weights",
+              "bias": "net3_layer0_bwd_cell_bias",
+              "recurrent_weights": "net3_layer0_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net3_layer0_bwd_og_weights",
+              "bias": "net3_layer0_bwd_og_bias",
+              "recurrent_weights": "net3_layer0_bwd_og_recurrent",
+              "peephole_weights": "net3_layer0_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net3_layer1_fwd_ig_weights",
+              "bias": "net3_layer1_fwd_ig_bias",
+              "recurrent_weights": "net3_layer1_fwd_ig_recurrent",
+              "peephole_weights": "net3_layer1_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net3_layer1_fwd_fg_weights",
+              "bias": "net3_layer1_fwd_fg_bias",
+              "recurrent_weights": "net3_layer1_fwd_fg_recurrent",
+              "peephole_weights": "net3_layer1_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net3_layer1_fwd_cell_weights",
+              "bias": "net3_layer1_fwd_cell_bias",
+              "recurrent_weights": "net3_layer1_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net3_layer1_fwd_og_weights",
+              "bias": "net3_layer1_fwd_og_bias",
+              "recurrent_weights": "net3_layer1_fwd_og_recurrent",
+              "peephole_weights": "net3_layer1_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net3_layer1_bwd_ig_weights",
+              "bias": "net3_layer1_bwd_ig_bias",
+              "recurrent_weights": "net3_layer1_bwd_ig_recurrent",
+              "peephole_weights": "net3_layer1_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net3_layer1_bwd_fg_weights",
+              "bias": "net3_layer1_bwd_fg_bias",
+              "recurrent_weights": "net3_layer1_bwd_fg_recurrent",
+              "peephole_weights": "net3_layer1_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net3_layer1_bwd_cell_weights",
+              "bias": "net3_layer1_bwd_cell_bias",
+              "recurrent_weights": "net3_layer1_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net3_layer1_bwd_og_weights",
+              "bias": "net3_layer1_bwd_og_bias",
+              "recurrent_weights": "net3_layer1_bwd_og_recurrent",
+              "peephole_weights": "net3_layer1_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net3_layer2_fwd_ig_weights",
+              "bias": "net3_layer2_fwd_ig_bias",
+              "recurrent_weights": "net3_layer2_fwd_ig_recurrent",
+              "peephole_weights": "net3_layer2_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net3_layer2_fwd_fg_weights",
+              "bias": "net3_layer2_fwd_fg_bias",
+              "recurrent_weights": "net3_layer2_fwd_fg_recurrent",
+              "peephole_weights": "net3_layer2_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net3_layer2_fwd_cell_weights",
+              "bias": "net3_layer2_fwd_cell_bias",
+              "recurrent_weights": "net3_layer2_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net3_layer2_fwd_og_weights",
+              "bias": "net3_layer2_fwd_og_bias",
+              "recurrent_weights": "net3_layer2_fwd_og_recurrent",
+              "peephole_weights": "net3_layer2_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net3_layer2_bwd_ig_weights",
+              "bias": "net3_layer2_bwd_ig_bias",
+              "recurrent_weights": "net3_layer2_bwd_ig_recurrent",
+              "peephole_weights": "net3_layer2_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net3_layer2_bwd_fg_weights",
+              "bias": "net3_layer2_bwd_fg_bias",
+              "recurrent_weights": "net3_layer2_bwd_fg_recurrent",
+              "peephole_weights": "net3_layer2_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net3_layer2_bwd_cell_weights",
+              "bias": "net3_layer2_bwd_cell_bias",
+              "recurrent_weights": "net3_layer2_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net3_layer2_bwd_og_weights",
+              "bias": "net3_layer2_bwd_og_bias",
+              "recurrent_weights": "net3_layer2_bwd_og_recurrent",
+              "peephole_weights": "net3_layer2_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "feedforward",
+          "weights": "net3_layer3_weights",
+          "bias": "net3_layer3_bias",
+          "activation": "softmax"
+        }
+      ]
+    },
+    {
+      "layers": [
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net4_layer0_fwd_ig_weights",
+              "bias": "net4_layer0_fwd_ig_bias",
+              "recurrent_weights": "net4_layer0_fwd_ig_recurrent",
+              "peephole_weights": "net4_layer0_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net4_layer0_fwd_fg_weights",
+              "bias": "net4_layer0_fwd_fg_bias",
+              "recurrent_weights": "net4_layer0_fwd_fg_recurrent",
+              "peephole_weights": "net4_layer0_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net4_layer0_fwd_cell_weights",
+              "bias": "net4_layer0_fwd_cell_bias",
+              "recurrent_weights": "net4_layer0_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net4_layer0_fwd_og_weights",
+              "bias": "net4_layer0_fwd_og_bias",
+              "recurrent_weights": "net4_layer0_fwd_og_recurrent",
+              "peephole_weights": "net4_layer0_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net4_layer0_bwd_ig_weights",
+              "bias": "net4_layer0_bwd_ig_bias",
+              "recurrent_weights": "net4_layer0_bwd_ig_recurrent",
+              "peephole_weights": "net4_layer0_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net4_layer0_bwd_fg_weights",
+              "bias": "net4_layer0_bwd_fg_bias",
+              "recurrent_weights": "net4_layer0_bwd_fg_recurrent",
+              "peephole_weights": "net4_layer0_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net4_layer0_bwd_cell_weights",
+              "bias": "net4_layer0_bwd_cell_bias",
+              "recurrent_weights": "net4_layer0_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net4_layer0_bwd_og_weights",
+              "bias": "net4_layer0_bwd_og_bias",
+              "recurrent_weights": "net4_layer0_bwd_og_recurrent",
+              "peephole_weights": "net4_layer0_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net4_layer1_fwd_ig_weights",
+              "bias": "net4_layer1_fwd_ig_bias",
+              "recurrent_weights": "net4_layer1_fwd_ig_recurrent",
+              "peephole_weights": "net4_layer1_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net4_layer1_fwd_fg_weights",
+              "bias": "net4_layer1_fwd_fg_bias",
+              "recurrent_weights": "net4_layer1_fwd_fg_recurrent",
+              "peephole_weights": "net4_layer1_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net4_layer1_fwd_cell_weights",
+              "bias": "net4_layer1_fwd_cell_bias",
+              "recurrent_weights": "net4_layer1_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net4_layer1_fwd_og_weights",
+              "bias": "net4_layer1_fwd_og_bias",
+              "recurrent_weights": "net4_layer1_fwd_og_recurrent",
+              "peephole_weights": "net4_layer1_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net4_layer1_bwd_ig_weights",
+              "bias": "net4_layer1_bwd_ig_bias",
+              "recurrent_weights": "net4_layer1_bwd_ig_recurrent",
+              "peephole_weights": "net4_layer1_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net4_layer1_bwd_fg_weights",
+              "bias": "net4_layer1_bwd_fg_bias",
+              "recurrent_weights": "net4_layer1_bwd_fg_recurrent",
+              "peephole_weights": "net4_layer1_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net4_layer1_bwd_cell_weights",
+              "bias": "net4_layer1_bwd_cell_bias",
+              "recurrent_weights": "net4_layer1_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net4_layer1_bwd_og_weights",
+              "bias": "net4_layer1_bwd_og_bias",
+              "recurrent_weights": "net4_layer1_bwd_og_recurrent",
+              "peephole_weights": "net4_layer1_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net4_layer2_fwd_ig_weights",
+              "bias": "net4_layer2_fwd_ig_bias",
+              "recurrent_weights": "net4_layer2_fwd_ig_recurrent",
+              "peephole_weights": "net4_layer2_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net4_layer2_fwd_fg_weights",
+              "bias": "net4_layer2_fwd_fg_bias",
+              "recurrent_weights": "net4_layer2_fwd_fg_recurrent",
+              "peephole_weights": "net4_layer2_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net4_layer2_fwd_cell_weights",
+              "bias": "net4_layer2_fwd_cell_bias",
+              "recurrent_weights": "net4_layer2_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net4_layer2_fwd_og_weights",
+              "bias": "net4_layer2_fwd_og_bias",
+              "recurrent_weights": "net4_layer2_fwd_og_recurrent",
+              "peephole_weights": "net4_layer2_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net4_layer2_bwd_ig_weights",
+              "bias": "net4_layer2_bwd_ig_bias",
+              "recurrent_weights": "net4_layer2_bwd_ig_recurrent",
+              "peephole_weights": "net4_layer2_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net4_layer2_bwd_fg_weights",
+              "bias": "net4_layer2_bwd_fg_bias",
+              "recurrent_weights": "net4_layer2_bwd_fg_recurrent",
+              "peephole_weights": "net4_layer2_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net4_layer2_bwd_cell_weights",
+              "bias": "net4_layer2_bwd_cell_bias",
+              "recurrent_weights": "net4_layer2_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net4_layer2_bwd_og_weights",
+              "bias": "net4_layer2_bwd_og_bias",
+              "recurrent_weights": "net4_layer2_bwd_og_recurrent",
+              "peephole_weights": "net4_layer2_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "feedforward",
+          "weights": "net4_layer3_weights",
+          "bias": "net4_layer3_bias",
+          "activation": "softmax"
+        }
+      ]
+    },
+    {
+      "layers": [
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net5_layer0_fwd_ig_weights",
+              "bias": "net5_layer0_fwd_ig_bias",
+              "recurrent_weights": "net5_layer0_fwd_ig_recurrent",
+              "peephole_weights": "net5_layer0_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net5_layer0_fwd_fg_weights",
+              "bias": "net5_layer0_fwd_fg_bias",
+              "recurrent_weights": "net5_layer0_fwd_fg_recurrent",
+              "peephole_weights": "net5_layer0_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net5_layer0_fwd_cell_weights",
+              "bias": "net5_layer0_fwd_cell_bias",
+              "recurrent_weights": "net5_layer0_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net5_layer0_fwd_og_weights",
+              "bias": "net5_layer0_fwd_og_bias",
+              "recurrent_weights": "net5_layer0_fwd_og_recurrent",
+              "peephole_weights": "net5_layer0_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net5_layer0_bwd_ig_weights",
+              "bias": "net5_layer0_bwd_ig_bias",
+              "recurrent_weights": "net5_layer0_bwd_ig_recurrent",
+              "peephole_weights": "net5_layer0_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net5_layer0_bwd_fg_weights",
+              "bias": "net5_layer0_bwd_fg_bias",
+              "recurrent_weights": "net5_layer0_bwd_fg_recurrent",
+              "peephole_weights": "net5_layer0_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net5_layer0_bwd_cell_weights",
+              "bias": "net5_layer0_bwd_cell_bias",
+              "recurrent_weights": "net5_layer0_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net5_layer0_bwd_og_weights",
+              "bias": "net5_layer0_bwd_og_bias",
+              "recurrent_weights": "net5_layer0_bwd_og_recurrent",
+              "peephole_weights": "net5_layer0_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net5_layer1_fwd_ig_weights",
+              "bias": "net5_layer1_fwd_ig_bias",
+              "recurrent_weights": "net5_layer1_fwd_ig_recurrent",
+              "peephole_weights": "net5_layer1_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net5_layer1_fwd_fg_weights",
+              "bias": "net5_layer1_fwd_fg_bias",
+              "recurrent_weights": "net5_layer1_fwd_fg_recurrent",
+              "peephole_weights": "net5_layer1_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net5_layer1_fwd_cell_weights",
+              "bias": "net5_layer1_fwd_cell_bias",
+              "recurrent_weights": "net5_layer1_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net5_layer1_fwd_og_weights",
+              "bias": "net5_layer1_fwd_og_bias",
+              "recurrent_weights": "net5_layer1_fwd_og_recurrent",
+              "peephole_weights": "net5_layer1_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net5_layer1_bwd_ig_weights",
+              "bias": "net5_layer1_bwd_ig_bias",
+              "recurrent_weights": "net5_layer1_bwd_ig_recurrent",
+              "peephole_weights": "net5_layer1_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net5_layer1_bwd_fg_weights",
+              "bias": "net5_layer1_bwd_fg_bias",
+              "recurrent_weights": "net5_layer1_bwd_fg_recurrent",
+              "peephole_weights": "net5_layer1_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net5_layer1_bwd_cell_weights",
+              "bias": "net5_layer1_bwd_cell_bias",
+              "recurrent_weights": "net5_layer1_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net5_layer1_bwd_og_weights",
+              "bias": "net5_layer1_bwd_og_bias",
+              "recurrent_weights": "net5_layer1_bwd_og_recurrent",
+              "peephole_weights": "net5_layer1_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net5_layer2_fwd_ig_weights",
+              "bias": "net5_layer2_fwd_ig_bias",
+              "recurrent_weights": "net5_layer2_fwd_ig_recurrent",
+              "peephole_weights": "net5_layer2_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net5_layer2_fwd_fg_weights",
+              "bias": "net5_layer2_fwd_fg_bias",
+              "recurrent_weights": "net5_layer2_fwd_fg_recurrent",
+              "peephole_weights": "net5_layer2_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net5_layer2_fwd_cell_weights",
+              "bias": "net5_layer2_fwd_cell_bias",
+              "recurrent_weights": "net5_layer2_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net5_layer2_fwd_og_weights",
+              "bias": "net5_layer2_fwd_og_bias",
+              "recurrent_weights": "net5_layer2_fwd_og_recurrent",
+              "peephole_weights": "net5_layer2_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net5_layer2_bwd_ig_weights",
+              "bias": "net5_layer2_bwd_ig_bias",
+              "recurrent_weights": "net5_layer2_bwd_ig_recurrent",
+              "peephole_weights": "net5_layer2_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net5_layer2_bwd_fg_weights",
+              "bias": "net5_layer2_bwd_fg_bias",
+              "recurrent_weights": "net5_layer2_bwd_fg_recurrent",
+              "peephole_weights": "net5_layer2_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net5_layer2_bwd_cell_weights",
+              "bias": "net5_layer2_bwd_cell_bias",
+              "recurrent_weights": "net5_layer2_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net5_layer2_bwd_og_weights",
+              "bias": "net5_layer2_bwd_og_bias",
+              "recurrent_weights": "net5_layer2_bwd_og_recurrent",
+              "peephole_weights": "net5_layer2_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "feedforward",
+          "weights": "net5_layer3_weights",
+          "bias": "net5_layer3_bias",
+          "activation": "softmax"
+        }
+      ]
+    },
+    {
+      "layers": [
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net6_layer0_fwd_ig_weights",
+              "bias": "net6_layer0_fwd_ig_bias",
+              "recurrent_weights": "net6_layer0_fwd_ig_recurrent",
+              "peephole_weights": "net6_layer0_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net6_layer0_fwd_fg_weights",
+              "bias": "net6_layer0_fwd_fg_bias",
+              "recurrent_weights": "net6_layer0_fwd_fg_recurrent",
+              "peephole_weights": "net6_layer0_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net6_layer0_fwd_cell_weights",
+              "bias": "net6_layer0_fwd_cell_bias",
+              "recurrent_weights": "net6_layer0_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net6_layer0_fwd_og_weights",
+              "bias": "net6_layer0_fwd_og_bias",
+              "recurrent_weights": "net6_layer0_fwd_og_recurrent",
+              "peephole_weights": "net6_layer0_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net6_layer0_bwd_ig_weights",
+              "bias": "net6_layer0_bwd_ig_bias",
+              "recurrent_weights": "net6_layer0_bwd_ig_recurrent",
+              "peephole_weights": "net6_layer0_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net6_layer0_bwd_fg_weights",
+              "bias": "net6_layer0_bwd_fg_bias",
+              "recurrent_weights": "net6_layer0_bwd_fg_recurrent",
+              "peephole_weights": "net6_layer0_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net6_layer0_bwd_cell_weights",
+              "bias": "net6_layer0_bwd_cell_bias",
+              "recurrent_weights": "net6_layer0_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net6_layer0_bwd_og_weights",
+              "bias": "net6_layer0_bwd_og_bias",
+              "recurrent_weights": "net6_layer0_bwd_og_recurrent",
+              "peephole_weights": "net6_layer0_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net6_layer1_fwd_ig_weights",
+              "bias": "net6_layer1_fwd_ig_bias",
+              "recurrent_weights": "net6_layer1_fwd_ig_recurrent",
+              "peephole_weights": "net6_layer1_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net6_layer1_fwd_fg_weights",
+              "bias": "net6_layer1_fwd_fg_bias",
+              "recurrent_weights": "net6_layer1_fwd_fg_recurrent",
+              "peephole_weights": "net6_layer1_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net6_layer1_fwd_cell_weights",
+              "bias": "net6_layer1_fwd_cell_bias",
+              "recurrent_weights": "net6_layer1_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net6_layer1_fwd_og_weights",
+              "bias": "net6_layer1_fwd_og_bias",
+              "recurrent_weights": "net6_layer1_fwd_og_recurrent",
+              "peephole_weights": "net6_layer1_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net6_layer1_bwd_ig_weights",
+              "bias": "net6_layer1_bwd_ig_bias",
+              "recurrent_weights": "net6_layer1_bwd_ig_recurrent",
+              "peephole_weights": "net6_layer1_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net6_layer1_bwd_fg_weights",
+              "bias": "net6_layer1_bwd_fg_bias",
+              "recurrent_weights": "net6_layer1_bwd_fg_recurrent",
+              "peephole_weights": "net6_layer1_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net6_layer1_bwd_cell_weights",
+              "bias": "net6_layer1_bwd_cell_bias",
+              "recurrent_weights": "net6_layer1_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net6_layer1_bwd_og_weights",
+              "bias": "net6_layer1_bwd_og_bias",
+              "recurrent_weights": "net6_layer1_bwd_og_recurrent",
+              "peephole_weights": "net6_layer1_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net6_layer2_fwd_ig_weights",
+              "bias": "net6_layer2_fwd_ig_bias",
+              "recurrent_weights": "net6_layer2_fwd_ig_recurrent",
+              "peephole_weights": "net6_layer2_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net6_layer2_fwd_fg_weights",
+              "bias": "net6_layer2_fwd_fg_bias",
+              "recurrent_weights": "net6_layer2_fwd_fg_recurrent",
+              "peephole_weights": "net6_layer2_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net6_layer2_fwd_cell_weights",
+              "bias": "net6_layer2_fwd_cell_bias",
+              "recurrent_weights": "net6_layer2_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net6_layer2_fwd_og_weights",
+              "bias": "net6_layer2_fwd_og_bias",
+              "recurrent_weights": "net6_layer2_fwd_og_recurrent",
+              "peephole_weights": "net6_layer2_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net6_layer2_bwd_ig_weights",
+              "bias": "net6_layer2_bwd_ig_bias",
+              "recurrent_weights": "net6_layer2_bwd_ig_recurrent",
+              "peephole_weights": "net6_layer2_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net6_layer2_bwd_fg_weights",
+              "bias": "net6_layer2_bwd_fg_bias",
+              "recurrent_weights": "net6_layer2_bwd_fg_recurrent",
+              "peephole_weights": "net6_layer2_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net6_layer2_bwd_cell_weights",
+              "bias": "net6_layer2_bwd_cell_bias",
+              "recurrent_weights": "net6_layer2_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net6_layer2_bwd_og_weights",
+              "bias": "net6_layer2_bwd_og_bias",
+              "recurrent_weights": "net6_layer2_bwd_og_recurrent",
+              "peephole_weights": "net6_layer2_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "feedforward",
+          "weights": "net6_layer3_weights",
+          "bias": "net6_layer3_bias",
+          "activation": "softmax"
+        }
+      ]
+    },
+    {
+      "layers": [
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net7_layer0_fwd_ig_weights",
+              "bias": "net7_layer0_fwd_ig_bias",
+              "recurrent_weights": "net7_layer0_fwd_ig_recurrent",
+              "peephole_weights": "net7_layer0_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net7_layer0_fwd_fg_weights",
+              "bias": "net7_layer0_fwd_fg_bias",
+              "recurrent_weights": "net7_layer0_fwd_fg_recurrent",
+              "peephole_weights": "net7_layer0_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net7_layer0_fwd_cell_weights",
+              "bias": "net7_layer0_fwd_cell_bias",
+              "recurrent_weights": "net7_layer0_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net7_layer0_fwd_og_weights",
+              "bias": "net7_layer0_fwd_og_bias",
+              "recurrent_weights": "net7_layer0_fwd_og_recurrent",
+              "peephole_weights": "net7_layer0_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net7_layer0_bwd_ig_weights",
+              "bias": "net7_layer0_bwd_ig_bias",
+              "recurrent_weights": "net7_layer0_bwd_ig_recurrent",
+              "peephole_weights": "net7_layer0_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net7_layer0_bwd_fg_weights",
+              "bias": "net7_layer0_bwd_fg_bias",
+              "recurrent_weights": "net7_layer0_bwd_fg_recurrent",
+              "peephole_weights": "net7_layer0_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net7_layer0_bwd_cell_weights",
+              "bias": "net7_layer0_bwd_cell_bias",
+              "recurrent_weights": "net7_layer0_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net7_layer0_bwd_og_weights",
+              "bias": "net7_layer0_bwd_og_bias",
+              "recurrent_weights": "net7_layer0_bwd_og_recurrent",
+              "peephole_weights": "net7_layer0_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net7_layer1_fwd_ig_weights",
+              "bias": "net7_layer1_fwd_ig_bias",
+              "recurrent_weights": "net7_layer1_fwd_ig_recurrent",
+              "peephole_weights": "net7_layer1_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net7_layer1_fwd_fg_weights",
+              "bias": "net7_layer1_fwd_fg_bias",
+              "recurrent_weights": "net7_layer1_fwd_fg_recurrent",
+              "peephole_weights": "net7_layer1_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net7_layer1_fwd_cell_weights",
+              "bias": "net7_layer1_fwd_cell_bias",
+              "recurrent_weights": "net7_layer1_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net7_layer1_fwd_og_weights",
+              "bias": "net7_layer1_fwd_og_bias",
+              "recurrent_weights": "net7_layer1_fwd_og_recurrent",
+              "peephole_weights": "net7_layer1_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net7_layer1_bwd_ig_weights",
+              "bias": "net7_layer1_bwd_ig_bias",
+              "recurrent_weights": "net7_layer1_bwd_ig_recurrent",
+              "peephole_weights": "net7_layer1_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net7_layer1_bwd_fg_weights",
+              "bias": "net7_layer1_bwd_fg_bias",
+              "recurrent_weights": "net7_layer1_bwd_fg_recurrent",
+              "peephole_weights": "net7_layer1_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net7_layer1_bwd_cell_weights",
+              "bias": "net7_layer1_bwd_cell_bias",
+              "recurrent_weights": "net7_layer1_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net7_layer1_bwd_og_weights",
+              "bias": "net7_layer1_bwd_og_bias",
+              "recurrent_weights": "net7_layer1_bwd_og_recurrent",
+              "peephole_weights": "net7_layer1_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "bidirectional",
+          "fwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net7_layer2_fwd_ig_weights",
+              "bias": "net7_layer2_fwd_ig_bias",
+              "recurrent_weights": "net7_layer2_fwd_ig_recurrent",
+              "peephole_weights": "net7_layer2_fwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net7_layer2_fwd_fg_weights",
+              "bias": "net7_layer2_fwd_fg_bias",
+              "recurrent_weights": "net7_layer2_fwd_fg_recurrent",
+              "peephole_weights": "net7_layer2_fwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net7_layer2_fwd_cell_weights",
+              "bias": "net7_layer2_fwd_cell_bias",
+              "recurrent_weights": "net7_layer2_fwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net7_layer2_fwd_og_weights",
+              "bias": "net7_layer2_fwd_og_bias",
+              "recurrent_weights": "net7_layer2_fwd_og_recurrent",
+              "peephole_weights": "net7_layer2_fwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          },
+          "bwd": {
+            "type": "lstm",
+            "activation": "tanh",
+            "input_gate": {
+              "weights": "net7_layer2_bwd_ig_weights",
+              "bias": "net7_layer2_bwd_ig_bias",
+              "recurrent_weights": "net7_layer2_bwd_ig_recurrent",
+              "peephole_weights": "net7_layer2_bwd_ig_peephole",
+              "activation": "sigmoid"
+            },
+            "forget_gate": {
+              "weights": "net7_layer2_bwd_fg_weights",
+              "bias": "net7_layer2_bwd_fg_bias",
+              "recurrent_weights": "net7_layer2_bwd_fg_recurrent",
+              "peephole_weights": "net7_layer2_bwd_fg_peephole",
+              "activation": "sigmoid"
+            },
+            "cell": {
+              "weights": "net7_layer2_bwd_cell_weights",
+              "bias": "net7_layer2_bwd_cell_bias",
+              "recurrent_weights": "net7_layer2_bwd_cell_recurrent",
+              "peephole_weights": null,
+              "activation": "tanh"
+            },
+            "output_gate": {
+              "weights": "net7_layer2_bwd_og_weights",
+              "bias": "net7_layer2_bwd_og_bias",
+              "recurrent_weights": "net7_layer2_bwd_og_recurrent",
+              "peephole_weights": "net7_layer2_bwd_og_peephole",
+              "activation": "sigmoid"
+            }
+          }
+        },
+        {
+          "type": "feedforward",
+          "weights": "net7_layer3_weights",
+          "bias": "net7_layer3_bias",
+          "activation": "softmax"
+        }
+      ]
+    }
+  ]
+}

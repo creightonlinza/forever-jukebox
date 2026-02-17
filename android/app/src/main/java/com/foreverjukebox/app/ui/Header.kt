@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
 import com.foreverjukebox.app.BuildConfig
+import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.data.ThemeMode
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -54,6 +55,7 @@ fun HeaderBar(
     state: UiState,
     onEditBaseUrl: (String) -> Unit,
     onThemeChange: (ThemeMode) -> Unit,
+    onAppModeChange: (AppMode) -> Unit,
     onRefreshCacheSize: () -> Unit,
     onClearCache: () -> Unit,
     onTabSelected: (TabId) -> Unit,
@@ -101,34 +103,38 @@ fun HeaderBar(
         ).value
         val glow = 0.45f + (0.55f * flicker)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "THE FOREVER JUKEBOX",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontFamily = neonFontFamily,
-                    letterSpacing = 2.sp,
-                    shadow = Shadow(
-                        color = MaterialTheme.colorScheme.secondary.copy(alpha = glow),
-                        offset = Offset(0f, 0f),
-                        blurRadius = 18f * glow
-                    )
-                ),
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.9f * flicker),
-                fontWeight = FontWeight.Bold
-            )
+            Column {
+                Text(
+                    text = "THE FOREVER JUKEBOX",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontFamily = neonFontFamily,
+                        letterSpacing = 2.sp,
+                        shadow = Shadow(
+                            color = MaterialTheme.colorScheme.secondary.copy(alpha = glow),
+                            offset = Offset(0f, 0f),
+                            blurRadius = 18f * glow
+                        )
+                    ),
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.9f * flicker),
+                    fontWeight = FontWeight.Bold
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
-            CastRouteButton(
-                modifier = Modifier.size(SmallButtonHeight),
-                enabled = state.castEnabled,
-                onSessionStarted = onCastSessionStarted,
-                onDisabledClick = {
-                    Toast.makeText(
-                        context,
-                        "Casting is not available for this API base URL.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            )
-            Spacer(modifier = Modifier.width(6.dp))
+            if (state.appMode == AppMode.Server) {
+                CastRouteButton(
+                    modifier = Modifier.size(SmallButtonHeight),
+                    enabled = state.castEnabled,
+                    onSessionStarted = onCastSessionStarted,
+                    onDisabledClick = {
+                        Toast.makeText(
+                            context,
+                            "Casting is not available for this API base URL.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
             IconButton(
                 onClick = {
                     onRefreshCacheSize()
@@ -155,8 +161,66 @@ fun HeaderBar(
             state = state,
             onDismiss = { showSettings = false },
             onThemeChange = onThemeChange,
+            onAppModeChange = onAppModeChange,
             onEditBaseUrl = onEditBaseUrl,
             onClearCache = onClearCache
+        )
+    }
+}
+
+@Composable
+fun TitleOnlyHeaderBar() {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(12.dp)
+    ) {
+        val transition = rememberInfiniteTransition(label = "neonFlickerTitleOnly")
+        val flicker = transition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = keyframes {
+                    durationMillis = 6000
+                    1f at 0
+                    0.95f at 120
+                    0.75f at 180
+                    1f at 240
+                    0.85f at 360
+                    1f at 420
+                    0.92f at 720
+                    1f at 780
+                    0.88f at 1680
+                    1f at 1740
+                    0.7f at 2640
+                    1f at 2760
+                    0.9f at 3480
+                    1f at 3540
+                    0.8f at 4560
+                    1f at 4620
+                    0.86f at 5340
+                    1f at 5400
+                    1f at 6000
+                },
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "flickerTitleOnly"
+        ).value
+        val glow = 0.45f + (0.55f * flicker)
+        Text(
+            text = "THE FOREVER JUKEBOX",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontFamily = neonFontFamily,
+                letterSpacing = 2.sp,
+                shadow = Shadow(
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = glow),
+                    offset = Offset(0f, 0f),
+                    blurRadius = 18f * glow
+                )
+            ),
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.9f * flicker),
+            fontWeight = FontWeight.Bold
         )
     }
 }
@@ -166,13 +230,19 @@ private fun SettingsDialog(
     state: UiState,
     onDismiss: () -> Unit,
     onThemeChange: (ThemeMode) -> Unit,
+    onAppModeChange: (AppMode) -> Unit,
     onEditBaseUrl: (String) -> Unit,
     onClearCache: () -> Unit
 ) {
     var urlInput by remember(state.baseUrl) { mutableStateOf(state.baseUrl) }
+    var selectedMode by remember(state.appMode) { mutableStateOf(state.appMode ?: defaultOnboardingMode) }
+    val trimmedUrl = urlInput.trim()
+    val requiresServerUrl = selectedMode == AppMode.Server
+    val canSave = !requiresServerUrl || isValidBaseUrl(trimmedUrl)
     val cacheLabel = formatCacheSize(state.cacheSizeBytes)
     val cacheEnabled = state.cacheSizeBytes > 0
-    val versionLabel = "v${BuildConfig.VERSION_NAME}"
+    val normalizedVersionName = BuildConfig.VERSION_NAME.removePrefix("v").removePrefix("V")
+    val versionLabel = "v$normalizedVersionName"
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -182,9 +252,15 @@ private fun SettingsDialog(
             ) {
                 Button(
                     onClick = {
-                        onEditBaseUrl(urlInput)
+                        if (selectedMode == AppMode.Server) {
+                            onEditBaseUrl(trimmedUrl)
+                        }
+                        if (selectedMode != state.appMode) {
+                            onAppModeChange(selectedMode)
+                        }
                         onDismiss()
                     },
+                    enabled = canSave,
                     colors = pillButtonColors(),
                     border = pillButtonBorder(),
                     shape = PillShape,
@@ -209,20 +285,28 @@ private fun SettingsDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("API Base URL")
-                OutlinedTextField(
-                    value = urlInput,
-                    onValueChange = { urlInput = it },
-                    label = { Text("Example: http://192.168.1.100") },
-                    textStyle = MaterialTheme.typography.bodySmall,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Uri,
-                        imeAction = ImeAction.Done
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.heightIn(min = SmallFieldMinHeight)
+                Text("App Mode")
+                AppModeSliderToggle(
+                    selectedMode = selectedMode,
+                    onModeChange = { mode -> selectedMode = mode },
+                    modifier = Modifier.height(SmallButtonHeight)
                 )
+                if (selectedMode == AppMode.Server) {
+                    Text("API Base URL")
+                    OutlinedTextField(
+                        value = urlInput,
+                        onValueChange = { urlInput = it },
+                        label = { Text("Example: http://192.168.1.100") },
+                        textStyle = MaterialTheme.typography.bodySmall,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Done
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.heightIn(min = SmallFieldMinHeight)
+                    )
+                }
                 Text("Theme")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
