@@ -19,6 +19,14 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 
+private data class AnalyzerInputs(
+    val essentiaSamples: FloatArray,
+    val essentiaSampleRate: Int,
+    val madmomSamples: FloatArray,
+    val madmomSampleRate: Int,
+    val essentiaProfile: String?
+)
+
 class LocalAnalysisService(
     private val decoder: LocalAudioDecoderPort,
     private val resampler: AudioResampler,
@@ -97,7 +105,6 @@ class LocalAnalysisService(
                 emitProgress(30, "Processing audio")
                 logInfo("Stage Resample 22050 start: sourceSamples=${monoSource.size}, heap=${heapSummary()}")
                 val mono22050 = resampler.resample(monoSource, decoded.sampleRate, 22_050)
-                decoded.monoSamples = FloatArray(0)
                 logInfo("Stage Resample 22050 complete: samples=${mono22050.size}, heap=${heapSummary()}")
                 ensureNotCancelled()
 
@@ -106,16 +113,25 @@ class LocalAnalysisService(
 
                 emitProgress(62, "Processing audio")
                 logInfo("Stage Upsample 44100 start: sourceSamples=${mono22050.size}, heap=${heapSummary()}")
-                val mono44100 = resampler.resample(mono22050, 22_050, 44_100)
-                logInfo("Stage Upsample 44100 complete: samples=${mono44100.size}, heap=${heapSummary()}")
+                val mono44100From22050 = resampler.resample(mono22050, 22_050, 44_100)
+                logInfo("Stage Upsample 44100 complete: samples=${mono44100From22050.size}, heap=${heapSummary()}")
                 ensureNotCancelled()
+
+                decoded.monoSamples = FloatArray(0)
+                ensureNotCancelled()
+
+                val (essentiaSamples, essentiaSampleRate, madmomSamples, madmomSampleRate, essentiaProfile) =
+                    AnalyzerInputs(mono22050, 22_050, mono44100From22050, 44_100, "backend_defaults")
 
                 val madmomBeatsPortModels = modelExtractor.ensureExtracted()
                 logInfo("madmom_beats_port models ready: count=${madmomBeatsPortModels.size}")
 
                 val analysisJson = analyzer.analyze(
-                    mono22050 = mono22050,
-                    mono44100 = mono44100,
+                    essentiaSamples = essentiaSamples,
+                    essentiaSampleRate = essentiaSampleRate,
+                    madmomSamples = madmomSamples,
+                    madmomSampleRate = madmomSampleRate,
+                    essentiaProfile = essentiaProfile,
                     durationSeconds = decoded.durationSeconds,
                     title = decoded.displayName ?: fallbackTitle,
                     artist = null,

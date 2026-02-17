@@ -189,8 +189,11 @@ private class CountingResampler : AudioResampler {
 
 private class FakeAnalyzer : LocalAnalyzer {
     override suspend fun analyze(
-        mono22050: FloatArray,
-        mono44100: FloatArray,
+        essentiaSamples: FloatArray,
+        essentiaSampleRate: Int,
+        madmomSamples: FloatArray,
+        madmomSampleRate: Int,
+        essentiaProfile: String?,
         durationSeconds: Double,
         title: String?,
         artist: String?,
@@ -231,8 +234,11 @@ private class CountingAnalyzer : LocalAnalyzer {
     var calls: Int = 0
 
     override suspend fun analyze(
-        mono22050: FloatArray,
-        mono44100: FloatArray,
+        essentiaSamples: FloatArray,
+        essentiaSampleRate: Int,
+        madmomSamples: FloatArray,
+        madmomSampleRate: Int,
+        essentiaProfile: String?,
         durationSeconds: Double,
         title: String?,
         artist: String?,

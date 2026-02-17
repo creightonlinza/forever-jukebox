@@ -59,10 +59,11 @@ object NativeAnalysisBridge {
         samples: FloatArray,
         sampleRate: Int,
         frameSize: Int,
-        hopSize: Int
+        hopSize: Int,
+        profile: String? = null
     ): String? {
         ensureLoaded()
-        return nativeEssentiaExtractFeaturesJson(samples, sampleRate, frameSize, hopSize)
+        return nativeEssentiaExtractFeaturesJson(samples, sampleRate, frameSize, hopSize, profile)
     }
 
     fun essentiaLastErrorMessage(): String? {
@@ -95,7 +96,8 @@ object NativeAnalysisBridge {
         samples: FloatArray,
         sampleRate: Int,
         frameSize: Int,
-        hopSize: Int
+        hopSize: Int,
+        profile: String?
     ): String?
 
     private external fun nativeEssentiaLastErrorMessage(): String?

@@ -23,8 +23,6 @@ import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.sqrt
 
-private const val ESSENTIA_SAMPLE_RATE = 22_050
-private const val MADMOM_BEATS_PORT_SAMPLE_RATE = 44_100
 private const val ESSENTIA_FRAME_SIZE = 2_048
 private const val ESSENTIA_HOP_SIZE = 512
 
@@ -78,8 +76,11 @@ private data class MadmomBeatsPortResult(
 
 interface LocalAnalyzer {
     suspend fun analyze(
-        mono22050: FloatArray,
-        mono44100: FloatArray,
+        essentiaSamples: FloatArray,
+        essentiaSampleRate: Int,
+        madmomSamples: FloatArray,
+        madmomSampleRate: Int,
+        essentiaProfile: String?,
         durationSeconds: Double,
         title: String?,
         artist: String?,
@@ -92,8 +93,11 @@ class NativeLocalAnalyzer(
     private val json: Json = Json { ignoreUnknownKeys = true }
 ) : LocalAnalyzer {
     override suspend fun analyze(
-        mono22050: FloatArray,
-        mono44100: FloatArray,
+        essentiaSamples: FloatArray,
+        essentiaSampleRate: Int,
+        madmomSamples: FloatArray,
+        madmomSampleRate: Int,
+        essentiaProfile: String?,
         durationSeconds: Double,
         title: String?,
         artist: String?,
@@ -104,10 +108,11 @@ class NativeLocalAnalyzer(
         onStageProgress("Essentia features", 5)
 
         val essentiaJson = NativeAnalysisBridge.essentiaExtractFeaturesJson(
-            samples = mono22050,
-            sampleRate = ESSENTIA_SAMPLE_RATE,
+            samples = essentiaSamples,
+            sampleRate = essentiaSampleRate,
             frameSize = ESSENTIA_FRAME_SIZE,
-            hopSize = ESSENTIA_HOP_SIZE
+            hopSize = ESSENTIA_HOP_SIZE,
+            profile = essentiaProfile
         ) ?: throw NativeLocalAnalysisNotReadyException(
             NativeAnalysisBridge.essentiaLastErrorMessage()
                 ?: "Essentia feature extraction failed"
@@ -120,8 +125,8 @@ class NativeLocalAnalyzer(
         val madmomBeatsPortConfigJson = buildMadmomBeatsPortConfigJson(madmomBeatsPortModels)
         onStageProgress("madmom beats", 10)
         val madmomBeatsPortJson = NativeAnalysisBridge.madmomBeatsPortAnalyzeJson(
-            samples = mono44100,
-            sampleRate = MADMOM_BEATS_PORT_SAMPLE_RATE,
+            samples = madmomSamples,
+            sampleRate = madmomSampleRate,
             configJson = madmomBeatsPortConfigJson
         ) ?: throw NativeLocalAnalysisNotReadyException(
             NativeAnalysisBridge.madmomBeatsPortLastErrorMessage() ?: "madmom_beats_port_ffi analysis failed"

@@ -210,7 +210,6 @@ bool resample_with_speex(
         return false;
     }
 
-    speex_resampler_skip_zeros(state);
     output->clear();
     const double ratio = static_cast<double>(to_rate) / static_cast<double>(from_rate);
     const size_t estimated_output =
@@ -304,6 +303,7 @@ bool extract_essentia_features(
     int sample_rate,
     int frame_size,
     int hop_size,
+    const std::string& profile,
     std::string* json_out,
     std::string* error_out
 ) {
@@ -323,66 +323,97 @@ bool extract_essentia_features(
         using essentia::standard::AlgorithmFactory;
 
         AlgorithmFactory& factory = AlgorithmFactory::instance();
+        const bool backend_defaults = profile == "backend_defaults";
 
-        std::unique_ptr<Algorithm> windowing(factory.create(
-            "Windowing",
-            "normalized", true,
-            "size", frame_size,
-            "type", "hann",
-            "zeroPadding", 0,
-            "zeroPhase", true
-        ));
+        std::unique_ptr<Algorithm> windowing;
+        std::unique_ptr<Algorithm> spectrum_alg;
+        std::unique_ptr<Algorithm> mfcc_alg;
+        std::unique_ptr<Algorithm> spectral_peaks_alg;
+        std::unique_ptr<Algorithm> hpcp_alg;
+        std::unique_ptr<Algorithm> rms_alg;
 
-        std::unique_ptr<Algorithm> spectrum_alg(factory.create(
-            "Spectrum",
-            "size", frame_size
-        ));
+        if (backend_defaults) {
+            windowing.reset(factory.create(
+                "Windowing",
+                "type", "hann"
+            ));
+            spectrum_alg.reset(factory.create(
+                "Spectrum",
+                "size", frame_size
+            ));
+            mfcc_alg.reset(factory.create(
+                "MFCC",
+                "highFrequencyBound", 11025.0,
+                "numberCoefficients", 13,
+                "inputSize", frame_size / 2 + 1
+            ));
+            spectral_peaks_alg.reset(factory.create(
+                "SpectralPeaks",
+                "orderBy", "magnitude",
+                "magnitudeThreshold", 1e-6
+            ));
+            hpcp_alg.reset(factory.create(
+                "HPCP",
+                "size", 12,
+                "sampleRate", static_cast<Real>(sample_rate)
+            ));
+            rms_alg.reset(factory.create("RMS"));
+        } else {
+            const Real max_frequency = std::min(5000.0f, static_cast<Real>(sample_rate) / 2.0f);
 
-        std::unique_ptr<Algorithm> mfcc_alg(factory.create(
-            "MFCC",
-            "dctType", 2,
-            "highFrequencyBound", 11025.0,
-            "inputSize", frame_size / 2 + 1,
-            "lowFrequencyBound", 0.0,
-            "logType", "dbamp",
-            "liftering", 0,
-            "normalize", "unit_sum",
-            "numberBands", 40,
-            "numberCoefficients", 13,
-            "sampleRate", static_cast<Real>(sample_rate),
-            "type", "magnitude"
-        ));
-
-        const Real max_frequency = std::min(5000.0f, static_cast<Real>(sample_rate) / 2.0f);
-
-        std::unique_ptr<Algorithm> spectral_peaks_alg(factory.create(
-            "SpectralPeaks",
-            "magnitudeThreshold", 1e-6,
-            "maxFrequency", max_frequency,
-            "maxPeaks", 100,
-            "minFrequency", 0.0,
-            "orderBy", "magnitude",
-            "sampleRate", static_cast<Real>(sample_rate)
-        ));
-
-        std::unique_ptr<Algorithm> hpcp_alg(factory.create(
-            "HPCP",
-            "bandPreset", true,
-            "bandSplitFrequency", 500.0,
-            "harmonics", 0,
-            "maxFrequency", max_frequency,
-            "maxShifted", false,
-            "minFrequency", 40.0,
-            "nonLinear", false,
-            "normalized", "unitMax",
-            "referenceFrequency", 440.0,
-            "sampleRate", static_cast<Real>(sample_rate),
-            "size", 12,
-            "weightType", "squaredCosine",
-            "windowSize", 1.0
-        ));
-
-        std::unique_ptr<Algorithm> rms_alg(factory.create("RMS"));
+            windowing.reset(factory.create(
+                "Windowing",
+                "normalized", true,
+                "size", frame_size,
+                "type", "hann",
+                "zeroPadding", 0,
+                "zeroPhase", true
+            ));
+            spectrum_alg.reset(factory.create(
+                "Spectrum",
+                "size", frame_size
+            ));
+            mfcc_alg.reset(factory.create(
+                "MFCC",
+                "dctType", 2,
+                "highFrequencyBound", 11025.0,
+                "inputSize", frame_size / 2 + 1,
+                "lowFrequencyBound", 0.0,
+                "logType", "dbamp",
+                "liftering", 0,
+                "normalize", "unit_sum",
+                "numberBands", 40,
+                "numberCoefficients", 13,
+                "sampleRate", static_cast<Real>(sample_rate),
+                "type", "magnitude"
+            ));
+            spectral_peaks_alg.reset(factory.create(
+                "SpectralPeaks",
+                "magnitudeThreshold", 1e-6,
+                "maxFrequency", max_frequency,
+                "maxPeaks", 100,
+                "minFrequency", 0.0,
+                "orderBy", "magnitude",
+                "sampleRate", static_cast<Real>(sample_rate)
+            ));
+            hpcp_alg.reset(factory.create(
+                "HPCP",
+                "bandPreset", true,
+                "bandSplitFrequency", 500.0,
+                "harmonics", 0,
+                "maxFrequency", max_frequency,
+                "maxShifted", false,
+                "minFrequency", 40.0,
+                "nonLinear", false,
+                "normalized", "unitMax",
+                "referenceFrequency", 440.0,
+                "sampleRate", static_cast<Real>(sample_rate),
+                "size", 12,
+                "weightType", "squaredCosine",
+                "windowSize", 1.0
+            ));
+            rms_alg.reset(factory.create("RMS"));
+        }
 
         const int input_size = static_cast<int>(samples.size());
         const int frame_count = std::max(
@@ -739,7 +770,8 @@ Java_com_foreverjukebox_app_local_NativeAnalysisBridge_nativeEssentiaExtractFeat
     jfloatArray samples,
     jint sampleRate,
     jint frameSize,
-    jint hopSize) {
+    jint hopSize,
+    jstring profile) {
 #if !defined(FJ_HAS_ESSENTIA)
     set_essentia_error("Essentia static library is not linked into local_analysis_jni");
     return nullptr;
@@ -758,6 +790,16 @@ Java_com_foreverjukebox_app_local_NativeAnalysisBridge_nativeEssentiaExtractFeat
     std::vector<float> samples_vec(static_cast<size_t>(length));
     env->GetFloatArrayRegion(samples, 0, length, samples_vec.data());
 
+    std::string profile_value;
+    const char* profile_chars = nullptr;
+    if (profile != nullptr) {
+        profile_chars = env->GetStringUTFChars(profile, nullptr);
+        if (profile_chars != nullptr) {
+            profile_value = profile_chars;
+            env->ReleaseStringUTFChars(profile, profile_chars);
+        }
+    }
+
     std::string features_json;
     std::string error;
     const bool ok = extract_essentia_features(
@@ -765,6 +807,7 @@ Java_com_foreverjukebox_app_local_NativeAnalysisBridge_nativeEssentiaExtractFeat
         static_cast<int>(sampleRate),
         static_cast<int>(frameSize),
         static_cast<int>(hopSize),
+        profile_value,
         &features_json,
         &error
     );
