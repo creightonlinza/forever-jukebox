@@ -1,5 +1,7 @@
 package com.foreverjukebox.app.ui
 
+import android.app.ActivityManager
+import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -14,6 +16,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -24,6 +27,8 @@ fun InputPanel(
     onOpenFile: (Uri, String?) -> Unit
 ) {
     val context = LocalContext.current
+    val totalRamBytes = remember(context) { resolveTotalRamBytes(context) }
+    val showLowRamWarning = totalRamBytes != null && totalRamBytes < LOW_RAM_WARNING_THRESHOLD_BYTES
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -58,6 +63,20 @@ fun InputPanel(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Input", style = MaterialTheme.typography.labelLarge)
+            if (showLowRamWarning) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                ) {
+                    Text(
+                        text = "Warning: Local analysis may fail on long tracks; 8GB+ RAM is recommended.",
+                        modifier = Modifier.padding(10.dp),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
             Text(
                 "Local mode runs analysis fully on-device and caches the result for faster future playback."
             )
@@ -83,4 +102,14 @@ fun InputPanel(
             }
         }
     }
+}
+
+private const val LOW_RAM_WARNING_THRESHOLD_BYTES = 8L * 1024L * 1024L * 1024L
+
+private fun resolveTotalRamBytes(context: Context): Long? {
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        ?: return null
+    val memoryInfo = ActivityManager.MemoryInfo()
+    activityManager.getMemoryInfo(memoryInfo)
+    return memoryInfo.totalMem.takeIf { it > 0L }
 }
