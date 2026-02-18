@@ -10,11 +10,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.viewModels
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.ui.ForeverJukeboxApp
 import com.foreverjukebox.app.ui.MainViewModel
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.CastSession
 import com.google.android.gms.cast.framework.SessionManagerListener
+import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -26,34 +31,12 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        try {
-            val castContext = CastContext.getSharedInstance(this)
-            val listener = object : SessionManagerListener<CastSession> {
-                override fun onSessionStarted(session: CastSession, sessionId: String) {
-                    viewModel.setCastingConnected(true, session.castDevice?.friendlyName)
-                    viewModel.requestCastStatus()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.state.collect { state ->
+                    syncCastSessionListener(state.appMode == AppMode.Server)
                 }
-
-                override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
-                    viewModel.setCastingConnected(true, session.castDevice?.friendlyName)
-                    viewModel.requestCastStatus()
-                }
-
-                override fun onSessionEnded(session: CastSession, error: Int) {
-                    viewModel.setCastingConnected(false)
-                }
-
-                override fun onSessionStarting(session: CastSession) = Unit
-                override fun onSessionStartFailed(session: CastSession, error: Int) = Unit
-                override fun onSessionEnding(session: CastSession) = Unit
-                override fun onSessionResuming(session: CastSession, sessionId: String) = Unit
-                override fun onSessionResumeFailed(session: CastSession, error: Int) = Unit
-                override fun onSessionSuspended(session: CastSession, reason: Int) = Unit
             }
-            castContext.sessionManager.addSessionManagerListener(listener, CastSession::class.java)
-            sessionListener = listener
-        } catch (_: Exception) {
-            // Ignore cast init failures; app still works without it.
         }
         viewModel.handleDeepLink(intent?.data)
         if (intent.getBooleanExtra(EXTRA_OPEN_LISTEN_TAB, false)) {
@@ -97,15 +80,59 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onDestroy() {
-        sessionListener?.let { listener ->
-            runCatching {
-                CastContext.getSharedInstance(this)
-                    .sessionManager
-                    .removeSessionManagerListener(listener, CastSession::class.java)
-            }
-        }
-        sessionListener = null
+        syncCastSessionListener(enable = false)
         super.onDestroy()
+    }
+
+    private fun syncCastSessionListener(enable: Boolean) {
+        if (!enable) {
+            sessionListener?.let { listener ->
+                runCatching {
+                    CastContext.getSharedInstance(this)
+                        .sessionManager
+                        .removeSessionManagerListener(listener, CastSession::class.java)
+                }
+            }
+            sessionListener = null
+            viewModel.setCastingConnected(false)
+            return
+        }
+
+        if (sessionListener != null) {
+            return
+        }
+
+        val castContext = runCatching { CastContext.getSharedInstance(this) }.getOrNull()
+            ?: return
+        val listener = object : SessionManagerListener<CastSession> {
+            override fun onSessionStarted(session: CastSession, sessionId: String) {
+                viewModel.setCastingConnected(true, session.castDevice?.friendlyName)
+                viewModel.requestCastStatus()
+            }
+
+            override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
+                viewModel.setCastingConnected(true, session.castDevice?.friendlyName)
+                viewModel.requestCastStatus()
+            }
+
+            override fun onSessionEnded(session: CastSession, error: Int) {
+                viewModel.setCastingConnected(false)
+            }
+
+            override fun onSessionStarting(session: CastSession) = Unit
+            override fun onSessionStartFailed(session: CastSession, error: Int) = Unit
+            override fun onSessionEnding(session: CastSession) = Unit
+            override fun onSessionResuming(session: CastSession, sessionId: String) = Unit
+            override fun onSessionResumeFailed(session: CastSession, error: Int) = Unit
+            override fun onSessionSuspended(session: CastSession, reason: Int) = Unit
+        }
+        castContext.sessionManager.addSessionManagerListener(listener, CastSession::class.java)
+        sessionListener = listener
+
+        castContext.sessionManager.currentCastSession?.let { session ->
+            viewModel.setCastingConnected(true, session.castDevice?.friendlyName)
+            viewModel.requestCastStatus()
+        }
     }
 
     companion object {

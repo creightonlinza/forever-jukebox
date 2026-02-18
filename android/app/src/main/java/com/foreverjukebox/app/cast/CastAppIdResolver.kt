@@ -14,6 +14,15 @@ object CastAppIdResolver {
         return map[normalized]
     }
 
+    // CastContext is initialized once per app process via OptionsProvider and is not re-created
+    // when the API base URL changes. We fall back to any configured receiver app ID here so
+    // early startup (before preferences load) still uses a custom receiver. If you need different
+    // receiver app IDs per base URL, the app must be restarted after changing base URL.
+    fun resolveAny(context: Context): String? {
+        val map = cachedMap ?: loadMap(context).also { cachedMap = it }
+        return map.values.firstOrNull()
+    }
+
     fun normalize(baseUrl: String?): String? {
         val trimmed = baseUrl?.trim()?.trimEnd('/') ?: return null
         if (trimmed.isBlank()) return null
