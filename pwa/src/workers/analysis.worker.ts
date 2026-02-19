@@ -74,9 +74,22 @@ type EssentiaMessage =
   | { type: "error"; message?: string }
   | { type: "progress"; stage: string; progress: number };
 
+const FRIENDLY_MEMORY_ERROR =
+  "Beat detection ran out of memory for this track.";
+
 function postProgress(stage: ProgressStage, progress: number, message?: string) {
   const payload: WorkerMessage = { type: "progress", stage, progress, message };
   self.postMessage(payload);
+}
+
+function formatNestedError(context: string, err: unknown) {
+  const message = err instanceof Error
+    ? err.message || err.toString()
+    : String(err);
+  if (message.toLowerCase().includes("unreachable")) {
+    return `${context}: ${FRIENDLY_MEMORY_ERROR}`;
+  }
+  return `${context}: ${message}`;
 }
 
 async function runMadmomAnalysis(
@@ -104,7 +117,7 @@ async function runMadmomAnalysis(
       }
       if (data.type === "error") {
         worker.terminate();
-        reject(new Error(data.message || "Madmom worker error"));
+        reject(new Error(formatNestedError("Beat detection failed", data.message || "Madmom worker error")));
         return;
       }
       if (data.type === "result") {
@@ -112,9 +125,18 @@ async function runMadmomAnalysis(
         resolve(data.payload);
       }
     };
+    const handleRuntimeError = (event: ErrorEvent) => {
+      worker.terminate();
+      reject(new Error(formatNestedError("Beat detection worker runtime failure", event.message)));
+    };
+    const handleMessageError = () => {
+      worker.terminate();
+      reject(new Error("Beat detection worker message error"));
+    };
     worker.addEventListener("message", handleMessage);
-    const payload = samples.slice();
-    worker.postMessage({ type: "analyze", samples: payload, sampleRate }, [payload.buffer]);
+    worker.addEventListener("error", handleRuntimeError);
+    worker.addEventListener("messageerror", handleMessageError);
+    worker.postMessage({ type: "analyze", samples, sampleRate }, [samples.buffer]);
   });
 }
 
@@ -140,7 +162,7 @@ async function runEssentiaAnalysis(
       }
       if (data.type === "error") {
         worker.terminate();
-        reject(new Error(data.message || "Essentia worker error"));
+        reject(new Error(formatNestedError("Feature extraction failed", data.message || "Essentia worker error")));
         return;
       }
       if (data.type === "result") {
@@ -151,16 +173,15 @@ async function runEssentiaAnalysis(
     worker.addEventListener("message", handleMessage);
     worker.addEventListener("error", (event) => {
       worker.terminate();
-      reject(new Error(event.message || "Essentia worker crashed"));
+      reject(new Error(formatNestedError("Feature extraction worker runtime failure", event.message || "Essentia worker crashed")));
     });
     worker.addEventListener("messageerror", () => {
       worker.terminate();
       reject(new Error("Essentia worker message error"));
     });
-    const payload = samples.slice();
     worker.postMessage(
-      { type: "analyze", samples: payload, sampleRate, beats, config },
-      [payload.buffer]
+      { type: "analyze", samples, sampleRate, beats, config },
+      [samples.buffer]
     );
   });
 }
@@ -315,7 +336,10 @@ self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
     const payload: WorkerMessage = { type: "result", payload: analysis };
     self.postMessage(payload);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message =
+      err instanceof Error
+        ? `${err.name || "Error"}: ${err.message || "unknown analysis failure"}`
+        : String(err);
     const payload: WorkerMessage = { type: "error", message };
     self.postMessage(payload);
   }

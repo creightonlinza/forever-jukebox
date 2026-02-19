@@ -29,6 +29,9 @@ type AnalyzeRequest = {
   trackMeta?: TrackMeta;
 };
 
+const FRIENDLY_MEMORY_ERROR =
+  "Beat detection ran out of memory for this track.";
+
 export class AnalysisWorkerClient implements AnalysisPort {
   async analyze(options: {
     mono22050: Float32Array;
@@ -72,13 +75,14 @@ export class AnalysisWorkerClient implements AnalysisPort {
 
       worker.addEventListener("error", (event) => {
         cleanup();
-        reject(new Error(event.message || "Analysis worker error"));
+        reject(new Error(formatWorkerRuntimeError(event, "analysis worker")));
       });
 
       const payload: AnalyzeRequest = {
         type: "analyze",
-        mono22050: options.mono22050.slice(),
-        mono44100: options.mono44100.slice(),
+        // Transfer ownership instead of cloning to avoid duplicate large allocations.
+        mono22050: options.mono22050,
+        mono44100: options.mono44100,
         duration: options.duration,
         trackMeta: options.trackMeta,
       };
@@ -87,4 +91,12 @@ export class AnalysisWorkerClient implements AnalysisPort {
       worker.postMessage(payload, transfer);
     });
   }
+}
+
+function formatWorkerRuntimeError(event: ErrorEvent, context: string) {
+  const base = event.message?.trim() || "unknown worker runtime failure";
+  if (base.toLowerCase().includes("unreachable")) {
+    return `${context}: ${FRIENDLY_MEMORY_ERROR}`;
+  }
+  return `${context}: ${base}`;
 }

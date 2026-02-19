@@ -10,6 +10,25 @@ let modelJson = null;
 let modelWeights = null;
 let configJson = null;
 
+const FRIENDLY_MEMORY_ERROR =
+  "Beat detection ran out of memory for this track.";
+
+function formatMadmomError(err) {
+  const name =
+    err && typeof err === "object" && "name" in err
+      ? String(err.name)
+      : "Error";
+  const rawMessage =
+    err && typeof err === "object" && "message" in err
+      ? String(err.message)
+      : String(err);
+  const message = rawMessage?.trim() || "unknown madmom worker failure";
+  if (message.toLowerCase().includes("unreachable")) {
+    return `${name}: ${FRIENDLY_MEMORY_ERROR}`;
+  }
+  return `${name}: ${message}`;
+}
+
 async function ensureReady() {
   if (ready) return;
   if (!readyPromise) {
@@ -55,6 +74,6 @@ self.onmessage = async (event) => {
     );
     self.postMessage({ type: "result", payload: raw });
   } catch (err) {
-    self.postMessage({ type: "error", message: err.message || String(err) });
+    self.postMessage({ type: "error", message: formatMadmomError(err) });
   }
 };
