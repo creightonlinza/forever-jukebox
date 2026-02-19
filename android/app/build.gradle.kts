@@ -15,7 +15,7 @@ plugins {
 }
 
 val madmomBeatsPortFfiAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-val madmomBeatsPortFfiVersion = "4.0.0"
+val madmomBeatsPortFfiVersion = "4.1.0"
 val madmomBeatsPortFfiZipUrlProperty = providers.gradleProperty("madmomBeatsPortFfiZipUrl")
 val madmomBeatsPortFfiZipPathProperty = providers.gradleProperty("madmomBeatsPortFfiZipPath")
 val madmomBeatsPortFfiZipUrl = madmomBeatsPortFfiZipUrlProperty.orElse(

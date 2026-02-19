@@ -3,8 +3,8 @@
 This app integrates the madmom beats/downbeats Rust FFI artifacts from:
 
 - Source: `https://github.com/creightonlinza/madmom-beats-port/tree/main/rust/madmom_beats_port_ffi`
-- Release: `https://github.com/creightonlinza/madmom-beats-port/releases/tag/v4.0.0`
-- Android ZIP artifact: `https://github.com/creightonlinza/madmom-beats-port/releases/download/v4.0.0/madmom-beats-port-v4.0.0-android.zip`
+- Release: `https://github.com/creightonlinza/madmom-beats-port/releases/tag/v4.1.0`
+- Android ZIP artifact: `https://github.com/creightonlinza/madmom-beats-port/releases/download/v4.1.0/madmom-beats-port-v4.1.0-android.zip`
 
 ## Expected Native Library Layout
 
@@ -19,7 +19,7 @@ The Gradle task `prepareMadmomBeatsPortFfiJniLibs` is wired into `preBuild`.
 Optional overrides:
 
 - `-PmadmomBeatsPortFfiZipUrl=<custom release zip url>`
-- `-PmadmomBeatsPortFfiZipPath=/absolute/path/to/madmom-beats-port-v4.0.0-android.zip`
+- `-PmadmomBeatsPortFfiZipPath=/absolute/path/to/madmom-beats-port-v4.1.0-android.zip`
 
 Header for reference:
 

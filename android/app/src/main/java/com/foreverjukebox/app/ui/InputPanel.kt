@@ -71,7 +71,7 @@ fun InputPanel(
                     )
                 ) {
                     Text(
-                        text = "Warning: Local analysis may fail on long tracks; 8GB+ RAM is recommended.",
+                        text = "Warning: Local analysis may fail on long tracks; 4GB+ RAM is recommended.",
                         modifier = Modifier.padding(10.dp),
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -104,7 +104,7 @@ fun InputPanel(
     }
 }
 
-private const val LOW_RAM_WARNING_THRESHOLD_BYTES = 8L * 1024L * 1024L * 1024L
+private const val LOW_RAM_WARNING_THRESHOLD_BYTES = 4L * 1024L * 1024L * 1024L
 
 private fun resolveTotalRamBytes(context: Context): Long? {
     val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
