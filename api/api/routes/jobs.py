@@ -112,7 +112,7 @@ def _notify_youtube_issue(raw: str | None, youtube_id: str | None, job_id: str) 
 router = APIRouter()
 logger = get_logger()
 
-MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 ALLOWED_UPLOAD_EXTS = {".m4a", ".webm", ".mp3", ".wav", ".flac", ".ogg", ".aac"}
 
 
