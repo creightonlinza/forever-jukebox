@@ -2,6 +2,7 @@ package com.foreverjukebox.app.cast
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import org.json.JSONObject
 
 object CastAppIdResolver {
@@ -26,7 +27,7 @@ object CastAppIdResolver {
     fun normalize(baseUrl: String?): String? {
         val trimmed = baseUrl?.trim()?.trimEnd('/') ?: return null
         if (trimmed.isBlank()) return null
-        val uri = runCatching { Uri.parse(trimmed) }.getOrNull() ?: return trimmed
+        val uri = runCatching { trimmed.toUri() }.getOrNull() ?: return trimmed
         val scheme = uri.scheme?.lowercase() ?: return trimmed
         val host = uri.host?.lowercase() ?: return trimmed
         val port = if (uri.port != -1) ":${uri.port}" else ""

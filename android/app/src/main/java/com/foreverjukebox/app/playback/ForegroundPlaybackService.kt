@@ -10,13 +10,14 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.IconCompat
+import androidx.core.graphics.toColorInt
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
 import android.support.v4.media.MediaMetadataCompat
@@ -116,14 +117,14 @@ class ForegroundPlaybackService : Service() {
 
         val actionIconRes = android.R.drawable.ic_media_pause
         val actionLabel = "Stop"
-        val actionIcon = tintedIcon(actionIconRes, Color.parseColor(NOTIFICATION_ACCENT))
+        val actionIcon = tintedIcon(actionIconRes, NOTIFICATION_ACCENT.toColorInt())
 
         val notification: Notification = NotificationCompat.Builder(this, PlaybackServiceConstants.CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(artist)
             .setSmallIcon(R.drawable.ic_all_inclusive)
             .setLargeIcon(artwork)
-            .setColor(Color.parseColor(NOTIFICATION_ACCENT))
+            .setColor(NOTIFICATION_ACCENT.toColorInt())
             .setColorized(true)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setOnlyAlertOnce(true)
@@ -153,7 +154,7 @@ class ForegroundPlaybackService : Service() {
 
     private fun tintedIcon(resId: Int, color: Int): IconCompat {
         val source = BitmapFactory.decodeResource(resources, resId)
-        val bitmap = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
@@ -228,7 +229,7 @@ class ForegroundPlaybackService : Service() {
         val drawable = AppCompatResources.getDrawable(this, R.drawable.notification_background) ?: return null
         val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else 512
         val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else 512
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         drawable.setBounds(0, 0, canvas.width, canvas.height)
         drawable.draw(canvas)

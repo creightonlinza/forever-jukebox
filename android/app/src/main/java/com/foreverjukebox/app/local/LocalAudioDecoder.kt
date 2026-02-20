@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.util.Log
+import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -31,7 +32,7 @@ class LocalAudioDecoder(private val context: Context) : LocalAudioDecoderPort {
         uriString: String,
         onDecodeProgress: (Int) -> Unit
     ): DecodedLocalAudio = withContext(Dispatchers.IO) {
-        val uri = Uri.parse(uriString)
+        val uri = uriString.toUri()
         val displayName = queryDisplayName(uri)
         decodeUri(uri, displayName, onDecodeProgress)
     }

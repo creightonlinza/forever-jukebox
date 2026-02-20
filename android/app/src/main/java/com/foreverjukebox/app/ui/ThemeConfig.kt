@@ -1,6 +1,7 @@
 package com.foreverjukebox.app.ui
 
 import android.content.Context
+import androidx.core.graphics.toColorInt
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -111,7 +112,7 @@ private fun parseThemeTokens(obj: JSONObject): ThemeTokens {
 private fun parseColor(value: String): Color {
     val trimmed = value.trim()
     return when {
-        trimmed.startsWith("#") -> Color(android.graphics.Color.parseColor(trimmed))
+        trimmed.startsWith("#") -> Color(trimmed.toColorInt())
         trimmed.startsWith("0x", ignoreCase = true) -> {
             val hex = trimmed.removePrefix("0x")
             val argb = hex.toLong(16).toInt()
@@ -119,7 +120,7 @@ private fun parseColor(value: String): Color {
         }
         trimmed.startsWith("rgba", ignoreCase = true) -> parseRgb(trimmed, true)
         trimmed.startsWith("rgb", ignoreCase = true) -> parseRgb(trimmed, false)
-        else -> Color(android.graphics.Color.parseColor(trimmed))
+        else -> Color(trimmed.toColorInt())
     }
 }
 

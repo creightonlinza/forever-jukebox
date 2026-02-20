@@ -20,6 +20,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -54,10 +55,10 @@ fun TuningDialog(
         removeSequentialBranches: Boolean
     ) -> Unit
 ) {
-    var threshold by remember(initialThreshold) { mutableStateOf(initialThreshold.toFloat()) }
-    var minProb by remember(initialMinProb) { mutableStateOf(initialMinProb.toFloat()) }
-    var maxProb by remember(initialMaxProb) { mutableStateOf(initialMaxProb.toFloat()) }
-    var ramp by remember(initialRamp) { mutableStateOf(initialRamp.toFloat()) }
+    var threshold by remember(initialThreshold) { mutableFloatStateOf(initialThreshold.toFloat()) }
+    var minProb by remember(initialMinProb) { mutableFloatStateOf(initialMinProb.toFloat()) }
+    var maxProb by remember(initialMaxProb) { mutableFloatStateOf(initialMaxProb.toFloat()) }
+    var ramp by remember(initialRamp) { mutableFloatStateOf(initialRamp.toFloat()) }
     var addLastEdge by remember(initialAddLastEdge) { mutableStateOf(initialAddLastEdge) }
     var justBackwards by remember(initialJustBackwards) { mutableStateOf(initialJustBackwards) }
     var justLong by remember(initialJustLong) { mutableStateOf(initialJustLong) }

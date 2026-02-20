@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -42,12 +43,12 @@ fun JukeboxVisualization(
     modifier: Modifier = Modifier
 ) {
     var layoutSize by remember { mutableStateOf(IntSize.Zero) }
-    val nowState = remember { mutableStateOf(SystemClock.elapsedRealtime()) }
+    var nowState by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
 
     LaunchedEffect(jumpLine) {
         if (jumpLine == null) return@LaunchedEffect
         while (SystemClock.elapsedRealtime() - jumpLine.startedAt < 1100) {
-            nowState.value = SystemClock.elapsedRealtime()
+            nowState = SystemClock.elapsedRealtime()
             kotlinx.coroutines.delay(16)
         }
     }
@@ -109,7 +110,7 @@ fun JukeboxVisualization(
             }
 
             if (jumpLine != null) {
-                val age = (nowState.value - jumpLine.startedAt).coerceAtLeast(0L)
+                val age = (nowState - jumpLine.startedAt).coerceAtLeast(0L)
                 if (age < 1000) {
                     val from = positions.getOrNull(jumpLine.from)
                     val to = positions.getOrNull(jumpLine.to)
@@ -151,7 +152,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEdge(
         val (cx, cy) = bendControlPoint(from, to, center)
         val path = Path().apply {
             moveTo(from.x, from.y)
-            quadraticBezierTo(cx, cy, to.x, to.y)
+            quadraticTo(cx, cy, to.x, to.y)
         }
         drawPath(path, color = color, style = Stroke(width = strokeWidth))
     } else {
@@ -170,7 +171,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawJumpLine(
         val (cx, cy) = bendControlPoint(from, to, center)
         val path = Path().apply {
             moveTo(from.x, from.y)
-            quadraticBezierTo(cx, cy, to.x, to.y)
+            quadraticTo(cx, cy, to.x, to.y)
         }
         drawPath(path, color = color, style = Stroke(width = 2f))
     } else {
