@@ -159,6 +159,24 @@ fun shouldShowLocalLoadingCancel(mode: AppMode?, playback: PlaybackState): Boole
         (playback.analysisInFlight || playback.analysisCalculating || playback.audioLoading)
 }
 
+fun PlaybackState.shouldShowCastNotification(): Boolean {
+    if (!isCasting) return false
+    if (isRunning) return true
+    if (!trackTitle.isNullOrBlank() || !trackArtist.isNullOrBlank()) return true
+    if (!lastYouTubeId.isNullOrBlank() || !lastJobId.isNullOrBlank()) return true
+    return playTitle.isNotBlank()
+}
+
+fun PlaybackState.castNotificationTitle(): String? {
+    val title = trackTitle?.takeIf { it.isNotBlank() }
+    if (title != null) {
+        return title
+    }
+    val fallback = playTitle.takeIf { it.isNotBlank() } ?: return null
+    val split = fallback.substringBefore(" — ").trim()
+    return split.ifBlank { fallback }
+}
+
 fun shouldCancelLocalAnalysisOnTabChange(
     mode: AppMode?,
     isLocalAnalysisRunning: Boolean,

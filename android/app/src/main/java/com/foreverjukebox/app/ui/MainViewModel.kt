@@ -1031,6 +1031,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch { showToast("Connect to a Cast device first.") }
                 return
             }
+            _state.update {
+                it.copy(playback = it.playback.copy(isRunning = !current.isRunning))
+            }
+            syncCastNotification(state.value.playback)
+            requestCastStatus()
             return
         }
         if (!current.analysisLoaded) return
@@ -1207,6 +1212,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     )
                 }
+                syncCastNotification(state.value.playback)
                 return
             }
             val trackId = playback.lastYouTubeId ?: playback.lastJobId
@@ -1225,6 +1231,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 )
             }
+            syncCastNotification(state.value.playback)
             castController.resetStatusListener()
             playbackCoordinator.resetForNewTrack()
             if (shouldAutoCast) {
@@ -1258,6 +1265,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             castController.resetStatusListener()
             playbackCoordinator.resetForNewTrack()
             applyActiveTab(TabId.Top, recordHistory = true)
+            ForegroundPlaybackService.stop(getApplication())
         }
     }
 
@@ -1325,6 +1333,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
         }
+        syncCastNotification(state.value.playback)
     }
 
     private fun castTrackId(
@@ -1358,6 +1367,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
         }
+        syncCastNotification(state.value.playback)
         castController.loadTrack(
             session = session,
             baseUrl = baseUrl,
@@ -1644,6 +1654,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openListenTab() {
         applyActiveTab(TabId.Play, recordHistory = true)
+    }
+
+    private fun syncCastNotification(playback: PlaybackState) {
+        if (!playback.shouldShowCastNotification()) {
+            ForegroundPlaybackService.stop(getApplication())
+            return
+        }
+        ForegroundPlaybackService.updateCast(
+            context = getApplication(),
+            isPlaying = playback.isRunning,
+            title = playback.castNotificationTitle(),
+            artist = playback.trackArtist,
+            deviceName = playback.castDeviceName
+        )
     }
 
     private suspend fun showToast(message: String) {
