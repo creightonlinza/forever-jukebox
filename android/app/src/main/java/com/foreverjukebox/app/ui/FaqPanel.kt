@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -14,17 +13,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun FaqPanel() {
-    val uriHandler = LocalUriHandler.current
     val linkStyle = SpanStyle(
         color = MaterialTheme.colorScheme.primary,
         textDecoration = TextDecoration.Underline
@@ -46,27 +45,20 @@ fun FaqPanel() {
             Text("What the what?", fontWeight = FontWeight.Bold)
             val whatText = buildAnnotatedString {
                 append("The Forever Jukebox is an open-source modernization of Paul Lamere's ")
-                pushStringAnnotation(
-                    tag = "URL",
-                    annotation = "https://musicmachinery.com/2012/11/12/the-infinite-jukebox/"
-                )
-                withStyle(linkStyle) { append("Infinite Jukebox") }
-                pop()
+                withLink(LinkAnnotation.Url(url = "https://musicmachinery.com/2012/11/12/the-infinite-jukebox/")) {
+                    withStyle(linkStyle) { append("Infinite Jukebox") }
+                }
                 append(" — rebuilt from the ground up by ")
-                pushStringAnnotation(tag = "URL", annotation = "https://creighton.dev/")
-                withStyle(linkStyle) { append("Creighton") }
-                pop()
+                withLink(LinkAnnotation.Url(url = "https://creighton.dev/")) {
+                    withStyle(linkStyle) { append("Creighton") }
+                }
                 append(". It generates a forever-evolving version of any song.")
             }
-            ClickableText(
+            Text(
                 text = whatText,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface
-                ),
-                onClick = { offset ->
-                    val annotation = whatText.getStringAnnotations("URL", offset, offset).firstOrNull()
-                    annotation?.let { link -> uriHandler.openUri(link.item) }
-                }
+                )
             )
 
             Text("How does it work?", fontWeight = FontWeight.Bold)
@@ -75,23 +67,16 @@ fun FaqPanel() {
             )
             val sourceText = buildAnnotatedString {
                 append("The full source code is available in the ")
-                pushStringAnnotation(
-                    tag = "URL",
-                    annotation = "https://github.com/creightonlinza/forever-jukebox/"
-                )
-                withStyle(linkStyle) { append("forever-jukebox") }
-                pop()
+                withLink(LinkAnnotation.Url(url = "https://github.com/creightonlinza/forever-jukebox/")) {
+                    withStyle(linkStyle) { append("forever-jukebox") }
+                }
                 append(" repository.")
             }
-            ClickableText(
+            Text(
                 text = sourceText,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface
-                ),
-                onClick = { offset ->
-                    val annotation = sourceText.getStringAnnotations("URL", offset, offset).firstOrNull()
-                    annotation?.let { link -> uriHandler.openUri(link.item) }
-                }
+                )
             )
 
             Text("How can I tune the Jukebox?", fontWeight = FontWeight.Bold)

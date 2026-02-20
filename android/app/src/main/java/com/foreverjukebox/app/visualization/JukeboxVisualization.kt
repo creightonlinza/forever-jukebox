@@ -152,7 +152,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEdge(
         val (cx, cy) = bendControlPoint(from, to, center)
         val path = Path().apply {
             moveTo(from.x, from.y)
-            quadraticBezierTo(cx, cy, to.x, to.y)
+            quadraticTo(cx, cy, to.x, to.y)
         }
         drawPath(path, color = color, style = Stroke(width = strokeWidth))
     } else {
@@ -171,7 +171,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawJumpLine(
         val (cx, cy) = bendControlPoint(from, to, center)
         val path = Path().apply {
             moveTo(from.x, from.y)
-            quadraticBezierTo(cx, cy, to.x, to.y)
+            quadraticTo(cx, cy, to.x, to.y)
         }
         drawPath(path, color = color, style = Stroke(width = 2f))
     } else {

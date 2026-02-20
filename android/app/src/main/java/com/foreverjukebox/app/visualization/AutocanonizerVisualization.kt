@@ -414,7 +414,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawConnections(
         val otherBeat = beats.getOrNull(beat.otherIndex) ?: continue
         val path = Path().apply {
             moveTo(pathDef.fromX, baseY)
-            quadraticBezierTo(pathDef.cx, pathDef.cy, pathDef.toX, baseY)
+            quadraticTo(pathDef.cx, pathDef.cy, pathDef.toX, baseY)
         }
         drawPath(
             path = path,
