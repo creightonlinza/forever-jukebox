@@ -77,6 +77,22 @@ public:
         mHasJump.store(false);
     }
 
+    void setGain(float gain) {
+        mGain.store(std::clamp(gain, 0.0f, 1.0f));
+    }
+
+    void cloneAudioFrom(OboePlayer& source) {
+        if (this == &source) return;
+        std::scoped_lock lock(mDataMutex, source.mDataMutex);
+        mAudioData = source.mAudioData;
+        mTotalFrames = source.mTotalFrames;
+        mReadFrame.store(0);
+        mAudioFrame.store(0);
+        mJumpAtAudioFrame.store(0);
+        mJumpToFrame.store(0);
+        mHasJump.store(false);
+    }
+
     void seekSeconds(double seconds) {
         const int64_t frame = static_cast<int64_t>(seconds * static_cast<double>(mSampleRate));
         mReadFrame.store(frame < 0 ? 0 : frame);
@@ -243,13 +259,36 @@ private:
                 std::min<int64_t>(frames - framesWritten, framesAvailable));
             const size_t offset = static_cast<size_t>(startFrame * channels);
             const size_t samplesToCopy = static_cast<size_t>(framesToCopy * channels);
+            int16_t* chunkStart = output;
             std::copy(
                 mAudioData.begin() + offset,
                 mAudioData.begin() + offset + samplesToCopy,
                 output);
+            applyGain(chunkStart, samplesToCopy);
             output += samplesToCopy;
             framesWritten += framesToCopy;
             startFrame += framesToCopy;
+        }
+    }
+
+    void applyGain(int16_t* data, size_t sampleCount) {
+        const float gain = mGain.load();
+        if (gain >= 0.999f) {
+            return;
+        }
+        if (gain <= 0.0f) {
+            std::fill(data, data + sampleCount, 0);
+            return;
+        }
+        for (size_t i = 0; i < sampleCount; i += 1) {
+            const int32_t sample = static_cast<int32_t>(data[i]);
+            int32_t scaled = static_cast<int32_t>(sample * gain);
+            if (scaled > 32767) {
+                scaled = 32767;
+            } else if (scaled < -32768) {
+                scaled = -32768;
+            }
+            data[i] = static_cast<int16_t>(scaled);
         }
     }
 
@@ -266,6 +305,7 @@ private:
     std::atomic<int64_t> mJumpToFrame{0};
     std::atomic<bool> mHasJump{false};
     std::atomic<bool> mIsPlaying{false};
+    std::atomic<float> mGain{1.0f};
 };
 
 OboePlayer* toPlayer(jlong handle) {
@@ -360,6 +400,23 @@ Java_com_foreverjukebox_app_audio_BufferedAudioPlayer_nativeHasAudio(
     JNIEnv*, jobject, jlong handle) {
     auto* player = toPlayer(handle);
     return player && player->hasAudio();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_foreverjukebox_app_audio_BufferedAudioPlayer_nativeSetGain(
+    JNIEnv*, jobject, jlong handle, jfloat gain) {
+    auto* player = toPlayer(handle);
+    if (player) player->setGain(gain);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_foreverjukebox_app_audio_BufferedAudioPlayer_nativeCloneAudioFrom(
+    JNIEnv*, jobject, jlong handle, jlong sourceHandle) {
+    auto* player = toPlayer(handle);
+    auto* source = toPlayer(sourceHandle);
+    if (!player || !source) return JNI_FALSE;
+    player->cloneAudioFrom(*source);
+    return JNI_TRUE;
 }
 
 extern "C" JNIEXPORT void JNICALL

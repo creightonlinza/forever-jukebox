@@ -3,14 +3,23 @@ package com.foreverjukebox.app.playback
 import android.content.Context
 import android.os.SystemClock
 import com.foreverjukebox.app.audio.BufferedAudioPlayer
+import com.foreverjukebox.app.autocanonizer.AutocanonizerController
+import com.foreverjukebox.app.autocanonizer.BufferedAutocanonizerPlayer
 import com.foreverjukebox.app.engine.JukeboxEngine
 import com.foreverjukebox.app.engine.JukeboxEngineOptions
 import com.foreverjukebox.app.engine.RandomMode
 import com.foreverjukebox.app.engine.VisualizationData
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 class PlaybackController {
     val player = BufferedAudioPlayer()
     val engine = JukeboxEngine(player, JukeboxEngineOptions(randomMode = RandomMode.Random))
+    private val autocanonizerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val autocanonizerPlayer = BufferedAutocanonizerPlayer(player)
+    val autocanonizer = AutocanonizerController(autocanonizerPlayer, autocanonizerScope)
 
     private var playTimerMs = 0L
     private var lastPlayStamp: Long? = null
@@ -32,6 +41,8 @@ class PlaybackController {
             if (!player.hasAudio()) {
                 return false
             }
+            // Guard against any leftover gain shaping from autocanonizer paths.
+            player.setGain(1.0)
             engine.stopJukebox()
             engine.resetStats()
             playTimerMs = 0L
@@ -72,6 +83,22 @@ class PlaybackController {
         lastPlayStamp = null
     }
 
+    fun startExternalPlayback(resetTimers: Boolean = true) {
+        if (resetTimers) {
+            playTimerMs = 0L
+        }
+        lastPlayStamp = SystemClock.elapsedRealtime()
+        isRunning = true
+    }
+
+    fun stopExternalPlayback() {
+        if (lastPlayStamp != null) {
+            playTimerMs += SystemClock.elapsedRealtime() - lastPlayStamp!!
+            lastPlayStamp = null
+        }
+        isRunning = false
+    }
+
     fun isPlaying(): Boolean = isRunning
 
     fun getListenTimeSeconds(): Double {
@@ -95,6 +122,16 @@ class PlaybackController {
         player.seek(beat.start)
         engine.seekToBeat(index)
         return true
+    }
+
+    fun syncAutocanonizerAudio(): Boolean {
+        return autocanonizer.syncAudioFromMain()
+    }
+
+    fun release() {
+        autocanonizer.release()
+        player.release()
+        autocanonizerScope.cancel()
     }
 }
 

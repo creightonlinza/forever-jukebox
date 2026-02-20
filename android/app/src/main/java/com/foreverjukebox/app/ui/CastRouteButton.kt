@@ -1,9 +1,11 @@
 package com.foreverjukebox.app.ui
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -11,6 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.mediarouter.app.MediaRouteButton
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.cast.framework.CastContext
@@ -26,6 +30,8 @@ fun CastRouteButton(
 ) {
     val context = LocalContext.current
     val onSessionStartedState = rememberUpdatedState(onSessionStarted)
+    val enabledTint = MaterialTheme.colorScheme.onSurface
+    val disabledTint = enabledTint.copy(alpha = 0.4f)
     if (!enabled) {
         IconButton(
             onClick = { onDisabledClick?.invoke() },
@@ -34,7 +40,7 @@ fun CastRouteButton(
             Icon(
                 imageVector = Icons.Outlined.Cast,
                 contentDescription = "Cast unavailable",
-                tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                tint = disabledTint
             )
         }
         return
@@ -75,11 +81,18 @@ fun CastRouteButton(
         factory = { ctx ->
             MediaRouteButton(ctx).apply {
                 CastButtonFactory.setUpMediaRouteButton(ctx, this)
+                setRemoteIndicatorDrawable(tintedRemoteIndicator(ctx, enabledTint.toArgb()))
             }
         },
         modifier = modifier,
         update = { button ->
             button.isEnabled = enabled
+            button.setRemoteIndicatorDrawable(tintedRemoteIndicator(button.context, enabledTint.toArgb()))
         }
     )
 }
+
+private fun tintedRemoteIndicator(context: Context, tint: Int) =
+    AppCompatResources.getDrawable(context, androidx.mediarouter.R.drawable.mr_button_light)
+        ?.mutate()
+        ?.apply { setTint(tint) }
