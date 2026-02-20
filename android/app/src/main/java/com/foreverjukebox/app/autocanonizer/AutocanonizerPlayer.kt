@@ -31,9 +31,7 @@ class BufferedAutocanonizerPlayer(
     }
 
     override fun syncAudioFromMain(): Boolean {
-        val copied = secondaryPlayer.cloneAudioFrom(mainPlayer)
-        applyGains()
-        return copied
+        return secondaryPlayer.cloneAudioFrom(mainPlayer)
     }
 
     override fun setVolume(volume: Double) {
@@ -51,6 +49,9 @@ class BufferedAutocanonizerPlayer(
     override fun stop() {
         mainPlayer.stop()
         secondaryPlayer.stop()
+        // Ensure shared main player returns to full gain for regular Jukebox playback.
+        mainPlayer.setGain(1.0)
+        secondaryPlayer.setGain(1.0)
         carrySecondaryOnNextSecondaryTick = false
     }
 
@@ -113,6 +114,7 @@ class BufferedAutocanonizerPlayer(
     }
 
     override fun release() {
+        mainPlayer.setGain(1.0)
         secondaryPlayer.release()
     }
 

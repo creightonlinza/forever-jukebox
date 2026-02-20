@@ -6,17 +6,22 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckBox
@@ -52,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.visualization.AutocanonizerVisualization
@@ -108,7 +114,10 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         if (!playback.isCasting && !playback.analysisErrorMessage.isNullOrBlank()) {
             ErrorStatus(
                 message = playback.analysisErrorMessage,
@@ -132,7 +141,9 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
         if ((playback.audioLoaded && playback.analysisLoaded) || playback.isCasting) {
             Column(
                 modifier = Modifier
+                    .weight(1f, fill = true)
                     .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(12.dp),
@@ -275,29 +286,42 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                 if (playback.isCasting) {
                     CastingPanel(playback)
                 } else {
-                    Box(
+                    BoxWithConstraints(
                         modifier = Modifier
+                            .weight(1f, fill = true)
                             .fillMaxWidth()
-                            .height(360.dp)
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                             .background(themeTokens.vizBackground)
                     ) {
+                        val vizSide: Dp = if (maxWidth < maxHeight) maxWidth else maxHeight
                         if (inAutocanonizer) {
-                            AutocanonizerVisualization(
-                                data = playback.autocanonizerData,
-                                currentIndex = playback.currentBeatIndex,
-                                forcedOtherIndex = playback.canonizerOtherIndex,
-                                tileColorOverrides = playback.canonizerTileColorOverrides,
-                                onSelectBeat = viewModel::selectBeat
-                            )
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AutocanonizerVisualization(
+                                    data = playback.autocanonizerData,
+                                    currentIndex = playback.currentBeatIndex,
+                                    forcedOtherIndex = playback.canonizerOtherIndex,
+                                    tileColorOverrides = playback.canonizerTileColorOverrides,
+                                    onSelectBeat = viewModel::selectBeat,
+                                    modifier = Modifier.size(vizSide)
+                                )
+                            }
                         } else {
-                            JukeboxVisualization(
-                                data = playback.vizData,
-                                currentIndex = playback.currentBeatIndex,
-                                jumpLine = jumpLine,
-                                positioner = positioners.getOrNull(playback.activeVizIndex) ?: positioners.first(),
-                                onSelectBeat = viewModel::selectBeat
-                            )
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                JukeboxVisualization(
+                                    data = playback.vizData,
+                                    currentIndex = playback.currentBeatIndex,
+                                    jumpLine = jumpLine,
+                                    positioner = positioners.getOrNull(playback.activeVizIndex) ?: positioners.first(),
+                                    onSelectBeat = viewModel::selectBeat,
+                                    modifier = Modifier.size(vizSide)
+                                )
+                            }
                         }
                         Row(
                             modifier = Modifier

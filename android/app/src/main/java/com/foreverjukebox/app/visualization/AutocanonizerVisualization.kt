@@ -144,7 +144,6 @@ fun AutocanonizerVisualization(
 
     Box(
         modifier = modifier
-            .fillMaxSize()
             .onSizeChanged { newSize -> canvasSize = newSize }
             .pointerInput(layout) {
                 detectTapGestures { tap ->

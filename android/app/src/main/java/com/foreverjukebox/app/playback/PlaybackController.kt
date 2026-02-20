@@ -41,6 +41,8 @@ class PlaybackController {
             if (!player.hasAudio()) {
                 return false
             }
+            // Guard against any leftover gain shaping from autocanonizer paths.
+            player.setGain(1.0)
             engine.stopJukebox()
             engine.resetStats()
             playTimerMs = 0L
