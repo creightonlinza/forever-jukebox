@@ -10,6 +10,7 @@ export class BufferedAudioPlayer {
   private startAt = 0;
   private offset = 0;
   private playing = false;
+  private playRequestId = 0;
   private onEnded: (() => void) | null = null;
 
   constructor(context?: AudioContext) {
@@ -42,14 +43,33 @@ export class BufferedAudioPlayer {
     if (!this.buffer || this.playing) {
       return;
     }
+    const requestId = ++this.playRequestId;
+    const startPlayback = () => {
+      if (
+        !this.buffer ||
+        this.playing ||
+        this.playRequestId !== requestId
+      ) {
+        return;
+      }
+      const now = this.context.currentTime;
+      this.startSourceAt(this.offset, now);
+    };
     if (this.context.state === "suspended") {
-      void this.context.resume();
+      void Promise.resolve(this.context.resume())
+        .then(() => {
+          startPlayback();
+        })
+        .catch(() => {
+          // no-op
+        });
+      return;
     }
-    const now = this.context.currentTime;
-    this.startSourceAt(this.offset, now);
+    startPlayback();
   }
 
   pause() {
+    this.playRequestId += 1;
     if (!this.playing) {
       return;
     }
@@ -59,6 +79,7 @@ export class BufferedAudioPlayer {
   }
 
   stop() {
+    this.playRequestId += 1;
     this.stopSource();
     this.playing = false;
     this.offset = 0;
@@ -161,20 +182,21 @@ export class BufferedAudioPlayer {
       this.source.disconnect();
       this.source = null;
     }
-    if (this.pendingSource) {
-      this.pendingSource.onended = null;
-      try {
-        this.pendingSource.stop(0);
-      } catch {
-        // no-op
-      }
-      this.pendingSource.disconnect();
-      this.pendingSource = null;
-    }
   }
 
   private clearPendingSwap() {
     this.pendingSwapAt = null;
+    if (!this.pendingSource) {
+      return;
+    }
+    this.pendingSource.onended = null;
+    try {
+      this.pendingSource.stop(0);
+    } catch {
+      // no-op
+    }
+    this.pendingSource.disconnect();
+    this.pendingSource = null;
   }
 
   private maybePromotePending() {

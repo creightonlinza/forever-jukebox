@@ -18,18 +18,37 @@ class MockSourceNode {
 class MockAudioContext {
   currentTime = 0;
   destination = {};
+  createdSources: MockSourceNode[] = [];
   createGain() {
     return new MockGainNode();
   }
   createBufferSource() {
-    return new MockSourceNode();
+    const source = new MockSourceNode();
+    this.createdSources.push(source);
+    return source;
   }
   decodeAudioData(buffer: ArrayBuffer) {
     const audioBuffer = { duration: buffer.byteLength } as AudioBuffer;
     return Promise.resolve(audioBuffer);
   }
-  resume = vi.fn();
+  resume = vi.fn().mockResolvedValue(undefined);
   state: AudioContextState = "running";
+}
+
+function deferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushMicrotasks(count = 5) {
+  for (let idx = 0; idx < count; idx += 1) {
+    await Promise.resolve();
+  }
 }
 
 describe("BufferedAudioPlayer", () => {
@@ -67,5 +86,50 @@ describe("BufferedAudioPlayer", () => {
     const player = new BufferedAudioPlayer();
     await player.decode(new ArrayBuffer(3));
     expect(player.getDuration()).toBe(3);
+  });
+
+  it("waits for resume before starting playback", async () => {
+    const context = new MockAudioContext();
+    context.state = "suspended";
+    const pendingResume = deferred<void>();
+    context.resume = vi.fn(() => pendingResume.promise);
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 5 } as AudioBuffer);
+    player.play();
+    expect(context.resume).toHaveBeenCalledTimes(1);
+    expect(context.createdSources).toHaveLength(0);
+    pendingResume.resolve();
+    await flushMicrotasks();
+    expect(context.createdSources).toHaveLength(1);
+    expect(context.createdSources[0]?.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start playback after stop while resume is pending", async () => {
+    const context = new MockAudioContext();
+    context.state = "suspended";
+    const pendingResume = deferred<void>();
+    context.resume = vi.fn(() => pendingResume.promise);
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 5 } as AudioBuffer);
+    player.play();
+    player.stop();
+    pendingResume.resolve();
+    await flushMicrotasks();
+    expect(context.createdSources).toHaveLength(0);
+  });
+
+  it("cleans up a replaced pending jump source", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 1;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 10 } as AudioBuffer);
+    player.play();
+    expect(context.createdSources).toHaveLength(1);
+    player.scheduleJump(2, 0);
+    const firstPending = context.createdSources[1];
+    expect(firstPending).toBeDefined();
+    player.scheduleJump(3, 0);
+    expect(firstPending?.stop).toHaveBeenCalled();
+    expect(firstPending?.disconnect).toHaveBeenCalledTimes(1);
   });
 });
