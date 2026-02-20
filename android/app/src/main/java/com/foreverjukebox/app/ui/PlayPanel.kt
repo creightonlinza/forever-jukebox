@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -24,6 +23,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Info
@@ -147,7 +147,6 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                 modifier = Modifier
                     .weight(1f, fill = true)
                     .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(12.dp),
@@ -336,11 +335,6 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = "Mode:",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
                             Box {
                                 OutlinedButton(
                                     onClick = { showModeMenu = true },
@@ -353,6 +347,11 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                     Text(
                                         text = if (inAutocanonizer) "Autocanonizer" else "Jukebox",
                                         style = MaterialTheme.typography.labelSmall
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Filled.ArrowDropDown,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                                 DropdownMenu(
@@ -427,6 +426,11 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                     Text(
                                         vizLabels.getOrNull(playback.activeVizIndex) ?: "Select",
                                         style = MaterialTheme.typography.labelSmall
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Filled.ArrowDropDown,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                                 DropdownMenu(
