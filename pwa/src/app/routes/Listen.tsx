@@ -93,7 +93,7 @@ function waitForNextPaint(): Promise<void> {
   return Promise.resolve();
 }
 
-export function Listen() {
+export function Listen({ isActive = true }: { isActive?: boolean }) {
   const { file, setIsListenLoading } = useAppState();
   const [analysis, setAnalysis] = React.useState<AnalysisOutput | null>(null);
   const [readyFileKey, setReadyFileKey] = React.useState<string | null>(null);
@@ -206,12 +206,12 @@ export function Listen() {
 
     return () => {
       resizeObserver.disconnect();
-      controller.reset();
-      autocanonizer.reset();
+      controller.destroy();
+      autocanonizer.destroy();
       vizControllerRef.current = null;
       autocanonizerRef.current = null;
     };
-  }, []);
+  }, [file]);
 
   React.useEffect(() => {
     isRunningRef.current = isRunning;
@@ -358,6 +358,10 @@ export function Listen() {
   }, []);
 
   React.useEffect(() => {
+    if (!isActive) {
+      engineRef.current?.setForceBranch(false);
+      return;
+    }
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTuningOpen || isInfoOpen || isExportOpen) {
         return;
@@ -394,7 +398,7 @@ export function Listen() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [selectedEdge, isRunning, isTuningOpen, isInfoOpen, isExportOpen, playMode]);
+  }, [selectedEdge, isRunning, isTuningOpen, isInfoOpen, isExportOpen, playMode, isActive]);
 
   React.useEffect(() => {
     const onFullscreen = () => {

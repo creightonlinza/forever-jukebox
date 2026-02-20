@@ -163,6 +163,7 @@ vi.mock("@/shared/jukebox/viz/JukeboxController", () => ({
     setSelectedEdge(_edge: unknown) {}
     setSelectedEdgeActive(_edge: unknown) {}
     update(_index: number, _animate: boolean, _jumpFrom: number | null) {}
+    destroy() {}
     getCount() {
       return 2;
     }
@@ -199,6 +200,7 @@ vi.mock("@/shared/jukebox/autocanonizer/AutocanonizerController", () => ({
     }
     stop() {}
     reset() {}
+    destroy() {}
   },
 }));
 

@@ -1,8 +1,6 @@
 import {
   BrowserRouter,
   Link,
-  Route,
-  Routes,
   useLocation,
 } from "react-router-dom";
 import { AppStateProvider, useAppState } from "./state/AppState";
@@ -49,8 +47,11 @@ function AppLayout() {
   const location = useLocation();
   const { isListenLoading } = useAppState();
   const { canInstall, isGateUnlocked, promptInstall } = useInstallPrompt();
+  const isListenRoute = location.pathname === "/listen";
+  const isFaqRoute = location.pathname === "/faq";
+  const isHomeRoute = !isListenRoute && !isFaqRoute;
   const hideTabsWhileLoading =
-    location.pathname === "/listen" && isListenLoading;
+    isListenRoute && isListenLoading;
 
   if (!isGateUnlocked) {
     return (
@@ -70,19 +71,19 @@ function AppLayout() {
           {!hideTabsWhileLoading ? (
             <nav className="tabs" aria-label="Primary">
               <Link
-                className={`tab-btn ${location.pathname === "/" ? "active" : ""}`}
+                className={`tab-btn ${isHomeRoute ? "active" : ""}`}
                 to="/"
               >
                 Home
               </Link>
               <Link
-                className={`tab-btn ${location.pathname === "/listen" ? "active" : ""}`}
+                className={`tab-btn ${isListenRoute ? "active" : ""}`}
                 to="/listen"
               >
                 Listen
               </Link>
               <Link
-                className={`tab-btn ${location.pathname === "/faq" ? "active" : ""}`}
+                className={`tab-btn ${isFaqRoute ? "active" : ""}`}
                 to="/faq"
               >
                 FAQ
@@ -92,11 +93,24 @@ function AppLayout() {
         </div>
       </header>
       <main className="app__main">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/listen" element={<Listen />} />
-          <Route path="/faq" element={<Faq />} />
-        </Routes>
+        <section
+          style={{ display: isHomeRoute ? "block" : "none" }}
+          aria-hidden={!isHomeRoute}
+        >
+          <Home />
+        </section>
+        <section
+          style={{ display: isListenRoute ? "block" : "none" }}
+          aria-hidden={!isListenRoute}
+        >
+          <Listen isActive={isListenRoute} />
+        </section>
+        <section
+          style={{ display: isFaqRoute ? "block" : "none" }}
+          aria-hidden={!isFaqRoute}
+        >
+          <Faq />
+        </section>
       </main>
     </div>
   );

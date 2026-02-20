@@ -45,6 +45,10 @@ export class JukeboxController {
     this.viz.reset();
   }
 
+  destroy() {
+    this.viz.destroy();
+  }
+
   setOnSelect(handler: (index: number) => void) {
     this.viz.setOnSelect(handler);
   }

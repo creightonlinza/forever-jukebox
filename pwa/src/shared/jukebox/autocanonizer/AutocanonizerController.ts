@@ -275,6 +275,13 @@ export class AutocanonizerController {
     this.viz.reset();
   }
 
+  destroy() {
+    this.stop();
+    this.beats = [];
+    this.viz.destroy();
+    this.player = null;
+  }
+
   selectIndex(index: number, autoStart: boolean) {
     if (!this.beats.length) {
       return;
