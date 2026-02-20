@@ -6,6 +6,7 @@ import com.foreverjukebox.app.data.ThemeMode
 import com.foreverjukebox.app.data.TopSongItem
 import com.foreverjukebox.app.data.YoutubeSearchItem
 import com.foreverjukebox.app.data.FavoriteTrack
+import com.foreverjukebox.app.autocanonizer.AutocanonizerData
 import com.foreverjukebox.app.engine.VisualizationData
 import com.foreverjukebox.app.visualization.JumpLine
 import kotlinx.serialization.Serializable
@@ -24,6 +25,11 @@ enum class TopSongsTab {
     Rising,
     Recent,
     Favorites
+}
+
+enum class PlaybackMode {
+    Jukebox,
+    Autocanonizer
 }
 
 data class UiState(
@@ -63,6 +69,8 @@ data class SearchState(
 )
 
 data class PlaybackState(
+    val playMode: PlaybackMode = PlaybackMode.Jukebox,
+    val canonizerFinishOutSong: Boolean = false,
     val analysisProgress: Int? = null,
     val analysisMessage: String? = null,
     val analysisErrorMessage: String? = null,
@@ -79,8 +87,11 @@ data class PlaybackState(
     val trackTitle: String? = null,
     val trackArtist: String? = null,
     val vizData: VisualizationData? = null,
+    val autocanonizerData: AutocanonizerData? = null,
     val activeVizIndex: Int = 0,
     val currentBeatIndex: Int = -1,
+    val canonizerOtherIndex: Int? = null,
+    val canonizerTileColorOverrides: Map<Int, String> = emptyMap(),
     val lastJumpFromIndex: Int? = null,
     val jumpLine: JumpLine? = null,
     val lastJobId: String? = null,

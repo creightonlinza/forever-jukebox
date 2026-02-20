@@ -68,6 +68,21 @@ class BufferedAudioPlayer : JukeboxPlayer {
         durationSeconds = null
     }
 
+    fun setGain(gain: Double) {
+        if (nativeHandle == 0L) return
+        nativeSetGain(nativeHandle, gain.coerceIn(0.0, 1.0).toFloat())
+    }
+
+    fun cloneAudioFrom(other: BufferedAudioPlayer): Boolean {
+        if (!other.hasAudio()) return false
+        sampleRate = other.sampleRate
+        channelCount = other.channelCount
+        durationSeconds = other.durationSeconds
+        releaseNativePlayer()
+        ensureNativePlayer()
+        return nativeCloneAudioFrom(nativeHandle, other.nativeHandle)
+    }
+
     override fun play() {
         if (nativeHandle != 0L) {
             nativePlay(nativeHandle)
@@ -294,6 +309,8 @@ class BufferedAudioPlayer : JukeboxPlayer {
     private external fun nativeGetAudioTime(handle: Long): Double
     private external fun nativeIsPlaying(handle: Long): Boolean
     private external fun nativeHasAudio(handle: Long): Boolean
+    private external fun nativeSetGain(handle: Long, gain: Float)
+    private external fun nativeCloneAudioFrom(handle: Long, sourceHandle: Long): Boolean
     private external fun nativeRelease(handle: Long)
 
     companion object {

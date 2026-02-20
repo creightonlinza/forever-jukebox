@@ -56,6 +56,7 @@ import com.foreverjukebox.app.data.AppPreferences
 import com.foreverjukebox.app.data.ThemeMode
 import com.foreverjukebox.app.engine.JukeboxState
 import com.foreverjukebox.app.playback.PlaybackControllerHolder
+import com.foreverjukebox.app.visualization.AutocanonizerVisualization
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.JumpLine
 import com.foreverjukebox.app.visualization.positioners
@@ -69,14 +70,20 @@ class FullscreenActivity : ComponentActivity() {
         hideSystemBars()
 
         val initialVizIndex = intent.getIntExtra(EXTRA_VIZ_INDEX, 0)
+        val initialMode = intent.getStringExtra(EXTRA_MODE)?.let { raw ->
+            runCatching { PlaybackMode.valueOf(raw) }.getOrNull()
+        } ?: PlaybackMode.Jukebox
         setContent {
             val prefs = remember { AppPreferences(this) }
             val themeMode by prefs.themeMode.collectAsState(initial = ThemeMode.System)
             ForeverJukeboxTheme(mode = themeMode) {
                 FullscreenScreen(
                     initialVizIndex = initialVizIndex,
-                    onExit = { selectedIndex ->
-                        val result = Intent().putExtra(EXTRA_RESULT_VIZ_INDEX, selectedIndex)
+                    initialMode = initialMode,
+                    onExit = { selectedIndex, selectedMode ->
+                        val result = Intent()
+                            .putExtra(EXTRA_RESULT_VIZ_INDEX, selectedIndex)
+                            .putExtra(EXTRA_RESULT_MODE, selectedMode.name)
                         setResult(RESULT_OK, result)
                         finish()
                     }
@@ -102,13 +109,16 @@ class FullscreenActivity : ComponentActivity() {
     companion object {
         const val EXTRA_VIZ_INDEX = "com.foreverjukebox.app.viz_index"
         const val EXTRA_RESULT_VIZ_INDEX = "com.foreverjukebox.app.viz_index_result"
+        const val EXTRA_MODE = "com.foreverjukebox.app.play_mode"
+        const val EXTRA_RESULT_MODE = "com.foreverjukebox.app.play_mode_result"
     }
 }
 
 @Composable
 private fun FullscreenScreen(
     initialVizIndex: Int,
-    onExit: (Int) -> Unit
+    initialMode: PlaybackMode,
+    onExit: (Int, PlaybackMode) -> Unit
 ) {
     val context = LocalContext.current
     val controller = remember { PlaybackControllerHolder.get(context) }
@@ -116,15 +126,20 @@ private fun FullscreenScreen(
     val view = LocalView.current
     val vizLabels = visualizationLabels
     var activeVizIndex by rememberSaveable { mutableStateOf(initialVizIndex) }
+    var playMode by rememberSaveable { mutableStateOf(initialMode) }
     var vizData by remember { mutableStateOf(engine.getVisualizationData()) }
+    var canonizerData by remember { mutableStateOf(controller.autocanonizer.getData()) }
+    var canonizerTileColorOverrides by remember { mutableStateOf(controller.autocanonizer.getTileColorOverrides()) }
     var currentBeatIndex by remember { mutableStateOf(-1) }
+    var canonizerOtherIndex by remember { mutableStateOf<Int?>(null) }
     var jumpLine by remember { mutableStateOf<JumpLine?>(null) }
     var showVizMenu by remember { mutableStateOf(false) }
+    var showModeMenu by remember { mutableStateOf(false) }
     var beatsPlayed by remember { mutableStateOf(0) }
     var listenTime by remember { mutableStateOf("00:00:00") }
 
     BackHandler {
-        onExit(activeVizIndex)
+        onExit(activeVizIndex, playMode)
     }
 
     DisposableEffect(Unit) {
@@ -147,12 +162,21 @@ private fun FullscreenScreen(
 
     LaunchedEffect(Unit) {
         vizData = engine.getVisualizationData()
+        canonizerData = controller.autocanonizer.getData()
+        canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
     }
 
     LaunchedEffect(Unit) {
         while (true) {
             listenTime = formatDuration(controller.getListenTimeSeconds())
-            delay(1000)
+            if (playMode == PlaybackMode.Autocanonizer) {
+                currentBeatIndex = controller.autocanonizer.getCurrentIndex()
+                canonizerOtherIndex = controller.autocanonizer.getForcedOtherIndex()
+                canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
+                beatsPlayed = controller.autocanonizer.getBeatsPlayed()
+                canonizerData = controller.autocanonizer.getData()
+            }
+            delay(200)
         }
     }
 
@@ -166,46 +190,111 @@ private fun FullscreenScreen(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            JukeboxVisualization(
-                data = vizData,
-                currentIndex = currentBeatIndex,
-                jumpLine = jumpLine,
-                positioner = positioners.getOrNull(activeVizIndex) ?: positioners.first(),
-                onSelectBeat = { index ->
-                    if (!controller.seekToBeat(index, vizData)) return@JukeboxVisualization
-                    currentBeatIndex = index
-                },
-                modifier = Modifier.size(squareSize)
-            )
+            if (playMode == PlaybackMode.Autocanonizer) {
+                AutocanonizerVisualization(
+                    data = canonizerData,
+                    currentIndex = currentBeatIndex,
+                    forcedOtherIndex = canonizerOtherIndex,
+                    tileColorOverrides = canonizerTileColorOverrides,
+                    onSelectBeat = { index ->
+                        controller.autocanonizer.resetVisualization()
+                        if (controller.autocanonizer.startAtIndex(index)) {
+                            controller.startExternalPlayback(resetTimers = true)
+                            currentBeatIndex = index
+                            canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
+                        }
+                    },
+                    modifier = Modifier.size(squareSize)
+                )
+            } else {
+                JukeboxVisualization(
+                    data = vizData,
+                    currentIndex = currentBeatIndex,
+                    jumpLine = jumpLine,
+                    positioner = positioners.getOrNull(activeVizIndex) ?: positioners.first(),
+                    onSelectBeat = { index ->
+                        if (!controller.seekToBeat(index, vizData)) return@JukeboxVisualization
+                        currentBeatIndex = index
+                    },
+                    modifier = Modifier.size(squareSize)
+                )
+            }
         }
 
-        Box(
+        Row(
             modifier = Modifier
-                .align(Alignment.TopEnd)
+                .align(Alignment.TopStart)
                 .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(18.dp)
+                .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            OutlinedButton(
-                onClick = { showVizMenu = true },
-                colors = pillOutlinedButtonColors(),
-                border = pillButtonBorder(),
-                shape = PillShape,
-                modifier = Modifier.height(36.dp)
-            ) {
-                Text(vizLabels.getOrNull(activeVizIndex) ?: "Select")
-            }
-            DropdownMenu(
-                expanded = showVizMenu,
-                onDismissRequest = { showVizMenu = false }
-            ) {
-                vizLabels.forEachIndexed { index, label ->
+            Text(
+                text = "Mode:",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Box {
+                OutlinedButton(
+                    onClick = { showModeMenu = true },
+                    colors = pillOutlinedButtonColors(),
+                    border = pillButtonBorder(),
+                    shape = PillShape,
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Text(if (playMode == PlaybackMode.Autocanonizer) "Autocanonizer" else "Jukebox")
+                }
+                DropdownMenu(
+                    expanded = showModeMenu,
+                    onDismissRequest = { showModeMenu = false }
+                ) {
                     DropdownMenuItem(
-                        text = { Text(label) },
+                        text = { Text("Jukebox") },
                         onClick = {
-                            activeVizIndex = index
-                            showVizMenu = false
+                            playMode = PlaybackMode.Jukebox
+                            showModeMenu = false
                         }
                     )
+                    DropdownMenuItem(
+                        text = { Text("Autocanonizer") },
+                        onClick = {
+                            playMode = PlaybackMode.Autocanonizer
+                            showModeMenu = false
+                        }
+                    )
+                }
+            }
+        }
+
+        if (playMode == PlaybackMode.Jukebox) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .padding(18.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showVizMenu = true },
+                    colors = pillOutlinedButtonColors(),
+                    border = pillButtonBorder(),
+                    shape = PillShape,
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Text(vizLabels.getOrNull(activeVizIndex) ?: "Select")
+                }
+                DropdownMenu(
+                    expanded = showVizMenu,
+                    onDismissRequest = { showVizMenu = false }
+                ) {
+                    vizLabels.forEachIndexed { index, label ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                activeVizIndex = index
+                                showVizMenu = false
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -239,13 +328,17 @@ private fun FullscreenScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Listen Time: $listenTime · Total Beats: $beatsPlayed",
+                        text = if (playMode == PlaybackMode.Autocanonizer) {
+                            "Listen Time: $listenTime"
+                        } else {
+                            "Listen Time: $listenTime · Total Beats: $beatsPlayed"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 IconButton(
-                    onClick = { onExit(activeVizIndex) },
+                    onClick = { onExit(activeVizIndex, playMode) },
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(

@@ -149,7 +149,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        viewModelScope.launch {
+            preferences.canonizerFinishOutSong.collect { enabled ->
+                controller.autocanonizer.setFinishOutSong(enabled)
+                _state.update {
+                    it.copy(
+                        playback = it.playback.copy(canonizerFinishOutSong = enabled)
+                    )
+                }
+            }
+        }
         engine.onUpdate { engineState ->
+            if (state.value.playback.playMode == PlaybackMode.Autocanonizer) {
+                return@onUpdate
+            }
             val currentBeatIndex = engineState.currentBeatIndex
             val lastJumpFrom = engineState.lastJumpFromIndex
             val jumpLine = if (engineState.lastJumped && lastJumpFrom != null) {
@@ -169,6 +182,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             playbackCoordinator.maybeUpdateNotification()
         }
+        controller.autocanonizer.setOnBeat { index, _, forcedOtherIndex ->
+            if (state.value.playback.playMode != PlaybackMode.Autocanonizer) {
+                return@setOnBeat
+            }
+            val tileOverrides = controller.autocanonizer.getTileColorOverrides()
+            _state.update {
+                it.copy(
+                    playback = it.playback.copy(
+                        beatsPlayed = index + 1,
+                        currentBeatIndex = index,
+                        canonizerOtherIndex = forcedOtherIndex,
+                        canonizerTileColorOverrides = tileOverrides,
+                        lastJumpFromIndex = null,
+                        jumpLine = null
+                    )
+                )
+            }
+            playbackCoordinator.maybeUpdateNotification()
+        }
+        controller.autocanonizer.setOnEnded {
+            if (state.value.playback.playMode != PlaybackMode.Autocanonizer) {
+                return@setOnEnded
+            }
+            controller.stopExternalPlayback()
+            playbackCoordinator.stopListenTimer()
+            playbackCoordinator.updateListenTimeDisplay()
+            _state.update {
+                it.copy(playback = it.playback.copy(isRunning = false))
+            }
+            ForegroundPlaybackService.stop(getApplication())
+        }
 
         playbackCoordinator.restorePlaybackState()
     }
@@ -177,7 +221,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         cancelLocalAnalysisInternal(showCancelledMessage = false)
         super.onCleared()
         playbackCoordinator.onCleared()
-        controller.player.release()
+        controller.release()
     }
 
     fun setBaseUrl(url: String) {
@@ -439,6 +483,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        controller.syncAutocanonizerAudio()
         _state.update {
             it.copy(
                 playback = it.playback.copy(
@@ -540,7 +585,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     artist = artist,
                     duration = playback.trackDurationSeconds,
                     sourceType = FavoriteSourceType.Youtube,
-                    tuningParams = playbackCoordinator.buildTuningParamsString()
+                    tuningParams = if (playback.playMode == PlaybackMode.Jukebox) {
+                        playbackCoordinator.buildTuningParamsString()
+                    } else {
+                        null
+                    }
                 )
                 favoritesController.updateFavorites(favorites + newFavorite)
                 false
@@ -984,6 +1033,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         if (!current.analysisLoaded) return
+        if (current.playMode == PlaybackMode.Autocanonizer) {
+            toggleAutocanonizerPlayback(current)
+            return
+        }
         if (!current.isRunning) {
             viewModelScope.launch {
                 if (!current.audioLoaded || !controller.player.hasAudio()) {
@@ -1004,6 +1057,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             playback = it.playback.copy(
                                 beatsPlayed = 0,
                                 currentBeatIndex = -1,
+                                canonizerOtherIndex = null,
                                 isRunning = running
                             )
                         )
@@ -1026,8 +1080,78 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             controller.stopPlayback()
             playbackCoordinator.stopListenTimer()
             playbackCoordinator.updateListenTimeDisplay()
-            _state.update { it.copy(playback = it.playback.copy(isRunning = false)) }
+            _state.update {
+                it.copy(
+                    playback = it.playback.copy(
+                        isRunning = false,
+                        canonizerOtherIndex = null
+                    )
+                )
+            }
             ForegroundPlaybackService.stop(getApplication())
+        }
+    }
+
+    private fun toggleAutocanonizerPlayback(current: PlaybackState) {
+        if (!current.isRunning) {
+            startAutocanonizerPlayback(0)
+        } else {
+            controller.autocanonizer.stop()
+            controller.stopExternalPlayback()
+            playbackCoordinator.stopListenTimer()
+            playbackCoordinator.updateListenTimeDisplay()
+            _state.update {
+                it.copy(
+                    playback = it.playback.copy(
+                        isRunning = false,
+                        canonizerOtherIndex = null
+                    )
+                )
+            }
+            ForegroundPlaybackService.stop(getApplication())
+        }
+    }
+
+    private fun startAutocanonizerPlayback(index: Int) {
+        val current = state.value.playback
+        viewModelScope.launch {
+            if (!current.audioLoaded || !controller.player.hasAudio()) {
+                val ready = playbackCoordinator.ensureAudioReady()
+                if (!ready) {
+                    playbackCoordinator.setAnalysisError("Audio unavailable. Reload the track.")
+                    return@launch
+                }
+            }
+            if (!controller.autocanonizer.isReady()) {
+                controller.syncAutocanonizerAudio()
+            }
+            if (!controller.autocanonizer.isReady()) {
+                playbackCoordinator.setAnalysisError("Autocanonizer not ready.")
+                return@launch
+            }
+            controller.autocanonizer.resetVisualization()
+            val started = controller.autocanonizer.startAtIndex(index)
+            if (!started) {
+                playbackCoordinator.setAnalysisError("Autocanonizer not ready.")
+                return@launch
+            }
+            controller.startExternalPlayback(resetTimers = true)
+            playbackCoordinator.updateListenTimeDisplay()
+            _state.update {
+                it.copy(
+                    playback = it.playback.copy(
+                        beatsPlayed = 0,
+                        currentBeatIndex = -1,
+                        canonizerOtherIndex = null,
+                        canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides(),
+                        lastJumpFromIndex = null,
+                        jumpLine = null,
+                        isRunning = true
+                    )
+                )
+            }
+            playbackCoordinator.startListenTimer()
+            ForegroundPlaybackService.start(getApplication())
         }
     }
 
@@ -1035,6 +1159,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!state.value.castEnabled) {
             notifyCastUnavailable()
             return
+        }
+        if (state.value.playback.playMode == PlaybackMode.Autocanonizer) {
+            setPlaybackMode(PlaybackMode.Jukebox)
         }
         val baseUrl = state.value.baseUrl.trim()
         if (baseUrl.isBlank()) {
@@ -1065,6 +1192,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (isConnected) {
             val currentState = state.value
             val playback = currentState.playback
+            if (playback.playMode == PlaybackMode.Autocanonizer) {
+                controller.autocanonizer.stop()
+                controller.stopExternalPlayback()
+                playbackCoordinator.stopListenTimer()
+                playbackCoordinator.applyPlaybackMode(PlaybackMode.Jukebox)
+            }
             if (playback.isCasting) {
                 _state.update {
                     it.copy(
@@ -1180,6 +1313,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             it.copy(
                 playback = it.playback.copy(
+                    playMode = PlaybackMode.Jukebox,
                     isRunning = resolvedIsRunning,
                     playTitle = displayTitle ?: it.playback.playTitle,
                     trackTitle = if (hasTitle) title else it.playback.trackTitle,
@@ -1213,6 +1347,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update {
             it.copy(
                 playback = it.playback.copy(
+                    playMode = PlaybackMode.Jukebox,
                     playTitle = displayTitle,
                     trackTitle = title,
                     trackArtist = artist,
@@ -1319,6 +1454,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectBeat(index: Int) {
+        if (state.value.playback.playMode == PlaybackMode.Autocanonizer) {
+            startAutocanonizerPlayback(index)
+            return
+        }
         val data = state.value.playback.vizData
         if (!controller.seekToBeat(index, data)) return
         _state.update { it.copy(playback = it.playback.copy(currentBeatIndex = index)) }
@@ -1328,6 +1467,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(playback = it.playback.copy(activeVizIndex = index)) }
         viewModelScope.launch {
             preferences.setActiveVizIndex(index)
+        }
+    }
+
+    fun setPlaybackMode(mode: PlaybackMode) {
+        val current = state.value.playback
+        if (current.playMode == mode) {
+            return
+        }
+        if (current.isCasting && mode == PlaybackMode.Autocanonizer) {
+            viewModelScope.launch { showToast("Autocanonizer is unavailable while casting.") }
+            return
+        }
+        if (current.isRunning) {
+            if (current.playMode == PlaybackMode.Autocanonizer) {
+                controller.autocanonizer.stop()
+                controller.stopExternalPlayback()
+            } else {
+                controller.stopPlayback()
+            }
+            playbackCoordinator.stopListenTimer()
+            playbackCoordinator.updateListenTimeDisplay()
+            ForegroundPlaybackService.stop(getApplication())
+        }
+        playbackCoordinator.applyPlaybackMode(mode)
+        _state.update {
+            it.copy(
+                playback = it.playback.copy(
+                    isRunning = false,
+                    beatsPlayed = 0,
+                    currentBeatIndex = -1,
+                    canonizerOtherIndex = null,
+                    lastJumpFromIndex = null,
+                    jumpLine = null
+                )
+            )
+        }
+    }
+
+    fun setCanonizerFinishOutSong(enabled: Boolean) {
+        controller.autocanonizer.setFinishOutSong(enabled)
+        _state.update {
+            it.copy(
+                playback = it.playback.copy(
+                    canonizerFinishOutSong = enabled
+                )
+            )
+        }
+        viewModelScope.launch {
+            preferences.setCanonizerFinishOutSong(enabled)
+        }
+    }
+
+    fun buildShareUrl(): String? {
+        val playback = state.value.playback
+        val trackId = playback.lastYouTubeId ?: playback.lastJobId ?: return null
+        val baseUrl = state.value.baseUrl.trim().trimEnd('/')
+        if (baseUrl.isBlank()) return null
+        val encodedId = Uri.encode(trackId)
+        val query = when (playback.playMode) {
+            PlaybackMode.Autocanonizer -> "mode=autocanonizer"
+            PlaybackMode.Jukebox -> playbackCoordinator.buildTuningParamsString()
+        }
+        return if (query.isNullOrBlank()) {
+            "$baseUrl/listen/$encodedId"
+        } else {
+            "$baseUrl/listen/$encodedId?$query"
         }
     }
 
@@ -1395,8 +1600,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val segments = uri.pathSegments
         if (segments.size >= 2 && segments.firstOrNull() == "listen") {
             val id = segments[1]
-            loadTrackByYoutubeId(id)
+            val mode = if (uri.getQueryParameter("mode") == "autocanonizer") {
+                PlaybackMode.Autocanonizer
+            } else {
+                PlaybackMode.Jukebox
+            }
+            setPlaybackMode(mode)
+            val tuningParams = if (mode == PlaybackMode.Jukebox) {
+                buildQueryWithoutMode(uri)
+            } else {
+                null
+            }
+            loadTrackByYoutubeId(id, tuningParams = tuningParams)
         }
+    }
+
+    private fun buildQueryWithoutMode(uri: Uri): String? {
+        val params = mutableListOf<String>()
+        for (name in uri.queryParameterNames) {
+            if (name == "mode") {
+                continue
+            }
+            val values = uri.getQueryParameters(name)
+            if (values.isEmpty()) {
+                params.add(Uri.encode(name))
+            } else {
+                for (value in values) {
+                    params.add("${Uri.encode(name)}=${Uri.encode(value)}")
+                }
+            }
+        }
+        return params.joinToString("&").ifBlank { null }
     }
 
     fun refreshCacheSize() {

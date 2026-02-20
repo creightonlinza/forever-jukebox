@@ -194,6 +194,7 @@ class PlaybackCoordinator(
             return false
         }
         audioLoadInFlight = false
+        controller.syncAutocanonizerAudio()
         updatePlaybackState {
             it.copy(
                 audioLoaded = true,
@@ -258,6 +259,7 @@ class PlaybackCoordinator(
                 }
             }
             audioLoadInFlight = false
+            controller.syncAutocanonizerAudio()
             updatePlaybackState { it.copy(audioLoaded = true, audioLoading = false) }
             return true
         } catch (err: IOException) {
@@ -279,33 +281,34 @@ class PlaybackCoordinator(
         val result = response.result ?: return false
         updateDeleteEligibility(response)
         setAnalysisCalculating()
-        val vizData = withContext(Dispatchers.Default) {
-            engine.loadAnalysis(result)
-            applyPendingTuningParams()
-            engine.getVisualizationData()
-        }
-        syncTuningState()
         val rootObj = result.jsonObject
         val trackElement = rootObj["track"] ?: rootObj["analysis"]?.jsonObject?.get("track")
         val trackMeta = trackElement?.let { json.decodeFromJsonElement(TrackMetaJson.serializer(), it) }
         val title = trackMeta?.title
         val artist = trackMeta?.artist
         val durationSeconds = trackMeta?.duration
-        val playTitle = when {
-            !title.isNullOrBlank() && !artist.isNullOrBlank() -> "$title — $artist"
-            !title.isNullOrBlank() -> title
-            else -> ""
+        val (vizData, autocanonizerData) = withContext(Dispatchers.Default) {
+            engine.loadAnalysis(result)
+            applyPendingTuningParams()
+            val viz = engine.getVisualizationData()
+            val canonizer = controller.autocanonizer.setAnalysis(result, durationSeconds)
+            viz to canonizer
         }
+        syncTuningState()
+        val playTitle = buildPlayTitle(title, artist, getState().playback.playMode)
         controller.setTrackMeta(title, artist)
         updateState {
             it.copy(
                 playback = it.playback.copy(
                     analysisLoaded = true,
                     vizData = vizData,
+                    autocanonizerData = autocanonizerData,
                     playTitle = playTitle,
                     trackDurationSeconds = durationSeconds,
                     trackTitle = title,
                     trackArtist = artist,
+                    canonizerOtherIndex = null,
+                    canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides(),
                     analysisProgress = null,
                     analysisMessage = null,
                     analysisErrorMessage = null,
@@ -340,6 +343,8 @@ class PlaybackCoordinator(
         engine.clearDeletedEdges()
         pendingTuningParams = null
         audioLoadInFlight = false
+        controller.autocanonizer.reset()
+        controller.stopExternalPlayback()
         engine.updateConfig(defaultConfig)
         controller.stopPlayback()
         controller.resetTimers()
@@ -349,6 +354,8 @@ class PlaybackCoordinator(
         updateState {
             it.copy(
                 playback = it.playback.copy(
+                    playMode = it.playback.playMode,
+                    canonizerFinishOutSong = it.playback.canonizerFinishOutSong,
                     audioLoaded = false,
                     analysisLoaded = false,
                     beatsPlayed = 0,
@@ -358,7 +365,10 @@ class PlaybackCoordinator(
                     trackArtist = null,
                     isRunning = false,
                     vizData = null,
+                    autocanonizerData = null,
                     currentBeatIndex = -1,
+                    canonizerOtherIndex = null,
+                    canonizerTileColorOverrides = emptyMap(),
                     jumpLine = null,
                     playTitle = "",
                     lastYouTubeId = null,
@@ -414,7 +424,12 @@ class PlaybackCoordinator(
 
     fun updateListenTimeDisplay() {
         val durationSeconds = controller.player.getDurationSeconds()
-        if (durationSeconds != null && controller.player.getCurrentTime() >= durationSeconds - END_EPSILON_SECONDS) {
+        val playbackMode = getState().playback.playMode
+        if (
+            playbackMode == PlaybackMode.Jukebox &&
+            durationSeconds != null &&
+            controller.player.getCurrentTime() >= durationSeconds - END_EPSILON_SECONDS
+        ) {
             controller.stopPlayback()
             stopListenTimer()
             updatePlaybackState { it.copy(isRunning = false) }
@@ -431,17 +446,14 @@ class PlaybackCoordinator(
 
     fun restorePlaybackState() {
         val vizData = engine.getVisualizationData()
+        val autocanonizerData = controller.autocanonizer.getData()
         val audioDuration = controller.player.getDurationSeconds()
         val hasAnalysis = vizData != null
         val hasAudio = controller.player.hasAudio() && audioDuration != null
         if (!hasAnalysis && !hasAudio) return
         val title = controller.getTrackTitle()
         val artist = controller.getTrackArtist()
-        val playTitle = when {
-            !title.isNullOrBlank() && !artist.isNullOrBlank() -> "$title — $artist"
-            !title.isNullOrBlank() -> title
-            else -> ""
-        }
+        val playTitle = buildPlayTitle(title, artist, getState().playback.playMode)
         val currentTime = controller.player.getCurrentTime()
         val beatIndex = if (hasAnalysis) engine.getBeatAtTime(currentTime)?.which ?: -1 else -1
         updateState {
@@ -450,11 +462,14 @@ class PlaybackCoordinator(
                     audioLoaded = hasAudio,
                     analysisLoaded = hasAnalysis,
                     vizData = vizData,
+                    autocanonizerData = autocanonizerData,
                     playTitle = playTitle,
                     trackDurationSeconds = audioDuration,
                     trackTitle = title,
                     trackArtist = artist,
                     currentBeatIndex = beatIndex,
+                    canonizerOtherIndex = controller.autocanonizer.getForcedOtherIndex(),
+                    canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides(),
                     isRunning = controller.isPlaying()
                 ),
                 activeTab = if (hasAnalysis) TabId.Play else it.activeTab
@@ -486,6 +501,7 @@ class PlaybackCoordinator(
                         }
                     }
                 }
+                controller.syncAutocanonizerAudio()
                 updatePlaybackState { it.copy(audioLoaded = true, audioLoading = false) }
                 return true
             } catch (_: OutOfMemoryError) {
@@ -523,6 +539,15 @@ class PlaybackCoordinator(
                     justLong = config.justLongBranches,
                     removeSequential = config.removeSequentialBranches
                 )
+            )
+        }
+    }
+
+    fun applyPlaybackMode(mode: PlaybackMode) {
+        updatePlaybackState {
+            it.copy(
+                playMode = mode,
+                playTitle = buildPlayTitle(it.trackTitle, it.trackArtist, mode)
             )
         }
     }
@@ -770,6 +795,26 @@ class PlaybackCoordinator(
         }
         if (shouldRebuild) {
             engine.rebuildGraph()
+        }
+    }
+
+    private fun buildPlayTitle(
+        title: String?,
+        artist: String?,
+        mode: PlaybackMode
+    ): String {
+        if (title.isNullOrBlank()) {
+            return ""
+        }
+        val resolvedTitle = if (mode == PlaybackMode.Autocanonizer) {
+            "$title (autocanonized)"
+        } else {
+            title
+        }
+        return if (!artist.isNullOrBlank()) {
+            "$resolvedTitle — $artist"
+        } else {
+            resolvedTitle
         }
     }
 

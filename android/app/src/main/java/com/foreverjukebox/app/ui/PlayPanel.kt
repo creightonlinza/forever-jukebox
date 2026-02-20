@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.StarBorder
@@ -52,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.foreverjukebox.app.data.AppMode
+import com.foreverjukebox.app.visualization.AutocanonizerVisualization
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.positioners
 import com.foreverjukebox.app.visualization.visualizationLabels
@@ -66,6 +69,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
     var showTuning by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var showVizMenu by remember { mutableStateOf(false) }
+    var showModeMenu by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val vizLabels = visualizationLabels
     var jumpLine by remember { mutableStateOf(playback.jumpLine) }
@@ -80,6 +84,13 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
             FullscreenActivity.EXTRA_RESULT_VIZ_INDEX,
             playback.activeVizIndex
         ) ?: return@rememberLauncherForActivityResult
+        val nextModeRaw = result.data?.getStringExtra(FullscreenActivity.EXTRA_RESULT_MODE)
+        val nextMode = nextModeRaw?.let { raw ->
+            runCatching { PlaybackMode.valueOf(raw) }.getOrNull()
+        }
+        if (nextMode != null) {
+            viewModel.setPlaybackMode(nextMode)
+        }
         viewModel.setActiveVisualization(nextIndex)
     }
 
@@ -142,6 +153,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                     state.favorites.any { it.uniqueSongId == id }
                 } == true
                 val showServerActions = shouldShowServerListenActions(state.appMode)
+                val inAutocanonizer = playback.playMode == PlaybackMode.Autocanonizer
                 val themeTokens = LocalThemeTokens.current
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -194,34 +206,34 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                 )
                             }
                         }
-                        IconButton(
-                            onClick = { showTuning = true },
-                            modifier = Modifier.size(SmallButtonHeight)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Tune,
-                                contentDescription = "Tune",
-                                tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        IconButton(
-                            onClick = { showInfo = true },
-                            modifier = Modifier.size(SmallButtonHeight)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Info,
-                                contentDescription = "Info",
-                                tint = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(20.dp)
-                            )
+                        if (!inAutocanonizer) {
+                            IconButton(
+                                onClick = { showTuning = true },
+                                modifier = Modifier.size(SmallButtonHeight)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Tune,
+                                    contentDescription = "Tune",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { showInfo = true },
+                                modifier = Modifier.size(SmallButtonHeight)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Info,
+                                    contentDescription = "Info",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                         if (showServerActions) {
                             IconButton(
                                 onClick = {
-                                    val id = playback.lastYouTubeId ?: return@IconButton
-                                    val baseUrl = state.baseUrl.trim().trimEnd('/')
-                                    val url = "$baseUrl/listen/$id"
+                                    val url = viewModel.buildShareUrl() ?: return@IconButton
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_TEXT, url)
@@ -270,43 +282,136 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                             .background(themeTokens.vizBackground)
                     ) {
-                        JukeboxVisualization(
-                            data = playback.vizData,
-                            currentIndex = playback.currentBeatIndex,
-                            jumpLine = jumpLine,
-                            positioner = positioners.getOrNull(playback.activeVizIndex) ?: positioners.first(),
-                            onSelectBeat = viewModel::selectBeat
-                        )
-                        Box(
+                        if (inAutocanonizer) {
+                            AutocanonizerVisualization(
+                                data = playback.autocanonizerData,
+                                currentIndex = playback.currentBeatIndex,
+                                forcedOtherIndex = playback.canonizerOtherIndex,
+                                tileColorOverrides = playback.canonizerTileColorOverrides,
+                                onSelectBeat = viewModel::selectBeat
+                            )
+                        } else {
+                            JukeboxVisualization(
+                                data = playback.vizData,
+                                currentIndex = playback.currentBeatIndex,
+                                jumpLine = jumpLine,
+                                positioner = positioners.getOrNull(playback.activeVizIndex) ?: positioners.first(),
+                                onSelectBeat = viewModel::selectBeat
+                            )
+                        }
+                        Row(
                             modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(8.dp)
+                                .align(Alignment.TopStart)
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            OutlinedButton(
-                                onClick = { showVizMenu = true },
-                                colors = pillOutlinedButtonColors(),
-                                border = pillButtonBorder(),
-                                shape = PillShape,
-                                contentPadding = SmallButtonPadding,
-                                modifier = Modifier.height(SmallButtonHeight)
-                            ) {
-                                Text(
-                                    vizLabels.getOrNull(playback.activeVizIndex) ?: "Select",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showVizMenu,
-                                onDismissRequest = { showVizMenu = false }
-                            ) {
-                                vizLabels.forEachIndexed { index, label ->
+                            Text(
+                                text = "Mode:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Box {
+                                OutlinedButton(
+                                    onClick = { showModeMenu = true },
+                                    colors = pillOutlinedButtonColors(),
+                                    border = pillButtonBorder(),
+                                    shape = PillShape,
+                                    contentPadding = SmallButtonPadding,
+                                    modifier = Modifier.height(SmallButtonHeight)
+                                ) {
+                                    Text(
+                                        text = if (inAutocanonizer) "Autocanonizer" else "Jukebox",
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showModeMenu,
+                                    onDismissRequest = { showModeMenu = false }
+                                ) {
                                     DropdownMenuItem(
-                                        text = { Text(label) },
+                                        text = { Text("Jukebox") },
                                         onClick = {
-                                            viewModel.setActiveVisualization(index)
-                                            showVizMenu = false
+                                            viewModel.setPlaybackMode(PlaybackMode.Jukebox)
+                                            showModeMenu = false
                                         }
                                     )
+                                    DropdownMenuItem(
+                                        text = { Text("Autocanonizer") },
+                                        onClick = {
+                                            viewModel.setPlaybackMode(PlaybackMode.Autocanonizer)
+                                            showModeMenu = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        if (inAutocanonizer) {
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        viewModel.setCanonizerFinishOutSong(!playback.canonizerFinishOutSong)
+                                    },
+                                    modifier = Modifier.size(SmallButtonHeight)
+                                ) {
+                                    Icon(
+                                        imageVector = if (playback.canonizerFinishOutSong) {
+                                            Icons.Filled.CheckBox
+                                        } else {
+                                            Icons.Outlined.CheckBoxOutlineBlank
+                                        },
+                                        contentDescription = if (playback.canonizerFinishOutSong) {
+                                            "Disable finish out the song"
+                                        } else {
+                                            "Enable finish out the song"
+                                        },
+                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Text(
+                                    "Finish out the song",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { showVizMenu = true },
+                                    colors = pillOutlinedButtonColors(),
+                                    border = pillButtonBorder(),
+                                    shape = PillShape,
+                                    contentPadding = SmallButtonPadding,
+                                    modifier = Modifier.height(SmallButtonHeight)
+                                ) {
+                                    Text(
+                                        vizLabels.getOrNull(playback.activeVizIndex) ?: "Select",
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showVizMenu,
+                                    onDismissRequest = { showVizMenu = false }
+                                ) {
+                                    vizLabels.forEachIndexed { index, label ->
+                                        DropdownMenuItem(
+                                            text = { Text(label) },
+                                            onClick = {
+                                                viewModel.setActiveVisualization(index)
+                                                showVizMenu = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -314,6 +419,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                             onClick = {
                                 val intent = Intent(context, FullscreenActivity::class.java)
                                     .putExtra(FullscreenActivity.EXTRA_VIZ_INDEX, playback.activeVizIndex)
+                                    .putExtra(FullscreenActivity.EXTRA_MODE, playback.playMode.name)
                                 fullscreenLauncher.launch(intent)
                             },
                             modifier = Modifier
@@ -330,7 +436,9 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                     }
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         Text("Listen Time: ${playback.listenTime}", color = MaterialTheme.colorScheme.onBackground)
-                        Text("Total Beats: ${playback.beatsPlayed}", color = MaterialTheme.colorScheme.onBackground)
+                        if (!inAutocanonizer) {
+                            Text("Total Beats: ${playback.beatsPlayed}", color = MaterialTheme.colorScheme.onBackground)
+                        }
                     }
                 }
             }
@@ -357,7 +465,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
         }
     }
 
-    if (showInfo) {
+    if (showInfo && playback.playMode != PlaybackMode.Autocanonizer) {
         val totalBeats = playback.vizData?.beats?.size ?: 0
         val totalBranches = playback.vizData?.edges?.size ?: 0
         TrackInfoDialog(
@@ -368,7 +476,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
         )
     }
 
-    if (showTuning) {
+    if (showTuning && playback.playMode != PlaybackMode.Autocanonizer) {
         TuningDialog(
             initialThreshold = tuning.threshold,
             initialMinProb = tuning.minProb,

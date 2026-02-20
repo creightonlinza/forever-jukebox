@@ -2,6 +2,7 @@ package com.foreverjukebox.app.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -30,6 +31,7 @@ class AppPreferences(private val context: Context) {
         private val KEY_FAVORITES = stringPreferencesKey("favorites")
         private val KEY_FAVORITES_SYNC_CODE = stringPreferencesKey("favorites_sync_code")
         private val KEY_APP_CONFIG = stringPreferencesKey("app_config")
+        private val KEY_CANONIZER_FINISH = booleanPreferencesKey("canonizer_finish_out_song")
     }
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -61,6 +63,10 @@ class AppPreferences(private val context: Context) {
     val appConfig: Flow<AppConfigResponse?> = context.dataStore.data.map { prefs ->
         val raw = prefs[KEY_APP_CONFIG] ?: return@map null
         runCatching { json.decodeFromString<AppConfigResponse>(raw) }.getOrNull()
+    }
+
+    val canonizerFinishOutSong: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_CANONIZER_FINISH] ?: false
     }
 
     suspend fun setBaseUrl(url: String) {
@@ -107,6 +113,12 @@ class AppPreferences(private val context: Context) {
     suspend fun setAppConfig(config: AppConfigResponse) {
         context.dataStore.edit { prefs ->
             prefs[KEY_APP_CONFIG] = json.encodeToString(config)
+        }
+    }
+
+    suspend fun setCanonizerFinishOutSong(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_CANONIZER_FINISH] = enabled
         }
     }
 
