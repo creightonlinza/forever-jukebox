@@ -6,7 +6,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,9 +54,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.visualization.AutocanonizerVisualization
@@ -77,6 +79,8 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
     var showVizMenu by remember { mutableStateOf(false) }
     var showModeMenu by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    var vizContainerSize by remember { mutableStateOf(IntSize.Zero) }
     val vizLabels = visualizationLabels
     var jumpLine by remember { mutableStateOf(playback.jumpLine) }
     val hasCastTrack = playback.lastYouTubeId != null || playback.lastJobId != null
@@ -286,14 +290,16 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                 if (playback.isCasting) {
                     CastingPanel(playback)
                 } else {
-                    BoxWithConstraints(
+                    Box(
                         modifier = Modifier
                             .weight(1f, fill = true)
                             .fillMaxWidth()
+                            .onSizeChanged { vizContainerSize = it }
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                             .background(themeTokens.vizBackground)
                     ) {
-                        val vizSide: Dp = if (maxWidth < maxHeight) maxWidth else maxHeight
+                        val vizSidePx = kotlin.math.min(vizContainerSize.width, vizContainerSize.height)
+                        val vizSide: Dp = with(density) { vizSidePx.toDp() }
                         if (inAutocanonizer) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
