@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -228,12 +229,6 @@ private fun FullscreenScreen(
                 .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Mode:",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.width(8.dp))
             Box {
                 OutlinedButton(
                     onClick = { showModeMenu = true },
@@ -243,6 +238,11 @@ private fun FullscreenScreen(
                     modifier = Modifier.height(36.dp)
                 ) {
                     Text(if (playMode == PlaybackMode.Autocanonizer) "Autocanonizer" else "Jukebox")
+                    Icon(
+                        imageVector = Icons.Filled.ArrowDropDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
                 DropdownMenu(
                     expanded = showModeMenu,
@@ -281,6 +281,11 @@ private fun FullscreenScreen(
                     modifier = Modifier.height(36.dp)
                 ) {
                     Text(vizLabels.getOrNull(activeVizIndex) ?: "Select")
+                    Icon(
+                        imageVector = Icons.Filled.ArrowDropDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
                 DropdownMenu(
                     expanded = showVizMenu,
