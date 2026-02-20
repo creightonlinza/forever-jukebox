@@ -3,6 +3,7 @@ package com.foreverjukebox.app.ui
 import android.app.Application
 import android.net.Uri
 import android.os.SystemClock
+import androidx.core.net.toUri
 import com.foreverjukebox.app.data.ApiClient
 import com.foreverjukebox.app.data.AnalysisResponse
 import com.foreverjukebox.app.engine.JukeboxConfig
@@ -706,7 +707,7 @@ class PlaybackCoordinator(
 
     private fun parseTuningParams(raw: String?): ParsedTuningParams? {
         if (raw.isNullOrBlank()) return null
-        val uri = Uri.parse("http://localhost/?$raw")
+        val uri = "http://localhost/?$raw".toUri()
         var config = defaultConfig
         uri.getQueryParameter("lb")?.let { value ->
             if (value == "0") {

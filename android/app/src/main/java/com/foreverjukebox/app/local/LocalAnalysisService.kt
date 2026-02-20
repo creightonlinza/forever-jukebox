@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
+import androidx.core.net.toUri
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -254,7 +255,7 @@ class LocalAnalysisService(
             private val context: Context
         ) : LocalAnalysisCacheKeyResolver {
             override suspend fun resolve(uriString: String): String = withContext(Dispatchers.IO) {
-                val uri = runCatching { Uri.parse(uriString) }.getOrNull()
+                val uri = runCatching { uriString.toUri() }.getOrNull()
                     ?: return@withContext shortSha256(uriString)
 
                 val metadata = if (uri.scheme.equals("file", ignoreCase = true)) {

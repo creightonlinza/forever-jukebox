@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
+import androidx.core.graphics.toColorInt
 import com.foreverjukebox.app.autocanonizer.AutocanonizerBeat
 import com.foreverjukebox.app.autocanonizer.AutocanonizerController
 import com.foreverjukebox.app.autocanonizer.AutocanonizerData
@@ -56,7 +58,7 @@ fun AutocanonizerVisualization(
     var animatedOtherCursor by remember(data) { mutableStateOf<Offset?>(null) }
     var lastOtherCursor by remember(data) { mutableStateOf<Offset?>(null) }
     var otherAnimEndedAtNanos by remember(data) { mutableStateOf<Long?>(null) }
-    var previousIndex by remember(data) { mutableStateOf(-1) }
+    var previousIndex by remember(data) { mutableIntStateOf(-1) }
 
     LaunchedEffect(layout, currentIndex, forcedOtherIndex, data) {
         val currentLayout = layout ?: run {
@@ -545,7 +547,7 @@ private fun sectionColor(index: Int): Color {
 
 private fun parseColor(hex: String): Color {
     return runCatching {
-        Color(android.graphics.Color.parseColor(hex))
+        Color(hex.toColorInt())
     }.getOrElse {
         Color(0xFF333333)
     }

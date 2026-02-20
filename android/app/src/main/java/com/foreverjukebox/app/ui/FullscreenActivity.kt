@@ -38,6 +38,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -125,17 +126,17 @@ private fun FullscreenScreen(
     val engine = controller.engine
     val view = LocalView.current
     val vizLabels = visualizationLabels
-    var activeVizIndex by rememberSaveable { mutableStateOf(initialVizIndex) }
+    var activeVizIndex by rememberSaveable { mutableIntStateOf(initialVizIndex) }
     var playMode by rememberSaveable { mutableStateOf(initialMode) }
     var vizData by remember { mutableStateOf(engine.getVisualizationData()) }
     var canonizerData by remember { mutableStateOf(controller.autocanonizer.getData()) }
     var canonizerTileColorOverrides by remember { mutableStateOf(controller.autocanonizer.getTileColorOverrides()) }
-    var currentBeatIndex by remember { mutableStateOf(-1) }
+    var currentBeatIndex by remember { mutableIntStateOf(-1) }
     var canonizerOtherIndex by remember { mutableStateOf<Int?>(null) }
     var jumpLine by remember { mutableStateOf<JumpLine?>(null) }
     var showVizMenu by remember { mutableStateOf(false) }
     var showModeMenu by remember { mutableStateOf(false) }
-    var beatsPlayed by remember { mutableStateOf(0) }
+    var beatsPlayed by remember { mutableIntStateOf(0) }
     var listenTime by remember { mutableStateOf("00:00:00") }
 
     BackHandler {

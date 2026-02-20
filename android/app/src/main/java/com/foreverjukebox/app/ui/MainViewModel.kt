@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
+import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.foreverjukebox.app.data.ApiClient
@@ -477,7 +478,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         playbackCoordinator.setAudioLoading(true)
         playbackCoordinator.setAnalysisProgress(0, "Loading audio")
         withContext(Dispatchers.Default) {
-            controller.player.loadUri(getApplication(), Uri.parse(artifact.sourceUri)) { percent ->
+            controller.player.loadUri(getApplication(), artifact.sourceUri.toUri()) { percent ->
                 viewModelScope.launch(Dispatchers.Main) {
                     playbackCoordinator.setDecodeProgress(percent)
                 }
@@ -1594,7 +1595,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (uri == null) return
         val base = state.value.baseUrl.trim().trimEnd('/')
         if (base.isBlank()) return
-        val baseUri = runCatching { Uri.parse(base) }.getOrNull() ?: return
+        val baseUri = runCatching { base.toUri() }.getOrNull() ?: return
         if (uri.scheme != baseUri.scheme || uri.host != baseUri.host) return
         if (baseUri.port != -1 && uri.port != baseUri.port) return
         val segments = uri.pathSegments
