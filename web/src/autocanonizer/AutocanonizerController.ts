@@ -25,7 +25,7 @@ class AutocanonizerPlayer {
   private mainGain: GainNode;
   private otherGain: GainNode;
   private masterBlend: number;
-  private baseVolume = 0.5;
+  private baseVolume = 1;
 
   private currentBeat: CanonizerBeat | null = null;
   private mainSource: AudioBufferSourceNode | null = null;
@@ -112,9 +112,10 @@ class AutocanonizerPlayer {
 
     const now = this.context.currentTime - this.deltaTime;
     const delta = now - beat.start;
+    const clampedOtherGain = Math.max(0, Math.min(1, beat.otherGain));
 
     this.otherGain.gain.value =
-      this.baseVolume * (1 - this.masterBlend) * beat.otherGain;
+      this.baseVolume * (1 - this.masterBlend) * clampedOtherGain;
     if (
       !this.currentBeat ||
       this.currentBeat.other.next !== beat.other ||
@@ -141,8 +142,9 @@ class AutocanonizerPlayer {
     if (this.context.state === "suspended") {
       void this.context.resume();
     }
+    const clampedOtherGain = Math.max(0, Math.min(1, beat.otherGain));
     this.otherGain.gain.value =
-      this.baseVolume * (1 - this.masterBlend) * beat.otherGain;
+      this.baseVolume * (1 - this.masterBlend) * clampedOtherGain;
     if (!this.currentBeat || this.currentBeat.other.next !== beat) {
       if (this.otherSource) {
         this.otherSource.stop();
