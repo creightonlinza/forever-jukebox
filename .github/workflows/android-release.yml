@@ -58,8 +58,8 @@ jobs:
           keyPassword=${KEYSTORE_PASS}
           EOF
 
-      - name: Run Release Unit Tests
-        run: ./gradlew :app:testReleaseUnitTest
+      - name: Run Unit Tests
+        run: ./gradlew :app:test
         working-directory: android
 
       - name: Build Release APK
