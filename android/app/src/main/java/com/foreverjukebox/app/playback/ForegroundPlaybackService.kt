@@ -79,6 +79,7 @@ class ForegroundPlaybackService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         mediaSession = MediaSessionCompat(this, "ForeverJukeboxPlayback").apply {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
@@ -347,6 +348,7 @@ class ForegroundPlaybackService : Service() {
 
     override fun onDestroy() {
         activeNotificationState = null
+        isRunning = false
         mediaSession.release()
         super.onDestroy()
     }
@@ -375,6 +377,9 @@ class ForegroundPlaybackService : Service() {
     }
 
     companion object {
+        @Volatile
+        private var isRunning: Boolean = false
+
         fun start(context: Context) {
             val intent = Intent(context, ForegroundPlaybackService::class.java).apply {
                 action = PlaybackServiceConstants.ACTION_START
@@ -404,7 +409,11 @@ class ForegroundPlaybackService : Service() {
                 putExtra(PlaybackServiceConstants.EXTRA_TRACK_ARTIST, artist)
                 putExtra(PlaybackServiceConstants.EXTRA_CAST_DEVICE_NAME, deviceName)
             }
-            context.startForegroundService(intent)
+            if (isRunning) {
+                context.startService(intent)
+            } else {
+                context.startForegroundService(intent)
+            }
         }
 
         fun stop(context: Context) {

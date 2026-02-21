@@ -1231,7 +1231,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 )
             }
-            syncCastNotification(state.value.playback)
             castController.resetStatusListener()
             playbackCoordinator.resetForNewTrack()
             if (shouldAutoCast) {
