@@ -27,6 +27,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import com.foreverjukebox.app.MainActivity
 import com.foreverjukebox.app.R
 import com.foreverjukebox.app.ui.CastController
+import com.foreverjukebox.app.ui.stopAllPlaybackTransports
 
 private object PlaybackServiceConstants {
     const val CHANNEL_ID = "fj_playback"
@@ -331,7 +332,7 @@ class ForegroundPlaybackService : Service() {
         if (shouldPlay && !isPlaying) {
             updateNotification(buildLocalNotificationState(controller.togglePlayback()))
         } else if (!shouldPlay && isPlaying) {
-            controller.stopPlayback()
+            stopAllPlaybackTransports(controller)
             updateNotification(buildLocalNotificationState(false))
         } else {
             updateNotification(buildLocalNotificationState(isPlaying))
