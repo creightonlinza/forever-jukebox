@@ -697,6 +697,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (jobId != null && youtubeId != null && response.status != "failed") {
                         if (state.value.playback.isCasting) {
                             castTrackId(youtubeId, name, artist, null)
+                            recordCastPlayCount(jobId = jobId)
                             applyActiveTab(TabId.Play, recordHistory = true)
                             return@launch
                         }
@@ -759,6 +760,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val resolvedArtist = artist ?: state.value.search.pendingTrackArtist.orEmpty()
         if (state.value.playback.isCasting) {
             castTrackId(youtubeId, resolvedTitle, resolvedArtist, null)
+            recordCastPlayCount(youtubeId = youtubeId)
             _state.update {
                 it.copy(playback = it.playback.copy(lastYouTubeId = youtubeId))
             }
@@ -822,6 +824,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (state.value.playback.isCasting) {
             castTrackId(youtubeId, resolvedTitle, resolvedArtist, tuningParams)
+            recordCastPlayCount(youtubeId = youtubeId)
             _state.update {
                 it.copy(
                     playback = it.playback.copy(
@@ -890,6 +893,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (baseUrl.isBlank()) return
         if (state.value.playback.isCasting) {
             castTrackId(jobId, title, artist, tuningParams)
+            recordCastPlayCount(jobId = jobId)
             _state.update {
                 it.copy(
                     playback = it.playback.copy(
@@ -959,6 +963,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         if (state.value.playback.isCasting) {
             castTrackId(youtubeId, title, artist, null)
+            recordCastPlayCount(jobId = jobId)
             _state.update {
                 it.copy(
                     playback = it.playback.copy(
@@ -1192,6 +1197,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         castTrackId(trackId, playback.trackTitle, playback.trackArtist, playbackCoordinator.buildTuningParamsString())
+        recordCastPlayCount(
+            jobId = playback.lastJobId,
+            youtubeId = playback.lastYouTubeId
+        )
     }
 
     fun setCastingConnected(isConnected: Boolean, deviceName: String? = null) {
@@ -1653,6 +1662,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openListenTab() {
         applyActiveTab(TabId.Play, recordHistory = true)
+    }
+
+    private fun recordCastPlayCount(jobId: String? = null, youtubeId: String? = null) {
+        val baseUrl = state.value.baseUrl.trim()
+        if (baseUrl.isBlank()) {
+            return
+        }
+        viewModelScope.launch {
+            val resolvedJobId = when {
+                !jobId.isNullOrBlank() -> jobId
+                !youtubeId.isNullOrBlank() -> runCatching {
+                    api.getJobByYoutube(baseUrl, youtubeId).id
+                }.getOrNull()
+                else -> null
+            } ?: return@launch
+            runCatching { api.postPlay(baseUrl, resolvedJobId) }
+        }
     }
 
     private fun syncCastNotification(playback: PlaybackState) {
