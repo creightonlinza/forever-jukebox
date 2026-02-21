@@ -12,6 +12,7 @@ import {
 } from "@/shared/utils/exportJson";
 import { BufferedAudioPlayer } from "@/shared/jukebox/audio/BufferedAudioPlayer";
 import { Edge, JukeboxConfig, JukeboxEngine } from "@/shared/jukebox/engine";
+import { VISUALIZATION_LABELS } from "@/shared/jukebox/constants/visualization";
 import {
   exportJukeboxAudio,
   type JukeboxExportProgress,
@@ -50,6 +51,10 @@ const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 
 type PlayMode = "jukebox" | "autocanonizer";
 type AudioExportFormat = "mp3" | "wav";
+
+function getVisualizationLabel(index: number) {
+  return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
+}
 
 function buildAudioExportName(fileName: string, extension: string) {
   const base = fileName.replace(/\.[^.]+$/, "").trim();
@@ -850,6 +855,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (playMode === "autocanonizer") {
       return;
     }
+    const count = vizControllerRef.current?.getCount() ?? 1;
+    if (!Number.isFinite(index) || index < 0 || index >= count) {
+      return;
+    }
     vizControllerRef.current?.setActiveIndex(index);
     setActiveVizIndex(index);
   };
@@ -965,38 +974,48 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           <div id="canonizer-layer" className="canonizer-layer" ref={canonizerLayerRef} />
           <div className="viz-top">
             <div className="viz-actions">
-              <span className="viz-label">Mode:</span>
-              <button
-                className={`viz-btn ${playMode === "jukebox" ? "active" : ""}`}
-                type="button"
-                data-play-mode="jukebox"
-                onClick={() => onSetPlayMode("jukebox")}
-              >
-                Jukebox
-              </button>
-              <button
-                className={`viz-btn ${playMode === "autocanonizer" ? "active" : ""}`}
-                type="button"
-                data-play-mode="autocanonizer"
-                onClick={() => onSetPlayMode("autocanonizer")}
-              >
-                Autocanonizer
-              </button>
+              <label className="viz-select-group" htmlFor="play-mode-select">
+                <span className="viz-select-wrap">
+                  <select
+                    id="play-mode-select"
+                    className="viz-select"
+                    aria-label="Mode"
+                    value={playMode}
+                    onChange={(event) =>
+                      onSetPlayMode(
+                        event.target.value === "autocanonizer"
+                          ? "autocanonizer"
+                          : "jukebox"
+                      )
+                    }
+                  >
+                    <option value="jukebox">Jukebox</option>
+                    <option value="autocanonizer">Autocanonizer</option>
+                  </select>
+                  <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
+                </span>
+              </label>
             </div>
             <div className="viz-controls">
-              <span className="viz-label">Visualization:</span>
-              {Array.from({ length: vizCount }, (_, index) => (
-                <button
-                  key={index}
-                  className={`viz-btn ${index === activeVizIndex ? "active" : ""}`}
-                  type="button"
-                  data-viz={index}
-                  onClick={() => onSetActiveViz(index)}
-                  disabled={playMode === "autocanonizer"}
-                >
-                  {index + 1}
-                </button>
-              ))}
+              <label className="viz-select-group" htmlFor="viz-select">
+                <span className="viz-select-wrap">
+                  <select
+                    id="viz-select"
+                    className="viz-select"
+                    aria-label="Visualization"
+                    value={String(activeVizIndex)}
+                    onChange={(event) => onSetActiveViz(Number(event.target.value))}
+                    disabled={playMode === "autocanonizer"}
+                  >
+                    {Array.from({ length: vizCount }, (_, index) => (
+                      <option key={index} value={index}>
+                        {getVisualizationLabel(index)}
+                      </option>
+                    ))}
+                  </select>
+                  <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
+                </span>
+              </label>
             </div>
             <div className="canonizer-finish">
               <input

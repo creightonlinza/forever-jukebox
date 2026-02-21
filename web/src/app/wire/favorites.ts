@@ -136,7 +136,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
     const createItem = getFavoritesSyncCreateItem();
     if (createItem) {
-      createItem.textContent = hasCode ? "Create new sync code" : "Create sync code";
+      createItem.textContent = hasCode ? "View sync code" : "Create sync code";
     }
   }
 

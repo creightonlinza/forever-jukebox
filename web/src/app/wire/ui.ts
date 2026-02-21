@@ -163,12 +163,14 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   tuningHandlers.syncCopyButton();
   fullscreenHandlers.updateFullscreenButton(Boolean(document.fullscreenElement));
 
-  elements.vizButtons.forEach((button) => {
-    button.addEventListener("click", playbackHandlers.handleVizButtonClick);
-  });
-  elements.playModeButtons.forEach((button) => {
-    button.addEventListener("click", playbackHandlers.handleModeClick);
-  });
+  elements.vizSelect.addEventListener(
+    "change",
+    playbackHandlers.handleVizSelectChange,
+  );
+  elements.playModeSelect.addEventListener(
+    "change",
+    playbackHandlers.handleModeSelectChange,
+  );
   elements.canonizerFinish.addEventListener(
     "change",
     playbackHandlers.handleCanonizerFinish,

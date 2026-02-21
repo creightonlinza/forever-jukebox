@@ -1184,8 +1184,7 @@ button:hover {
   color: var(--muted);
 }
 
-#jukebox-viz.is-canonizer .viz-controls [data-viz],
-#jukebox-viz.is-canonizer .viz-controls .viz-label {
+#jukebox-viz.is-canonizer .viz-controls .viz-select-group {
   display: none;
 }
 
@@ -1205,19 +1204,41 @@ button:hover {
   accent-color: var(--accent);
 }
 
-.viz-btn {
-  padding: 4px 8px;
-  border-radius: 999px;
+.viz-select-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 0;
+  font-size: 12px;
+}
+
+.viz-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.viz-select {
+  appearance: none;
   border: 1px solid var(--border-control);
   background: var(--surface-panel);
   color: var(--text);
   font-size: 12px;
+  border-radius: 999px;
+  padding: 4px 30px 4px 10px;
+  min-width: 116px;
 }
 
-.viz-btn.active {
-  background: var(--surface-control);
-  border-color: var(--border-control);
-  color: var(--text);
+.viz-select:disabled {
+  opacity: 0.55;
+}
+
+.viz-select-arrow {
+  position: absolute;
+  right: 8px;
+  font-size: 17px;
+  color: var(--muted);
+  pointer-events: none;
 }
 
 .hint {
@@ -1301,7 +1322,8 @@ button:hover {
     height: min(70vh, 520px);
   }
 
-  .viz-controls {
-    display: none;
+  .viz-top {
+    flex-wrap: wrap;
+    gap: 8px;
   }
 }

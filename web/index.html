@@ -268,22 +268,46 @@
             <div id="canonizer-layer" class="canonizer-layer"></div>
             <div class="viz-top">
               <div class="viz-actions">
-                <span class="viz-label">Mode:</span>
-                <button class="viz-btn active" data-play-mode="jukebox">
-                  Jukebox
-                </button>
-                <button class="viz-btn" data-play-mode="autocanonizer">
-                  Autocanonizer
-                </button>
+                <label class="viz-select-group" for="play-mode-select">
+                  <span class="viz-select-wrap">
+                    <select
+                      id="play-mode-select"
+                      class="viz-select"
+                      aria-label="Mode"
+                    >
+                      <option value="jukebox">Jukebox</option>
+                      <option value="autocanonizer">Autocanonizer</option>
+                    </select>
+                    <span
+                      class="material-symbols-outlined viz-select-arrow"
+                      aria-hidden="true"
+                      >arrow_drop_down</span
+                    >
+                  </span>
+                </label>
               </div>
               <div class="viz-controls">
-                <span class="viz-label">Visualization:</span>
-                <button class="viz-btn active" data-viz="0">1</button>
-                <button class="viz-btn" data-viz="1">2</button>
-                <button class="viz-btn" data-viz="2">3</button>
-                <button class="viz-btn" data-viz="3">4</button>
-                <button class="viz-btn" data-viz="4">5</button>
-                <button class="viz-btn" data-viz="5">6</button>
+                <label class="viz-select-group" for="viz-select">
+                  <span class="viz-select-wrap">
+                    <select
+                      id="viz-select"
+                      class="viz-select"
+                      aria-label="Visualization"
+                    >
+                      <option value="0">Classic</option>
+                      <option value="1">Spiral</option>
+                      <option value="2">Grid</option>
+                      <option value="3">Wave</option>
+                      <option value="4">Infinite</option>
+                      <option value="5">Galaxy</option>
+                    </select>
+                    <span
+                      class="material-symbols-outlined viz-select-arrow"
+                      aria-hidden="true"
+                      >arrow_drop_down</span
+                    >
+                  </span>
+                </label>
               </div>
               <div class="canonizer-finish">
                 <input type="checkbox" id="canonizer-finish" />

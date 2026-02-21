@@ -63,7 +63,7 @@ function createElements() {
     vizPanel: { classList: createClassList() },
     playButton: { classList: createClassList(), disabled: false },
     playTabButton: { classList: createClassList(), disabled: false },
-    vizButtons: [{ disabled: false }, { disabled: false }],
+    vizSelect: { disabled: false, value: "0" },
     canonizerFinish: { checked: false, addEventListener: vi.fn() },
     playTitle: createSpan(),
     vizNowPlayingEl: createSpan(),

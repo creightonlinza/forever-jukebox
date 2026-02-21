@@ -4,6 +4,7 @@ type SymbolName =
   | "tune"
   | "info"
   | "download"
+  | "arrow_drop_down"
   | "fullscreen"
   | "fullscreen_exit"
   | "close";
@@ -50,6 +51,9 @@ export function SymbolIcon({ name, className }: SymbolIconProps) {
           <path d="M8.5 10.5L12 14l3.5-3.5" />
           <path d="M5 19h14" />
         </>
+      ) : null}
+      {name === "arrow_drop_down" ? (
+        <polygon points="6 9 12 15 18 9" fill="currentColor" stroke="none" />
       ) : null}
       {name === "fullscreen" ? (
         <>

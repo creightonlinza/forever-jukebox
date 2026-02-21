@@ -5,6 +5,7 @@ import type { BufferedAudioPlayer } from "../../audio/BufferedAudioPlayer";
 import type { JukeboxEngine } from "../../engine";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
 import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
+import { VISUALIZATION_LABELS } from "../constants";
 
 type PlaybackUiDeps = {
   context: AppContext;
@@ -54,6 +55,10 @@ type PlaybackUiDeps = {
 
 export type PlaybackUiHandlers = ReturnType<typeof createPlaybackUiHandlers>;
 
+function getVisualizationLabel(index: number) {
+  return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
+}
+
 export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   const {
     context,
@@ -84,6 +89,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
   function initializePlayback() {
     setPlayMode("jukebox");
+    syncVisualizationSelectOptions();
 
     const storedViz = localStorage.getItem(vizStorageKey);
     if (storedViz) {
@@ -144,21 +150,19 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     void copyShortUrl();
   }
 
-  function handleVizButtonClick(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    const idx = Number(button?.dataset.viz);
+  function handleVizSelectChange(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement | null;
+    const idx = Number(select?.value);
     if (!Number.isFinite(idx)) {
+      elements.vizSelect.value = String(state.activeVizIndex);
       return;
     }
     setActiveVisualization(idx);
   }
 
-  function handleModeClick(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    const mode =
-      button?.dataset.playMode === "autocanonizer"
-        ? "autocanonizer"
-        : "jukebox";
+  function handleModeSelectChange(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement | null;
+    const mode = select?.value === "autocanonizer" ? "autocanonizer" : "jukebox";
     setPlayMode(mode);
   }
 
@@ -279,22 +283,40 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   }
 
   function setActiveVisualization(index: number) {
-    if (
-      index === state.activeVizIndex ||
-      index < 0 ||
-      index >= jukebox.getCount()
-    ) {
+    const count = jukebox.getCount();
+    if (index < 0 || index >= count) {
+      elements.vizSelect.value = String(state.activeVizIndex);
+      return;
+    }
+    if (index === state.activeVizIndex) {
+      elements.vizSelect.value = String(index);
       return;
     }
     state.activeVizIndex = index;
     jukebox.setActiveIndex(index);
-    elements.vizButtons.forEach((button) => {
-      button.classList.toggle(
-        "active",
-        Number(button.dataset.viz) === state.activeVizIndex,
-      );
-    });
+    elements.vizSelect.value = String(state.activeVizIndex);
     localStorage.setItem(vizStorageKey, String(state.activeVizIndex));
+  }
+
+  function syncVisualizationSelectOptions() {
+    const count = jukebox.getCount();
+    const expectedValues = Array.from({ length: count }, (_, idx) => String(idx));
+    const currentValues = Array.from(elements.vizSelect.options, (option) => option.value);
+    const needsRebuild =
+      currentValues.length !== expectedValues.length ||
+      currentValues.some((value, idx) => value !== expectedValues[idx]);
+
+    if (!needsRebuild) {
+      return;
+    }
+
+    elements.vizSelect.replaceChildren();
+    expectedValues.forEach((value, idx) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = getVisualizationLabel(idx);
+      elements.vizSelect.append(option);
+    });
   }
 
   function getPlayModeFromUrl() {
@@ -308,22 +330,18 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
   function setPlayMode(mode: "jukebox" | "autocanonizer") {
     if (state.playMode === mode) {
+      elements.playModeSelect.value = mode;
       return;
     }
     if (state.isRunning) {
       stopPlayback(context);
     }
     state.playMode = mode;
+    elements.playModeSelect.value = mode;
     elements.jukeboxViz.classList.toggle(
       "is-canonizer",
       mode === "autocanonizer",
     );
-    elements.playModeButtons.forEach((button) => {
-      button.classList.toggle(
-        "active",
-        button.dataset.playMode === state.playMode,
-      );
-    });
     elements.tuningButton.disabled = mode === "autocanonizer";
     elements.tuningButton.classList.toggle(
       "is-hidden",
@@ -375,8 +393,8 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     initializePlayback,
     handlePlayClick,
     handleShortUrlClick,
-    handleVizButtonClick,
-    handleModeClick,
+    handleVizSelectChange,
+    handleModeSelectChange,
     handleCanonizerFinish,
     handleKeydown,
     handleKeyup,

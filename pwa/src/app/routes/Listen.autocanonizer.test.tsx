@@ -255,6 +255,13 @@ async function click(element: Element) {
   });
 }
 
+async function changeSelect(element: HTMLSelectElement, value: string) {
+  await act(async () => {
+    element.value = value;
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
 async function settleEffects() {
   await act(async () => {
     await Promise.resolve();
@@ -301,13 +308,9 @@ describe("Listen autocanonizer behavior", () => {
     const rendered = renderListen();
     await settleEffects();
 
-    const autoModeButton = getRequired<HTMLButtonElement>(
+    const modeSelect = getRequired<HTMLSelectElement>(
       rendered.container,
-      '[data-play-mode="autocanonizer"]'
-    );
-    const jukeboxModeButton = getRequired<HTMLButtonElement>(
-      rendered.container,
-      '[data-play-mode="jukebox"]'
+      "#play-mode-select"
     );
     const tuningButton = getRequired<HTMLButtonElement>(
       rendered.container,
@@ -323,7 +326,7 @@ describe("Listen autocanonizer behavior", () => {
     expect(infoButton.classList.contains("is-hidden")).toBe(false);
     expect(playTitle?.textContent).toBe("song.wav");
 
-    await click(autoModeButton);
+    await changeSelect(modeSelect, "autocanonizer");
 
     expect(tuningButton.classList.contains("is-hidden")).toBe(true);
     expect(infoButton.classList.contains("is-hidden")).toBe(true);
@@ -335,7 +338,7 @@ describe("Listen autocanonizer behavior", () => {
     );
     expect(beatsLabelHidden).toBe(true);
 
-    await click(jukeboxModeButton);
+    await changeSelect(modeSelect, "jukebox");
 
     expect(tuningButton.classList.contains("is-hidden")).toBe(false);
     expect(infoButton.classList.contains("is-hidden")).toBe(false);

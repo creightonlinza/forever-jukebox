@@ -171,17 +171,13 @@ export function updateVizVisibility(context: AppContext) {
     } else {
       jukebox.resizeActive();
     }
-    elements.vizButtons.forEach((button) => {
-      button.disabled = state.playMode === "autocanonizer";
-    });
+    elements.vizSelect.disabled = state.playMode === "autocanonizer";
   } else {
     elements.playStatusPanel.classList.remove("hidden");
     elements.playMenu.classList.add("hidden");
     elements.vizPanel.classList.add("hidden");
     elements.playButton.classList.add("hidden");
-    elements.vizButtons.forEach((button) => {
-      button.disabled = true;
-    });
+    elements.vizSelect.disabled = true;
   }
 }
 

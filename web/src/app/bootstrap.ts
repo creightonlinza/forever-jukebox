@@ -390,9 +390,7 @@ export function bootstrap() {
   });
 
   jukebox.setActiveIndex(0);
-  elements.vizButtons.forEach((button) => {
-    button.disabled = true;
-  });
+  elements.vizSelect.disabled = true;
   attachVisualizationResize([jukebox], elements.vizPanel);
   attachVisualizationResize([autocanonizer], elements.vizPanel);
   playbackHandlers.initializePlayback();
