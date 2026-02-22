@@ -57,6 +57,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.foreverjukebox.app.data.AppPreferences
 import com.foreverjukebox.app.data.ThemeMode
 import com.foreverjukebox.app.engine.JukeboxState
+import com.foreverjukebox.app.playback.ForegroundPlaybackService
 import com.foreverjukebox.app.playback.PlaybackControllerHolder
 import com.foreverjukebox.app.visualization.AutocanonizerVisualization
 import com.foreverjukebox.app.visualization.JukeboxVisualization
@@ -140,6 +141,27 @@ private fun FullscreenScreen(
     var beatsPlayed by remember { mutableIntStateOf(0) }
     var listenTime by remember { mutableStateOf("00:00:00") }
 
+    fun applyPlaybackMode(nextMode: PlaybackMode) {
+        if (playMode == nextMode) {
+            showModeMenu = false
+            return
+        }
+        stopTransportForModeChange(
+            context = context,
+            controller = controller,
+            previousMode = playMode,
+            isRunning = controller.isPlaying()
+        )
+        playMode = nextMode
+        beatsPlayed = 0
+        currentBeatIndex = -1
+        canonizerOtherIndex = null
+        jumpLine = null
+        canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
+        listenTime = formatDuration(controller.getListenTimeSeconds())
+        showModeMenu = false
+    }
+
     BackHandler {
         onExit(activeVizIndex, playMode)
     }
@@ -199,11 +221,10 @@ private fun FullscreenScreen(
                     forcedOtherIndex = canonizerOtherIndex,
                     tileColorOverrides = canonizerTileColorOverrides,
                     onSelectBeat = { index ->
-                        controller.autocanonizer.resetVisualization()
-                        if (controller.autocanonizer.startAtIndex(index)) {
-                            controller.startExternalPlayback(resetTimers = true)
+                        if (startAutocanonizerTransport(controller, index, resetTimers = true)) {
                             currentBeatIndex = index
                             canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
+                            listenTime = formatDuration(controller.getListenTimeSeconds())
                         }
                     },
                     modifier = Modifier.size(squareSize)
@@ -215,8 +236,13 @@ private fun FullscreenScreen(
                     jumpLine = jumpLine,
                     positioner = positioners.getOrNull(activeVizIndex) ?: positioners.first(),
                     onSelectBeat = { index ->
-                        if (!controller.seekToBeat(index, vizData)) return@JukeboxVisualization
+                        val selection = seekOrStartJukeboxAtBeat(controller, index, vizData)
+                        if (!selection.success) return@JukeboxVisualization
+                        if (selection.startedPlayback) {
+                            ForegroundPlaybackService.start(context)
+                        }
                         currentBeatIndex = index
+                        listenTime = formatDuration(controller.getListenTimeSeconds())
                     },
                     modifier = Modifier.size(squareSize)
                 )
@@ -252,15 +278,13 @@ private fun FullscreenScreen(
                     DropdownMenuItem(
                         text = { Text("Jukebox") },
                         onClick = {
-                            playMode = PlaybackMode.Jukebox
-                            showModeMenu = false
+                            applyPlaybackMode(PlaybackMode.Jukebox)
                         }
                     )
                     DropdownMenuItem(
                         text = { Text("Autocanonizer") },
                         onClick = {
-                            playMode = PlaybackMode.Autocanonizer
-                            showModeMenu = false
+                            applyPlaybackMode(PlaybackMode.Autocanonizer)
                         }
                     )
                 }

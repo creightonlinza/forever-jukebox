@@ -20,7 +20,7 @@ class BufferedAutocanonizerPlayer(
     private val secondaryPlayer: BufferedAudioPlayer = BufferedAudioPlayer(),
     private val masterBlend: Double = 0.55
 ) : AutocanonizerPlayer {
-    private var baseVolume = 0.5
+    private var baseVolume = 1.0
     private var currentBeatIndex: Int? = null
     private var skewDelta = 0.0
     private val maxSkewDelta = 0.05
@@ -68,20 +68,26 @@ class BufferedAutocanonizerPlayer(
 
         val currentIndex = currentBeatIndex
         val currentBeat = currentIndex?.let { beats.getOrNull(it) }
+        var restartedMain = false
         if (currentBeat == null || currentBeat.nextIndex != beat.index) {
             mainPlayer.seek(beat.start)
             mainPlayer.play()
+            restartedMain = true
         }
 
-        val delta = mainPlayer.getCurrentTime() - beat.start
+        val delta = if (restartedMain) 0.0 else mainPlayer.getCurrentTime() - beat.start
         applyGains(beat.otherGain)
 
         val otherBeat = beats.getOrNull(beat.otherIndex) ?: beat
         val currentOther = currentBeat?.let { beats.getOrNull(it.otherIndex) }
-        if (currentBeat == null ||
-            currentOther?.nextIndex != beat.otherIndex ||
-            abs(skewDelta) > maxSkewDelta
-        ) {
+        val isTerminalBeat = beat.nextIndex == null
+        val shouldResyncSecondary = currentBeat == null ||
+            !secondaryPlayer.isPlaying() ||
+            (!isTerminalBeat && (
+                currentOther?.nextIndex != beat.otherIndex ||
+                    abs(skewDelta) > maxSkewDelta
+                ))
+        if (shouldResyncSecondary) {
             skewDelta = 0.0
             secondaryPlayer.seek(otherBeat.start)
             secondaryPlayer.play()
@@ -102,13 +108,17 @@ class BufferedAutocanonizerPlayer(
             currentBeat != null &&
             currentBeat.otherIndex == beat.index &&
             secondaryPlayer.isPlaying()
-        if (!canCarrySecondary && (currentBeat == null || currentBeat.nextIndex != beat.index)) {
+        var restartedSecondary = false
+        if (!canCarrySecondary &&
+            (currentBeat == null || currentBeat.nextIndex != beat.index || !secondaryPlayer.isPlaying())
+        ) {
             secondaryPlayer.seek(beat.start)
             secondaryPlayer.play()
+            restartedSecondary = true
         }
         carrySecondaryOnNextSecondaryTick = false
 
-        val delta = secondaryPlayer.getCurrentTime() - beat.start
+        val delta = if (restartedSecondary) 0.0 else secondaryPlayer.getCurrentTime() - beat.start
         currentBeatIndex = beat.index
         return beat.duration - delta
     }
@@ -119,7 +129,8 @@ class BufferedAutocanonizerPlayer(
     }
 
     private fun applyGains(otherGain: Double = 1.0) {
+        val clampedOtherGain = otherGain.coerceIn(0.0, 1.0)
         mainPlayer.setGain(baseVolume * masterBlend)
-        secondaryPlayer.setGain(baseVolume * (1.0 - masterBlend) * otherGain)
+        secondaryPlayer.setGain(baseVolume * (1.0 - masterBlend) * clampedOtherGain)
     }
 }

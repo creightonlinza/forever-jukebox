@@ -1140,13 +1140,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 playbackCoordinator.setAnalysisError("Autocanonizer not ready.")
                 return@launch
             }
-            controller.autocanonizer.resetVisualization()
-            val started = controller.autocanonizer.startAtIndex(index)
+            val started = startAutocanonizerTransport(
+                controller = controller,
+                index = index,
+                resetTimers = true
+            )
             if (!started) {
                 playbackCoordinator.setAnalysisError("Autocanonizer not ready.")
                 return@launch
             }
-            controller.startExternalPlayback(resetTimers = true)
             playbackCoordinator.updateListenTimeDisplay()
             _state.update {
                 it.copy(
@@ -1478,8 +1480,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         val data = state.value.playback.vizData
-        if (!controller.seekToBeat(index, data)) return
-        _state.update { it.copy(playback = it.playback.copy(currentBeatIndex = index)) }
+        val selection = seekOrStartJukeboxAtBeat(controller, index, data)
+        if (!selection.success) return
+        if (selection.startedPlayback) {
+            playbackCoordinator.startListenTimer()
+            playbackCoordinator.updateListenTimeDisplay()
+            ForegroundPlaybackService.start(getApplication())
+        }
+        _state.update {
+            it.copy(
+                playback = it.playback.copy(
+                    currentBeatIndex = index,
+                    isRunning = controller.isPlaying(),
+                    canonizerOtherIndex = null
+                )
+            )
+        }
     }
 
     fun setActiveVisualization(index: Int) {
@@ -1494,33 +1510,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (current.playMode == mode) {
             return
         }
-        if (current.isCasting && mode == PlaybackMode.Autocanonizer) {
-            viewModelScope.launch { showToast("Autocanonizer is unavailable while casting.") }
-            return
-        }
-        if (current.isRunning) {
-            if (current.playMode == PlaybackMode.Autocanonizer) {
-                controller.autocanonizer.stop()
-                controller.stopExternalPlayback()
-            } else {
-                controller.stopPlayback()
-            }
-            playbackCoordinator.stopListenTimer()
-            playbackCoordinator.updateListenTimeDisplay()
-            ForegroundPlaybackService.stop(getApplication())
+        if (!current.isCasting) {
+            stopTransportForModeChange(
+                context = getApplication(),
+                controller = controller,
+                previousMode = current.playMode,
+                isRunning = current.isRunning,
+                onStopped = {
+                    playbackCoordinator.stopListenTimer()
+                    playbackCoordinator.updateListenTimeDisplay()
+                }
+            )
         }
         playbackCoordinator.applyPlaybackMode(mode)
         _state.update {
             it.copy(
-                playback = it.playback.copy(
-                    isRunning = false,
-                    beatsPlayed = 0,
-                    currentBeatIndex = -1,
-                    canonizerOtherIndex = null,
-                    lastJumpFromIndex = null,
-                    jumpLine = null
+                playback = playbackStateAfterModeChange(
+                    playback = it.playback,
+                    preserveTransportState = current.isCasting
                 )
             )
+        }
+        if (current.isCasting) {
+            syncCastNotification(state.value.playback)
         }
     }
 
