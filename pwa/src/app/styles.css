@@ -572,12 +572,22 @@ a {
   display: none;
 }
 
-#viz-panel:fullscreen .viz-play-toggle {
+#viz-panel:fullscreen .play-toggle.viz-play-toggle {
   display: inline-flex;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  justify-content: center;
 }
 
-#viz-panel:-webkit-full-screen .viz-play-toggle {
+#viz-panel:-webkit-full-screen .play-toggle.viz-play-toggle {
   display: inline-flex;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  justify-content: center;
 }
 
 .viz-info {

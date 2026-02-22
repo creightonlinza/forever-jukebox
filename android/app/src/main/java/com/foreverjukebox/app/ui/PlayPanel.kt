@@ -103,6 +103,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
             viewModel.setPlaybackMode(nextMode)
         }
         viewModel.setActiveVisualization(nextIndex)
+        viewModel.refreshPlaybackFromController()
     }
 
     LaunchedEffect(playback.jumpLine) {

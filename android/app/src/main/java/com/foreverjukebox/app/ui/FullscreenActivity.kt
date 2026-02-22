@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,6 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -142,6 +145,7 @@ private fun FullscreenScreen(
     var showModeMenu by remember { mutableStateOf(false) }
     var beatsPlayed by remember { mutableIntStateOf(0) }
     var listenTime by remember { mutableStateOf("00:00:00") }
+    var isRunning by remember { mutableStateOf(controller.isPlaying()) }
 
     fun applyPlaybackMode(nextMode: PlaybackMode) {
         if (playMode == nextMode) {
@@ -161,7 +165,39 @@ private fun FullscreenScreen(
         jumpLine = null
         canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
         listenTime = formatDuration(controller.getListenTimeSeconds())
+        isRunning = controller.isPlaying()
         showModeMenu = false
+    }
+
+    fun togglePlayback() {
+        if (playMode == PlaybackMode.Autocanonizer) {
+            if (controller.isPlaying()) {
+                controller.autocanonizer.stop()
+                controller.stopExternalPlayback()
+                ForegroundPlaybackService.stop(context)
+            } else {
+                val startIndex = if (currentBeatIndex >= 0) currentBeatIndex else 0
+                val started = startAutocanonizerTransport(
+                    controller = controller,
+                    index = startIndex,
+                    resetTimers = false
+                )
+                if (started) {
+                    currentBeatIndex = startIndex
+                    canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
+                    ForegroundPlaybackService.start(context)
+                }
+            }
+        } else {
+            val running = controller.togglePlayback()
+            if (running) {
+                ForegroundPlaybackService.start(context)
+            } else {
+                ForegroundPlaybackService.stop(context)
+            }
+        }
+        isRunning = controller.isPlaying()
+        listenTime = formatDuration(controller.getListenTimeSeconds())
     }
 
     BackHandler {
@@ -195,6 +231,7 @@ private fun FullscreenScreen(
     LaunchedEffect(Unit) {
         while (true) {
             listenTime = formatDuration(controller.getListenTimeSeconds())
+            isRunning = controller.isPlaying()
             if (playMode == PlaybackMode.Autocanonizer) {
                 currentBeatIndex = controller.autocanonizer.getCurrentIndex()
                 canonizerOtherIndex = controller.autocanonizer.getForcedOtherIndex()
@@ -227,6 +264,7 @@ private fun FullscreenScreen(
                             currentBeatIndex = index
                             canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
                             listenTime = formatDuration(controller.getListenTimeSeconds())
+                            isRunning = controller.isPlaying()
                         }
                     },
                     modifier = Modifier.size(squareSize)
@@ -246,6 +284,7 @@ private fun FullscreenScreen(
                         }
                         currentBeatIndex = index
                         listenTime = formatDuration(controller.getListenTimeSeconds())
+                        isRunning = controller.isPlaying()
                     },
                     modifier = Modifier.size(squareSize)
                 )
@@ -353,6 +392,22 @@ private fun FullscreenScreen(
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                OutlinedButton(
+                    onClick = { togglePlayback() },
+                    colors = pillOutlinedButtonColors(),
+                    border = pillButtonBorder(),
+                    shape = PillShape,
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isRunning) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                        contentDescription = if (isRunning) "Stop" else "Play",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = nowPlaying,

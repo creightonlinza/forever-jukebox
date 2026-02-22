@@ -1513,6 +1513,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun refreshPlaybackFromController() {
+        playbackCoordinator.restorePlaybackState()
+        playbackCoordinator.updateListenTimeDisplay()
+    }
+
     fun setPlaybackMode(mode: PlaybackMode) {
         val current = state.value.playback
         if (current.playMode == mode) {

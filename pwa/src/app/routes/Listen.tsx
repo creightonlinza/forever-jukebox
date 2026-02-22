@@ -1077,7 +1077,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 aria-label={isRunning ? "Stop" : "Play"}
               >
                 <SymbolIcon className="play-icon" name={isRunning ? "stop" : "play_arrow"} />
-                <span className="play-text">{isRunning ? "Stop" : "Play"}</span>
               </button>
               <div className="viz-info">
                 <div className="viz-title" id="viz-now-playing">{displayTitle}</div>
