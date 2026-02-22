@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.IntSize
 import com.foreverjukebox.app.engine.Edge
 import com.foreverjukebox.app.engine.VisualizationData
 import com.foreverjukebox.app.ui.LocalThemeTokens
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
@@ -39,6 +40,7 @@ fun JukeboxVisualization(
     currentIndex: Int,
     jumpLine: JumpLine?,
     positioner: Positioner,
+    edgeRouting: EdgeRouting = EdgeRouting.Auto,
     onSelectBeat: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -97,7 +99,7 @@ fun JukeboxVisualization(
             for (i in edges.indices step step) {
                 val edge = edges[i]
                 if (edge.deleted) continue
-                drawEdge(edge, positions, center, edgeStroke, 1.0f)
+                drawEdge(edge, positions, center, edgeStroke, 1.0f, edgeRouting)
             }
 
             for (p in positions) {
@@ -117,7 +119,16 @@ fun JukeboxVisualization(
                     if (from != null && to != null) {
                         val alpha = (1f - age / 1000f).coerceIn(0f, 1f)
                         val color = beatHighlight.copy(alpha = alpha)
-                        drawJumpLine(from, to, positions, center, color)
+                        drawJumpLine(
+                            from = from,
+                            to = to,
+                            positions = positions,
+                            center = center,
+                            color = color,
+                            edgeRouting = edgeRouting,
+                            fromIndex = jumpLine.from,
+                            toIndex = jumpLine.to
+                        )
                     }
                 }
             }
@@ -144,12 +155,22 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEdge(
     positions: List<VizPoint>,
     center: Offset,
     color: Color,
-    strokeWidth: Float
+    strokeWidth: Float,
+    edgeRouting: EdgeRouting
 ) {
     val from = positions.getOrNull(edge.src.which) ?: return
     val to = positions.getOrNull(edge.dest.which) ?: return
-    if (shouldBendEdge(from, to, positions)) {
-        val (cx, cy) = bendControlPoint(from, to, center)
+    val geometry = resolveEdgeGeometry(
+        from = from,
+        to = to,
+        positions = positions,
+        center = center,
+        edgeRouting = edgeRouting,
+        fromIndex = edge.src.which,
+        toIndex = edge.dest.which
+    )
+    if (geometry.bend && geometry.control != null) {
+        val (cx, cy) = geometry.control
         val path = Path().apply {
             moveTo(from.x, from.y)
             quadraticTo(cx, cy, to.x, to.y)
@@ -165,10 +186,22 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawJumpLine(
     to: VizPoint,
     positions: List<VizPoint>,
     center: Offset,
-    color: Color
+    color: Color,
+    edgeRouting: EdgeRouting,
+    fromIndex: Int,
+    toIndex: Int
 ) {
-    if (shouldBendEdge(from, to, positions)) {
-        val (cx, cy) = bendControlPoint(from, to, center)
+    val geometry = resolveEdgeGeometry(
+        from = from,
+        to = to,
+        positions = positions,
+        center = center,
+        edgeRouting = edgeRouting,
+        fromIndex = fromIndex,
+        toIndex = toIndex
+    )
+    if (geometry.bend && geometry.control != null) {
+        val (cx, cy) = geometry.control
         val path = Path().apply {
             moveTo(from.x, from.y)
             quadraticTo(cx, cy, to.x, to.y)
@@ -177,6 +210,58 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawJumpLine(
     } else {
         drawLine(color, Offset(from.x, from.y), Offset(to.x, to.y), strokeWidth = 2f)
     }
+}
+
+private data class EdgeGeometry(
+    val bend: Boolean,
+    val control: Pair<Float, Float>?
+)
+
+private fun resolveEdgeGeometry(
+    from: VizPoint,
+    to: VizPoint,
+    positions: List<VizPoint>,
+    center: Offset,
+    edgeRouting: EdgeRouting,
+    fromIndex: Int,
+    toIndex: Int
+): EdgeGeometry {
+    if (edgeRouting == EdgeRouting.ArcDiagram) {
+        return EdgeGeometry(
+            bend = true,
+            control = arcDiagramControlPoint(from, to, center, fromIndex, toIndex)
+        )
+    }
+    val bend = shouldBendEdge(from, to, positions)
+    return EdgeGeometry(
+        bend = bend,
+        control = if (bend) bendControlPoint(from, to, center) else null
+    )
+}
+
+private fun arcDiagramControlPoint(
+    from: VizPoint,
+    to: VizPoint,
+    center: Offset,
+    fromIndex: Int,
+    toIndex: Int
+): Pair<Float, Float> {
+    val midX = (from.x + to.x) / 2f
+    val baseY = (from.y + to.y) / 2f
+    val span = abs(to.x - from.x)
+    val forward = toIndex >= fromIndex
+    val direction = if (forward) -1f else 1f
+    val canvasHeight = center.y * 2f
+    val availableLift = if (direction < 0f) {
+        baseY - 14f
+    } else {
+        canvasHeight - baseY - 14f
+    }
+    val maxLift = max(4f, availableLift)
+    val minLift = min(18f, maxLift)
+    val desiredLift = max(minLift, span * 0.95f)
+    val lift = min(maxLift, desiredLift)
+    return midX to (baseY + direction * lift)
 }
 
 private fun shouldBendEdge(

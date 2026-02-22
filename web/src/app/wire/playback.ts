@@ -59,6 +59,13 @@ function getVisualizationLabel(index: number) {
   return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
 }
 
+function getVisualizationSelectEntries(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    index,
+    label: getVisualizationLabel(index),
+  })).sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+}
+
 export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   const {
     context,
@@ -300,23 +307,29 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
   function syncVisualizationSelectOptions() {
     const count = jukebox.getCount();
-    const expectedValues = Array.from({ length: count }, (_, idx) => String(idx));
+    const entries = getVisualizationSelectEntries(count);
+    const expectedValues = entries.map((entry) => String(entry.index));
+    const expectedLabels = entries.map((entry) => entry.label);
     const currentValues = Array.from(elements.vizSelect.options, (option) => option.value);
+    const currentLabels = Array.from(
+      elements.vizSelect.options,
+      (option) => option.textContent ?? ""
+    );
     const needsRebuild =
       currentValues.length !== expectedValues.length ||
-      currentValues.some((value, idx) => value !== expectedValues[idx]);
+      currentValues.some((value, idx) => value !== expectedValues[idx]) ||
+      currentLabels.some((label, idx) => label !== expectedLabels[idx]);
 
-    if (!needsRebuild) {
-      return;
+    if (needsRebuild) {
+      elements.vizSelect.replaceChildren();
+      entries.forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = String(entry.index);
+        option.textContent = entry.label;
+        elements.vizSelect.append(option);
+      });
     }
-
-    elements.vizSelect.replaceChildren();
-    expectedValues.forEach((value, idx) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = getVisualizationLabel(idx);
-      elements.vizSelect.append(option);
-    });
+    elements.vizSelect.value = String(state.activeVizIndex);
   }
 
   function getPlayModeFromUrl() {

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.foreverjukebox.app.visualization.defaultVisualizationIndex
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -49,7 +50,7 @@ class AppPreferences(private val context: Context) {
     }
 
     val activeVizIndex: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[KEY_VIZ_INDEX] ?: 0
+        prefs[KEY_VIZ_INDEX] ?: defaultVisualizationIndex
     }
 
     val favorites: Flow<List<FavoriteTrack>> = context.dataStore.data.map { prefs ->

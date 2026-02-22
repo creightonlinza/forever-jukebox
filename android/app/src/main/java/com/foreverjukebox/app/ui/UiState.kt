@@ -9,6 +9,7 @@ import com.foreverjukebox.app.data.FavoriteTrack
 import com.foreverjukebox.app.autocanonizer.AutocanonizerData
 import com.foreverjukebox.app.engine.VisualizationData
 import com.foreverjukebox.app.visualization.JumpLine
+import com.foreverjukebox.app.visualization.defaultVisualizationIndex
 import kotlinx.serialization.Serializable
 import java.net.URI
 
@@ -88,7 +89,7 @@ data class PlaybackState(
     val trackArtist: String? = null,
     val vizData: VisualizationData? = null,
     val autocanonizerData: AutocanonizerData? = null,
-    val activeVizIndex: Int = 0,
+    val activeVizIndex: Int = defaultVisualizationIndex,
     val currentBeatIndex: Int = -1,
     val canonizerOtherIndex: Int? = null,
     val canonizerTileColorOverrides: Map<Int, String> = emptyMap(),

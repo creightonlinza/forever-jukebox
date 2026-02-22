@@ -48,9 +48,13 @@ fun FaqPanel() {
                 withLink(LinkAnnotation.Url(url = "https://musicmachinery.com/2012/11/12/the-infinite-jukebox/")) {
                     withStyle(linkStyle) { append("Infinite Jukebox") }
                 }
+                append(" and ")
+                withLink(LinkAnnotation.Url(url = "https://musicmachinery.com/2014/03/18/how-the-autocanonizer-works/")) {
+                    withStyle(linkStyle) { append("Autocanonizer") }
+                }
                 append(" — rebuilt from the ground up by ")
                 withLink(LinkAnnotation.Url(url = "https://creighton.dev/")) {
-                    withStyle(linkStyle) { append("Creighton") }
+                    withStyle(linkStyle) { append("Creighton Linza") }
                 }
                 append(". It generates a forever-evolving version of any song.")
             }
