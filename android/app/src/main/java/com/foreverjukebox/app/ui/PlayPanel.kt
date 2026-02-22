@@ -401,7 +401,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                         } else {
                                             "Enable finish out the song"
                                         },
-                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        tint = themeTokens.accent,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
