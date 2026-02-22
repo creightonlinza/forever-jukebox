@@ -1,4 +1,3 @@
-// Copied from web/src/jukebox/JukeboxViz.ts on 2026-02-11, reason: reuse visualization canvas logic.
 import type { JukeboxEngine } from "../engine";
 import type { Edge, QuantumBase } from "../engine/types";
 import {
@@ -34,6 +33,27 @@ type Positioner = (
   height: number
 ) => Array<{ x: number; y: number }>;
 
+type EdgeControlPointResolver = (args: {
+  edge: Edge | null;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  fromIndex: number;
+  toIndex: number;
+  data: VisualizationData;
+  center: { x: number; y: number };
+}) => [number, number];
+
+type CanvasVizOptions = {
+  enableInteraction?: boolean;
+  forceBendEdges?: boolean;
+  edgeControlPointResolver?: EdgeControlPointResolver;
+};
+
+type VisualizationDefinition = {
+  positioner: Positioner;
+  options?: Omit<CanvasVizOptions, "enableInteraction">;
+};
+
 class CanvasViz {
   private container: HTMLElement;
   private baseCanvas: HTMLCanvasElement;
@@ -56,6 +76,8 @@ class CanvasViz {
   private onEdgeSelect: ((edge: Edge | null) => void) | null = null;
 
   private positioner: Positioner;
+  private forceBendEdges: boolean;
+  private edgeControlPointResolver: EdgeControlPointResolver | null;
   private visible = true;
 
   private edgeGeometry = new WeakMap<
@@ -73,10 +95,12 @@ class CanvasViz {
   constructor(
     container: HTMLElement,
     positioner: Positioner,
-    options: { enableInteraction?: boolean } = {}
+    options: CanvasVizOptions = {}
   ) {
     this.container = container;
     this.positioner = positioner;
+    this.forceBendEdges = options.forceBendEdges ?? false;
+    this.edgeControlPointResolver = options.edgeControlPointResolver ?? null;
     this.baseCanvas = document.createElement("canvas");
     this.overlayCanvas = document.createElement("canvas");
     const baseCtx = this.baseCanvas.getContext("2d");
@@ -229,9 +253,10 @@ class CanvasViz {
       if (!from || !to) {
         continue;
       }
-      const bend = this.shouldBendEdge(from, to, edge.src.which, edge.dest.which);
-      const control = bend ? this.getBendControlPoint(from, to) : null;
-      this.edgeGeometry.set(edge, { bend, control });
+      this.edgeGeometry.set(
+        edge,
+        this.resolveEdgeGeometry(edge, from, to, edge.src.which, edge.dest.which)
+      );
     }
   }
 
@@ -371,7 +396,20 @@ class CanvasViz {
           const alpha = 1 - age / 1000;
           const jumpColor = this.resolveBeatJumpColor(alpha);
           if (this.shouldBendEdge(from, to, this.jumpLine.from, this.jumpLine.to)) {
-            this.drawBentLine(this.overlayCtx, from, to, jumpColor, 2);
+            const control = this.resolveControlPointForPair(
+              from,
+              to,
+              this.jumpLine.from,
+              this.jumpLine.to
+            );
+            this.drawBentLineWithControl(
+              this.overlayCtx,
+              from,
+              to,
+              control,
+              jumpColor,
+              2
+            );
           } else {
             this.overlayCtx.strokeStyle = jumpColor;
             this.overlayCtx.lineWidth = 2;
@@ -520,11 +558,58 @@ class CanvasViz {
     if (!from || !to) {
       return null;
     }
-    const bend = this.shouldBendEdge(from, to, edge.src.which, edge.dest.which);
-    const control = bend ? this.getBendControlPoint(from, to) : null;
-    const next = { bend, control };
+    const next = this.resolveEdgeGeometry(
+      edge,
+      from,
+      to,
+      edge.src.which,
+      edge.dest.which
+    );
     this.edgeGeometry.set(edge, next);
     return next;
+  }
+
+  private resolveEdgeGeometry(
+    edge: Edge | null,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    fromIndex: number,
+    toIndex: number
+  ): { bend: boolean; control: [number, number] | null } {
+    if (!this.data) {
+      return { bend: false, control: null };
+    }
+    if (this.edgeControlPointResolver) {
+      return {
+        bend: true,
+        control: this.edgeControlPointResolver({
+          edge,
+          from,
+          to,
+          fromIndex,
+          toIndex,
+          data: this.data,
+          center: this.center,
+        }),
+      };
+    }
+    const bend = this.shouldBendEdge(from, to, fromIndex, toIndex);
+    return {
+      bend,
+      control: bend ? this.getBendControlPoint(from, to) : null,
+    };
+  }
+
+  private resolveControlPointForPair(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    fromIndex: number,
+    toIndex: number
+  ): [number, number] {
+    return this.resolveEdgeGeometry(null, from, to, fromIndex, toIndex).control ?? [
+      (from.x + to.x) / 2,
+      (from.y + to.y) / 2,
+    ];
   }
 
   private shouldBendEdge(
@@ -533,6 +618,9 @@ class CanvasViz {
     fromIndex?: number,
     toIndex?: number
   ) {
+    if (this.forceBendEdges) {
+      return true;
+    }
     if (fromIndex !== undefined && toIndex !== undefined) {
       const min = Math.min(fromIndex, toIndex);
       const max = Math.max(fromIndex, toIndex);
@@ -564,17 +652,6 @@ class CanvasViz {
       }
     }
     return false;
-  }
-
-  private drawBentLine(
-    ctx: CanvasRenderingContext2D,
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-    color: string,
-    lineWidth: number
-  ) {
-    const [cx, cy] = this.getBendControlPoint(from, to);
-    this.drawBentLineWithControl(ctx, from, to, [cx, cy], color, lineWidth);
   }
 
   private drawBentLineWithControl(
@@ -615,212 +692,275 @@ class CanvasViz {
   }
 }
 
-function createVisualizations(
-  vizLayer: HTMLElement,
-  positioners?: Positioner[],
-  enableInteraction = true
-) {
-  const list = positioners ?? [
-    JukeboxViz.createClassicPositioner(),
-    (data: VisualizationData, width: number, height: number) => {
-      const count = data.beats.length;
-      const cx = width / 2;
-      const cy = height / 2;
-      const maxRadius = Math.min(width, height) * 0.42;
-      const minRadius = Math.min(width, height) * 0.08;
-      const turns = 3;
-      return Array.from({ length: count }, (_, i) => {
-        const t = i / count;
-        const angle = t * Math.PI * 2 * turns - Math.PI / 2;
-        const radius = minRadius + (maxRadius - minRadius) * t;
-        return {
-          x: cx + Math.cos(angle) * radius,
-          y: cy + Math.sin(angle) * radius,
-        };
-      });
-    },
-    (data: VisualizationData, width: number, height: number) => {
-      const count = data.beats.length;
-      let beatsPerBar = 4;
-      if (count > 0) {
-        const counts = new Map<number, number>();
-        let totalParents = 0;
-        const seenParents = new Set<object>();
-        for (const beat of data.beats) {
-          const parent = beat.parent;
-          if (!parent || !parent.children) {
-            continue;
-          }
-          if (!seenParents.has(parent)) {
-            seenParents.add(parent);
-            const length = Math.max(1, parent.children.length);
-            counts.set(length, (counts.get(length) ?? 0) + 1);
-            totalParents += 1;
-          }
-        }
-        if (counts.size > 0) {
-          let best = beatsPerBar;
-          let bestCount = -1;
-          for (const [size, count] of counts.entries()) {
-            if (count > bestCount) {
-              bestCount = count;
-              best = size;
-            }
-          }
-          beatsPerBar = best;
-        }
-        if (totalParents === 0) {
-          beatsPerBar = 4;
-        }
-      }
-      const bars: Array<{ bar: QuantumBase | null; section: QuantumBase | null }> = [];
-      const barIndex = new Map<QuantumBase, number>();
+function createArcDiagramPositioner(): Positioner {
+  return (data: VisualizationData, width: number, height: number) => {
+    const count = data.beats.length;
+    const paddingX = 36;
+    const timelineY = height * 0.5;
+    const span = Math.max(0, width - paddingX * 2);
+    if (count <= 0) {
+      return [];
+    }
+    if (count === 1) {
+      return [{ x: width / 2, y: timelineY }];
+    }
+    return Array.from({ length: count }, (_, i) => {
+      const t = i / (count - 1);
+      return {
+        x: paddingX + span * t,
+        y: timelineY,
+      };
+    });
+  };
+}
+
+const arcDiagramControlPointResolver: EdgeControlPointResolver = ({
+  edge,
+  from,
+  to,
+  fromIndex,
+  toIndex,
+  center,
+}) => {
+  const midX = (from.x + to.x) / 2;
+  const baseY = (from.y + to.y) / 2;
+  const span = Math.abs(to.x - from.x);
+  const forward =
+    edge !== null ? edge.dest.which >= edge.src.which : toIndex >= fromIndex;
+  // Gate: forward jumps arc above the timeline, backward jumps arc below.
+  const direction = forward ? -1 : 1;
+  const canvasHeight = center.y * 2;
+  const availableLift =
+    direction < 0 ? baseY - 14 : canvasHeight - baseY - 14;
+  const maxLift = Math.max(4, availableLift);
+  const minLift = Math.min(18, maxLift);
+  const desiredLift = Math.max(minLift, span * 0.95);
+  const lift = Math.min(maxLift, desiredLift);
+  return [midX, baseY + direction * lift];
+};
+
+function createGridPositioner(): Positioner {
+  return (data: VisualizationData, width: number, height: number) => {
+    const count = data.beats.length;
+    let beatsPerBar = 4;
+    if (count > 0) {
+      const counts = new Map<number, number>();
+      let totalParents = 0;
+      const seenParents = new Set<object>();
       for (const beat of data.beats) {
-        const parent = beat.parent ?? null;
-        if (parent && !barIndex.has(parent)) {
-          barIndex.set(parent, bars.length);
-          bars.push({ bar: parent, section: parent.parent ?? null });
+        const parent = beat.parent;
+        if (!parent || !parent.children) {
+          continue;
+        }
+        if (!seenParents.has(parent)) {
+          seenParents.add(parent);
+          const length = Math.max(1, parent.children.length);
+          counts.set(length, (counts.get(length) ?? 0) + 1);
+          totalParents += 1;
         }
       }
-      if (bars.length === 0) {
-        const totalBars = Math.max(
-          1,
-          Math.ceil(count / Math.max(1, beatsPerBar))
-        );
-        for (let i = 0; i < totalBars; i += 1) {
-          bars.push({ bar: null, section: null });
+      if (counts.size > 0) {
+        let best = beatsPerBar;
+        let bestCount = -1;
+        for (const [size, value] of counts.entries()) {
+          if (value > bestCount) {
+            bestCount = value;
+            best = size;
+          }
         }
+        beatsPerBar = best;
       }
-      const totalBars = Math.max(1, bars.length);
-      const targetBarsPerRow = Math.max(1, Math.ceil(Math.sqrt(totalBars)));
-      const rowBars: number[] = [];
-      if (bars.some((entry) => entry.section)) {
-        let currentSection: QuantumBase | null = bars[0]?.section ?? null;
-        let sectionBars = 0;
-        const pushSectionRows = () => {
-          if (sectionBars <= 0) {
-            return;
-          }
-          let remaining = sectionBars;
-          while (remaining > 0) {
-            const chunk = Math.min(remaining, targetBarsPerRow);
-            rowBars.push(chunk);
-            remaining -= chunk;
-          }
-        };
-        for (const entry of bars) {
-          if (entry.section !== currentSection) {
-            pushSectionRows();
-            currentSection = entry.section;
-            sectionBars = 0;
-          }
-          sectionBars += 1;
+      if (totalParents === 0) {
+        beatsPerBar = 4;
+      }
+    }
+    const bars: Array<{ bar: QuantumBase | null; section: QuantumBase | null }> = [];
+    const barIndex = new Map<QuantumBase, number>();
+    for (const beat of data.beats) {
+      const parent = beat.parent ?? null;
+      if (parent && !barIndex.has(parent)) {
+        barIndex.set(parent, bars.length);
+        bars.push({ bar: parent, section: parent.parent ?? null });
+      }
+    }
+    if (bars.length === 0) {
+      const totalBars = Math.max(
+        1,
+        Math.ceil(count / Math.max(1, beatsPerBar))
+      );
+      for (let i = 0; i < totalBars; i += 1) {
+        bars.push({ bar: null, section: null });
+      }
+    }
+    const totalBars = Math.max(1, bars.length);
+    const targetBarsPerRow = Math.max(1, Math.ceil(Math.sqrt(totalBars)));
+    const rowBars: number[] = [];
+    if (bars.some((entry) => entry.section)) {
+      let currentSection: QuantumBase | null = bars[0]?.section ?? null;
+      let sectionBars = 0;
+      const pushSectionRows = () => {
+        if (sectionBars <= 0) {
+          return;
         }
-        pushSectionRows();
-      } else {
-        let remaining = totalBars;
+        let remaining = sectionBars;
         while (remaining > 0) {
           const chunk = Math.min(remaining, targetBarsPerRow);
           rowBars.push(chunk);
           remaining -= chunk;
         }
+      };
+      for (const entry of bars) {
+        if (entry.section !== currentSection) {
+          pushSectionRows();
+          currentSection = entry.section;
+          sectionBars = 0;
+        }
+        sectionBars += 1;
       }
-      const rows = Math.max(1, rowBars.length);
-      const paddingX = 40;
-      const paddingTop = 64;
-      const paddingBottom = 80;
-      const gridW = width - paddingX * 2;
-      const gridH = height - paddingTop - paddingBottom;
-      const safeRatio = (index: number, max: number) =>
-        max <= 1 ? 0.5 : index / (max - 1);
-      const rowStartBar: number[] = [];
-      let running = 0;
-      for (const barsInRow of rowBars) {
-        rowStartBar.push(running);
-        running += barsInRow;
+      pushSectionRows();
+    } else {
+      let remaining = totalBars;
+      while (remaining > 0) {
+        const chunk = Math.min(remaining, targetBarsPerRow);
+        rowBars.push(chunk);
+        remaining -= chunk;
       }
-      return Array.from({ length: count }, (_, i) => {
-        const beat = data.beats[i];
-        const parent = beat.parent ?? null;
-        const barIdx = parent ? barIndex.get(parent) ?? 0 : Math.floor(i / beatsPerBar);
-        let rowIndex = 0;
-        for (let r = 0; r < rowBars.length; r += 1) {
-          const start = rowStartBar[r] ?? 0;
-          const end = start + rowBars[r];
-          if (barIdx >= start && barIdx < end) {
-            rowIndex = r;
-            break;
-          }
+    }
+    const rows = Math.max(1, rowBars.length);
+    const paddingX = 40;
+    const paddingTop = 64;
+    const paddingBottom = 80;
+    const gridW = width - paddingX * 2;
+    const gridH = height - paddingTop - paddingBottom;
+    const safeRatio = (index: number, max: number) =>
+      max <= 1 ? 0.5 : index / (max - 1);
+    const rowStartBar: number[] = [];
+    let running = 0;
+    for (const barsInRow of rowBars) {
+      rowStartBar.push(running);
+      running += barsInRow;
+    }
+    return Array.from({ length: count }, (_, i) => {
+      const beat = data.beats[i];
+      const parent = beat.parent ?? null;
+      const barIdx = parent ? barIndex.get(parent) ?? 0 : Math.floor(i / beatsPerBar);
+      let rowIndex = 0;
+      for (let r = 0; r < rowBars.length; r += 1) {
+        const start = rowStartBar[r] ?? 0;
+        const end = start + rowBars[r];
+        if (barIdx >= start && barIdx < end) {
+          rowIndex = r;
+          break;
         }
-        const barsInRow = rowBars[rowIndex] ?? 1;
-        const rowBarOffset = Math.max(0, barIdx - (rowStartBar[rowIndex] ?? 0));
-        let beatInBar = beat.indexInParent ?? -1;
-        if (beatInBar < 0 && parent?.children) {
-          beatInBar = parent.children.indexOf(beat);
-        }
-        if (beatInBar < 0) {
-          beatInBar = i % Math.max(1, beatsPerBar);
-        }
-        const cols = Math.max(1, beatsPerBar * barsInRow);
-        const col = Math.min(cols - 1, rowBarOffset * beatsPerBar + beatInBar);
-        return {
-          x: paddingX + safeRatio(col, cols) * gridW,
-          y: paddingTop + safeRatio(rowIndex, rows) * gridH,
-        };
-      });
+      }
+      const barsInRow = rowBars[rowIndex] ?? 1;
+      const rowBarOffset = Math.max(0, barIdx - (rowStartBar[rowIndex] ?? 0));
+      let beatInBar = beat.indexInParent ?? -1;
+      if (beatInBar < 0 && parent?.children) {
+        beatInBar = parent.children.indexOf(beat);
+      }
+      if (beatInBar < 0) {
+        beatInBar = i % Math.max(1, beatsPerBar);
+      }
+      const cols = Math.max(1, beatsPerBar * barsInRow);
+      const col = Math.min(cols - 1, rowBarOffset * beatsPerBar + beatInBar);
+      return {
+        x: paddingX + safeRatio(col, cols) * gridW,
+        y: paddingTop + safeRatio(rowIndex, rows) * gridH,
+      };
+    });
+  };
+}
+
+function createWavePositioner(): Positioner {
+  return (data: VisualizationData, width: number, height: number) => {
+    const count = data.beats.length;
+    const padding = 40;
+    const amp = height * 0.25;
+    const center = height / 2;
+    const span = width - padding * 2;
+    const waveTurns = 3;
+    return Array.from({ length: count }, (_, i) => {
+      const t = i / Math.max(1, count - 1);
+      return {
+        x: padding + span * t,
+        y: center + Math.sin(t * Math.PI * 2 * waveTurns) * amp,
+      };
+    });
+  };
+}
+
+function createInfinitePositioner(): Positioner {
+  return (data: VisualizationData, width: number, height: number) => {
+    const count = data.beats.length;
+    const cx = width / 2;
+    const cy = height / 2;
+    const ampX = width * 0.35;
+    const ampY = height * 0.25;
+    return Array.from({ length: count }, (_, i) => {
+      const t = (i / count) * Math.PI * 2;
+      return {
+        x: cx + Math.sin(t) * ampX,
+        y: cy + Math.sin(t * 2) * ampY,
+      };
+    });
+  };
+}
+
+function createGalaxyPositioner(): Positioner {
+  return (data: VisualizationData, width: number, height: number) => {
+    const count = data.beats.length;
+    const cx = width / 2;
+    const cy = height / 2;
+    const maxRadius = Math.min(width, height) * 0.42;
+    const minRadius = Math.min(width, height) * 0.08;
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    return Array.from({ length: count }, (_, i) => {
+      const t = i / Math.max(1, count - 1);
+      const angle = i * goldenAngle;
+      const radius = minRadius + (maxRadius - minRadius) * Math.sqrt(t);
+      const wobble =
+        0.06 * Math.sin(i * 12.9898) + 0.04 * Math.cos(i * 4.1414);
+      const r = radius * (1 + wobble);
+      return {
+        x: cx + Math.cos(angle) * r,
+        y: cy + Math.sin(angle) * r,
+      };
+    });
+  };
+}
+
+function getDefaultVisualizationDefinitions(): VisualizationDefinition[] {
+  return [
+    {
+      positioner: createArcDiagramPositioner(),
+      options: {
+        forceBendEdges: true,
+        edgeControlPointResolver: arcDiagramControlPointResolver,
+      },
     },
-    (data: VisualizationData, width: number, height: number) => {
-      const count = data.beats.length;
-      const padding = 40;
-      const amp = height * 0.25;
-      const center = height / 2;
-      const span = width - padding * 2;
-      const waveTurns = 3;
-      return Array.from({ length: count }, (_, i) => {
-        const t = i / Math.max(1, count - 1);
-        return {
-          x: padding + span * t,
-          y: center + Math.sin(t * Math.PI * 2 * waveTurns) * amp,
-        };
-      });
-    },
-    (data: VisualizationData, width: number, height: number) => {
-      const count = data.beats.length;
-      const cx = width / 2;
-      const cy = height / 2;
-      const ampX = width * 0.35;
-      const ampY = height * 0.25;
-      return Array.from({ length: count }, (_, i) => {
-        const t = (i / count) * Math.PI * 2;
-        return {
-          x: cx + Math.sin(t) * ampX,
-          y: cy + Math.sin(t * 2) * ampY,
-        };
-      });
-    },
-    (data: VisualizationData, width: number, height: number) => {
-      const count = data.beats.length;
-      const cx = width / 2;
-      const cy = height / 2;
-      const maxRadius = Math.min(width, height) * 0.42;
-      const minRadius = Math.min(width, height) * 0.08;
-      const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-      return Array.from({ length: count }, (_, i) => {
-        const t = i / Math.max(1, count - 1);
-        const angle = i * goldenAngle;
-        const radius = minRadius + (maxRadius - minRadius) * Math.sqrt(t);
-        const wobble =
-          0.06 * Math.sin(i * 12.9898) + 0.04 * Math.cos(i * 4.1414);
-        const r = radius * (1 + wobble);
-        return {
-          x: cx + Math.cos(angle) * r,
-          y: cy + Math.sin(angle) * r,
-        };
-      });
-    },
+    { positioner: JukeboxViz.createClassicPositioner() },
+    { positioner: createGalaxyPositioner() },
+    { positioner: createGridPositioner() },
+    { positioner: createInfinitePositioner() },
+    { positioner: createWavePositioner() },
   ];
-  return list.map(
-    (positioner) => new CanvasViz(vizLayer, positioner, { enableInteraction })
+}
+
+function createVisualizations(
+  vizLayer: HTMLElement,
+  positioners?: Positioner[],
+  enableInteraction = true
+) {
+  const definitions: VisualizationDefinition[] = positioners
+    ? positioners.map((positioner) => ({ positioner }))
+    : getDefaultVisualizationDefinitions();
+  return definitions.map(
+    ({ positioner, options }) =>
+      new CanvasViz(vizLayer, positioner, {
+        enableInteraction,
+        ...(options ?? {}),
+      })
   );
 }
 

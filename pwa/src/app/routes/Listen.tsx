@@ -12,7 +12,10 @@ import {
 } from "@/shared/utils/exportJson";
 import { BufferedAudioPlayer } from "@/shared/jukebox/audio/BufferedAudioPlayer";
 import { Edge, JukeboxConfig, JukeboxEngine } from "@/shared/jukebox/engine";
-import { VISUALIZATION_LABELS } from "@/shared/jukebox/constants/visualization";
+import {
+  DEFAULT_VISUALIZATION_INDEX,
+  VISUALIZATION_LABELS,
+} from "@/shared/jukebox/constants/visualization";
 import {
   exportJukeboxAudio,
   type JukeboxExportProgress,
@@ -47,6 +50,7 @@ const DEFAULT_CONFIG: JukeboxConfig = {
 };
 
 const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
+const VISUALIZATION_STORAGE_KEY = "fj-viz";
 const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 
 type PlayMode = "jukebox" | "autocanonizer";
@@ -54,6 +58,17 @@ type AudioExportFormat = "mp3" | "wav";
 
 function getVisualizationLabel(index: number) {
   return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
+}
+
+function coerceVisualizationIndex(index: number) {
+  if (
+    Number.isFinite(index) &&
+    index >= 0 &&
+    index < VISUALIZATION_LABELS.length
+  ) {
+    return index;
+  }
+  return DEFAULT_VISUALIZATION_INDEX;
 }
 
 function buildAudioExportName(fileName: string, extension: string) {
@@ -115,7 +130,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
-  const [activeVizIndex, setActiveVizIndex] = React.useState(0);
+  const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
+    try {
+      const raw = window.localStorage.getItem(VISUALIZATION_STORAGE_KEY);
+      if (raw !== null) {
+        const parsed = Number.parseInt(raw, 10);
+        return coerceVisualizationIndex(parsed);
+      }
+    } catch {
+      // ignore storage failures
+    }
+    return DEFAULT_VISUALIZATION_INDEX;
+  });
   const [playMode, setPlayMode] = React.useState<PlayMode>("jukebox");
   const [finishOutSong, setFinishOutSong] = React.useState<boolean>(() => {
     try {
@@ -175,6 +201,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [activeVizIndex]);
 
   React.useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        VISUALIZATION_STORAGE_KEY,
+        String(activeVizIndex)
+      );
+    } catch {
+      // ignore storage failures
+    }
+  }, [activeVizIndex]);
+
+  React.useEffect(() => {
     if (!vizLayerRef.current || !canonizerLayerRef.current) {
       return;
     }
@@ -183,6 +220,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     vizControllerRef.current = controller;
     autocanonizerRef.current = autocanonizer;
 
+    controller.setActiveIndex(activeVizIndex);
     controller.setVisible(playModeRef.current === "jukebox");
     autocanonizer.setVisible(playModeRef.current === "autocanonizer");
     autocanonizer.setFinishOutSong(finishOutSong);
@@ -989,8 +1027,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       )
                     }
                   >
-                    <option value="jukebox">Jukebox</option>
                     <option value="autocanonizer">Autocanonizer</option>
+                    <option value="jukebox">Jukebox</option>
                   </select>
                   <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
                 </span>
