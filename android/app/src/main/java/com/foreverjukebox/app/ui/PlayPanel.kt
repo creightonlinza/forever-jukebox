@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.visualization.AutocanonizerVisualization
 import com.foreverjukebox.app.visualization.JukeboxVisualization
+import com.foreverjukebox.app.visualization.edgeRoutingForVisualization
 import com.foreverjukebox.app.visualization.positioners
 import com.foreverjukebox.app.visualization.visualizationLabels
 import kotlinx.coroutines.launch
@@ -323,6 +324,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                     currentIndex = playback.currentBeatIndex,
                                     jumpLine = jumpLine,
                                     positioner = positioners.getOrNull(playback.activeVizIndex) ?: positioners.first(),
+                                    edgeRouting = edgeRoutingForVisualization(playback.activeVizIndex),
                                     onSelectBeat = viewModel::selectBeat,
                                     modifier = Modifier.size(vizSide)
                                 )
@@ -359,16 +361,16 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                     onDismissRequest = { showModeMenu = false }
                                 ) {
                                     DropdownMenuItem(
-                                        text = { Text("Jukebox") },
+                                        text = { Text("Autocanonizer") },
                                         onClick = {
-                                            viewModel.setPlaybackMode(PlaybackMode.Jukebox)
+                                            viewModel.setPlaybackMode(PlaybackMode.Autocanonizer)
                                             showModeMenu = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Autocanonizer") },
+                                        text = { Text("Jukebox") },
                                         onClick = {
-                                            viewModel.setPlaybackMode(PlaybackMode.Autocanonizer)
+                                            viewModel.setPlaybackMode(PlaybackMode.Jukebox)
                                             showModeMenu = false
                                         }
                                     )

@@ -59,6 +59,8 @@ import com.foreverjukebox.app.data.ThemeMode
 import com.foreverjukebox.app.engine.JukeboxState
 import com.foreverjukebox.app.playback.PlaybackControllerHolder
 import com.foreverjukebox.app.visualization.AutocanonizerVisualization
+import com.foreverjukebox.app.visualization.defaultVisualizationIndex
+import com.foreverjukebox.app.visualization.edgeRoutingForVisualization
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.JumpLine
 import com.foreverjukebox.app.visualization.positioners
@@ -71,7 +73,7 @@ class FullscreenActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         hideSystemBars()
 
-        val initialVizIndex = intent.getIntExtra(EXTRA_VIZ_INDEX, 0)
+        val initialVizIndex = intent.getIntExtra(EXTRA_VIZ_INDEX, defaultVisualizationIndex)
         val initialMode = intent.getStringExtra(EXTRA_MODE)?.let { raw ->
             runCatching { PlaybackMode.valueOf(raw) }.getOrNull()
         } ?: PlaybackMode.Jukebox
@@ -214,6 +216,7 @@ private fun FullscreenScreen(
                     currentIndex = currentBeatIndex,
                     jumpLine = jumpLine,
                     positioner = positioners.getOrNull(activeVizIndex) ?: positioners.first(),
+                    edgeRouting = edgeRoutingForVisualization(activeVizIndex),
                     onSelectBeat = { index ->
                         if (!controller.seekToBeat(index, vizData)) return@JukeboxVisualization
                         currentBeatIndex = index
@@ -250,16 +253,16 @@ private fun FullscreenScreen(
                     onDismissRequest = { showModeMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Jukebox") },
+                        text = { Text("Autocanonizer") },
                         onClick = {
-                            playMode = PlaybackMode.Jukebox
+                            playMode = PlaybackMode.Autocanonizer
                             showModeMenu = false
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Autocanonizer") },
+                        text = { Text("Jukebox") },
                         onClick = {
-                            playMode = PlaybackMode.Autocanonizer
+                            playMode = PlaybackMode.Jukebox
                             showModeMenu = false
                         }
                     )

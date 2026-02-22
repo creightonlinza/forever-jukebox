@@ -24,6 +24,7 @@ import com.foreverjukebox.app.local.UnsupportedAudioFormatException
 import com.foreverjukebox.app.playback.ForegroundPlaybackService
 import com.foreverjukebox.app.playback.PlaybackControllerHolder
 import com.foreverjukebox.app.visualization.JumpLine
+import com.foreverjukebox.app.visualization.defaultVisualizationIndex
 import com.foreverjukebox.app.visualization.visualizationCount
 import com.foreverjukebox.app.cast.CastAppIdResolver
 import com.google.android.gms.cast.framework.CastContext
@@ -144,7 +145,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             preferences.activeVizIndex.collect { index ->
-                val resolvedIndex = if (index in 0 until visualizationCount) index else 0
+                val resolvedIndex = if (index in 0 until visualizationCount) {
+                    index
+                } else {
+                    defaultVisualizationIndex
+                }
                 _state.update {
                     it.copy(playback = it.playback.copy(activeVizIndex = resolvedIndex))
                 }
@@ -1483,6 +1488,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setActiveVisualization(index: Int) {
+        if (index !in 0 until visualizationCount) {
+            return
+        }
         _state.update { it.copy(playback = it.playback.copy(activeVizIndex = index)) }
         viewModelScope.launch {
             preferences.setActiveVizIndex(index)
