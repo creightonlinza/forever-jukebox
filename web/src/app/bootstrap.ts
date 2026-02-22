@@ -51,7 +51,7 @@ import {
   updateVizVisibility,
 } from "./playback";
 import { runSearch } from "./search";
-import { TOP_SONGS_LIMIT } from "./constants";
+import { DEFAULT_VISUALIZATION_INDEX, TOP_SONGS_LIMIT } from "./constants";
 import type { AppContext, AppState, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers } from "./wire/favorites";
@@ -108,7 +108,7 @@ export function bootstrap() {
   const defaultConfig = engine.getConfig();
   const state: AppState = {
     activeTabId: "top",
-    activeVizIndex: 0,
+    activeVizIndex: DEFAULT_VISUALIZATION_INDEX,
     playMode: "jukebox",
     topSongsTab: "top",
     favorites: loadFavorites(),
@@ -389,7 +389,7 @@ export function bootstrap() {
     showToast,
   });
 
-  jukebox.setActiveIndex(0);
+  jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
   elements.vizSelect.disabled = true;
   attachVisualizationResize([jukebox], elements.vizPanel);
   attachVisualizationResize([autocanonizer], elements.vizPanel);
