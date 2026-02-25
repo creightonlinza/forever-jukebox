@@ -123,6 +123,7 @@ export class JukeboxEngine {
     if (!this.analysis) {
       return;
     }
+    this.clearEdgeDeletionFlags();
     this.config.minLongBranch = Math.floor(this.analysis.beats.length / 5);
     this.graph = buildJumpGraph(this.analysis, this.config);
     this.curRandomBranchChance = this.config.minRandomBranchChance;
@@ -194,6 +195,7 @@ export class JukeboxEngine {
 
   clearDeletedEdges() {
     this.deletedEdgeKeys.clear();
+    this.clearEdgeDeletionFlags();
   }
 
   deleteEdge(edge: { src: QuantumBase; dest: QuantumBase; deleted: boolean }) {
@@ -229,6 +231,25 @@ export class JukeboxEngine {
         }
       }
       beat.neighbors = beat.neighbors.filter((edge) => !edge.deleted);
+    }
+  }
+
+  private clearEdgeDeletionFlags() {
+    if (!this.analysis) {
+      return;
+    }
+    if (this.graph) {
+      for (const edge of this.graph.allEdges) {
+        edge.deleted = false;
+      }
+    }
+    for (const beat of this.analysis.beats) {
+      for (const edge of beat.allNeighbors) {
+        edge.deleted = false;
+      }
+      for (const edge of beat.neighbors) {
+        edge.deleted = false;
+      }
     }
   }
 

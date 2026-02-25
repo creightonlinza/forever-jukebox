@@ -116,6 +116,12 @@ function precalculateNearestNeighbors(
     return;
   }
   if (quanta[0].allNeighbors.length > 0) {
+    allEdges.length = 0;
+    for (const q of quanta) {
+      for (const edge of q.allNeighbors) {
+        allEdges.push(edge);
+      }
+    }
     return;
   }
   allEdges.length = 0;
