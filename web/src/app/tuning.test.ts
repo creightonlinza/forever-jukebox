@@ -16,7 +16,6 @@ function createConfig(overrides: Partial<JukeboxConfig> = {}): JukeboxConfig {
     maxBranches: 4,
     maxBranchThreshold: 80,
     currentThreshold: 0,
-    addLastEdge: true,
     justBackwards: false,
     justLongBranches: false,
     removeSequentialBranches: false,
@@ -63,15 +62,14 @@ describe("tuning params", () => {
     setWindowUrl("http://localhost/listen/abc");
   });
 
-  it("applies legacy tuning params to engine config", () => {
+  it("applies tuning params to engine config", () => {
     const context = createContext();
     const params = new URLSearchParams(
-      "lb=0&jb=1&lg=1&sq=0&thresh=25&bp=18,50,10",
+      "jb=1&lg=1&sq=0&thresh=25&bp=18,50,10",
     );
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
     const config = context.engine.getConfig();
-    expect(config.addLastEdge).toBe(false);
     expect(config.justBackwards).toBe(true);
     expect(config.justLongBranches).toBe(true);
     expect(config.removeSequentialBranches).toBe(true);
@@ -89,7 +87,6 @@ describe("tuning params", () => {
     const params = getTuningParamsFromEngine(context);
     expect(params.get("jb")).toBe("1");
     expect(params.get("thresh")).toBe("30");
-    expect(params.get("lb")).toBeNull();
     expect(params.get("bp")).toBeNull();
   });
 
@@ -121,13 +118,12 @@ describe("tuning params", () => {
   });
 
   it("writes and clears tuning params in the URL", () => {
-    setWindowUrl("http://localhost/listen/abc?foo=bar&lb=0");
+    setWindowUrl("http://localhost/listen/abc?foo=bar");
     writeTuningParamsToUrl("jb=1&thresh=20&bp=25,50,10", true);
     expect(window.location.search).toContain("foo=bar");
     expect(window.location.search).toContain("jb=1");
     expect(window.location.search).toContain("thresh=20");
     expect(window.location.search).toContain("bp=25,50,10");
-    expect(window.location.search).not.toContain("lb=0");
 
     clearTuningParamsFromUrl(true);
     expect(window.location.search).toContain("foo=bar");

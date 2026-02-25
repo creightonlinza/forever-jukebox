@@ -123,7 +123,7 @@ function isLikelyYoutubeId(value: string) {
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 1;
-const TUNING_PARAM_KEYS = ["lb", "jb", "lg", "sq", "thresh", "bp", "d"];
+const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d"];
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -157,9 +157,6 @@ function parseTuningParams(
     return null;
   }
   const nextConfig: JukeboxConfig = { ...defaults };
-  if (params.has("lb")) {
-    nextConfig.addLastEdge = params.get("lb") !== "0";
-  }
   if (params.get("jb") === "1") {
     nextConfig.justBackwards = true;
   }

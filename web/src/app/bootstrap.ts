@@ -5,6 +5,7 @@ import { attachVisualizationResize } from "./visualization";
 import { AutocanonizerController } from "../autocanonizer/AutocanonizerController";
 import { JukeboxController } from "../jukebox/JukeboxController";
 import { applyTheme, applyThemeVariables, resolveStoredTheme } from "./theme";
+import { resolveStoredAnchorHighlight } from "./anchorHighlight";
 import {
   setAnalysisStatus,
   setLoadingProgress,
@@ -105,6 +106,8 @@ export function bootstrap() {
   const engine = new JukeboxEngine(player, { randomMode: "random" });
   const autocanonizer = new AutocanonizerController(elements.canonizerLayer);
   const jukebox = new JukeboxController(elements.vizLayer);
+  const highlightAnchorBranch = resolveStoredAnchorHighlight();
+  jukebox.setAnchorHighlightEnabled(highlightAnchorBranch);
   const defaultConfig = engine.getConfig();
   const state: AppState = {
     activeTabId: "top",
@@ -145,6 +148,7 @@ export function bootstrap() {
     wakeLock: null,
     tuningParams: null,
     deletedEdgeIds: [],
+    highlightAnchorBranch,
   };
   const context: AppContext = {
     elements,

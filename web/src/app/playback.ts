@@ -23,6 +23,7 @@ import {
   syncTuningParamsState,
   writeTuningParamsToUrl,
 } from "./tuning";
+import { storeAnchorHighlight } from "./anchorHighlight";
 
 const DEFAULT_VOLUME = 0.5;
 
@@ -221,10 +222,10 @@ export function syncTuningUI(context: AppContext) {
   const volumePct = Math.round(player.getVolume() * 100);
   elements.volumeInput.value = `${volumePct}`;
   elements.volumeVal.textContent = `${volumePct}`;
-  elements.lastEdgeInput.checked = config.addLastEdge;
   elements.justBackwardsInput.checked = config.justBackwards;
   elements.justLongInput.checked = config.justLongBranches;
   elements.removeSeqInput.checked = config.removeSequentialBranches;
+  elements.highlightAnchorBranchInput.checked = state.highlightAnchorBranch;
   const computedValue =
     state.autoComputedThreshold ??
     (graph ? Math.round(graph.currentThreshold) : null);
@@ -255,11 +256,13 @@ export function applyTuningChanges(context: AppContext) {
     minRandomBranchChance: minProb,
     maxRandomBranchChance: maxProb,
     randomBranchChanceDelta: ramp,
-    addLastEdge: elements.lastEdgeInput.checked,
     justBackwards: elements.justBackwardsInput.checked,
     justLongBranches: elements.justLongInput.checked,
     removeSequentialBranches: elements.removeSeqInput.checked,
   });
+  state.highlightAnchorBranch = elements.highlightAnchorBranchInput.checked;
+  storeAnchorHighlight(state.highlightAnchorBranch);
+  jukebox.setAnchorHighlightEnabled(state.highlightAnchorBranch);
   engine.rebuildGraph();
   state.vizData = engine.getVisualizationData();
   const data = state.vizData;
@@ -529,7 +532,12 @@ export function resetForNewTrack(
   state.vizData = null;
   syncTuningParamsState(context);
   updateTrackInfo(context);
-  const emptyVizData = { beats: [], edges: [] };
+  const emptyVizData = {
+    beats: [],
+    edges: [],
+    lastBranchPoint: -1,
+    anchorEdgeId: null,
+  };
   jukebox.setData(emptyVizData);
   jukebox.reset();
 }
