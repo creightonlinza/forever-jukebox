@@ -187,4 +187,27 @@ describe("buildJumpGraph", () => {
     expect(graph.currentThreshold).toBe(60);
     expect(graph.computedThreshold).toBeGreaterThan(0);
   });
+
+  it("reuses cached neighbors and still returns allEdges", () => {
+    const analysis = normalizeAnalysis(makeAnalysis());
+    const config: JukeboxConfig = {
+      maxBranches: 3,
+      maxBranchThreshold: 80,
+      currentThreshold: 60,
+      addLastEdge: true,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 1,
+    };
+    const first = buildJumpGraph(analysis, config);
+    const firstCount = first.allEdges.length;
+    expect(firstCount).toBeGreaterThan(0);
+
+    const second = buildJumpGraph(analysis, config);
+    expect(second.allEdges.length).toBe(firstCount);
+  });
 });

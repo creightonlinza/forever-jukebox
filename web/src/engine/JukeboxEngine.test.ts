@@ -517,3 +517,85 @@ describe("JukeboxEngine jump timing", () => {
     engine.stopJukebox();
   });
 });
+
+describe("JukeboxEngine deleted edges across rebuild", () => {
+  it("preserves deleted edge flags in graph storage after rebuild", () => {
+    const player = makePlayer();
+    const engine = new JukeboxEngine(player, {
+      config: {
+        currentThreshold: 80,
+        maxBranchThreshold: 80,
+      },
+    });
+    engine.loadAnalysis(makeAnalysisPayload(8));
+    const before = engine.getGraphState();
+    expect(before).toBeTruthy();
+    expect((before?.allEdges.length ?? 0)).toBeGreaterThan(0);
+    if (!before || before.allEdges.length === 0) {
+      throw new Error("Expected graph edges before deletion");
+    }
+
+    const toDelete = before.allEdges[0];
+    const deletedKey = `${toDelete.src.which}-${toDelete.dest.which}`;
+    engine.deleteEdge(toDelete);
+    engine.rebuildGraph();
+
+    const after = engine.getGraphState();
+    expect(after).toBeTruthy();
+    expect((after?.allEdges.length ?? 0)).toBeGreaterThan(0);
+    const matched = after?.allEdges.find(
+      (edge) => `${edge.src.which}-${edge.dest.which}` === deletedKey,
+    );
+    expect(matched).toBeTruthy();
+    expect(matched?.deleted).toBe(true);
+  });
+
+  it("clears prior deletions after reset before tracking new deletions", () => {
+    const player = makePlayer();
+    const engine = new JukeboxEngine(player, {
+      config: {
+        currentThreshold: 80,
+        maxBranchThreshold: 80,
+      },
+    });
+    engine.loadAnalysis(makeAnalysisPayload(8));
+    const initial = engine.getGraphState();
+    expect(initial).toBeTruthy();
+    expect((initial?.allEdges.length ?? 0)).toBeGreaterThan(1);
+    if (!initial || initial.allEdges.length < 2) {
+      throw new Error("Expected at least two graph edges");
+    }
+
+    const firstEdge = initial.allEdges[0];
+    const firstKey = `${firstEdge.src.which}-${firstEdge.dest.which}`;
+    engine.deleteEdge(firstEdge);
+    engine.rebuildGraph();
+
+    engine.clearDeletedEdges();
+    engine.rebuildGraph();
+    const afterReset = engine.getGraphState();
+    const resetDeleted =
+      afterReset?.allEdges.filter((edge) => edge.deleted) ?? [];
+    expect(resetDeleted.length).toBe(0);
+    if (!afterReset) {
+      throw new Error("Expected graph state after reset");
+    }
+    const secondEdge = afterReset.allEdges.find(
+      (edge) => `${edge.src.which}-${edge.dest.which}` !== firstKey,
+    );
+    if (!secondEdge) {
+      throw new Error("Expected a second edge after reset");
+    }
+    const secondKey = `${secondEdge.src.which}-${secondEdge.dest.which}`;
+
+    engine.deleteEdge(secondEdge);
+    engine.rebuildGraph();
+    const finalGraph = engine.getGraphState();
+    const finalDeleted =
+      finalGraph?.allEdges.filter((edge) => edge.deleted) ?? [];
+    expect(finalDeleted.length).toBe(1);
+    const finalKey = `${finalDeleted[0].src.which}-${finalDeleted[0].dest.which}`;
+    expect(finalKey).toBe(secondKey);
+    expect(finalKey).not.toBe(firstKey);
+  });
+});
