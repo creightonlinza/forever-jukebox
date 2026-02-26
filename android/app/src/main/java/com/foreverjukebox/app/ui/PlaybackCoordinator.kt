@@ -74,9 +74,6 @@ class PlaybackCoordinator(
         if (!shouldApplyTuningParams()) return null
         val config = engine.getConfig()
         val params = mutableListOf<String>()
-        if (!config.addLastEdge) {
-            params.add("lb=0")
-        }
         if (config.justBackwards) {
             params.add("jb=1")
         }
@@ -535,7 +532,6 @@ class PlaybackCoordinator(
                     minProb = (config.minRandomBranchChance * 100).toInt(),
                     maxProb = (config.maxRandomBranchChance * 100).toInt(),
                     ramp = (config.randomBranchChanceDelta * 100).toInt(),
-                    addLastEdge = config.addLastEdge,
                     justBackwards = config.justBackwards,
                     justLong = config.justLongBranches,
                     removeSequential = config.removeSequentialBranches
@@ -709,11 +705,6 @@ class PlaybackCoordinator(
         if (raw.isNullOrBlank()) return null
         val uri = "http://localhost/?$raw".toUri()
         var config = defaultConfig
-        uri.getQueryParameter("lb")?.let { value ->
-            if (value == "0") {
-                config = config.copy(addLastEdge = false)
-            }
-        }
         if (uri.getQueryParameter("jb") == "1") {
             config = config.copy(justBackwards = true)
         }

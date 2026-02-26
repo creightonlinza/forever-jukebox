@@ -19,7 +19,11 @@ type LastUpdate = {
 interface VisualizationData {
   beats: QuantumBase[];
   edges: Edge[];
+  lastBranchPoint: number;
+  anchorEdgeId: number | null;
 }
+
+const ANCHOR_HIGHLIGHT_COLOR = "#ff2d2d";
 
 interface JumpLine {
   from: number;
@@ -79,6 +83,7 @@ class CanvasViz {
   private forceBendEdges: boolean;
   private edgeControlPointResolver: EdgeControlPointResolver | null;
   private visible = true;
+  private anchorHighlightEnabled = false;
 
   private edgeGeometry = new WeakMap<
     Edge,
@@ -191,6 +196,11 @@ class CanvasViz {
   setSelectedEdge(edge: Edge | null) {
     this.selectedEdge = edge;
     this.drawOverlay();
+  }
+
+  setAnchorHighlightEnabled(enabled: boolean) {
+    this.anchorHighlightEnabled = enabled;
+    this.drawBase();
   }
 
   resizeNow() {
@@ -349,6 +359,16 @@ class CanvasViz {
         this.baseCtx.moveTo(from.x, from.y);
         this.baseCtx.lineTo(to.x, to.y);
         this.baseCtx.stroke();
+      }
+    }
+
+    if (this.anchorHighlightEnabled && this.data.anchorEdgeId !== null) {
+      for (const edge of edges) {
+        if (edge.deleted || edge.id !== this.data.anchorEdgeId) {
+          continue;
+        }
+        this.drawEdge(this.baseCtx, edge, ANCHOR_HIGHLIGHT_COLOR, 1.8);
+        break;
       }
     }
 
@@ -971,6 +991,7 @@ export class JukeboxViz {
   private data: VizData | null = null;
   private selectedEdge: Edge | null = null;
   private lastUpdate: LastUpdate | null = null;
+  private anchorHighlightEnabled = false;
 
   static createClassicPositioner(): Positioner {
     return (data: VisualizationData, width: number, height: number) => {
@@ -997,6 +1018,9 @@ export class JukeboxViz {
       vizLayer,
       options?.positioners,
       enableInteraction
+    );
+    this.visualizations.forEach((viz) =>
+      viz.setAnchorHighlightEnabled(this.anchorHighlightEnabled)
     );
     this.setActiveIndex(0);
   }
@@ -1047,6 +1071,11 @@ export class JukeboxViz {
   setData(data: VizData) {
     this.data = data;
     this.visualizations.forEach((viz) => viz.setData(data));
+  }
+
+  setAnchorHighlightEnabled(enabled: boolean) {
+    this.anchorHighlightEnabled = enabled;
+    this.visualizations.forEach((viz) => viz.setAnchorHighlightEnabled(enabled));
   }
 
   refresh() {

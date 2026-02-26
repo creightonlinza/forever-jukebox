@@ -52,7 +52,6 @@ const baseConfig: JukeboxConfig = {
   maxBranches: 4,
   maxBranchThreshold: 120,
   currentThreshold: 120,
-  addLastEdge: true,
   justBackwards: false,
   justLongBranches: false,
   removeSequentialBranches: false,

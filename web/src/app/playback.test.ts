@@ -18,11 +18,29 @@ function createClassList() {
   };
 }
 
+function setLocalStorage() {
+  const store = new Map<string, string>();
+  globalThis.localStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+  } as Storage;
+  return store;
+}
+
 beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => ({ ok: true }) as Response),
   );
+  setLocalStorage();
 });
 
 afterEach(() => {
@@ -51,10 +69,10 @@ function createElements() {
     rampVal: createSpan(),
     volumeInput: createInput("50"),
     volumeVal: createSpan(),
-    lastEdgeInput: createInput(),
     justBackwardsInput: createInput(),
     justLongInput: createInput(),
     removeSeqInput: createInput(),
+    highlightAnchorBranchInput: createInput(),
     tuningModal: { classList: createClassList() },
     infoModal: { classList: createClassList() },
     listenTimeEl: createSpan(),
@@ -82,7 +100,6 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     minRandomBranchChance: 0.18,
     maxRandomBranchChance: 0.5,
     randomBranchChanceDelta: 0.1,
-    addLastEdge: true,
     justBackwards: false,
     justLongBranches: false,
     removeSequentialBranches: false,
@@ -116,6 +133,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
   };
   const jukebox = {
     setData: vi.fn(),
+    setAnchorHighlightEnabled: vi.fn(),
     setSelectedEdge: vi.fn(),
     resizeActive: vi.fn(),
     reset: vi.fn(),
@@ -164,6 +182,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
       appConfig: null,
       tuningParams: null,
       deletedEdgeIds: [],
+      highlightAnchorBranch: false,
       beatsPlayed: 0,
     } as unknown as AppContext["state"],
     ...overrides,
@@ -178,10 +197,12 @@ describe("playback tuning", () => {
 
   it("syncs tuning UI from config and graph", () => {
     const context = createContext();
+    context.state.highlightAnchorBranch = true;
     syncTuningUI(context);
     expect(context.elements.thresholdInput.value).toBe("45");
     expect(context.elements.thresholdVal.textContent).toBe("45");
     expect(context.elements.volumeVal.textContent).toBe("50");
+    expect(context.elements.highlightAnchorBranchInput.checked).toBe(true);
     expect(context.elements.computedThresholdEl.textContent).toBe("45");
   });
 
@@ -213,7 +234,6 @@ describe("playback tuning", () => {
           minRandomBranchChance: 0.18,
           maxRandomBranchChance: 0.5,
           randomBranchChanceDelta: 0.1,
-          addLastEdge: true,
           justBackwards: false,
           justLongBranches: false,
           removeSequentialBranches: false,
@@ -225,6 +245,7 @@ describe("playback tuning", () => {
       } as unknown as AppContext["engine"],
       jukebox: {
         setData: vi.fn(),
+        setAnchorHighlightEnabled: vi.fn(),
         setSelectedEdge: vi.fn(),
         resizeActive: vi.fn(),
         reset: vi.fn(),
@@ -236,6 +257,17 @@ describe("playback tuning", () => {
     applyTuningChanges(context);
     expect(context.state.vizData).toEqual({ beats: [1], edges: [1] });
     expect(context.jukebox.setData).toHaveBeenCalledWith({ beats: [1], edges: [1] });
+  });
+
+  it("persists forced-branch highlight preference in localStorage", () => {
+    const context = createContext();
+    context.elements.highlightAnchorBranchInput.checked = true;
+
+    applyTuningChanges(context);
+
+    expect(context.state.highlightAnchorBranch).toBe(true);
+    expect(localStorage.getItem("fj-highlight-anchor-branch")).toBe("1");
+    expect(context.jukebox.setAnchorHighlightEnabled).toHaveBeenCalledWith(true);
   });
 
   it("applies deleted edges from url when analysis loads", () => {
@@ -256,7 +288,6 @@ describe("playback tuning", () => {
           minRandomBranchChance: 0.18,
           maxRandomBranchChance: 0.5,
           randomBranchChanceDelta: 0.1,
-          addLastEdge: true,
           justBackwards: false,
           justLongBranches: false,
           removeSequentialBranches: false,
@@ -310,7 +341,6 @@ describe("playback tuning", () => {
           minRandomBranchChance: 0.18,
           maxRandomBranchChance: 0.5,
           randomBranchChanceDelta: 0.1,
-          addLastEdge: true,
           justBackwards: false,
           justLongBranches: false,
           removeSequentialBranches: false,

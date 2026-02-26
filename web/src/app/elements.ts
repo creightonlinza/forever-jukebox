@@ -253,10 +253,6 @@ export function getElements() {
     document.querySelector<HTMLSpanElement>("#volume-val"),
     "#volume-val"
   );
-  const lastEdgeInput = requireElement(
-    document.querySelector<HTMLInputElement>("#last-edge"),
-    "#last-edge"
-  );
   const justBackwardsInput = requireElement(
     document.querySelector<HTMLInputElement>("#just-backwards"),
     "#just-backwards"
@@ -268,6 +264,10 @@ export function getElements() {
   const removeSeqInput = requireElement(
     document.querySelector<HTMLInputElement>("#remove-seq"),
     "#remove-seq"
+  );
+  const highlightAnchorBranchInput = requireElement(
+    document.querySelector<HTMLInputElement>("#highlight-anchor-branch"),
+    "#highlight-anchor-branch"
   );
   const searchInput = requireElement(
     document.querySelector<HTMLInputElement>("#search-input"),
@@ -450,10 +450,10 @@ export function getElements() {
     rampVal,
     volumeInput,
     volumeVal,
-    lastEdgeInput,
     justBackwardsInput,
     justLongInput,
     removeSeqInput,
+    highlightAnchorBranchInput,
     searchInput,
     searchButton,
     searchSubtabs,

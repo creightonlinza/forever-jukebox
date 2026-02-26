@@ -107,7 +107,7 @@ data class TuningState(
     val minProb: Int = 18,
     val maxProb: Int = 50,
     val ramp: Int = 10,
-    val addLastEdge: Boolean = true,
+    val highlightAnchorBranch: Boolean = false,
     val justBackwards: Boolean = false,
     val justLong: Boolean = false,
     val removeSequential: Boolean = false
@@ -215,7 +215,7 @@ fun stateAfterModeChangeReset(
         topSongsTab = TopSongsTab.TopSongs,
         search = SearchState(),
         playback = PlaybackState(),
-        tuning = TuningState()
+        tuning = TuningState(highlightAnchorBranch = current.tuning.highlightAnchorBranch)
     )
 }
 

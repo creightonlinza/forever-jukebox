@@ -45,7 +45,6 @@ const mockConfig: JukeboxConfig = {
   maxBranches: 4,
   maxBranchThreshold: 80,
   currentThreshold: 0,
-  addLastEdge: true,
   justBackwards: false,
   justLongBranches: false,
   removeSequentialBranches: false,

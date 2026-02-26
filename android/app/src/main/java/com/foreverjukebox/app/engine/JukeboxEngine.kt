@@ -90,6 +90,7 @@ class JukeboxEngine(
 
     fun rebuildGraph() {
         val current = analysis ?: return
+        clearEdgeDeletionFlags()
         config = config.copy(minLongBranch = current.beats.size / 5)
         graph = buildJumpGraph(current, config)
         curRandomBranchChance = config.minRandomBranchChance
@@ -99,7 +100,7 @@ class JukeboxEngine(
 
     fun getVisualizationData(): VisualizationData? {
         val current = analysis ?: return null
-        graph ?: return null
+        val currentGraph = graph ?: return null
         val edgeMap = linkedMapOf<String, Edge>()
         for (beat in current.beats) {
             for (edge in beat.neighbors) {
@@ -108,7 +109,21 @@ class JukeboxEngine(
                 edgeMap.putIfAbsent(key, edge)
             }
         }
-        return VisualizationData(current.beats, edgeMap.values.toMutableList())
+        var anchorEdgeId: Int? = null
+        val anchorSource = beats.getOrNull(currentGraph.lastBranchPoint)
+        if (anchorSource != null && anchorSource.neighbors.isNotEmpty()) {
+            val bestIndex = getBestLastBranchNeighborIndex(anchorSource)
+            val bestEdge = anchorSource.neighbors.getOrNull(bestIndex)
+            if (bestEdge != null && !bestEdge.deleted) {
+                anchorEdgeId = bestEdge.id
+            }
+        }
+        return VisualizationData(
+            beats = current.beats,
+            edges = edgeMap.values.toMutableList(),
+            lastBranchPoint = currentGraph.lastBranchPoint,
+            anchorEdgeId = anchorEdgeId
+        )
     }
 
     fun play() = player.play()
@@ -146,6 +161,7 @@ class JukeboxEngine(
 
     fun clearDeletedEdges() {
         deletedEdgeKeys.clear()
+        clearEdgeDeletionFlags()
     }
 
     fun deleteEdge(edge: Edge) {
@@ -316,6 +332,21 @@ class JukeboxEngine(
         }
     }
 
+    private fun clearEdgeDeletionFlags() {
+        val currentAnalysis = analysis ?: return
+        graph?.allEdges?.forEach { edge ->
+            edge.deleted = false
+        }
+        for (beat in currentAnalysis.beats) {
+            for (edge in beat.allNeighbors) {
+                edge.deleted = false
+            }
+            for (edge in beat.neighbors) {
+                edge.deleted = false
+            }
+        }
+    }
+
     private fun edgeKey(src: Int, dest: Int): String = "$src-$dest"
 
     private fun emitState(jumped: Boolean) {
@@ -344,7 +375,9 @@ data class JukeboxEngineOptions(
 
 data class VisualizationData(
     val beats: List<QuantumBase>,
-    val edges: MutableList<Edge>
+    val edges: MutableList<Edge>,
+    val lastBranchPoint: Int = -1,
+    val anchorEdgeId: Int? = null
 )
 
 private const val TICK_INTERVAL_MS = 50L

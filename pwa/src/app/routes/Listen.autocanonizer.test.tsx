@@ -103,7 +103,6 @@ vi.mock("@/shared/jukebox/engine", () => ({
       maxBranches: 4,
       maxBranchThreshold: 80,
       currentThreshold: 0,
-      addLastEdge: true,
       justBackwards: false,
       justLongBranches: false,
       removeSequentialBranches: false,
@@ -155,6 +154,7 @@ vi.mock("@/shared/jukebox/viz/JukeboxController", () => ({
     constructor(_layer: HTMLElement) {}
     setActiveIndex(_index: number) {}
     setVisible(_visible: boolean) {}
+    setAnchorHighlightEnabled(_enabled: boolean) {}
     resizeActive() {}
     reset() {}
     setData(_data: unknown) {}

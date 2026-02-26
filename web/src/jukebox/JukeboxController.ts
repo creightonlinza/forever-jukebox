@@ -24,6 +24,10 @@ export class JukeboxController {
     this.viz.setData(data);
   }
 
+  setAnchorHighlightEnabled(enabled: boolean) {
+    this.viz.setAnchorHighlightEnabled(enabled);
+  }
+
   refresh() {
     this.viz.refresh();
   }

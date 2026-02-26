@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeAnalysis } from "./analysis";
 import { buildJumpGraph } from "./graph";
-import { JukeboxConfig } from "./types";
+import { Edge, JukeboxConfig, QuantumBase } from "./types";
 
 function makeAnalysis() {
   return {
@@ -68,6 +68,136 @@ function makeAnalysis() {
   };
 }
 
+function makeLinearAnalysis(totalBeats: number) {
+  return {
+    sections: [{ start: 0, duration: totalBeats, confidence: 1 }],
+    bars: Array.from({ length: totalBeats }, (_, i) => ({
+      start: i,
+      duration: 1,
+      confidence: 0.8,
+    })),
+    beats: Array.from({ length: totalBeats }, (_, i) => ({
+      start: i,
+      duration: 1,
+      confidence: 0.7,
+    })),
+    tatums: Array.from({ length: totalBeats }, (_, i) => ({
+      start: i,
+      duration: 1,
+      confidence: 0.6,
+    })),
+    segments: Array.from({ length: totalBeats }, (_, i) => ({
+      start: i,
+      duration: 1,
+      confidence: 0.5,
+      loudness_start: -20 + i * 0.1,
+      loudness_max: -8 + i * 0.1,
+      loudness_max_time: 0.2,
+      pitches: new Array(12).fill(0.3 + i * 0.001),
+      timbre: new Array(12).fill(0.8 + i * 0.001),
+    })),
+    track: { duration: totalBeats },
+  };
+}
+
+function makeEdge(
+  id: number,
+  src: QuantumBase,
+  dest: QuantumBase,
+  distance: number,
+): Edge {
+  return {
+    id,
+    src,
+    dest,
+    distance,
+    deleted: false,
+  };
+}
+
+function makeCachedAnchorScenario(
+  existingAnchorDest: number,
+  earliestBackwardDest?: number,
+) {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(7));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // Optional earlier backward destination to define branch-onset beat.
+  if (earliestBackwardDest !== undefined) {
+    push(3, earliestBackwardDest, 10);
+  }
+  // Existing branch in last third that may or may not be an acceptable anchor.
+  push(6, existingAnchorDest, 10);
+  // Candidate branch above threshold that anchor insertion would add if needed.
+  push(5, 0, 40);
+  return analysis;
+}
+
+function makeLateLongAnchorPreferenceScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(10));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // Earlier direct anchor candidate (0 hops to target).
+  push(7, 2, 5);
+  // Later long candidate that needs one extra hop to target.
+  push(9, 6, 5);
+  push(6, 2, 5);
+  return analysis;
+}
+
+function makeLateInsertionPreferenceScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(10));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // Earlier existing anchor candidate in the last third, but before final 20%.
+  push(6, 4, 10);
+  // Defines branch-onset target earlier than the existing anchor destination.
+  push(3, 1, 10);
+  // Late candidate above threshold that should be inserted and preferred.
+  push(8, 0, 40);
+  return analysis;
+}
+
+function collectEdgeKeys(analysis: ReturnType<typeof normalizeAnalysis>): string[] {
+  const keys: string[] = [];
+  for (const beat of analysis.beats) {
+    for (const edge of beat.neighbors) {
+      keys.push(`${edge.src.which}->${edge.dest.which}`);
+    }
+  }
+  return keys.sort();
+}
+
 describe("buildJumpGraph", () => {
   it("builds neighbors and a last branch point", () => {
     const analysis = normalizeAnalysis(makeAnalysis());
@@ -75,7 +205,6 @@ describe("buildJumpGraph", () => {
       maxBranches: 3,
       maxBranchThreshold: 80,
       currentThreshold: 60,
-      addLastEdge: true,
       justBackwards: false,
       justLongBranches: false,
       removeSequentialBranches: false,
@@ -96,7 +225,6 @@ describe("buildJumpGraph", () => {
       maxBranches: 3,
       maxBranchThreshold: 80,
       currentThreshold: 80,
-      addLastEdge: true,
       justBackwards: true,
       justLongBranches: true,
       removeSequentialBranches: false,
@@ -121,7 +249,6 @@ describe("buildJumpGraph", () => {
       maxBranches: 3,
       maxBranchThreshold: 80,
       currentThreshold: 80,
-      addLastEdge: true,
       justBackwards: true,
       justLongBranches: false,
       removeSequentialBranches: true,
@@ -154,7 +281,6 @@ describe("buildJumpGraph", () => {
       maxBranches: 3,
       maxBranchThreshold: 80,
       currentThreshold: 0,
-      addLastEdge: true,
       justBackwards: false,
       justLongBranches: false,
       removeSequentialBranches: false,
@@ -174,7 +300,6 @@ describe("buildJumpGraph", () => {
       maxBranches: 3,
       maxBranchThreshold: 80,
       currentThreshold: 60,
-      addLastEdge: true,
       justBackwards: false,
       justLongBranches: false,
       removeSequentialBranches: false,
@@ -194,7 +319,6 @@ describe("buildJumpGraph", () => {
       maxBranches: 3,
       maxBranchThreshold: 80,
       currentThreshold: 60,
-      addLastEdge: true,
       justBackwards: false,
       justLongBranches: false,
       removeSequentialBranches: false,
@@ -209,5 +333,74 @@ describe("buildJumpGraph", () => {
 
     const second = buildJumpGraph(analysis, config);
     expect(second.allEdges.length).toBe(firstCount);
+  });
+
+  it("skips insertion when an existing end branch already reaches early target", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 1,
+    };
+
+    const analysis = makeCachedAnchorScenario(1);
+    const graph = buildJumpGraph(analysis, config);
+    const edges = collectEdgeKeys(analysis);
+
+    expect(edges.includes("5->0")).toBe(false);
+    expect(graph.lastBranchPoint).toBe(6);
+  });
+
+  it("inserts anchor when existing end branch does not reach early target", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 1,
+    };
+
+    const analysis = makeLateInsertionPreferenceScenario();
+    const graph = buildJumpGraph(analysis, config);
+    const edges = collectEdgeKeys(analysis);
+
+    expect(edges.includes("8->0")).toBe(true);
+    expect(graph.lastBranchPoint).toBe(8);
+  });
+
+  it("prefers a later long branch even when it needs one extra hop", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 2,
+    };
+
+    const analysis = makeLateLongAnchorPreferenceScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(9);
+    expect(
+      analysis.beats[graph.lastBranchPoint].neighbors.some(
+        (edge) => edge.dest.which === 6,
+      ),
+    ).toBe(true);
   });
 });

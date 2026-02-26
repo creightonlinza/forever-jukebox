@@ -38,7 +38,7 @@ fun TuningDialog(
     initialMinProb: Int,
     initialMaxProb: Int,
     initialRamp: Int,
-    initialAddLastEdge: Boolean,
+    initialHighlightAnchorBranch: Boolean,
     initialJustBackwards: Boolean,
     initialJustLong: Boolean,
     initialRemoveSequential: Boolean,
@@ -49,7 +49,7 @@ fun TuningDialog(
         minProb: Double,
         maxProb: Double,
         ramp: Double,
-        addLastEdge: Boolean,
+        highlightAnchorBranch: Boolean,
         justBackwards: Boolean,
         justLongBranches: Boolean,
         removeSequentialBranches: Boolean
@@ -59,7 +59,9 @@ fun TuningDialog(
     var minProb by remember(initialMinProb) { mutableFloatStateOf(initialMinProb.toFloat()) }
     var maxProb by remember(initialMaxProb) { mutableFloatStateOf(initialMaxProb.toFloat()) }
     var ramp by remember(initialRamp) { mutableFloatStateOf(initialRamp.toFloat()) }
-    var addLastEdge by remember(initialAddLastEdge) { mutableStateOf(initialAddLastEdge) }
+    var highlightAnchorBranch by remember(initialHighlightAnchorBranch) {
+        mutableStateOf(initialHighlightAnchorBranch)
+    }
     var justBackwards by remember(initialJustBackwards) { mutableStateOf(initialJustBackwards) }
     var justLong by remember(initialJustLong) { mutableStateOf(initialJustLong) }
     var removeSequential by remember(initialRemoveSequential) { mutableStateOf(initialRemoveSequential) }
@@ -117,7 +119,7 @@ fun TuningDialog(
                                 minVal,
                                 maxVal,
                                 rampVal,
-                                addLastEdge,
+                                highlightAnchorBranch,
                                 justBackwards,
                                 justLong,
                                 removeSequential
@@ -168,11 +170,6 @@ fun TuningDialog(
                     steps = 49
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Switch(checked = addLastEdge, onCheckedChange = { addLastEdge = it })
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Loop extension optimization")
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = justBackwards, onCheckedChange = { justBackwards = it })
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Allow only reverse branches")
@@ -186,6 +183,14 @@ fun TuningDialog(
                     Switch(checked = removeSequential, onCheckedChange = { removeSequential = it })
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Remove sequential branches")
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(
+                        checked = highlightAnchorBranch,
+                        onCheckedChange = { highlightAnchorBranch = it }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Highlight forced anchor jump")
                 }
             }
         }

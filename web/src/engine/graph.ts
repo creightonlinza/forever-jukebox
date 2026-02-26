@@ -191,34 +191,370 @@ function longestBackwardBranch(quanta: QuantumBase[]): number {
   return (longest * 100) / quanta.length;
 }
 
+function calculateEarliestReachableByBeat(quanta: QuantumBase[]): Map<number, number> {
+  const earliest = new Map<number, number>();
+  for (const q of quanta) {
+    earliest.set(q.which, q.which);
+  }
+  const maxIter = quanta.length;
+  for (let iter = 0; iter < maxIter; iter += 1) {
+    let changed = false;
+    for (let i = quanta.length - 1; i >= 0; i -= 1) {
+      const q = quanta[i];
+      const current = earliest.get(q.which) ?? q.which;
+      let best = current;
+      if (q.next) {
+        best = Math.min(best, earliest.get(q.next.which) ?? q.next.which);
+      }
+      for (const neighbor of q.neighbors) {
+        best = Math.min(
+          best,
+          earliest.get(neighbor.dest.which) ?? neighbor.dest.which,
+        );
+      }
+      if (best < current) {
+        earliest.set(q.which, best);
+        changed = true;
+      }
+    }
+    if (!changed) {
+      break;
+    }
+  }
+  return earliest;
+}
+
+function resolveEarlyTargetBeat(
+  quanta: QuantumBase[],
+  fallbackPct: number,
+): number {
+  const fallbackBeat = Math.floor((quanta.length * fallbackPct) / 100);
+  const lateSourceStart = Math.floor(quanta.length * 0.66);
+  let firstBackwardDestination = Number.POSITIVE_INFINITY;
+  let firstLateBackwardDestination = Number.POSITIVE_INFINITY;
+  for (const q of quanta) {
+    for (const neighbor of q.neighbors) {
+      if (
+        neighbor.dest.which < q.which &&
+        neighbor.dest.which < firstBackwardDestination
+      ) {
+        firstBackwardDestination = neighbor.dest.which;
+      }
+      if (
+        q.which >= lateSourceStart &&
+        neighbor.dest.which < q.which &&
+        neighbor.dest.which < firstLateBackwardDestination
+      ) {
+        firstLateBackwardDestination = neighbor.dest.which;
+      }
+    }
+  }
+  if (
+    !Number.isFinite(firstBackwardDestination) &&
+    !Number.isFinite(firstLateBackwardDestination)
+  ) {
+    return fallbackBeat;
+  }
+  // Prefer a target beat that late-track branches can naturally reach.
+  return Math.max(
+    fallbackBeat,
+    Number.isFinite(firstBackwardDestination) ? firstBackwardDestination : 0,
+    Number.isFinite(firstLateBackwardDestination)
+      ? firstLateBackwardDestination
+      : 0,
+  );
+}
+
+interface NeighborOutcome {
+  branchesToTarget: number;
+  earliestReachable: number;
+  immediateBackward: number;
+  distance: number;
+}
+
+interface AnchorTierRule {
+  maxAdditionalBranches: number;
+  minImmediateBackward: number;
+}
+
+function calculateBranchesToEarlyTarget(
+  quanta: QuantumBase[],
+  earlyTargetBeat: number,
+): Map<number, number> {
+  const branchesNeeded = new Map<number, number>();
+  for (const q of quanta) {
+    branchesNeeded.set(
+      q.which,
+      q.which <= earlyTargetBeat ? 0 : Number.POSITIVE_INFINITY,
+    );
+  }
+  const maxIter = quanta.length;
+  for (let iter = 0; iter < maxIter; iter += 1) {
+    let changed = false;
+    for (let i = quanta.length - 1; i >= 0; i -= 1) {
+      const q = quanta[i];
+      let best = branchesNeeded.get(q.which) ?? Number.POSITIVE_INFINITY;
+      if (q.next) {
+        best = Math.min(
+          best,
+          branchesNeeded.get(q.next.which) ?? Number.POSITIVE_INFINITY,
+        );
+      }
+      for (const neighbor of q.neighbors) {
+        const destCost =
+          branchesNeeded.get(neighbor.dest.which) ?? Number.POSITIVE_INFINITY;
+        if (Number.isFinite(destCost)) {
+          best = Math.min(best, destCost + 1);
+        }
+      }
+      const current = branchesNeeded.get(q.which) ?? Number.POSITIVE_INFINITY;
+      if (best < current) {
+        branchesNeeded.set(q.which, best);
+        changed = true;
+      }
+    }
+    if (!changed) {
+      break;
+    }
+  }
+  return branchesNeeded;
+}
+
+function selectBestBackwardNeighborOutcome(
+  q: QuantumBase,
+  earliestByBeat: Map<number, number>,
+  branchesToTarget: Map<number, number>,
+): NeighborOutcome | null {
+  let best: NeighborOutcome | null = null;
+  for (const neighbor of q.neighbors) {
+    const immediateBackward = q.which - neighbor.dest.which;
+    if (immediateBackward <= 0) {
+      continue;
+    }
+    const candidate: NeighborOutcome = {
+      branchesToTarget:
+        branchesToTarget.get(neighbor.dest.which) ?? Number.POSITIVE_INFINITY,
+      earliestReachable:
+        earliestByBeat.get(neighbor.dest.which) ?? neighbor.dest.which,
+      immediateBackward,
+      distance: neighbor.distance,
+    };
+    if (
+      !best ||
+      candidate.branchesToTarget < best.branchesToTarget ||
+      (candidate.branchesToTarget === best.branchesToTarget &&
+        candidate.earliestReachable < best.earliestReachable) ||
+      (candidate.branchesToTarget === best.branchesToTarget &&
+        candidate.earliestReachable === best.earliestReachable &&
+        candidate.distance < best.distance) ||
+      (candidate.branchesToTarget === best.branchesToTarget &&
+        candidate.earliestReachable === best.earliestReachable &&
+        candidate.distance === best.distance &&
+        candidate.immediateBackward > best.immediateBackward)
+    ) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+function buildAnchorTierRules(minLongBranch: number): AnchorTierRule[] {
+  return [
+    // best: direct or one-hop return with a long jump
+    {
+      maxAdditionalBranches: 1,
+      minImmediateBackward: minLongBranch,
+    },
+    // good: allow one extra hop and a medium jump
+    {
+      maxAdditionalBranches: 2,
+      minImmediateBackward: Math.max(2, Math.floor(minLongBranch * 0.5)),
+    },
+    // ok: allow deeper chaining as long as there is still a meaningful back jump
+    {
+      maxAdditionalBranches: 3,
+      minImmediateBackward: Math.max(1, Math.floor(minLongBranch * 0.25)),
+    },
+  ];
+}
+
+function findLatestTieredAnchorSource(
+  quanta: QuantumBase[],
+  earliestByBeat: Map<number, number>,
+  branchesToTarget: Map<number, number>,
+  earlyTargetBeat: number,
+  minSourceIndex: number,
+  minLongBranch: number,
+): number | null {
+  const rules = buildAnchorTierRules(minLongBranch);
+  const preferredLateStart = Math.max(
+    minSourceIndex,
+    Math.floor(quanta.length * 0.8),
+  );
+  const ranges: Array<{ start: number; end: number }> = [
+    { start: preferredLateStart, end: quanta.length - 1 },
+    { start: minSourceIndex, end: preferredLateStart - 1 },
+  ];
+  for (const rule of rules) {
+    for (const range of ranges) {
+      if (range.end < range.start) {
+        continue;
+      }
+      for (let i = range.end; i >= range.start; i -= 1) {
+        const q = quanta[i];
+        const bestOutcome = selectBestBackwardNeighborOutcome(
+          q,
+          earliestByBeat,
+          branchesToTarget,
+        );
+        if (
+          bestOutcome &&
+          bestOutcome.branchesToTarget <= rule.maxAdditionalBranches &&
+          bestOutcome.earliestReachable <= earlyTargetBeat &&
+          bestOutcome.immediateBackward >= rule.minImmediateBackward
+        ) {
+          return i;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function insertBestBackwardBranch(
   quanta: QuantumBase[],
   threshold: number,
   maxThreshold: number,
-) {
-  const branches: Array<[number, QuantumBase, Edge]> = [];
+  minSourceIndex = Math.floor(quanta.length * 0.66),
+): number | null {
+  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
+  const branchesToTarget = calculateBranchesToEarlyTarget(
+    quanta,
+    earlyTargetBeat,
+  );
+  const earliestByBeat = calculateEarliestReachableByBeat(quanta);
+  const branches: Array<{
+    branchesToTarget: number;
+    earliestReachable: number;
+    immediateBackward: number;
+    distance: number;
+    q: QuantumBase;
+    edge: Edge;
+  }> = [];
   for (let i = 0; i < quanta.length; i += 1) {
     const q = quanta[i];
+    if (q.which < minSourceIndex) {
+      continue;
+    }
     for (const neighbor of q.allNeighbors) {
       if (neighbor.deleted) {
         continue;
       }
       const delta = i - neighbor.dest.which;
       if (delta > 0 && neighbor.distance < maxThreshold) {
-        const percent = (delta * 100) / quanta.length;
-        branches.push([percent, q, neighbor]);
+        if (neighbor.distance <= threshold) {
+          continue;
+        }
+        branches.push({
+          branchesToTarget:
+            branchesToTarget.get(neighbor.dest.which) ??
+            Number.POSITIVE_INFINITY,
+          earliestReachable:
+            earliestByBeat.get(neighbor.dest.which) ?? neighbor.dest.which,
+          immediateBackward: delta,
+          distance: neighbor.distance,
+          q,
+          edge: neighbor,
+        });
       }
     }
   }
   if (branches.length === 0) {
-    return;
+    return null;
   }
-  branches.sort((a, b) => a[0] - b[0]);
-  branches.reverse();
-  const [_, bestQ, bestNeighbor] = branches[0];
-  if (bestNeighbor.distance > threshold) {
-    bestQ.neighbors.push(bestNeighbor);
+  branches.sort(
+    (a, b) =>
+      a.branchesToTarget - b.branchesToTarget ||
+      a.earliestReachable - b.earliestReachable ||
+      a.distance - b.distance ||
+      b.immediateBackward - a.immediateBackward,
+  );
+  const best = branches[0];
+  best.q.neighbors.push(best.edge);
+  return best.q.which;
+}
+
+function findExistingAnchorSource(
+  quanta: QuantumBase[],
+  minLongBranch: number,
+): number | null {
+  const minSourceIndex = Math.floor(quanta.length * 0.66);
+  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
+  const branchesToTarget = calculateBranchesToEarlyTarget(
+    quanta,
+    earlyTargetBeat,
+  );
+  const earliestByBeat = calculateEarliestReachableByBeat(quanta);
+
+  const tieredSource = findLatestTieredAnchorSource(
+    quanta,
+    earliestByBeat,
+    branchesToTarget,
+    earlyTargetBeat,
+    minSourceIndex,
+    minLongBranch,
+  );
+  if (tieredSource !== null) {
+    return tieredSource;
   }
+
+  let bestSource = -1;
+  let bestBranchesToTarget = Number.POSITIVE_INFINITY;
+  let bestEarliestReachable = Number.POSITIVE_INFINITY;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let bestImmediate = Number.NEGATIVE_INFINITY;
+
+  for (let i = minSourceIndex; i < quanta.length; i += 1) {
+    const q = quanta[i];
+    for (const neighbor of q.neighbors) {
+      const immediate = q.which - neighbor.dest.which;
+      if (immediate <= 0) {
+        continue;
+      }
+      const targetBranches =
+        branchesToTarget.get(neighbor.dest.which) ?? Number.POSITIVE_INFINITY;
+      if (targetBranches > 0) {
+        continue;
+      }
+      const earliestReachable =
+        earliestByBeat.get(neighbor.dest.which) ?? neighbor.dest.which;
+      if (
+        targetBranches < bestBranchesToTarget ||
+        (targetBranches === bestBranchesToTarget &&
+          earliestReachable < bestEarliestReachable) ||
+        (targetBranches === bestBranchesToTarget &&
+          earliestReachable === bestEarliestReachable &&
+          neighbor.distance < bestDistance) ||
+        (targetBranches === bestBranchesToTarget &&
+          earliestReachable === bestEarliestReachable &&
+          neighbor.distance === bestDistance &&
+          q.which > bestSource) ||
+        (targetBranches === bestBranchesToTarget &&
+          earliestReachable === bestEarliestReachable &&
+          neighbor.distance === bestDistance &&
+          q.which === bestSource &&
+          immediate > bestImmediate)
+      ) {
+        bestSource = q.which;
+        bestBranchesToTarget = targetBranches;
+        bestEarliestReachable = earliestReachable;
+        bestDistance = neighbor.distance;
+        bestImmediate = immediate;
+      }
+    }
+  }
+
+  return bestSource >= 0 ? bestSource : null;
 }
 
 function calculateReachability(quanta: QuantumBase[]) {
@@ -276,8 +612,35 @@ function calculateReachability(quanta: QuantumBase[]) {
 
 function findBestLastBeat(
   quanta: QuantumBase[],
+  earliestByBeat: Map<number, number>,
+  branchesToTarget: Map<number, number>,
+  earlyTargetBeat: number,
+  minLongBranch: number,
 ): { index: number; longestReach: number } {
-  const reachThreshold = 50;
+  const minLastBranchIndex = Math.floor(quanta.length * 0.66);
+  const tieredSource = findLatestTieredAnchorSource(
+    quanta,
+    earliestByBeat,
+    branchesToTarget,
+    earlyTargetBeat,
+    minLastBranchIndex,
+    minLongBranch,
+  );
+  if (tieredSource !== null) {
+    const distanceToEnd = quanta.length - tieredSource;
+    const q = quanta[tieredSource];
+    const reach =
+      q.reach !== undefined
+        ? ((q.reach - distanceToEnd) * 100) / quanta.length
+        : 0;
+    return { index: tieredSource, longestReach: reach };
+  }
+  let bestEarlyIndex = -1;
+  let bestEarlyTargetBranches = Number.POSITIVE_INFINITY;
+  let bestEarlyReachable = Number.POSITIVE_INFINITY;
+  let bestEarlyImmediate = Number.NEGATIVE_INFINITY;
+  let bestEarlyDistance = Number.POSITIVE_INFINITY;
+  let bestEarlyLongestReach = 0;
   let longest = 0;
   let longestReach = 0;
   for (let i = quanta.length - 1; i >= 0; i -= 1) {
@@ -287,13 +650,50 @@ function findBestLastBeat(
       q.reach !== undefined
         ? ((q.reach - distanceToEnd) * 100) / quanta.length
         : 0;
-    if (reach > longestReach && q.neighbors.length > 0) {
-      longestReach = reach;
-      longest = i;
-      if (reach >= reachThreshold) {
-        break;
+    const bestOutcome = selectBestBackwardNeighborOutcome(
+      q,
+      earliestByBeat,
+      branchesToTarget,
+    );
+    if (bestOutcome) {
+      if (
+        i >= minLastBranchIndex &&
+        bestOutcome.earliestReachable <= earlyTargetBeat &&
+        (bestOutcome.branchesToTarget < bestEarlyTargetBranches ||
+          (bestOutcome.branchesToTarget === bestEarlyTargetBranches &&
+            bestOutcome.earliestReachable < bestEarlyReachable) ||
+          (bestOutcome.branchesToTarget === bestEarlyTargetBranches &&
+            bestOutcome.earliestReachable === bestEarlyReachable &&
+            bestOutcome.distance < bestEarlyDistance) ||
+          (bestOutcome.branchesToTarget === bestEarlyTargetBranches &&
+            bestOutcome.earliestReachable === bestEarlyReachable &&
+            bestOutcome.distance === bestEarlyDistance &&
+            bestOutcome.immediateBackward > bestEarlyImmediate) ||
+          (bestOutcome.branchesToTarget === bestEarlyTargetBranches &&
+            bestOutcome.earliestReachable === bestEarlyReachable &&
+            bestOutcome.distance === bestEarlyDistance &&
+            bestOutcome.immediateBackward === bestEarlyImmediate &&
+            i > bestEarlyIndex))
+      ) {
+        bestEarlyIndex = i;
+        bestEarlyTargetBranches = bestOutcome.branchesToTarget;
+        bestEarlyReachable = bestOutcome.earliestReachable;
+        bestEarlyImmediate = bestOutcome.immediateBackward;
+        bestEarlyDistance = bestOutcome.distance;
+        bestEarlyLongestReach = reach;
       }
     }
+    if (
+      i >= minLastBranchIndex &&
+      reach > longestReach &&
+      q.neighbors.length > 0
+    ) {
+      longestReach = reach;
+      longest = i;
+    }
+  }
+  if (bestEarlyIndex >= 0) {
+    return { index: bestEarlyIndex, longestReach: bestEarlyLongestReach };
   }
   return { index: longest, longestReach };
 }
@@ -359,28 +759,75 @@ function addAnchorBranch(
   quanta: QuantumBase[],
   threshold: number,
   config: JukeboxConfig,
-) {
-  if (!config.addLastEdge) {
-    return;
+): number | null {
+  const preferredLateStart = Math.floor(quanta.length * 0.8);
+  const maxAnchorThreshold = longestBackwardBranch(quanta) < 50 ? 65 : 55;
+  const existingAnchorSource = findExistingAnchorSource(
+    quanta,
+    config.minLongBranch,
+  );
+  if (existingAnchorSource !== null && existingAnchorSource >= preferredLateStart) {
+    // Existing end-of-track branch already reaches the early target zone.
+    return existingAnchorSource;
   }
-  if (longestBackwardBranch(quanta) < 50) {
-    insertBestBackwardBranch(quanta, threshold, 65);
-  } else {
-    insertBestBackwardBranch(quanta, threshold, 55);
+  const lateInsertedSource = insertBestBackwardBranch(
+    quanta,
+    threshold,
+    maxAnchorThreshold,
+    preferredLateStart,
+  );
+  if (lateInsertedSource !== null) {
+    return lateInsertedSource;
   }
+  if (existingAnchorSource !== null) {
+    return existingAnchorSource;
+  }
+  return insertBestBackwardBranch(quanta, threshold, maxAnchorThreshold);
 }
 
 function applyBranchFilters(
   quanta: QuantumBase[],
   config: JukeboxConfig,
+  preferredLastBranchPoint: number | null,
 ): { lastBranchPoint: number; longestReach: number } {
   calculateReachability(quanta);
-  const { index: lastBranchPoint, longestReach } = findBestLastBeat(quanta);
-  filterOutBadBranches(quanta, lastBranchPoint);
-  if (config.removeSequentialBranches) {
-    filterOutSequentialBranches(quanta, lastBranchPoint);
+  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
+  const branchesToTarget = calculateBranchesToEarlyTarget(
+    quanta,
+    earlyTargetBeat,
+  );
+  const earliestByBeat = calculateEarliestReachableByBeat(quanta);
+  let selectedLastBranchPoint: number;
+  let selectedLongestReach: number;
+  if (
+    preferredLastBranchPoint !== null &&
+    preferredLastBranchPoint >= 0 &&
+    preferredLastBranchPoint < quanta.length &&
+    quanta[preferredLastBranchPoint].neighbors.length > 0
+  ) {
+    const distanceToEnd = quanta.length - preferredLastBranchPoint;
+    const q = quanta[preferredLastBranchPoint];
+    selectedLastBranchPoint = preferredLastBranchPoint;
+    selectedLongestReach =
+      q.reach !== undefined
+        ? ((q.reach - distanceToEnd) * 100) / quanta.length
+        : 0;
+  } else {
+    const { index, longestReach } = findBestLastBeat(
+      quanta,
+      earliestByBeat,
+      branchesToTarget,
+      earlyTargetBeat,
+      config.minLongBranch,
+    );
+    selectedLastBranchPoint = index;
+    selectedLongestReach = longestReach;
   }
-  return { lastBranchPoint, longestReach };
+  filterOutBadBranches(quanta, selectedLastBranchPoint);
+  if (config.removeSequentialBranches) {
+    filterOutSequentialBranches(quanta, selectedLastBranchPoint);
+  }
+  return { lastBranchPoint: selectedLastBranchPoint, longestReach: selectedLongestReach };
 }
 
 export function buildJumpGraph(
@@ -402,8 +849,12 @@ export function buildJumpGraph(
       ? config.currentThreshold
       : computedThreshold;
   collectNearestNeighbors(quanta, threshold, config);
-  addAnchorBranch(quanta, threshold, config);
-  const { lastBranchPoint, longestReach } = applyBranchFilters(quanta, config);
+  const preferredLastBranchPoint = addAnchorBranch(quanta, threshold, config);
+  const { lastBranchPoint, longestReach } = applyBranchFilters(
+    quanta,
+    config,
+    preferredLastBranchPoint,
+  );
 
   return {
     computedThreshold,

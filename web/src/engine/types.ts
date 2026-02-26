@@ -56,7 +56,6 @@ export interface JukeboxConfig {
   maxBranches: number;
   maxBranchThreshold: number;
   currentThreshold: number;
-  addLastEdge: boolean;
   justBackwards: boolean;
   justLongBranches: boolean;
   removeSequentialBranches: boolean;

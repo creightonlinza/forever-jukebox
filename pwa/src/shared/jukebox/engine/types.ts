@@ -1,4 +1,3 @@
-// Copied from web/src/engine/types.ts on 2026-02-11, reason: reuse analysis and graph types.
 export interface TrackMeta {
   title?: string;
   artist?: string;
@@ -57,7 +56,6 @@ export interface JukeboxConfig {
   maxBranches: number;
   maxBranchThreshold: number;
   currentThreshold: number;
-  addLastEdge: boolean;
   justBackwards: boolean;
   justLongBranches: boolean;
   removeSequentialBranches: boolean;

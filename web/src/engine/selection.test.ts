@@ -15,6 +15,13 @@ function makeBeat(which: number): QuantumBase {
   };
 }
 
+function linkBeats(beats: QuantumBase[]) {
+  beats.forEach((beat, idx) => {
+    beat.prev = idx > 0 ? beats[idx - 1] : null;
+    beat.next = idx < beats.length - 1 ? beats[idx + 1] : null;
+  });
+}
+
 describe("selectNextBeatIndex", () => {
   it("forces a branch at the last branch point", () => {
     const seed = makeBeat(1);
@@ -30,7 +37,6 @@ describe("selectNextBeatIndex", () => {
       maxBranches: 4,
       maxBranchThreshold: 80,
       currentThreshold: 60,
-      addLastEdge: true,
       justBackwards: false,
       justLongBranches: false,
       removeSequentialBranches: false,
@@ -72,7 +78,6 @@ describe("selectNextBeatIndex", () => {
       maxBranches: 4,
       maxBranchThreshold: 80,
       currentThreshold: 60,
-      addLastEdge: true,
       justBackwards: false,
       justLongBranches: false,
       removeSequentialBranches: false,
@@ -124,7 +129,6 @@ describe("selectNextBeatIndex", () => {
       maxBranches: 4,
       maxBranchThreshold: 80,
       currentThreshold: 60,
-      addLastEdge: true,
       justBackwards: false,
       justLongBranches: false,
       removeSequentialBranches: false,
@@ -153,6 +157,193 @@ describe("selectNextBeatIndex", () => {
     expect(seed.neighbors[1].dest.which).toBe(1);
   });
 
+  it("prefers a longer immediate jump when downstream reach ties", () => {
+    const seed = makeBeat(10);
+    const shortTarget = makeBeat(8);
+    const longTarget = makeBeat(2);
+    seed.neighbors.push(
+      {
+        id: 0,
+        src: seed,
+        dest: shortTarget,
+        distance: 5,
+        deleted: false,
+      },
+      {
+        id: 1,
+        src: seed,
+        dest: longTarget,
+        distance: 20,
+        deleted: false,
+      },
+    );
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 60,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 1,
+    };
+    const graph: JukeboxGraphState = {
+      computedThreshold: 60,
+      currentThreshold: 60,
+      lastBranchPoint: 10,
+      totalBeats: 20,
+      longestReach: 0,
+      allEdges: [],
+    };
+    const selection = selectNextBeatIndex(
+      seed,
+      graph,
+      config,
+      () => 0.99,
+      { curRandomBranchChance: 0.18 },
+    );
+    expect(selection.index).toBe(2);
+    expect(selection.jumped).toBe(true);
+  });
+
+  it("prefers a branch that can reach earlier beats after lookahead", () => {
+    const beats = Array.from({ length: 12 }, (_, idx) => makeBeat(idx));
+    linkBeats(beats);
+    const seed = beats[10];
+    const localTarget = beats[9];
+    const deepTarget = beats[7];
+    const earlyTarget = beats[1];
+
+    seed.neighbors.push(
+      {
+        id: 0,
+        src: seed,
+        dest: localTarget,
+        distance: 10,
+        deleted: false,
+      },
+      {
+        id: 1,
+        src: seed,
+        dest: deepTarget,
+        distance: 20,
+        deleted: false,
+      },
+    );
+    // Only the deeper target can eventually branch much earlier.
+    deepTarget.neighbors.push({
+      id: 2,
+      src: deepTarget,
+      dest: earlyTarget,
+      distance: 15,
+      deleted: false,
+    });
+
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 60,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 1,
+    };
+    const graph: JukeboxGraphState = {
+      computedThreshold: 60,
+      currentThreshold: 60,
+      lastBranchPoint: 10,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [],
+    };
+    const selection = selectNextBeatIndex(
+      seed,
+      graph,
+      config,
+      () => 0.99,
+      { curRandomBranchChance: 0.18 },
+    );
+    expect(selection.index).toBe(7);
+    expect(selection.jumped).toBe(true);
+  });
+
+  it("prefers fewer additional branches to reach the early target zone", () => {
+    const beats = Array.from({ length: 13 }, (_, idx) => makeBeat(idx));
+    linkBeats(beats);
+    const seed = beats[10];
+    const fartherTarget = beats[8];
+    const nearerTarget = beats[6];
+    const earlyTarget = beats[2];
+
+    seed.neighbors.push(
+      {
+        id: 0,
+        src: seed,
+        dest: fartherTarget,
+        distance: 5,
+        deleted: false,
+      },
+      {
+        id: 1,
+        src: seed,
+        dest: nearerTarget,
+        distance: 25,
+        deleted: false,
+      },
+    );
+    // From beat 8, reaching the early zone needs two additional branches (8 -> 6 -> 2).
+    fartherTarget.neighbors.push({
+      id: 2,
+      src: fartherTarget,
+      dest: nearerTarget,
+      distance: 5,
+      deleted: false,
+    });
+    // From beat 6, only one additional branch is needed (6 -> 2).
+    nearerTarget.neighbors.push({
+      id: 3,
+      src: nearerTarget,
+      dest: earlyTarget,
+      distance: 10,
+      deleted: false,
+    });
+
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 60,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 1,
+    };
+    const graph: JukeboxGraphState = {
+      computedThreshold: 60,
+      currentThreshold: 60,
+      lastBranchPoint: 10,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [],
+    };
+    const selection = selectNextBeatIndex(
+      seed,
+      graph,
+      config,
+      () => 0.99,
+      { curRandomBranchChance: 0.18 },
+    );
+    expect(selection.index).toBe(6);
+    expect(selection.jumped).toBe(true);
+  });
+
   it("keeps index when random chance does not trigger", () => {
     const seed = makeBeat(0);
     const target = makeBeat(3);
@@ -167,7 +358,6 @@ describe("selectNextBeatIndex", () => {
       maxBranches: 4,
       maxBranchThreshold: 80,
       currentThreshold: 60,
-      addLastEdge: true,
       justBackwards: false,
       justLongBranches: false,
       removeSequentialBranches: false,
@@ -201,7 +391,6 @@ describe("shouldRandomBranch", () => {
     maxBranches: 4,
     maxBranchThreshold: 80,
     currentThreshold: 60,
-    addLastEdge: true,
     justBackwards: false,
     justLongBranches: false,
     removeSequentialBranches: false,

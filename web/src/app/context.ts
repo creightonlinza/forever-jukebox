@@ -50,6 +50,7 @@ export type AppState = {
   wakeLock: WakeLockSentinel | null;
   tuningParams: string | null;
   deletedEdgeIds: number[];
+  highlightAnchorBranch: boolean;
 };
 
 export type AppContext = {

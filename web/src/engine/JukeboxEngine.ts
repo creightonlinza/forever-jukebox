@@ -5,7 +5,7 @@ import {
   backgroundClearTimeout,
   backgroundSetTimeout,
 } from "../shared/backgroundTimer";
-import { selectNextBeatIndex } from "./selection";
+import { getBestLastBranchNeighborIndex, selectNextBeatIndex } from "./selection";
 import {
   JukeboxConfig,
   JukeboxGraphState,
@@ -18,7 +18,6 @@ const DEFAULT_CONFIG: JukeboxConfig = {
   maxBranches: 4,
   maxBranchThreshold: 80,
   currentThreshold: 0,
-  addLastEdge: true,
   justBackwards: false,
   justLongBranches: false,
   removeSequentialBranches: false,
@@ -147,9 +146,20 @@ export class JukeboxEngine {
         }
       }
     }
+    let anchorEdgeId: number | null = null;
+    const anchorSource = this.beats[this.graph.lastBranchPoint];
+    if (anchorSource && anchorSource.neighbors.length > 0) {
+      const bestIndex = getBestLastBranchNeighborIndex(anchorSource);
+      const bestEdge = anchorSource.neighbors[bestIndex];
+      if (bestEdge && !bestEdge.deleted) {
+        anchorEdgeId = bestEdge.id;
+      }
+    }
     return {
       beats: this.beats,
       edges: Array.from(edgeMap.values()),
+      lastBranchPoint: this.graph.lastBranchPoint,
+      anchorEdgeId,
     };
   }
 

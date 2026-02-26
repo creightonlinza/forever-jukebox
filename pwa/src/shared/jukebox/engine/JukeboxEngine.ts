@@ -1,4 +1,3 @@
-// Copied from web/src/engine/JukeboxEngine.ts on 2026-02-11, reason: reuse core jukebox playback engine.
 import { normalizeAnalysis } from "./analysis";
 import { buildJumpGraph } from "./graph";
 import { createRng, RandomMode } from "./random";
@@ -6,7 +5,7 @@ import {
   backgroundClearTimeout,
   backgroundSetTimeout,
 } from "../background/backgroundTimer";
-import { selectNextBeatIndex } from "./selection";
+import { getBestLastBranchNeighborIndex, selectNextBeatIndex } from "./selection";
 import {
   JukeboxConfig,
   JukeboxGraphState,
@@ -19,7 +18,6 @@ const DEFAULT_CONFIG: JukeboxConfig = {
   maxBranches: 4,
   maxBranchThreshold: 80,
   currentThreshold: 0,
-  addLastEdge: true,
   justBackwards: false,
   justLongBranches: false,
   removeSequentialBranches: false,
@@ -124,6 +122,7 @@ export class JukeboxEngine {
     if (!this.analysis) {
       return;
     }
+    this.clearEdgeDeletionFlags();
     this.config.minLongBranch = Math.floor(this.analysis.beats.length / 5);
     this.graph = buildJumpGraph(this.analysis, this.config);
     this.curRandomBranchChance = this.config.minRandomBranchChance;
@@ -147,9 +146,20 @@ export class JukeboxEngine {
         }
       }
     }
+    let anchorEdgeId: number | null = null;
+    const anchorSource = this.beats[this.graph.lastBranchPoint];
+    if (anchorSource && anchorSource.neighbors.length > 0) {
+      const bestIndex = getBestLastBranchNeighborIndex(anchorSource);
+      const bestEdge = anchorSource.neighbors[bestIndex];
+      if (bestEdge && !bestEdge.deleted) {
+        anchorEdgeId = bestEdge.id;
+      }
+    }
     return {
       beats: this.beats,
       edges: Array.from(edgeMap.values()),
+      lastBranchPoint: this.graph.lastBranchPoint,
+      anchorEdgeId,
     };
   }
 
@@ -195,6 +205,7 @@ export class JukeboxEngine {
 
   clearDeletedEdges() {
     this.deletedEdgeKeys.clear();
+    this.clearEdgeDeletionFlags();
   }
 
   deleteEdge(edge: { src: QuantumBase; dest: QuantumBase; deleted: boolean }) {
@@ -230,6 +241,25 @@ export class JukeboxEngine {
         }
       }
       beat.neighbors = beat.neighbors.filter((edge) => !edge.deleted);
+    }
+  }
+
+  private clearEdgeDeletionFlags() {
+    if (!this.analysis) {
+      return;
+    }
+    if (this.graph) {
+      for (const edge of this.graph.allEdges) {
+        edge.deleted = false;
+      }
+    }
+    for (const beat of this.analysis.beats) {
+      for (const edge of beat.allNeighbors) {
+        edge.deleted = false;
+      }
+      for (const edge of beat.neighbors) {
+        edge.deleted = false;
+      }
     }
   }
 

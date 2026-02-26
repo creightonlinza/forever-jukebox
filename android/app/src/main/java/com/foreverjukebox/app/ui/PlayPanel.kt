@@ -326,6 +326,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                     jumpLine = jumpLine,
                                     positioner = positioners.getOrNull(playback.activeVizIndex) ?: positioners.first(),
                                     edgeRouting = edgeRoutingForVisualization(playback.activeVizIndex),
+                                    highlightAnchorBranch = tuning.highlightAnchorBranch,
                                     onSelectBeat = viewModel::selectBeat,
                                     modifier = Modifier.size(vizSide)
                                 )
@@ -519,7 +520,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
             initialMinProb = tuning.minProb,
             initialMaxProb = tuning.maxProb,
             initialRamp = tuning.ramp,
-            initialAddLastEdge = tuning.addLastEdge,
+            initialHighlightAnchorBranch = tuning.highlightAnchorBranch,
             initialJustBackwards = tuning.justBackwards,
             initialJustLong = tuning.justLong,
             initialRemoveSequential = tuning.removeSequential,

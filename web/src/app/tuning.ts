@@ -2,7 +2,7 @@ import type { AppContext } from "./context";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 1;
-const TUNING_PARAM_KEYS = ["lb", "jb", "lg", "sq", "thresh", "bp", "d"];
+const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d"];
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -78,9 +78,6 @@ export function applyTuningParamsToEngine(
   }
   const defaults = context.defaultConfig;
   const nextConfig = { ...defaults };
-  if (params.has("lb")) {
-    nextConfig.addLastEdge = params.get("lb") !== "0";
-  }
   if (params.get("jb") === "1") {
     nextConfig.justBackwards = true;
   }
@@ -135,9 +132,6 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
   const config = context.engine.getConfig();
   const defaults = context.defaultConfig;
   const graph = context.engine.getGraphState();
-  if (!config.addLastEdge) {
-    params.set("lb", "0");
-  }
   if (config.justBackwards) {
     params.set("jb", "1");
   }
