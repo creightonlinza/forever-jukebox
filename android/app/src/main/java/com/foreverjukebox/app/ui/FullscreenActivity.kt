@@ -64,10 +64,12 @@ import com.foreverjukebox.app.playback.ForegroundPlaybackService
 import com.foreverjukebox.app.playback.PlaybackControllerHolder
 import com.foreverjukebox.app.visualization.AutocanonizerVisualization
 import com.foreverjukebox.app.visualization.defaultVisualizationIndex
+import com.foreverjukebox.app.visualization.EdgeRouting
 import com.foreverjukebox.app.visualization.edgeRoutingForVisualization
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.JumpLine
 import com.foreverjukebox.app.visualization.positioners
+import com.foreverjukebox.app.visualization.prefersWideAspectForVisualization
 import com.foreverjukebox.app.visualization.visualizationLabels
 
 class FullscreenActivity : ComponentActivity() {
@@ -251,6 +253,23 @@ private fun FullscreenScreen(
             .background(LocalThemeTokens.current.vizBackground)
     ) {
         val squareSize = minOf(this.maxWidth, this.maxHeight)
+        val edgeRouting = edgeRoutingForVisualization(activeVizIndex)
+        val isLandscapeLayout = this.maxWidth > this.maxHeight
+        val useWideLayout =
+            playMode == PlaybackMode.Jukebox &&
+                isLandscapeLayout &&
+                prefersWideAspectForVisualization(activeVizIndex)
+        val jukeboxModifier = if (useWideLayout) {
+            if (edgeRouting == EdgeRouting.ArcDiagram) {
+                Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 2.dp)
+            } else {
+                Modifier.fillMaxSize()
+            }
+        } else {
+            Modifier.size(squareSize)
+        }
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -277,7 +296,7 @@ private fun FullscreenScreen(
                     currentIndex = currentBeatIndex,
                     jumpLine = jumpLine,
                     positioner = positioners.getOrNull(activeVizIndex) ?: positioners.first(),
-                    edgeRouting = edgeRoutingForVisualization(activeVizIndex),
+                    edgeRouting = edgeRouting,
                     highlightAnchorBranch = highlightAnchorBranch,
                     onSelectBeat = { index ->
                         val selection = seekOrStartJukeboxAtBeat(controller, index, vizData)
@@ -289,7 +308,7 @@ private fun FullscreenScreen(
                         listenTime = formatDuration(controller.getListenTimeSeconds())
                         isRunning = controller.isPlaying()
                     },
-                    modifier = Modifier.size(squareSize)
+                    modifier = jukeboxModifier
                 )
             }
         }

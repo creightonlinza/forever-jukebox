@@ -63,9 +63,11 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.visualization.AutocanonizerVisualization
+import com.foreverjukebox.app.visualization.EdgeRouting
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.edgeRoutingForVisualization
 import com.foreverjukebox.app.visualization.positioners
+import com.foreverjukebox.app.visualization.prefersWideAspectForVisualization
 import com.foreverjukebox.app.visualization.visualizationLabels
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -301,6 +303,23 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                     ) {
                         val vizSidePx = kotlin.math.min(vizContainerSize.width, vizContainerSize.height)
                         val vizSide: Dp = with(density) { vizSidePx.toDp() }
+                        val edgeRouting = edgeRoutingForVisualization(playback.activeVizIndex)
+                        val isLandscapeVizContainer = vizContainerSize.width > vizContainerSize.height
+                        val useWideLayout =
+                            !inAutocanonizer &&
+                                isLandscapeVizContainer &&
+                                prefersWideAspectForVisualization(playback.activeVizIndex)
+                        val jukeboxModifier = if (useWideLayout) {
+                            if (edgeRouting == EdgeRouting.ArcDiagram) {
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 2.dp)
+                            } else {
+                                Modifier.fillMaxSize()
+                            }
+                        } else {
+                            Modifier.size(vizSide)
+                        }
                         if (inAutocanonizer) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -325,10 +344,10 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                     currentIndex = playback.currentBeatIndex,
                                     jumpLine = jumpLine,
                                     positioner = positioners.getOrNull(playback.activeVizIndex) ?: positioners.first(),
-                                    edgeRouting = edgeRoutingForVisualization(playback.activeVizIndex),
+                                    edgeRouting = edgeRouting,
                                     highlightAnchorBranch = tuning.highlightAnchorBranch,
                                     onSelectBeat = viewModel::selectBeat,
-                                    modifier = Modifier.size(vizSide)
+                                    modifier = jukeboxModifier
                                 )
                             }
                         }

@@ -21,7 +21,8 @@ enum class EdgeRouting {
 data class VisualizationLayout(
     val label: String,
     val positioner: Positioner,
-    val edgeRouting: EdgeRouting = EdgeRouting.Auto
+    val edgeRouting: EdgeRouting = EdgeRouting.Auto,
+    val preferWideAspect: Boolean = false
 )
 
 private fun createArcDiagramPositioner(): Positioner = { data, width, height ->
@@ -240,13 +241,26 @@ val visualizationLayouts: List<VisualizationLayout> = listOf(
     VisualizationLayout(
         label = "Arc",
         positioner = createArcDiagramPositioner(),
-        edgeRouting = EdgeRouting.ArcDiagram
+        edgeRouting = EdgeRouting.ArcDiagram,
+        preferWideAspect = true
     ),
     VisualizationLayout(label = "Classic", positioner = createClassicPositioner()),
     VisualizationLayout(label = "Galaxy", positioner = createGalaxyPositioner()),
-    VisualizationLayout(label = "Grid", positioner = createGridPositioner()),
-    VisualizationLayout(label = "Infinite", positioner = createInfinitePositioner()),
-    VisualizationLayout(label = "Wave", positioner = createWavePositioner())
+    VisualizationLayout(
+        label = "Grid",
+        positioner = createGridPositioner(),
+        preferWideAspect = true
+    ),
+    VisualizationLayout(
+        label = "Infinite",
+        positioner = createInfinitePositioner(),
+        preferWideAspect = true
+    ),
+    VisualizationLayout(
+        label = "Wave",
+        positioner = createWavePositioner(),
+        preferWideAspect = true
+    )
 )
 
 val positioners: List<Positioner> = visualizationLayouts.map { it.positioner }
@@ -257,4 +271,8 @@ val defaultVisualizationIndex: Int =
 
 fun edgeRoutingForVisualization(index: Int): EdgeRouting {
     return visualizationLayouts.getOrNull(index)?.edgeRouting ?: EdgeRouting.Auto
+}
+
+fun prefersWideAspectForVisualization(index: Int): Boolean {
+    return visualizationLayouts.getOrNull(index)?.preferWideAspect ?: false
 }
