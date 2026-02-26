@@ -129,6 +129,8 @@ private fun FullscreenScreen(
     onExit: (Int, PlaybackMode) -> Unit
 ) {
     val context = LocalContext.current
+    val preferences = remember { AppPreferences(context) }
+    val highlightAnchorBranch by preferences.highlightAnchorBranch.collectAsState(initial = false)
     val controller = remember { PlaybackControllerHolder.get(context) }
     val engine = controller.engine
     val view = LocalView.current
@@ -276,6 +278,7 @@ private fun FullscreenScreen(
                     jumpLine = jumpLine,
                     positioner = positioners.getOrNull(activeVizIndex) ?: positioners.first(),
                     edgeRouting = edgeRoutingForVisualization(activeVizIndex),
+                    highlightAnchorBranch = highlightAnchorBranch,
                     onSelectBeat = { index ->
                         val selection = seekOrStartJukeboxAtBeat(controller, index, vizData)
                         if (!selection.success) return@JukeboxVisualization

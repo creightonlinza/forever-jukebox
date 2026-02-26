@@ -165,6 +165,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        viewModelScope.launch {
+            preferences.highlightAnchorBranch.collect { enabled ->
+                _state.update {
+                    it.copy(
+                        tuning = it.tuning.copy(highlightAnchorBranch = enabled)
+                    )
+                }
+            }
+        }
         engine.onUpdate { engineState ->
             if (state.value.playback.playMode == PlaybackMode.Autocanonizer) {
                 return@onUpdate
@@ -1585,7 +1594,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         minProb: Double,
         maxProb: Double,
         ramp: Double,
-        addLastEdge: Boolean,
+        highlightAnchorBranch: Boolean,
         justBackwards: Boolean,
         justLongBranches: Boolean,
         removeSequentialBranches: Boolean
@@ -1601,7 +1610,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     minRandomBranchChance = minProb,
                     maxRandomBranchChance = maxProb,
                     randomBranchChanceDelta = ramp,
-                    addLastEdge = addLastEdge,
                     justBackwards = justBackwards,
                     justLongBranches = justLongBranches,
                     removeSequentialBranches = removeSequentialBranches
@@ -1610,7 +1618,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 engine.rebuildGraph()
                 engine.getVisualizationData()
             }
-            _state.update { it.copy(playback = it.playback.copy(vizData = vizData)) }
+            _state.update {
+                it.copy(
+                    playback = it.playback.copy(vizData = vizData),
+                    tuning = it.tuning.copy(highlightAnchorBranch = highlightAnchorBranch)
+                )
+            }
+            preferences.setHighlightAnchorBranch(highlightAnchorBranch)
             playbackCoordinator.syncTuningState()
             if (state.value.playback.isCasting) {
                 sendCastTuningParams(playbackCoordinator.buildTuningParamsString())

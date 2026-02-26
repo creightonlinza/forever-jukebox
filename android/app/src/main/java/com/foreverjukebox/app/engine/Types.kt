@@ -10,7 +10,6 @@ data class JukeboxConfig(
     val maxBranches: Int = 4,
     val maxBranchThreshold: Int = 80,
     val currentThreshold: Int = 0,
-    val addLastEdge: Boolean = true,
     val justBackwards: Boolean = false,
     val justLongBranches: Boolean = false,
     val removeSequentialBranches: Boolean = false,
