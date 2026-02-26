@@ -10,11 +10,18 @@ type CastCustomData = {
   baseUrl?: string;
   songId?: string;
   tuningParams?: string;
+  vizIndex?: number;
 };
 
 type CastCommand = {
-  type?: "play" | "stop" | "getStatus" | "setTuning";
+  type?:
+    | "play"
+    | "stop"
+    | "getStatus"
+    | "setTuning"
+    | "setVisualization";
   tuningParams?: string | null;
+  vizIndex?: number;
 };
 
 type CastStatus = {
@@ -24,6 +31,8 @@ type CastStatus = {
   artist: string | null;
   isPlaying: boolean;
   isLoading: boolean;
+  activeVizIndex: number;
+  resolvedThreshold: number | null;
   error?: string | null;
   playbackState: "idle" | "loading" | "playing" | "paused" | "error";
 };
@@ -92,6 +101,7 @@ type CastState = {
   currentTrackId: string | null;
   trackTitle: string | null;
   trackArtist: string | null;
+  activeVizIndex: number;
 };
 
 function getElements(): CastElements {
@@ -123,7 +133,7 @@ function isLikelyYoutubeId(value: string) {
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 1;
-const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d"];
+const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "ah"];
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -147,7 +157,12 @@ function parseDeletedEdgeIds(raw: string | null): number[] {
 function parseTuningParams(
   raw: string | null,
   defaults: JukeboxConfig,
-): { config: JukeboxConfig; deletedEdgeIds: number[] } | null {
+): {
+  config: JukeboxConfig;
+  deletedEdgeIds: number[];
+  highlightAnchorBranch: boolean;
+  hasGraphTuning: boolean;
+} | null {
   if (!raw) {
     return null;
   }
@@ -156,19 +171,42 @@ function parseTuningParams(
   if (!hasTuningParam) {
     return null;
   }
+  const parseBool = (value: string | null): boolean | null => {
+    if (value === null) {
+      return null;
+    }
+    const normalized = value.toLowerCase();
+    if (normalized === "1" || normalized === "true") {
+      return true;
+    }
+    if (normalized === "0" || normalized === "false") {
+      return false;
+    }
+    return null;
+  };
+  const hasGraphTuning = ["jb", "lg", "sq", "thresh", "bp", "d"].some((key) =>
+    params.has(key),
+  );
   const nextConfig: JukeboxConfig = { ...defaults };
-  if (params.get("jb") === "1") {
-    nextConfig.justBackwards = true;
+  const justBackwards = parseBool(params.get("jb"));
+  if (justBackwards !== null) {
+    nextConfig.justBackwards = justBackwards;
   }
-  if (params.get("lg") === "1") {
-    nextConfig.justLongBranches = true;
+  const justLongBranches = parseBool(params.get("lg"));
+  if (justLongBranches !== null) {
+    nextConfig.justLongBranches = justLongBranches;
   }
-  if (params.get("sq") === "0") {
-    nextConfig.removeSequentialBranches = true;
+  if (params.has("sq")) {
+    const rawSq = params.get("sq")?.toLowerCase() ?? "";
+    if (rawSq === "0" || rawSq === "true") {
+      nextConfig.removeSequentialBranches = true;
+    } else if (rawSq === "1" || rawSq === "false") {
+      nextConfig.removeSequentialBranches = false;
+    }
   }
   if (params.has("thresh")) {
     const rawThresh = Number.parseInt(params.get("thresh") ?? "", 10);
-    if (Number.isFinite(rawThresh) && rawThresh >= 0) {
+    if (Number.isFinite(rawThresh) && rawThresh >= 2) {
       nextConfig.currentThreshold = rawThresh;
     }
   }
@@ -194,7 +232,8 @@ function parseTuningParams(
     }
   }
   const deletedEdgeIds = parseDeletedEdgeIds(params.get("d"));
-  return { config: nextConfig, deletedEdgeIds };
+  const highlightAnchorBranch = parseBool(params.get("ah")) ?? false;
+  return { config: nextConfig, deletedEdgeIds, highlightAnchorBranch, hasGraphTuning };
 }
 
 function getTrackId(): string | null {
@@ -320,6 +359,7 @@ async function loadAudio(
 
 async function bootstrap() {
   const elements = getElements();
+  const POST_LOAD_PLAY_DELAY_MS = 3000;
   const IDLE_TIMEOUT_MS = 300_000;
   const IDLE_KEEPALIVE_MS = 25_000;
   let player: BufferedAudioPlayer | null = null;
@@ -336,6 +376,8 @@ async function bootstrap() {
   });
   let viz: JukeboxViz | null = null;
   const castNamespace = "urn:x-cast:com.foreverjukebox.app";
+  const MAX_VIZ_INDEX = 5;
+  let anchorHighlightEnabled = false;
   const destroyViz = () => {
     if (viz) {
       viz.destroy();
@@ -343,13 +385,13 @@ async function bootstrap() {
     }
   };
 
-  const createViz = () => {
+  const createViz = (activeVizIndex: number) => {
     destroyViz();
     viz = new JukeboxViz(elements.vizLayer, {
-      positioners: [JukeboxViz.createClassicPositioner()],
       enableInteraction: false,
     });
-    viz.setActiveIndex(0);
+    viz.setActiveIndex(activeVizIndex);
+    viz.setAnchorHighlightEnabled(anchorHighlightEnabled);
     viz.setVisible(false);
   };
 
@@ -364,8 +406,17 @@ async function bootstrap() {
     currentTrackId: null,
     trackTitle: null,
     trackArtist: null,
+    activeVizIndex: 0,
   };
   let lastCastSenderId: string | null = null;
+
+  function applyVisualizationIndex(nextIndex: number) {
+    const normalized = clamp(Math.trunc(nextIndex), 0, MAX_VIZ_INDEX);
+    state.activeVizIndex = normalized;
+    if (viz) {
+      viz.setActiveIndex(normalized);
+    }
+  }
 
   function sendStatusUpdate(senderId?: string, error?: string | null) {
     if (!castContext || !player) {
@@ -376,6 +427,24 @@ async function bootstrap() {
       state.loadToken > 0 && !!state.currentTrackId && !state.vizData;
     const hasTrack = !!state.currentTrackId;
     const isPlaying = player.isPlaying();
+    const resolvedThreshold = (() => {
+      if (!engine) {
+        return null;
+      }
+      const configThreshold = engine.getConfig().currentThreshold;
+      if (Number.isFinite(configThreshold) && configThreshold > 0) {
+        return Math.trunc(configThreshold);
+      }
+      const graphThreshold = engine.getGraphState()?.currentThreshold;
+      if (
+        typeof graphThreshold === "number" &&
+        Number.isFinite(graphThreshold) &&
+        graphThreshold > 0
+      ) {
+        return Math.trunc(graphThreshold);
+      }
+      return null;
+    })();
     const playbackState = error
       ? "error"
       : !hasTrack
@@ -392,6 +461,8 @@ async function bootstrap() {
       artist: state.trackArtist,
       isPlaying,
       isLoading,
+      activeVizIndex: state.activeVizIndex,
+      resolvedThreshold,
       error: error ?? null,
       playbackState,
     };
@@ -493,7 +564,11 @@ async function bootstrap() {
   async function startTrack(
     trackId: string,
     tuningParams: string | null = null,
+    vizIndex: number | null = null,
   ) {
+    if (vizIndex !== null) {
+      applyVisualizationIndex(vizIndex);
+    }
     clearIdleStopTimer();
     stopIdleKeepAlive();
     if (!trackId) {
@@ -507,6 +582,21 @@ async function bootstrap() {
       return;
     }
     if (trackId === state.currentTrackId) {
+      let tuningApplied = true;
+      if (tuningParams !== null) {
+        tuningApplied = applyTuningUpdate(tuningParams);
+      }
+      if (!tuningApplied) {
+        return;
+      }
+      if (vizIndex !== null) {
+        applyVisualizationIndex(vizIndex);
+      }
+      setLoadingState(elements, false);
+      if (viz) {
+        viz.setVisible(true);
+      }
+      sendStatusUpdate();
       return;
     }
     setLogoVisible(elements, false);
@@ -552,42 +642,26 @@ async function bootstrap() {
       if (!player || !engine) {
         throw new Error("Audio engine not ready");
       }
-      if (defaultConfig) {
-        engine.updateConfig(defaultConfig);
-        engine.clearDeletedEdges();
-      }
       const parsedTuning = defaultConfig
         ? parseTuningParams(tuningParams, defaultConfig)
         : null;
-      if (parsedTuning) {
-        engine.updateConfig(parsedTuning.config);
-      }
+      anchorHighlightEnabled = parsedTuning?.highlightAnchorBranch ?? false;
       await loadAudio(jobId, elements.status, player, token, state);
       if (token !== state.loadToken) {
         return;
       }
       engine.loadAnalysis(analysis.result);
-      if (parsedTuning?.deletedEdgeIds?.length) {
-        const graph = engine.getGraphState();
-        if (graph) {
-          const edgeById = new Map(
-            graph.allEdges.map((edge) => [edge.id, edge]),
-          );
-          for (const id of parsedTuning.deletedEdgeIds) {
-            const edge = edgeById.get(id);
-            if (edge) {
-              engine.deleteEdge(edge);
-            }
-          }
-          engine.rebuildGraph();
-        }
+      if (defaultConfig) {
+        applyTuningToEngine(tuningParams);
       }
       state.vizData = engine.getVisualizationData();
       if (state.vizData) {
         if (!viz) {
-          createViz();
+          createViz(state.activeVizIndex);
         }
         if (viz) {
+          viz.setActiveIndex(state.activeVizIndex);
+          viz.setAnchorHighlightEnabled(anchorHighlightEnabled);
           viz.setData(state.vizData);
         }
       }
@@ -602,6 +676,10 @@ async function bootstrap() {
       setLoadingState(elements, false);
       if (viz) {
         viz.setVisible(true);
+      }
+      await new Promise((resolve) => setTimeout(resolve, POST_LOAD_PLAY_DELAY_MS));
+      if (token !== state.loadToken) {
+        return;
       }
       engine.startJukebox();
       engine.play();
@@ -640,13 +718,18 @@ async function bootstrap() {
     }
   }
 
-  function applyTuningUpdate(tuningParams: string | null) {
+  function applyTuningToEngine(tuningParams: string | null) {
     if (!engine || !defaultConfig || !state.currentTrackId) {
-      return;
+      return { parsed: null, highlightOnly: false };
+    }
+    const parsedTuning = parseTuningParams(tuningParams, defaultConfig);
+    anchorHighlightEnabled = parsedTuning?.highlightAnchorBranch ?? false;
+    const highlightOnly = !!parsedTuning && !parsedTuning.hasGraphTuning;
+    if (highlightOnly) {
+      return { parsed: parsedTuning, highlightOnly: true };
     }
     engine.updateConfig(defaultConfig);
     engine.clearDeletedEdges();
-    const parsedTuning = parseTuningParams(tuningParams, defaultConfig);
     if (parsedTuning) {
       engine.updateConfig(parsedTuning.config);
     }
@@ -654,7 +737,9 @@ async function bootstrap() {
     if (parsedTuning?.deletedEdgeIds?.length) {
       const graph = engine.getGraphState();
       if (graph) {
-        const edgeById = new Map(graph.allEdges.map((edge) => [edge.id, edge]));
+        const edgeById = new Map(
+          graph.allEdges.map((edge) => [edge.id, edge]),
+        );
         for (const id of parsedTuning.deletedEdgeIds) {
           const edge = edgeById.get(id);
           if (edge) {
@@ -664,17 +749,46 @@ async function bootstrap() {
         engine.rebuildGraph();
       }
     }
-    state.vizData = engine.getVisualizationData();
-    if (state.vizData) {
-      if (!viz) {
-        createViz();
+    return {
+      parsed: parsedTuning,
+      highlightOnly: false,
+    };
+  }
+
+  function applyTuningUpdate(tuningParams: string | null, senderId?: string): boolean {
+    if (!engine || !defaultConfig || !state.currentTrackId) {
+      return false;
+    }
+    try {
+      const result = applyTuningToEngine(tuningParams);
+      if (result.highlightOnly) {
+        if (viz) {
+          viz.setAnchorHighlightEnabled(anchorHighlightEnabled);
+          viz.setVisible(true);
+        }
+        return true;
       }
-      if (viz) {
-        viz.setData(state.vizData);
-        viz.setVisible(true);
+      state.vizData = engine.getVisualizationData();
+      if (state.vizData) {
+        if (!viz) {
+          createViz(state.activeVizIndex);
+        }
+        if (viz) {
+          viz.setActiveIndex(state.activeVizIndex);
+          viz.setAnchorHighlightEnabled(anchorHighlightEnabled);
+          viz.setData(state.vizData);
+          viz.setVisible(true);
+        }
+      } else if (viz) {
+        viz.reset();
       }
-    } else if (viz) {
-      viz.reset();
+      return true;
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to apply tuning";
+      console.error("Failed to apply cast tuning", err);
+      sendStatusUpdate(senderId, errorMessage);
+      return false;
     }
   }
 
@@ -686,7 +800,16 @@ async function bootstrap() {
       return;
     }
     if (command.type === "setTuning") {
-      applyTuningUpdate(command.tuningParams ?? null);
+      if (applyTuningUpdate(command.tuningParams ?? null, senderId)) {
+        sendStatusUpdate(senderId);
+      }
+      return;
+    }
+    if (command.type === "setVisualization") {
+      if (typeof command.vizIndex === "number" && Number.isFinite(command.vizIndex)) {
+        applyVisualizationIndex(command.vizIndex);
+        sendStatusUpdate(senderId);
+      }
       return;
     }
     if (command.type === "play") {
@@ -754,6 +877,11 @@ async function bootstrap() {
           typeof customData.tuningParams === "string"
             ? customData.tuningParams
             : null;
+        const vizIndex =
+          typeof customData.vizIndex === "number" &&
+          Number.isFinite(customData.vizIndex)
+            ? customData.vizIndex
+            : null;
         if (songId) {
           const nextUrl = baseUrl
             ? `${baseUrl.replace(/\/+$/, "")}/cast/${encodeURIComponent(songId)}`
@@ -761,7 +889,7 @@ async function bootstrap() {
           if (nextUrl) {
             window.history.replaceState({}, "", nextUrl);
           }
-          void startTrack(songId, tuningParams);
+          void startTrack(songId, tuningParams, vizIndex);
         }
         return loadRequestData;
       },

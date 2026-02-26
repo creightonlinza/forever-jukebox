@@ -82,13 +82,28 @@ class CastController(private val application: Application) {
         }
     }
 
+    fun sendVisualizationIndex(namespace: String, vizIndex: Int): Boolean {
+        val session = getSession() ?: return false
+        val payload = JSONObject().apply {
+            put("type", "setVisualization")
+            put("vizIndex", vizIndex)
+        }
+        return try {
+            session.sendMessage(namespace, payload.toString())
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun loadTrack(
         session: CastSession,
         baseUrl: String,
         trackId: String,
         title: String?,
         artist: String?,
-        tuningParams: String?
+        tuningParams: String?,
+        vizIndex: Int?
     ) {
         val normalizedBaseUrl = baseUrl.trimEnd('/')
         val customData = JSONObject().apply {
@@ -96,6 +111,9 @@ class CastController(private val application: Application) {
             put("songId", trackId)
             if (!tuningParams.isNullOrBlank()) {
                 put("tuningParams", tuningParams)
+            }
+            if (vizIndex != null) {
+                put("vizIndex", vizIndex)
             }
         }
         val metadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {

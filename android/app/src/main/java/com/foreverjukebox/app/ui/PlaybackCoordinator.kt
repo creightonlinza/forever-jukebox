@@ -73,6 +73,7 @@ class PlaybackCoordinator(
     fun buildTuningParamsString(): String? {
         if (!shouldApplyTuningParams()) return null
         val config = engine.getConfig()
+        val uiTuning = getState().tuning
         val params = mutableListOf<String>()
         if (config.justBackwards) {
             params.add("jb=1")
@@ -98,6 +99,9 @@ class PlaybackCoordinator(
         val deletedIds = getDeletedEdgeIds()
         if (deletedIds.isNotEmpty()) {
             params.add("d=${deletedIds.joinToString(",")}")
+        }
+        if (uiTuning.highlightAnchorBranch) {
+            params.add("ah=1")
         }
         return if (params.isEmpty()) null else params.joinToString("&")
     }

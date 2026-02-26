@@ -1326,6 +1326,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val isLoading = json.optBoolean("isLoading", false)
         val playbackState = json.optString("playbackState", "").takeUnless { it == "null" } ?: ""
         val error = json.optString("error", "").takeUnless { it == "null" } ?: ""
+        val remoteVizIndex = if (json.has("activeVizIndex")) {
+            json.optInt("activeVizIndex", -1)
+        } else {
+            -1
+        }
+        val remoteResolvedThreshold = json.opt("resolvedThreshold")
+            ?.let { value ->
+                when (value) {
+                    is Number -> value.toInt()
+                    is String -> value.toIntOrNull()
+                    else -> null
+                }
+            }
+            ?.takeIf { it >= 2 }
         val hasTitle = title.isNotBlank()
         val hasArtist = artist.isNotBlank()
         val displayTitle = if (hasArtist) {
@@ -1356,8 +1370,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     trackArtist = if (hasArtist) artist else it.playback.trackArtist,
                     lastYouTubeId = if (songId.isBlank()) it.playback.lastYouTubeId else songId,
                     analysisErrorMessage = if (error.isNotBlank()) error else it.playback.analysisErrorMessage,
-                    analysisInFlight = resolvedIsLoading
-                )
+                    analysisInFlight = resolvedIsLoading,
+                    activeVizIndex = if (remoteVizIndex in 0 until visualizationCount) {
+                        remoteVizIndex
+                    } else {
+                        it.playback.activeVizIndex
+                    }
+                ),
+                tuning = if (remoteResolvedThreshold != null) {
+                    it.tuning.copy(threshold = remoteResolvedThreshold)
+                } else {
+                    it.tuning
+                }
             )
         }
         syncCastNotification(state.value.playback)
@@ -1381,6 +1405,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             "${title?.takeIf { it.isNotBlank() } ?: "Unknown"} — $artist"
         }
+        val resolvedCastTuningParams = buildCastLoadTuningPayload(
+            raw = tuningParams,
+            highlightAnchorBranch = state.value.tuning.highlightAnchorBranch
+        )
         _state.update {
             it.copy(
                 playback = it.playback.copy(
@@ -1388,6 +1416,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     playTitle = displayTitle,
                     trackTitle = title,
                     trackArtist = artist,
+                    analysisInFlight = true,
+                    analysisErrorMessage = null,
                     isRunning = true,
                     listenTime = "00:00:00",
                     beatsPlayed = 0
@@ -1401,7 +1431,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             trackId = trackId,
             title = title,
             artist = artist,
-            tuningParams = tuningParams
+            tuningParams = resolvedCastTuningParams,
+            vizIndex = state.value.playback.activeVizIndex
         )
     }
 
@@ -1422,6 +1453,53 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!sent) {
             notifyCastUnavailable()
         }
+    }
+
+    private fun sendCastVisualizationIndex(index: Int) {
+        if (!state.value.castEnabled) {
+            notifyCastUnavailable()
+            return
+        }
+        val sent = castController.sendVisualizationIndex(CAST_COMMAND_NAMESPACE, index)
+        if (!sent) {
+            notifyCastUnavailable()
+        }
+    }
+
+    private fun buildCastLoadTuningPayload(
+        raw: String?,
+        highlightAnchorBranch: Boolean
+    ): String? {
+        if (raw.isNullOrBlank()) {
+            return if (highlightAnchorBranch) "ah=1" else "ah=0"
+        }
+        val uri = "http://localhost/?$raw".toUri()
+        val params = linkedMapOf<String, String>()
+        for (name in uri.queryParameterNames) {
+            val value = uri.getQueryParameter(name) ?: continue
+            if (name == "thresh") {
+                val threshold = value.toIntOrNull()
+                if (threshold == null || threshold < 2) {
+                    continue
+                }
+            }
+            params[name] = value
+        }
+        params["ah"] = if (highlightAnchorBranch) "1" else "0"
+        return params.entries.joinToString("&") { (key, value) ->
+            "${Uri.encode(key)}=${Uri.encode(value)}"
+        }.ifBlank { null }
+    }
+
+    private fun buildCastTuningParams(tuning: TuningState): String {
+        return listOf(
+            "jb=${if (tuning.justBackwards) 1 else 0}",
+            "lg=${if (tuning.justLong) 1 else 0}",
+            "sq=${if (tuning.removeSequential) 0 else 1}",
+            "thresh=${tuning.threshold.coerceAtLeast(2)}",
+            "bp=${tuning.minProb.coerceIn(0, 100)},${tuning.maxProb.coerceIn(0, 100)},${tuning.ramp.coerceIn(0, 100)}",
+            "ah=${if (tuning.highlightAnchorBranch) 1 else 0}"
+        ).joinToString("&")
     }
 
     private fun notifyCastUnavailable() {
@@ -1523,6 +1601,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             preferences.setActiveVizIndex(index)
         }
+        if (state.value.playback.isCasting) {
+            sendCastVisualizationIndex(index)
+        }
     }
 
     fun refreshPlaybackFromController() {
@@ -1603,6 +1684,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         removeSequentialBranches: Boolean
     ) {
         viewModelScope.launch {
+            if (state.value.playback.isCasting) {
+                val currentTuning = state.value.tuning
+                val nextTuning = currentTuning.copy(
+                    threshold = threshold.coerceAtLeast(2),
+                    minProb = (minProb * 100.0).roundToInt().coerceIn(0, 100),
+                    maxProb = (maxProb * 100.0).roundToInt().coerceIn(0, 100),
+                    ramp = (ramp * 100.0).roundToInt().coerceIn(0, 100),
+                    highlightAnchorBranch = highlightAnchorBranch,
+                    justBackwards = justBackwards,
+                    justLong = justLongBranches,
+                    removeSequential = removeSequentialBranches
+                )
+                _state.update { it.copy(tuning = nextTuning) }
+                preferences.setHighlightAnchorBranch(highlightAnchorBranch)
+                val onlyHighlightChanged =
+                    nextTuning.threshold == currentTuning.threshold &&
+                        nextTuning.minProb == currentTuning.minProb &&
+                        nextTuning.maxProb == currentTuning.maxProb &&
+                        nextTuning.ramp == currentTuning.ramp &&
+                        nextTuning.justBackwards == currentTuning.justBackwards &&
+                        nextTuning.justLong == currentTuning.justLong &&
+                        nextTuning.removeSequential == currentTuning.removeSequential &&
+                        nextTuning.highlightAnchorBranch != currentTuning.highlightAnchorBranch
+                sendCastTuningParams(
+                    if (onlyHighlightChanged) {
+                        if (nextTuning.highlightAnchorBranch) "ah=1" else "ah=0"
+                    } else {
+                        buildCastTuningParams(nextTuning)
+                    }
+                )
+                return@launch
+            }
             val vizData = withContext(Dispatchers.Default) {
                 val current = engine.getConfig()
                 val graph = engine.getGraphState()
@@ -1629,14 +1742,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             preferences.setHighlightAnchorBranch(highlightAnchorBranch)
             playbackCoordinator.syncTuningState()
-            if (state.value.playback.isCasting) {
-                sendCastTuningParams(playbackCoordinator.buildTuningParamsString())
-            }
         }
     }
 
     fun resetTuningDefaults() {
         viewModelScope.launch {
+            if (state.value.playback.isCasting) {
+                val preservedHighlight = state.value.tuning.highlightAnchorBranch
+                _state.update {
+                    it.copy(
+                        tuning = TuningState(highlightAnchorBranch = preservedHighlight)
+                    )
+                }
+                sendCastTuningParams(null)
+                if (preservedHighlight) {
+                    sendCastTuningParams("ah=1")
+                }
+                return@launch
+            }
             val vizData = withContext(Dispatchers.Default) {
                 engine.clearDeletedEdges()
                 engine.updateConfig(defaultConfig.copy(currentThreshold = 0))
@@ -1645,9 +1768,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             _state.update { it.copy(playback = it.playback.copy(vizData = vizData)) }
             playbackCoordinator.syncTuningState()
-            if (state.value.playback.isCasting) {
-                sendCastTuningParams(null)
-            }
         }
     }
 

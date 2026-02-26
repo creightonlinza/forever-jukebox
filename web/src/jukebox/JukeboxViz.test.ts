@@ -80,23 +80,25 @@ function createContainer() {
 }
 
 describe("JukeboxViz", () => {
+  let canvases: HTMLCanvasElement[];
+
   beforeEach(() => {
-    setMockDocument();
+    canvases = setMockDocument();
   });
 
-  it("creates multiple visualization layouts", () => {
+  it("tracks available visualization layouts but mounts one active viz", () => {
     const container = createContainer();
     const viz = new JukeboxViz(container);
-    const inner = viz as unknown as { visualizations: unknown[] };
-    expect(inner.visualizations.length).toBe(6);
+    expect(viz.getCount()).toBe(6);
+    expect(canvases.length).toBe(2);
   });
 
-  it("toggles visibility across canvases", () => {
+  it("toggles visibility on the active visualization canvases", () => {
     const container = createContainer();
     const viz = new JukeboxViz(container);
     viz.setVisible(false);
-    const inner = viz as unknown as { visualizations: any[] };
-    const first = inner.visualizations[0];
+    const inner = viz as unknown as { activeViz: any };
+    const first = inner.activeViz;
     const baseCanvas = first.baseCanvas as HTMLCanvasElement;
     const overlayCanvas = first.overlayCanvas as HTMLCanvasElement;
     expect(baseCanvas.style.display).toBe("none");
@@ -125,10 +127,10 @@ describe("JukeboxViz", () => {
     const container = createContainer();
     const viz = new JukeboxViz(container);
     const inner = viz as unknown as {
-      visualizations: Array<{
+      activeViz: {
         update: (index: number, jumped: boolean, prev: number | null) => void;
         jumpLine: { from: number; to: number; at: number } | null;
-      }>;
+      } | null;
     };
     const data = {
       beats: [
@@ -139,7 +141,7 @@ describe("JukeboxViz", () => {
     };
     viz.setData(data as any);
     viz.update(1, true, 0);
-    const jumpLine = inner.visualizations[0].jumpLine;
+    const jumpLine = inner.activeViz?.jumpLine;
     expect(jumpLine?.from).toBe(0);
     expect(jumpLine?.to).toBe(1);
   });
@@ -155,5 +157,19 @@ describe("JukeboxViz", () => {
     viz.setSelectedEdge(edge as any);
     const inner = viz as unknown as { selectedEdge: unknown };
     expect(inner.selectedEdge).toBe(edge);
+  });
+
+  it("swaps visualization instances when active index changes", () => {
+    const container = createContainer();
+    const viz = new JukeboxViz(container);
+    expect(canvases.length).toBe(2);
+    const firstBase = canvases[0] as any;
+    const firstOverlay = canvases[1] as any;
+
+    viz.setActiveIndex(1);
+
+    expect(firstBase.remove).toHaveBeenCalledTimes(1);
+    expect(firstOverlay.remove).toHaveBeenCalledTimes(1);
+    expect(canvases.length).toBe(4);
   });
 });

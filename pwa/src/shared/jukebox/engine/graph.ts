@@ -277,6 +277,16 @@ interface AnchorTierRule {
   minImmediateBackward: number;
 }
 
+interface AnchorSourceCandidate {
+  index: number;
+  outcome: NeighborOutcome;
+}
+
+const LATE_ANCHOR_BRANCH_TOLERANCE = 1;
+const LATE_ANCHOR_IMMEDIATE_RATIO = 0.6;
+const LATE_ANCHOR_EARLIEST_SLACK_PCT = 0.02;
+const LATE_ANCHOR_EARLIEST_SLACK_MIN = 4;
+
 function calculateBranchesToEarlyTarget(
   quanta: QuantumBase[],
   earlyTargetBeat: number,
@@ -378,7 +388,19 @@ function buildAnchorTierRules(minLongBranch: number): AnchorTierRule[] {
   ];
 }
 
-function findLatestTieredAnchorSource(
+function compareAnchorOutcomeQuality(
+  a: NeighborOutcome,
+  b: NeighborOutcome,
+): number {
+  return (
+    a.branchesToTarget - b.branchesToTarget ||
+    a.earliestReachable - b.earliestReachable ||
+    b.immediateBackward - a.immediateBackward ||
+    a.distance - b.distance
+  );
+}
+
+function findBestTieredAnchorSource(
   quanta: QuantumBase[],
   earliestByBeat: Map<number, number>,
   branchesToTarget: Map<number, number>,
@@ -400,22 +422,57 @@ function findLatestTieredAnchorSource(
       if (range.end < range.start) {
         continue;
       }
+      const candidates: AnchorSourceCandidate[] = [];
       for (let i = range.end; i >= range.start; i -= 1) {
         const q = quanta[i];
-        const bestOutcome = selectBestBackwardNeighborOutcome(
+        const outcome = selectBestBackwardNeighborOutcome(
           q,
           earliestByBeat,
           branchesToTarget,
         );
         if (
-          bestOutcome &&
-          bestOutcome.branchesToTarget <= rule.maxAdditionalBranches &&
-          bestOutcome.earliestReachable <= earlyTargetBeat &&
-          bestOutcome.immediateBackward >= rule.minImmediateBackward
+          outcome &&
+          outcome.branchesToTarget <= rule.maxAdditionalBranches &&
+          outcome.earliestReachable <= earlyTargetBeat &&
+          outcome.immediateBackward >= rule.minImmediateBackward
         ) {
-          return i;
+          candidates.push({ index: i, outcome });
         }
       }
+      if (candidates.length === 0) {
+        continue;
+      }
+      const bestQuality = candidates.reduce((best, candidate) =>
+        compareAnchorOutcomeQuality(candidate.outcome, best.outcome) < 0
+          ? candidate
+          : best,
+      );
+      const earliestSlack = Math.max(
+        LATE_ANCHOR_EARLIEST_SLACK_MIN,
+        Math.floor(quanta.length * LATE_ANCHOR_EARLIEST_SLACK_PCT),
+      );
+      const immediateFloor = Math.max(
+        rule.minImmediateBackward,
+        Math.floor(bestQuality.outcome.immediateBackward * LATE_ANCHOR_IMMEDIATE_RATIO),
+      );
+      const lateBiasCandidates = candidates.filter(
+        (candidate) =>
+          candidate.outcome.branchesToTarget <=
+            bestQuality.outcome.branchesToTarget + LATE_ANCHOR_BRANCH_TOLERANCE &&
+          candidate.outcome.earliestReachable <=
+            bestQuality.outcome.earliestReachable + earliestSlack &&
+          candidate.outcome.immediateBackward >= immediateFloor,
+      );
+      if (lateBiasCandidates.length > 0) {
+        let latest = lateBiasCandidates[0];
+        for (let i = 1; i < lateBiasCandidates.length; i += 1) {
+          if (lateBiasCandidates[i].index > latest.index) {
+            latest = lateBiasCandidates[i];
+          }
+        }
+        return latest.index;
+      }
+      return bestQuality.index;
     }
   }
   return null;
@@ -496,7 +553,7 @@ function findExistingAnchorSource(
   );
   const earliestByBeat = calculateEarliestReachableByBeat(quanta);
 
-  const tieredSource = findLatestTieredAnchorSource(
+  const tieredSource = findBestTieredAnchorSource(
     quanta,
     earliestByBeat,
     branchesToTarget,
@@ -618,7 +675,7 @@ function findBestLastBeat(
   minLongBranch: number,
 ): { index: number; longestReach: number } {
   const minLastBranchIndex = Math.floor(quanta.length * 0.66);
-  const tieredSource = findLatestTieredAnchorSource(
+  const tieredSource = findBestTieredAnchorSource(
     quanta,
     earliestByBeat,
     branchesToTarget,

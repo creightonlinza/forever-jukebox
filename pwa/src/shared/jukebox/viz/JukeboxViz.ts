@@ -967,31 +967,19 @@ function getDefaultVisualizationDefinitions(): VisualizationDefinition[] {
   ];
 }
 
-function createVisualizations(
-  vizLayer: HTMLElement,
-  positioners?: Positioner[],
-  enableInteraction = true
-) {
-  const definitions: VisualizationDefinition[] = positioners
-    ? positioners.map((positioner) => ({ positioner }))
-    : getDefaultVisualizationDefinitions();
-  return definitions.map(
-    ({ positioner, options }) =>
-      new CanvasViz(vizLayer, positioner, {
-        enableInteraction,
-        ...(options ?? {}),
-      })
-  );
-}
-
 export class JukeboxViz {
-  private visualizations: CanvasViz[];
+  private readonly vizLayer: HTMLElement;
+  private readonly definitions: VisualizationDefinition[];
+  private readonly enableInteraction: boolean;
+  private activeViz: CanvasViz | null = null;
   private activeIndex = 0;
   private visible = true;
   private data: VizData | null = null;
   private selectedEdge: Edge | null = null;
   private lastUpdate: LastUpdate | null = null;
   private anchorHighlightEnabled = false;
+  private onSelectHandler: ((index: number) => void) | null = null;
+  private onEdgeSelectHandler: ((edge: Edge | null) => void) | null = null;
 
   static createClassicPositioner(): Positioner {
     return (data: VisualizationData, width: number, height: number) => {
@@ -1013,118 +1001,138 @@ export class JukeboxViz {
     vizLayer: HTMLElement,
     options?: { positioners?: Positioner[]; enableInteraction?: boolean }
   ) {
-    const enableInteraction = options?.enableInteraction ?? true;
-    this.visualizations = createVisualizations(
-      vizLayer,
-      options?.positioners,
-      enableInteraction
-    );
-    this.visualizations.forEach((viz) =>
-      viz.setAnchorHighlightEnabled(this.anchorHighlightEnabled)
-    );
-    this.setActiveIndex(0);
+    this.vizLayer = vizLayer;
+    this.enableInteraction = options?.enableInteraction ?? true;
+    this.definitions = options?.positioners
+      ? options.positioners.map((positioner) => ({ positioner }))
+      : getDefaultVisualizationDefinitions();
+    this.mountActiveVisualization(0);
   }
 
   getCount() {
-    return this.visualizations.length;
+    return this.definitions.length;
   }
 
-  setActiveIndex(index: number) {
-    if (index < 0 || index >= this.visualizations.length) {
-      return;
+  private createVisualization(index: number): CanvasViz | null {
+    const definition = this.definitions[index];
+    if (!definition) {
+      return null;
     }
-    this.activeIndex = index;
-    if (this.visible) {
-      this.visualizations.forEach((viz, vizIndex) => {
-        viz.setVisible(vizIndex === index);
-      });
-    } else {
-      this.visualizations.forEach((viz) => viz.setVisible(false));
+    const viz = new CanvasViz(this.vizLayer, definition.positioner, {
+      enableInteraction: this.enableInteraction,
+      ...(definition.options ?? {}),
+    });
+    viz.setAnchorHighlightEnabled(this.anchorHighlightEnabled);
+    viz.setVisible(this.visible);
+    if (this.onSelectHandler) {
+      viz.setOnSelect(this.onSelectHandler);
     }
-    this.visualizations[index]?.resizeNow();
+    if (this.onEdgeSelectHandler) {
+      viz.setOnEdgeSelect(this.onEdgeSelectHandler);
+    }
     if (this.data) {
-      this.visualizations[index]?.setData(this.data);
+      viz.setData(this.data);
     }
     if (this.selectedEdge) {
-      this.visualizations[index]?.setSelectedEdge(this.selectedEdge);
+      viz.setSelectedEdge(this.selectedEdge);
     }
     if (this.lastUpdate) {
-      this.visualizations[index]?.update(
+      viz.update(
         this.lastUpdate.index,
         this.lastUpdate.animate,
         this.lastUpdate.previousIndex
       );
     }
+    return viz;
+  }
+
+  private mountActiveVisualization(index: number) {
+    if (this.activeViz) {
+      this.activeViz.destroy();
+      this.activeViz = null;
+    }
+    this.activeViz = this.createVisualization(index);
+    this.activeViz?.resizeNow();
+  }
+
+  setActiveIndex(index: number) {
+    if (index < 0 || index >= this.definitions.length) {
+      return;
+    }
+    if (this.activeViz && index === this.activeIndex) {
+      this.activeViz.resizeNow();
+      return;
+    }
+    this.activeIndex = index;
+    this.mountActiveVisualization(index);
   }
 
   setVisible(visible: boolean) {
     this.visible = visible;
-    if (!visible) {
-      this.visualizations.forEach((viz) => viz.setVisible(false));
-      return;
-    }
-    this.visualizations.forEach((viz, index) => {
-      viz.setVisible(index === this.activeIndex);
-    });
+    this.activeViz?.setVisible(visible);
   }
 
   setData(data: VizData) {
     this.data = data;
-    this.visualizations.forEach((viz) => viz.setData(data));
+    this.activeViz?.setData(data);
   }
 
   setAnchorHighlightEnabled(enabled: boolean) {
     this.anchorHighlightEnabled = enabled;
-    this.visualizations.forEach((viz) => viz.setAnchorHighlightEnabled(enabled));
+    this.activeViz?.setAnchorHighlightEnabled(enabled);
   }
 
   refresh() {
-    this.visualizations.forEach((viz) => viz.refresh());
+    this.activeViz?.refresh();
   }
 
   resizeNow() {
-    this.visualizations.forEach((viz) => viz.resizeNow());
+    this.activeViz?.resizeNow();
   }
 
   resizeActive() {
-    this.visualizations[this.activeIndex]?.resizeNow();
+    this.activeViz?.resizeNow();
   }
 
   update(index: number, animate: boolean, previousIndex: number | null) {
     this.lastUpdate = { index, animate, previousIndex };
-    this.visualizations[this.activeIndex]?.update(index, animate, previousIndex);
+    this.activeViz?.update(index, animate, previousIndex);
   }
 
   reset() {
-    this.visualizations.forEach((viz) => viz.reset());
+    this.activeViz?.reset();
   }
 
   destroy() {
-    this.visualizations.forEach((viz) => viz.destroy());
-    this.visualizations = [];
+    this.activeViz?.destroy();
+    this.activeViz = null;
     this.data = null;
     this.selectedEdge = null;
     this.lastUpdate = null;
     this.visible = false;
     this.activeIndex = 0;
+    this.onSelectHandler = null;
+    this.onEdgeSelectHandler = null;
   }
 
   setOnSelect(handler: (index: number) => void) {
-    this.visualizations.forEach((viz) => viz.setOnSelect(handler));
+    this.onSelectHandler = handler;
+    this.activeViz?.setOnSelect(handler);
   }
 
   setOnEdgeSelect(handler: (edge: Edge | null) => void) {
-    this.visualizations.forEach((viz) => viz.setOnEdgeSelect(handler));
+    this.onEdgeSelectHandler = handler;
+    this.activeViz?.setOnEdgeSelect(handler);
   }
 
   setSelectedEdge(edge: Edge | null) {
     this.selectedEdge = edge;
-    this.visualizations.forEach((viz) => viz.setSelectedEdge(edge));
+    this.activeViz?.setSelectedEdge(edge);
   }
 
   setSelectedEdgeActive(edge: Edge | null) {
     this.selectedEdge = edge;
-    this.visualizations[this.activeIndex]?.setSelectedEdge(edge);
+    this.activeViz?.setSelectedEdge(edge);
   }
 }
 
