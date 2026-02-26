@@ -143,6 +143,14 @@ class ApiClient(private val json: Json = Json { ignoreUnknownKeys = true }) {
         deleteEmpty(url)
     }
 
+    suspend fun fetchLatestGitHubRelease(
+        owner: String,
+        repo: String
+    ): GitHubReleaseResponse {
+        val url = "https://api.github.com/repos/$owner/$repo/releases/latest"
+        return getGitHubJson(url)
+    }
+
     private suspend fun get(url: String): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).get().build()
         client.newCall(request).execute().use { response ->
@@ -243,6 +251,23 @@ class ApiClient(private val json: Json = Json { ignoreUnknownKeys = true }) {
     private suspend inline fun <reified T> getJson(url: String): T {
         val response = get(url)
         return json.decodeFromString(response)
+    }
+
+    private suspend inline fun <reified T> getGitHubJson(url: String): T = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(url)
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .header("User-Agent", "ForeverJukebox-Android")
+            .get()
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("HTTP ${response.code}")
+            }
+            val body = response.body?.string() ?: ""
+            json.decodeFromString(body)
+        }
     }
 
     private object ApiPaths {

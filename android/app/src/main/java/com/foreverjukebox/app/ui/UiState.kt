@@ -48,9 +48,15 @@ data class UiState(
     val favorites: List<FavoriteTrack> = emptyList(),
     val favoritesSyncCode: String? = null,
     val allowFavoritesSync: Boolean = false,
+    val versionUpdatePrompt: VersionUpdatePrompt? = null,
     val search: SearchState = SearchState(),
     val playback: PlaybackState = PlaybackState(),
     val tuning: TuningState = TuningState()
+)
+
+data class VersionUpdatePrompt(
+    val latestVersion: String,
+    val downloadUrl: String
 )
 
 data class SearchState(

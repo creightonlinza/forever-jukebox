@@ -1,5 +1,6 @@
 package com.foreverjukebox.app.ui
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -14,14 +15,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.foreverjukebox.app.data.FavoriteSourceType
 import com.foreverjukebox.app.data.TOP_SONGS_LIMIT
 
 @Composable
 fun ForeverJukeboxApp(viewModel: MainViewModel) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     ForeverJukeboxTheme(mode = state.themeMode) {
         Column(
             modifier = Modifier
@@ -96,6 +100,21 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
                 initialValue = state.baseUrl,
                 onConfirm = viewModel::completeAppModeOnboarding
             )
+        }
+
+        if (!state.showAppModeGate) {
+            state.versionUpdatePrompt?.let { prompt ->
+                VersionUpdateDialog(
+                    latestVersion = prompt.latestVersion,
+                    onDownload = {
+                        runCatching {
+                            val intent = Intent(Intent.ACTION_VIEW, prompt.downloadUrl.toUri())
+                            context.startActivity(intent)
+                        }
+                    },
+                    onClose = viewModel::dismissVersionUpdatePrompt
+                )
+            }
         }
     }
 }

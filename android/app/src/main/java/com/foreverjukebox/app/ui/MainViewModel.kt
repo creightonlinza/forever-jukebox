@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.foreverjukebox.app.BuildConfig
 import com.foreverjukebox.app.data.ApiClient
 import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.data.AppPreferences
@@ -59,6 +60,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var risingSongsLoaded = false
     private var recentSongsLoaded = false
     private var appConfigLoaded = false
+    private var versionCheckAttempted = false
     private val tabHistory = ArrayDeque<TabId>()
     private val castController = CastController(getApplication())
     private val favoritesController = FavoritesController(
@@ -230,6 +232,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         playbackCoordinator.restorePlaybackState()
+        checkForAppUpdateOnce()
     }
 
     override fun onCleared() {
@@ -1703,6 +1706,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         applyActiveTab(TabId.Play, recordHistory = true)
     }
 
+    fun dismissVersionUpdatePrompt() {
+        _state.update { it.copy(versionUpdatePrompt = null) }
+    }
+
+    private fun checkForAppUpdateOnce() {
+        if (BuildConfig.DEBUG) return
+        if (versionCheckAttempted) return
+        versionCheckAttempted = true
+        viewModelScope.launch {
+            val latest = runCatching {
+                api.fetchLatestGitHubRelease(
+                    owner = GITHUB_REPO_OWNER,
+                    repo = GITHUB_REPO_NAME
+                )
+            }.getOrNull() ?: return@launch
+            val latestVersion = latest.tagName?.trim().orEmpty()
+            val downloadUrl = latest.htmlUrl?.trim().orEmpty()
+            if (latestVersion.isBlank() || downloadUrl.isBlank()) return@launch
+            if (!isLatestVersionNewer(BuildConfig.VERSION_NAME, latestVersion)) return@launch
+            _state.update {
+                it.copy(
+                    versionUpdatePrompt = VersionUpdatePrompt(
+                        latestVersion = latestVersion,
+                        downloadUrl = downloadUrl
+                    )
+                )
+            }
+        }
+    }
+
     private fun recordCastPlayCount(jobId: String? = null, youtubeId: String? = null) {
         val baseUrl = state.value.baseUrl.trim()
         if (baseUrl.isBlank()) {
@@ -1744,5 +1777,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val TAG = "MainViewModel"
         private const val MAX_FAVORITES = 100
         private const val CAST_COMMAND_NAMESPACE = "urn:x-cast:com.foreverjukebox.app"
+        private const val GITHUB_REPO_OWNER = "creightonlinza"
+        private const val GITHUB_REPO_NAME = "forever-jukebox"
     }
 }

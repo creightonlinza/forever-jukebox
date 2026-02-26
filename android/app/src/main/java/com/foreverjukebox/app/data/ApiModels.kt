@@ -91,3 +91,9 @@ data class FavoritesSyncResponse(
 data class FavoritesSyncPayload(
     val favorites: List<FavoriteTrack> = emptyList()
 )
+
+@Serializable
+data class GitHubReleaseResponse(
+    @SerialName("tag_name") val tagName: String? = null,
+    @SerialName("html_url") val htmlUrl: String? = null
+)

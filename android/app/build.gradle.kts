@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ApplicationExtension
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -209,6 +210,14 @@ extensions.configure<ApplicationExtension>("android") {
         }
     }
 
+}
+
+extensions.configure<ApplicationAndroidComponentsExtension>("androidComponents") {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionName.set("DEBUG")
+        }
+    }
 }
 
 kotlin {

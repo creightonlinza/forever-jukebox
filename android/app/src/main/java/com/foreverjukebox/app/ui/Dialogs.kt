@@ -205,6 +205,47 @@ fun TuningDialog(
 }
 
 @Composable
+fun VersionUpdateDialog(
+    latestVersion: String,
+    onDownload: () -> Unit,
+    onClose: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = {
+            Button(
+                onClick = onDownload,
+                colors = pillButtonColors(),
+                border = pillButtonBorder(),
+                shape = PillShape,
+                contentPadding = SmallButtonPadding,
+                modifier = Modifier.height(SmallButtonHeight)
+            ) {
+                Text("Download from GitHub", style = MaterialTheme.typography.labelSmall)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onClose,
+                colors = pillOutlinedButtonColors(),
+                border = pillButtonBorder(),
+                shape = PillShape,
+                contentPadding = SmallButtonPadding,
+                modifier = Modifier.height(SmallButtonHeight)
+            ) {
+                Text("Close", style = MaterialTheme.typography.labelSmall)
+            }
+        },
+        title = { Text("Update Available") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("New version found: $latestVersion")
+            }
+        }
+    )
+}
+
+@Composable
 fun AppModeDialog(
     initialMode: AppMode = AppMode.Local,
     initialValue: String = "",
