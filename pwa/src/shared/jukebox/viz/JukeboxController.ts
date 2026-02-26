@@ -1,4 +1,3 @@
-// Copied from web/src/jukebox/JukeboxController.ts on 2026-02-11, reason: reuse visualization controller.
 import type { Edge } from "../engine/types";
 import { JukeboxViz } from "./JukeboxViz";
 
@@ -23,6 +22,10 @@ export class JukeboxController {
 
   setData(data: Parameters<JukeboxViz["setData"]>[0]) {
     this.viz.setData(data);
+  }
+
+  setAnchorHighlightEnabled(enabled: boolean) {
+    this.viz.setAnchorHighlightEnabled(enabled);
   }
 
   refresh() {

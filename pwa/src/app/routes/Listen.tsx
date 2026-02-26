@@ -39,7 +39,6 @@ const DEFAULT_CONFIG: JukeboxConfig = {
   maxBranches: 4,
   maxBranchThreshold: 80,
   currentThreshold: 0,
-  addLastEdge: true,
   justBackwards: false,
   justLongBranches: false,
   removeSequentialBranches: false,
@@ -51,6 +50,7 @@ const DEFAULT_CONFIG: JukeboxConfig = {
 
 const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
 const VISUALIZATION_STORAGE_KEY = "fj-viz";
+const ANCHOR_HIGHLIGHT_STORAGE_KEY = "fj-highlight-anchor-branch";
 const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 
 type PlayMode = "jukebox" | "autocanonizer";
@@ -76,6 +76,26 @@ function buildAudioExportName(fileName: string, extension: string) {
   return `${base || "jukebox"}_forever.${extension}`;
 }
 
+function resolveStoredAnchorHighlight(): boolean {
+  try {
+    const stored = window.localStorage.getItem(ANCHOR_HIGHLIGHT_STORAGE_KEY);
+    return stored === "1" || stored === "true";
+  } catch {
+    return false;
+  }
+}
+
+function storeAnchorHighlight(enabled: boolean) {
+  try {
+    window.localStorage.setItem(
+      ANCHOR_HIGHLIGHT_STORAGE_KEY,
+      enabled ? "1" : "0",
+    );
+  } catch {
+    // ignore storage failures
+  }
+}
+
 type TuneFormState = {
   threshold: number;
   computedThreshold: number;
@@ -83,7 +103,7 @@ type TuneFormState = {
   maxProb: number;
   ramp: number;
   volume: number;
-  addLastEdge: boolean;
+  highlightAnchorBranch: boolean;
   justBackwards: boolean;
   justLongBranches: boolean;
   removeSequentialBranches: boolean;
@@ -143,6 +163,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     return DEFAULT_VISUALIZATION_INDEX;
   });
   const [playMode, setPlayMode] = React.useState<PlayMode>("jukebox");
+  const [highlightAnchorBranch, setHighlightAnchorBranch] = React.useState<boolean>(
+    () => resolveStoredAnchorHighlight(),
+  );
   const [finishOutSong, setFinishOutSong] = React.useState<boolean>(() => {
     try {
       return window.localStorage.getItem(CANONIZER_FINISH_STORAGE_KEY) === "true";
@@ -157,7 +180,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     maxProb: Math.round(DEFAULT_CONFIG.maxRandomBranchChance * 100),
     ramp: Math.round(DEFAULT_CONFIG.randomBranchChanceDelta * 1000) / 10,
     volume: 50,
-    addLastEdge: DEFAULT_CONFIG.addLastEdge,
+    highlightAnchorBranch,
     justBackwards: DEFAULT_CONFIG.justBackwards,
     justLongBranches: DEFAULT_CONFIG.justLongBranches,
     removeSequentialBranches: DEFAULT_CONFIG.removeSequentialBranches,
@@ -222,6 +245,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
     controller.setActiveIndex(activeVizIndex);
     controller.setVisible(playModeRef.current === "jukebox");
+    controller.setAnchorHighlightEnabled(highlightAnchorBranch);
     autocanonizer.setVisible(playModeRef.current === "autocanonizer");
     autocanonizer.setFinishOutSong(finishOutSong);
     autocanonizer.setOnBeat((index) => {
@@ -576,7 +600,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     syncTuneFormFromEngine();
   };
 
-  const syncTuneFormFromEngine = () => {
+  const syncTuneFormFromEngine = (nextHighlightAnchorBranch = highlightAnchorBranch) => {
     const engine = engineRef.current;
     const player = playerRef.current;
     if (!engine || !player) {
@@ -595,7 +619,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       maxProb: Math.round(config.maxRandomBranchChance * 100),
       ramp: Math.round(config.randomBranchChanceDelta * 1000) / 10,
       volume: Math.round(player.getVolume() * 100),
-      addLastEdge: config.addLastEdge,
+      highlightAnchorBranch: nextHighlightAnchorBranch,
       justBackwards: config.justBackwards,
       justLongBranches: config.justLongBranches,
       removeSequentialBranches: config.removeSequentialBranches,
@@ -726,11 +750,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       minRandomBranchChance: minProb / 100,
       maxRandomBranchChance: maxProb / 100,
       randomBranchChanceDelta: tuneForm.ramp / 100,
-      addLastEdge: tuneForm.addLastEdge,
       justBackwards: tuneForm.justBackwards,
       justLongBranches: tuneForm.justLongBranches,
       removeSequentialBranches: tuneForm.removeSequentialBranches,
     });
+    setHighlightAnchorBranch(tuneForm.highlightAnchorBranch);
+    storeAnchorHighlight(tuneForm.highlightAnchorBranch);
+    vizControllerRef.current?.setAnchorHighlightEnabled(
+      tuneForm.highlightAnchorBranch,
+    );
     engine.rebuildGraph();
     const data = engine.getVisualizationData();
     if (data) {
@@ -739,7 +767,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const volume = tuneForm.volume / 100;
     player.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
-    syncTuneFormFromEngine();
+    syncTuneFormFromEngine(tuneForm.highlightAnchorBranch);
     setIsTuningOpen(false);
   };
 
@@ -1314,16 +1342,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <label>
                   <input
                     type="checkbox"
-                    checked={tuneForm.addLastEdge}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, addLastEdge: event.target.checked }))
-                    }
-                  />
-                  Loop extension optimization
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
                     checked={tuneForm.justBackwards}
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, justBackwards: event.target.checked }))
@@ -1350,6 +1368,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     }
                   />
                   Remove sequential branches
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={tuneForm.highlightAnchorBranch}
+                    onChange={(event) =>
+                      setTuneForm((prev) => ({
+                        ...prev,
+                        highlightAnchorBranch: event.target.checked,
+                      }))
+                    }
+                  />
+                  Highlight forced anchor jump
                 </label>
               </div>
             </div>
