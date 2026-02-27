@@ -66,6 +66,41 @@ describe("cast tuning", () => {
     expect(parsed?.config.currentThreshold).toBe(defaults.currentThreshold);
   });
 
+  it("parses sequential toggle aliases", () => {
+    const defaults = makeDefaults();
+    const parsedTrue = parseCastTuningParams("sq=true", defaults);
+    const parsedFalse = parseCastTuningParams("sq=false", defaults);
+    expect(parsedTrue?.config.removeSequentialBranches).toBe(true);
+    expect(parsedFalse?.config.removeSequentialBranches).toBe(false);
+  });
+
+  it("treats boolean fields case-insensitively", () => {
+    const parsed = parseCastTuningParams("jb=TRUE&lg=FaLsE&ah=TrUe", makeDefaults());
+    expect(parsed?.config.justBackwards).toBe(true);
+    expect(parsed?.config.justLongBranches).toBe(false);
+    expect(parsed?.highlightAnchorBranch).toBe(true);
+  });
+
+  it("clamps branch-probability percents", () => {
+    const parsed = parseCastTuningParams("bp=-10,130,450", makeDefaults());
+    expect(parsed?.config.minRandomBranchChance).toBeCloseTo(0, 6);
+    expect(parsed?.config.maxRandomBranchChance).toBeCloseTo(1, 6);
+    expect(parsed?.config.randomBranchChanceDelta).toBeCloseTo(1, 6);
+  });
+
+  it("ignores malformed bp triplets", () => {
+    const defaults = makeDefaults();
+    const parsed = parseCastTuningParams("bp=20,30", defaults);
+    expect(parsed?.config.minRandomBranchChance).toBe(defaults.minRandomBranchChance);
+    expect(parsed?.config.maxRandomBranchChance).toBe(defaults.maxRandomBranchChance);
+    expect(parsed?.config.randomBranchChanceDelta).toBe(defaults.randomBranchChanceDelta);
+  });
+
+  it("filters invalid deleted edge ids", () => {
+    const parsed = parseCastTuningParams("d=4,-1,foo,6", makeDefaults());
+    expect(parsed?.deletedEdgeIds).toEqual([4, 6]);
+  });
+
   it("returns null when no tuning keys are present", () => {
     expect(parseCastTuningParams("foo=bar", makeDefaults())).toBeNull();
   });
@@ -78,6 +113,34 @@ describe("cast tuning", () => {
     expect(engine.updateConfig).not.toHaveBeenCalled();
     expect(engine.clearDeletedEdges).not.toHaveBeenCalled();
     expect(engine.rebuildGraph).not.toHaveBeenCalled();
+  });
+
+  it("treats ah=0 payload as highlight-only and avoids graph mutations", () => {
+    const engine = makeEngine();
+    const result = applyCastTuningToEngine(engine, makeDefaults(), "ah=0");
+    expect(result.highlightOnly).toBe(true);
+    expect(result.highlightAnchorBranch).toBe(false);
+    expect(engine.updateConfig).not.toHaveBeenCalled();
+    expect(engine.clearDeletedEdges).not.toHaveBeenCalled();
+    expect(engine.rebuildGraph).not.toHaveBeenCalled();
+  });
+
+  it("keeps graph untouched when toggling highlight after tuning was applied", () => {
+    const engine = makeEngine();
+    const defaults = makeDefaults();
+    applyCastTuningToEngine(engine, defaults, "jb=1&thresh=33&ah=1");
+    vi.mocked(engine.updateConfig).mockClear();
+    vi.mocked(engine.clearDeletedEdges).mockClear();
+    vi.mocked(engine.rebuildGraph).mockClear();
+    vi.mocked(engine.deleteEdge).mockClear();
+
+    const result = applyCastTuningToEngine(engine, defaults, "ah=0");
+    expect(result.highlightOnly).toBe(true);
+    expect(result.highlightAnchorBranch).toBe(false);
+    expect(engine.updateConfig).not.toHaveBeenCalled();
+    expect(engine.clearDeletedEdges).not.toHaveBeenCalled();
+    expect(engine.rebuildGraph).not.toHaveBeenCalled();
+    expect(engine.deleteEdge).not.toHaveBeenCalled();
   });
 
   it("applies config and deleted edges for graph-tuning payloads", () => {
@@ -95,5 +158,19 @@ describe("cast tuning", () => {
     expect(engine.clearDeletedEdges).toHaveBeenCalledTimes(1);
     expect(engine.rebuildGraph).toHaveBeenCalledTimes(2);
     expect(engine.deleteEdge).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets to defaults when no cast tuning params are provided", () => {
+    const engine = makeEngine();
+    const defaults = makeDefaults();
+    const result = applyCastTuningToEngine(engine, defaults, null);
+    expect(result.parsed).toBeNull();
+    expect(result.highlightOnly).toBe(false);
+    expect(result.highlightAnchorBranch).toBe(false);
+    expect(engine.updateConfig).toHaveBeenCalledTimes(1);
+    expect(engine.updateConfig).toHaveBeenCalledWith(defaults);
+    expect(engine.clearDeletedEdges).toHaveBeenCalledTimes(1);
+    expect(engine.rebuildGraph).toHaveBeenCalledTimes(1);
+    expect(engine.deleteEdge).not.toHaveBeenCalled();
   });
 });

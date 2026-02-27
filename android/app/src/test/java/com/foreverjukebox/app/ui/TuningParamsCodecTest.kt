@@ -40,6 +40,60 @@ class TuningParamsCodecTest {
     }
 
     @Test
+    fun parseRecognizesBooleanAliasesForSequentialRule() {
+        val parsedTrue = TuningParamsCodec.parse("sq=true")
+        val parsedFalse = TuningParamsCodec.parse("sq=false")
+
+        assertTrue(parsedTrue?.removeSequentialBranches == true)
+        assertFalse(parsedFalse?.removeSequentialBranches == true)
+    }
+
+    @Test
+    fun parseTreatsBooleanFieldsCaseInsensitively() {
+        val parsed = TuningParamsCodec.parse("jb=TRUE&lg=False&ah=TrUe")
+
+        assertTrue(parsed?.justBackwards == true)
+        assertFalse(parsed?.justLongBranches == true)
+        assertTrue(parsed?.highlightAnchorBranch == true)
+    }
+
+    @Test
+    fun parseClampsBpPercentFields() {
+        val parsed = TuningParamsCodec.parse("bp=-5,120,400")
+
+        assertEquals(0, parsed?.minProbPercent)
+        assertEquals(100, parsed?.maxProbPercent)
+        assertEquals(100, parsed?.rampPercent)
+    }
+
+    @Test
+    fun parseIgnoresMalformedBpTriplet() {
+        val parsed = TuningParamsCodec.parse("bp=10,20")
+
+        assertNotNull(parsed)
+        assertNull(parsed?.minProbPercent)
+        assertNull(parsed?.maxProbPercent)
+        assertNull(parsed?.rampPercent)
+    }
+
+    @Test
+    fun parseFiltersInvalidDeletedEdgeIds() {
+        val parsed = TuningParamsCodec.parse("d=1,-1,foo,3")
+
+        assertEquals(listOf(1, 3), parsed?.deletedEdgeIds)
+    }
+
+    @Test
+    fun parseDecodesPercentEncodedFields() {
+        val parsed = TuningParamsCodec.parse("bp=15%2C45%2C20&d=5%2C8")
+
+        assertEquals(15, parsed?.minProbPercent)
+        assertEquals(45, parsed?.maxProbPercent)
+        assertEquals(20, parsed?.rampPercent)
+        assertEquals(listOf(5, 8), parsed?.deletedEdgeIds)
+    }
+
+    @Test
     fun buildCastLoadPayloadFallsBackToHighlightOnly() {
         assertEquals("ah=1", TuningParamsCodec.buildCastLoadPayload(null, true))
         assertEquals("ah=0", TuningParamsCodec.buildCastLoadPayload("", false))
@@ -52,6 +106,58 @@ class TuningParamsCodecTest {
             highlightAnchorBranch = true
         )
         assertEquals("jb=1&ah=1&bp=1%2C2%2C3", payload)
+    }
+
+    @Test
+    fun buildCastLoadPayloadDropsNonNumericThresholdAndKeepsKnownState() {
+        val payload = TuningParamsCodec.buildCastLoadPayload(
+            raw = "thresh=abc&jb=1&d=1,4",
+            highlightAnchorBranch = false
+        )
+        assertEquals("jb=1&d=1%2C4&ah=0", payload)
+    }
+
+    @Test
+    fun buildFromTuningStateClampsOutOfRangeValues() {
+        val raw = TuningParamsCodec.buildFromTuningState(
+            TuningState(
+                threshold = -9,
+                minProb = -20,
+                maxProb = 140,
+                ramp = 999
+            )
+        )
+        val parsed = TuningParamsCodec.parse(raw, minThreshold = 2)
+
+        assertEquals(2, parsed?.threshold)
+        assertEquals(0, parsed?.minProbPercent)
+        assertEquals(100, parsed?.maxProbPercent)
+        assertEquals(100, parsed?.rampPercent)
+    }
+
+    @Test
+    fun mergeIntoStateOnlyOverridesPresentValues() {
+        val base = TuningState(
+            threshold = 33,
+            minProb = 12,
+            maxProb = 49,
+            ramp = 15,
+            highlightAnchorBranch = true,
+            justBackwards = true,
+            justLong = true,
+            removeSequential = true
+        )
+        val parsed = TuningParamsCodec.parse("jb=0")
+        val merged = TuningParamsCodec.mergeIntoState(base, parsed)
+
+        assertEquals(33, merged.threshold)
+        assertEquals(12, merged.minProb)
+        assertEquals(49, merged.maxProb)
+        assertEquals(15, merged.ramp)
+        assertEquals(true, merged.highlightAnchorBranch)
+        assertEquals(false, merged.justBackwards)
+        assertEquals(true, merged.justLong)
+        assertEquals(true, merged.removeSequential)
     }
 
     @Test

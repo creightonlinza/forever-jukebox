@@ -40,7 +40,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlin.math.roundToInt
-import org.json.JSONObject
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = AppPreferences(application)
@@ -1315,74 +1314,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun handleCastStatusMessage(message: String) {
-        val json = runCatching { JSONObject(message) }.getOrNull() ?: return
-        if (json.optString("type") != "status") {
-            return
-        }
-        val songId = json.optString("songId", "").takeUnless { it == "null" } ?: ""
-        val title = json.optString("title", "").takeUnless { it == "null" } ?: ""
-        val artist = json.optString("artist", "").takeUnless { it == "null" } ?: ""
-        val isPlaying = json.optBoolean("isPlaying", false)
-        val isLoading = json.optBoolean("isLoading", false)
-        val playbackState = json.optString("playbackState", "").takeUnless { it == "null" } ?: ""
-        val error = json.optString("error", "").takeUnless { it == "null" } ?: ""
-        val remoteVizIndex = if (json.has("activeVizIndex")) {
-            json.optInt("activeVizIndex", -1)
-        } else {
-            -1
-        }
-        val remoteResolvedThreshold = json.opt("resolvedThreshold")
-            ?.let { value ->
-                when (value) {
-                    is Number -> value.toInt()
-                    is String -> value.toIntOrNull()
-                    else -> null
-                }
-            }
-            ?.takeIf { it >= 2 }
-        val hasTitle = title.isNotBlank()
-        val hasArtist = artist.isNotBlank()
-        val displayTitle = if (hasArtist) {
-            "${if (hasTitle) title else "Unknown"} — $artist"
-        } else if (hasTitle) {
-            title
-        } else {
-            null
-        }
+        val status = parseCastStatusMessage(message) ?: return
         _state.update {
-            val resolvedIsLoading = when (playbackState) {
-                "loading" -> true
-                "playing", "paused", "idle", "error" -> false
-                else -> isLoading
-            }
-            val resolvedIsRunning = when (playbackState) {
-                "playing" -> true
-                "paused", "idle", "error" -> false
-                "loading" -> it.playback.isRunning
-                else -> if (resolvedIsLoading) it.playback.isRunning else isPlaying
-            }
-            it.copy(
-                playback = it.playback.copy(
-                    playMode = PlaybackMode.Jukebox,
-                    isRunning = resolvedIsRunning,
-                    playTitle = displayTitle ?: it.playback.playTitle,
-                    trackTitle = if (hasTitle) title else it.playback.trackTitle,
-                    trackArtist = if (hasArtist) artist else it.playback.trackArtist,
-                    lastYouTubeId = if (songId.isBlank()) it.playback.lastYouTubeId else songId,
-                    analysisErrorMessage = if (error.isNotBlank()) error else it.playback.analysisErrorMessage,
-                    analysisInFlight = resolvedIsLoading,
-                    activeVizIndex = if (remoteVizIndex in 0 until visualizationCount) {
-                        remoteVizIndex
-                    } else {
-                        it.playback.activeVizIndex
-                    }
-                ),
-                tuning = if (remoteResolvedThreshold != null) {
-                    it.tuning.copy(threshold = remoteResolvedThreshold)
-                } else {
-                    it.tuning
-                }
-            )
+            reduceCastStatus(it, status)
         }
         syncCastNotification(state.value.playback)
     }

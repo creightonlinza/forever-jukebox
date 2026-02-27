@@ -86,11 +86,8 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
     var vizContainerSize by remember { mutableStateOf(IntSize.Zero) }
     val vizLabels = visualizationLabels
     var jumpLine by remember { mutableStateOf(playback.jumpLine) }
-    val hasCastTrack = playback.lastYouTubeId != null || playback.lastJobId != null
-    val castControlsReady = playback.isCasting &&
-        hasCastTrack &&
-        !playback.analysisInFlight &&
-        playback.analysisErrorMessage.isNullOrBlank()
+    val hasCastTrack = playback.hasCastTrack()
+    val castControlsReady = playback.castControlsReady()
     val fullscreenLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -170,9 +167,10 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                     )
                     return@outer
                 }
-                if (playback.playTitle.isNotBlank()) {
+                val headerTitle = resolvePlaybackHeaderTitle(playback)
+                if (!headerTitle.isNullOrBlank()) {
                     Text(
-                        text = playback.playTitle,
+                        text = headerTitle,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onBackground
                     )
@@ -183,7 +181,7 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                 val showServerActions = shouldShowServerListenActions(state.appMode)
                 val inAutocanonizer = playback.playMode == PlaybackMode.Autocanonizer
                 val themeTokens = LocalThemeTokens.current
-                if (!playback.isCasting || castControlsReady) {
+                if (shouldShowPlaybackTransport(playback)) {
                     Row(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth(),
@@ -593,7 +591,7 @@ private fun CastingPanel(
                 color = MaterialTheme.colorScheme.onBackground
             )
         }
-        val hasCastTrack = playback.lastYouTubeId != null || playback.lastJobId != null
+        val hasCastTrack = playback.hasCastTrack()
         if (!hasCastTrack) {
             Text(
                 text = "Choose a song to start casting.",

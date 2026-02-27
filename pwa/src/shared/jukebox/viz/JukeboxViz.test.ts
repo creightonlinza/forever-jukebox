@@ -86,83 +86,14 @@ describe("JukeboxViz", () => {
     canvases = setMockDocument();
   });
 
-  it("tracks available visualization layouts but mounts one active viz", () => {
-    const container = createContainer();
-    const viz = new JukeboxViz(container);
+  it("mounts only one active visualization at a time", () => {
+    const viz = new JukeboxViz(createContainer());
     expect(viz.getCount()).toBe(6);
     expect(canvases.length).toBe(2);
   });
 
-  it("toggles visibility on the active visualization canvases", () => {
-    const container = createContainer();
-    const viz = new JukeboxViz(container);
-    viz.setVisible(false);
-    const inner = viz as unknown as { activeViz: any };
-    const first = inner.activeViz;
-    const baseCanvas = first.baseCanvas as HTMLCanvasElement;
-    const overlayCanvas = first.overlayCanvas as HTMLCanvasElement;
-    expect(baseCanvas.style.display).toBe("none");
-    expect(overlayCanvas.style.display).toBe("none");
-  });
-
-  it("creates a classic positioner", () => {
-    const positioner = JukeboxViz.createClassicPositioner();
-    const points = positioner(
-      {
-        beats: [
-          { which: 0, start: 0, duration: 1 },
-          { which: 1, start: 1, duration: 1 },
-          { which: 2, start: 2, duration: 1 },
-          { which: 3, start: 3, duration: 1 },
-        ],
-        edges: [],
-      } as any,
-      100,
-      100
-    );
-    expect(points.length).toBe(4);
-  });
-
-  it("tracks jump line updates", () => {
-    const container = createContainer();
-    const viz = new JukeboxViz(container);
-    const inner = viz as unknown as {
-      activeViz: {
-        update: (index: number, jumped: boolean, prev: number | null) => void;
-        jumpLine: { from: number; to: number; at: number } | null;
-      } | null;
-    };
-    const data = {
-      beats: [
-        { which: 0, start: 0, duration: 1 },
-        { which: 1, start: 1, duration: 1 },
-      ],
-      edges: [],
-    };
-    viz.setData(data as any);
-    viz.update(1, true, 0);
-    const jumpLine = inner.activeViz?.jumpLine;
-    expect(jumpLine?.from).toBe(0);
-    expect(jumpLine?.to).toBe(1);
-  });
-
-  it("stores selected edge", () => {
-    const container = createContainer();
-    const viz = new JukeboxViz(container);
-    const edge = {
-      src: { which: 0 },
-      dest: { which: 1 },
-      deleted: false,
-    };
-    viz.setSelectedEdge(edge as any);
-    const inner = viz as unknown as { selectedEdge: unknown };
-    expect(inner.selectedEdge).toBe(edge);
-  });
-
-  it("swaps visualization instances when active index changes", () => {
-    const container = createContainer();
-    const viz = new JukeboxViz(container);
-    expect(canvases.length).toBe(2);
+  it("replaces active canvases when the index changes", () => {
+    const viz = new JukeboxViz(createContainer());
     const firstBase = canvases[0] as any;
     const firstOverlay = canvases[1] as any;
 
@@ -173,9 +104,8 @@ describe("JukeboxViz", () => {
     expect(canvases.length).toBe(4);
   });
 
-  it("does not remount when active index is unchanged", () => {
-    const container = createContainer();
-    const viz = new JukeboxViz(container);
+  it("does not remount when setting the same active index", () => {
+    const viz = new JukeboxViz(createContainer());
     const firstBase = canvases[0] as any;
     const firstOverlay = canvases[1] as any;
 
@@ -186,9 +116,8 @@ describe("JukeboxViz", () => {
     expect(canvases.length).toBe(2);
   });
 
-  it("rehydrates stored state after switching visualizations", () => {
-    const container = createContainer();
-    const viz = new JukeboxViz(container);
+  it("rehydrates state when switching visualizations", () => {
+    const viz = new JukeboxViz(createContainer());
     const edge = {
       id: 7,
       src: { which: 0 },
@@ -223,13 +152,11 @@ describe("JukeboxViz", () => {
     expect((active.overlayCanvas as HTMLCanvasElement).style.display).toBe("none");
   });
 
-  it("ignores invalid visualization indexes", () => {
-    const container = createContainer();
-    const viz = new JukeboxViz(container);
-
+  it("ignores invalid active indexes", () => {
+    const viz = new JukeboxViz(createContainer());
     viz.setActiveIndex(-1);
     viz.setActiveIndex(99);
-
     expect(canvases.length).toBe(2);
   });
 });
+

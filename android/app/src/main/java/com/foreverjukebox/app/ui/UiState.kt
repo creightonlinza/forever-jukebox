@@ -166,6 +166,35 @@ fun shouldShowLocalLoadingCancel(mode: AppMode?, playback: PlaybackState): Boole
         (playback.analysisInFlight || playback.analysisCalculating || playback.audioLoading)
 }
 
+fun PlaybackState.hasCastTrack(): Boolean {
+    return lastYouTubeId != null || lastJobId != null
+}
+
+fun PlaybackState.expectedCastTrackIds(): Set<String> {
+    return buildSet {
+        lastYouTubeId?.takeIf { it.isNotBlank() }?.let { add(it) }
+        lastJobId?.takeIf { it.isNotBlank() }?.let { add(it) }
+    }
+}
+
+fun PlaybackState.castControlsReady(): Boolean {
+    return isCasting &&
+        hasCastTrack() &&
+        !analysisInFlight &&
+        analysisErrorMessage.isNullOrBlank()
+}
+
+fun shouldShowPlaybackTransport(playback: PlaybackState): Boolean {
+    return !playback.isCasting || playback.castControlsReady()
+}
+
+fun resolvePlaybackHeaderTitle(playback: PlaybackState): String? {
+    if (playback.isCasting && playback.analysisInFlight) {
+        return "Loading track on cast device..."
+    }
+    return playback.playTitle.takeIf { it.isNotBlank() }
+}
+
 fun PlaybackState.shouldShowCastNotification(): Boolean {
     if (!isCasting) return false
     if (isRunning) return true
