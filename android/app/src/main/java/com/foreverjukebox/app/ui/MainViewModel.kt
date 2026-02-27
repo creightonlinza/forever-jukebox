@@ -684,7 +684,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             try {
-                val items = api.searchSpotify(baseUrl, query).take(10)
+                val items = api.searchSpotify(baseUrl, query)
                 updateSearchState { it.copy(spotifyResults = items) }
             } catch (_: Exception) {
                 updateSearchState { it.copy(spotifyResults = emptyList()) }
@@ -757,7 +757,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             try {
-                val items = api.searchYoutube(baseUrl, query, duration).take(10)
+                val items = api.searchYoutube(baseUrl, query, duration)
                 updateSearchState { it.copy(youtubeMatches = items) }
             } catch (_: Exception) {
                 updateSearchState { it.copy(youtubeMatches = emptyList()) }
