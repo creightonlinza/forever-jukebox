@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ApplicationExtension
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -54,6 +55,10 @@ val hasReleaseSigningCredentials = listOf(
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
 val hasReleaseSigningConfig = hasReleaseSigningCredentials && releaseStoreFile?.exists() == true
+val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+val versionTag = System.getenv("APP_VERSION_TAG")?.trim().orEmpty()
+val versionStamp = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy.MM"))
+val ciVersionName = if (versionTag.isNotEmpty()) versionTag else "$versionStamp.$runNumber"
 
 val prepareMadmomBeatsPortFfiJniLibs by tasks.registering {
     description = "Fetches madmom_beats_port_ffi Android binaries and stages ABI jniLibs for packaging."
@@ -122,11 +127,6 @@ extensions.configure<ApplicationExtension>("android") {
     namespace = "com.foreverjukebox.app"
     compileSdk = 36
     ndkVersion = "29.0.14206865"
-
-    val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
-    val versionTag = System.getenv("APP_VERSION_TAG")?.trim().orEmpty()
-    val versionStamp = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy.MM"))
-    val ciVersionName = if (versionTag.isNotEmpty()) versionTag else "$versionStamp.$runNumber"
 
     defaultConfig {
         applicationId = "com.foreverjukebox.app"
@@ -209,6 +209,14 @@ extensions.configure<ApplicationExtension>("android") {
         }
     }
 
+}
+
+extensions.configure<ApplicationAndroidComponentsExtension>("androidComponents") {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionName.set("$ciVersionName-dev")
+        }
+    }
 }
 
 kotlin {

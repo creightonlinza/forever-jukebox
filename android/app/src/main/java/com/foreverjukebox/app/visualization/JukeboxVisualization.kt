@@ -32,6 +32,7 @@ private const val EDGE_SAMPLE_LIMIT = 300
 private const val EDGE_AVOID_RADIUS = 6f
 private const val BEAT_SELECT_THRESHOLD = 16f
 private val ANCHOR_HIGHLIGHT_COLOR = Color(0xFFFF2D2D)
+private const val ARC_VERTICAL_GUTTER = 4f
 
 class JumpLine(val from: Int, val to: Int, val startedAt: Long)
 
@@ -265,9 +266,9 @@ private fun arcDiagramControlPoint(
     val direction = if (forward) -1f else 1f
     val canvasHeight = center.y * 2f
     val availableLift = if (direction < 0f) {
-        baseY - 14f
+        baseY - ARC_VERTICAL_GUTTER
     } else {
-        canvasHeight - baseY - 14f
+        canvasHeight - baseY - ARC_VERTICAL_GUTTER
     }
     val maxLift = max(4f, availableLift)
     val minLift = min(18f, maxLift)

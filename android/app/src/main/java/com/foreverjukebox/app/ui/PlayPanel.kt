@@ -63,9 +63,11 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.foreverjukebox.app.data.AppMode
 import com.foreverjukebox.app.visualization.AutocanonizerVisualization
+import com.foreverjukebox.app.visualization.EdgeRouting
 import com.foreverjukebox.app.visualization.JukeboxVisualization
 import com.foreverjukebox.app.visualization.edgeRoutingForVisualization
 import com.foreverjukebox.app.visualization.positioners
+import com.foreverjukebox.app.visualization.prefersWideAspectForVisualization
 import com.foreverjukebox.app.visualization.visualizationLabels
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -84,7 +86,8 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
     var vizContainerSize by remember { mutableStateOf(IntSize.Zero) }
     val vizLabels = visualizationLabels
     var jumpLine by remember { mutableStateOf(playback.jumpLine) }
-    val hasCastTrack = playback.lastYouTubeId != null || playback.lastJobId != null
+    val hasCastTrack = playback.hasCastTrack()
+    val castControlsReady = playback.castControlsReady()
     val fullscreenLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -155,12 +158,19 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) outer@{
                 if (playback.isCasting && !hasCastTrack) {
-                    CastingPanel(playback)
+                    CastingPanel(
+                        playback = playback,
+                        vizLabels = vizLabels,
+                        activeVizIndex = playback.activeVizIndex,
+                        canSelectVisualization = false,
+                        onSelectVisualization = viewModel::setActiveVisualization
+                    )
                     return@outer
                 }
-                if (playback.playTitle.isNotBlank()) {
+                val headerTitle = resolvePlaybackHeaderTitle(playback)
+                if (!headerTitle.isNullOrBlank()) {
                     Text(
-                        text = playback.playTitle,
+                        text = headerTitle,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onBackground
                     )
@@ -171,125 +181,133 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                 val showServerActions = shouldShowServerListenActions(state.appMode)
                 val inAutocanonizer = playback.playMode == PlaybackMode.Autocanonizer
                 val themeTokens = LocalThemeTokens.current
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = { viewModel.togglePlayback() },
-                        colors = pillButtonColors(),
-                        border = pillButtonBorder(),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                        modifier = Modifier.height(SmallButtonHeight)
+                if (shouldShowPlaybackTransport(playback)) {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (playback.isRunning) {
-                                Icons.Filled.Stop
-                            } else {
-                                Icons.Filled.PlayArrow
-                            },
-                            contentDescription = if (playback.isRunning) "Stop" else "Play",
-                            tint = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.size(30.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (playback.isRunning) "Stop" else "Play")
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (playback.deleteEligible) {
-                            IconButton(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        val deleted = viewModel.deleteCurrentJob()
-                                        val deletedText = if (!deleted) "Song can no longer be deleted" else "Song deleted"
-                                        Toast.makeText(
-                                            context,
-                                            deletedText,
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
+                        Button(
+                            onClick = { viewModel.togglePlayback() },
+                            colors = pillButtonColors(),
+                            border = pillButtonBorder(),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                            modifier = Modifier.height(SmallButtonHeight)
+                        ) {
+                            Icon(
+                                imageVector = if (playback.isRunning) {
+                                    Icons.Filled.Stop
+                                } else {
+                                    Icons.Filled.PlayArrow
                                 },
-                                modifier = Modifier.size(SmallButtonHeight)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription = "Delete within 30 minutes of creation",
-                                    tint = Color(0xFFE35A5A),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                                contentDescription = if (playback.isRunning) "Stop" else "Play",
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(30.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (playback.isRunning) "Stop" else "Play")
+                            Spacer(modifier = Modifier.width(8.dp))
                         }
-                        if (!inAutocanonizer) {
-                            IconButton(
-                                onClick = { showTuning = true },
-                                modifier = Modifier.size(SmallButtonHeight)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Tune,
-                                    contentDescription = "Tune",
-                                    tint = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (playback.deleteEligible) {
+                                IconButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            val deleted = viewModel.deleteCurrentJob()
+                                            val deletedText = if (!deleted) "Song can no longer be deleted" else "Song deleted"
+                                            Toast.makeText(
+                                                context,
+                                                deletedText,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    },
+                                    modifier = Modifier.size(SmallButtonHeight)
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = "Delete within 30 minutes of creation",
+                                        tint = Color(0xFFE35A5A),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
-                            IconButton(
-                                onClick = { showInfo = true },
-                                modifier = Modifier.size(SmallButtonHeight)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Info,
-                                    contentDescription = "Info",
-                                    tint = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            if (!inAutocanonizer) {
+                                IconButton(
+                                    onClick = { showTuning = true },
+                                    modifier = Modifier.size(SmallButtonHeight)
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Tune,
+                                        contentDescription = "Tune",
+                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { showInfo = true },
+                                    modifier = Modifier.size(SmallButtonHeight)
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Info,
+                                        contentDescription = "Info",
+                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
-                        }
-                        if (showServerActions) {
-                            IconButton(
-                                onClick = {
-                                    val url = viewModel.buildShareUrl() ?: return@IconButton
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, url)
-                                    }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Share Forever Jukebox link"))
-                                },
-                                modifier = Modifier.size(SmallButtonHeight)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Share,
-                                    contentDescription = "Share",
-                                    tint = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    if (playback.lastYouTubeId == null) return@IconButton
-                                    val limitReached = viewModel.toggleFavoriteForCurrent()
-                                    val message = when {
-                                        limitReached -> "Maximum favorites reached (100)."
-                                        isFavorite -> "Removed from Favorites"
-                                        else -> "Added to Favorites"
-                                    }
-                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.size(SmallButtonHeight)
-                            ) {
-                                Icon(
-                                    imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                    contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
-                                    tint = themeTokens.beatFill,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            if (showServerActions) {
+                                IconButton(
+                                    onClick = {
+                                        val url = viewModel.buildShareUrl() ?: return@IconButton
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, url)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share Forever Jukebox link"))
+                                    },
+                                    modifier = Modifier.size(SmallButtonHeight)
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Share,
+                                        contentDescription = "Share",
+                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        if (playback.lastYouTubeId == null) return@IconButton
+                                        val limitReached = viewModel.toggleFavoriteForCurrent()
+                                        val message = when {
+                                            limitReached -> "Maximum favorites reached (100)."
+                                            isFavorite -> "Removed from Favorites"
+                                            else -> "Added to Favorites"
+                                        }
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(SmallButtonHeight)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                        contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
+                                        tint = themeTokens.beatFill,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
                 if (playback.isCasting) {
-                    CastingPanel(playback)
+                    CastingPanel(
+                        playback = playback,
+                        vizLabels = vizLabels,
+                        activeVizIndex = playback.activeVizIndex,
+                        canSelectVisualization = castControlsReady,
+                        onSelectVisualization = viewModel::setActiveVisualization
+                    )
                 } else {
                     Box(
                         modifier = Modifier
@@ -301,6 +319,23 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                     ) {
                         val vizSidePx = kotlin.math.min(vizContainerSize.width, vizContainerSize.height)
                         val vizSide: Dp = with(density) { vizSidePx.toDp() }
+                        val edgeRouting = edgeRoutingForVisualization(playback.activeVizIndex)
+                        val isLandscapeVizContainer = vizContainerSize.width > vizContainerSize.height
+                        val useWideLayout =
+                            !inAutocanonizer &&
+                                isLandscapeVizContainer &&
+                                prefersWideAspectForVisualization(playback.activeVizIndex)
+                        val jukeboxModifier = if (useWideLayout) {
+                            if (edgeRouting == EdgeRouting.ArcDiagram) {
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 2.dp)
+                            } else {
+                                Modifier.fillMaxSize()
+                            }
+                        } else {
+                            Modifier.size(vizSide)
+                        }
                         if (inAutocanonizer) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -325,10 +360,10 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
                                     currentIndex = playback.currentBeatIndex,
                                     jumpLine = jumpLine,
                                     positioner = positioners.getOrNull(playback.activeVizIndex) ?: positioners.first(),
-                                    edgeRouting = edgeRoutingForVisualization(playback.activeVizIndex),
+                                    edgeRouting = edgeRouting,
                                     highlightAnchorBranch = tuning.highlightAnchorBranch,
                                     onSelectBeat = viewModel::selectBeat,
-                                    modifier = Modifier.size(vizSide)
+                                    modifier = jukeboxModifier
                                 )
                             }
                         }
@@ -533,8 +568,13 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
 
 @Composable
 private fun CastingPanel(
-    playback: PlaybackState
+    playback: PlaybackState,
+    vizLabels: List<String>,
+    activeVizIndex: Int,
+    canSelectVisualization: Boolean,
+    onSelectVisualization: (Int) -> Unit
 ) {
+    var showVizMenu by remember(activeVizIndex) { mutableStateOf(false) }
     val castLabel = playback.castDeviceName?.let { "Connected to $it" } ?: "Connected to cast device"
     Column(
         modifier = Modifier
@@ -551,13 +591,58 @@ private fun CastingPanel(
                 color = MaterialTheme.colorScheme.onBackground
             )
         }
-        val hasCastTrack = playback.lastYouTubeId != null || playback.lastJobId != null
+        val hasCastTrack = playback.hasCastTrack()
         if (!hasCastTrack) {
             Text(
                 text = "Choose a song to start casting.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
             )
+        } else if (canSelectVisualization) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Visualization:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Box {
+                    OutlinedButton(
+                        onClick = { showVizMenu = true },
+                        colors = pillOutlinedButtonColors(),
+                        border = pillButtonBorder(),
+                        shape = PillShape,
+                        contentPadding = SmallButtonPadding,
+                        modifier = Modifier.height(SmallButtonHeight)
+                    ) {
+                        Text(
+                            text = vizLabels.getOrNull(activeVizIndex) ?: "Select",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDropDown,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showVizMenu,
+                        onDismissRequest = { showVizMenu = false }
+                    ) {
+                        vizLabels.forEachIndexed { index, label ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    onSelectVisualization(index)
+                                    showVizMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -165,6 +165,135 @@ function makeLateLongAnchorPreferenceScenario() {
   return analysis;
 }
 
+function makeLateQualityBeatsLatestScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(10));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // Latest late-track source (9) qualifies but only with a very short immediate jump.
+  push(9, 7, 10);
+  push(7, 2, 10);
+  // Slightly earlier late-track source (8) is a better direct return.
+  push(8, 2, 10);
+  return analysis;
+}
+
+function makeLateNearQualityPrefersLatestScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(10));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // Earlier direct branch with strongest quality metrics.
+  push(8, 2, 10);
+  // Latest branch is one hop worse, but still close in quality.
+  push(9, 4, 10);
+  push(4, 2, 10);
+  return analysis;
+}
+
+function makeFallbackRangeAnchorScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(10));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // No qualifying branches in preferred late window (8-9).
+  // Fallback late-range candidate in 66-80% window should be selected.
+  push(7, 2, 10);
+  return analysis;
+}
+
+function makeGoodTierFallbackScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(10));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // No best-tier candidate (minLongBranch=4 in test config).
+  // This candidate should be chosen when rule evaluation falls to "good".
+  push(9, 6, 10);
+  push(6, 3, 10);
+  push(3, 2, 10);
+  return analysis;
+}
+
+function makeExactTiePrefersLaterSourceScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(10));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // Source 8 and 9 produce equal quality outcomes:
+  // branchesToTarget=1, earliestReachable=2, immediateBackward=4, same distance.
+  push(8, 4, 10);
+  push(9, 5, 10);
+  push(4, 2, 10);
+  push(5, 2, 10);
+  return analysis;
+}
+
+function makeInsertionWithoutExistingAnchorScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(10));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // Define early target and provide only an above-threshold late insertion option.
+  push(3, 1, 10);
+  push(8, 1, 40);
+  return analysis;
+}
+
 function makeLateInsertionPreferenceScenario() {
   const analysis = normalizeAnalysis(makeLinearAnalysis(10));
   const beats = analysis.beats;
@@ -402,5 +531,142 @@ describe("buildJumpGraph", () => {
         (edge) => edge.dest.which === 6,
       ),
     ).toBe(true);
+  });
+
+  it("prefers higher-quality late candidates over latest qualifying source", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 2,
+    };
+
+    const analysis = makeLateQualityBeatsLatestScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(8);
+    expect(
+      analysis.beats[graph.lastBranchPoint].neighbors.some(
+        (edge) => edge.dest.which === 2,
+      ),
+    ).toBe(true);
+  });
+
+  it("prefers latest candidate when quality is close enough", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 2,
+    };
+
+    const analysis = makeLateNearQualityPrefersLatestScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(9);
+    expect(
+      analysis.beats[graph.lastBranchPoint].neighbors.some(
+        (edge) => edge.dest.which === 4,
+      ),
+    ).toBe(true);
+  });
+
+  it("uses fallback late range when preferred late window has no candidate", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 2,
+    };
+
+    const analysis = makeFallbackRangeAnchorScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(7);
+  });
+
+  it("falls back from best tier to good tier when needed", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 4,
+    };
+
+    const analysis = makeGoodTierFallbackScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(9);
+    expect(
+      analysis.beats[graph.lastBranchPoint].neighbors.some(
+        (edge) => edge.dest.which === 6,
+      ),
+    ).toBe(true);
+  });
+
+  it("prefers later source when candidates tie on quality", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 4,
+    };
+
+    const analysis = makeExactTiePrefersLaterSourceScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(9);
+  });
+
+  it("inserts anchor when no existing candidate qualifies", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 2,
+    };
+
+    const analysis = makeInsertionWithoutExistingAnchorScenario();
+    const graph = buildJumpGraph(analysis, config);
+    const edges = collectEdgeKeys(analysis);
+
+    expect(edges.includes("8->1")).toBe(true);
+    expect(graph.lastBranchPoint).toBe(8);
   });
 });

@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -140,7 +142,12 @@ fun TuningDialog(
         dismissButton = {},
         title = { Text("Tuning") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text("Branch Similarity Threshold: ${threshold.toInt()}")
                 Slider(
                     value = threshold,
@@ -192,6 +199,47 @@ fun TuningDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Highlight forced anchor jump")
                 }
+            }
+        }
+    )
+}
+
+@Composable
+fun VersionUpdateDialog(
+    latestVersion: String,
+    onDownload: () -> Unit,
+    onClose: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = {
+            Button(
+                onClick = onDownload,
+                colors = pillButtonColors(),
+                border = pillButtonBorder(),
+                shape = PillShape,
+                contentPadding = SmallButtonPadding,
+                modifier = Modifier.height(SmallButtonHeight)
+            ) {
+                Text("Download from GitHub", style = MaterialTheme.typography.labelSmall)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onClose,
+                colors = pillOutlinedButtonColors(),
+                border = pillButtonBorder(),
+                shape = PillShape,
+                contentPadding = SmallButtonPadding,
+                modifier = Modifier.height(SmallButtonHeight)
+            ) {
+                Text("Close", style = MaterialTheme.typography.labelSmall)
+            }
+        },
+        title = { Text("Update Available") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("New version found: $latestVersion")
             }
         }
     )

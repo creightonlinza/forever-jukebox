@@ -14,6 +14,10 @@ private const val FULL_MATCH_DISTANCE = 0.0
 private const val TARGET_BRANCH_DIVISOR = 6
 private const val THRESHOLD_START = 10
 private const val THRESHOLD_STEP = 5
+private const val LATE_ANCHOR_BRANCH_TOLERANCE = 1
+private const val LATE_ANCHOR_IMMEDIATE_RATIO = 0.6
+private const val LATE_ANCHOR_EARLIEST_SLACK_PCT = 0.02
+private const val LATE_ANCHOR_EARLIEST_SLACK_MIN = 4
 
 private fun euclideanDistance(v1: List<Double>, v2: List<Double>): Double {
     var sum = 0.0
@@ -257,6 +261,11 @@ private data class AnchorTierRule(
     val minImmediateBackward: Int
 )
 
+private data class AnchorSourceCandidate(
+    val index: Int,
+    val outcome: NeighborOutcome
+)
+
 private fun calculateBranchesToEarlyTarget(
     quanta: List<QuantumBase>,
     earlyTargetBeat: Int
@@ -352,7 +361,19 @@ private fun buildAnchorTierRules(minLongBranch: Int): List<AnchorTierRule> {
     )
 }
 
-private fun findLatestTieredAnchorSource(
+private fun compareAnchorOutcomeQuality(a: NeighborOutcome, b: NeighborOutcome): Int {
+    return when {
+        a.branchesToTarget != b.branchesToTarget ->
+            a.branchesToTarget - b.branchesToTarget
+        a.earliestReachable != b.earliestReachable ->
+            a.earliestReachable - b.earliestReachable
+        a.immediateBackward != b.immediateBackward ->
+            b.immediateBackward - a.immediateBackward
+        else -> a.distance.compareTo(b.distance)
+    }
+}
+
+private fun findBestTieredAnchorSource(
     quanta: List<QuantumBase>,
     earliestByBeat: Map<Int, Int>,
     branchesToTarget: Map<Int, Int>,
@@ -374,21 +395,47 @@ private fun findLatestTieredAnchorSource(
             if (end < start) {
                 continue
             }
+            val candidates = mutableListOf<AnchorSourceCandidate>()
             for (i in end downTo start) {
                 val q = quanta[i]
-                val bestOutcome = selectBestBackwardNeighborOutcome(
+                val outcome = selectBestBackwardNeighborOutcome(
                     q,
                     earliestByBeat,
                     branchesToTarget
                 )
-                if (bestOutcome != null &&
-                    bestOutcome.branchesToTarget <= rule.maxAdditionalBranches &&
-                    bestOutcome.earliestReachable <= earlyTargetBeat &&
-                    bestOutcome.immediateBackward >= rule.minImmediateBackward
+                if (outcome != null &&
+                    outcome.branchesToTarget <= rule.maxAdditionalBranches &&
+                    outcome.earliestReachable <= earlyTargetBeat &&
+                    outcome.immediateBackward >= rule.minImmediateBackward
                 ) {
-                    return i
+                    candidates.add(AnchorSourceCandidate(index = i, outcome = outcome))
                 }
             }
+            if (candidates.isEmpty()) {
+                continue
+            }
+            val bestQuality = candidates.minWithOrNull { a, b ->
+                compareAnchorOutcomeQuality(a.outcome, b.outcome)
+            } ?: continue
+            val earliestSlack = max(
+                LATE_ANCHOR_EARLIEST_SLACK_MIN,
+                floor(quanta.size * LATE_ANCHOR_EARLIEST_SLACK_PCT).toInt()
+            )
+            val immediateFloor = max(
+                rule.minImmediateBackward,
+                floor(bestQuality.outcome.immediateBackward * LATE_ANCHOR_IMMEDIATE_RATIO).toInt()
+            )
+            val lateBiasCandidates = candidates.filter { candidate ->
+                candidate.outcome.branchesToTarget <=
+                    bestQuality.outcome.branchesToTarget + LATE_ANCHOR_BRANCH_TOLERANCE &&
+                    candidate.outcome.earliestReachable <=
+                    bestQuality.outcome.earliestReachable + earliestSlack &&
+                    candidate.outcome.immediateBackward >= immediateFloor
+            }
+            if (lateBiasCandidates.isNotEmpty()) {
+                return lateBiasCandidates.maxByOrNull { it.index }!!.index
+            }
+            return bestQuality.index
         }
     }
     return null
@@ -463,7 +510,7 @@ private fun findExistingAnchorSource(
     val branchesToTarget = calculateBranchesToEarlyTarget(quanta, earlyTargetBeat)
     val earliestByBeat = calculateEarliestReachableByBeat(quanta)
 
-    val tieredSource = findLatestTieredAnchorSource(
+    val tieredSource = findBestTieredAnchorSource(
         quanta,
         earliestByBeat,
         branchesToTarget,
@@ -576,7 +623,7 @@ private fun findBestLastBeat(
     minLongBranch: Int
 ): Pair<Int, Double> {
     val minLastBranchIndex = floor(quanta.size * 0.66).toInt()
-    val tieredSource = findLatestTieredAnchorSource(
+    val tieredSource = findBestTieredAnchorSource(
         quanta,
         earliestByBeat,
         branchesToTarget,

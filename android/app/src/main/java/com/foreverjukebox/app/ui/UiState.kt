@@ -48,9 +48,15 @@ data class UiState(
     val favorites: List<FavoriteTrack> = emptyList(),
     val favoritesSyncCode: String? = null,
     val allowFavoritesSync: Boolean = false,
+    val versionUpdatePrompt: VersionUpdatePrompt? = null,
     val search: SearchState = SearchState(),
     val playback: PlaybackState = PlaybackState(),
     val tuning: TuningState = TuningState()
+)
+
+data class VersionUpdatePrompt(
+    val latestVersion: String,
+    val downloadUrl: String
 )
 
 data class SearchState(
@@ -97,6 +103,7 @@ data class PlaybackState(
     val jumpLine: JumpLine? = null,
     val lastJobId: String? = null,
     val lastYouTubeId: String? = null,
+    val isCastLoading: Boolean = false,
     val deleteEligible: Boolean = false,
     val isCasting: Boolean = false,
     val castDeviceName: String? = null
@@ -158,6 +165,29 @@ fun shouldShowLocalLoadingCancel(mode: AppMode?, playback: PlaybackState): Boole
     return mode == AppMode.Local &&
         !playback.isCasting &&
         (playback.analysisInFlight || playback.analysisCalculating || playback.audioLoading)
+}
+
+fun PlaybackState.hasCastTrack(): Boolean {
+    return lastYouTubeId != null || lastJobId != null
+}
+
+fun PlaybackState.castControlsReady(): Boolean {
+    return isCasting &&
+        hasCastTrack() &&
+        !isCastLoading &&
+        !analysisInFlight &&
+        analysisErrorMessage.isNullOrBlank()
+}
+
+fun shouldShowPlaybackTransport(playback: PlaybackState): Boolean {
+    return !playback.isCasting || playback.castControlsReady()
+}
+
+fun resolvePlaybackHeaderTitle(playback: PlaybackState): String? {
+    if (playback.isCasting && (playback.isCastLoading || playback.analysisInFlight)) {
+        return "Loading track on cast device..."
+    }
+    return playback.playTitle.takeIf { it.isNotBlank() }
 }
 
 fun PlaybackState.shouldShowCastNotification(): Boolean {
