@@ -164,6 +164,7 @@ extensions.configure<ApplicationExtension>("android") {
         }
         release {
             isMinifyEnabled = false
+            isShrinkResources = false
             if (hasReleaseSigningConfig) {
                 signingConfig = signingConfigs.getByName("release")
             }
