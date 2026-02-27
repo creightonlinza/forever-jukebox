@@ -1,5 +1,4 @@
 import type { AppContext } from "./context";
-import { SEARCH_RESULTS_LIMIT } from "./constants";
 import { formatTrackDuration } from "./format";
 import {
   fetchJobByTrack,
@@ -93,10 +92,7 @@ export async function showYoutubeMatches(
   elements.searchResults.textContent = "Searching YouTube for matches...";
   elements.searchHint.textContent = "Step 2: Choose the closest YouTube match.";
   try {
-    const ytItems = (await searchYoutube(query, duration)).slice(
-      0,
-      SEARCH_RESULTS_LIMIT
-    );
+    const ytItems = await searchYoutube(query, duration);
     if (ytItems.length === 0) {
       elements.searchResults.textContent = "No YouTube matches found.";
       elements.searchHint.textContent = "Step 1: Find a Spotify track.";
@@ -222,7 +218,7 @@ export async function runSearch(context: AppContext, deps: SearchDeps) {
   elements.searchResults.textContent = "Searching Spotify...";
   elements.searchHint.textContent = "Step 1: Find a Spotify track.";
   try {
-    const items = (await searchSpotify(query)).slice(0, SEARCH_RESULTS_LIMIT);
+    const items = await searchSpotify(query);
     if (items.length === 0) {
       elements.searchResults.textContent = "No Spotify results found.";
       return;
