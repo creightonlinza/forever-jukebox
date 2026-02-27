@@ -26,12 +26,14 @@ class PlayPanelCastPolicyTest {
             analysisErrorMessage = null
         )
         val loading = ready.copy(analysisInFlight = true)
+        val pending = ready.copy(isCastLoading = true)
         val errored = ready.copy(analysisErrorMessage = "load failed")
         val noTrack = ready.copy(lastYouTubeId = null)
         val notCasting = ready.copy(isCasting = false)
 
         assertTrue(ready.castControlsReady())
         assertFalse(loading.castControlsReady())
+        assertFalse(pending.castControlsReady())
         assertFalse(errored.castControlsReady())
         assertFalse(noTrack.castControlsReady())
         assertFalse(notCasting.castControlsReady())
@@ -58,20 +60,10 @@ class PlayPanelCastPolicyTest {
     }
 
     @Test
-    fun expectedCastTrackIdsIncludesBothIdTypes() {
-        val playback = PlaybackState(
-            lastYouTubeId = "abc123def45",
-            lastJobId = "job_42"
-        )
-        assertTrue("abc123def45" in playback.expectedCastTrackIds())
-        assertTrue("job_42" in playback.expectedCastTrackIds())
-    }
-
-    @Test
     fun resolvePlaybackHeaderTitleShowsCastLoadingLabel() {
         val castingLoading = PlaybackState(
             isCasting = true,
-            analysisInFlight = true,
+            isCastLoading = true,
             playTitle = "Old Title — Old Artist"
         )
         val normal = PlaybackState(

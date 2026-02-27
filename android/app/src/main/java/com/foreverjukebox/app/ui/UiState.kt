@@ -103,6 +103,7 @@ data class PlaybackState(
     val jumpLine: JumpLine? = null,
     val lastJobId: String? = null,
     val lastYouTubeId: String? = null,
+    val isCastLoading: Boolean = false,
     val deleteEligible: Boolean = false,
     val isCasting: Boolean = false,
     val castDeviceName: String? = null
@@ -170,16 +171,10 @@ fun PlaybackState.hasCastTrack(): Boolean {
     return lastYouTubeId != null || lastJobId != null
 }
 
-fun PlaybackState.expectedCastTrackIds(): Set<String> {
-    return buildSet {
-        lastYouTubeId?.takeIf { it.isNotBlank() }?.let { add(it) }
-        lastJobId?.takeIf { it.isNotBlank() }?.let { add(it) }
-    }
-}
-
 fun PlaybackState.castControlsReady(): Boolean {
     return isCasting &&
         hasCastTrack() &&
+        !isCastLoading &&
         !analysisInFlight &&
         analysisErrorMessage.isNullOrBlank()
 }
@@ -189,7 +184,7 @@ fun shouldShowPlaybackTransport(playback: PlaybackState): Boolean {
 }
 
 fun resolvePlaybackHeaderTitle(playback: PlaybackState): String? {
-    if (playback.isCasting && playback.analysisInFlight) {
+    if (playback.isCasting && (playback.isCastLoading || playback.analysisInFlight)) {
         return "Loading track on cast device..."
     }
     return playback.playTitle.takeIf { it.isNotBlank() }

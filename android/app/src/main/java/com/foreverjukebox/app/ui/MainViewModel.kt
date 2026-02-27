@@ -712,7 +712,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val youtubeId = response.youtubeId
                     if (jobId != null && youtubeId != null && response.status != "failed") {
                         if (state.value.playback.isCasting) {
-                            castTrackId(youtubeId, name, artist, null)
+                            castTrackId(youtubeId, name, artist)
                             recordCastPlayCount(jobId = jobId)
                             applyActiveTab(TabId.Play, recordHistory = true)
                             return@launch
@@ -775,11 +775,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val resolvedTitle = title ?: state.value.search.pendingTrackName.orEmpty()
         val resolvedArtist = artist ?: state.value.search.pendingTrackArtist.orEmpty()
         if (state.value.playback.isCasting) {
-            castTrackId(youtubeId, resolvedTitle, resolvedArtist, null)
+            castTrackId(youtubeId, resolvedTitle, resolvedArtist)
             recordCastPlayCount(youtubeId = youtubeId)
-            _state.update {
-                it.copy(playback = it.playback.copy(lastYouTubeId = youtubeId))
-            }
             applyActiveTab(TabId.Play, recordHistory = true)
             return
         }
@@ -839,17 +836,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             title to artist
         }
         if (state.value.playback.isCasting) {
-            castTrackId(youtubeId, resolvedTitle, resolvedArtist, tuningParams)
+            castTrackId(youtubeId, resolvedTitle, resolvedArtist)
             recordCastPlayCount(youtubeId = youtubeId)
-            _state.update {
-                it.copy(
-                    playback = it.playback.copy(
-                        lastYouTubeId = youtubeId,
-                        trackTitle = resolvedTitle,
-                        trackArtist = resolvedArtist
-                    )
-                )
-            }
             applyActiveTab(TabId.Play, recordHistory = true)
             return
         }
@@ -908,18 +896,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val baseUrl = state.value.baseUrl
         if (baseUrl.isBlank()) return
         if (state.value.playback.isCasting) {
-            castTrackId(jobId, title, artist, tuningParams)
+            castTrackId(jobId, title, artist)
             recordCastPlayCount(jobId = jobId)
-            _state.update {
-                it.copy(
-                    playback = it.playback.copy(
-                        lastYouTubeId = null,
-                        lastJobId = jobId,
-                        trackTitle = title,
-                        trackArtist = artist
-                    )
-                )
-            }
             applyActiveTab(TabId.Play, recordHistory = true)
             return
         }
@@ -978,17 +956,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         artist: String? = null
     ) {
         if (state.value.playback.isCasting) {
-            castTrackId(youtubeId, title, artist, null)
+            castTrackId(youtubeId, title, artist)
             recordCastPlayCount(jobId = jobId)
-            _state.update {
-                it.copy(
-                    playback = it.playback.copy(
-                        lastYouTubeId = youtubeId,
-                        trackTitle = title,
-                        trackArtist = artist
-                    )
-                )
-            }
             applyActiveTab(TabId.Play, recordHistory = true)
             return
         }
@@ -1214,7 +1183,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch { showToast("Connect to a Cast device first.") }
             return
         }
-        castTrackId(trackId, playback.trackTitle, playback.trackArtist, playbackCoordinator.buildTuningParamsString())
+        castTrackId(trackId, playback.trackTitle, playback.trackArtist)
         recordCastPlayCount(
             jobId = playback.lastJobId,
             youtubeId = playback.lastYouTubeId
@@ -1272,7 +1241,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 if (!trackId.isNullOrBlank()) {
-                    castTrackId(trackId, preservedTitle, preservedArtist, null)
+                    castTrackId(trackId, preservedTitle, preservedArtist)
                 }
             }
             requestCastStatus()
@@ -1324,8 +1293,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun castTrackId(
         trackId: String,
         title: String? = null,
-        artist: String? = null,
-        tuningParams: String? = null
+        artist: String? = null
     ) {
         if (!state.value.castEnabled) {
             notifyCastUnavailable()
@@ -1339,10 +1307,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             "${title?.takeIf { it.isNotBlank() } ?: "Unknown"} — $artist"
         }
-        val resolvedCastTuningParams = buildCastLoadTuningPayload(
-            raw = tuningParams,
+        // Track-level tuning resets on each new cast load; only keep persistent
+        // highlight preference on LOAD. Full tuning is sent via setTuning only.
+        val resolvedCastTuningParams = TuningParamsCodec.buildCastLoadPayload(
+            raw = null,
             highlightAnchorBranch = state.value.tuning.highlightAnchorBranch
         )
+        val isYoutubeTrackId = isLikelyYoutubeId(trackId)
         _state.update {
             it.copy(
                 playback = it.playback.copy(
@@ -1350,6 +1321,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     playTitle = displayTitle,
                     trackTitle = title,
                     trackArtist = artist,
+                    lastYouTubeId = if (isYoutubeTrackId) trackId else null,
+                    lastJobId = if (isYoutubeTrackId) null else trackId,
+                    isCastLoading = true,
                     analysisInFlight = true,
                     analysisErrorMessage = null,
                     isRunning = true,
@@ -1368,6 +1342,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             tuningParams = resolvedCastTuningParams,
             vizIndex = state.value.playback.activeVizIndex
         )
+        requestCastStatus()
     }
 
     private fun sendCastCommand(command: String): Boolean {
@@ -1400,13 +1375,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun buildCastLoadTuningPayload(
-        raw: String?,
-        highlightAnchorBranch: Boolean
-    ): String? {
-        return TuningParamsCodec.buildCastLoadPayload(raw, highlightAnchorBranch)
-    }
-
     private fun buildCastTuningParams(tuning: TuningState): String {
         return TuningParamsCodec.buildFromTuningState(tuning)
     }
@@ -1415,6 +1383,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             showToast("Casting is not available for this API base URL.")
         }
+    }
+
+    private fun isLikelyYoutubeId(value: String): Boolean {
+        return value.length == 11 && value.all { it.isLetterOrDigit() || it == '_' || it == '-' }
     }
 
     fun retryFailedLoad() {

@@ -374,6 +374,7 @@ class PlaybackCoordinator(
                     playTitle = "",
                     lastYouTubeId = null,
                     lastJobId = null,
+                    isCastLoading = false,
                     deleteEligible = false,
                     analysisProgress = null,
                     analysisMessage = null,

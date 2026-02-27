@@ -259,7 +259,7 @@ async function loadAudio(
 
 async function bootstrap() {
   const elements = getElements();
-  const POST_LOAD_PLAY_DELAY_MS = 3000;
+  const POST_LOAD_PLAY_DELAY_MS = 2000;
   const IDLE_TIMEOUT_MS = 300_000;
   const IDLE_KEEPALIVE_MS = 25_000;
   let player: BufferedAudioPlayer | null = null;
@@ -577,6 +577,9 @@ async function bootstrap() {
       if (viz) {
         viz.setVisible(true);
       }
+      // Report "ready" as a paused-like non-loading status before the
+      // autoplay delay so sender UIs can update metadata immediately.
+      sendStatusUpdate();
       await new Promise((resolve) => setTimeout(resolve, POST_LOAD_PLAY_DELAY_MS));
       if (token !== state.loadToken) {
         return;

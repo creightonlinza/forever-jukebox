@@ -193,7 +193,7 @@ class CastStatusReducerTest {
     }
 
     @Test
-    fun reduceCastStatusIgnoresStaleSongIdWhileCastLoadIsInFlight() {
+    fun reduceCastStatusTracksCastLoadingFromReceiverState() {
         val current = UiState(
             playback = PlaybackState(
                 isCasting = true,
@@ -205,24 +205,52 @@ class CastStatusReducerTest {
             ),
             tuning = TuningState(threshold = 24)
         )
-        val stale = CastStatusMessage(
-            songId = "old_song",
-            title = "Old Song",
-            artist = "Old Artist",
-            isPlaying = true,
-            isLoading = false,
-            playbackState = "playing",
+        val loading = CastStatusMessage(
+            songId = "new_song",
+            title = "",
+            artist = "",
+            isPlaying = false,
+            isLoading = true,
+            playbackState = "loading",
             error = "",
             activeVizIndex = 4,
             resolvedThreshold = 31
         )
 
-        val next = reduceCastStatus(current, stale)
+        val next = reduceCastStatus(current, loading)
 
-        assertEquals(current.playback.playTitle, next.playback.playTitle)
-        assertEquals(current.playback.lastYouTubeId, next.playback.lastYouTubeId)
-        assertEquals(current.playback.activeVizIndex, next.playback.activeVizIndex)
-        assertEquals(current.playback.analysisInFlight, next.playback.analysisInFlight)
-        assertEquals(current.tuning.threshold, next.tuning.threshold)
+        assertTrue(next.playback.isCastLoading)
+        assertTrue(next.playback.analysisInFlight)
+    }
+
+    @Test
+    fun reduceCastStatusClearsCastLoadingWhenReceiverIsReady() {
+        val current = UiState(
+            playback = PlaybackState(
+                isCasting = true,
+                analysisInFlight = true,
+                isRunning = true,
+                lastYouTubeId = "new_song",
+                isCastLoading = true,
+                playTitle = "Loading track on cast device..."
+            )
+        )
+        val ready = CastStatusMessage(
+            songId = "new_song",
+            title = "Loaded Song",
+            artist = "Artist",
+            isPlaying = true,
+            isLoading = false,
+            playbackState = "playing",
+            error = "",
+            activeVizIndex = 1,
+            resolvedThreshold = 20
+        )
+
+        val next = reduceCastStatus(current, ready)
+
+        assertFalse(next.playback.isCastLoading)
+        assertFalse(next.playback.analysisInFlight)
+        assertTrue(next.playback.isRunning)
     }
 }

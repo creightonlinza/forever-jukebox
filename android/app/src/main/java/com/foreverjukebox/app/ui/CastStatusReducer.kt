@@ -62,16 +62,6 @@ fun parseCastStatusMessage(message: String): CastStatusMessage? {
 }
 
 fun reduceCastStatus(current: UiState, status: CastStatusMessage): UiState {
-    val expectedIds = current.playback.expectedCastTrackIds()
-    val isStaleStatusDuringLoad = current.playback.isCasting &&
-        current.playback.analysisInFlight &&
-        expectedIds.isNotEmpty() &&
-        status.songId.isNotBlank() &&
-        status.songId !in expectedIds
-    if (isStaleStatusDuringLoad) {
-        return current
-    }
-
     val hasTitle = status.title.isNotBlank()
     val hasArtist = status.artist.isNotBlank()
     val displayTitle = if (hasArtist) {
@@ -101,6 +91,7 @@ fun reduceCastStatus(current: UiState, status: CastStatusMessage): UiState {
         lastYouTubeId = if (status.songId.isBlank()) current.playback.lastYouTubeId else status.songId,
         analysisErrorMessage = if (status.error.isNotBlank()) status.error else current.playback.analysisErrorMessage,
         analysisInFlight = resolvedIsLoading,
+        isCastLoading = resolvedIsLoading,
         activeVizIndex = if ((status.activeVizIndex ?: -1) in 0 until visualizationCount) {
             status.activeVizIndex ?: current.playback.activeVizIndex
         } else {

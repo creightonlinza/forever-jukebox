@@ -598,12 +598,6 @@ private fun CastingPanel(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
             )
-        } else if (playback.analysisInFlight) {
-            Text(
-                text = "Loading track on cast device…",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
         } else if (canSelectVisualization) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
