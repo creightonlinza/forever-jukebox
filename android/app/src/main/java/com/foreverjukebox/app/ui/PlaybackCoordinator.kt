@@ -3,7 +3,6 @@ package com.foreverjukebox.app.ui
 import android.app.Application
 import android.net.Uri
 import android.os.SystemClock
-import androidx.core.net.toUri
 import com.foreverjukebox.app.data.ApiClient
 import com.foreverjukebox.app.data.AnalysisResponse
 import com.foreverjukebox.app.engine.JukeboxConfig
@@ -700,57 +699,42 @@ class PlaybackCoordinator(
         }
     }
 
-    private data class ParsedTuningParams(
+    private data class ResolvedTuningParams(
         val config: JukeboxConfig,
         val deletedEdgeIds: List<Int>
     )
 
-    private fun parseTuningParams(raw: String?): ParsedTuningParams? {
-        if (raw.isNullOrBlank()) return null
-        val uri = "http://localhost/?$raw".toUri()
+    private fun parseTuningParams(raw: String?): ResolvedTuningParams? {
+        val parsed = TuningParamsCodec.parse(raw, minThreshold = 0) ?: return null
         var config = defaultConfig
-        if (uri.getQueryParameter("jb") == "1") {
-            config = config.copy(justBackwards = true)
+        parsed.justBackwards?.let { value ->
+            config = config.copy(justBackwards = value)
         }
-        if (uri.getQueryParameter("lg") == "1") {
-            config = config.copy(justLongBranches = true)
+        parsed.justLongBranches?.let { value ->
+            config = config.copy(justLongBranches = value)
         }
-        if (uri.getQueryParameter("sq") == "0") {
-            config = config.copy(removeSequentialBranches = true)
+        parsed.removeSequentialBranches?.let { value ->
+            config = config.copy(removeSequentialBranches = value)
         }
-        uri.getQueryParameter("thresh")?.toIntOrNull()?.let { value ->
-            if (value >= 0) {
-                config = config.copy(currentThreshold = value)
-            }
+        parsed.threshold?.let { value ->
+            config = config.copy(currentThreshold = value)
         }
-        uri.getQueryParameter("bp")?.let { value ->
-            val parts = value.split(",")
-            if (parts.size == 3) {
-                val minPct = parts[0].toIntOrNull()
-                val maxPct = parts[1].toIntOrNull()
-                val deltaPct = parts[2].toIntOrNull()
-                if (minPct != null) {
-                    config = config.copy(
-                        minRandomBranchChance = mapPercentToRange(minPct, 0.0, 1.0)
-                    )
-                }
-                if (maxPct != null) {
-                    config = config.copy(
-                        maxRandomBranchChance = mapPercentToRange(maxPct, 0.0, 1.0)
-                    )
-                }
-                if (deltaPct != null) {
-                    config = config.copy(
-                        randomBranchChanceDelta = mapPercentToRange(deltaPct, 0.0, 1.0)
-                    )
-                }
-            }
+        parsed.minProbPercent?.let { value ->
+            config = config.copy(
+                minRandomBranchChance = mapPercentToRange(value, 0.0, 1.0)
+            )
         }
-        val deletedEdgeIds = uri.getQueryParameter("d")
-            ?.split(",")
-            ?.mapNotNull { it.toIntOrNull()?.takeIf { id -> id >= 0 } }
-            ?: emptyList()
-        return ParsedTuningParams(config, deletedEdgeIds)
+        parsed.maxProbPercent?.let { value ->
+            config = config.copy(
+                maxRandomBranchChance = mapPercentToRange(value, 0.0, 1.0)
+            )
+        }
+        parsed.rampPercent?.let { value ->
+            config = config.copy(
+                randomBranchChanceDelta = mapPercentToRange(value, 0.0, 1.0)
+            )
+        }
+        return ResolvedTuningParams(config, parsed.deletedEdgeIds)
     }
 
     private fun mapPercentToRange(percent: Int, min: Double, max: Double): Double {

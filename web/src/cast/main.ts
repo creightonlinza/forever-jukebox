@@ -5,6 +5,7 @@ import type { JukeboxConfig } from "../engine/types";
 import { JukeboxViz } from "../jukebox/JukeboxViz";
 import { fetchAnalysis, fetchAudio, fetchJobByYoutube } from "../app/api";
 import { formatDuration } from "../app/format";
+import { applyCastTuningToEngine, parseCastTuningParams } from "./tuning";
 
 type CastCustomData = {
   baseUrl?: string;
@@ -131,109 +132,8 @@ function isLikelyYoutubeId(value: string) {
   return /^[a-zA-Z0-9_-]{11}$/.test(value);
 }
 
-const MIN_RANDOM_BRANCH_DELTA = 0;
-const MAX_RANDOM_BRANCH_DELTA = 1;
-const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "ah"];
-
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
-}
-
-function mapPercentToRange(percent: number, min: number, max: number) {
-  const safePercent = clamp(percent, 0, 100);
-  return ((max - min) * safePercent) / 100 + min;
-}
-
-function parseDeletedEdgeIds(raw: string | null): number[] {
-  if (!raw) {
-    return [];
-  }
-  return raw
-    .split(",")
-    .map((value) => Number.parseInt(value, 10))
-    .filter((value) => Number.isFinite(value) && value >= 0);
-}
-
-function parseTuningParams(
-  raw: string | null,
-  defaults: JukeboxConfig,
-): {
-  config: JukeboxConfig;
-  deletedEdgeIds: number[];
-  highlightAnchorBranch: boolean;
-  hasGraphTuning: boolean;
-} | null {
-  if (!raw) {
-    return null;
-  }
-  const params = new URLSearchParams(raw);
-  const hasTuningParam = TUNING_PARAM_KEYS.some((key) => params.has(key));
-  if (!hasTuningParam) {
-    return null;
-  }
-  const parseBool = (value: string | null): boolean | null => {
-    if (value === null) {
-      return null;
-    }
-    const normalized = value.toLowerCase();
-    if (normalized === "1" || normalized === "true") {
-      return true;
-    }
-    if (normalized === "0" || normalized === "false") {
-      return false;
-    }
-    return null;
-  };
-  const hasGraphTuning = ["jb", "lg", "sq", "thresh", "bp", "d"].some((key) =>
-    params.has(key),
-  );
-  const nextConfig: JukeboxConfig = { ...defaults };
-  const justBackwards = parseBool(params.get("jb"));
-  if (justBackwards !== null) {
-    nextConfig.justBackwards = justBackwards;
-  }
-  const justLongBranches = parseBool(params.get("lg"));
-  if (justLongBranches !== null) {
-    nextConfig.justLongBranches = justLongBranches;
-  }
-  if (params.has("sq")) {
-    const rawSq = params.get("sq")?.toLowerCase() ?? "";
-    if (rawSq === "0" || rawSq === "true") {
-      nextConfig.removeSequentialBranches = true;
-    } else if (rawSq === "1" || rawSq === "false") {
-      nextConfig.removeSequentialBranches = false;
-    }
-  }
-  if (params.has("thresh")) {
-    const rawThresh = Number.parseInt(params.get("thresh") ?? "", 10);
-    if (Number.isFinite(rawThresh) && rawThresh >= 2) {
-      nextConfig.currentThreshold = rawThresh;
-    }
-  }
-  if (params.has("bp")) {
-    const fields = (params.get("bp") ?? "").split(",");
-    if (fields.length === 3) {
-      const minPct = Number.parseInt(fields[0] ?? "", 10);
-      const maxPct = Number.parseInt(fields[1] ?? "", 10);
-      const deltaPct = Number.parseInt(fields[2] ?? "", 10);
-      if (Number.isFinite(minPct)) {
-        nextConfig.minRandomBranchChance = mapPercentToRange(minPct, 0, 1);
-      }
-      if (Number.isFinite(maxPct)) {
-        nextConfig.maxRandomBranchChance = mapPercentToRange(maxPct, 0, 1);
-      }
-      if (Number.isFinite(deltaPct)) {
-        nextConfig.randomBranchChanceDelta = mapPercentToRange(
-          deltaPct,
-          MIN_RANDOM_BRANCH_DELTA,
-          MAX_RANDOM_BRANCH_DELTA,
-        );
-      }
-    }
-  }
-  const deletedEdgeIds = parseDeletedEdgeIds(params.get("d"));
-  const highlightAnchorBranch = parseBool(params.get("ah")) ?? false;
-  return { config: nextConfig, deletedEdgeIds, highlightAnchorBranch, hasGraphTuning };
 }
 
 function getTrackId(): string | null {
@@ -643,7 +543,7 @@ async function bootstrap() {
         throw new Error("Audio engine not ready");
       }
       const parsedTuning = defaultConfig
-        ? parseTuningParams(tuningParams, defaultConfig)
+        ? parseCastTuningParams(tuningParams, defaultConfig)
         : null;
       anchorHighlightEnabled = parsedTuning?.highlightAnchorBranch ?? false;
       await loadAudio(jobId, elements.status, player, token, state);
@@ -722,37 +622,9 @@ async function bootstrap() {
     if (!engine || !defaultConfig || !state.currentTrackId) {
       return { parsed: null, highlightOnly: false };
     }
-    const parsedTuning = parseTuningParams(tuningParams, defaultConfig);
-    anchorHighlightEnabled = parsedTuning?.highlightAnchorBranch ?? false;
-    const highlightOnly = !!parsedTuning && !parsedTuning.hasGraphTuning;
-    if (highlightOnly) {
-      return { parsed: parsedTuning, highlightOnly: true };
-    }
-    engine.updateConfig(defaultConfig);
-    engine.clearDeletedEdges();
-    if (parsedTuning) {
-      engine.updateConfig(parsedTuning.config);
-    }
-    engine.rebuildGraph();
-    if (parsedTuning?.deletedEdgeIds?.length) {
-      const graph = engine.getGraphState();
-      if (graph) {
-        const edgeById = new Map(
-          graph.allEdges.map((edge) => [edge.id, edge]),
-        );
-        for (const id of parsedTuning.deletedEdgeIds) {
-          const edge = edgeById.get(id);
-          if (edge) {
-            engine.deleteEdge(edge);
-          }
-        }
-        engine.rebuildGraph();
-      }
-    }
-    return {
-      parsed: parsedTuning,
-      highlightOnly: false,
-    };
+    const result = applyCastTuningToEngine(engine, defaultConfig, tuningParams);
+    anchorHighlightEnabled = result.highlightAnchorBranch;
+    return { parsed: result.parsed, highlightOnly: result.highlightOnly };
   }
 
   function applyTuningUpdate(tuningParams: string | null, senderId?: string): boolean {

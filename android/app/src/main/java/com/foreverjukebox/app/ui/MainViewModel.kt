@@ -1470,36 +1470,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         raw: String?,
         highlightAnchorBranch: Boolean
     ): String? {
-        if (raw.isNullOrBlank()) {
-            return if (highlightAnchorBranch) "ah=1" else "ah=0"
-        }
-        val uri = "http://localhost/?$raw".toUri()
-        val params = linkedMapOf<String, String>()
-        for (name in uri.queryParameterNames) {
-            val value = uri.getQueryParameter(name) ?: continue
-            if (name == "thresh") {
-                val threshold = value.toIntOrNull()
-                if (threshold == null || threshold < 2) {
-                    continue
-                }
-            }
-            params[name] = value
-        }
-        params["ah"] = if (highlightAnchorBranch) "1" else "0"
-        return params.entries.joinToString("&") { (key, value) ->
-            "${Uri.encode(key)}=${Uri.encode(value)}"
-        }.ifBlank { null }
+        return TuningParamsCodec.buildCastLoadPayload(raw, highlightAnchorBranch)
     }
 
     private fun buildCastTuningParams(tuning: TuningState): String {
-        return listOf(
-            "jb=${if (tuning.justBackwards) 1 else 0}",
-            "lg=${if (tuning.justLong) 1 else 0}",
-            "sq=${if (tuning.removeSequential) 0 else 1}",
-            "thresh=${tuning.threshold.coerceAtLeast(2)}",
-            "bp=${tuning.minProb.coerceIn(0, 100)},${tuning.maxProb.coerceIn(0, 100)},${tuning.ramp.coerceIn(0, 100)}",
-            "ah=${if (tuning.highlightAnchorBranch) 1 else 0}"
-        ).joinToString("&")
+        return TuningParamsCodec.buildFromTuningState(tuning)
     }
 
     private fun notifyCastUnavailable() {
