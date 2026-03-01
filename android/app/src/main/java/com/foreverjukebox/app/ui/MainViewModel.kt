@@ -55,11 +55,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var refreshTopSongsJob: Job? = null
     private var localAnalysisJob: Job? = null
+    private var pendingCastLoadJob: Job? = null
     private var topSongsLoaded = false
     private var risingSongsLoaded = false
     private var recentSongsLoaded = false
     private var appConfigLoaded = false
     private var versionCheckAttempted = false
+    private var castLoadRequestId = 0L
     private val tabHistory = ArrayDeque<TabId>()
     private val castController = CastController(getApplication())
     private val favoritesController = FavoritesController(
@@ -446,6 +448,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun resetRuntimeForModeChange(targetMode: AppMode) {
+        cancelPendingCastLoad()
         cancelLocalAnalysisInternal(showCancelledMessage = false)
         refreshTopSongsJob?.cancel()
         refreshTopSongsJob = null
@@ -1192,6 +1195,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setCastingConnected(isConnected: Boolean, deviceName: String? = null) {
         if (isConnected) {
+            cancelPendingCastLoad()
             val currentState = state.value
             val playback = currentState.playback
             if (playback.playMode == PlaybackMode.Autocanonizer) {
@@ -1249,6 +1253,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (!state.value.playback.isCasting) {
                 return
             }
+            cancelPendingCastLoad()
             _state.update {
                 it.copy(
                     playback = it.playback.copy(
@@ -1301,7 +1306,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         val baseUrl = state.value.baseUrl.trim()
         if (baseUrl.isBlank()) return
-        val session = castController.getSession() ?: return
         val displayTitle = if (artist.isNullOrBlank()) {
             title?.takeIf { it.isNotBlank() } ?: "Unknown"
         } else {
@@ -1336,16 +1340,84 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         syncCastNotification(state.value.playback)
-        castController.loadTrack(
-            session = session,
+        val requestId = ++castLoadRequestId
+        cancelPendingCastLoad()
+        val sent = attemptCastTrackLoad(
             baseUrl = baseUrl,
             trackId = trackId,
             title = title,
             artist = artist,
             tuningParams = resolvedCastTuningParams,
+            requestId = requestId
+        )
+        if (!sent) {
+            pendingCastLoadJob = viewModelScope.launch {
+                repeat(CAST_LOAD_RETRY_ATTEMPTS) {
+                    delay(CAST_LOAD_RETRY_DELAY_MS)
+                    if (requestId != castLoadRequestId || !state.value.playback.isCasting) {
+                        pendingCastLoadJob = null
+                        return@launch
+                    }
+                    val retried = attemptCastTrackLoad(
+                        baseUrl = baseUrl,
+                        trackId = trackId,
+                        title = title,
+                        artist = artist,
+                        tuningParams = resolvedCastTuningParams,
+                        requestId = requestId
+                    )
+                    requestCastStatus()
+                    if (retried) {
+                        pendingCastLoadJob = null
+                        return@launch
+                    }
+                }
+                if (requestId == castLoadRequestId && state.value.playback.isCasting) {
+                    _state.update {
+                        it.copy(
+                            playback = it.playback.copy(
+                                isRunning = false,
+                                isCastLoading = false,
+                                analysisInFlight = false,
+                                analysisErrorMessage = "Cast receiver not ready. Try again."
+                            )
+                        )
+                    }
+                    syncCastNotification(state.value.playback)
+                }
+                pendingCastLoadJob = null
+            }
+        }
+        requestCastStatus()
+    }
+
+    private fun attemptCastTrackLoad(
+        baseUrl: String,
+        trackId: String,
+        title: String?,
+        artist: String?,
+        tuningParams: String?,
+        requestId: Long
+    ): Boolean {
+        if (requestId != castLoadRequestId) {
+            return false
+        }
+        val session = castController.getSession() ?: return false
+        return castController.loadTrack(
+            session = session,
+            baseUrl = baseUrl,
+            trackId = trackId,
+            title = title,
+            artist = artist,
+            tuningParams = tuningParams,
             vizIndex = state.value.playback.activeVizIndex
         )
-        requestCastStatus()
+    }
+
+    private fun cancelPendingCastLoad() {
+        castLoadRequestId += 1L
+        pendingCastLoadJob?.cancel()
+        pendingCastLoadJob = null
     }
 
     private fun sendCastCommand(command: String): Boolean {
@@ -1781,6 +1853,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val TAG = "MainViewModel"
         private const val MAX_FAVORITES = 100
         private const val CAST_COMMAND_NAMESPACE = "urn:x-cast:com.foreverjukebox.app"
+        private const val CAST_LOAD_RETRY_ATTEMPTS = 12
+        private const val CAST_LOAD_RETRY_DELAY_MS = 250L
         private const val GITHUB_REPO_OWNER = "creightonlinza"
         private const val GITHUB_REPO_NAME = "forever-jukebox"
     }
