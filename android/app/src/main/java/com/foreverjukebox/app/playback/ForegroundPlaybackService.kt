@@ -27,7 +27,6 @@ import android.support.v4.media.session.PlaybackStateCompat
 import com.foreverjukebox.app.MainActivity
 import com.foreverjukebox.app.R
 import com.foreverjukebox.app.ui.CastController
-import com.foreverjukebox.app.ui.stopAllPlaybackTransports
 
 private object PlaybackServiceConstants {
     const val CHANNEL_ID = "fj_playback"
@@ -82,6 +81,10 @@ class ForegroundPlaybackService : Service() {
         super.onCreate()
         isRunning = true
         mediaSession = MediaSessionCompat(this, "ForeverJukeboxPlayback").apply {
+            setFlags(
+                MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
+                    MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+            )
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
                     handlePlayPause(shouldPlay = true)
@@ -174,11 +177,7 @@ class ForegroundPlaybackService : Service() {
         } else {
             null
         }
-        if (state.mode == NotificationMode.Local) {
-            updateMediaSession(state, artwork)
-        } else {
-            clearMediaSession()
-        }
+        updateMediaSession(state, artwork)
 
         val toggleIntent = Intent(this, ForegroundPlaybackService::class.java).apply {
             action = PlaybackServiceConstants.ACTION_TOGGLE
@@ -283,7 +282,12 @@ class ForegroundPlaybackService : Service() {
         artwork: Bitmap?
     ) {
         val playbackState = PlaybackStateCompat.Builder()
-            .setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE)
+            .setActions(
+                PlaybackStateCompat.ACTION_PLAY or
+                    PlaybackStateCompat.ACTION_PAUSE or
+                    PlaybackStateCompat.ACTION_STOP or
+                    PlaybackStateCompat.ACTION_PLAY_PAUSE
+            )
             .setState(
                 if (notificationState.isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
                 notificationState.positionMs,
@@ -303,11 +307,7 @@ class ForegroundPlaybackService : Service() {
         }
         mediaSession.setPlaybackState(playbackState)
         mediaSession.setMetadata(metadata.build())
-        mediaSession.isActive = notificationState.isPlaying
-    }
-
-    private fun clearMediaSession() {
-        mediaSession.isActive = false
+        mediaSession.isActive = notificationState.mode == NotificationMode.Cast || notificationState.isPlaying
     }
 
     private fun handlePlayPause(shouldPlay: Boolean) {
@@ -332,7 +332,9 @@ class ForegroundPlaybackService : Service() {
         if (shouldPlay && !isPlaying) {
             updateNotification(buildLocalNotificationState(controller.togglePlayback()))
         } else if (!shouldPlay && isPlaying) {
-            stopAllPlaybackTransports(controller)
+            controller.stopPlayback()
+            controller.autocanonizer.stop()
+            controller.stopExternalPlayback()
             updateNotification(buildLocalNotificationState(false))
         } else {
             updateNotification(buildLocalNotificationState(isPlaying))

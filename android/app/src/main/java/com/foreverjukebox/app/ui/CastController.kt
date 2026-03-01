@@ -104,7 +104,7 @@ class CastController(private val application: Application) {
         artist: String?,
         tuningParams: String?,
         vizIndex: Int?
-    ): Boolean {
+    ) {
         val normalizedBaseUrl = baseUrl.trimEnd('/')
         val customData = JSONObject().apply {
             put("baseUrl", normalizedBaseUrl)
@@ -130,12 +130,6 @@ class CastController(private val application: Application) {
             .setAutoplay(true)
             .setCustomData(customData)
             .build()
-        val remoteClient = session.remoteMediaClient ?: return false
-        return try {
-            remoteClient.load(request)
-            true
-        } catch (_: Exception) {
-            false
-        }
+        session.remoteMediaClient?.load(request)
     }
 }
