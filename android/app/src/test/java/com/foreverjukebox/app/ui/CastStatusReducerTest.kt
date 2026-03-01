@@ -24,6 +24,9 @@ class CastStatusReducerTest {
               "songId":"abc123def45",
               "title":"Track",
               "artist":"Artist",
+              "trackDurationSeconds":212.4,
+              "totalBeats":512,
+              "totalBranches":73,
               "isPlaying":true,
               "isLoading":false,
               "playbackState":"playing",
@@ -37,6 +40,9 @@ class CastStatusReducerTest {
         assertEquals("abc123def45", parsed?.songId)
         assertEquals("Track", parsed?.title)
         assertEquals("Artist", parsed?.artist)
+        assertEquals(212.4, parsed?.trackDurationSeconds ?: 0.0, 0.0001)
+        assertEquals(512, parsed?.totalBeats)
+        assertEquals(73, parsed?.totalBranches)
         assertTrue(parsed?.isPlaying == true)
         assertFalse(parsed?.isLoading == true)
         assertEquals("playing", parsed?.playbackState)
@@ -77,6 +83,9 @@ class CastStatusReducerTest {
             songId = "new_song",
             title = "",
             artist = "",
+            trackDurationSeconds = null,
+            totalBeats = null,
+            totalBranches = null,
             isPlaying = false,
             isLoading = false,
             playbackState = "loading",
@@ -112,6 +121,9 @@ class CastStatusReducerTest {
             songId = "song_2",
             title = "New Song",
             artist = "New Artist",
+            trackDurationSeconds = 189.5,
+            totalBeats = 640,
+            totalBranches = 82,
             isPlaying = true,
             isLoading = false,
             playbackState = "playing",
@@ -127,6 +139,9 @@ class CastStatusReducerTest {
         assertEquals("New Song — New Artist", next.playback.playTitle)
         assertEquals("New Song", next.playback.trackTitle)
         assertEquals("New Artist", next.playback.trackArtist)
+        assertEquals(189.5, next.playback.trackDurationSeconds ?: 0.0, 0.0001)
+        assertEquals(640, next.playback.castTotalBeats)
+        assertEquals(82, next.playback.castTotalBranches)
         assertEquals("song_2", next.playback.lastYouTubeId)
         assertEquals(3, next.playback.activeVizIndex)
         assertEquals(31, next.tuning.threshold)
@@ -145,6 +160,9 @@ class CastStatusReducerTest {
             songId = "",
             title = "",
             artist = "",
+            trackDurationSeconds = null,
+            totalBeats = null,
+            totalBranches = null,
             isPlaying = true,
             isLoading = false,
             playbackState = "error",
@@ -171,6 +189,9 @@ class CastStatusReducerTest {
             songId = "",
             title = "",
             artist = "",
+            trackDurationSeconds = null,
+            totalBeats = null,
+            totalBranches = null,
             isPlaying = false,
             isLoading = true,
             playbackState = "mystery",
@@ -209,6 +230,9 @@ class CastStatusReducerTest {
             songId = "new_song",
             title = "",
             artist = "",
+            trackDurationSeconds = null,
+            totalBeats = null,
+            totalBranches = null,
             isPlaying = false,
             isLoading = true,
             playbackState = "loading",
@@ -239,6 +263,9 @@ class CastStatusReducerTest {
             songId = "new_song",
             title = "Loaded Song",
             artist = "Artist",
+            trackDurationSeconds = 201.0,
+            totalBeats = 480,
+            totalBranches = 56,
             isPlaying = true,
             isLoading = false,
             playbackState = "playing",
@@ -252,5 +279,8 @@ class CastStatusReducerTest {
         assertFalse(next.playback.isCastLoading)
         assertFalse(next.playback.analysisInFlight)
         assertTrue(next.playback.isRunning)
+        assertEquals(201.0, next.playback.trackDurationSeconds ?: 0.0, 0.0001)
+        assertEquals(480, next.playback.castTotalBeats)
+        assertEquals(56, next.playback.castTotalBranches)
     }
 }

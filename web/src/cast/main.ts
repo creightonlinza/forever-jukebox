@@ -30,6 +30,9 @@ type CastStatus = {
   songId: string | null;
   title: string | null;
   artist: string | null;
+  trackDurationSeconds: number | null;
+  totalBeats: number | null;
+  totalBranches: number | null;
   isPlaying: boolean;
   isLoading: boolean;
   activeVizIndex: number;
@@ -102,6 +105,7 @@ type CastState = {
   currentTrackId: string | null;
   trackTitle: string | null;
   trackArtist: string | null;
+  trackDurationSeconds: number | null;
   activeVizIndex: number;
 };
 
@@ -134,6 +138,19 @@ function isLikelyYoutubeId(value: string) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+function parseDurationSeconds(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
 }
 
 function getTrackId(): string | null {
@@ -306,6 +323,7 @@ async function bootstrap() {
     currentTrackId: null,
     trackTitle: null,
     trackArtist: null,
+    trackDurationSeconds: null,
     activeVizIndex: 0,
   };
   let lastCastSenderId: string | null = null;
@@ -359,6 +377,9 @@ async function bootstrap() {
       songId: state.currentTrackId,
       title: state.trackTitle,
       artist: state.trackArtist,
+      trackDurationSeconds: state.trackDurationSeconds,
+      totalBeats: state.vizData?.beats?.length ?? null,
+      totalBranches: state.vizData?.edges?.length ?? null,
       isPlaying,
       isLoading,
       activeVizIndex: state.activeVizIndex,
@@ -514,6 +535,7 @@ async function bootstrap() {
     elements.title.textContent = "The Forever Jukebox";
     state.trackTitle = null;
     state.trackArtist = null;
+    state.trackDurationSeconds = null;
     state.lastBeatIndex = null;
     state.vizData = null;
     if (viz) {
@@ -569,9 +591,11 @@ async function bootstrap() {
       if (trackMeta) {
         const title = trackMeta.title || "Unknown";
         const artist = trackMeta.artist || "";
+        const durationSeconds = parseDurationSeconds(trackMeta.duration);
         elements.title.textContent = artist ? `${title} — ${artist}` : title;
         state.trackTitle = title;
         state.trackArtist = artist || null;
+        state.trackDurationSeconds = durationSeconds;
       }
       setLoadingState(elements, false);
       if (viz) {
@@ -599,6 +623,7 @@ async function bootstrap() {
       state.vizData = null;
       state.trackTitle = null;
       state.trackArtist = null;
+      state.trackDurationSeconds = null;
       if (viz) {
         viz.reset();
         viz.setVisible(false);

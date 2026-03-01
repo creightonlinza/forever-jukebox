@@ -539,8 +539,8 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
     }
 
     if (showInfo && playback.playMode != PlaybackMode.Autocanonizer) {
-        val totalBeats = playback.vizData?.beats?.size ?: 0
-        val totalBranches = playback.vizData?.edges?.size ?: 0
+        val totalBeats = playback.vizData?.beats?.size ?: playback.castTotalBeats ?: 0
+        val totalBranches = playback.vizData?.edges?.size ?: playback.castTotalBranches ?: 0
         TrackInfoDialog(
             durationSeconds = playback.trackDurationSeconds,
             totalBeats = totalBeats,

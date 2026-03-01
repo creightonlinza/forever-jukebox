@@ -12,6 +12,9 @@ data class CastStatusMessage(
     val songId: String,
     val title: String,
     val artist: String,
+    val trackDurationSeconds: Double?,
+    val totalBeats: Int?,
+    val totalBranches: Int?,
     val isPlaying: Boolean,
     val isLoading: Boolean,
     val playbackState: String,
@@ -38,6 +41,21 @@ fun parseCastStatusMessage(message: String): CastStatusMessage? {
     val songId = stringField("songId")
     val title = stringField("title")
     val artist = stringField("artist")
+    val trackDurationSeconds = json["trackDurationSeconds"]
+        ?.jsonPrimitive
+        ?.contentOrNull
+        ?.toDoubleOrNull()
+        ?.takeIf { it > 0.0 }
+    val totalBeats = json["totalBeats"]
+        ?.jsonPrimitive
+        ?.contentOrNull
+        ?.toIntOrNull()
+        ?.takeIf { it >= 0 }
+    val totalBranches = json["totalBranches"]
+        ?.jsonPrimitive
+        ?.contentOrNull
+        ?.toIntOrNull()
+        ?.takeIf { it >= 0 }
     val isPlaying = json["isPlaying"]?.jsonPrimitive?.booleanOrNull ?: false
     val isLoading = json["isLoading"]?.jsonPrimitive?.booleanOrNull ?: false
     val playbackState = stringField("playbackState")
@@ -52,6 +70,9 @@ fun parseCastStatusMessage(message: String): CastStatusMessage? {
         songId = songId,
         title = title,
         artist = artist,
+        trackDurationSeconds = trackDurationSeconds,
+        totalBeats = totalBeats,
+        totalBranches = totalBranches,
         isPlaying = isPlaying,
         isLoading = isLoading,
         playbackState = playbackState,
@@ -88,6 +109,9 @@ fun reduceCastStatus(current: UiState, status: CastStatusMessage): UiState {
         playTitle = displayTitle ?: current.playback.playTitle,
         trackTitle = if (hasTitle) status.title else current.playback.trackTitle,
         trackArtist = if (hasArtist) status.artist else current.playback.trackArtist,
+        trackDurationSeconds = status.trackDurationSeconds,
+        castTotalBeats = status.totalBeats,
+        castTotalBranches = status.totalBranches,
         lastYouTubeId = if (status.songId.isBlank()) current.playback.lastYouTubeId else status.songId,
         analysisErrorMessage = if (status.error.isNotBlank()) status.error else current.playback.analysisErrorMessage,
         analysisInFlight = resolvedIsLoading,

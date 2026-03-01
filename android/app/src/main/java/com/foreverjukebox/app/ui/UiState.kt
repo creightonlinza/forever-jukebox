@@ -92,6 +92,8 @@ data class PlaybackState(
     val beatsPlayed: Int = 0,
     val listenTime: String = "00:00:00",
     val trackDurationSeconds: Double? = null,
+    val castTotalBeats: Int? = null,
+    val castTotalBranches: Int? = null,
     val trackTitle: String? = null,
     val trackArtist: String? = null,
     val vizData: VisualizationData? = null,
