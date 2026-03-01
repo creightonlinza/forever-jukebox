@@ -25,13 +25,22 @@ class FavoritesController(
                 showToast("Favorites sync is disabled.")
                 return@launch
             }
-            val result = fetchFavoritesFromSync()
-            if (result == null) {
-                showToast("Favorites sync failed.")
-            } else {
-                updateFavorites(result, sync = false)
-                favoritesSyncHydratedFor = state.favoritesSyncCode
-                showToast("Favorites refreshed.")
+            if (state.favoritesSyncCode.isNullOrBlank()) {
+                showToast("Create or enter a sync code first.")
+                return@launch
+            }
+            updateState { it.copy(favoritesSyncLoading = true) }
+            try {
+                val result = fetchFavoritesFromSync()
+                if (result == null) {
+                    showToast("Favorites sync failed.")
+                } else {
+                    updateFavorites(result, sync = false)
+                    favoritesSyncHydratedFor = state.favoritesSyncCode
+                    showToast("Favorites refreshed.")
+                }
+            } finally {
+                updateState { it.copy(favoritesSyncLoading = false) }
             }
         }
     }

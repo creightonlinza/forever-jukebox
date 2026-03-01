@@ -29,6 +29,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,6 +53,7 @@ import com.foreverjukebox.app.data.FavoriteTrack
 import com.foreverjukebox.app.data.FavoriteSourceType
 import com.foreverjukebox.app.data.TopSongItem
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopSongsPanel(
     items: List<TopSongItem>,
@@ -60,9 +63,14 @@ fun TopSongsPanel(
     loading: Boolean,
     risingLoading: Boolean,
     recentLoading: Boolean,
+    favoritesLoading: Boolean,
     topSongsLimit: Int,
     activeTab: TopSongsTab,
     onTabSelected: (TopSongsTab) -> Unit,
+    onRefreshTopSongs: () -> Unit,
+    onRefreshRisingSongs: () -> Unit,
+    onRefreshRecentSongs: () -> Unit,
+    onRefreshFavorites: () -> Unit,
     onSelect: (String, String?, String?, String?, FavoriteSourceType) -> Unit,
     onRemoveFavorite: (String) -> Unit,
     favoritesSyncCode: String?,
@@ -114,153 +122,171 @@ fun TopSongsPanel(
             TopSongsTabs(activeTab = activeTab, onTabSelected = onTabSelected)
             if (activeTab == TopSongsTab.TopSongs) {
                 Text("Top $topSongsLimit", style = MaterialTheme.typography.labelLarge)
-                if (loading) {
-                    Text("Loading top songs…", style = MaterialTheme.typography.bodySmall)
-                } else if (items.isEmpty()) {
-                    Text("No plays recorded yet.", style = MaterialTheme.typography.bodySmall)
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        itemsIndexed(items) { index, item ->
-                            val title = item.title
-                            val artist = item.artist
-                            val displayTitle = title ?: "Untitled"
-                            val displayArtist = artist ?: ""
-                            val youtubeId = item.youtubeId ?: return@itemsIndexed
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onSelect(
-                                            youtubeId,
-                                            title,
-                                            artist,
-                                            null,
-                                            FavoriteSourceType.Youtube
-                                        )
-                                    },
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "${index + 1}.",
-                                    modifier = Modifier.alignByBaseline(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (displayArtist.isNotBlank()) {
-                                        "$displayTitle — $displayArtist"
-                                    } else {
-                                        displayTitle
-                                    },
+                PullToRefreshBox(
+                    isRefreshing = loading,
+                    onRefresh = onRefreshTopSongs,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (loading) {
+                        Text("Loading top songs…", style = MaterialTheme.typography.bodySmall)
+                    } else if (items.isEmpty()) {
+                        Text("No plays recorded yet.", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            itemsIndexed(items) { index, item ->
+                                val title = item.title
+                                val artist = item.artist
+                                val displayTitle = title ?: "Untitled"
+                                val displayArtist = artist ?: ""
+                                val youtubeId = item.youtubeId ?: return@itemsIndexed
+                                Row(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .alignByBaseline(),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onSelect(
+                                                youtubeId,
+                                                title,
+                                                artist,
+                                                null,
+                                                FavoriteSourceType.Youtube
+                                            )
+                                        },
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "${index + 1}.",
+                                        modifier = Modifier.alignByBaseline(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (displayArtist.isNotBlank()) {
+                                            "$displayTitle — $displayArtist"
+                                        } else {
+                                            displayTitle
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .alignByBaseline(),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
                 }
             } else if (activeTab == TopSongsTab.Rising) {
                 Text("Rising", style = MaterialTheme.typography.labelLarge)
-                if (risingLoading) {
-                    Text("Loading rising songs…", style = MaterialTheme.typography.bodySmall)
-                } else if (risingItems.isEmpty()) {
-                    Text("No rising songs yet.", style = MaterialTheme.typography.bodySmall)
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        itemsIndexed(risingItems) { index, item ->
-                            val title = item.title
-                            val artist = item.artist
-                            val displayTitle = title ?: "Untitled"
-                            val displayArtist = artist ?: ""
-                            val youtubeId = item.youtubeId ?: return@itemsIndexed
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onSelect(
-                                            youtubeId,
-                                            title,
-                                            artist,
-                                            null,
-                                            FavoriteSourceType.Youtube
-                                        )
-                                    },
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "${index + 1}.",
-                                    modifier = Modifier.alignByBaseline(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (displayArtist.isNotBlank()) {
-                                        "$displayTitle — $displayArtist"
-                                    } else {
-                                        displayTitle
-                                    },
+                PullToRefreshBox(
+                    isRefreshing = risingLoading,
+                    onRefresh = onRefreshRisingSongs,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (risingLoading) {
+                        Text("Loading rising songs…", style = MaterialTheme.typography.bodySmall)
+                    } else if (risingItems.isEmpty()) {
+                        Text("No rising songs yet.", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            itemsIndexed(risingItems) { index, item ->
+                                val title = item.title
+                                val artist = item.artist
+                                val displayTitle = title ?: "Untitled"
+                                val displayArtist = artist ?: ""
+                                val youtubeId = item.youtubeId ?: return@itemsIndexed
+                                Row(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .alignByBaseline(),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onSelect(
+                                                youtubeId,
+                                                title,
+                                                artist,
+                                                null,
+                                                FavoriteSourceType.Youtube
+                                            )
+                                        },
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "${index + 1}.",
+                                        modifier = Modifier.alignByBaseline(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (displayArtist.isNotBlank()) {
+                                            "$displayTitle — $displayArtist"
+                                        } else {
+                                            displayTitle
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .alignByBaseline(),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
                 }
             } else if (activeTab == TopSongsTab.Recent) {
                 Text("Last $topSongsLimit Played", style = MaterialTheme.typography.labelLarge)
-                if (recentLoading) {
-                    Text("Loading recent plays…", style = MaterialTheme.typography.bodySmall)
-                } else if (recentItems.isEmpty()) {
-                    Text("No recent plays yet.", style = MaterialTheme.typography.bodySmall)
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        itemsIndexed(recentItems) { index, item ->
-                            val title = item.title
-                            val artist = item.artist
-                            val displayTitle = title ?: "Untitled"
-                            val displayArtist = artist ?: ""
-                            val youtubeId = item.youtubeId ?: return@itemsIndexed
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onSelect(
-                                            youtubeId,
-                                            title,
-                                            artist,
-                                            null,
-                                            FavoriteSourceType.Youtube
-                                        )
-                                    },
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "${index + 1}.",
-                                    modifier = Modifier.alignByBaseline(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (displayArtist.isNotBlank()) {
-                                        "$displayTitle — $displayArtist"
-                                    } else {
-                                        displayTitle
-                                    },
+                PullToRefreshBox(
+                    isRefreshing = recentLoading,
+                    onRefresh = onRefreshRecentSongs,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (recentLoading) {
+                        Text("Loading recent plays…", style = MaterialTheme.typography.bodySmall)
+                    } else if (recentItems.isEmpty()) {
+                        Text("No recent plays yet.", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            itemsIndexed(recentItems) { index, item ->
+                                val title = item.title
+                                val artist = item.artist
+                                val displayTitle = title ?: "Untitled"
+                                val displayArtist = artist ?: ""
+                                val youtubeId = item.youtubeId ?: return@itemsIndexed
+                                Row(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .alignByBaseline(),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onSelect(
+                                                youtubeId,
+                                                title,
+                                                artist,
+                                                null,
+                                                FavoriteSourceType.Youtube
+                                            )
+                                        },
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "${index + 1}.",
+                                        modifier = Modifier.alignByBaseline(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (displayArtist.isNotBlank()) {
+                                            "$displayTitle — $displayArtist"
+                                        } else {
+                                            displayTitle
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .alignByBaseline(),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
@@ -310,69 +336,25 @@ fun TopSongsPanel(
                         }
                     }
                 }
-                if (favorites.isEmpty()) {
-                    Text("No favorites yet.", style = MaterialTheme.typography.bodySmall)
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(favorites) { item ->
-                            val title = item.title
-                            val artist = item.artist
-                            val displayTitle = title.ifBlank { "Untitled" }
-                            val displayArtist = artist.ifBlank { "" }
-                            val display = if (displayArtist.isNotBlank() && displayArtist != "Unknown") {
-                                "$displayTitle — $displayArtist"
-                            } else {
-                                displayTitle
-                            }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onSelect(
-                                            item.uniqueSongId,
-                                            title,
-                                            artist,
-                                            item.tuningParams,
-                                            item.sourceType
-                                        )
-                                    },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .alignByBaseline(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = display,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    if (!item.tuningParams.isNullOrBlank()) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Icon(
-                                            Icons.Outlined.Tune,
-                                            contentDescription = "Custom tuning",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-                                IconButton(
-                                    onClick = { onRemoveFavorite(item.uniqueSongId) },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Remove favorite",
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                }
-                            }
-                        }
+                val favoritesPullRefreshEnabled = allowFavoritesSync && hasSyncCode
+                if (favoritesPullRefreshEnabled) {
+                    PullToRefreshBox(
+                        isRefreshing = favoritesLoading,
+                        onRefresh = onRefreshFavorites,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        FavoritesListContent(
+                            favorites = favorites,
+                            onSelect = onSelect,
+                            onRemoveFavorite = onRemoveFavorite
+                        )
                     }
+                } else {
+                    FavoritesListContent(
+                        favorites = favorites,
+                        onSelect = onSelect,
+                        onRemoveFavorite = onRemoveFavorite
+                    )
                 }
             }
         }
@@ -512,6 +494,78 @@ fun TopSongsPanel(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun FavoritesListContent(
+    favorites: List<FavoriteTrack>,
+    onSelect: (String, String?, String?, String?, FavoriteSourceType) -> Unit,
+    onRemoveFavorite: (String) -> Unit
+) {
+    if (favorites.isEmpty()) {
+        Text("No favorites yet.", style = MaterialTheme.typography.bodySmall)
+    } else {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(favorites) { item ->
+                val title = item.title
+                val artist = item.artist
+                val displayTitle = title.ifBlank { "Untitled" }
+                val displayArtist = artist.ifBlank { "" }
+                val display = if (displayArtist.isNotBlank() && displayArtist != "Unknown") {
+                    "$displayTitle — $displayArtist"
+                } else {
+                    displayTitle
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onSelect(
+                                item.uniqueSongId,
+                                title,
+                                artist,
+                                item.tuningParams,
+                                item.sourceType
+                            )
+                        },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .alignByBaseline(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = display,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (!item.tuningParams.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                Icons.Outlined.Tune,
+                                contentDescription = "Custom tuning",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = { onRemoveFavorite(item.uniqueSongId) },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove favorite",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(12.dp)
+                            )
+                    }
+                }
+            }
+        }
     }
 }
 

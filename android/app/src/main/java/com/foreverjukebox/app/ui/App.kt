@@ -63,9 +63,14 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
                         loading = state.search.topSongsLoading,
                         risingLoading = state.search.risingSongsLoading,
                         recentLoading = state.search.recentSongsLoading,
+                        favoritesLoading = state.favoritesSyncLoading,
                         topSongsLimit = TOP_SONGS_LIMIT,
                         activeTab = state.topSongsTab,
                         onTabSelected = viewModel::setTopSongsTab,
+                        onRefreshTopSongs = viewModel::refreshTopSongs,
+                        onRefreshRisingSongs = viewModel::refreshRisingSongs,
+                        onRefreshRecentSongs = viewModel::refreshRecentSongs,
+                        onRefreshFavorites = viewModel::refreshFavoritesFromSync,
                         onSelect = { id, title, artist, tuningParams, sourceType ->
                             when (sourceType) {
                                 FavoriteSourceType.Upload ->
