@@ -136,6 +136,18 @@ class TuningParamsCodecTest {
     }
 
     @Test
+    fun stripHighlightAnchorParamDropsHighlightOnlyPayload() {
+        val stripped = TuningParamsCodec.stripHighlightAnchorParam("ah=1")
+        assertNull(stripped)
+    }
+
+    @Test
+    fun stripHighlightAnchorParamKeepsTrackSpecificTuning() {
+        val stripped = TuningParamsCodec.stripHighlightAnchorParam("jb=1&ah=1&d=3,9")
+        assertEquals("jb=1&d=3%2C9", stripped)
+    }
+
+    @Test
     fun mergeIntoStateOnlyOverridesPresentValues() {
         val base = TuningState(
             threshold = 33,

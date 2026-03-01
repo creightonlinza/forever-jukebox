@@ -91,6 +91,21 @@ object TuningParamsCodec {
         ).joinToString("&")
     }
 
+    fun stripHighlightAnchorParam(raw: String?): String? {
+        if (raw.isNullOrBlank()) {
+            return null
+        }
+        val sanitized = linkedMapOf<String, String>()
+        for ((name, values) in parseQuery(raw)) {
+            if (name == "ah") {
+                continue
+            }
+            val value = values.firstOrNull() ?: continue
+            sanitized[name] = value
+        }
+        return encodeQuery(sanitized).ifBlank { null }
+    }
+
     fun mergeIntoState(
         base: TuningState,
         parsed: ParsedTuningParams?

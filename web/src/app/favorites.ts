@@ -11,6 +11,18 @@ const FAVORITES_KEY = "fj-favorites";
 const FAVORITES_SYNC_KEY = "fj-favorites-sync";
 const MAX_FAVORITES = 100;
 
+export function stripHighlightTuningParam(
+  tuningParams?: string | null,
+): string | null {
+  if (!tuningParams || !tuningParams.trim()) {
+    return null;
+  }
+  const params = new URLSearchParams(tuningParams);
+  params.delete("ah");
+  const result = params.toString();
+  return result.length > 0 ? result : null;
+}
+
 export function loadFavorites(): FavoriteTrack[] {
   const raw = localStorage.getItem(FAVORITES_KEY);
   if (!raw) {
@@ -21,14 +33,22 @@ export function loadFavorites(): FavoriteTrack[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return sortFavorites(parsed).slice(0, MAX_FAVORITES);
+    const normalized = parsed.map((item) => ({
+      ...item,
+      tuningParams: stripHighlightTuningParam(item.tuningParams),
+    }));
+    return sortFavorites(normalized).slice(0, MAX_FAVORITES);
   } catch {
     return [];
   }
 }
 
 export function saveFavorites(items: FavoriteTrack[]) {
-  const payload = JSON.stringify(items.slice(0, MAX_FAVORITES));
+  const normalized = items.slice(0, MAX_FAVORITES).map((item) => ({
+    ...item,
+    tuningParams: stripHighlightTuningParam(item.tuningParams),
+  }));
+  const payload = JSON.stringify(normalized);
   localStorage.setItem(FAVORITES_KEY, payload);
 }
 
@@ -40,13 +60,17 @@ export function addFavorite(
   items: FavoriteTrack[],
   track: FavoriteTrack
 ): { favorites: FavoriteTrack[]; status: "added" | "duplicate" | "limit" } {
-  if (isFavorite(items, track.uniqueSongId)) {
+  const normalizedTrack = {
+    ...track,
+    tuningParams: stripHighlightTuningParam(track.tuningParams),
+  };
+  if (isFavorite(items, normalizedTrack.uniqueSongId)) {
     return { favorites: items, status: "duplicate" };
   }
   if (items.length >= MAX_FAVORITES) {
     return { favorites: items, status: "limit" };
   }
-  const next = sortFavorites([...items, track]).slice(0, MAX_FAVORITES);
+  const next = sortFavorites([...items, normalizedTrack]).slice(0, MAX_FAVORITES);
   return { favorites: next, status: "added" };
 }
 

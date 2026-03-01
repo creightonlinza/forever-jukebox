@@ -117,11 +117,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             preferences.favorites.collect { favorites ->
-                val sorted = favoritesController.sortFavorites(favorites).take(MAX_FAVORITES)
-                if (sorted.size != favorites.size) {
-                    favoritesController.updateFavorites(sorted, sync = false)
+                val normalized = favoritesController.normalizeFavorites(favorites).take(MAX_FAVORITES)
+                if (normalized != favorites) {
+                    favoritesController.updateFavorites(normalized, sync = false)
                 } else {
-                    _state.update { it.copy(favorites = sorted) }
+                    _state.update { it.copy(favorites = normalized) }
                 }
             }
         }
@@ -603,7 +603,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     duration = playback.trackDurationSeconds,
                     sourceType = FavoriteSourceType.Youtube,
                     tuningParams = if (playback.playMode == PlaybackMode.Jukebox) {
-                        playbackCoordinator.buildTuningParamsString()
+                        TuningParamsCodec.stripHighlightAnchorParam(
+                            playbackCoordinator.buildTuningParamsString()
+                        )
                     } else {
                         null
                     }

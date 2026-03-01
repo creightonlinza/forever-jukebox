@@ -202,7 +202,7 @@ class FavoritesController(
             item.copy(
                 title = item.title.ifBlank { "Untitled" },
                 artist = item.artist,
-                tuningParams = item.tuningParams?.takeIf { it.isNotBlank() }
+                tuningParams = TuningParamsCodec.stripHighlightAnchorParam(item.tuningParams)
             )
         }
         return sortFavorites(normalized).take(MAX_FAVORITES)
