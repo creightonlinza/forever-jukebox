@@ -10,10 +10,10 @@ import com.google.android.gms.cast.framework.CastSession
 import org.json.JSONObject
 
 class CastController(private val application: Application) {
-    private var statusListenerRegistered = false
+    private var statusListenerSession: CastSession? = null
 
     fun resetStatusListener() {
-        statusListenerRegistered = false
+        statusListenerSession = null
     }
 
     fun getSession(): CastSession? {
@@ -39,13 +39,13 @@ class CastController(private val application: Application) {
         namespace: String,
         onMessage: (String) -> Unit
     ) {
-        if (statusListenerRegistered) {
+        if (statusListenerSession === session) {
             return
         }
         session.setMessageReceivedCallbacks(namespace, Cast.MessageReceivedCallback { _, _, message ->
             onMessage(message)
         })
-        statusListenerRegistered = true
+        statusListenerSession = session
     }
 
     fun requestStatus(session: CastSession, namespace: String) {

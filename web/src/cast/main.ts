@@ -70,7 +70,7 @@ declare global {
             ): void;
             sendCustomMessage(
               namespace: string,
-              senderId: string,
+              senderId: string | undefined,
               message: unknown,
             ): void;
             start(options?: { disableIdleTimeout?: boolean }): void;
@@ -340,7 +340,7 @@ async function bootstrap() {
     if (!castContext || !player) {
       return;
     }
-    const target = senderId || lastCastSenderId || "*";
+    const target = senderId ?? lastCastSenderId ?? undefined;
     const isLoading =
       state.loadToken > 0 && !!state.currentTrackId && !state.vizData;
     const hasTrack = !!state.currentTrackId;
