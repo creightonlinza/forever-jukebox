@@ -14,6 +14,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
+import android.view.KeyEvent
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.createBitmap
@@ -27,7 +28,6 @@ import android.support.v4.media.session.PlaybackStateCompat
 import com.foreverjukebox.app.MainActivity
 import com.foreverjukebox.app.R
 import com.foreverjukebox.app.ui.CastController
-import com.foreverjukebox.app.ui.stopAllPlaybackTransports
 
 private object PlaybackServiceConstants {
     const val CHANNEL_ID = "fj_playback"
@@ -82,7 +82,40 @@ class ForegroundPlaybackService : Service() {
         super.onCreate()
         isRunning = true
         mediaSession = MediaSessionCompat(this, "ForeverJukeboxPlayback").apply {
+            setFlags(
+                MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
+                    MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+            )
             setCallback(object : MediaSessionCompat.Callback() {
+                override fun onMediaButtonEvent(mediaButtonIntent: Intent?): Boolean {
+                    val keyEvent = mediaButtonIntent
+                        ?.extras
+                        ?.get(Intent.EXTRA_KEY_EVENT) as? KeyEvent
+                        ?: return super.onMediaButtonEvent(mediaButtonIntent)
+                    if (keyEvent.action != KeyEvent.ACTION_DOWN) {
+                        return true
+                    }
+                    when (keyEvent.keyCode) {
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                            val isPlaying =
+                                activeNotificationState?.isPlaying
+                                    ?: PlaybackControllerHolder.get(this@ForegroundPlaybackService).isPlaying()
+                            handlePlayPause(shouldPlay = !isPlaying)
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                            handlePlayPause(shouldPlay = true)
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_PAUSE,
+                        KeyEvent.KEYCODE_MEDIA_STOP -> {
+                            handlePlayPause(shouldPlay = false)
+                            return true
+                        }
+                    }
+                    return super.onMediaButtonEvent(mediaButtonIntent)
+                }
+
                 override fun onPlay() {
                     handlePlayPause(shouldPlay = true)
                 }
@@ -160,12 +193,6 @@ class ForegroundPlaybackService : Service() {
     }
 
     private fun updateNotification(state: PlaybackNotificationState) {
-        if (state.mode == NotificationMode.Local && !state.isPlaying) {
-            activeNotificationState = null
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-            return
-        }
         activeNotificationState = state
         createChannel()
         val contentText = state.contentText()
@@ -174,11 +201,7 @@ class ForegroundPlaybackService : Service() {
         } else {
             null
         }
-        if (state.mode == NotificationMode.Local) {
-            updateMediaSession(state, artwork)
-        } else {
-            clearMediaSession()
-        }
+        updateMediaSession(state, artwork)
 
         val toggleIntent = Intent(this, ForegroundPlaybackService::class.java).apply {
             action = PlaybackServiceConstants.ACTION_TOGGLE
@@ -216,11 +239,15 @@ class ForegroundPlaybackService : Service() {
             } else {
                 android.R.drawable.ic_media_play
             }
-            NotificationMode.Local -> android.R.drawable.ic_media_pause
+            NotificationMode.Local -> if (state.isPlaying) {
+                android.R.drawable.ic_media_pause
+            } else {
+                android.R.drawable.ic_media_play
+            }
         }
         val actionLabel = when (state.mode) {
             NotificationMode.Cast -> if (state.isPlaying) "Stop" else "Play"
-            NotificationMode.Local -> "Stop"
+            NotificationMode.Local -> if (state.isPlaying) "Stop" else "Play"
         }
         val actionIcon = tintedIcon(actionIconRes, NOTIFICATION_ACCENT.toColorInt())
 
@@ -283,7 +310,12 @@ class ForegroundPlaybackService : Service() {
         artwork: Bitmap?
     ) {
         val playbackState = PlaybackStateCompat.Builder()
-            .setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE)
+            .setActions(
+                PlaybackStateCompat.ACTION_PLAY or
+                    PlaybackStateCompat.ACTION_PAUSE or
+                    PlaybackStateCompat.ACTION_STOP or
+                    PlaybackStateCompat.ACTION_PLAY_PAUSE
+            )
             .setState(
                 if (notificationState.isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
                 notificationState.positionMs,
@@ -303,11 +335,7 @@ class ForegroundPlaybackService : Service() {
         }
         mediaSession.setPlaybackState(playbackState)
         mediaSession.setMetadata(metadata.build())
-        mediaSession.isActive = notificationState.isPlaying
-    }
-
-    private fun clearMediaSession() {
-        mediaSession.isActive = false
+        mediaSession.isActive = true
     }
 
     private fun handlePlayPause(shouldPlay: Boolean) {
@@ -332,7 +360,9 @@ class ForegroundPlaybackService : Service() {
         if (shouldPlay && !isPlaying) {
             updateNotification(buildLocalNotificationState(controller.togglePlayback()))
         } else if (!shouldPlay && isPlaying) {
-            stopAllPlaybackTransports(controller)
+            controller.stopPlayback()
+            controller.autocanonizer.stop()
+            controller.stopExternalPlayback()
             updateNotification(buildLocalNotificationState(false))
         } else {
             updateNotification(buildLocalNotificationState(isPlaying))
@@ -352,6 +382,13 @@ class ForegroundPlaybackService : Service() {
         isRunning = false
         mediaSession.release()
         super.onDestroy()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // User explicitly removed the app task; tear down playback notification/service.
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
     }
 
     private fun createChannel() {

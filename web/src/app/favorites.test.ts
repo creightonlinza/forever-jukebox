@@ -8,6 +8,7 @@ import {
   removeFavorite,
   saveFavorites,
   saveFavoritesSyncCode,
+  stripHighlightTuningParam,
 } from "./favorites";
 
 function setLocalStorage() {
@@ -94,6 +95,36 @@ describe("favorites", () => {
 
   it("checks favorite presence", () => {
     expect(isFavorite([], "1")).toBe(false);
+  });
+
+  it("strips highlight-only tuning from favorites", () => {
+    const items = [
+      {
+        uniqueSongId: "1",
+        title: "A",
+        artist: "B",
+        duration: 1,
+        sourceType: "youtube" as const,
+        tuningParams: "ah=1",
+      },
+      {
+        uniqueSongId: "2",
+        title: "B",
+        artist: "C",
+        duration: 1,
+        sourceType: "youtube" as const,
+        tuningParams: "jb=1&ah=1&d=2,8",
+      },
+    ];
+    saveFavorites(items);
+    const loaded = loadFavorites();
+    expect(loaded.find((item) => item.uniqueSongId === "1")?.tuningParams).toBeNull();
+    expect(loaded.find((item) => item.uniqueSongId === "2")?.tuningParams).toBe("jb=1&d=2%2C8");
+  });
+
+  it("strips highlight tuning helper", () => {
+    expect(stripHighlightTuningParam("ah=1")).toBeNull();
+    expect(stripHighlightTuningParam("jb=1&ah=0")).toBe("jb=1");
   });
 
   it("handles sync code normalization", () => {

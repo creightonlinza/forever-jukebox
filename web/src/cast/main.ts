@@ -30,6 +30,9 @@ type CastStatus = {
   songId: string | null;
   title: string | null;
   artist: string | null;
+  trackDurationSeconds: number | null;
+  totalBeats: number | null;
+  totalBranches: number | null;
   isPlaying: boolean;
   isLoading: boolean;
   activeVizIndex: number;
@@ -53,6 +56,11 @@ declare global {
   interface Window {
     cast?: {
       framework?: {
+        system?: {
+          MessageType?: {
+            JSON?: unknown;
+          };
+        };
         CastReceiverContext?: {
           getInstance(): {
             getPlayerManager(): {
@@ -67,10 +75,13 @@ declare global {
             ): void;
             sendCustomMessage(
               namespace: string,
-              senderId: string,
+              senderId: string | undefined,
               message: unknown,
             ): void;
-            start(options?: { disableIdleTimeout?: boolean }): void;
+            start(options?: {
+              disableIdleTimeout?: boolean;
+              customNamespaces?: Record<string, unknown>;
+            }): void;
             stop?(): void;
           };
         };
@@ -102,6 +113,7 @@ type CastState = {
   currentTrackId: string | null;
   trackTitle: string | null;
   trackArtist: string | null;
+  trackDurationSeconds: number | null;
   activeVizIndex: number;
 };
 
@@ -134,6 +146,19 @@ function isLikelyYoutubeId(value: string) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+function parseDurationSeconds(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
 }
 
 function getTrackId(): string | null {
@@ -306,10 +331,9 @@ async function bootstrap() {
     currentTrackId: null,
     trackTitle: null,
     trackArtist: null,
+    trackDurationSeconds: null,
     activeVizIndex: 0,
   };
-  let lastCastSenderId: string | null = null;
-
   function applyVisualizationIndex(nextIndex: number) {
     const normalized = clamp(Math.trunc(nextIndex), 0, MAX_VIZ_INDEX);
     state.activeVizIndex = normalized;
@@ -318,15 +342,36 @@ async function bootstrap() {
     }
   }
 
-  function sendStatusUpdate(senderId?: string, error?: string | null) {
+  function sendStatusUpdate(error?: string | null) {
     if (!castContext || !player) {
       return;
     }
-    const target = senderId || lastCastSenderId || "*";
     const isLoading =
       state.loadToken > 0 && !!state.currentTrackId && !state.vizData;
     const hasTrack = !!state.currentTrackId;
     const isPlaying = player.isPlaying();
+    const graphState = engine?.getGraphState?.() ?? null;
+    const trackDurationSeconds = (() => {
+      if (
+        typeof state.trackDurationSeconds === "number" &&
+        Number.isFinite(state.trackDurationSeconds) &&
+        state.trackDurationSeconds > 0
+      ) {
+        return state.trackDurationSeconds;
+      }
+      const decodedDuration = player.getDuration();
+      if (
+        typeof decodedDuration === "number" &&
+        Number.isFinite(decodedDuration) &&
+        decodedDuration > 0
+      ) {
+        return decodedDuration;
+      }
+      return null;
+    })();
+    const totalBeats = state.vizData?.beats?.length ?? graphState?.totalBeats ?? null;
+    const totalBranches =
+      state.vizData?.edges?.length ?? graphState?.allEdges?.length ?? null;
     const resolvedThreshold = (() => {
       if (!engine) {
         return null;
@@ -335,7 +380,7 @@ async function bootstrap() {
       if (Number.isFinite(configThreshold) && configThreshold > 0) {
         return Math.trunc(configThreshold);
       }
-      const graphThreshold = engine.getGraphState()?.currentThreshold;
+      const graphThreshold = graphState?.currentThreshold;
       if (
         typeof graphThreshold === "number" &&
         Number.isFinite(graphThreshold) &&
@@ -359,6 +404,9 @@ async function bootstrap() {
       songId: state.currentTrackId,
       title: state.trackTitle,
       artist: state.trackArtist,
+      trackDurationSeconds,
+      totalBeats,
+      totalBranches,
       isPlaying,
       isLoading,
       activeVizIndex: state.activeVizIndex,
@@ -366,7 +414,12 @@ async function bootstrap() {
       error: error ?? null,
       playbackState,
     };
-    castContext.sendCustomMessage(castNamespace, target, status);
+    // Broadcast status to active senders.
+    castContext.sendCustomMessage(
+      castNamespace,
+      undefined,
+      status,
+    );
   }
 
   function clearIdleStopTimer() {
@@ -514,6 +567,7 @@ async function bootstrap() {
     elements.title.textContent = "The Forever Jukebox";
     state.trackTitle = null;
     state.trackArtist = null;
+    state.trackDurationSeconds = null;
     state.lastBeatIndex = null;
     state.vizData = null;
     if (viz) {
@@ -569,9 +623,11 @@ async function bootstrap() {
       if (trackMeta) {
         const title = trackMeta.title || "Unknown";
         const artist = trackMeta.artist || "";
+        const durationSeconds = parseDurationSeconds(trackMeta.duration);
         elements.title.textContent = artist ? `${title} — ${artist}` : title;
         state.trackTitle = title;
         state.trackArtist = artist || null;
+        state.trackDurationSeconds = durationSeconds;
       }
       setLoadingState(elements, false);
       if (viz) {
@@ -599,6 +655,7 @@ async function bootstrap() {
       state.vizData = null;
       state.trackTitle = null;
       state.trackArtist = null;
+      state.trackDurationSeconds = null;
       if (viz) {
         viz.reset();
         viz.setVisible(false);
@@ -617,7 +674,7 @@ async function bootstrap() {
       setLogoVisible(elements, true);
       startIdleKeepAlive();
       scheduleIdleStop();
-      sendStatusUpdate(undefined, errorMessage);
+      sendStatusUpdate(errorMessage);
     }
   }
 
@@ -630,7 +687,7 @@ async function bootstrap() {
     return { parsed: result.parsed, highlightOnly: result.highlightOnly };
   }
 
-  function applyTuningUpdate(tuningParams: string | null, senderId?: string): boolean {
+  function applyTuningUpdate(tuningParams: string | null): boolean {
     if (!engine || !defaultConfig || !state.currentTrackId) {
       return false;
     }
@@ -662,28 +719,25 @@ async function bootstrap() {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to apply tuning";
       console.error("Failed to apply cast tuning", err);
-      sendStatusUpdate(senderId, errorMessage);
+      sendStatusUpdate(errorMessage);
       return false;
     }
   }
 
-  function handleCastCommand(command: CastCommand, senderId?: string) {
-    if (senderId) {
-      lastCastSenderId = senderId;
-    }
+  function handleCastCommand(command: CastCommand) {
     if (!engine || !player) {
       return;
     }
     if (command.type === "setTuning") {
-      if (applyTuningUpdate(command.tuningParams ?? null, senderId)) {
-        sendStatusUpdate(senderId);
+      if (applyTuningUpdate(command.tuningParams ?? null)) {
+        sendStatusUpdate();
       }
       return;
     }
     if (command.type === "setVisualization") {
       if (typeof command.vizIndex === "number" && Number.isFinite(command.vizIndex)) {
         applyVisualizationIndex(command.vizIndex);
-        sendStatusUpdate(senderId);
+        sendStatusUpdate();
       }
       return;
     }
@@ -704,7 +758,7 @@ async function bootstrap() {
       engine.play();
       playStartAtMs = performance.now();
       clearIdleStopTimer();
-      sendStatusUpdate(senderId);
+      sendStatusUpdate();
       return;
     }
     if (command.type === "stop") {
@@ -721,11 +775,11 @@ async function bootstrap() {
       setLogoVisible(elements, false);
       startIdleKeepAlive();
       scheduleIdleStop();
-      sendStatusUpdate(senderId);
+      sendStatusUpdate();
       return;
     }
     if (command.type === "getStatus" && castContext) {
-      sendStatusUpdate(senderId);
+      sendStatusUpdate();
     }
   }
 
@@ -775,19 +829,25 @@ async function bootstrap() {
         return;
       }
       try {
-        if (event?.senderId) {
-          lastCastSenderId = event.senderId;
-        }
         const command =
           typeof payload === "string"
             ? (JSON.parse(payload) as CastCommand)
             : (payload as CastCommand);
-        handleCastCommand(command, event?.senderId);
+        handleCastCommand(command);
       } catch {
         return;
       }
     });
-    context.start({ disableIdleTimeout: true });
+    const startOptions: { disableIdleTimeout: boolean; customNamespaces?: Record<string, unknown> } = {
+      disableIdleTimeout: true,
+    };
+    const messageTypeJson = framework.system?.MessageType?.JSON;
+    if (messageTypeJson) {
+      startOptions.customNamespaces = {
+        [castNamespace]: messageTypeJson,
+      };
+    }
+    context.start(startOptions);
     return true;
   }
 

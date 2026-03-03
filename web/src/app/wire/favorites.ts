@@ -2,6 +2,7 @@ import type { AppContext, AppState } from "../context";
 import type { Elements } from "../elements";
 import type { FavoriteTrack } from "../favorites";
 import type { AnalysisComplete } from "../api";
+import { stripHighlightTuningParam } from "../favorites";
 
 type FavoritesDeps = {
   context: AppContext;
@@ -341,7 +342,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         item.sourceType === "upload" ? "upload" : ("youtube" as const);
       const tuningParams =
         typeof item.tuningParams === "string" && item.tuningParams.trim()
-          ? item.tuningParams.trim()
+          ? stripHighlightTuningParam(item.tuningParams.trim())
           : null;
       normalized.push({
         uniqueSongId: item.uniqueSongId,
@@ -487,7 +488,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (state.playMode !== "jukebox") {
       return null;
     }
-    return syncTuningParamsState(context);
+    return stripHighlightTuningParam(syncTuningParamsState(context));
   }
 
   function renderFavoritesList() {

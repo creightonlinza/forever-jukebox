@@ -117,11 +117,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             preferences.favorites.collect { favorites ->
-                val sorted = favoritesController.sortFavorites(favorites).take(MAX_FAVORITES)
-                if (sorted.size != favorites.size) {
-                    favoritesController.updateFavorites(sorted, sync = false)
+                val normalized = favoritesController.normalizeFavorites(favorites).take(MAX_FAVORITES)
+                if (normalized != favorites) {
+                    favoritesController.updateFavorites(normalized, sync = false)
                 } else {
-                    _state.update { it.copy(favorites = sorted) }
+                    _state.update { it.copy(favorites = normalized) }
                 }
             }
         }
@@ -603,7 +603,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     duration = playback.trackDurationSeconds,
                     sourceType = FavoriteSourceType.Youtube,
                     tuningParams = if (playback.playMode == PlaybackMode.Jukebox) {
-                        playbackCoordinator.buildTuningParamsString()
+                        TuningParamsCodec.stripHighlightAnchorParam(
+                            playbackCoordinator.buildTuningParamsString()
+                        )
                     } else {
                         null
                     }
@@ -1025,7 +1027,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 it.copy(playback = it.playback.copy(isRunning = !current.isRunning))
             }
             syncCastNotification(state.value.playback)
-            requestCastStatus()
             return
         }
         if (!current.analysisLoaded) return
@@ -1302,6 +1303,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val baseUrl = state.value.baseUrl.trim()
         if (baseUrl.isBlank()) return
         val session = castController.getSession() ?: return
+        ensureCastStatusListener(session)
         val displayTitle = if (artist.isNullOrBlank()) {
             title?.takeIf { it.isNotBlank() } ?: "Unknown"
         } else {
@@ -1321,6 +1323,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     playTitle = displayTitle,
                     trackTitle = title,
                     trackArtist = artist,
+                    trackDurationSeconds = null,
+                    castTotalBeats = null,
+                    castTotalBranches = null,
                     lastYouTubeId = if (isYoutubeTrackId) trackId else null,
                     lastJobId = if (isYoutubeTrackId) null else trackId,
                     isCastLoading = true,
@@ -1342,7 +1347,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             tuningParams = resolvedCastTuningParams,
             vizIndex = state.value.playback.activeVizIndex
         )
-        requestCastStatus()
     }
 
     private fun sendCastCommand(command: String): Boolean {
@@ -1361,6 +1365,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sent = castController.sendTuningParams(CAST_COMMAND_NAMESPACE, tuningParams)
         if (!sent) {
             notifyCastUnavailable()
+            return
         }
     }
 
