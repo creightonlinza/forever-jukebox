@@ -539,8 +539,16 @@ fun PlayPanel(state: UiState, viewModel: MainViewModel) {
     }
 
     if (showInfo && playback.playMode != PlaybackMode.Autocanonizer) {
-        val totalBeats = playback.vizData?.beats?.size ?: playback.castTotalBeats ?: 0
-        val totalBranches = playback.vizData?.edges?.size ?: playback.castTotalBranches ?: 0
+        val totalBeats = if (playback.isCasting) {
+            playback.castTotalBeats ?: 0
+        } else {
+            playback.vizData?.beats?.size ?: playback.castTotalBeats ?: 0
+        }
+        val totalBranches = if (playback.isCasting) {
+            playback.castTotalBranches ?: 0
+        } else {
+            playback.vizData?.edges?.size ?: playback.castTotalBranches ?: 0
+        }
         TrackInfoDialog(
             durationSeconds = playback.trackDurationSeconds,
             totalBeats = totalBeats,

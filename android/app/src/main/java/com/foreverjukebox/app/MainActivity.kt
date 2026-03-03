@@ -14,6 +14,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.foreverjukebox.app.data.AppMode
+import com.foreverjukebox.app.playback.ForegroundPlaybackService
 import com.foreverjukebox.app.ui.ForeverJukeboxApp
 import com.foreverjukebox.app.ui.MainViewModel
 import com.google.android.gms.cast.framework.CastContext
@@ -81,6 +82,9 @@ class MainActivity : FragmentActivity() {
 
     override fun onDestroy() {
         syncCastSessionListener(enable = false)
+        if (isFinishing) {
+            ForegroundPlaybackService.stop(this)
+        }
         super.onDestroy()
     }
 
