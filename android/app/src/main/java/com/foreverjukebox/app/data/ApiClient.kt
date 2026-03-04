@@ -291,7 +291,7 @@ class ApiClient(private val json: Json = Json { ignoreUnknownKeys = true }) {
 
     companion object {
         private const val MAX_FAVORITES = 100
-        private const val RISING_LIMIT = 10
+        private const val RISING_LIMIT = 25
         private const val RISING_DAYS = 7
         private const val RISING_EXCLUDE_TOP_N = 25
         private val sharedClient = OkHttpClient.Builder()

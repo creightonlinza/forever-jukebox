@@ -270,7 +270,7 @@ export async function fetchTopSongs(limit: number) {
 
 export async function fetchRisingSongs() {
   const params = new URLSearchParams({
-    limit: "10",
+    limit: "25",
     days: "7",
     exclude_top_n: "25",
   });
