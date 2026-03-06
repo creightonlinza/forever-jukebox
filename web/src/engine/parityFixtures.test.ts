@@ -34,18 +34,12 @@ function makeBeat(which: number): QuantumBase {
   return {
     start: which,
     duration: 1,
-    confidence: null,
     which,
     prev: null,
     next: null,
-    parent: null,
-    children: [],
-    indexInParent: undefined,
     overlappingSegments: [],
-    oseg: undefined,
     neighbors: [],
     allNeighbors: [],
-    reach: undefined,
   };
 }
 
