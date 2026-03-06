@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "quality_over_latest",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 2
+      },
+      "edges": [
+        [0, 2, 10],
+        [9, 7, 10],
+        [7, 2, 10],
+        [8, 2, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": 8,
+        "forcedDest": 2,
+        "forcedInserted": false
+      },
+      "jumpExpectation": {
+        "nextIndex": 2,
+        "jumped": true
+      }
+    },
+    {
+      "id": "latest_when_close",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 2
+      },
+      "edges": [
+        [0, 2, 10],
+        [8, 2, 10],
+        [9, 4, 10],
+        [4, 2, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": 9,
+        "forcedDest": 4,
+        "forcedInserted": false
+      },
+      "jumpExpectation": {
+        "nextIndex": 4,
+        "jumped": true
+      }
+    },
+    {
+      "id": "fallback_range",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 2
+      },
+      "edges": [
+        [0, 2, 10],
+        [7, 2, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": 7,
+        "forcedDest": 2,
+        "forcedInserted": false
+      },
+      "jumpExpectation": {
+        "nextIndex": 2,
+        "jumped": true
+      }
+    },
+    {
+      "id": "good_tier_fallback",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 4
+      },
+      "edges": [
+        [0, 2, 10],
+        [9, 6, 10],
+        [6, 3, 10],
+        [3, 2, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": 9,
+        "forcedDest": 6,
+        "forcedInserted": false
+      },
+      "jumpExpectation": {
+        "nextIndex": 6,
+        "jumped": true
+      }
+    },
+    {
+      "id": "exact_tie_prefers_later",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 4
+      },
+      "edges": [
+        [0, 2, 10],
+        [8, 4, 10],
+        [9, 5, 10],
+        [4, 2, 10],
+        [5, 2, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": 9,
+        "forcedDest": 5,
+        "forcedInserted": false
+      },
+      "jumpExpectation": {
+        "nextIndex": 5,
+        "jumped": true
+      }
+    },
+    {
+      "id": "insertion_when_no_existing_anchor",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 2
+      },
+      "edges": [
+        [0, 2, 10],
+        [3, 1, 10],
+        [8, 1, 40]
+      ],
+      "expected": {
+        "lastBranchPoint": 8,
+        "forcedDest": 1,
+        "forcedInserted": true
+      },
+      "jumpExpectation": {
+        "nextIndex": 1,
+        "jumped": true
+      }
+    },
+    {
+      "id": "late_hint_clamp",
+      "beats": 100,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 15
+      },
+      "edges": [
+        [0, 2, 10],
+        [90, 86, 10],
+        [75, 55, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": 75,
+        "forcedDest": 55,
+        "forcedInserted": false
+      },
+      "jumpExpectation": {
+        "nextIndex": 55,
+        "jumped": true
+      }
+    },
+    {
+      "id": "late_onset_preserved",
+      "beats": 100,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 15
+      },
+      "edges": [
+        [0, 2, 10],
+        [90, 70, 10],
+        [75, 70, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": 90,
+        "forcedDest": 70,
+        "forcedInserted": false
+      },
+      "jumpExpectation": {
+        "nextIndex": 70,
+        "jumped": true
+      }
+    }
+  ]
+}

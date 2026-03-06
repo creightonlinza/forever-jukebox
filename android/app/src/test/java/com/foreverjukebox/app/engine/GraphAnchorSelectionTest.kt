@@ -74,6 +74,22 @@ class GraphAnchorSelectionTest {
         )
     }
 
+    @Test
+    fun capsLateSourceTargetHintsSoNearEndAnchorsDoNotWinByDefault() {
+        val analysis = makeLateHintClampScenario()
+        val graph = buildJumpGraph(analysis, testConfig(minLongBranch = 15))
+
+        assertEquals(75, graph.lastBranchPoint)
+    }
+
+    @Test
+    fun preservesLateOnsetTargetsWhenFirstBackwardBranchesAreLate() {
+        val analysis = makeLateOnsetTargetScenario()
+        val graph = buildJumpGraph(analysis, testConfig(minLongBranch = 15))
+
+        assertEquals(90, graph.lastBranchPoint)
+    }
+
     private fun testConfig(minLongBranch: Int = 2): JukeboxConfig {
         return JukeboxConfig(
             maxBranches = 4,
@@ -215,6 +231,47 @@ class GraphAnchorSelectionTest {
         // Define early target and provide only an above-threshold late insertion option.
         push(3, 1, 10.0)
         push(8, 1, 40.0)
+        return analysis
+    }
+
+    private fun makeLateHintClampScenario(): TrackAnalysis {
+        val analysis = makeLinearAnalysis(100)
+        val beats = analysis.beats
+        beats.forEach { beat ->
+            beat.allNeighbors = mutableListOf()
+            beat.neighbors = mutableListOf()
+        }
+        var id = 0
+        fun push(src: Int, dest: Int, distance: Double) {
+            beats[src].allNeighbors.add(makeEdge(id, beats[src], beats[dest], distance))
+            id += 1
+        }
+        // Keep beat 0 non-empty so graph build uses cached neighbors.
+        push(0, 2, 10.0)
+        // Preferred late candidate only reaches near the end.
+        push(90, 86, 10.0)
+        // Fallback late-range candidate reaches much earlier in track.
+        push(75, 55, 10.0)
+        return analysis
+    }
+
+    private fun makeLateOnsetTargetScenario(): TrackAnalysis {
+        val analysis = makeLinearAnalysis(100)
+        val beats = analysis.beats
+        beats.forEach { beat ->
+            beat.allNeighbors = mutableListOf()
+            beat.neighbors = mutableListOf()
+        }
+        var id = 0
+        fun push(src: Int, dest: Int, distance: Double) {
+            beats[src].allNeighbors.add(makeEdge(id, beats[src], beats[dest], distance))
+            id += 1
+        }
+        // Keep beat 0 non-empty so graph build uses cached neighbors.
+        push(0, 2, 10.0)
+        // All backward branching starts late in the track.
+        push(90, 70, 10.0)
+        push(75, 70, 10.0)
         return analysis
     }
 

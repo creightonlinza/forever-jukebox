@@ -217,6 +217,7 @@ private fun resolveEarlyTargetBeat(
     fallbackPct: Int
 ): Int {
     val fallbackBeat = (quanta.size * fallbackPct) / 100
+    val lateHintCapBeat = floor(quanta.size * 0.55).toInt()
     val lateSourceStart = floor(quanta.size * 0.66).toInt()
     var firstBackwardDestination = Int.MAX_VALUE
     var firstLateBackwardDestination = Int.MAX_VALUE
@@ -240,11 +241,16 @@ private fun resolveEarlyTargetBeat(
     ) {
         return fallbackBeat
     }
+    val boundedLateHint = if (firstLateBackwardDestination == Int.MAX_VALUE) {
+        0
+    } else {
+        minOf(firstLateBackwardDestination, lateHintCapBeat)
+    }
     return max(
         fallbackBeat,
         max(
             if (firstBackwardDestination == Int.MAX_VALUE) 0 else firstBackwardDestination,
-            if (firstLateBackwardDestination == Int.MAX_VALUE) 0 else firstLateBackwardDestination
+            boundedLateHint
         )
     )
 }

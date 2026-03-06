@@ -229,6 +229,7 @@ function resolveEarlyTargetBeat(
   fallbackPct: number,
 ): number {
   const fallbackBeat = Math.floor((quanta.length * fallbackPct) / 100);
+  const lateHintCapBeat = Math.floor(quanta.length * 0.55);
   const lateSourceStart = Math.floor(quanta.length * 0.66);
   let firstBackwardDestination = Number.POSITIVE_INFINITY;
   let firstLateBackwardDestination = Number.POSITIVE_INFINITY;
@@ -255,13 +256,15 @@ function resolveEarlyTargetBeat(
   ) {
     return fallbackBeat;
   }
-  // Prefer a target beat that late-track branches can naturally reach.
+  // Keep late-branch hints useful but bounded so they cannot collapse the
+  // target zone too close to the end of the track.
+  const boundedLateHint = Number.isFinite(firstLateBackwardDestination)
+    ? Math.min(firstLateBackwardDestination, lateHintCapBeat)
+    : 0;
   return Math.max(
     fallbackBeat,
     Number.isFinite(firstBackwardDestination) ? firstBackwardDestination : 0,
-    Number.isFinite(firstLateBackwardDestination)
-      ? firstLateBackwardDestination
-      : 0,
+    boundedLateHint,
   );
 }
 

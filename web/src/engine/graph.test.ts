@@ -294,6 +294,47 @@ function makeInsertionWithoutExistingAnchorScenario() {
   return analysis;
 }
 
+function makeLateHintClampScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(100));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // Preferred late candidate only reaches near the end.
+  push(90, 86, 10);
+  // Fallback late-range candidate reaches much earlier in track.
+  push(75, 55, 10);
+  return analysis;
+}
+
+function makeLateOnsetTargetScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(100));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // All backward branching starts late in the track.
+  push(90, 70, 10);
+  push(75, 70, 10);
+  return analysis;
+}
+
 function makeLateInsertionPreferenceScenario() {
   const analysis = normalizeAnalysis(makeLinearAnalysis(10));
   const beats = analysis.beats;
@@ -668,5 +709,45 @@ describe("buildJumpGraph", () => {
 
     expect(edges.includes("8->1")).toBe(true);
     expect(graph.lastBranchPoint).toBe(8);
+  });
+
+  it("caps late-source target hints so near-end anchors do not win by default", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 15,
+    };
+
+    const analysis = makeLateHintClampScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(75);
+  });
+
+  it("preserves late-onset targets when first backward branches are late", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 15,
+    };
+
+    const analysis = makeLateOnsetTargetScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(90);
   });
 });
