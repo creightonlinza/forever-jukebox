@@ -103,9 +103,15 @@ fun reduceCastStatus(current: UiState, status: CastStatusMessage): UiState {
         "loading" -> current.playback.isRunning
         else -> if (resolvedIsLoading) current.playback.isRunning else status.isPlaying
     }
+    val resolvedIsPaused = when (status.playbackState) {
+        "paused" -> true
+        "playing", "loading", "idle", "error" -> false
+        else -> !resolvedIsLoading && !resolvedIsRunning && current.playback.isPaused
+    }
     val nextPlayback = current.playback.copy(
         playMode = PlaybackMode.Jukebox,
         isRunning = resolvedIsRunning,
+        isPaused = resolvedIsPaused,
         playTitle = displayTitle ?: current.playback.playTitle,
         trackTitle = if (hasTitle) status.title else current.playback.trackTitle,
         trackArtist = if (hasArtist) status.artist else current.playback.trackArtist,

@@ -12,6 +12,7 @@ class PlaybackModeChangeTest {
     fun modeChangeResetsTransportStateWhenNotPreserving() {
         val before = PlaybackState(
             isRunning = true,
+            isPaused = true,
             beatsPlayed = 42,
             currentBeatIndex = 17,
             canonizerOtherIndex = 12,
@@ -22,6 +23,7 @@ class PlaybackModeChangeTest {
         val after = playbackStateAfterModeChange(before, preserveTransportState = false)
 
         assertFalse(after.isRunning)
+        assertFalse(after.isPaused)
         assertEquals(0, after.beatsPlayed)
         assertEquals(-1, after.currentBeatIndex)
         assertNull(after.canonizerOtherIndex)
@@ -33,6 +35,7 @@ class PlaybackModeChangeTest {
     fun modeChangePreservesTransportStateWhenRequested() {
         val before = PlaybackState(
             isRunning = true,
+            isPaused = true,
             beatsPlayed = 42,
             currentBeatIndex = 17,
             canonizerOtherIndex = 12,
@@ -43,6 +46,7 @@ class PlaybackModeChangeTest {
         val after = playbackStateAfterModeChange(before, preserveTransportState = true)
 
         assertEquals(before.isRunning, after.isRunning)
+        assertEquals(before.isPaused, after.isPaused)
         assertEquals(before.beatsPlayed, after.beatsPlayed)
         assertEquals(before.currentBeatIndex, after.currentBeatIndex)
         assertEquals(before.canonizerOtherIndex, after.canonizerOtherIndex)

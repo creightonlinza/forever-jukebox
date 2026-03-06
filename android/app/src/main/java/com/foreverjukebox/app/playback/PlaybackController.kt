@@ -23,9 +23,15 @@ class PlaybackController {
 
     private var playTimerMs = 0L
     private var lastPlayStamp: Long? = null
-    private var isRunning = false
+    private var transportState = TransportState.Stopped
     private var trackTitle: String? = null
     private var trackArtist: String? = null
+
+    private enum class TransportState {
+        Playing,
+        Paused,
+        Stopped
+    }
 
     fun setTrackMeta(title: String?, artist: String?) {
         trackTitle = title
@@ -36,46 +42,77 @@ class PlaybackController {
 
     fun getTrackArtist(): String? = trackArtist
 
-    fun togglePlayback(): Boolean {
-        if (!isRunning) {
-            if (!player.hasAudio()) {
-                return false
-            }
-            // Guard against any leftover gain shaping from autocanonizer paths.
-            player.setGain(1.0)
+    private fun beginPlayback(resetFromStart: Boolean): Boolean {
+        if (!player.hasAudio()) {
+            transportState = TransportState.Stopped
+            return false
+        }
+        // Guard against any leftover gain shaping from autocanonizer paths.
+        player.setGain(1.0)
+        if (resetFromStart) {
             engine.stopJukebox()
             engine.resetStats()
             playTimerMs = 0L
             lastPlayStamp = null
-            engine.startJukebox()
-            engine.play()
-            if (player.isPlaying()) {
-                lastPlayStamp = SystemClock.elapsedRealtime()
-                isRunning = true
-            } else {
-                engine.stopJukebox()
-                isRunning = false
-            }
-        } else {
-            engine.stopJukebox()
-            if (lastPlayStamp != null) {
-                playTimerMs += SystemClock.elapsedRealtime() - lastPlayStamp!!
-                lastPlayStamp = null
-            }
-            isRunning = false
         }
-        return isRunning
+        val started = runCatching {
+            engine.startJukebox(resetState = resetFromStart)
+            engine.play()
+            player.isPlaying()
+        }.getOrElse {
+            false
+        }
+        if (started) {
+            lastPlayStamp = SystemClock.elapsedRealtime()
+            transportState = TransportState.Playing
+            return true
+        }
+        runCatching { engine.stopJukebox() }
+        transportState = TransportState.Stopped
+        return false
+    }
+
+    fun playOrResumePlayback(): Boolean {
+        return when (transportState) {
+            TransportState.Playing -> true
+            TransportState.Paused -> beginPlayback(resetFromStart = false)
+            TransportState.Stopped -> beginPlayback(resetFromStart = true)
+        }
+    }
+
+    fun pausePlayback() {
+        if (transportState != TransportState.Playing) {
+            return
+        }
+        engine.pauseJukebox()
+        if (lastPlayStamp != null) {
+            playTimerMs += SystemClock.elapsedRealtime() - lastPlayStamp!!
+            lastPlayStamp = null
+        }
+        transportState = TransportState.Paused
+    }
+
+    fun togglePlayback(): Boolean {
+        return when (transportState) {
+            TransportState.Playing -> {
+                pausePlayback()
+                false
+            }
+            TransportState.Paused,
+            TransportState.Stopped -> playOrResumePlayback()
+        }
     }
 
     fun stopPlayback() {
-        if (isRunning) {
-            engine.stopJukebox()
-            if (lastPlayStamp != null) {
-                playTimerMs += SystemClock.elapsedRealtime() - lastPlayStamp!!
-                lastPlayStamp = null
-            }
-            isRunning = false
+        if (transportState == TransportState.Stopped) {
+            return
         }
+        engine.stopJukebox()
+        if (lastPlayStamp != null) {
+            playTimerMs += SystemClock.elapsedRealtime() - lastPlayStamp!!
+            lastPlayStamp = null
+        }
+        transportState = TransportState.Stopped
     }
 
     fun resetTimers() {
@@ -88,7 +125,7 @@ class PlaybackController {
             playTimerMs = 0L
         }
         lastPlayStamp = SystemClock.elapsedRealtime()
-        isRunning = true
+        transportState = TransportState.Playing
     }
 
     fun stopExternalPlayback() {
@@ -96,10 +133,20 @@ class PlaybackController {
             playTimerMs += SystemClock.elapsedRealtime() - lastPlayStamp!!
             lastPlayStamp = null
         }
-        isRunning = false
+        transportState = TransportState.Stopped
     }
 
-    fun isPlaying(): Boolean = isRunning
+    fun pauseExternalPlayback() {
+        if (lastPlayStamp != null) {
+            playTimerMs += SystemClock.elapsedRealtime() - lastPlayStamp!!
+            lastPlayStamp = null
+        }
+        transportState = TransportState.Paused
+    }
+
+    fun isPlaying(): Boolean = transportState == TransportState.Playing
+
+    fun isPaused(): Boolean = transportState == TransportState.Paused
 
     fun getListenTimeSeconds(): Double {
         val now = SystemClock.elapsedRealtime()

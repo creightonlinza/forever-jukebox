@@ -18,6 +18,7 @@ class AutocanonizerController(
 
     private var data: AutocanonizerData? = null
     private var running = false
+    private var paused = false
     private var tickJob: Job? = null
     private var secondaryOnly = false
     private var secondaryIndex = 0
@@ -80,6 +81,8 @@ class AutocanonizerController(
 
     fun isRunning(): Boolean = running
 
+    fun isPaused(): Boolean = paused
+
     fun reset() {
         stop()
         data = null
@@ -104,6 +107,7 @@ class AutocanonizerController(
         }
         stop()
         running = true
+        paused = false
         secondaryOnly = false
         secondaryIndex = 0
         forcedOtherIndex = null
@@ -116,10 +120,44 @@ class AutocanonizerController(
         return true
     }
 
+    fun pause() {
+        if (!running) {
+            return
+        }
+        tickJob?.cancel()
+        tickJob = null
+        running = false
+        paused = true
+        player.pause()
+    }
+
+    fun resume(): Boolean {
+        if (!paused) {
+            return false
+        }
+        val beats = data?.beats ?: return false
+        if (beats.isEmpty() || !player.isReady()) {
+            paused = false
+            return false
+        }
+        running = true
+        paused = false
+        player.resume()
+        tickJob = scope.launch {
+            if (secondaryOnly) {
+                runSecondaryLoop()
+            } else {
+                runMainLoop()
+            }
+        }
+        return true
+    }
+
     fun stop() {
         tickJob?.cancel()
         tickJob = null
         running = false
+        paused = false
         secondaryOnly = false
         forcedOtherIndex = null
         player.stop()
@@ -190,6 +228,7 @@ class AutocanonizerController(
 
     private fun completeNaturally() {
         running = false
+        paused = false
         secondaryOnly = false
         forcedOtherIndex = null
         player.stop()

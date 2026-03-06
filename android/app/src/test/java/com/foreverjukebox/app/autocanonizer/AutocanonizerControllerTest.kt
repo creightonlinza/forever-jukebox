@@ -69,6 +69,32 @@ class AutocanonizerControllerTest {
         assertNotNull(overrides[3])
     }
 
+    @Test
+    fun pauseAndResumeTogglesControllerState() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val player = FakeAutocanonizerPlayer(ready = true)
+        val controller = AutocanonizerController(player, scope)
+        controller.setData(sampleData())
+
+        val started = controller.startAtIndex(0)
+        assertTrue(started)
+        assertTrue(controller.isRunning())
+        assertFalse(controller.isPaused())
+
+        controller.pause()
+
+        assertFalse(controller.isRunning())
+        assertTrue(controller.isPaused())
+        assertEquals(1, player.pauseCalls)
+
+        val resumed = controller.resume()
+        assertTrue(resumed)
+        assertTrue(controller.isRunning())
+        assertFalse(controller.isPaused())
+        assertEquals(1, player.resumeCalls)
+    }
+
     private fun sampleData(): AutocanonizerData {
         val beats = listOf(
             AutocanonizerBeat(index = 0, start = 0.0, duration = 1.0, nextIndex = 1, section = 0, indexInParent = 0, overlappingSegments = emptyList(), otherIndex = 0),
@@ -87,6 +113,9 @@ class AutocanonizerControllerTest {
 private class FakeAutocanonizerPlayer(
     private val ready: Boolean
 ) : AutocanonizerPlayer {
+    var pauseCalls = 0
+    var resumeCalls = 0
+
     override fun isReady(): Boolean = ready
 
     override fun syncAudioFromMain(): Boolean = ready
@@ -94,6 +123,14 @@ private class FakeAutocanonizerPlayer(
     override fun setVolume(volume: Double) = Unit
 
     override fun reset() = Unit
+
+    override fun pause() {
+        pauseCalls += 1
+    }
+
+    override fun resume() {
+        resumeCalls += 1
+    }
 
     override fun stop() = Unit
 

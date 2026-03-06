@@ -130,12 +130,14 @@ class JukeboxEngine(
 
     fun pause() = player.pause()
 
-    fun startJukebox() {
+    fun startJukebox(resetState: Boolean = true) {
         if (analysis == null || beats.isEmpty()) {
             throw IllegalStateException("Analysis not loaded")
         }
         if (ticking) return
-        resetState()
+        if (resetState) {
+            resetState()
+        }
         ticking = true
         tickJob = scope.launch {
             while (ticking) {
@@ -143,6 +145,17 @@ class JukeboxEngine(
                 delay(delayMs)
             }
         }
+    }
+
+    fun pauseJukebox() {
+        if (!ticking) {
+            player.pause()
+            return
+        }
+        ticking = false
+        tickJob?.cancel()
+        tickJob = null
+        player.pause()
     }
 
     fun stopJukebox() {

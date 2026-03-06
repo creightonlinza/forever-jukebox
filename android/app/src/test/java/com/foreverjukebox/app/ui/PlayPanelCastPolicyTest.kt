@@ -2,6 +2,7 @@ package com.foreverjukebox.app.ui
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PlayPanelCastPolicyTest {
@@ -74,5 +75,57 @@ class PlayPanelCastPolicyTest {
 
         assertTrue(resolvePlaybackHeaderTitle(castingLoading)?.contains("Loading track on cast device") == true)
         assertTrue(resolvePlaybackHeaderTitle(normal)?.contains("Real Title") == true)
+    }
+
+    @Test
+    fun resolveListenContentModeSelectsCastBeforeAnythingElse() {
+        val playback = PlaybackState(
+            isCasting = true,
+            audioLoaded = true,
+            analysisLoaded = true
+        )
+
+        assertEquals(ListenContentMode.Cast, resolveListenContentMode(playback))
+    }
+
+    @Test
+    fun resolveListenContentModeSelectsLocalWhenAudioAndAnalysisReady() {
+        val playback = PlaybackState(
+            isCasting = false,
+            audioLoaded = true,
+            analysisLoaded = true
+        )
+
+        assertEquals(ListenContentMode.LocalReady, resolveListenContentMode(playback))
+    }
+
+    @Test
+    fun resolveListenContentModeSelectsEmptyWhenIdleWithNoTrack() {
+        val playback = PlaybackState(
+            isCasting = false,
+            audioLoaded = false,
+            analysisLoaded = false,
+            analysisInFlight = false,
+            analysisCalculating = false,
+            audioLoading = false,
+            analysisErrorMessage = null
+        )
+
+        assertEquals(ListenContentMode.Empty, resolveListenContentMode(playback))
+    }
+
+    @Test
+    fun resolveListenContentModeReturnsNoneDuringLoadingOrError() {
+        val loading = PlaybackState(
+            isCasting = false,
+            analysisInFlight = true
+        )
+        val errored = PlaybackState(
+            isCasting = false,
+            analysisErrorMessage = "boom"
+        )
+
+        assertEquals(ListenContentMode.None, resolveListenContentMode(loading))
+        assertEquals(ListenContentMode.None, resolveListenContentMode(errored))
     }
 }

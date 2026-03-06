@@ -317,7 +317,8 @@ class PlaybackCoordinator(
                     analysisErrorMessage = null,
                     analysisInFlight = false,
                     analysisCalculating = false,
-                    audioLoading = false
+                    audioLoading = false,
+                    isPaused = false
                 )
             )
         }
@@ -369,6 +370,7 @@ class PlaybackCoordinator(
                     trackTitle = null,
                     trackArtist = null,
                     isRunning = false,
+                    isPaused = false,
                     vizData = null,
                     autocanonizerData = null,
                     currentBeatIndex = -1,
@@ -438,14 +440,15 @@ class PlaybackCoordinator(
         ) {
             controller.stopPlayback()
             stopListenTimer()
-            updatePlaybackState { it.copy(isRunning = false) }
+            updatePlaybackState { it.copy(isRunning = false, isPaused = false) }
             return
         }
         val totalSeconds = controller.getListenTimeSeconds()
         updatePlaybackState {
             it.copy(
                 listenTime = formatDuration(totalSeconds),
-                isRunning = controller.isPlaying()
+                isRunning = controller.isPlaying(),
+                isPaused = controller.isPaused()
             )
         }
     }
@@ -478,7 +481,8 @@ class PlaybackCoordinator(
                     currentBeatIndex = beatIndex,
                     canonizerOtherIndex = controller.autocanonizer.getForcedOtherIndex(),
                     canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides(),
-                    isRunning = controller.isPlaying()
+                    isRunning = controller.isPlaying(),
+                    isPaused = controller.isPaused()
                 ),
                 activeTab = if (hasAnalysis) TabId.Play else it.activeTab
             )

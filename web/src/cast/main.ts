@@ -17,6 +17,7 @@ type CastCustomData = {
 type CastCommand = {
   type?:
     | "play"
+    | "pause"
     | "stop"
     | "getStatus"
     | "setTuning"
@@ -334,6 +335,7 @@ async function bootstrap() {
     trackDurationSeconds: null,
     activeVizIndex: 0,
   };
+  let isTrackPaused = false;
   function applyVisualizationIndex(nextIndex: number) {
     const normalized = clamp(Math.trunc(nextIndex), 0, MAX_VIZ_INDEX);
     state.activeVizIndex = normalized;
@@ -495,6 +497,8 @@ async function bootstrap() {
       if (engine) {
         engine.stopJukebox();
       }
+      isTrackPaused = false;
+      playStartAtMs = null;
       setIdleState(elements);
       setLogoVisible(elements, true);
       startIdleKeepAlive();
@@ -506,11 +510,11 @@ async function bootstrap() {
   };
 
   let playStartAtMs: number | null = null;
+  let listenAccumulatedMs = 0;
   window.setInterval(() => {
-    if (playStartAtMs === null) {
-      return;
-    }
-    const elapsed = Math.max(0, performance.now() - playStartAtMs);
+    const runningElapsed =
+      playStartAtMs === null ? 0 : Math.max(0, performance.now() - playStartAtMs);
+    const elapsed = listenAccumulatedMs + runningElapsed;
     elements.listenTime.textContent = formatDuration(elapsed / 1000);
   }, 500);
 
@@ -570,6 +574,8 @@ async function bootstrap() {
     state.trackDurationSeconds = null;
     state.lastBeatIndex = null;
     state.vizData = null;
+    isTrackPaused = false;
+    listenAccumulatedMs = 0;
     if (viz) {
       viz.reset();
       viz.setVisible(false);
@@ -642,6 +648,8 @@ async function bootstrap() {
       }
       engine.startJukebox();
       engine.play();
+      isTrackPaused = false;
+      listenAccumulatedMs = 0;
       playStartAtMs = performance.now();
       clearIdleStopTimer();
       sendStatusUpdate();
@@ -670,6 +678,7 @@ async function bootstrap() {
       player = null;
       engine = null;
       playStartAtMs = null;
+      listenAccumulatedMs = 0;
       setIdleState(elements);
       setLogoVisible(elements, true);
       startIdleKeepAlive();
@@ -753,18 +762,39 @@ async function bootstrap() {
         viz.reset();
       }
       if (!engine.isRunning()) {
-        engine.startJukebox();
+        if (isTrackPaused) {
+          engine.syncToPlaybackPosition();
+        }
+        engine.startJukebox(!isTrackPaused);
       }
       engine.play();
-      playStartAtMs = performance.now();
+      if (playStartAtMs === null) {
+        playStartAtMs = performance.now();
+      }
+      isTrackPaused = false;
       clearIdleStopTimer();
+      sendStatusUpdate();
+      return;
+    }
+    if (command.type === "pause") {
+      if (!state.vizData) {
+        return;
+      }
+      engine.pauseJukebox();
+      if (playStartAtMs !== null) {
+        listenAccumulatedMs += Math.max(0, performance.now() - playStartAtMs);
+        playStartAtMs = null;
+      }
+      isTrackPaused = true;
       sendStatusUpdate();
       return;
     }
     if (command.type === "stop") {
       engine.stopJukebox();
       player.stop();
+      isTrackPaused = false;
       playStartAtMs = null;
+      listenAccumulatedMs = 0;
       elements.listenTime.textContent = "00:00:00";
       elements.beatsPlayed.textContent = "0";
       if (viz) {

@@ -139,6 +139,7 @@ class CastStatusReducerTest {
         assertEquals("New Song — New Artist", next.playback.playTitle)
         assertEquals("New Song", next.playback.trackTitle)
         assertEquals("New Artist", next.playback.trackArtist)
+        assertFalse(next.playback.isPaused)
         assertEquals(189.5, next.playback.trackDurationSeconds ?: 0.0, 0.0001)
         assertEquals(640, next.playback.castTotalBeats)
         assertEquals(82, next.playback.castTotalBranches)
@@ -174,6 +175,7 @@ class CastStatusReducerTest {
         val next = reduceCastStatus(current, status)
 
         assertFalse(next.playback.isRunning)
+        assertFalse(next.playback.isPaused)
         assertFalse(next.playback.analysisInFlight)
         assertEquals("Receiver error", next.playback.analysisErrorMessage)
         assertEquals(5, next.playback.activeVizIndex)
@@ -279,8 +281,41 @@ class CastStatusReducerTest {
         assertFalse(next.playback.isCastLoading)
         assertFalse(next.playback.analysisInFlight)
         assertTrue(next.playback.isRunning)
+        assertFalse(next.playback.isPaused)
         assertEquals(201.0, next.playback.trackDurationSeconds ?: 0.0, 0.0001)
         assertEquals(480, next.playback.castTotalBeats)
         assertEquals(56, next.playback.castTotalBranches)
+    }
+
+    @Test
+    fun reduceCastStatusMarksPausedWhenReceiverReportsPausedState() {
+        val current = UiState(
+            playback = PlaybackState(
+                isCasting = true,
+                isRunning = true,
+                isPaused = false,
+                lastYouTubeId = "new_song"
+            )
+        )
+        val paused = CastStatusMessage(
+            songId = "new_song",
+            title = "Loaded Song",
+            artist = "Artist",
+            trackDurationSeconds = 201.0,
+            totalBeats = 480,
+            totalBranches = 56,
+            isPlaying = false,
+            isLoading = false,
+            playbackState = "paused",
+            error = "",
+            activeVizIndex = 1,
+            resolvedThreshold = 20
+        )
+
+        val next = reduceCastStatus(current, paused)
+
+        assertFalse(next.playback.isRunning)
+        assertTrue(next.playback.isPaused)
+        assertFalse(next.playback.analysisInFlight)
     }
 }

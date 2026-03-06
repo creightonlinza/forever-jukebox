@@ -52,6 +52,13 @@ private enum class NotificationMode {
     Cast
 }
 
+private enum class PlaybackAction {
+    Play,
+    Pause,
+    Stop,
+    Toggle
+}
+
 private data class PlaybackNotificationState(
     val mode: NotificationMode,
     val isPlaying: Boolean,
@@ -97,19 +104,19 @@ class ForegroundPlaybackService : Service() {
                     }
                     when (keyEvent.keyCode) {
                         KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                            val isPlaying =
-                                activeNotificationState?.isPlaying
-                                    ?: PlaybackControllerHolder.get(this@ForegroundPlaybackService).isPlaying()
-                            handlePlayPause(shouldPlay = !isPlaying)
+                            handlePlaybackAction(PlaybackAction.Toggle)
                             return true
                         }
                         KeyEvent.KEYCODE_MEDIA_PLAY -> {
-                            handlePlayPause(shouldPlay = true)
+                            handlePlaybackAction(PlaybackAction.Play)
                             return true
                         }
-                        KeyEvent.KEYCODE_MEDIA_PAUSE,
+                        KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                            handlePlaybackAction(PlaybackAction.Pause)
+                            return true
+                        }
                         KeyEvent.KEYCODE_MEDIA_STOP -> {
-                            handlePlayPause(shouldPlay = false)
+                            handlePlaybackAction(PlaybackAction.Stop)
                             return true
                         }
                     }
@@ -117,15 +124,15 @@ class ForegroundPlaybackService : Service() {
                 }
 
                 override fun onPlay() {
-                    handlePlayPause(shouldPlay = true)
+                    handlePlaybackAction(PlaybackAction.Play)
                 }
 
                 override fun onPause() {
-                    handlePlayPause(shouldPlay = false)
+                    handlePlaybackAction(PlaybackAction.Pause)
                 }
 
                 override fun onStop() {
-                    handlePlayPause(shouldPlay = false)
+                    handlePlaybackAction(PlaybackAction.Stop)
                 }
             })
         }
@@ -136,11 +143,9 @@ class ForegroundPlaybackService : Service() {
         when (intent?.action) {
             PlaybackServiceConstants.ACTION_TOGGLE -> {
                 if (intent.getBooleanExtra(PlaybackServiceConstants.EXTRA_IS_CASTING, false)) {
-                    handleCastToggle(intent)
+                    handleCastToggle()
                 } else {
-                    val controller = PlaybackControllerHolder.get(this)
-                    val isPlaying = controller.togglePlayback()
-                    updateNotification(buildLocalNotificationState(isPlaying))
+                    handlePlaybackAction(PlaybackAction.Toggle)
                 }
             }
             PlaybackServiceConstants.ACTION_START, PlaybackServiceConstants.ACTION_UPDATE -> {
@@ -235,7 +240,7 @@ class ForegroundPlaybackService : Service() {
 
         val actionIconRes = when (state.mode) {
             NotificationMode.Cast -> if (state.isPlaying) {
-                android.R.drawable.ic_menu_close_clear_cancel
+                android.R.drawable.ic_media_pause
             } else {
                 android.R.drawable.ic_media_play
             }
@@ -246,8 +251,8 @@ class ForegroundPlaybackService : Service() {
             }
         }
         val actionLabel = when (state.mode) {
-            NotificationMode.Cast -> if (state.isPlaying) "Stop" else "Play"
-            NotificationMode.Local -> if (state.isPlaying) "Stop" else "Play"
+            NotificationMode.Cast -> if (state.isPlaying) "Pause" else "Play"
+            NotificationMode.Local -> if (state.isPlaying) "Pause" else "Play"
         }
         val actionIcon = tintedIcon(actionIconRes, NOTIFICATION_ACCENT.toColorInt())
 
@@ -338,16 +343,27 @@ class ForegroundPlaybackService : Service() {
         mediaSession.isActive = true
     }
 
-    private fun handlePlayPause(shouldPlay: Boolean) {
+    private fun handlePlaybackAction(action: PlaybackAction) {
         val activeState = activeNotificationState
+        val targetPlayState = when (action) {
+            PlaybackAction.Play -> true
+            PlaybackAction.Pause,
+            PlaybackAction.Stop -> false
+            PlaybackAction.Toggle -> !(activeState?.isPlaying ?: PlaybackControllerHolder.get(this).isPlaying())
+        }
         if (activeState?.mode == NotificationMode.Cast) {
-            val command = if (shouldPlay) "play" else "stop"
+            val command = when (action) {
+                PlaybackAction.Play -> "play"
+                PlaybackAction.Pause -> "pause"
+                PlaybackAction.Stop -> "stop"
+                PlaybackAction.Toggle -> if (activeState.isPlaying) "pause" else "play"
+            }
             val sent = castController.sendCommand(
                 PlaybackServiceConstants.CAST_COMMAND_NAMESPACE,
                 command
             )
             if (sent) {
-                updateNotification(activeState.copy(isPlaying = shouldPlay))
+                updateNotification(activeState.copy(isPlaying = targetPlayState))
             } else {
                 activeNotificationState = null
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -356,25 +372,65 @@ class ForegroundPlaybackService : Service() {
             return
         }
         val controller = PlaybackControllerHolder.get(this)
-        val isPlaying = controller.isPlaying()
-        if (shouldPlay && !isPlaying) {
-            updateNotification(buildLocalNotificationState(controller.togglePlayback()))
-        } else if (!shouldPlay && isPlaying) {
-            controller.stopPlayback()
-            controller.autocanonizer.stop()
-            controller.stopExternalPlayback()
-            updateNotification(buildLocalNotificationState(false))
-        } else {
-            updateNotification(buildLocalNotificationState(isPlaying))
+        val autocanonizer = controller.autocanonizer
+        val autocanonizerRunning = autocanonizer.isRunning()
+        val autocanonizerPaused = autocanonizer.isPaused()
+        when (action) {
+            PlaybackAction.Play -> {
+                if (autocanonizerRunning) {
+                    updateNotification(buildLocalNotificationState(true))
+                } else if (autocanonizerPaused) {
+                    val resumed = autocanonizer.resume()
+                    if (resumed) {
+                        controller.startExternalPlayback(resetTimers = false)
+                    }
+                    updateNotification(buildLocalNotificationState(resumed))
+                } else if (!controller.isPlaying()) {
+                    val running = controller.playOrResumePlayback()
+                    updateNotification(buildLocalNotificationState(running))
+                } else {
+                    updateNotification(buildLocalNotificationState(true))
+                }
+            }
+            PlaybackAction.Pause -> {
+                if (autocanonizerRunning) {
+                    autocanonizer.pause()
+                    controller.pauseExternalPlayback()
+                } else if (controller.isPlaying()) {
+                    controller.pausePlayback()
+                }
+                updateNotification(buildLocalNotificationState(false))
+            }
+            PlaybackAction.Stop -> {
+                controller.stopPlayback()
+                autocanonizer.stop()
+                controller.stopExternalPlayback()
+                updateNotification(buildLocalNotificationState(false))
+            }
+            PlaybackAction.Toggle -> {
+                if (autocanonizerRunning) {
+                    autocanonizer.pause()
+                    controller.pauseExternalPlayback()
+                    updateNotification(buildLocalNotificationState(false))
+                } else if (autocanonizerPaused) {
+                    val resumed = autocanonizer.resume()
+                    if (resumed) {
+                        controller.startExternalPlayback(resetTimers = false)
+                    }
+                    updateNotification(buildLocalNotificationState(resumed))
+                } else if (controller.isPlaying()) {
+                    controller.pausePlayback()
+                    updateNotification(buildLocalNotificationState(false))
+                } else {
+                    val running = controller.playOrResumePlayback()
+                    updateNotification(buildLocalNotificationState(running))
+                }
+            }
         }
     }
 
-    private fun handleCastToggle(intent: Intent) {
-        val isPlaying = intent.getBooleanExtra(
-            PlaybackServiceConstants.EXTRA_CAST_IS_PLAYING,
-            activeNotificationState?.isPlaying == true
-        )
-        handlePlayPause(shouldPlay = !isPlaying)
+    private fun handleCastToggle() {
+        handlePlaybackAction(PlaybackAction.Toggle)
     }
 
     override fun onDestroy() {
