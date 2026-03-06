@@ -65,6 +65,7 @@ internal fun playbackStateAfterModeChange(
     }
     return playback.copy(
         isRunning = false,
+        isPaused = false,
         beatsPlayed = 0,
         currentBeatIndex = -1,
         canonizerOtherIndex = null,

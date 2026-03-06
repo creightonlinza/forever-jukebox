@@ -81,14 +81,17 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onDestroy() {
-        syncCastSessionListener(enable = false)
+        syncCastSessionListener(
+            enable = false,
+            clearCastState = !isChangingConfigurations
+        )
         if (isFinishing) {
             ForegroundPlaybackService.stop(this)
         }
         super.onDestroy()
     }
 
-    private fun syncCastSessionListener(enable: Boolean) {
+    private fun syncCastSessionListener(enable: Boolean, clearCastState: Boolean = true) {
         if (!enable) {
             sessionListener?.let { listener ->
                 runCatching {
@@ -98,7 +101,9 @@ class MainActivity : FragmentActivity() {
                 }
             }
             sessionListener = null
-            viewModel.setCastingConnected(false)
+            if (clearCastState) {
+                viewModel.setCastingConnected(false)
+            }
             return
         }
 

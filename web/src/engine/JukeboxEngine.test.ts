@@ -301,6 +301,30 @@ describe("JukeboxEngine playback loop", () => {
     expect(engineAny.currentBeatIndex).toBe(2);
     engine.stopJukebox();
   });
+
+  it("syncs next audio boundary to current playback position", () => {
+    let audioNow = 6;
+    let trackNow = 2.25;
+    const player = makePlayer();
+    player.getAudioTime = () => audioNow;
+    player.getCurrentTime = () => trackNow;
+    const engine = new JukeboxEngine(player);
+    engine.loadAnalysis(makeAnalysisPayload(5));
+
+    const engineAny = engine as unknown as {
+      currentBeatIndex: number;
+      nextAudioTime: number;
+    };
+    engineAny.currentBeatIndex = 1;
+    engineAny.nextAudioTime = 3;
+
+    audioNow = 25;
+    trackNow = 2.25;
+    engine.syncToPlaybackPosition();
+
+    expect(engineAny.currentBeatIndex).toBe(2);
+    expect(engineAny.nextAudioTime).toBeCloseTo(25.75, 5);
+  });
 });
 
 describe("JukeboxEngine branching controls", () => {

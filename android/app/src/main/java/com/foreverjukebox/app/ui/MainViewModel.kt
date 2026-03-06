@@ -41,6 +41,33 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlin.math.roundToInt
 
+internal suspend fun tryQueueYoutubeAnalysisForCast(
+    baseUrl: String,
+    youtubeId: String,
+    title: String?,
+    artist: String?,
+    startAnalysis: suspend (baseUrl: String, youtubeId: String, title: String?, artist: String?) -> Unit
+): Boolean {
+    val normalizedBaseUrl = baseUrl.trim()
+    if (normalizedBaseUrl.isBlank()) {
+        return false
+    }
+    return runCatching {
+        startAnalysis(normalizedBaseUrl, youtubeId, title, artist)
+    }.isSuccess
+}
+
+internal fun resetSearchStateAfterTrackSelection(search: SearchState): SearchState {
+    return search.copy(
+        query = "",
+        spotifyResults = emptyList(),
+        youtubeMatches = emptyList(),
+        youtubeLoading = false,
+        pendingTrackName = null,
+        pendingTrackArtist = null
+    )
+}
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = AppPreferences(application)
     private val api = ApiClient()
@@ -225,7 +252,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             playbackCoordinator.stopListenTimer()
             playbackCoordinator.updateListenTimeDisplay()
             _state.update {
-                it.copy(playback = it.playback.copy(isRunning = false))
+                it.copy(
+                    playback = it.playback.copy(
+                        isRunning = false,
+                        isPaused = false
+                    )
+                )
             }
             ForegroundPlaybackService.stop(getApplication())
         }
@@ -560,6 +592,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         updateSearchState { it.copy(query = value) }
     }
 
+    private fun clearSearchSelectionState() {
+        updateSearchState(::resetSearchStateAfterTrackSelection)
+    }
+
     private fun updatePlaybackState(transform: (PlaybackState) -> PlaybackState) {
         _state.update { it.copy(playback = transform(it.playback)) }
     }
@@ -714,6 +750,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val youtubeId = response.youtubeId
                     if (jobId != null && youtubeId != null && response.status != "failed") {
                         if (state.value.playback.isCasting) {
+                            clearSearchSelectionState()
                             castTrackId(youtubeId, name, artist)
                             recordCastPlayCount(jobId = jobId)
                             applyActiveTab(TabId.Play, recordHistory = true)
@@ -730,15 +767,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 } catch (_: Exception) {
                     // Fall back to YouTube matches.
-                    if (state.value.playback.isCasting) {
-                        showToast("Only existing songs can be cast.")
-                        return@launch
-                    }
                 }
-            }
-            if (state.value.playback.isCasting) {
-                showToast("Only existing songs can be cast.")
-                return@launch
             }
             fetchYoutubeMatches(name, artist, duration)
         }
@@ -777,9 +806,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val resolvedTitle = title ?: state.value.search.pendingTrackName.orEmpty()
         val resolvedArtist = artist ?: state.value.search.pendingTrackArtist.orEmpty()
         if (state.value.playback.isCasting) {
-            castTrackId(youtubeId, resolvedTitle, resolvedArtist)
-            recordCastPlayCount(youtubeId = youtubeId)
+            clearSearchSelectionState()
             applyActiveTab(TabId.Play, recordHistory = true)
+            viewModelScope.launch {
+                val queued = queueYoutubeAnalysisForCast(
+                    youtubeId = youtubeId,
+                    title = resolvedTitle,
+                    artist = resolvedArtist
+                )
+                if (!queued) {
+                    return@launch
+                }
+                castTrackId(youtubeId, resolvedTitle, resolvedArtist)
+                recordCastPlayCount(youtubeId = youtubeId)
+            }
             return
         }
         playbackCoordinator.resetForNewTrack()
@@ -838,9 +878,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             title to artist
         }
         if (state.value.playback.isCasting) {
-            castTrackId(youtubeId, resolvedTitle, resolvedArtist)
-            recordCastPlayCount(youtubeId = youtubeId)
             applyActiveTab(TabId.Play, recordHistory = true)
+            viewModelScope.launch {
+                val queued = queueYoutubeAnalysisForCast(
+                    youtubeId = youtubeId,
+                    title = resolvedTitle,
+                    artist = resolvedArtist
+                )
+                if (!queued) {
+                    return@launch
+                }
+                castTrackId(youtubeId, resolvedTitle, resolvedArtist)
+                recordCastPlayCount(youtubeId = youtubeId)
+            }
             return
         }
         playbackCoordinator.resetForNewTrack()
@@ -1005,6 +1055,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private suspend fun ensureJukeboxRuntimeReady(current: PlaybackState): Boolean {
+        if (!current.audioLoaded || !controller.player.hasAudio()) {
+            val audioReady = playbackCoordinator.ensureAudioReady()
+            if (!audioReady) {
+                playbackCoordinator.setAnalysisError("Audio unavailable. Reload the track.")
+                return false
+            }
+        }
+        val hasAnalysis = controller.engine.getGraphState() != null
+        if (hasAnalysis) {
+            return true
+        }
+        val youtubeId = current.lastYouTubeId
+        if (!youtubeId.isNullOrBlank()) {
+            playbackCoordinator.setAnalysisQueued(null, "Restoring track...")
+            loadTrackByYoutubeId(youtubeId, current.trackTitle, current.trackArtist)
+            return false
+        }
+        playbackCoordinator.setAnalysisError("Analysis unavailable. Reload the track.")
+        return false
+    }
+
     fun togglePlayback() {
         val current = state.value.playback
         if (current.isCasting) {
@@ -1017,14 +1089,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch { showToast("Select a track before playing.") }
                 return
             }
-            val command = if (current.isRunning) "stop" else "play"
+            val command = if (current.isRunning) "pause" else "play"
             val sent = sendCastCommand(command)
             if (!sent) {
                 viewModelScope.launch { showToast("Connect to a Cast device first.") }
                 return
             }
             _state.update {
-                it.copy(playback = it.playback.copy(isRunning = !current.isRunning))
+                it.copy(
+                    playback = it.playback.copy(
+                        isRunning = !current.isRunning,
+                        isPaused = current.isRunning
+                    )
+                )
             }
             syncCastNotification(state.value.playback)
             return
@@ -1036,32 +1113,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (!current.isRunning) {
             viewModelScope.launch {
-                if (!current.audioLoaded || !controller.player.hasAudio()) {
-                    val ready = playbackCoordinator.ensureAudioReady()
-                    if (!ready) {
-                        playbackCoordinator.setAnalysisError("Audio unavailable. Reload the track.")
-                        return@launch
-                    }
+                if (!ensureJukeboxRuntimeReady(current)) {
+                    return@launch
                 }
                 try {
                     if (controller.getTrackTitle().isNullOrBlank() && !current.trackTitle.isNullOrBlank()) {
                         controller.setTrackMeta(current.trackTitle, current.trackArtist)
                     }
-                    val running = controller.togglePlayback()
+                    val wasPaused = current.isPaused
+                    val running = controller.playOrResumePlayback()
+                    val paused = controller.isPaused()
                     playbackCoordinator.updateListenTimeDisplay()
                     _state.update {
                         it.copy(
                             playback = it.playback.copy(
-                                beatsPlayed = 0,
-                                currentBeatIndex = -1,
+                                beatsPlayed = if (wasPaused) it.playback.beatsPlayed else 0,
+                                currentBeatIndex = if (wasPaused) it.playback.currentBeatIndex else -1,
                                 canonizerOtherIndex = null,
-                                isRunning = running
+                                isRunning = running,
+                                isPaused = paused
                             )
                         )
                     }
                     if (running) {
                         playbackCoordinator.startListenTimer()
                         ForegroundPlaybackService.start(getApplication())
+                    } else if (paused) {
+                        playbackCoordinator.stopListenTimer()
+                        ForegroundPlaybackService.update(getApplication())
                     } else {
                         playbackCoordinator.stopListenTimer()
                         ForegroundPlaybackService.stop(getApplication())
@@ -1074,38 +1153,90 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         } else {
-            controller.stopPlayback()
+            controller.pausePlayback()
             playbackCoordinator.stopListenTimer()
             playbackCoordinator.updateListenTimeDisplay()
             _state.update {
                 it.copy(
                     playback = it.playback.copy(
                         isRunning = false,
+                        isPaused = true,
                         canonizerOtherIndex = null
                     )
                 )
             }
-            ForegroundPlaybackService.stop(getApplication())
+            ForegroundPlaybackService.update(getApplication())
         }
     }
 
     private fun toggleAutocanonizerPlayback(current: PlaybackState) {
-        if (!current.isRunning) {
-            startAutocanonizerPlayback(0)
-        } else {
-            controller.autocanonizer.stop()
-            controller.stopExternalPlayback()
+        if (current.isRunning) {
+            controller.autocanonizer.pause()
+            controller.pauseExternalPlayback()
             playbackCoordinator.stopListenTimer()
             playbackCoordinator.updateListenTimeDisplay()
             _state.update {
                 it.copy(
                     playback = it.playback.copy(
                         isRunning = false,
+                        isPaused = true,
                         canonizerOtherIndex = null
                     )
                 )
             }
-            ForegroundPlaybackService.stop(getApplication())
+            ForegroundPlaybackService.update(getApplication())
+        } else if (current.isPaused) {
+            resumeAutocanonizerPlayback()
+        } else {
+            startAutocanonizerPlayback(0)
+        }
+    }
+
+    private fun resumeAutocanonizerPlayback() {
+        val current = state.value.playback
+        viewModelScope.launch {
+            if (!current.audioLoaded || !controller.player.hasAudio()) {
+                val ready = playbackCoordinator.ensureAudioReady()
+                if (!ready) {
+                    playbackCoordinator.setAnalysisError("Audio unavailable. Reload the track.")
+                    return@launch
+                }
+            }
+            if (!controller.autocanonizer.isReady()) {
+                controller.syncAutocanonizerAudio()
+            }
+            if (!controller.autocanonizer.isReady()) {
+                playbackCoordinator.setAnalysisError("Autocanonizer not ready.")
+                return@launch
+            }
+            val resumed = controller.autocanonizer.resume()
+            if (!resumed) {
+                val fallbackIndex = current.currentBeatIndex.takeIf { it >= 0 } ?: 0
+                val started = startAutocanonizerTransport(
+                    controller = controller,
+                    index = fallbackIndex,
+                    resetTimers = false
+                )
+                if (!started) {
+                    playbackCoordinator.setAnalysisError("Autocanonizer not ready.")
+                    return@launch
+                }
+            } else {
+                controller.startExternalPlayback(resetTimers = false)
+            }
+            playbackCoordinator.updateListenTimeDisplay()
+            _state.update {
+                it.copy(
+                    playback = it.playback.copy(
+                        isRunning = true,
+                        isPaused = false,
+                        canonizerOtherIndex = controller.autocanonizer.getForcedOtherIndex(),
+                        canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
+                    )
+                )
+            }
+            playbackCoordinator.startListenTimer()
+            ForegroundPlaybackService.start(getApplication())
         }
     }
 
@@ -1145,7 +1276,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides(),
                         lastJumpFromIndex = null,
                         jumpLine = null,
-                        isRunning = true
+                        isRunning = true,
+                        isPaused = false
                     )
                 )
             }
@@ -1332,6 +1464,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     analysisInFlight = true,
                     analysisErrorMessage = null,
                     isRunning = true,
+                    isPaused = false,
                     listenTime = "00:00:00",
                     beatsPlayed = 0
                 )
@@ -1355,6 +1488,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return false
         }
         return castController.sendCommand(CAST_COMMAND_NAMESPACE, command)
+    }
+
+    private suspend fun queueYoutubeAnalysisForCast(
+        youtubeId: String,
+        title: String?,
+        artist: String?
+    ): Boolean {
+        val queued = tryQueueYoutubeAnalysisForCast(
+            baseUrl = state.value.baseUrl,
+            youtubeId = youtubeId,
+            title = title,
+            artist = artist
+        ) { baseUrl, id, trackTitle, trackArtist ->
+            api.startYoutubeAnalysis(
+                baseUrl = baseUrl,
+                youtubeId = id,
+                title = trackTitle,
+                artist = trackArtist
+            )
+            Unit
+        }
+        if (!queued) {
+            showToast("Unable to queue this track for casting.")
+        }
+        return queued
     }
 
     private fun sendCastTuningParams(tuningParams: String?) {
@@ -1473,6 +1631,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 playback = it.playback.copy(
                     currentBeatIndex = index,
                     isRunning = controller.isPlaying(),
+                    isPaused = controller.isPaused(),
                     canonizerOtherIndex = null
                 )
             )
@@ -1507,7 +1666,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 context = getApplication(),
                 controller = controller,
                 previousMode = current.playMode,
-                isRunning = current.isRunning,
+                isRunning = current.isRunning || current.isPaused,
                 onStopped = {
                     playbackCoordinator.stopListenTimer()
                     playbackCoordinator.updateListenTimeDisplay()

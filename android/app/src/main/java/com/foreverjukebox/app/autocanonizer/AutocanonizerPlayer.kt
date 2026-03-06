@@ -8,6 +8,8 @@ interface AutocanonizerPlayer {
     fun syncAudioFromMain(): Boolean
     fun setVolume(volume: Double)
     fun reset()
+    fun pause()
+    fun resume()
     fun stop()
     fun stopMain()
     fun playBeat(beat: AutocanonizerBeat, beats: List<AutocanonizerBeat>): Double
@@ -25,6 +27,8 @@ class BufferedAutocanonizerPlayer(
     private var skewDelta = 0.0
     private val maxSkewDelta = 0.05
     private var carrySecondaryOnNextSecondaryTick = false
+    private var mainWasPlayingBeforePause = false
+    private var secondaryWasPlayingBeforePause = false
 
     override fun isReady(): Boolean {
         return mainPlayer.hasAudio() && secondaryPlayer.hasAudio()
@@ -46,6 +50,28 @@ class BufferedAutocanonizerPlayer(
         carrySecondaryOnNextSecondaryTick = false
     }
 
+    override fun pause() {
+        mainWasPlayingBeforePause = mainPlayer.isPlaying()
+        secondaryWasPlayingBeforePause = secondaryPlayer.isPlaying()
+        if (mainWasPlayingBeforePause) {
+            mainPlayer.pause()
+        }
+        if (secondaryWasPlayingBeforePause) {
+            secondaryPlayer.pause()
+        }
+    }
+
+    override fun resume() {
+        if (mainWasPlayingBeforePause) {
+            mainPlayer.play()
+        }
+        if (secondaryWasPlayingBeforePause) {
+            secondaryPlayer.play()
+        }
+        mainWasPlayingBeforePause = false
+        secondaryWasPlayingBeforePause = false
+    }
+
     override fun stop() {
         mainPlayer.stop()
         secondaryPlayer.stop()
@@ -53,6 +79,8 @@ class BufferedAutocanonizerPlayer(
         mainPlayer.setGain(1.0)
         secondaryPlayer.setGain(1.0)
         carrySecondaryOnNextSecondaryTick = false
+        mainWasPlayingBeforePause = false
+        secondaryWasPlayingBeforePause = false
     }
 
     override fun stopMain() {

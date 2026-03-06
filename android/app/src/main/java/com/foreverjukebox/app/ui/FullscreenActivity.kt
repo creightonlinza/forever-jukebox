@@ -28,7 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -175,10 +175,27 @@ private fun FullscreenScreen(
 
     fun togglePlayback() {
         if (playMode == PlaybackMode.Autocanonizer) {
-            if (controller.isPlaying()) {
-                controller.autocanonizer.stop()
-                controller.stopExternalPlayback()
-                ForegroundPlaybackService.stop(context)
+            if (controller.autocanonizer.isRunning()) {
+                controller.autocanonizer.pause()
+                controller.pauseExternalPlayback()
+                ForegroundPlaybackService.update(context)
+            } else if (controller.autocanonizer.isPaused()) {
+                val resumed = controller.autocanonizer.resume()
+                val running = if (resumed) {
+                    controller.startExternalPlayback(resetTimers = false)
+                    true
+                } else {
+                    val fallbackIndex = if (currentBeatIndex >= 0) currentBeatIndex else 0
+                    startAutocanonizerTransport(
+                        controller = controller,
+                        index = fallbackIndex,
+                        resetTimers = false
+                    )
+                }
+                if (running) {
+                    canonizerTileColorOverrides = controller.autocanonizer.getTileColorOverrides()
+                    ForegroundPlaybackService.start(context)
+                }
             } else {
                 val startIndex = if (currentBeatIndex >= 0) currentBeatIndex else 0
                 val started = startAutocanonizerTransport(
@@ -193,9 +210,16 @@ private fun FullscreenScreen(
                 }
             }
         } else {
-            val running = controller.togglePlayback()
+            val running = if (controller.isPlaying()) {
+                controller.pausePlayback()
+                false
+            } else {
+                controller.playOrResumePlayback()
+            }
             if (running) {
                 ForegroundPlaybackService.start(context)
+            } else if (controller.isPaused()) {
+                ForegroundPlaybackService.update(context)
             } else {
                 ForegroundPlaybackService.stop(context)
             }
@@ -423,18 +447,19 @@ private fun FullscreenScreen(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = if (isRunning) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                        contentDescription = if (isRunning) "Stop" else "Play",
+                        imageVector = if (isRunning) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (isRunning) "Pause" else "Play",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
+                    AutoMarqueeText(
                         text = nowPlaying,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(

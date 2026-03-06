@@ -89,6 +89,7 @@ data class PlaybackState(
     val audioLoaded: Boolean = false,
     val analysisLoaded: Boolean = false,
     val isRunning: Boolean = false,
+    val isPaused: Boolean = false,
     val beatsPlayed: Int = 0,
     val listenTime: String = "00:00:00",
     val trackDurationSeconds: Double? = null,
