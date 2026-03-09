@@ -120,6 +120,12 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
                     onClose = viewModel::dismissVersionUpdatePrompt
                 )
             }
+            state.trackLengthLimitErrorMessage?.let { message ->
+                ErrorMessageDialog(
+                    message = message,
+                    onClose = viewModel::dismissTrackLengthLimitErrorDialog
+                )
+            }
         }
     }
 }

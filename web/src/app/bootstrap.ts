@@ -213,6 +213,7 @@ export function bootstrap() {
       updateTrackUrl(youtubeId, replace, state.tuningParams, state.playMode),
     setAnalysisStatus: (message: string, spinning: boolean) =>
       setAnalysisStatus(context, message, spinning),
+    showToast: (message, options) => showToast(context, message, options),
     setLoadingProgress: (progress: number | null, message?: string | null) =>
       setLoadingProgress(context, progress, message),
     pollAnalysis: (jobId: string) => pollAnalysis(context, playbackDeps, jobId),

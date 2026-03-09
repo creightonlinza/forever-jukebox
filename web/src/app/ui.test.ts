@@ -94,11 +94,18 @@ describe("ui helpers", () => {
     (globalThis.window as any).clearTimeout = clearTimeout;
     showToast(context, "Hi", { icon: "check" });
     expect(context.elements.toast.innerHTML).toContain("check");
+    expect(context.elements.toast.classList.remove).toHaveBeenCalledWith("error");
     expect(context.elements.toast.classList.remove).toHaveBeenCalledWith(
       "hidden",
     );
     vi.runAllTimers();
     expect(context.elements.toast.classList.add).toHaveBeenCalledWith("hidden");
     vi.useRealTimers();
+  });
+
+  it("shows error toast style", () => {
+    const context = createContext();
+    showToast(context, "Nope", { icon: "error", tone: "error" });
+    expect(context.elements.toast.classList.add).toHaveBeenCalledWith("error");
   });
 });

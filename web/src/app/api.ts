@@ -71,6 +71,7 @@ export type AppConfig = {
   allow_favorites_sync?: boolean;
   max_upload_size?: number | null;
   allowed_upload_exts?: string[] | null;
+  max_track_length?: number | null;
 };
 
 export type FavoritesSyncResponse = {
@@ -91,6 +92,24 @@ async function fetchJson(url: string, options?: RequestInit) {
     throw error;
   }
   return response.json();
+}
+
+function extractApiError(data: unknown): { message: string; code?: string } | null {
+  if (!isRecord(data)) {
+    return null;
+  }
+  const detail = data.detail;
+  if (typeof detail === "string") {
+    return { message: detail };
+  }
+  if (isRecord(detail)) {
+    const message = typeof detail.message === "string" ? detail.message : null;
+    const code = typeof detail.error_code === "string" ? detail.error_code : undefined;
+    if (message) {
+      return { message, code };
+    }
+  }
+  return null;
 }
 
 function parseAnalysisResponse(data: unknown): AnalysisResponse | null {
@@ -239,8 +258,22 @@ export async function uploadAudio(file: File) {
   body.append("file", file);
   const response = await fetch("/api/upload", { method: "POST", body });
   if (!response.ok) {
-    const error = new Error(`Upload failed (${response.status})`);
-    (error as Error & { status?: number }).status = response.status;
+    let message = `Upload failed (${response.status})`;
+    let code: string | undefined;
+    try {
+      const payload = await response.json();
+      const extracted = extractApiError(payload);
+      if (extracted) {
+        message = extracted.message;
+        code = extracted.code;
+      }
+    } catch {
+      // Ignore non-JSON error payloads.
+    }
+    const error = new Error(message);
+    const extended = error as Error & { status?: number; code?: string };
+    extended.status = response.status;
+    extended.code = code;
     throw error;
   }
   const data = await response.json();

@@ -1,6 +1,7 @@
 import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
 import type { SearchDeps } from "../search";
+import type { ToastOptions } from "../ui";
 
 type SearchHandlersDeps = {
   context: AppContext;
@@ -8,7 +9,7 @@ type SearchHandlersDeps = {
   state: AppState;
   searchDeps: SearchDeps;
   runSearch: (context: AppContext, deps: SearchDeps) => Promise<void>;
-  showToast: (context: AppContext, message: string, options?: { icon?: string }) => void;
+  showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
   uploadAudio: (file: File) => Promise<{ id?: string } | null>;
   startYoutubeAnalysis: (payload: {
     youtube_id: string;
@@ -48,6 +49,52 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
     updateTrackUrl,
     pollAnalysisJob,
   } = deps;
+
+  function formatMinutes(value: number): string {
+    const rounded = Math.round(value * 100) / 100;
+    if (Number.isInteger(rounded)) {
+      return String(Math.trunc(rounded));
+    }
+    return String(rounded);
+  }
+
+  function maxTrackLengthMessage(minutes: number): string {
+    return `Error: The maximum track length for this server is ${formatMinutes(minutes)} minutes.`;
+  }
+
+  async function probeAudioDurationSeconds(file: File): Promise<number | null> {
+    if (typeof window === "undefined" || typeof Audio === "undefined") {
+      return null;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const duration = await new Promise<number | null>((resolve) => {
+        const audio = new Audio();
+        const cleanup = () => {
+          audio.removeAttribute("src");
+          audio.load();
+        };
+        const onLoaded = () => {
+          const value = Number.isFinite(audio.duration) && audio.duration > 0
+            ? audio.duration
+            : null;
+          cleanup();
+          resolve(value);
+        };
+        const onError = () => {
+          cleanup();
+          resolve(null);
+        };
+        audio.preload = "metadata";
+        audio.addEventListener("loadedmetadata", onLoaded, { once: true });
+        audio.addEventListener("error", onError, { once: true });
+        audio.src = objectUrl;
+      });
+      return duration;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
 
   function handleSearchClick() {
     void runSearch(context, searchDeps);
@@ -106,6 +153,25 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       );
       return;
     }
+    const maxTrackLengthMinutes = config.max_track_length;
+    if (
+      typeof maxTrackLengthMinutes === "number" &&
+      Number.isFinite(maxTrackLengthMinutes) &&
+      maxTrackLengthMinutes > 0
+    ) {
+      const durationSeconds = await probeAudioDurationSeconds(file);
+      if (
+        typeof durationSeconds === "number" &&
+        Number.isFinite(durationSeconds) &&
+        durationSeconds > maxTrackLengthMinutes * 60
+      ) {
+        showToast(context, maxTrackLengthMessage(maxTrackLengthMinutes), {
+          icon: "error",
+          tone: "error",
+        });
+        return;
+      }
+    }
     const originalLabel = elements.uploadFileButton.textContent ?? "Load";
     elements.uploadFileButton.disabled = true;
     elements.uploadFileButton.textContent = "Loading";
@@ -126,6 +192,28 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       setLoadingProgress(context, null, "Queued");
       await pollAnalysisJob(response.id);
     } catch (err) {
+      const trackTooLong =
+        (err as Error & { code?: string }).code === "track_too_long";
+      if (trackTooLong) {
+        const fallbackLimit =
+          typeof config.max_track_length === "number" &&
+            Number.isFinite(config.max_track_length) &&
+            config.max_track_length > 0
+            ? config.max_track_length
+            : null;
+        showToast(
+          context,
+          (err as Error).message ||
+            (fallbackLimit !== null
+              ? maxTrackLengthMessage(fallbackLimit)
+              : "Error: This track exceeds the server max track length."),
+          {
+            icon: "error",
+            tone: "error",
+          },
+        );
+        return;
+      }
       showToast(context, `Upload failed: ${String(err)}`);
     } finally {
       elements.uploadFileButton.disabled = false;

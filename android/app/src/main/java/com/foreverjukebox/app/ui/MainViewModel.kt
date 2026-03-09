@@ -161,8 +161,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             preferences.appConfig.collect { config ->
                 if (config != null) {
-                    _state.update { it.copy(allowFavoritesSync = config.allowFavoritesSync) }
+                    _state.update {
+                        it.copy(
+                            allowFavoritesSync = config.allowFavoritesSync,
+                            maxTrackLengthMinutes = config.maxTrackLength
+                        )
+                    }
                     favoritesController.maybeHydrateFavoritesFromSync()
+                } else {
+                    _state.update { it.copy(maxTrackLengthMinutes = null) }
                 }
             }
         }
@@ -740,6 +747,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val name = item.name ?: "Untitled"
         val artist = item.artist ?: ""
         val duration = item.duration ?: return
+        val maxTrackLengthMinutes = state.value.maxTrackLengthMinutes
+        if (maxTrackLengthMinutes != null &&
+            maxTrackLengthMinutes > 0 &&
+            duration > maxTrackLengthMinutes * 60
+        ) {
+            _state.update {
+                it.copy(
+                    trackLengthLimitErrorMessage =
+                        "The maximum track length for this server is " +
+                            "${formatMinutes(maxTrackLengthMinutes)} minutes."
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             if (artist.isNotBlank()) {
                 try {
@@ -1596,6 +1617,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } catch (_: Exception) {
             playbackCoordinator.markDeleteEligibilityFailed(jobId)
             false
+        }
+    }
+
+    fun dismissTrackLengthLimitErrorDialog() {
+        _state.update { it.copy(trackLengthLimitErrorMessage = null) }
+    }
+
+    private fun formatMinutes(value: Double): String {
+        return if (value % 1.0 == 0.0) {
+            value.toInt().toString()
+        } else {
+            ((value * 100).roundToInt() / 100.0).toString()
         }
     }
 

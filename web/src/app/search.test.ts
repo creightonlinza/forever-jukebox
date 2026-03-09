@@ -45,6 +45,7 @@ function createDeps(): SearchDeps {
     navigateToTab: vi.fn(),
     updateTrackUrl: vi.fn(),
     setAnalysisStatus: vi.fn(),
+    showToast: vi.fn(),
     setLoadingProgress: vi.fn(),
     pollAnalysis: vi.fn(),
     applyAnalysisResult: vi.fn(() => true),

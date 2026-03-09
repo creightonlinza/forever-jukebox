@@ -48,6 +48,8 @@ data class UiState(
     val favorites: List<FavoriteTrack> = emptyList(),
     val favoritesSyncCode: String? = null,
     val allowFavoritesSync: Boolean = false,
+    val maxTrackLengthMinutes: Double? = null,
+    val trackLengthLimitErrorMessage: String? = null,
     val favoritesSyncLoading: Boolean = false,
     val versionUpdatePrompt: VersionUpdatePrompt? = null,
     val search: SearchState = SearchState(),

@@ -50,6 +50,7 @@ export YOUTUBE_API_KEY=...
 export ADMIN_KEY=...
 export NTFY_TOPIC_KEY=...
 export WORKER_COUNT=1
+export MAX_TRACK_LENGTH=12
 export ALLOW_USER_UPLOAD=false
 export ALLOW_USER_YOUTUBE=false
 export ALLOW_FAVORITES_SYNC=false
@@ -57,6 +58,7 @@ docker compose up --build
 ```
 
 `ENGINE_CONFIG` is optional and unused by default; set it only when you explicitly want to use calibration parameters.
+`MAX_TRACK_LENGTH` is optional (minutes) and limits both user-upload and YouTube analysis jobs by duration.
 
 You can also put these values in a `.env` file (same directory as
 `docker-compose.yml`) and Compose will load them automatically.
