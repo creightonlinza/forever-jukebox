@@ -1,4 +1,4 @@
-export const ANALYSIS_POLL_INTERVAL_MS = 2000;
+export const ANALYSIS_POLL_INTERVAL_MS = 3000;
 export const LISTEN_TIMER_INTERVAL_MS = 200;
 export const TOP_SONGS_REFRESH_MS = 250;
 export const TOP_SONGS_LIMIT = 25;

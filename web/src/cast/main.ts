@@ -205,7 +205,7 @@ async function pollAnalysis(
   token: number,
   state: CastState,
 ) {
-  const intervalMs = 2000;
+  const intervalMs = 3000;
   while (true) {
     if (token !== state.loadToken) {
       throw new Error("Load cancelled");
