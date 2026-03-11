@@ -48,11 +48,11 @@ RUN python -m venv /opt/venv \
     # Critical: ensure Essentia is installed from a wheel (never source)
     && /opt/venv/bin/pip install --no-build-isolation --only-binary=essentia -r /app/engine/requirements.txt
 
-ARG DENO_VERSION=2.6.5
-RUN curl -fsSL "https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-x86_64-unknown-linux-gnu.zip" \
+RUN curl -fsSL "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip" \
       -o /tmp/deno.zip \
     && unzip /tmp/deno.zip -d /usr/local/bin \
     && rm /tmp/deno.zip \
+    && chmod +x /usr/local/bin/deno \
     && deno --version
 
 # Now copy the actual source

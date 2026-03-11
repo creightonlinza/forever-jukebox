@@ -59,7 +59,6 @@ docker compose up --build
 
 `ENGINE_CONFIG` is optional and unused by default; set it only when you explicitly want to use calibration parameters.
 `MAX_TRACK_LENGTH` is optional (minutes) and limits both user-upload and YouTube analysis jobs by duration.
-
 You can also put these values in a `.env` file (same directory as
 `docker-compose.yml`) and Compose will load them automatically.
 

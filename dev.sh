@@ -8,6 +8,10 @@ WEB_DIR="$ROOT/web"
 VITE_HOST_FLAG=""
 PYTHON_BIN=""
 PYTHON_VERSION=""
+# Local dev startup dependency refresh toggles.
+# Set either value to 0 to skip that upgrade step.
+UPDATE_YTDLP=1
+UPDATE_DENO=1
 
 for arg in "$@"; do
   if [[ "$arg" == "--host" ]]; then
@@ -143,13 +147,89 @@ ensure_venv() {
   fi
 }
 
+try_deno_upgrade_with_package_manager() {
+  if command -v brew >/dev/null 2>&1; then
+    if brew list --versions deno >/dev/null 2>&1; then
+      echo "Trying Homebrew upgrade for deno..."
+      if brew upgrade deno; then
+        return 0
+      fi
+    fi
+  fi
+
+  if command -v scoop >/dev/null 2>&1; then
+    if scoop list deno >/dev/null 2>&1; then
+      echo "Trying Scoop upgrade for deno..."
+      if scoop update deno; then
+        return 0
+      fi
+    fi
+  fi
+
+  if command -v choco >/dev/null 2>&1; then
+    if choco list --local-only deno >/dev/null 2>&1; then
+      echo "Trying Chocolatey upgrade for deno..."
+      if choco upgrade -y deno; then
+        return 0
+      fi
+    fi
+  fi
+
+  if command -v winget >/dev/null 2>&1; then
+    echo "Trying winget upgrade for deno..."
+    if winget upgrade --id DenoLand.Deno --accept-package-agreements --accept-source-agreements; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+print_deno_upgrade_hint() {
+  echo "Warning: could not auto-upgrade deno."
+  if command -v brew >/dev/null 2>&1; then
+    echo "Hint: if deno was installed with Homebrew, run: brew upgrade deno"
+  elif command -v scoop >/dev/null 2>&1; then
+    echo "Hint: if deno was installed with Scoop, run: scoop update deno"
+  elif command -v choco >/dev/null 2>&1; then
+    echo "Hint: if deno was installed with Chocolatey, run: choco upgrade -y deno"
+  elif command -v winget >/dev/null 2>&1; then
+    echo "Hint: if deno was installed with winget, run: winget upgrade --id DenoLand.Deno"
+  elif command -v apt-get >/dev/null 2>&1; then
+    echo "Hint: if deno was installed from apt, run: sudo apt-get install --only-upgrade deno"
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "Hint: if deno was installed from dnf, run: sudo dnf upgrade deno"
+  elif command -v pacman >/dev/null 2>&1; then
+    echo "Hint: if deno was installed from pacman, run: sudo pacman -Syu deno"
+  elif command -v zypper >/dev/null 2>&1; then
+    echo "Hint: if deno was installed from zypper, run: sudo zypper update deno"
+  elif command -v nix >/dev/null 2>&1; then
+    echo "Hint: if deno was installed with nix, run: nix profile upgrade deno"
+  else
+    echo "Hint: upgrade deno using the same method you used to install it."
+  fi
+}
+
 ensure_api_env() {
   ensure_venv "$API_VENV"
   if ! "$API_VENV/bin/python" -c "import fastapi, yt_dlp, httpx, dotenv" >/dev/null 2>&1; then
     "$API_VENV/bin/python" -m pip install -r "$ROOT/api/requirements.txt"
   fi
-  if [[ "${FJ_UPDATE_YTDLP:-}" == "1" ]]; then
-    "$API_VENV/bin/python" -m pip install --upgrade "yt-dlp[default]"
+  if [[ "$UPDATE_YTDLP" == "1" ]]; then
+    if ! "$API_VENV/bin/python" -m pip install --upgrade "yt-dlp[default]"; then
+      echo "Warning: could not auto-upgrade yt-dlp; continuing with installed version."
+    fi
+  fi
+  if [[ "$UPDATE_DENO" == "1" ]]; then
+    if command -v deno >/dev/null 2>&1; then
+      if ! deno upgrade; then
+        if ! try_deno_upgrade_with_package_manager; then
+          print_deno_upgrade_hint
+        fi
+      fi
+    else
+      echo "Warning: UPDATE_DENO=1 but deno not found in PATH."
+    fi
   fi
   if ! command -v deno >/dev/null 2>&1; then
     echo "Warning: deno not found in PATH (yt-dlp EJS may fail)."
