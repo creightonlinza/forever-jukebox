@@ -621,7 +621,7 @@ class PlaybackCoordinator(
 
     private suspend fun pollAnalysis(jobId: String) {
         val baseUrl = getState().baseUrl
-        val intervalMs = 2000L
+        val intervalMs = 3000L
         while (currentCoroutineContext().isActive) {
             val response = api.getAnalysis(baseUrl, jobId)
             updateDeleteEligibility(response)

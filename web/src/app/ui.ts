@@ -1,5 +1,10 @@
 import type { AppContext } from "./context";
 
+export type ToastOptions = {
+  icon?: string;
+  tone?: "default" | "error";
+};
+
 export function setAnalysisStatus(
   context: AppContext,
   message: string,
@@ -48,9 +53,14 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 export function showToast(
   context: AppContext,
   message: string,
-  options?: { icon?: string }
+  options?: ToastOptions
 ) {
   const { elements, state } = context;
+  if (options?.tone === "error") {
+    elements.toast.classList.add("error");
+  } else {
+    elements.toast.classList.remove("error");
+  }
   if (options?.icon) {
     elements.toast.classList.add("has-icon");
     elements.toast.innerHTML =

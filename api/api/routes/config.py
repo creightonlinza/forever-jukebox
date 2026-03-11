@@ -18,6 +18,22 @@ def _is_enabled(env_key: str) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
+def _positive_float(env_key: str) -> float | None:
+    value = os.environ.get(env_key)
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        parsed = float(value)
+    except ValueError:
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
+
+
 @router.get("/api/app-config")
 def get_app_config() -> JSONResponse:
     allow_user_upload = _is_enabled("ALLOW_USER_UPLOAD")
@@ -29,5 +45,6 @@ def get_app_config() -> JSONResponse:
         allow_favorites_sync=_is_enabled("ALLOW_FAVORITES_SYNC"),
         max_upload_size=max_upload_size,
         allowed_upload_exts=allowed_upload_exts,
+        max_track_length=_positive_float("MAX_TRACK_LENGTH"),
     )
     return JSONResponse(payload.model_dump(), status_code=200)

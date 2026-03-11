@@ -887,6 +887,12 @@ button:hover {
   z-index: 30;
 }
 
+.toast.error {
+  border-color: #7f1d1d;
+  background: #3b1212;
+  color: #fecaca;
+}
+
 .toast.has-icon {
   display: flex;
   align-items: center;
@@ -906,6 +912,10 @@ button:hover {
   color: var(--text);
   font-size: 16px;
   line-height: 1;
+}
+
+.toast.error .toast-icon {
+  color: #fecaca;
 }
 
 .search-input {

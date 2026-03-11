@@ -89,6 +89,7 @@ class AppConfigResponse(BaseModel):
     allow_favorites_sync: bool = False
     max_upload_size: int | None = None
     allowed_upload_exts: list[str] | None = None
+    max_track_length: float | None = None
 
 
 class FavoriteTrack(BaseModel):

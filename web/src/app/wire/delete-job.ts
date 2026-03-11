@@ -1,5 +1,6 @@
 import type { AppContext, AppState } from "../context";
 import type { Elements } from "../elements";
+import type { ToastOptions } from "../ui";
 import type { FavoritesHandlers } from "./favorites";
 
 type DeleteJobDeps = {
@@ -14,7 +15,7 @@ type DeleteJobDeps = {
     tabId: "top" | "search" | "play" | "faq",
     options?: { replace?: boolean; youtubeId?: string | null },
   ) => void;
-  showToast: (context: AppContext, message: string, options?: { icon?: string }) => void;
+  showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
   isFavorite: (items: AppState["favorites"], id: string) => boolean;
   removeFavorite: (items: AppState["favorites"], id: string) => AppState["favorites"];
 };

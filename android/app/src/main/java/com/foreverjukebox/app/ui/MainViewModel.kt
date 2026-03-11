@@ -161,8 +161,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             preferences.appConfig.collect { config ->
                 if (config != null) {
-                    _state.update { it.copy(allowFavoritesSync = config.allowFavoritesSync) }
+                    _state.update {
+                        it.copy(
+                            allowFavoritesSync = config.allowFavoritesSync,
+                            maxTrackLengthMinutes = config.maxTrackLength
+                        )
+                    }
                     favoritesController.maybeHydrateFavoritesFromSync()
+                } else {
+                    _state.update { it.copy(maxTrackLengthMinutes = null) }
                 }
             }
         }
@@ -740,6 +747,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val name = item.name ?: "Untitled"
         val artist = item.artist ?: ""
         val duration = item.duration ?: return
+        if (state.value.playback.isCasting &&
+            duration > CAST_MAX_TRACK_DURATION_MINUTES * 60
+        ) {
+            _state.update {
+                it.copy(
+                    trackLengthLimitErrorMessage = castTrackLengthLimitErrorMessage()
+                )
+            }
+            return
+        }
+        val maxTrackLengthMinutes = state.value.maxTrackLengthMinutes
+        if (maxTrackLengthMinutes != null &&
+            maxTrackLengthMinutes > 0 &&
+            duration > maxTrackLengthMinutes * 60
+        ) {
+            _state.update {
+                it.copy(
+                    trackLengthLimitErrorMessage =
+                        "The maximum track length for this server is " +
+                            "${formatMinutes(maxTrackLengthMinutes)} minutes."
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             if (artist.isNotBlank()) {
                 try {
@@ -1417,8 +1448,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun handleCastStatusMessage(message: String) {
         val status = parseCastStatusMessage(message) ?: return
-        _state.update {
-            reduceCastStatus(it, status)
+        _state.update { current ->
+            val reduced = reduceCastStatus(current, status)
+            if (status.errorCode == CAST_TRACK_TOO_LONG_ERROR_CODE ||
+                status.errorCode == CAST_TRACK_DURATION_UNKNOWN_ERROR_CODE
+            ) {
+                reduced.copy(
+                    trackLengthLimitErrorMessage = status.error
+                        .takeIf { it.isNotBlank() }
+                        ?: castTrackLengthLimitErrorMessage()
+                )
+            } else {
+                reduced
+            }
         }
         syncCastNotification(state.value.playback)
     }
@@ -1597,6 +1639,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             playbackCoordinator.markDeleteEligibilityFailed(jobId)
             false
         }
+    }
+
+    fun dismissTrackLengthLimitErrorDialog() {
+        _state.update { it.copy(trackLengthLimitErrorMessage = null) }
+    }
+
+    private fun formatMinutes(value: Double): String {
+        return if (value % 1.0 == 0.0) {
+            value.toInt().toString()
+        } else {
+            ((value * 100).roundToInt() / 100.0).toString()
+        }
+    }
+
+    private fun castTrackLengthLimitErrorMessage(): String {
+        return "Sorry, tracks longer than ${CAST_MAX_TRACK_DURATION_MINUTES.toInt()} minutes " +
+            "cannot be cast due to Chromecast memory limitations."
     }
 
     fun deleteSelectedEdge() = Unit
@@ -1942,6 +2001,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val TAG = "MainViewModel"
         private const val MAX_FAVORITES = 100
         private const val CAST_COMMAND_NAMESPACE = "urn:x-cast:com.foreverjukebox.app"
+        private const val CAST_TRACK_TOO_LONG_ERROR_CODE = "cast_track_too_long"
+        private const val CAST_TRACK_DURATION_UNKNOWN_ERROR_CODE = "cast_track_duration_unknown"
+        private const val CAST_MAX_TRACK_DURATION_MINUTES = 7.0
         private const val GITHUB_REPO_OWNER = "creightonlinza"
         private const val GITHUB_REPO_NAME = "forever-jukebox"
     }

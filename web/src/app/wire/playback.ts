@@ -5,6 +5,7 @@ import type { BufferedAudioPlayer } from "../../audio/BufferedAudioPlayer";
 import type { JukeboxEngine } from "../../engine";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
 import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
+import type { ToastOptions } from "../ui";
 import { VISUALIZATION_LABELS } from "../constants";
 
 type PlaybackUiDeps = {
@@ -25,7 +26,7 @@ type PlaybackUiDeps = {
   showToast: (
     context: AppContext,
     message: string,
-    options?: { icon?: string },
+    options?: ToastOptions,
   ) => void;
   stopPlayback: (context: AppContext) => void;
   togglePlayback: (context: AppContext) => void;

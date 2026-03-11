@@ -33,6 +33,7 @@ export YOUTUBE_API_KEY=...
 export ADMIN_KEY=...
 export NTFY_TOPIC_KEY=...
 export WORKER_COUNT=1
+export MAX_TRACK_LENGTH=12
 export ALLOW_USER_UPLOAD=true
 export ALLOW_USER_YOUTUBE=true
 export ALLOW_FAVORITES_SYNC=true
@@ -46,6 +47,11 @@ Set `NTFY_TOPIC_KEY` to enable ntfy alerts for YouTube download failures
 ```
 ntfy.sh/<NTFY_TOPIC_KEY>
 ```
+
+### MAX_TRACK_LENGTH (optional)
+
+Set `MAX_TRACK_LENGTH` to a positive number of minutes to reject user-upload
+and YouTube jobs that exceed this duration.
 
 ## yt-dlp EJS runtime
 
@@ -96,7 +102,7 @@ Create analysis from YouTube (requires `ALLOW_USER_YOUTUBE=true` for user-suppli
 curl -X POST "/api/analysis/youtube" -H "Content-Type: application/json" -d '{"youtube_id":"dQw4w9WgXcQ","is_user_supplied":true}'
 ```
 
-Upload audio (requires `ALLOW_USER_UPLOAD=true`, max 15MB, m4a/webm/mp3/wav/flac/ogg/aac):
+Upload audio (requires `ALLOW_USER_UPLOAD=true`, max 20MB, m4a/webm/mp3/wav/flac/ogg/aac; also limited by optional `MAX_TRACK_LENGTH`):
 
 ```bash
 curl -X POST "/api/upload" -F "file=@/path/to/audio.m4a"
@@ -108,7 +114,7 @@ Get app configuration flags:
 curl "/api/app-config"
 ```
 
-Response fields include `allow_user_upload`, `allow_user_youtube`, `max_upload_size` (bytes, only when uploads enabled), and `allowed_upload_exts` (only when uploads enabled).
+Response fields include `allow_user_upload`, `allow_user_youtube`, `max_upload_size` (bytes, only when uploads enabled), `allowed_upload_exts` (only when uploads enabled), and optional `max_track_length` (minutes).
 
 Fetch audio for a job:
 

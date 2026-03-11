@@ -39,6 +39,7 @@ type CastStatus = {
   activeVizIndex: number;
   resolvedThreshold: number | null;
   error?: string | null;
+  errorCode?: string | null;
   playbackState: "idle" | "loading" | "playing" | "paused" | "error";
 };
 
@@ -162,6 +163,31 @@ function parseDurationSeconds(value: unknown): number | null {
   return null;
 }
 
+const CAST_MAX_TRACK_DURATION_SECONDS = 7 * 60;
+const CAST_TRACK_TOO_LONG_ERROR_CODE = "cast_track_too_long";
+const CAST_TRACK_DURATION_UNKNOWN_ERROR_CODE = "cast_track_duration_unknown";
+
+type CastErrorInfo = {
+  message: string;
+  code?: string;
+};
+
+function buildCastTrackTooLongError(): CastErrorInfo {
+  return {
+    message:
+      "Sorry, tracks longer than 7 minutes cannot be cast due to Chromecast memory limitations.",
+    code: CAST_TRACK_TOO_LONG_ERROR_CODE,
+  };
+}
+
+function buildCastTrackDurationUnknownError(): CastErrorInfo {
+  return {
+    message:
+      "Sorry, this track cannot be cast because its duration could not be verified before loading.",
+    code: CAST_TRACK_DURATION_UNKNOWN_ERROR_CODE,
+  };
+}
+
 function getTrackId(): string | null {
   const parts = window.location.pathname.split("/").filter(Boolean);
   if (parts[0] === "cast" && parts[1]) {
@@ -205,7 +231,7 @@ async function pollAnalysis(
   token: number,
   state: CastState,
 ) {
-  const intervalMs = 2000;
+  const intervalMs = 3000;
   while (true) {
     if (token !== state.loadToken) {
       throw new Error("Load cancelled");
@@ -344,14 +370,14 @@ async function bootstrap() {
     }
   }
 
-  function sendStatusUpdate(error?: string | null) {
-    if (!castContext || !player) {
+  function sendStatusUpdate(error?: string | null, errorCode?: string | null) {
+    if (!castContext) {
       return;
     }
     const isLoading =
       state.loadToken > 0 && !!state.currentTrackId && !state.vizData;
     const hasTrack = !!state.currentTrackId;
-    const isPlaying = player.isPlaying();
+    const isPlaying = player?.isPlaying() ?? false;
     const graphState = engine?.getGraphState?.() ?? null;
     const trackDurationSeconds = (() => {
       if (
@@ -361,7 +387,7 @@ async function bootstrap() {
       ) {
         return state.trackDurationSeconds;
       }
-      const decodedDuration = player.getDuration();
+      const decodedDuration = player?.getDuration();
       if (
         typeof decodedDuration === "number" &&
         Number.isFinite(decodedDuration) &&
@@ -414,6 +440,7 @@ async function bootstrap() {
       activeVizIndex: state.activeVizIndex,
       resolvedThreshold,
       error: error ?? null,
+      errorCode: errorCode ?? null,
       playbackState,
     };
     // Broadcast status to active senders.
@@ -606,6 +633,22 @@ async function bootstrap() {
         ? parseCastTuningParams(tuningParams, defaultConfig)
         : null;
       anchorHighlightEnabled = parsedTuning?.highlightAnchorBranch ?? false;
+      const trackMeta = analysis.result?.track || analysis.track;
+      const durationSeconds = parseDurationSeconds(trackMeta?.duration);
+      if (durationSeconds === null) {
+        const unknownDurationError = buildCastTrackDurationUnknownError();
+        throw Object.assign(new Error(unknownDurationError.message), {
+          code: unknownDurationError.code,
+        });
+      }
+      if (
+        durationSeconds > CAST_MAX_TRACK_DURATION_SECONDS
+      ) {
+        const longTrackError = buildCastTrackTooLongError();
+        throw Object.assign(new Error(longTrackError.message), {
+          code: longTrackError.code,
+        });
+      }
       await loadAudio(jobId, elements.status, player, token, state);
       if (token !== state.loadToken) {
         return;
@@ -625,11 +668,9 @@ async function bootstrap() {
           viz.setData(state.vizData);
         }
       }
-      const trackMeta = analysis.result?.track || analysis.track;
       if (trackMeta) {
         const title = trackMeta.title || "Unknown";
         const artist = trackMeta.artist || "";
-        const durationSeconds = parseDurationSeconds(trackMeta.duration);
         elements.title.textContent = artist ? `${title} — ${artist}` : title;
         state.trackTitle = title;
         state.trackArtist = artist || null;
@@ -658,6 +699,13 @@ async function bootstrap() {
         return;
       }
       const errorMessage = err instanceof Error ? err.message : "Load failed";
+      const errorCode =
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        typeof (err as { code?: unknown }).code === "string"
+          ? (err as { code: string }).code
+          : null;
       state.currentTrackId = null;
       state.lastBeatIndex = null;
       state.vizData = null;
@@ -683,7 +731,7 @@ async function bootstrap() {
       setLogoVisible(elements, true);
       startIdleKeepAlive();
       scheduleIdleStop();
-      sendStatusUpdate(errorMessage);
+      sendStatusUpdate(errorMessage, errorCode);
     }
   }
 

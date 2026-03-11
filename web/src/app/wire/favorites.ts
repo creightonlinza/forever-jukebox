@@ -2,13 +2,14 @@ import type { AppContext, AppState } from "../context";
 import type { Elements } from "../elements";
 import type { FavoriteTrack } from "../favorites";
 import type { AnalysisComplete } from "../api";
+import type { ToastOptions } from "../ui";
 import { stripHighlightTuningParam } from "../favorites";
 
 type FavoritesDeps = {
   context: AppContext;
   elements: Elements;
   state: AppState;
-  showToast: (context: AppContext, message: string, options?: { icon?: string }) => void;
+  showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
   addFavorite: (
     items: FavoriteTrack[],
     track: FavoriteTrack,

@@ -246,6 +246,30 @@ fun VersionUpdateDialog(
 }
 
 @Composable
+fun ErrorMessageDialog(
+    message: String,
+    onClose: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = {
+            Button(
+                onClick = onClose,
+                colors = pillButtonColors(),
+                border = pillButtonBorder(),
+                shape = PillShape,
+                contentPadding = SmallButtonPadding,
+                modifier = Modifier.height(SmallButtonHeight)
+            ) {
+                Text("OK", style = MaterialTheme.typography.labelSmall)
+            }
+        },
+        title = { Text("Error") },
+        text = { Text(message) }
+    )
+}
+
+@Composable
 fun AppModeDialog(
     initialMode: AppMode = AppMode.Local,
     initialValue: String = "",

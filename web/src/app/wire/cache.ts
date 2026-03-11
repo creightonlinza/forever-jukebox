@@ -1,11 +1,12 @@
 import type { AppContext } from "../context";
 import type { Elements } from "../elements";
+import type { ToastOptions } from "../ui";
 import { clearCachedAudio, getCachedAudioBytes } from "../cache";
 
 type CacheDeps = {
   context: AppContext;
   elements: Elements;
-  showToast: (context: AppContext, message: string, options?: { icon?: string }) => void;
+  showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
 };
 
 export type CacheHandlers = ReturnType<typeof createCacheHandlers>;

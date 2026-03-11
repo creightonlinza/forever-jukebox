@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -46,6 +47,7 @@ ERROR_ENGINE = "ERROR: [engine] Analysis engine encountered an issue."
 ERROR_YOUTUBE_UNAVAILABLE = "ERROR: [youtube] This video is not available."
 ERROR_DOWNLOAD_UNAVAILABLE = "ERROR: [download] This video is not available."
 ERROR_YOUTUBE_UNREACHABLE = "ERROR: [youtube] Unable to reach YouTube"
+ERROR_TRACK_TOO_LONG = "ERROR: [track_length] This track exceeds the server length limit."
 ERROR_GENERIC = "ERROR: Something went wrong. Please try again or report an issue on GitHub."
 ERROR_CODE_ANALYSIS_MISSING = "analysis_missing"
 NTFY_TOPIC_ENV = "NTFY_TOPIC_KEY"
@@ -63,6 +65,10 @@ def _normalize_job_error(raw: str | None) -> str:
         return ERROR_DOWNLOAD_UNAVAILABLE
     if "sign in to confirm" in lowered or "not a bot" in lowered:
         return ERROR_YOUTUBE_UNREACHABLE
+    if "max_track_length" in lowered or "track exceeds max track length" in lowered:
+        return ERROR_TRACK_TOO_LONG
+    if "max track length for this server is" in lowered:
+        return ERROR_TRACK_TOO_LONG
     return ERROR_GENERIC
 
 
@@ -132,6 +138,67 @@ def _sanitize_title(filename: str | None) -> str:
 def _is_enabled(env_key: str) -> bool:
     value = os.environ.get(env_key, "")
     return value.lower() in {"1", "true", "yes", "on"}
+
+
+def _env_positive_float(env_key: str) -> float | None:
+    value = os.environ.get(env_key)
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        parsed = float(value)
+    except ValueError:
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
+
+
+def _format_minutes(value: float) -> str:
+    rounded = round(value, 2)
+    if rounded.is_integer():
+        return str(int(rounded))
+    return f"{rounded:g}"
+
+
+def _max_track_length_error_message(max_track_length_min: float) -> str:
+    return (
+        "Error: Sorry, the max track length for this server is "
+        f"{_format_minutes(max_track_length_min)} minutes."
+    )
+
+
+def _probe_audio_duration_seconds(path: Path) -> float | None:
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except Exception:
+        return None
+    output = result.stdout.strip()
+    if not output:
+        return None
+    try:
+        duration_s = float(output)
+    except ValueError:
+        return None
+    if not math.isfinite(duration_s) or duration_s <= 0:
+        return None
+    return duration_s
 
 
 def _parse_timestamp(value: str | None) -> datetime | None:
@@ -277,6 +344,11 @@ def _download_youtube_audio(job_id: str, youtube_id: str) -> None:
     audio_dir.mkdir(parents=True, exist_ok=True)
     outtmpl = str(audio_dir / f"{job_id}.%(ext)s")
 
+    max_track_length_min = _env_positive_float("MAX_TRACK_LENGTH")
+    max_track_length_s = (
+        int(round(max_track_length_min * 60)) if max_track_length_min is not None else None
+    )
+
     last_progress = {"value": -1}
 
     def progress_hook(status: dict) -> None:
@@ -303,6 +375,19 @@ def _download_youtube_audio(job_id: str, youtube_id: str) -> None:
         "extractaudio": True,
         "audioformat": "m4a",
     }
+    if max_track_length_s is not None:
+        def match_filter(info_dict: dict, *, incomplete: bool) -> str | None:
+            if incomplete:
+                return None
+            duration = info_dict.get("duration")
+            if isinstance(duration, (int, float)) and duration > max_track_length_s:
+                return (
+                    f"Track exceeds MAX_TRACK_LENGTH "
+                    f"({max_track_length_min:g} minutes)"
+                )
+            return None
+
+        ydl_opts["match_filter"] = match_filter
     apply_ejs_config(ydl_opts)
     url = f"https://www.youtube.com/watch?v={youtube_id}"
     try:
@@ -500,6 +585,24 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
         raise
     finally:
         await file.close()
+
+    max_track_length_min = _env_positive_float("MAX_TRACK_LENGTH")
+    if max_track_length_min is not None:
+        duration_s = _probe_audio_duration_seconds(target_path)
+        if duration_s is None:
+            if target_path.exists():
+                target_path.unlink()
+            raise HTTPException(status_code=500, detail="Unable to validate uploaded audio duration")
+        if duration_s > max_track_length_min * 60:
+            if target_path.exists():
+                target_path.unlink()
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error_code": "track_too_long",
+                    "message": _max_track_length_error_message(max_track_length_min),
+                },
+            )
 
     title = _sanitize_title(file.filename)
     output_path = Path("analysis") / f"{job_id}.json"

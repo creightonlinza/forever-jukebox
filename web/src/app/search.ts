@@ -10,6 +10,7 @@ import {
   type AnalysisInProgress,
   type AnalysisResponse,
 } from "./api";
+import type { ToastOptions } from "./ui";
 import { tryLoadCachedAudio } from "./playback";
 
 export type SearchDeps = {
@@ -20,6 +21,7 @@ export type SearchDeps = {
   ) => void;
   updateTrackUrl: (youtubeId: string, replace?: boolean) => void;
   setAnalysisStatus: (message: string, spinning: boolean) => void;
+  showToast: (message: string, options?: ToastOptions) => void;
   setLoadingProgress: (progress: number | null, message?: string | null) => void;
   pollAnalysis: (jobId: string) => Promise<void>;
   applyAnalysisResult: (response: AnalysisComplete) => boolean;
@@ -45,6 +47,22 @@ function isAnalysisInProgress(
     response?.status === "queued" ||
     response?.status === "processing"
   );
+}
+
+function formatMinutes(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  if (Number.isInteger(rounded)) {
+    return String(Math.trunc(rounded));
+  }
+  return String(rounded);
+}
+
+function getMaxTrackLengthMinutes(context: AppContext): number | null {
+  const value = context.state.appConfig?.max_track_length;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return value;
 }
 
 export async function startYoutubeAnalysisFlow(
@@ -290,6 +308,18 @@ function handleSpotifyMatchClick(
   const artist = target?.dataset.trackArtist ?? "";
   const duration = Number(target?.dataset.trackDuration ?? NaN);
   if (!name) {
+    return;
+  }
+  const maxTrackLengthMinutes = getMaxTrackLengthMinutes(context);
+  if (
+    maxTrackLengthMinutes !== null &&
+    Number.isFinite(duration) &&
+    duration > maxTrackLengthMinutes * 60
+  ) {
+    deps.showToast(
+      `Error: The maximum track length for this server is ${formatMinutes(maxTrackLengthMinutes)} minutes.`,
+      { icon: "error", tone: "error" },
+    );
     return;
   }
   tryLoadExistingTrackByName(context, deps, name, artist).then((loaded) => {
