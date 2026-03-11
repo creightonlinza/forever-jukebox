@@ -769,6 +769,13 @@ button:hover {
   letter-spacing: 0.02em;
 }
 
+.bring-home-note {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .fullscreen-toggle {
   background: transparent;
   border: none;

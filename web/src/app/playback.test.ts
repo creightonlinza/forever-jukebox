@@ -80,6 +80,7 @@ function createElements() {
     playMenu: { classList: createClassList() },
     vizPanel: { classList: createClassList() },
     playButton: { classList: createClassList(), disabled: false },
+    bringHomeLabel: { classList: createClassList() },
     playTabButton: { classList: createClassList(), disabled: false },
     vizSelect: { disabled: false, value: "0" },
     canonizerFinish: { checked: false, addEventListener: vi.fn() },

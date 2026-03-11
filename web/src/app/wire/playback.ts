@@ -97,6 +97,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
   function initializePlayback() {
     setPlayMode("jukebox");
+    setBringItHomeMode(state.bringItHomeMode);
     syncVisualizationSelectOptions();
 
     const storedViz = localStorage.getItem(vizStorageKey);
@@ -150,6 +151,21 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     });
   }
 
+  function syncBringItHomeLabel() {
+    const visible = state.playMode === "jukebox" && state.bringItHomeMode;
+    elements.bringHomeLabel.classList.toggle("is-hidden", !visible);
+  }
+
+  function setBringItHomeMode(enabled: boolean) {
+    state.bringItHomeMode = enabled;
+    engine.setBringItHomeMode(enabled);
+    if (enabled && state.shiftBranching) {
+      state.shiftBranching = false;
+      engine.setForceBranch(false);
+    }
+    syncBringItHomeLabel();
+  }
+
   function handlePlayClick() {
     togglePlayback(context);
   }
@@ -198,6 +214,11 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if (state.playMode === "autocanonizer") {
       return;
     }
+    if ((event.key === "h" || event.key === "H") && !event.repeat) {
+      event.preventDefault();
+      setBringItHomeMode(!state.bringItHomeMode);
+      return;
+    }
     if (
       (event.key === "Delete" || event.key === "Backspace") &&
       state.selectedEdge &&
@@ -220,7 +241,12 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       jukebox.setSelectedEdge(null);
       return;
     }
-    if (event.key === "Shift" && state.isRunning && !state.shiftBranching) {
+    if (
+      event.key === "Shift" &&
+      state.isRunning &&
+      !state.shiftBranching &&
+      !state.bringItHomeMode
+    ) {
       state.shiftBranching = true;
       engine.setForceBranch(true);
     }
@@ -345,6 +371,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   function setPlayMode(mode: "jukebox" | "autocanonizer") {
     if (state.playMode === mode) {
       elements.playModeSelect.value = mode;
+      syncBringItHomeLabel();
       return;
     }
     if (state.isRunning) {
@@ -401,6 +428,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       }
     }
     updateVizVisibility(context);
+    syncBringItHomeLabel();
   }
 
   return {

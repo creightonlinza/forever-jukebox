@@ -352,6 +352,13 @@ a {
   letter-spacing: 0.02em;
 }
 
+.bring-home-note {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .tune-toggle,
 .info-toggle,
 .copy-toggle,

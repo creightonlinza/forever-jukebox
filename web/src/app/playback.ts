@@ -484,6 +484,9 @@ export function resetForNewTrack(
   cancelPoll(context);
   state.shiftBranching = false;
   engine.setForceBranch(false);
+  state.bringItHomeMode = false;
+  engine.setBringItHomeMode(false);
+  elements.bringHomeLabel.classList.add("is-hidden");
   state.selectedEdge = null;
   jukebox.setSelectedEdge(null);
   engine.clearDeletedEdges();

@@ -33,6 +33,7 @@ export type AppState = {
   pendingAutoFavoriteId: string | null;
   lastPlayCountedJobId: string | null;
   shiftBranching: boolean;
+  bringItHomeMode: boolean;
   selectedEdge: Edge | null;
   topSongsRefreshTimer: number | null;
   topSongsLoaded: boolean;
