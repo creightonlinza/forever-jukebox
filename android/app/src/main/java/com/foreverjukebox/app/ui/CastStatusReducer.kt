@@ -19,6 +19,7 @@ data class CastStatusMessage(
     val isLoading: Boolean,
     val playbackState: String,
     val error: String,
+    val errorCode: String? = null,
     val activeVizIndex: Int?,
     val resolvedThreshold: Int?
 )
@@ -60,6 +61,9 @@ fun parseCastStatusMessage(message: String): CastStatusMessage? {
     val isLoading = json["isLoading"]?.jsonPrimitive?.booleanOrNull ?: false
     val playbackState = stringField("playbackState")
     val error = stringField("error")
+    val errorCode = sequenceOf("errorCode", "error_code")
+        .map(::stringField)
+        .firstOrNull { it.isNotBlank() }
     val activeVizIndex = json["activeVizIndex"]?.jsonPrimitive?.intOrNull
     val resolvedThreshold = json["resolvedThreshold"]
         ?.jsonPrimitive
@@ -77,6 +81,7 @@ fun parseCastStatusMessage(message: String): CastStatusMessage? {
         isLoading = isLoading,
         playbackState = playbackState,
         error = error,
+        errorCode = errorCode,
         activeVizIndex = activeVizIndex,
         resolvedThreshold = resolvedThreshold
     )

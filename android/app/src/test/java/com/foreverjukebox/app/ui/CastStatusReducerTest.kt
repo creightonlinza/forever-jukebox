@@ -31,6 +31,7 @@ class CastStatusReducerTest {
               "isLoading":false,
               "playbackState":"playing",
               "error":"",
+              "errorCode":"cast_track_too_long",
               "activeVizIndex":4,
               "resolvedThreshold":"28"
             }
@@ -47,6 +48,7 @@ class CastStatusReducerTest {
         assertFalse(parsed?.isLoading == true)
         assertEquals("playing", parsed?.playbackState)
         assertEquals("", parsed?.error)
+        assertEquals("cast_track_too_long", parsed?.errorCode)
         assertEquals(4, parsed?.activeVizIndex)
         assertEquals(28, parsed?.resolvedThreshold)
     }
@@ -63,6 +65,20 @@ class CastStatusReducerTest {
         )
         assertNotNull(parsed)
         assertNull(parsed?.resolvedThreshold)
+    }
+
+    @Test
+    fun parseCastStatusMessageParsesSnakeCaseErrorCode() {
+        val parsed = parseCastStatusMessage(
+            """
+            {
+              "type":"status",
+              "error_code":"cast_track_too_long"
+            }
+            """.trimIndent()
+        )
+        assertNotNull(parsed)
+        assertEquals("cast_track_too_long", parsed?.errorCode)
     }
 
     @Test
