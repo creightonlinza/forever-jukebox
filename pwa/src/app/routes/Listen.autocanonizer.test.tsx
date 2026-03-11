@@ -79,6 +79,7 @@ vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
     getContext() {
       return {} as AudioContext;
     }
+    setOnEnded(_handler: (() => void) | null) {}
     getBuffer() {
       return {} as AudioBuffer;
     }
@@ -123,6 +124,7 @@ vi.mock("@/shared/jukebox/engine", () => ({
     play() {}
     seekToBeat(_index: number) {}
     setForceBranch(_enabled: boolean) {}
+    setBringItHomeMode(_enabled: boolean) {}
     deleteEdge(_edge: unknown) {}
     rebuildGraph() {}
     clearDeletedEdges() {}

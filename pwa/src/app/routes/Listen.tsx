@@ -150,6 +150,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [bringItHomeMode, setBringItHomeMode] = React.useState(false);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
     try {
       const raw = window.localStorage.getItem(VISUALIZATION_STORAGE_KEY);
@@ -205,6 +206,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const playerRef = React.useRef<BufferedAudioPlayer | null>(null);
   const isRunningRef = React.useRef(false);
   const playModeRef = React.useRef<PlayMode>("jukebox");
+  const bringItHomeModeRef = React.useRef(false);
   const lastBeatRef = React.useRef<number | null>(null);
   const playTimerMsRef = React.useRef(0);
   const lastPlayStampRef = React.useRef<number | null>(null);
@@ -285,6 +287,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [isRunning]);
 
   React.useEffect(() => {
+    bringItHomeModeRef.current = bringItHomeMode;
+  }, [bringItHomeMode]);
+
+  React.useEffect(() => {
     playModeRef.current = playMode;
     vizControllerRef.current?.setVisible(playMode === "jukebox");
     autocanonizerRef.current?.setVisible(playMode === "autocanonizer");
@@ -339,11 +345,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const usecase = new AnalyzeAudioUseCase(analysisPort, cache, decoder);
 
     engineRef.current?.stopJukebox();
+    engineRef.current?.setBringItHomeMode(false);
     autocanonizerRef.current?.stop();
     playTimerMsRef.current = 0;
     lastPlayStampRef.current = null;
     lastBeatRef.current = null;
     setIsRunning(false);
+    setBringItHomeMode(false);
     setBeatsPlayed(0);
     setListenSeconds(0);
 
@@ -448,7 +456,27 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         deleteSelectedBranch();
         return;
       }
-      if (playMode === "jukebox" && event.key === "Shift" && isRunning) {
+      if (
+        playMode === "jukebox" &&
+        (event.key === "h" || event.key === "H") &&
+        !event.repeat
+      ) {
+        event.preventDefault();
+        const nextValue = !bringItHomeModeRef.current;
+        bringItHomeModeRef.current = nextValue;
+        setBringItHomeMode(nextValue);
+        engineRef.current?.setBringItHomeMode(nextValue);
+        if (nextValue) {
+          engineRef.current?.setForceBranch(false);
+        }
+        return;
+      }
+      if (
+        playMode === "jukebox" &&
+        event.key === "Shift" &&
+        isRunning &&
+        !bringItHomeModeRef.current
+      ) {
         engineRef.current?.setForceBranch(true);
       }
     };
@@ -537,6 +565,21 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setIsRunning(false);
   }
 
+  React.useEffect(() => {
+    const player = playerRef.current;
+    if (!player) {
+      return;
+    }
+    player.setOnEnded(() => {
+      if (isRunningRef.current) {
+        stopPlayback();
+      }
+    });
+    return () => {
+      player.setOnEnded(null);
+    };
+  }, []);
+
   const onSetPlayMode = (mode: PlayMode) => {
     if (playMode === mode) {
       return;
@@ -563,6 +606,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       seed: createSessionSeed(),
     });
     engine.loadAnalysis(analysisData);
+    engine.setBringItHomeMode(bringItHomeModeRef.current);
     engine.onUpdate((state) => {
       setBeatsPlayed(state.beatsPlayed);
       if (state.currentBeatIndex >= 0) {
@@ -988,6 +1032,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <SymbolIcon className="play-icon" name={isRunning ? "stop" : "play_arrow"} />
               <span className="play-text">{isRunning ? "Stop" : "Play"}</span>
             </button>
+            {playMode === "jukebox" && bringItHomeMode ? (
+              <span className="bring-home-note">Bringing it on home</span>
+            ) : null}
           </div>
           <div className="menu-right">
             <button
@@ -1426,6 +1473,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="info-row">
                 <span className="info-label">Shift (hold):</span>
                 <span>Force branching while playing</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">H:</span>
+                <span>Toggle Bring It Home mode</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Delete:</span>

@@ -381,6 +381,98 @@ describe("JukeboxEngine branching controls", () => {
     expect(player.scheduleJump).toHaveBeenCalledTimes(1);
     expect(engineAny.lastJumpFromIndex).toBe(2);
   });
+
+  it("ignores forced branching when Bring It Home mode is enabled", () => {
+    const player = makePlayer();
+    const engine = new JukeboxEngine(player, {
+      config: {
+        minRandomBranchChance: 0,
+        maxRandomBranchChance: 0,
+        randomBranchChanceDelta: 0,
+      },
+    });
+    const beats = [0, 1, 2].map(makeBeat);
+    linkBeats(beats);
+    const edge: Edge = {
+      id: 0,
+      src: beats[2],
+      dest: beats[0],
+      distance: 10,
+      deleted: false,
+    };
+    beats[2].neighbors = [edge];
+    beats[2].allNeighbors = [edge];
+    const graph: JukeboxGraphState = {
+      computedThreshold: 0,
+      currentThreshold: 0,
+      lastBranchPoint: 99,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [edge],
+    };
+
+    const engineAny = engine as unknown as {
+      analysis: TrackAnalysis;
+      graph: JukeboxGraphState;
+      beats: QuantumBase[];
+      currentBeatIndex: number;
+      nextAudioTime: number;
+      curRandomBranchChance: number;
+      advanceBeat: (audioTime: number) => void;
+    };
+    engineAny.analysis = makeAnalysis(beats);
+    engineAny.graph = graph;
+    engineAny.beats = beats;
+    engineAny.currentBeatIndex = 1;
+    engineAny.nextAudioTime = 1;
+    engineAny.curRandomBranchChance = engine.getConfig().minRandomBranchChance;
+
+    engine.setForceBranch(true);
+    engine.setBringItHomeMode(true);
+    engineAny.advanceBeat(engineAny.nextAudioTime);
+
+    expect(engineAny.currentBeatIndex).toBe(2);
+    expect(player.scheduleJump).not.toHaveBeenCalled();
+  });
+
+  it("stops at the final beat in Bring It Home mode instead of wrapping", () => {
+    const player = makePlayer();
+    const engine = new JukeboxEngine(player);
+    const beats = [0, 1].map(makeBeat);
+    linkBeats(beats);
+    const graph: JukeboxGraphState = {
+      computedThreshold: 0,
+      currentThreshold: 0,
+      lastBranchPoint: 0,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [],
+    };
+
+    const engineAny = engine as unknown as {
+      analysis: TrackAnalysis;
+      graph: JukeboxGraphState;
+      beats: QuantumBase[];
+      currentBeatIndex: number;
+      nextAudioTime: number;
+      ticking: boolean;
+      advanceBeat: (audioTime: number) => void;
+    };
+    engineAny.analysis = makeAnalysis(beats);
+    engineAny.graph = graph;
+    engineAny.beats = beats;
+    engineAny.currentBeatIndex = 1;
+    engineAny.nextAudioTime = 2;
+    engineAny.ticking = true;
+
+    engine.setBringItHomeMode(true);
+    engineAny.advanceBeat(2);
+
+    expect(engineAny.currentBeatIndex).toBe(1);
+    expect(engineAny.ticking).toBe(false);
+    expect(engineAny.nextAudioTime).toBe(Number.POSITIVE_INFINITY);
+    expect(player.scheduleJump).not.toHaveBeenCalled();
+  });
 });
 
 describe("JukeboxEngine graph maintenance", () => {

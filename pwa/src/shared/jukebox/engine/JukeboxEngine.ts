@@ -64,6 +64,7 @@ export class JukeboxEngine {
   private lastJumpTime: number | null = null;
   private lastJumpFromIndex: number | null = null;
   private forceBranch = false;
+  private bringItHomeMode = false;
   private deletedEdgeKeys = new Set<string>();
   private rng: () => number;
   private listener: UpdateListener | null = null;
@@ -216,7 +217,14 @@ export class JukeboxEngine {
   }
 
   setForceBranch(enabled: boolean) {
-    this.forceBranch = enabled;
+    this.forceBranch = this.bringItHomeMode ? false : enabled;
+  }
+
+  setBringItHomeMode(enabled: boolean) {
+    this.bringItHomeMode = enabled;
+    if (enabled) {
+      this.forceBranch = false;
+    }
   }
 
   private applyDeletedEdges() {
@@ -306,6 +314,9 @@ export class JukeboxEngine {
       this.advanceBeat(this.nextAudioTime);
       guard -= 1;
     }
+    if (!this.ticking) {
+      return;
+    }
 
     this.emitState(this.lastJumped);
     this.lastJumped = false;
@@ -328,30 +339,44 @@ export class JukeboxEngine {
     let jumpFromIndex: number | null = null;
 
     if (currentIndex >= 0) {
+      const isFinalBeat = currentIndex === beatsCount - 1;
+      if (this.bringItHomeMode && isFinalBeat) {
+        this.ticking = false;
+        this.timerId = null;
+        this.nextAudioTime = Number.POSITIVE_INFINITY;
+        this.lastJumped = false;
+        this.lastJumpTime = null;
+        this.lastJumpFromIndex = null;
+        return;
+      }
       const nextIndex = currentIndex + 1;
       const wrappedIndex = nextIndex >= beatsCount ? 0 : nextIndex;
-      const seed = this.beats[wrappedIndex];
-      this.branchState.curRandomBranchChance = this.curRandomBranchChance;
-      const selection = selectNextBeatIndex(
-        seed,
-        this.graph,
-        this.config,
-        this.rng,
-        this.branchState,
-        this.forceBranch,
-      );
-      this.curRandomBranchChance = this.branchState.curRandomBranchChance;
-      shouldJump = selection.jumped;
-      chosenIndex = shouldJump ? selection.index : wrappedIndex;
-      const wrappedToStart =
-        wrappedIndex === 0 && currentIndex === beatsCount - 1;
-      if (wrappedToStart) {
-        shouldJump = true;
-      }
-      if (shouldJump) {
-        jumpFromIndex = selection.jumped ? seed.which : currentIndex;
+      if (this.bringItHomeMode) {
+        chosenIndex = wrappedIndex;
       } else {
-        jumpFromIndex = null;
+        const seed = this.beats[wrappedIndex];
+        this.branchState.curRandomBranchChance = this.curRandomBranchChance;
+        const selection = selectNextBeatIndex(
+          seed,
+          this.graph,
+          this.config,
+          this.rng,
+          this.branchState,
+          this.forceBranch,
+        );
+        this.curRandomBranchChance = this.branchState.curRandomBranchChance;
+        shouldJump = selection.jumped;
+        chosenIndex = shouldJump ? selection.index : wrappedIndex;
+        const wrappedToStart =
+          wrappedIndex === 0 && currentIndex === beatsCount - 1;
+        if (wrappedToStart) {
+          shouldJump = true;
+        }
+        if (shouldJump) {
+          jumpFromIndex = selection.jumped ? seed.which : currentIndex;
+        } else {
+          jumpFromIndex = null;
+        }
       }
     }
 

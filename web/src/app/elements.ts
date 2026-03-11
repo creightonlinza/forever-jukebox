@@ -87,6 +87,10 @@ export function getElements() {
     document.querySelector<HTMLButtonElement>("#play"),
     "#play"
   );
+  const bringHomeLabel = requireElement(
+    document.querySelector<HTMLSpanElement>("#bring-home-label"),
+    "#bring-home-label"
+  );
   const vizPlayButton = requireElement(
     document.querySelector<HTMLButtonElement>("#viz-play"),
     "#viz-play"
@@ -409,6 +413,7 @@ export function getElements() {
     analysisSpinner,
     analysisProgress,
     playButton,
+    bringHomeLabel,
     vizPlayButton,
     shortUrlButton,
     tuningButton,

@@ -130,6 +130,7 @@ export function bootstrap() {
     pendingAutoFavoriteId: null,
     lastPlayCountedJobId: null,
     shiftBranching: false,
+    bringItHomeMode: false,
     selectedEdge: null,
     topSongsRefreshTimer: null,
     topSongsLoaded: false,
