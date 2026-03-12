@@ -136,6 +136,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
     engine.onUpdate((engineState) => {
       elements.beatsPlayedEl.textContent = `${engineState.beatsPlayed}`;
+      elements.branchChance.textContent = `${Math.round(engineState.curRandomBranchChance * 100)}%`;
       if (engineState.currentBeatIndex >= 0) {
         const jumpFrom =
           engineState.lastJumped && engineState.lastJumpFromIndex !== null
@@ -217,6 +218,12 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if ((event.key === "h" || event.key === "H") && !event.repeat) {
       event.preventDefault();
       setBringItHomeMode(!state.bringItHomeMode);
+      //
+      elements.branchChance.classList.toggle(
+        "is-crossed",
+        state.bringItHomeMode,
+      );
+      //
       return;
     }
     if (
@@ -401,6 +408,20 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       "is-hidden",
       mode === "autocanonizer",
     );
+    // fork start
+    elements.branchChanceDivider.classList.toggle(
+      "is-hidden",
+      mode === "autocanonizer",
+    );
+    elements.branchChance.classList.toggle(
+      "is-hidden",
+      mode === "autocanonizer",
+    );
+    elements.branchChanceLabel.classList.toggle(
+      "is-hidden",
+      mode === "autocanonizer",
+    );
+    // fork end
     autocanonizer.setVisible(mode === "autocanonizer");
     jukebox.setVisible(mode === "jukebox");
     if (state.trackTitle || state.trackArtist) {

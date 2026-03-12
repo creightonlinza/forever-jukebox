@@ -1,3 +1,10 @@
+### Local modifications
+This fork was created to add a couple of features I wanted, eg. extra information
+
+Changes:
+- Some adjustments to UI elements
+- Added a "Branch Chance" display to show the current probability of branching at the next beat.
+
 # The Forever Jukebox
 
 ![The Forever Jukebox logo](./tfj-logo.png)

@@ -732,6 +732,11 @@ button:hover {
   display: none !important;
 }
 
+.is-crossed {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
 .play-toggle {
   border: 1px solid var(--border-control);
   border-radius: 8px;
@@ -1121,9 +1126,9 @@ button:hover {
 
 .viz-bottom {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
-  right: 12px;
+  bottom: 0px;
+  left: 0px;
+  right: 0px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1186,7 +1191,7 @@ button:hover {
   flex-wrap: wrap;
   gap: 6px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--text);
 }
 
 .viz-divider {

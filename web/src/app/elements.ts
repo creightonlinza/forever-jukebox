@@ -391,6 +391,19 @@ export function getElements() {
   );
   const vizStats = document.querySelector<HTMLDivElement>("#viz-stats");
 
+  //fork additions
+  const branchChanceLabel = requireElement(
+    document.querySelector<HTMLSpanElement>("#viz-branch-chance-label"),
+    "#viz-branch-chance-label"
+  );
+  const branchChance = requireElement(
+    document.querySelector<HTMLSpanElement>("#viz-branch-chance"),
+    "#viz-branch-chance"
+  );
+  const branchChanceDivider = requireElement(
+    document.querySelector<HTMLSpanElement>("#viz-branch-chance-divider"),
+    "#viz-branch-chance-divider"
+  );
   return {
     listenTimeEl,
     beatsPlayedEl,
@@ -488,5 +501,10 @@ export function getElements() {
     toast,
     cachedAudioClearButton,
     vizStats,
+    //fork additions
+    branchChanceLabel,
+    branchChance,
+    branchChanceDivider,
+    //
   };
 }
