@@ -128,6 +128,7 @@ export async function showYoutubeMatches(
       li.dataset.youtubeId = item.id ? String(item.id) : "";
       li.dataset.trackName = name;
       li.dataset.trackArtist = artist;
+      li.dataset.trackDuration = ytDuration !== null ? String(ytDuration) : "";
       const titleSpan = document.createElement("strong");
       titleSpan.textContent = title;
       const durationSpan = document.createElement("span");
@@ -289,8 +290,21 @@ function handleYoutubeMatchClick(
   const youtubeId = target?.dataset.youtubeId;
   const name = target?.dataset.trackName ?? "";
   const artist = target?.dataset.trackArtist ?? "";
+  const duration = Number(target?.dataset.trackDuration ?? NaN);
   if (!youtubeId) {
     deps.setAnalysisStatus("No YouTube id available.", false);
+    return;
+  }
+  const maxTrackLengthMinutes = getMaxTrackLengthMinutes(context);
+  if (
+    maxTrackLengthMinutes !== null &&
+    Number.isFinite(duration) &&
+    duration > maxTrackLengthMinutes * 60
+  ) {
+    deps.showToast(
+      `Error: The maximum track length for this server is ${formatMinutes(maxTrackLengthMinutes)} minutes.`,
+      { icon: "error", tone: "error" },
+    );
     return;
   }
   startYoutubeAnalysisFlow(context, deps, youtubeId, name, artist).catch((err) => {

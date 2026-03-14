@@ -91,7 +91,7 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
                         state = state,
                         onSearch = viewModel::runSpotifySearch,
                         onSpotifySelect = viewModel::selectSpotifyTrack,
-                        onYoutubeSelect = viewModel::startYoutubeAnalysis
+                        onYoutubeSelect = viewModel::selectYoutubeTrack
                     )
                     TabId.Play -> PlayPanel(state = state, viewModel = viewModel)
                     TabId.Faq -> FaqPanel()
