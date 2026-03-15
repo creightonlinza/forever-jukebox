@@ -148,16 +148,22 @@ Fetch top songs (defaults to 10):
 curl "/api/top?limit=10"
 ```
 
-Fetch top songs touched in the past 30 days:
+Fetch trending songs (defaults: limit 25, past 5 days, excluding all-time top 25):
 
 ```bash
-curl "/api/top?limit=10&days=30"
+curl "/api/trending"
 ```
 
-Fetch rising songs (past 30 days, excluding all-time top 25):
+Fetch trending songs with explicit limit:
 
 ```bash
-curl "/api/top?limit=10&days=30&exclude_top_n=25"
+curl "/api/trending?limit=25"
+```
+
+Deprecated (still supported for backward compatibility): parameterized trending via `/api/top`:
+
+```bash
+curl "/api/top?limit=25&days=5&exclude_top_n=25"
 ```
 
 Fetch recently played songs (defaults to 10):

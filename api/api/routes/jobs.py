@@ -51,6 +51,9 @@ ERROR_TRACK_TOO_LONG = "ERROR: [track_length] This track exceeds the server leng
 ERROR_GENERIC = "ERROR: Something went wrong. Please try again or report an issue on GitHub."
 ERROR_CODE_ANALYSIS_MISSING = "analysis_missing"
 NTFY_TOPIC_ENV = "NTFY_TOPIC_KEY"
+TRENDING_DEFAULT_DAYS = 5
+TRENDING_DEFAULT_EXCLUDE_TOP_N = 25
+TRENDING_DEFAULT_LIMIT = 25
 
 
 def _normalize_job_error(raw: str | None) -> str:
@@ -658,14 +661,46 @@ def set_play_count(
 @router.get("/api/top")
 def get_top_songs(
     limit: int = Query(10, ge=1, le=50),
-    days: int | None = Query(None, ge=1, le=3650),
-    exclude_top_n: int | None = Query(None, ge=1, le=500),
+    days: int | None = Query(
+        None,
+        ge=1,
+        le=3650,
+        deprecated=True,
+        description="Deprecated on /api/top. Use /api/trending instead.",
+    ),
+    exclude_top_n: int | None = Query(
+        None,
+        ge=1,
+        le=500,
+        deprecated=True,
+        description="Deprecated on /api/top. Use /api/trending instead.",
+    ),
 ) -> JSONResponse:
     items = get_top_tracks(
         DB_PATH,
         limit=limit,
         touched_within_days=days,
         exclude_top_n=exclude_top_n,
+    )
+    payload = TopSongsResponse(items=items)
+    headers: dict[str, str] | None = None
+    if days is not None or exclude_top_n is not None:
+        headers = {
+            "Deprecation": "true",
+            "Link": '</api/trending>; rel="successor-version"',
+        }
+    return JSONResponse(payload.model_dump(), status_code=200, headers=headers)
+
+
+@router.get("/api/trending")
+def get_trending_songs(
+    limit: int = Query(TRENDING_DEFAULT_LIMIT, ge=1, le=50),
+) -> JSONResponse:
+    items = get_top_tracks(
+        DB_PATH,
+        limit=limit,
+        touched_within_days=TRENDING_DEFAULT_DAYS,
+        exclude_top_n=TRENDING_DEFAULT_EXCLUDE_TOP_N,
     )
     payload = TopSongsResponse(items=items)
     return JSONResponse(payload.model_dump(), status_code=200)

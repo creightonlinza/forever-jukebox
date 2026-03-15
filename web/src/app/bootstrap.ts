@@ -20,7 +20,7 @@ import {
   fetchAppConfig,
   fetchFavoritesSync,
   fetchTopSongs,
-  fetchRisingSongs,
+  fetchTrendingSongs,
   fetchRecentSongs,
   createFavoritesSync,
   updateFavoritesSync,
@@ -134,7 +134,7 @@ export function bootstrap() {
     selectedEdge: null,
     topSongsRefreshTimer: null,
     topSongsLoaded: false,
-    risingSongsLoaded: false,
+    trendingSongsLoaded: false,
     recentSongsLoaded: false,
     trackDurationSec: null,
     trackTitle: null,
@@ -260,7 +260,7 @@ export function bootstrap() {
   const topSongsHandlers = createTopSongsHandlers({
     elements,
     fetchTopSongs,
-    fetchRisingSongs,
+    fetchTrendingSongs,
     fetchRecentSongs,
     limit: TOP_SONGS_LIMIT,
     loadTrackByYouTubeId: (youtubeId: string) =>
@@ -286,17 +286,17 @@ export function bootstrap() {
             console.warn(`Top songs load failed: ${String(err)}`);
           });
       }
-      if (tabId === "rising") {
-        if (state.risingSongsLoaded) {
+      if (tabId === "trending") {
+        if (state.trendingSongsLoaded) {
           return;
         }
         topSongsHandlers
-          .fetchRisingSongsList()
+          .fetchTrendingSongsList()
           .then(() => {
-            state.risingSongsLoaded = true;
+            state.trendingSongsLoaded = true;
           })
           .catch((err) => {
-            console.warn(`Rising songs load failed: ${String(err)}`);
+            console.warn(`Trending songs load failed: ${String(err)}`);
           });
       }
       if (tabId === "recent") {

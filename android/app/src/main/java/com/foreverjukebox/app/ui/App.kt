@@ -57,18 +57,18 @@ fun ForeverJukeboxApp(viewModel: MainViewModel) {
                     )
                     TabId.Top -> TopSongsPanel(
                         items = state.search.topSongs,
-                        risingItems = state.search.risingSongs,
+                        trendingItems = state.search.trendingSongs,
                         recentItems = state.search.recentSongs,
                         favorites = state.favorites,
                         loading = state.search.topSongsLoading,
-                        risingLoading = state.search.risingSongsLoading,
+                        trendingLoading = state.search.trendingSongsLoading,
                         recentLoading = state.search.recentSongsLoading,
                         favoritesLoading = state.favoritesSyncLoading,
                         topSongsLimit = TOP_SONGS_LIMIT,
                         activeTab = state.topSongsTab,
                         onTabSelected = viewModel::setTopSongsTab,
                         onRefreshTopSongs = viewModel::refreshTopSongs,
-                        onRefreshRisingSongs = viewModel::refreshRisingSongs,
+                        onRefreshTrendingSongs = viewModel::refreshTrendingSongs,
                         onRefreshRecentSongs = viewModel::refreshRecentSongs,
                         onRefreshFavorites = viewModel::refreshFavoritesFromSync,
                         onSelect = { id, title, artist, tuningParams, sourceType ->

@@ -4,7 +4,7 @@ type TopSongsDeps = {
   fetchTopSongs: (limit: number) => Promise<
     Array<{ title?: string; artist?: string; youtube_id?: string }>
   >;
-  fetchRisingSongs: () => Promise<
+  fetchTrendingSongs: () => Promise<
     Array<{ title?: string; artist?: string; youtube_id?: string }>
   >;
   fetchRecentSongs: (limit: number) => Promise<
@@ -24,7 +24,7 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
   const {
     elements,
     fetchTopSongs,
-    fetchRisingSongs,
+    fetchTrendingSongs,
     fetchRecentSongs,
     loadTrackByYouTubeId,
     navigateToTabWithState,
@@ -92,13 +92,13 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     });
   }
 
-  function fetchRisingSongsList() {
+  function fetchTrendingSongsList() {
     return renderSongList({
-      listEl: elements.risingSongsList,
-      fetchItems: () => fetchRisingSongs(),
-      loadingText: "Loading rising songs…",
-      emptyText: "No rising songs yet.",
-      errorPrefix: "Rising songs",
+      listEl: elements.trendingSongsList,
+      fetchItems: () => fetchTrendingSongs(),
+      loadingText: "Loading trending songs…",
+      emptyText: "No trending songs yet.",
+      errorPrefix: "Trending songs",
     });
   }
 
@@ -114,5 +114,5 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     loadTrackByYouTubeId(youtubeId);
   }
 
-  return { fetchTopSongsList, fetchRisingSongsList, fetchRecentSongsList };
+  return { fetchTopSongsList, fetchTrendingSongsList, fetchRecentSongsList };
 }
