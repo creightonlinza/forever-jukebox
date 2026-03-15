@@ -57,18 +57,18 @@ import com.foreverjukebox.app.data.TopSongItem
 @Composable
 fun TopSongsPanel(
     items: List<TopSongItem>,
-    risingItems: List<TopSongItem>,
+    trendingItems: List<TopSongItem>,
     recentItems: List<TopSongItem>,
     favorites: List<FavoriteTrack>,
     loading: Boolean,
-    risingLoading: Boolean,
+    trendingLoading: Boolean,
     recentLoading: Boolean,
     favoritesLoading: Boolean,
     topSongsLimit: Int,
     activeTab: TopSongsTab,
     onTabSelected: (TopSongsTab) -> Unit,
     onRefreshTopSongs: () -> Unit,
-    onRefreshRisingSongs: () -> Unit,
+    onRefreshTrendingSongs: () -> Unit,
     onRefreshRecentSongs: () -> Unit,
     onRefreshFavorites: () -> Unit,
     onSelect: (String, String?, String?, String?, FavoriteSourceType) -> Unit,
@@ -177,20 +177,20 @@ fun TopSongsPanel(
                         }
                     }
                 }
-            } else if (activeTab == TopSongsTab.Rising) {
-                Text("Rising", style = MaterialTheme.typography.labelLarge)
+            } else if (activeTab == TopSongsTab.Trending) {
+                Text("Trending", style = MaterialTheme.typography.labelLarge)
                 PullToRefreshBox(
-                    isRefreshing = risingLoading,
-                    onRefresh = onRefreshRisingSongs,
+                    isRefreshing = trendingLoading,
+                    onRefresh = onRefreshTrendingSongs,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    if (risingLoading) {
-                        Text("Loading rising songs…", style = MaterialTheme.typography.bodySmall)
-                    } else if (risingItems.isEmpty()) {
-                        Text("No rising songs yet.", style = MaterialTheme.typography.bodySmall)
+                    if (trendingLoading) {
+                        Text("Loading trending songs…", style = MaterialTheme.typography.bodySmall)
+                    } else if (trendingItems.isEmpty()) {
+                        Text("No trending songs yet.", style = MaterialTheme.typography.bodySmall)
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            itemsIndexed(risingItems) { index, item ->
+                            itemsIndexed(trendingItems) { index, item ->
                                 val title = item.title
                                 val artist = item.artist
                                 val displayTitle = title ?: "Untitled"
@@ -584,9 +584,9 @@ private fun TopSongsTabs(activeTab: TopSongsTab, onTabSelected: (TopSongsTab) ->
         )
         Spacer(modifier = Modifier.width(8.dp))
         SubTabButton(
-            text = "Rising",
-            active = activeTab == TopSongsTab.Rising,
-            onClick = { onTabSelected(TopSongsTab.Rising) }
+            text = "Trending",
+            active = activeTab == TopSongsTab.Trending,
+            onClick = { onTabSelected(TopSongsTab.Trending) }
         )
         Spacer(modifier = Modifier.width(8.dp))
         SubTabButton(

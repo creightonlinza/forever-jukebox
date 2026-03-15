@@ -84,7 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var refreshTopSongsJob: Job? = null
     private var localAnalysisJob: Job? = null
     private var topSongsLoaded = false
-    private var risingSongsLoaded = false
+    private var trendingSongsLoaded = false
     private var recentSongsLoaded = false
     private var appConfigLoaded = false
     private var versionCheckAttempted = false
@@ -405,8 +405,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (tab == TopSongsTab.TopSongs) {
             scheduleTopSongsRefresh()
         }
-        if (tab == TopSongsTab.Rising) {
-            scheduleRisingSongsRefresh()
+        if (tab == TopSongsTab.Trending) {
+            scheduleTrendingSongsRefresh()
         }
         if (tab == TopSongsTab.Recent) {
             scheduleRecentSongsRefresh()
@@ -471,10 +471,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             refreshTopSongs()
         }
         if (currentState.activeTab == TabId.Top &&
-            currentState.topSongsTab == TopSongsTab.Rising &&
-            !risingSongsLoaded
+            currentState.topSongsTab == TopSongsTab.Trending &&
+            !trendingSongsLoaded
         ) {
-            refreshRisingSongs()
+            refreshTrendingSongs()
         }
         if (currentState.activeTab == TabId.Top &&
             currentState.topSongsTab == TopSongsTab.Recent &&
@@ -490,7 +490,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshTopSongsJob?.cancel()
         refreshTopSongsJob = null
         topSongsLoaded = false
-        risingSongsLoaded = false
+        trendingSongsLoaded = false
         recentSongsLoaded = false
         appConfigLoaded = false
         tabHistory.clear()
@@ -582,13 +582,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun scheduleRisingSongsRefresh() {
+    private fun scheduleTrendingSongsRefresh() {
         val baseUrl = state.value.baseUrl
-        if (baseUrl.isBlank() || risingSongsLoaded) return
+        if (baseUrl.isBlank() || trendingSongsLoaded) return
         refreshTopSongsJob?.cancel()
         refreshTopSongsJob = viewModelScope.launch {
             delay(250)
-            refreshRisingSongs()
+            refreshTrendingSongs()
         }
     }
 
@@ -700,19 +700,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun refreshRisingSongs() {
+    fun refreshTrendingSongs() {
         val baseUrl = state.value.baseUrl
         if (baseUrl.isBlank()) return
-        risingSongsLoaded = true
+        trendingSongsLoaded = true
         viewModelScope.launch {
-            updateSearchState { it.copy(risingSongsLoading = true) }
+            updateSearchState { it.copy(trendingSongsLoading = true) }
             try {
-                val items = api.fetchRisingSongs(baseUrl)
-                updateSearchState { it.copy(risingSongs = items) }
+                val items = api.fetchTrendingSongs(baseUrl)
+                updateSearchState { it.copy(trendingSongs = items) }
             } catch (err: Exception) {
-                updateSearchState { it.copy(risingSongs = emptyList()) }
+                updateSearchState { it.copy(trendingSongs = emptyList()) }
             } finally {
-                updateSearchState { it.copy(risingSongsLoading = false) }
+                updateSearchState { it.copy(trendingSongsLoading = false) }
             }
         }
     }

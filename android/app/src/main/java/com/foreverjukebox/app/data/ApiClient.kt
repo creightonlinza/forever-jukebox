@@ -76,11 +76,9 @@ class ApiClient(private val json: Json = Json { ignoreUnknownKeys = true }) {
         return getJson<TopSongsResponse>(url).items
     }
 
-    suspend fun fetchRisingSongs(baseUrl: String): List<TopSongItem> {
-        val url = buildUrl(baseUrl, ApiPaths.TOP) {
-            addQueryParameter("limit", RISING_LIMIT.toString())
-            addQueryParameter("days", RISING_DAYS.toString())
-            addQueryParameter("exclude_top_n", RISING_EXCLUDE_TOP_N.toString())
+    suspend fun fetchTrendingSongs(baseUrl: String): List<TopSongItem> {
+        val url = buildUrl(baseUrl, ApiPaths.TRENDING) {
+            addQueryParameter("limit", TRENDING_LIMIT.toString())
         }
         return getJson<TopSongsResponse>(url).items
     }
@@ -276,6 +274,7 @@ class ApiClient(private val json: Json = Json { ignoreUnknownKeys = true }) {
         val ANALYSIS_YOUTUBE = listOf("api", "analysis", "youtube")
         val JOB_BY_TRACK = listOf("api", "jobs", "by-track")
         val TOP = listOf("api", "top")
+        val TRENDING = listOf("api", "trending")
         val RECENT = listOf("api", "recent")
         val APP_CONFIG = listOf("api", "app-config")
         val FAVORITES_SYNC = listOf("api", "favorites", "sync")
@@ -291,9 +290,7 @@ class ApiClient(private val json: Json = Json { ignoreUnknownKeys = true }) {
 
     companion object {
         private const val MAX_FAVORITES = 100
-        private const val RISING_LIMIT = 25
-        private const val RISING_DAYS = 7
-        private const val RISING_EXCLUDE_TOP_N = 25
+        private const val TRENDING_LIMIT = 25
         private val sharedClient = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
