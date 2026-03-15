@@ -152,7 +152,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       }
     });
 
-    engine.onBeat((engineState) => {
+    engine.onBeat(() => {
       onBeat();
     });
   }
