@@ -69,6 +69,8 @@ export class JukeboxEngine {
   private rng: () => number;
   private listener: UpdateListener | null = null;
   private branchState = { curRandomBranchChance: 0 };
+  //
+  private beatListener: UpdateListener | null = null;
 
   constructor(player: JukeboxPlayer, options: JukeboxEngineOptions = {}) {
     this.player = player;
@@ -360,6 +362,28 @@ export class JukeboxEngine {
     this.timerId = backgroundSetTimeout(() => this.tick(), msUntilTransition);
   }
 
+  // custom event to fire on every beat instead of using emitState
+  private emitBeat() {
+    if (this.beatListener) {
+      this.beatListener({
+        currentBeatIndex: this.currentBeatIndex,
+        beatsPlayed: this.beatsPlayed,
+        currentTime: this.player.getCurrentTime(),
+        lastJumped: this.lastJumped,
+        lastJumpTime: this.lastJumpTime,
+        lastJumpFromIndex: this.lastJumpFromIndex,
+        currentThreshold: this.graph?.currentThreshold ?? 0,
+        lastBranchPoint: this.graph?.lastBranchPoint ?? 0,
+        curRandomBranchChance: this.curRandomBranchChance,
+      });
+    }
+  }
+  
+  onBeat(listener: UpdateListener) {
+    this.beatListener = listener;
+  }
+  //
+
   private advanceBeat(audioTime: number) {
     if (!this.analysis || !this.graph) {
       return;
@@ -371,6 +395,7 @@ export class JukeboxEngine {
     let jumpFromIndex: number | null = null;
 
     if (currentIndex >= 0) {
+      this.emitBeat();
       const isFinalBeat = currentIndex === beatsCount - 1;
       if (this.bringItHomeMode && isFinalBeat) {
         this.ticking = false;

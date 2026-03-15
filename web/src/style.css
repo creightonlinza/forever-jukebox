@@ -115,10 +115,11 @@ body {
   text-shadow:
     0 0 12px var(--title-glow),
     0 0 28px var(--title-glow);
-  animation: neon-flicker 6s infinite;
+  transition: opacity 0.2s linear;
+  /* animation: neon-flicker 6s infinite; */
 }
 
-@keyframes neon-flicker {
+/* @keyframes neon-flicker {
   0%,
   100% {
     opacity: 1;
@@ -189,7 +190,7 @@ body {
   90% {
     opacity: 1;
   }
-}
+} */
 
 .theme-toggle {
   display: inline-flex;
@@ -464,7 +465,7 @@ button:hover {
 }
 
 .modal {
-  position: fixed;
+  position: relative;
   inset: 0;
   display: none;
   align-items: center;
@@ -478,7 +479,7 @@ button:hover {
 }
 
 .modal-panel {
-  width: min(520px, 90vw);
+  width: min(900px, 90vw);
   background: var(--surface-panel);
   border: 1px solid var(--border-panel);
   border-radius: 12px;
@@ -494,11 +495,21 @@ button:hover {
   justify-content: space-between;
 }
 
+/* */
 .modal-body {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
+
+.model-left-half {
+  width: 50%;
+}
+
+.modal-right-half {
+  width: 50%;
+}
+/* */
 
 .modal-hint {
   margin: 0;
@@ -516,6 +527,11 @@ button:hover {
 
 .modal-status.error {
   color: #e35a5a;
+}
+
+.tuning-body {
+  display: flex;
+  flex-direction: row;
 }
 
 .info-body {
@@ -1137,7 +1153,7 @@ button:hover {
   z-index: 3;
   color: var(--text);
   padding: 10px 12px;
-  border-radius: 12px;
+  /* border-radius: 12px; */
   background: var(--viz-overlay);
   backdrop-filter: blur(8px);
 }
@@ -1274,10 +1290,19 @@ button:hover {
 }
 
 .pulse {
-  animation: pulse-highlight 0.35s ease;
+  animation: pulse-highlight 0.5s ease-out;
 }
 
 @keyframes pulse-highlight {
+  0% {
+    box-shadow: 0 -1px 0px rgb(from var(--beat-highlight) r g b / 1);
+  }
+  100% {
+    box-shadow: 0 -1px 0px rgb(from var(--beat-highlight) r g b / 0);
+  }
+}
+
+/* @keyframes pulse-highlight {
   0% {
     transform: scale(1);
     box-shadow: 0 0 0 rgb(from var(--beat-highlight) r g b / 0);
@@ -1290,7 +1315,7 @@ button:hover {
     transform: scale(1);
     box-shadow: 0 0 0 rgb(from var(--beat-highlight) r g b / 0);
   }
-}
+} */
 
 .status-row {
   display: flex;

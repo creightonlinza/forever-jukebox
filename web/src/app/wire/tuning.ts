@@ -51,8 +51,9 @@ export function createTuningHandlers(deps: TuningDeps) {
   function handleVolumeInput() {
     elements.volumeVal.textContent = elements.volumeInput.value;
     const volume = Number(elements.volumeInput.value) / 100;
-    player.setVolume(volume);
-    autocanonizer.setVolume(volume);
+    const adjustedVolume = Math.pow(volume, 1.5); // make volume logarithmic for better control at lower levels
+    player.setVolume(adjustedVolume);
+    autocanonizer.setVolume(adjustedVolume);
   }
 
   function handleOpenTuning() {
@@ -104,7 +105,7 @@ export function createTuningHandlers(deps: TuningDeps) {
 
   function handleTuningReset() {
     resetTuningDefaults(context);
-    closeTuning(context);
+    //closeTuning(context);
   }
 
   return {

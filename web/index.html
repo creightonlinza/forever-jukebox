@@ -470,8 +470,9 @@
               >
             </button>
           </div>
-          <div class="modal-body">
-            <label>
+          <div class="modal-body tuning-body">
+            <div class="model-left-half">
+              <label>
               <div class="label-line">
                 Branch Similarity Threshold:
                 <span id="threshold-val">2</span>
@@ -485,8 +486,22 @@
                 type="range"
                 min="2"
                 max="80"
-                step="2"
+                step="1"
                 value="2"
+              />
+            </label>
+            <label>
+              <div class="label-line">
+                Branch Ramp Speed:
+                <span id="ramp-val">10%</span>
+              </div>
+              <input
+                id="ramp"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="10"
               />
             </label>
             <label>
@@ -499,7 +514,7 @@
                 type="range"
                 min="0"
                 max="100"
-                step="2"
+                step="1"
                 value="18"
               />
             </label>
@@ -513,22 +528,8 @@
                 type="range"
                 min="0"
                 max="100"
-                step="2"
+                step="1"
                 value="50"
-              />
-            </label>
-            <label>
-              <div class="label-line">
-                Branch Ramp Speed:
-                <span id="ramp-val">10%</span>
-              </div>
-              <input
-                id="ramp"
-                type="range"
-                min="0"
-                max="100"
-                step="2"
-                value="10"
               />
             </label>
             <label>
@@ -541,32 +542,35 @@
                 type="range"
                 min="0"
                 max="100"
-                step="2"
+                step="1"
                 value="50"
               />
             </label>
-            <div class="checkbox-row">
-              <label
-                ><input id="just-backwards" type="checkbox" /> Allow only
-                reverse branches</label
-              >
-              <label
-                ><input id="just-long" type="checkbox" /> Allow only long
-                branches</label
-              >
-              <label
-                ><input id="remove-seq" type="checkbox" /> Remove sequential
-                branches</label
-              >
-              <label
-                ><input id="highlight-anchor-branch" type="checkbox" />
-                Highlight forced anchor jump</label
-              >
+            </div>
+            <div class="model-right-half">
+              <div class="checkbox-row">
+                <label
+                  ><input id="just-backwards" type="checkbox" /> Allow only
+                  reverse branches</label
+                >
+                <label
+                  ><input id="just-long" type="checkbox" /> Allow only long
+                  branches</label
+                >
+                <label
+                  ><input id="remove-seq" type="checkbox" /> Remove sequential
+                  branches</label
+                >
+                <label
+                  ><input id="highlight-anchor-branch" type="checkbox" />
+                  Highlight forced anchor jump</label
+                >
+              </div>
             </div>
           </div>
           <div class="modal-footer tuning-footer">
             <button id="tuning-reset">Reset</button>
-            <button id="tuning-apply">Apply</button>
+            <button id="tuning-apply" class="is-hidden">Apply</button>
           </div>
         </div>
       </div>
@@ -702,8 +706,8 @@
         <p>
           The Forever Jukebox &amp; Analysis Engine by
           <a href="https://creighton.dev" target="_blank" rel="noreferrer"
-            >Creighton</a
-          >
+            >Creighton</a>
+          This instance is modified by <a href="https://github.com/honkyrot" target="_blank" rel="noreferrer">Honkyrot</a>.
         </p>
       </footer>
     </div>

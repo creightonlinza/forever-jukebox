@@ -808,7 +808,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (data) {
       vizControllerRef.current?.setData(data);
     }
-    const volume = tuneForm.volume / 100;
+    //const volume = tuneForm.volume / 100;
+    // make volume logarithmic for better control at lower levels
+    const volume = Math.pow(tuneForm.volume / 100, 1.5)
+    //
     player.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
     syncTuneFormFromEngine(tuneForm.highlightAnchorBranch);

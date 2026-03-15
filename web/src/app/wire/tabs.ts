@@ -101,6 +101,10 @@ export function createTabsHandlers(deps: TabsDeps) {
     if (tabId === "faq") {
       onFaqOpen?.();
     }
+    elements.tuningModal.classList.add("hidden");
+    elements.tuningModal.classList.remove("open");
+    elements.infoModal.classList.add("hidden");
+    elements.infoModal.classList.remove("open");
   }
 
   return {

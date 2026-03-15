@@ -142,7 +142,19 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     favoritesHandlers.handleFavoritesSyncCreateModalClick,
   );
-  elements.tuningApply.addEventListener("click", tuningHandlers.handleTuningApply);
+  //elements.tuningApply.addEventListener("click", tuningHandlers.handleTuningApply);
+  // apply changes immediately on input change
+  // bars
+  elements.minProbInput.addEventListener("change", tuningHandlers.handleTuningApply);
+  elements.maxProbInput.addEventListener("change", tuningHandlers.handleTuningApply);
+  elements.thresholdInput.addEventListener("change", tuningHandlers.handleTuningApply);
+  elements.rampInput.addEventListener("change", tuningHandlers.handleTuningApply);
+  // checkboxes
+  elements.justLongInput.addEventListener("change", tuningHandlers.handleTuningApply);
+  elements.justBackwardsInput.addEventListener("change", tuningHandlers.handleTuningApply);
+  elements.highlightAnchorBranchInput.addEventListener("change", tuningHandlers.handleTuningApply);
+  elements.removeSeqInput.addEventListener("change", tuningHandlers.handleTuningApply);
+  //
   elements.tuningReset.addEventListener("click", tuningHandlers.handleTuningReset);
   elements.playButton.addEventListener("click", playbackHandlers.handlePlayClick);
   elements.vizPlayButton.addEventListener(

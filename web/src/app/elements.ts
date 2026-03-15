@@ -389,7 +389,11 @@ export function getElements() {
     document.querySelector<HTMLButtonElement>("#cached-audio-clear"),
     "#cached-audio-clear"
   );
-  const vizStats = document.querySelector<HTMLDivElement>("#viz-stats");
+  
+  const vizStats = requireElement(
+    document.querySelector<HTMLDivElement>("#viz-stats"),
+    "#viz-stats"
+   );
 
   //fork additions
   const branchChanceLabel = requireElement(

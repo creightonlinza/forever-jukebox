@@ -121,6 +121,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     autocanonizer.setOnBeat((index) => {
       elements.beatsPlayedEl.textContent = `${index + 1}`;
       state.lastBeatIndex = index;
+      onBeat();
     });
     autocanonizer.setOnEnded(() => {
       if (state.isRunning) {
@@ -150,7 +151,26 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
         state.lastBeatIndex = engineState.currentBeatIndex;
       }
     });
+
+    engine.onBeat((engineState) => {
+      onBeat();
+    });
   }
+
+  function onBeat() {
+    pulseElement(elements.vizStats);
+  }
+
+  // pulse css elements on each beat
+  function pulseElement(element: HTMLElement) {
+    if (!document.fullscreenElement) {
+      element.classList.remove("pulse");
+      // proc animation again
+      void element.offsetWidth;
+      element.classList.add("pulse");
+    }
+  }
+  //
 
   function syncBringItHomeLabel() {
     const visible = state.playMode === "jukebox" && state.bringItHomeMode;

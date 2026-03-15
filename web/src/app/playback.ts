@@ -184,7 +184,13 @@ export function updateVizVisibility(context: AppContext) {
 
 export function openTuning(context: AppContext) {
   syncTuningUI(context);
-  context.elements.tuningModal.classList.add("open");
+  //context.elements.tuningModal.classList.add("open");
+  // make the buttons do both open and close
+  if (!context.elements.tuningModal.classList.contains("open")) {
+    context.elements.tuningModal.classList.add("open");
+  } else {
+    context.elements.tuningModal.classList.remove("open");
+  }
 }
 
 export function closeTuning(context: AppContext) {
@@ -193,7 +199,13 @@ export function closeTuning(context: AppContext) {
 
 export function openInfo(context: AppContext) {
   updateTrackInfo(context);
-  context.elements.infoModal.classList.add("open");
+  //context.elements.infoModal.classList.add("open");
+  // again
+  if (!context.elements.infoModal.classList.contains("open")) {
+    context.elements.infoModal.classList.add("open");
+  } else {    
+    context.elements.infoModal.classList.remove("open");
+  }
 }
 
 export function closeInfo(context: AppContext) {
@@ -234,6 +246,7 @@ export function syncTuningUI(context: AppContext) {
 }
 
 export function applyTuningChanges(context: AppContext) {
+  console.log("Applying tuning changes...");
   const { elements, engine, jukebox, state } = context;
   const threshold = Number(elements.thresholdInput.value);
   const computed = Number(elements.computedThresholdEl.textContent);
@@ -276,7 +289,7 @@ export function applyTuningChanges(context: AppContext) {
     if (useAutoThreshold) {
       state.autoComputedThreshold = resolved;
     }
-    elements.computedThresholdEl.textContent = `${resolved}`;
+    //elements.computedThresholdEl.textContent = `${resolved}`;
     if (useAutoThreshold) {
       elements.thresholdInput.value = `${resolved}`;
       elements.thresholdVal.textContent = elements.thresholdInput.value;
@@ -289,7 +302,7 @@ export function applyTuningChanges(context: AppContext) {
   }
   syncTuningParamsState(context);
   writeTuningParamsToUrl(state.tuningParams, true);
-  closeTuning(context);
+  //closeTuning(context);
 }
 
 export function resetTuningDefaults(context: AppContext) {
