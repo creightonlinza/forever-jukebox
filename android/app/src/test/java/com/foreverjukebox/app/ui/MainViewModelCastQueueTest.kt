@@ -114,13 +114,13 @@ class MainViewModelCastQueueTest {
     @Test
     fun resetSearchStateAfterTrackSelectionPreservesLibraryAndLoadingState() {
         val topSong = TopSongItem(youtubeId = "yt_top", title = "Top")
-        val risingSong = TopSongItem(youtubeId = "yt_rising", title = "Rising")
+        val trendingSong = TopSongItem(youtubeId = "yt_trending", title = "Trending")
         val recentSong = TopSongItem(youtubeId = "yt_recent", title = "Recent")
         val original = SearchState(
             topSongs = listOf(topSong),
             topSongsLoading = true,
-            risingSongs = listOf(risingSong),
-            risingSongsLoading = true,
+            trendingSongs = listOf(trendingSong),
+            trendingSongsLoading = true,
             recentSongs = listOf(recentSong),
             recentSongsLoading = true,
             spotifyLoading = true
@@ -130,8 +130,8 @@ class MainViewModelCastQueueTest {
 
         assertEquals(listOf(topSong), reset.topSongs)
         assertTrue(reset.topSongsLoading)
-        assertEquals(listOf(risingSong), reset.risingSongs)
-        assertTrue(reset.risingSongsLoading)
+        assertEquals(listOf(trendingSong), reset.trendingSongs)
+        assertTrue(reset.trendingSongsLoading)
         assertEquals(listOf(recentSong), reset.recentSongs)
         assertTrue(reset.recentSongsLoading)
         assertTrue(reset.spotifyLoading)

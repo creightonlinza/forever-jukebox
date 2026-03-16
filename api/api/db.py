@@ -309,7 +309,22 @@ def get_top_tracks(
     if cutoff is not None:
         query += "\n              AND updated_at >= ?"
         params.append(cutoff)
-    query += "\n            ORDER BY play_count DESC, updated_at DESC\n            LIMIT ?"
+    if cutoff is not None:
+        # Recency-decayed ranking for time-windowed lists (e.g. trending):
+        # higher play_count helps, but stale tracks lose weight each hour.
+        query += (
+            """
+            ORDER BY
+              (play_count * 1.0) / (
+                1.0 + MAX(0.0, (julianday('now') - julianday(updated_at)) * 24.0)
+              ) DESC,
+              play_count DESC,
+              updated_at DESC
+            LIMIT ?
+            """
+        )
+    else:
+        query += "\n            ORDER BY play_count DESC, updated_at DESC\n            LIMIT ?"
     params.append(limit)
 
     with sqlite3.connect(db_path) as conn:

@@ -341,9 +341,9 @@ export function getElements() {
     document.querySelector<HTMLOListElement>("#top-songs"),
     "#top-songs"
   );
-  const risingSongsList = requireElement(
-    document.querySelector<HTMLOListElement>("#rising-songs"),
-    "#rising-songs"
+  const trendingSongsList = requireElement(
+    document.querySelector<HTMLOListElement>("#trending-songs"),
+    "#trending-songs"
   );
   const recentSongsList = requireElement(
     document.querySelector<HTMLOListElement>("#recent-songs"),
@@ -505,7 +505,7 @@ export function getElements() {
     searchResults,
     searchHint,
     topSongsList,
-    risingSongsList,
+    trendingSongsList,
     recentSongsList,
     favoritesList,
     topSongsTabs,
