@@ -41,7 +41,7 @@ fun SearchPanel(
     state: UiState,
     onSearch: (String) -> Unit,
     onSpotifySelect: (SpotifySearchItem) -> Unit,
-    onYoutubeSelect: (String) -> Unit
+    onYoutubeSelect: (YoutubeSearchItem) -> Unit
 ) {
     val searchState = state.search
     var query by remember(searchState.query) { mutableStateOf(searchState.query) }
@@ -146,13 +146,13 @@ private fun SpotifyRow(item: SpotifySearchItem, onSelect: (SpotifySearchItem) ->
 }
 
 @Composable
-private fun YoutubeRow(item: YoutubeSearchItem, onSelect: (String) -> Unit) {
+private fun YoutubeRow(item: YoutubeSearchItem, onSelect: (YoutubeSearchItem) -> Unit) {
     val title = item.title ?: "Untitled"
-    val id = item.id ?: return
+    if (item.id == null) return
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onSelect(id) },
+            .clickable { onSelect(item) },
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(

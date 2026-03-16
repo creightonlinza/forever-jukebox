@@ -17,6 +17,7 @@ import com.foreverjukebox.app.data.FavoriteTrack
 import com.foreverjukebox.app.data.SpotifySearchItem
 import com.foreverjukebox.app.data.ThemeMode
 import com.foreverjukebox.app.data.TOP_SONGS_LIMIT
+import com.foreverjukebox.app.data.YoutubeSearchItem
 import com.foreverjukebox.app.local.LocalAnalysisArtifact
 import com.foreverjukebox.app.local.LocalAnalysisService
 import com.foreverjukebox.app.local.LocalAnalysisUpdate
@@ -83,7 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var refreshTopSongsJob: Job? = null
     private var localAnalysisJob: Job? = null
     private var topSongsLoaded = false
-    private var risingSongsLoaded = false
+    private var trendingSongsLoaded = false
     private var recentSongsLoaded = false
     private var appConfigLoaded = false
     private var versionCheckAttempted = false
@@ -404,8 +405,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (tab == TopSongsTab.TopSongs) {
             scheduleTopSongsRefresh()
         }
-        if (tab == TopSongsTab.Rising) {
-            scheduleRisingSongsRefresh()
+        if (tab == TopSongsTab.Trending) {
+            scheduleTrendingSongsRefresh()
         }
         if (tab == TopSongsTab.Recent) {
             scheduleRecentSongsRefresh()
@@ -470,10 +471,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             refreshTopSongs()
         }
         if (currentState.activeTab == TabId.Top &&
-            currentState.topSongsTab == TopSongsTab.Rising &&
-            !risingSongsLoaded
+            currentState.topSongsTab == TopSongsTab.Trending &&
+            !trendingSongsLoaded
         ) {
-            refreshRisingSongs()
+            refreshTrendingSongs()
         }
         if (currentState.activeTab == TabId.Top &&
             currentState.topSongsTab == TopSongsTab.Recent &&
@@ -489,7 +490,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshTopSongsJob?.cancel()
         refreshTopSongsJob = null
         topSongsLoaded = false
-        risingSongsLoaded = false
+        trendingSongsLoaded = false
         recentSongsLoaded = false
         appConfigLoaded = false
         tabHistory.clear()
@@ -581,13 +582,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun scheduleRisingSongsRefresh() {
+    private fun scheduleTrendingSongsRefresh() {
         val baseUrl = state.value.baseUrl
-        if (baseUrl.isBlank() || risingSongsLoaded) return
+        if (baseUrl.isBlank() || trendingSongsLoaded) return
         refreshTopSongsJob?.cancel()
         refreshTopSongsJob = viewModelScope.launch {
             delay(250)
-            refreshRisingSongs()
+            refreshTrendingSongs()
         }
     }
 
@@ -699,19 +700,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun refreshRisingSongs() {
+    fun refreshTrendingSongs() {
         val baseUrl = state.value.baseUrl
         if (baseUrl.isBlank()) return
-        risingSongsLoaded = true
+        trendingSongsLoaded = true
         viewModelScope.launch {
-            updateSearchState { it.copy(risingSongsLoading = true) }
+            updateSearchState { it.copy(trendingSongsLoading = true) }
             try {
-                val items = api.fetchRisingSongs(baseUrl)
-                updateSearchState { it.copy(risingSongs = items) }
+                val items = api.fetchTrendingSongs(baseUrl)
+                updateSearchState { it.copy(trendingSongs = items) }
             } catch (err: Exception) {
-                updateSearchState { it.copy(risingSongs = emptyList()) }
+                updateSearchState { it.copy(trendingSongs = emptyList()) }
             } finally {
-                updateSearchState { it.copy(risingSongsLoading = false) }
+                updateSearchState { it.copy(trendingSongsLoading = false) }
             }
         }
     }
@@ -747,28 +748,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val name = item.name ?: "Untitled"
         val artist = item.artist ?: ""
         val duration = item.duration ?: return
-        if (state.value.playback.isCasting &&
-            duration > CAST_MAX_TRACK_DURATION_MINUTES * 60
-        ) {
-            _state.update {
-                it.copy(
-                    trackLengthLimitErrorMessage = castTrackLengthLimitErrorMessage()
-                )
-            }
-            return
-        }
-        val maxTrackLengthMinutes = state.value.maxTrackLengthMinutes
-        if (maxTrackLengthMinutes != null &&
-            maxTrackLengthMinutes > 0 &&
-            duration > maxTrackLengthMinutes * 60
-        ) {
-            _state.update {
-                it.copy(
-                    trackLengthLimitErrorMessage =
-                        "The maximum track length for this server is " +
-                            "${formatMinutes(maxTrackLengthMinutes)} minutes."
-                )
-            }
+        if (showTrackLengthLimitIfExceeded(duration)) {
             return
         }
         viewModelScope.launch {
@@ -802,6 +782,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             fetchYoutubeMatches(name, artist, duration)
         }
+    }
+
+    fun selectYoutubeTrack(item: YoutubeSearchItem) {
+        val youtubeId = item.id ?: return
+        val duration = item.duration
+        if (showTrackLengthLimitIfExceeded(duration)) {
+            return
+        }
+        startYoutubeAnalysis(youtubeId)
     }
 
     fun fetchYoutubeMatches(name: String, artist: String, duration: Double) {
@@ -1656,6 +1645,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun castTrackLengthLimitErrorMessage(): String {
         return "Sorry, tracks longer than ${CAST_MAX_TRACK_DURATION_MINUTES.toInt()} minutes " +
             "cannot be cast due to Chromecast memory limitations."
+    }
+
+    private fun showTrackLengthLimitIfExceeded(durationSeconds: Double?): Boolean {
+        if (
+            durationSeconds == null ||
+            durationSeconds.isNaN() ||
+            durationSeconds.isInfinite() ||
+            durationSeconds <= 0
+        ) {
+            return false
+        }
+        if (state.value.playback.isCasting &&
+            durationSeconds > CAST_MAX_TRACK_DURATION_MINUTES * 60
+        ) {
+            _state.update {
+                it.copy(
+                    trackLengthLimitErrorMessage = castTrackLengthLimitErrorMessage()
+                )
+            }
+            return true
+        }
+        val maxTrackLengthMinutes = state.value.maxTrackLengthMinutes
+        if (maxTrackLengthMinutes != null &&
+            maxTrackLengthMinutes > 0 &&
+            durationSeconds > maxTrackLengthMinutes * 60
+        ) {
+            _state.update {
+                it.copy(
+                    trackLengthLimitErrorMessage =
+                        "The maximum track length for this server is " +
+                            "${formatMinutes(maxTrackLengthMinutes)} minutes."
+                )
+            }
+            return true
+        }
+        return false
     }
 
     fun deleteSelectedEdge() = Unit

@@ -301,13 +301,8 @@ export async function fetchTopSongs(limit: number) {
   return Array.isArray(data?.items) ? (data.items as TopSongItem[]) : [];
 }
 
-export async function fetchRisingSongs() {
-  const params = new URLSearchParams({
-    limit: "25",
-    days: "7",
-    exclude_top_n: "25",
-  });
-  const data = await fetchJson(`/api/top?${params.toString()}`);
+export async function fetchTrendingSongs() {
+  const data = await fetchJson("/api/trending?limit=25");
   return Array.isArray(data?.items) ? (data.items as TopSongItem[]) : [];
 }
 
