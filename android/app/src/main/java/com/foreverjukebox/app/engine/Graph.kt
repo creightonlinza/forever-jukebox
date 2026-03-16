@@ -755,6 +755,11 @@ private fun computeDefaultThreshold(
     return config.maxBranchThreshold
 }
 
+private fun roundDownToNearestEvenThreshold(value: Int): Int {
+    val even = value - (value % 2)
+    return if (even >= 2) even else 2
+}
+
 private fun addAnchorBranch(
     quanta: List<QuantumBase>,
     threshold: Int,
@@ -832,7 +837,9 @@ fun buildJumpGraph(analysis: TrackAnalysis, config: JukeboxConfig): JukeboxGraph
     val allEdges = mutableListOf<Edge>()
     precalculateNearestNeighbors(quanta, config.maxBranches, config.maxBranchThreshold, allEdges)
 
-    val computedThreshold = computeDefaultThreshold(quanta, config)
+    val computedThreshold = roundDownToNearestEvenThreshold(
+        computeDefaultThreshold(quanta, config)
+    )
     val threshold = if (config.currentThreshold != 0) {
         config.currentThreshold
     } else {

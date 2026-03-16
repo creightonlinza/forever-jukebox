@@ -462,6 +462,7 @@ describe("buildJumpGraph", () => {
     const graph = buildJumpGraph(analysis, config);
     expect(graph.currentThreshold).toBe(graph.computedThreshold);
     expect(graph.currentThreshold).toBeGreaterThan(0);
+    expect(graph.currentThreshold % 2).toBe(0);
   });
 
   it("keeps computed threshold when currentThreshold is provided", () => {

@@ -78,6 +78,7 @@ class GraphCoreParityTest {
 
         assertEquals(graph.computedThreshold, graph.currentThreshold)
         assertTrue(graph.currentThreshold > 0)
+        assertEquals(0, graph.currentThreshold % 2)
     }
 
     @Test
