@@ -286,6 +286,37 @@ class SelectionTest {
         assertEquals(0.1, state.curRandomBranchChance, 0.000001)
     }
 
+    @Test
+    fun shouldRandomBranchRampsSlowerForShortBeatsAndFasterForLongBeats() {
+        val shortBeat = makeBeat(0).copy(duration = 0.25)
+        val longBeat = makeBeat(1).copy(duration = 1.0)
+        val shortState = BranchState(curRandomBranchChance = 0.1)
+        val longState = BranchState(curRandomBranchChance = 0.1)
+        val testConfig = config(
+            minRandomBranchChance = 0.1,
+            maxRandomBranchChance = 0.3,
+            randomBranchChanceDelta = 0.05
+        )
+
+        shouldRandomBranch(
+            q = shortBeat,
+            graph = graph(lastBranchPoint = 99, totalBeats = 2),
+            config = testConfig,
+            rng = { 0.99 },
+            state = shortState
+        )
+        shouldRandomBranch(
+            q = longBeat,
+            graph = graph(lastBranchPoint = 99, totalBeats = 2),
+            config = testConfig,
+            rng = { 0.99 },
+            state = longState
+        )
+
+        assertEquals(0.125, shortState.curRandomBranchChance, 0.000001)
+        assertEquals(0.2, longState.curRandomBranchChance, 0.000001)
+    }
+
     private fun makeBeat(which: Int): QuantumBase {
         return QuantumBase(
             start = which.toDouble(),

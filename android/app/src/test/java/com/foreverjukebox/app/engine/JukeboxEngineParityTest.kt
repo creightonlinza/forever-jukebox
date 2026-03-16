@@ -35,6 +35,12 @@ class JukeboxEngineParityTest {
     }
 
     @Test
+    fun usesLegacyCalibratedDefaultRandomBranchRamp() {
+        val engine = JukeboxEngine(FakePlayer())
+        assertEquals(0.02, engine.getConfig().randomBranchChanceDelta, 0.000001)
+    }
+
+    @Test
     fun loadAnalysisSetsMinLongBranchFromBeatCount() {
         val player = FakePlayer()
         val engine = JukeboxEngine(player)

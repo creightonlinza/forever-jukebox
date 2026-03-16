@@ -2,6 +2,8 @@ package com.foreverjukebox.app.engine
 
 data class BranchState(var curRandomBranchChance: Double)
 
+private const val REFERENCE_BEAT_DURATION_SECONDS = 0.5
+
 private fun collectTimeline(seed: QuantumBase): List<QuantumBase> {
     var start = seed
     while (start.prev != null) {
@@ -177,8 +179,16 @@ fun shouldRandomBranch(
     if (q.which == graph.lastBranchPoint) {
         return true
     }
-    // Gradually increase branch chance until a jump happens, then reset.
-    state.curRandomBranchChance = (state.curRandomBranchChance + config.randomBranchChanceDelta)
+    // Gradually increase branch chance by elapsed musical time (not raw beat
+    // count), so fast songs do not ramp jump probability disproportionately.
+    val beatDuration = if (q.duration.isFinite() && q.duration > 0.0) {
+        q.duration
+    } else {
+        REFERENCE_BEAT_DURATION_SECONDS
+    }
+    val tempoNormalizedDelta = config.randomBranchChanceDelta *
+        (beatDuration / REFERENCE_BEAT_DURATION_SECONDS)
+    state.curRandomBranchChance = (state.curRandomBranchChance + tempoNormalizedDelta)
         .coerceAtMost(config.maxRandomBranchChance)
     val shouldBranch = rng() < state.curRandomBranchChance
     if (shouldBranch) {
