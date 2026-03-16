@@ -154,6 +154,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   function syncBringItHomeLabel() {
     const visible = state.playMode === "jukebox" && state.bringItHomeMode;
     elements.bringHomeLabel.classList.toggle("is-hidden", !visible);
+    elements.bringHomeFullscreenLabel.classList.toggle("is-hidden", !visible);
   }
 
   function setBringItHomeMode(enabled: boolean) {

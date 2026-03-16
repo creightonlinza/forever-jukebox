@@ -497,6 +497,9 @@ class CanvasViz {
         }
       }
       if (bestIndex >= 0 && bestDist <= maxDistance) {
+        if (this.onEdgeSelect && this.selectedEdge) {
+          this.onEdgeSelect(null);
+        }
         this.onSelect(bestIndex);
         return;
       }
@@ -538,6 +541,10 @@ class CanvasViz {
       if (bestEdge && bestEdgeDist <= edgeThreshold) {
         const nextEdge = this.selectedEdge === bestEdge ? null : bestEdge;
         this.onEdgeSelect(nextEdge);
+        return;
+      }
+      if (this.selectedEdge) {
+        this.onEdgeSelect(null);
       }
     }
   };
