@@ -815,12 +815,6 @@ function computeDefaultThreshold(
   return config.maxBranchThreshold;
 }
 
-function roundDownToNearestEvenThreshold(value: number): number {
-  const floored = Math.floor(value);
-  const even = floored - (floored % 2);
-  return even >= 2 ? even : 2;
-}
-
 function addAnchorBranch(
   quanta: QuantumBase[],
   threshold: number,
@@ -909,9 +903,7 @@ export function buildJumpGraph(
     allEdges,
   );
 
-  const computedThreshold = roundDownToNearestEvenThreshold(
-    computeDefaultThreshold(quanta, config),
-  );
+  const computedThreshold = computeDefaultThreshold(quanta, config);
   const threshold =
     config.currentThreshold !== 0
       ? config.currentThreshold
