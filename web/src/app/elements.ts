@@ -393,8 +393,7 @@ export function getElements() {
   const vizStats = requireElement(
     document.querySelector<HTMLDivElement>("#viz-stats"),
     "#viz-stats"
-   );
-
+  );
   //fork additions
   const branchChanceLabel = requireElement(
     document.querySelector<HTMLSpanElement>("#viz-branch-chance-label"),
@@ -408,6 +407,19 @@ export function getElements() {
     document.querySelector<HTMLSpanElement>("#viz-branch-chance-divider"),
     "#viz-branch-chance-divider"
   );
+  const bpmBarToggle = requireElement(
+    document.querySelector<HTMLButtonElement>("#bpm-bar-toggle"),
+    "#bpm-bar-toggle"
+  );
+  const volumeButton = requireElement(
+    document.querySelector<HTMLButtonElement>("#volume-button"),
+    "#volume-button"
+  );
+  const volumeControlPanel = requireElement(
+    document.querySelector<HTMLDivElement>("#volume-control-panel"),
+    "#volume-control-panel"
+  );
+  //
   return {
     listenTimeEl,
     beatsPlayedEl,
@@ -509,6 +521,9 @@ export function getElements() {
     branchChanceLabel,
     branchChance,
     branchChanceDivider,
+    bpmBarToggle,
+    volumeButton,
+    volumeControlPanel,
     //
   };
 }

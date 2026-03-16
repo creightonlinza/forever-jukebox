@@ -154,6 +154,8 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   elements.justBackwardsInput.addEventListener("change", tuningHandlers.handleTuningApply);
   elements.highlightAnchorBranchInput.addEventListener("change", tuningHandlers.handleTuningApply);
   elements.removeSeqInput.addEventListener("change", tuningHandlers.handleTuningApply);
+  elements.bpmBarToggle.addEventListener("change", playbackHandlers.bpmBarToggler);
+  elements.volumeButton.addEventListener("click", playbackHandlers.handleVolumeButtonClick);
   //
   elements.tuningReset.addEventListener("click", tuningHandlers.handleTuningReset);
   elements.playButton.addEventListener("click", playbackHandlers.handlePlayClick);

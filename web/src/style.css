@@ -733,6 +733,7 @@ button:hover {
   line-height: 1;
 }
 
+.settings-toggle,
 .tune-toggle,
 .play-toggle {
   background: transparent;
@@ -797,6 +798,7 @@ button:hover {
   white-space: nowrap;
 }
 
+.volume-control,
 .fullscreen-toggle {
   background: transparent;
   border: none;
@@ -815,6 +817,16 @@ button:hover {
   color: var(--text);
   font-size: 30px;
   line-height: 1;
+}
+
+.volume-control-panel {
+  position: absolute;
+  bottom: 100%;
+}
+
+.volume-slider {
+  writing-mode: vertical-lr;
+  transform: rotate(180deg);
 }
 
 .modal-close {

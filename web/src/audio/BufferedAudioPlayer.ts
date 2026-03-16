@@ -128,8 +128,10 @@ export class BufferedAudioPlayer {
 
   setVolume(value: number) {
     const clamped = Math.max(0, Math.min(1, value));
-    this.volume = clamped;
-    this.masterGain.gain.value = clamped;
+    // makes volume logarithmic
+    const adjustedVolume = Math.pow(clamped, 1.5);
+    this.volume = adjustedVolume;
+    this.masterGain.gain.value = adjustedVolume;
   }
 
   getVolume(): number {

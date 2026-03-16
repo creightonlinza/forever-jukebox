@@ -14,6 +14,8 @@ export const VISUALIZATION_LABELS = [
   "Grid",
   "Infinite",
   "Wave",
+  "Spiral",
+  "Random",
 ] as const;
 
 export const DEFAULT_VISUALIZATION_INDEX = Math.max(

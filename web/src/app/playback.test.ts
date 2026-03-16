@@ -98,7 +98,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
   const elements = createElements();
   const engineConfig = {
     currentThreshold: 0,
-    minRandomBranchChance: 0.18,
+    minRandomBranchChance: 0.1,
     maxRandomBranchChance: 0.5,
     randomBranchChanceDelta: 0.1,
     justBackwards: false,
@@ -232,7 +232,7 @@ describe("playback tuning", () => {
       engine: {
         getConfig: vi.fn(() => ({
           currentThreshold: 0,
-          minRandomBranchChance: 0.18,
+          minRandomBranchChance: 0.1,
           maxRandomBranchChance: 0.5,
           randomBranchChanceDelta: 0.1,
           justBackwards: false,
@@ -286,7 +286,7 @@ describe("playback tuning", () => {
       engine: {
         getConfig: vi.fn(() => ({
           currentThreshold: 0,
-          minRandomBranchChance: 0.18,
+          minRandomBranchChance: 0.1,
           maxRandomBranchChance: 0.5,
           randomBranchChanceDelta: 0.1,
           justBackwards: false,
@@ -339,7 +339,7 @@ describe("playback tuning", () => {
       engine: {
         getConfig: vi.fn(() => ({
           currentThreshold: 0,
-          minRandomBranchChance: 0.18,
+          minRandomBranchChance: 0.1,
           maxRandomBranchChance: 0.5,
           randomBranchChanceDelta: 0.1,
           justBackwards: false,

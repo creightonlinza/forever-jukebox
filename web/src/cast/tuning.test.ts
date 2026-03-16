@@ -14,7 +14,7 @@ function makeDefaults(): JukeboxConfig {
     justBackwards: false,
     justLongBranches: false,
     removeSequentialBranches: false,
-    minRandomBranchChance: 0.18,
+    minRandomBranchChance: 0.1,
     maxRandomBranchChance: 0.5,
     randomBranchChanceDelta: 0.018,
     minLongBranch: 2,

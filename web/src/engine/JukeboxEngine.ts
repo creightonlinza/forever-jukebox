@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: JukeboxConfig = {
   justBackwards: false,
   justLongBranches: false,
   removeSequentialBranches: false,
-  minRandomBranchChance: 0.18,
+  minRandomBranchChance: 0.1,
   maxRandomBranchChance: 0.5,
   randomBranchChanceDelta: 0.1,
   minLongBranch: 0,

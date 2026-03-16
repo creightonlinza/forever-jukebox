@@ -137,7 +137,11 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
     engine.onUpdate((engineState) => {
       elements.beatsPlayedEl.textContent = `${engineState.beatsPlayed}`;
-      elements.branchChance.textContent = `${Math.round(engineState.curRandomBranchChance * 100)}%`;
+      if (state.shiftBranching) {
+        elements.branchChance.textContent = `100%`;
+      } else {
+        elements.branchChance.textContent = `${Math.round(engineState.curRandomBranchChance * 100)}%`;
+      }
       if (engineState.currentBeatIndex >= 0) {
         const jumpFrom =
           engineState.lastJumped && engineState.lastJumpFromIndex !== null
@@ -152,9 +156,15 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       }
     });
 
+    // updates on every beat!?
     engine.onBeat(() => {
       onBeat();
     });
+  }
+
+  var bpmBarVisible = true;
+  function bpmBarToggler() {
+    bpmBarVisible = !bpmBarVisible;
   }
 
   function onBeat() {
@@ -163,12 +173,16 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
   // pulse css elements on each beat
   function pulseElement(element: HTMLElement) {
-    if (!document.fullscreenElement) {
+    if (bpmBarVisible) {
       element.classList.remove("pulse");
       // proc animation again
       void element.offsetWidth;
       element.classList.add("pulse");
     }
+  }
+
+  function handleVolumeButtonClick() {
+    elements.volumeControlPanel.classList.toggle("is-hidden");
   }
   //
 
@@ -487,5 +501,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     applyModeFromUrl,
     setPlayMode,
     updateVizVisibility: () => updateVizVisibility(context),
+    bpmBarToggler,
+    handleVolumeButtonClick,
   };
 }

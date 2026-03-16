@@ -950,6 +950,41 @@ function createGalaxyPositioner(): Positioner {
   };
 }
 
+// new visualizations
+//  ratio spiral
+function createSpiralPositioner(): Positioner {
+  return (data: VisualizationData, width: number, height: number) => {
+    const count = data.beats.length;
+    const cx = width / 2;
+    const cy = height / 2;
+    const maxRadius = Math.min(width, height) * 0.44;
+    const minRadius = Math.min(width, height) * 0.05;
+    const turns = 5;  // adjust here for more or fewer spiral turns
+    return Array.from({ length: count }, (_, i) => {
+      const t = i / Math.max(1, count - 1);
+      const angle = t * Math.PI * 2 * turns;
+      const radius = minRadius + (maxRadius - minRadius) * t;
+      return {
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius,
+      };
+    });
+  }
+}
+
+// just dots everywhere in the canvas
+function createRandomPositioner(): Positioner {
+  return (data: VisualizationData, width: number, height: number) => {
+    const count = data.beats.length;
+    const padding = 20;
+    return Array.from({ length: count }, () => ({
+      x: padding + Math.random() * (width - padding * 2),
+      y: padding + Math.random() * (height - padding * 2),
+    }));
+  };
+}
+//
+
 function getDefaultVisualizationDefinitions(): VisualizationDefinition[] {
   return [
     {
@@ -964,6 +999,8 @@ function getDefaultVisualizationDefinitions(): VisualizationDefinition[] {
     { positioner: createGridPositioner() },
     { positioner: createInfinitePositioner() },
     { positioner: createWavePositioner() },
+    { positioner: createSpiralPositioner() },
+    { positioner: createRandomPositioner() },
   ];
 }
 

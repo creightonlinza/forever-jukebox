@@ -231,6 +231,13 @@
                 >delete</span
               >
             </button>
+            <button id="setting" class="settings-toggle" aria-label="Settings">
+              <span
+                class="material-symbols-outlined settings-icon"
+                aria-hidden="true"
+                >settings</span
+              >
+            </button>
             <button id="tuning" class="tune-toggle" aria-label="Tune">
               <span
                 class="material-symbols-outlined tune-icon"
@@ -303,6 +310,8 @@
                       <option value="3">Grid</option>
                       <option value="4">Infinite</option>
                       <option value="5">Wave</option>
+                      <option value="6">Spiral</option>
+                      <option value="7">Random</option>
                     </select>
                     <span
                       class="material-symbols-outlined viz-select-arrow"
@@ -346,6 +355,36 @@
                   </div>
                 </div>
               </div>
+              <div>
+              <div class="volume-control-panel is-hidden" id="volume-control-panel">
+                <label>
+                  <input
+                    class="volume-slider"
+                    id="volume"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="50"
+                  />
+                  <div class="label-line">
+                    <span id="volume-val">50</span>
+                  </div>
+                </label>
+              </div>
+              <button
+                id="volume-button"
+                class="volume-control"
+                aria-label="Volume"
+              >
+                <span
+                  class="material-symbols-outlined volume-icon"
+                  aria-hidden="true"
+                  >volume_up</span
+                >
+              </button>
+              </div>
+              
               <button
                 id="fullscreen"
                 class="fullscreen-toggle"
@@ -532,7 +571,8 @@
                 value="50"
               />
             </label>
-            <label>
+            <!-- disabled since it's handled by the volume control button -->
+            <!-- <label class="is-hidden">
               <div class="label-line">
                 Volume:
                 <span id="volume-val">50</span>
@@ -545,7 +585,8 @@
                 step="1"
                 value="50"
               />
-            </label>
+            </label> -->
+            <!-- xX_winningTicketXx -->
             </div>
             <div class="model-right-half">
               <div class="checkbox-row">
@@ -565,6 +606,9 @@
                   ><input id="highlight-anchor-branch" type="checkbox" />
                   Highlight forced anchor jump</label
                 >
+                <label>
+                  <input id="bpm-bar-toggle" type="checkbox" checked/> Show BPM bar
+                </label>
               </div>
             </div>
           </div>
