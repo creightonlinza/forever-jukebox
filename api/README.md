@@ -57,8 +57,8 @@ and YouTube jobs that exceed this duration.
 
 yt-dlp requires a JS runtime to solve YouTube challenges. We use Deno and
 configure EJS scripts in code. In Docker deploys, container startup upgrades
-both `yt-dlp` and `deno` to latest stable by default (disable with
-`AUTO_UPDATE_YTDLP=0` and/or `AUTO_UPDATE_DENO=0`).
+both `yt-dlp` and `deno` to latest stable by default. Toggle with
+`AUTO_UPDATE_YTDLP` and `AUTO_UPDATE_DENO` (`true` enables, `false` disables).
 
 ## Run the API
 

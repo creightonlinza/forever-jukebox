@@ -158,5 +158,36 @@ describe("JukeboxViz", () => {
     viz.setActiveIndex(99);
     expect(canvases.length).toBe(2);
   });
-});
 
+  it("clears selected edge when clicking empty visualization space", () => {
+    const viz = new JukeboxViz(createContainer());
+    const edge = {
+      id: 7,
+      src: { which: 0 },
+      dest: { which: 1 },
+      deleted: false,
+    };
+    viz.setData(
+      {
+        beats: [
+          { which: 0, start: 0, duration: 1 },
+          { which: 1, start: 1, duration: 1 },
+        ],
+        edges: [edge],
+        lastBranchPoint: 0,
+        anchorEdgeId: null,
+      } as any
+    );
+    viz.setSelectedEdge(edge as any);
+    const onEdgeSelect = vi.fn();
+    viz.setOnEdgeSelect(onEdgeSelect);
+    const active = (viz as any).activeViz;
+
+    active.handleCanvasClick({
+      clientX: -100,
+      clientY: -100,
+    } as MouseEvent);
+
+    expect(onEdgeSelect).toHaveBeenCalledWith(null);
+  });
+});

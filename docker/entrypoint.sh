@@ -19,12 +19,18 @@ retry() {
   done
 }
 
-if [[ "${AUTO_UPDATE_YTDLP:-1}" == "1" ]]; then
+is_true() {
+  local value="${1:-}"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+  [[ "$value" == "true" ]]
+}
+
+if is_true "${AUTO_UPDATE_YTDLP:-true}"; then
   echo "Updating yt-dlp..."
   retry 3 2 /opt/venv/bin/python -m pip install --upgrade --no-cache-dir "yt-dlp[default]"
 fi
 
-if [[ "${AUTO_UPDATE_DENO:-1}" == "1" ]]; then
+if is_true "${AUTO_UPDATE_DENO:-true}"; then
   echo "Updating Deno..."
   retry 3 2 deno upgrade
 fi
