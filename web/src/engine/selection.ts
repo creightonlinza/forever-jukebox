@@ -4,6 +4,8 @@ export interface BranchState {
   curRandomBranchChance: number;
 }
 
+const REFERENCE_BEAT_DURATION_SECONDS = 0.5;
+
 function collectTimeline(seed: QuantumBase): QuantumBase[] {
   let start = seed;
   while (start.prev) {
@@ -196,8 +198,16 @@ export function shouldRandomBranch(
   if (q.which === graph.lastBranchPoint) {
     return true;
   }
-  // Gradually increase branch chance until a jump happens, then reset.
-  state.curRandomBranchChance += config.randomBranchChanceDelta;
+  // Gradually increase branch chance by elapsed musical time (not raw beat
+  // count), so fast songs do not ramp jump probability disproportionately.
+  const beatDuration =
+    Number.isFinite(q.duration) && q.duration > 0
+      ? q.duration
+      : REFERENCE_BEAT_DURATION_SECONDS;
+  const tempoNormalizedDelta =
+    config.randomBranchChanceDelta *
+    (beatDuration / REFERENCE_BEAT_DURATION_SECONDS);
+  state.curRandomBranchChance += tempoNormalizedDelta;
   if (state.curRandomBranchChance > config.maxRandomBranchChance) {
     state.curRandomBranchChance = config.maxRandomBranchChance;
   }

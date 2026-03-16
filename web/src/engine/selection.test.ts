@@ -423,4 +423,19 @@ describe("shouldRandomBranch", () => {
     expect(shouldBranch).toBe(true);
     expect(state.curRandomBranchChance).toBe(0.1);
   });
+
+  it("ramps slower for short beats and faster for long beats", () => {
+    const shortBeat = makeBeat(0);
+    shortBeat.duration = 0.25;
+    const longBeat = makeBeat(1);
+    longBeat.duration = 1;
+    const shortState = { curRandomBranchChance: 0.1 };
+    const longState = { curRandomBranchChance: 0.1 };
+
+    shouldRandomBranch(shortBeat, graph, config, () => 0.99, shortState);
+    shouldRandomBranch(longBeat, graph, config, () => 0.99, longState);
+
+    expect(shortState.curRandomBranchChance).toBeCloseTo(0.125, 6);
+    expect(longState.curRandomBranchChance).toBeCloseTo(0.2, 6);
+  });
 });
