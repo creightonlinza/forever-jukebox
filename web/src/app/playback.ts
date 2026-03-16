@@ -335,7 +335,7 @@ export function stopListenTimer(context: AppContext) {
 }
 
 export function stopPlayback(context: AppContext) {
-  const { autocanonizer, engine, player, state } = context;
+  const { autocanonizer, elements, engine, player, state } = context;
   if (state.playMode === "autocanonizer") {
     autocanonizer.stop();
     player.stop();
@@ -346,6 +346,12 @@ export function stopPlayback(context: AppContext) {
     state.lastPlayStamp = null;
   }
   state.isRunning = false;
+  if (state.bringItHomeMode) {
+    state.bringItHomeMode = false;
+    engine.setBringItHomeMode(false);
+    elements.bringHomeLabel.classList.add("is-hidden");
+    elements.bringHomeFullscreenLabel.classList.add("is-hidden");
+  }
   stopListenTimer(context);
   updateListenTimeDisplay(context);
   updatePlayButton(context, false);
@@ -487,6 +493,7 @@ export function resetForNewTrack(
   state.bringItHomeMode = false;
   engine.setBringItHomeMode(false);
   elements.bringHomeLabel.classList.add("is-hidden");
+  elements.bringHomeFullscreenLabel.classList.add("is-hidden");
   state.selectedEdge = null;
   jukebox.setSelectedEdge(null);
   engine.clearDeletedEdges();

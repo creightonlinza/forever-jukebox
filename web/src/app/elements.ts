@@ -91,6 +91,10 @@ export function getElements() {
     document.querySelector<HTMLSpanElement>("#bring-home-label"),
     "#bring-home-label"
   );
+  const bringHomeFullscreenLabel = requireElement(
+    document.querySelector<HTMLSpanElement>("#bring-home-fullscreen-label"),
+    "#bring-home-fullscreen-label"
+  );
   const vizPlayButton = requireElement(
     document.querySelector<HTMLButtonElement>("#viz-play"),
     "#viz-play"
@@ -414,6 +418,7 @@ export function getElements() {
     analysisProgress,
     playButton,
     bringHomeLabel,
+    bringHomeFullscreenLabel,
     vizPlayButton,
     shortUrlButton,
     tuningButton,

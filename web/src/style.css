@@ -776,6 +776,10 @@ button:hover {
   white-space: nowrap;
 }
 
+.bring-home-fullscreen-note {
+  display: none;
+}
+
 .fullscreen-toggle {
   background: transparent;
   border: none;
@@ -1179,6 +1183,11 @@ button:hover {
 #viz-panel:fullscreen .viz-title,
 #viz-panel:-webkit-full-screen .viz-title {
   display: block;
+}
+
+#viz-panel:fullscreen .bring-home-fullscreen-note,
+#viz-panel:-webkit-full-screen .bring-home-fullscreen-note {
+  display: inline;
 }
 
 .viz-meta {

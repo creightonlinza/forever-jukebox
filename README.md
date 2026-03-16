@@ -54,11 +54,14 @@ export MAX_TRACK_LENGTH=12
 export ALLOW_USER_UPLOAD=false
 export ALLOW_USER_YOUTUBE=false
 export ALLOW_FAVORITES_SYNC=false
+export AUTO_UPDATE_YTDLP=true
+export AUTO_UPDATE_DENO=true
 docker compose up --build
 ```
 
 `ENGINE_CONFIG` is optional and unused by default; set it only when you explicitly want to use calibration parameters.
 `MAX_TRACK_LENGTH` is optional (minutes) and limits both user-upload and YouTube analysis jobs by duration.
+`AUTO_UPDATE_YTDLP` and `AUTO_UPDATE_DENO` are optional startup flags for container boot-time upgrades (`true`/`false`, default `true`).
 You can also put these values in a `.env` file (same directory as
 `docker-compose.yml`) and Compose will load them automatically.
 

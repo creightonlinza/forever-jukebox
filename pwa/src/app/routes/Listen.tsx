@@ -562,6 +562,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       playTimerMsRef.current += performance.now() - lastPlayStampRef.current;
       lastPlayStampRef.current = null;
     }
+    if (bringItHomeModeRef.current) {
+      bringItHomeModeRef.current = false;
+      setBringItHomeMode(false);
+      engineRef.current?.setBringItHomeMode(false);
+    }
     setIsRunning(false);
   }
 
@@ -1161,6 +1166,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   <span className={`viz-divider ${playMode === "autocanonizer" ? "is-hidden" : ""}`}>·</span>
                   <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>Total Beats:</span>
                   <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsPlayed}</span>
+                  {playMode === "jukebox" && bringItHomeMode ? (
+                    <span className="bring-home-fullscreen-note">· Bringing it on home</span>
+                  ) : null}
                 </div>
               </div>
             </div>
