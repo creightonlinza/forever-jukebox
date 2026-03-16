@@ -257,15 +257,8 @@ function calculateEarliestReachableByBeat(quanta: QuantumBase[]): Map<number, nu
 function resolveEarlyTargetBeat(
   quanta: QuantumBase[],
   fallbackPct: number,
-  structuralFallbackBeat?: number | null,
 ): number {
-  const percentFallbackBeat = Math.floor((quanta.length * fallbackPct) / 100);
-  const fallbackBeat =
-    structuralFallbackBeat !== undefined &&
-    structuralFallbackBeat !== null &&
-    Number.isFinite(structuralFallbackBeat)
-      ? Math.max(0, Math.min(quanta.length - 1, structuralFallbackBeat))
-      : percentFallbackBeat;
+  const fallbackBeat = Math.floor((quanta.length * fallbackPct) / 100);
   const lateHintCapBeat = Math.floor(quanta.length * 0.55);
   const lateSourceStart = Math.floor(quanta.length * 0.66);
   let firstBackwardDestination = Number.POSITIVE_INFINITY;
@@ -368,42 +361,6 @@ function calculateBranchesToEarlyTarget(
     }
   }
   return branchesNeeded;
-}
-
-function findBeatIndexForTime(beats: QuantumBase[], time: number): number {
-  let low = 0;
-  let high = beats.length - 1;
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const beat = beats[mid];
-    if (time < beat.start) {
-      high = mid - 1;
-      continue;
-    }
-    if (time >= beat.start + beat.duration) {
-      low = mid + 1;
-      continue;
-    }
-    return mid;
-  }
-  return Math.max(0, Math.min(beats.length - 1, low));
-}
-
-function resolveStructuralFallbackBeat(analysis: TrackAnalysis): number | null {
-  const beats = analysis.beats;
-  if (beats.length === 0 || analysis.sections.length < 2) {
-    return null;
-  }
-  const minZone = Math.floor(beats.length * 0.1);
-  const maxZone = Math.floor(beats.length * 0.55);
-  for (let i = 1; i < analysis.sections.length; i += 1) {
-    const section = analysis.sections[i];
-    const beatIndex = findBeatIndexForTime(beats, section.start);
-    if (beatIndex >= minZone && beatIndex <= maxZone) {
-      return beatIndex;
-    }
-  }
-  return null;
 }
 
 function selectBestBackwardNeighborOutcome(
@@ -559,13 +516,8 @@ function insertBestBackwardBranch(
   threshold: number,
   maxThreshold: number,
   minSourceIndex = Math.floor(quanta.length * 0.66),
-  structuralFallbackBeat?: number | null,
 ): number | null {
-  const earlyTargetBeat = resolveEarlyTargetBeat(
-    quanta,
-    25,
-    structuralFallbackBeat,
-  );
+  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
   const branchesToTarget = calculateBranchesToEarlyTarget(
     quanta,
     earlyTargetBeat,
@@ -625,14 +577,9 @@ function insertBestBackwardBranch(
 function findExistingAnchorSource(
   quanta: QuantumBase[],
   minLongBranch: number,
-  structuralFallbackBeat?: number | null,
 ): number | null {
   const minSourceIndex = Math.floor(quanta.length * 0.66);
-  const earlyTargetBeat = resolveEarlyTargetBeat(
-    quanta,
-    25,
-    structuralFallbackBeat,
-  );
+  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
   const branchesToTarget = calculateBranchesToEarlyTarget(
     quanta,
     earlyTargetBeat,
@@ -902,14 +849,12 @@ function addAnchorBranch(
   quanta: QuantumBase[],
   threshold: number,
   config: JukeboxConfig,
-  structuralFallbackBeat?: number | null,
 ): number | null {
   const preferredLateStart = Math.floor(quanta.length * 0.8);
   const maxAnchorThreshold = longestBackwardBranch(quanta) < 50 ? 65 : 55;
   const existingAnchorSource = findExistingAnchorSource(
     quanta,
     config.minLongBranch,
-    structuralFallbackBeat,
   );
   if (existingAnchorSource !== null && existingAnchorSource >= preferredLateStart) {
     // Existing end-of-track branch already reaches the early target zone.
@@ -920,7 +865,6 @@ function addAnchorBranch(
     threshold,
     maxAnchorThreshold,
     preferredLateStart,
-    structuralFallbackBeat,
   );
   if (lateInsertedSource !== null) {
     return lateInsertedSource;
@@ -928,27 +872,16 @@ function addAnchorBranch(
   if (existingAnchorSource !== null) {
     return existingAnchorSource;
   }
-  return insertBestBackwardBranch(
-    quanta,
-    threshold,
-    maxAnchorThreshold,
-    undefined,
-    structuralFallbackBeat,
-  );
+  return insertBestBackwardBranch(quanta, threshold, maxAnchorThreshold);
 }
 
 function applyBranchFilters(
   quanta: QuantumBase[],
   config: JukeboxConfig,
   preferredLastBranchPoint: number | null,
-  structuralFallbackBeat?: number | null,
 ): { lastBranchPoint: number; longestReach: number } {
   calculateReachability(quanta);
-  const earlyTargetBeat = resolveEarlyTargetBeat(
-    quanta,
-    25,
-    structuralFallbackBeat,
-  );
+  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
   const branchesToTarget = calculateBranchesToEarlyTarget(
     quanta,
     earlyTargetBeat,
@@ -1006,18 +939,11 @@ export function buildJumpGraph(
       ? config.currentThreshold
       : computedThreshold;
   collectNearestNeighbors(quanta, threshold, config);
-  const structuralFallbackBeat = resolveStructuralFallbackBeat(analysis);
-  const preferredLastBranchPoint = addAnchorBranch(
-    quanta,
-    threshold,
-    config,
-    structuralFallbackBeat,
-  );
+  const preferredLastBranchPoint = addAnchorBranch(quanta, threshold, config);
   const { lastBranchPoint, longestReach } = applyBranchFilters(
     quanta,
     config,
     preferredLastBranchPoint,
-    structuralFallbackBeat,
   );
 
   return {
