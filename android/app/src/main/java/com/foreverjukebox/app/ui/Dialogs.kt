@@ -153,7 +153,7 @@ fun TuningDialog(
                     value = threshold,
                     onValueChange = { threshold = it },
                     valueRange = 2f..80f,
-                    steps = 38
+                    steps = 77
                 )
                 Text("Branch Probability Min: ${minProb.toInt()}%")
                 Slider(

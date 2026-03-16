@@ -1322,7 +1322,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   type="range"
                   min={2}
                   max={80}
-                  step={2}
+                  step={1}
                   value={tuneForm.threshold}
                   onChange={(event) =>
                     setTuneForm((prev) => ({ ...prev, threshold: Number(event.target.value) }))
