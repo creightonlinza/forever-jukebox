@@ -23,7 +23,7 @@ const DEFAULT_CONFIG: JukeboxConfig = {
   removeSequentialBranches: false,
   minRandomBranchChance: 0.18,
   maxRandomBranchChance: 0.5,
-  randomBranchChanceDelta: 0.1,
+  randomBranchChanceDelta: 0.018,
   minLongBranch: 0,
 };
 
