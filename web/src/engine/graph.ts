@@ -13,6 +13,10 @@ const LOUD_START_WEIGHT = 1;
 const LOUD_MAX_WEIGHT = 1;
 const DURATION_WEIGHT = 100;
 const CONFIDENCE_WEIGHT = 1;
+const RELATIVE_SEGMENT_POSITION_WEIGHT = 12;
+const SELF_SEGMENT_MATCH_PENALTY = 100;
+const NO_SEGMENT_MATCH_PENALTY = 120;
+const PARENT_INDEX_MISMATCH_PENALTY = 40;
 
 function euclideanDistance(v1: number[], v2: number[]): number {
   let sum = 0;
@@ -40,6 +44,37 @@ function getSegmentDistance(seg1: Segment, seg2: Segment): number {
   );
 }
 
+function normalizeDuration(duration: number): number {
+  return Number.isFinite(duration) && duration > 0 ? duration : 0.001;
+}
+
+function getBestSegmentMatchDistance(
+  seg1: Segment,
+  q1: QuantumBase,
+  q2: QuantumBase,
+): number {
+  if (q2.overlappingSegments.length === 0) {
+    return NO_SEGMENT_MATCH_PENALTY;
+  }
+  const q1Duration = normalizeDuration(q1.duration);
+  const q2Duration = normalizeDuration(q2.duration);
+  const seg1RelativeStart = (seg1.start - q1.start) / q1Duration;
+  let best = Number.POSITIVE_INFINITY;
+  for (const seg2 of q2.overlappingSegments) {
+    let candidate = getSegmentDistance(seg1, seg2);
+    if (seg1.which === seg2.which) {
+      candidate += SELF_SEGMENT_MATCH_PENALTY;
+    }
+    const seg2RelativeStart = (seg2.start - q2.start) / q2Duration;
+    const relativeDelta = Math.abs(seg1RelativeStart - seg2RelativeStart);
+    candidate += relativeDelta * RELATIVE_SEGMENT_POSITION_WEIGHT;
+    if (candidate < best) {
+      best = candidate;
+    }
+  }
+  return Number.isFinite(best) ? best : NO_SEGMENT_MATCH_PENALTY;
+}
+
 function calculateNearestNeighborsForQuantum(
   quanta: QuantumBase[],
   maxNeighbors: number,
@@ -59,29 +94,24 @@ function calculateNearestNeighborsForQuantum(
     }
 
     const q2 = quanta[i];
-    let sum = 0;
-    for (let j = 0; j < q1.overlappingSegments.length; j += 1) {
-      const seg1 = q1.overlappingSegments[j];
-      let distance = 100;
-      if (j < q2.overlappingSegments.length) {
-        const seg2 = q2.overlappingSegments[j];
-        if (seg1.which === seg2.which) {
-          distance = 100;
-        } else {
-          distance = getSegmentDistance(seg1, seg2);
-        }
-      }
-      sum += distance;
+    let weightedDistanceSum = 0;
+    let weightTotal = 0;
+    for (const seg1 of q1.overlappingSegments) {
+      const distance = getBestSegmentMatchDistance(seg1, q1, q2);
+      const weight = normalizeDuration(seg1.duration);
+      weightedDistanceSum += distance * weight;
+      weightTotal += weight;
     }
 
-    const pdistance =
+    const parentIndexPenalty =
       q1.indexInParent !== undefined &&
       q2.indexInParent !== undefined &&
       q1.indexInParent === q2.indexInParent
         ? 0
-        : 100;
+        : PARENT_INDEX_MISMATCH_PENALTY;
 
-    const totalDistance = sum / q1.overlappingSegments.length + pdistance;
+    const totalDistance =
+      weightedDistanceSum / Math.max(weightTotal, 1) + parentIndexPenalty;
     if (totalDistance < maxThreshold) {
       edges.push({
         id: -1,
