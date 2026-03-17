@@ -285,10 +285,19 @@ interface AnchorSourceCandidate {
   outcome: NeighborOutcome;
 }
 
+interface AnchorDecisionContext {
+  earlyTargetBeat: number;
+  branchesToTarget: Map<number, number>;
+  earliestByBeat: Map<number, number>;
+}
+
 const LATE_ANCHOR_BRANCH_TOLERANCE = 1;
 const LATE_ANCHOR_IMMEDIATE_RATIO = 0.6;
 const LATE_ANCHOR_EARLIEST_SLACK_PCT = 0.02;
 const LATE_ANCHOR_EARLIEST_SLACK_MIN = 4;
+const LATE_ANCHOR_EXTRA_HOP_MAX_LANDING_PCT = 0.5;
+const LATE_ANCHOR_NEARBY_SOURCE_WINDOW = 4;
+const LATE_ANCHOR_NEARBY_IMMEDIATE_RATIO = 0.8;
 
 function calculateBranchesToEarlyTarget(
   quanta: QuantumBase[],
@@ -403,11 +412,105 @@ function compareAnchorOutcomeQuality(
   );
 }
 
+function buildAnchorDecisionContext(quanta: QuantumBase[]): AnchorDecisionContext {
+  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
+  return {
+    earlyTargetBeat,
+    branchesToTarget: calculateBranchesToEarlyTarget(quanta, earlyTargetBeat),
+    earliestByBeat: calculateEarliestReachableByBeat(quanta),
+  };
+}
+
+function collectAnchorTierCandidates(
+  quanta: QuantumBase[],
+  range: { start: number; end: number },
+  rule: AnchorTierRule,
+  context: AnchorDecisionContext,
+): AnchorSourceCandidate[] {
+  const candidates: AnchorSourceCandidate[] = [];
+  for (let i = range.end; i >= range.start; i -= 1) {
+    const q = quanta[i];
+    const outcome = selectBestBackwardNeighborOutcome(
+      q,
+      context.earliestByBeat,
+      context.branchesToTarget,
+    );
+    if (
+      outcome &&
+      outcome.branchesToTarget <= rule.maxAdditionalBranches &&
+      outcome.earliestReachable <= context.earlyTargetBeat &&
+      outcome.immediateBackward >= rule.minImmediateBackward
+    ) {
+      candidates.push({ index: i, outcome });
+    }
+  }
+  return candidates;
+}
+
+function pickLatestAnchorCandidate(
+  candidates: AnchorSourceCandidate[],
+): AnchorSourceCandidate {
+  let latest = candidates[0];
+  for (let i = 1; i < candidates.length; i += 1) {
+    if (candidates[i].index > latest.index) {
+      latest = candidates[i];
+    }
+  }
+  return latest;
+}
+
+function shouldPreferBestQualityOverLatest(
+  bestQuality: AnchorSourceCandidate,
+  latest: AnchorSourceCandidate,
+): boolean {
+  const latestIsNearby =
+    latest.index - bestQuality.index <= LATE_ANCHOR_NEARBY_SOURCE_WINDOW;
+  const latestNeedsMoreBranches =
+    latest.outcome.branchesToTarget > bestQuality.outcome.branchesToTarget;
+  const nearbyImmediateFloor = Math.floor(
+    bestQuality.outcome.immediateBackward * LATE_ANCHOR_NEARBY_IMMEDIATE_RATIO,
+  );
+  const latestIsMeaningfullyShorter =
+    latest.outcome.immediateBackward < nearbyImmediateFloor;
+  return latestIsNearby && latestNeedsMoreBranches && latestIsMeaningfullyShorter;
+}
+
+function filterLateBiasAnchorCandidates(
+  candidates: AnchorSourceCandidate[],
+  bestQuality: AnchorSourceCandidate,
+  rule: AnchorTierRule,
+  quantaLength: number,
+): AnchorSourceCandidate[] {
+  const earliestSlack = Math.max(
+    LATE_ANCHOR_EARLIEST_SLACK_MIN,
+    Math.floor(quantaLength * LATE_ANCHOR_EARLIEST_SLACK_PCT),
+  );
+  const immediateFloor = Math.max(
+    rule.minImmediateBackward,
+    Math.floor(bestQuality.outcome.immediateBackward * LATE_ANCHOR_IMMEDIATE_RATIO),
+  );
+  const maxExtraHopLandingBeat = Math.floor(
+    quantaLength * LATE_ANCHOR_EXTRA_HOP_MAX_LANDING_PCT,
+  );
+  return candidates.filter((candidate) => {
+    const landingBeat = candidate.index - candidate.outcome.immediateBackward;
+    const allowByLandingDepth =
+      candidate.outcome.branchesToTarget === 0 ||
+      landingBeat <= maxExtraHopLandingBeat;
+    return (
+      allowByLandingDepth &&
+      candidate.outcome.branchesToTarget <=
+        bestQuality.outcome.branchesToTarget + LATE_ANCHOR_BRANCH_TOLERANCE &&
+      candidate.outcome.earliestReachable <=
+        bestQuality.outcome.earliestReachable + earliestSlack &&
+      candidate.outcome.immediateBackward >= immediateFloor
+    );
+  });
+}
+
 function findBestTieredAnchorSource(
   quanta: QuantumBase[],
-  earliestByBeat: Map<number, number>,
-  branchesToTarget: Map<number, number>,
-  earlyTargetBeat: number,
+  context: AnchorDecisionContext,
   minSourceIndex: number,
   minLongBranch: number,
 ): number | null {
@@ -425,23 +528,7 @@ function findBestTieredAnchorSource(
       if (range.end < range.start) {
         continue;
       }
-      const candidates: AnchorSourceCandidate[] = [];
-      for (let i = range.end; i >= range.start; i -= 1) {
-        const q = quanta[i];
-        const outcome = selectBestBackwardNeighborOutcome(
-          q,
-          earliestByBeat,
-          branchesToTarget,
-        );
-        if (
-          outcome &&
-          outcome.branchesToTarget <= rule.maxAdditionalBranches &&
-          outcome.earliestReachable <= earlyTargetBeat &&
-          outcome.immediateBackward >= rule.minImmediateBackward
-        ) {
-          candidates.push({ index: i, outcome });
-        }
-      }
+      const candidates = collectAnchorTierCandidates(quanta, range, rule, context);
       if (candidates.length === 0) {
         continue;
       }
@@ -450,28 +537,16 @@ function findBestTieredAnchorSource(
           ? candidate
           : best,
       );
-      const earliestSlack = Math.max(
-        LATE_ANCHOR_EARLIEST_SLACK_MIN,
-        Math.floor(quanta.length * LATE_ANCHOR_EARLIEST_SLACK_PCT),
-      );
-      const immediateFloor = Math.max(
-        rule.minImmediateBackward,
-        Math.floor(bestQuality.outcome.immediateBackward * LATE_ANCHOR_IMMEDIATE_RATIO),
-      );
-      const lateBiasCandidates = candidates.filter(
-        (candidate) =>
-          candidate.outcome.branchesToTarget <=
-            bestQuality.outcome.branchesToTarget + LATE_ANCHOR_BRANCH_TOLERANCE &&
-          candidate.outcome.earliestReachable <=
-            bestQuality.outcome.earliestReachable + earliestSlack &&
-          candidate.outcome.immediateBackward >= immediateFloor,
+      const lateBiasCandidates = filterLateBiasAnchorCandidates(
+        candidates,
+        bestQuality,
+        rule,
+        quanta.length,
       );
       if (lateBiasCandidates.length > 0) {
-        let latest = lateBiasCandidates[0];
-        for (let i = 1; i < lateBiasCandidates.length; i += 1) {
-          if (lateBiasCandidates[i].index > latest.index) {
-            latest = lateBiasCandidates[i];
-          }
+        const latest = pickLatestAnchorCandidate(lateBiasCandidates);
+        if (shouldPreferBestQualityOverLatest(bestQuality, latest)) {
+          return bestQuality.index;
         }
         return latest.index;
       }
@@ -486,13 +561,9 @@ function insertBestBackwardBranch(
   threshold: number,
   maxThreshold: number,
   minSourceIndex = Math.floor(quanta.length * 0.66),
+  context?: AnchorDecisionContext,
 ): number | null {
-  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
-  const branchesToTarget = calculateBranchesToEarlyTarget(
-    quanta,
-    earlyTargetBeat,
-  );
-  const earliestByBeat = calculateEarliestReachableByBeat(quanta);
+  const decisionContext = context ?? buildAnchorDecisionContext(quanta);
   const branches: Array<{
     branchesToTarget: number;
     earliestReachable: number;
@@ -517,10 +588,11 @@ function insertBestBackwardBranch(
         }
         branches.push({
           branchesToTarget:
-            branchesToTarget.get(neighbor.dest.which) ??
+            decisionContext.branchesToTarget.get(neighbor.dest.which) ??
             Number.POSITIVE_INFINITY,
           earliestReachable:
-            earliestByBeat.get(neighbor.dest.which) ?? neighbor.dest.which,
+            decisionContext.earliestByBeat.get(neighbor.dest.which) ??
+            neighbor.dest.which,
           immediateBackward: delta,
           distance: neighbor.distance,
           q,
@@ -547,20 +619,13 @@ function insertBestBackwardBranch(
 function findExistingAnchorSource(
   quanta: QuantumBase[],
   minLongBranch: number,
+  context?: AnchorDecisionContext,
 ): number | null {
+  const decisionContext = context ?? buildAnchorDecisionContext(quanta);
   const minSourceIndex = Math.floor(quanta.length * 0.66);
-  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
-  const branchesToTarget = calculateBranchesToEarlyTarget(
-    quanta,
-    earlyTargetBeat,
-  );
-  const earliestByBeat = calculateEarliestReachableByBeat(quanta);
-
   const tieredSource = findBestTieredAnchorSource(
     quanta,
-    earliestByBeat,
-    branchesToTarget,
-    earlyTargetBeat,
+    decisionContext,
     minSourceIndex,
     minLongBranch,
   );
@@ -582,12 +647,14 @@ function findExistingAnchorSource(
         continue;
       }
       const targetBranches =
-        branchesToTarget.get(neighbor.dest.which) ?? Number.POSITIVE_INFINITY;
+        decisionContext.branchesToTarget.get(neighbor.dest.which) ??
+        Number.POSITIVE_INFINITY;
       if (targetBranches > 0) {
         continue;
       }
       const earliestReachable =
-        earliestByBeat.get(neighbor.dest.which) ?? neighbor.dest.which;
+        decisionContext.earliestByBeat.get(neighbor.dest.which) ??
+        neighbor.dest.which;
       if (
         targetBranches < bestBranchesToTarget ||
         (targetBranches === bestBranchesToTarget &&
@@ -672,17 +739,13 @@ function calculateReachability(quanta: QuantumBase[]) {
 
 function findBestLastBeat(
   quanta: QuantumBase[],
-  earliestByBeat: Map<number, number>,
-  branchesToTarget: Map<number, number>,
-  earlyTargetBeat: number,
+  context: AnchorDecisionContext,
   minLongBranch: number,
 ): { index: number; longestReach: number } {
   const minLastBranchIndex = Math.floor(quanta.length * 0.66);
   const tieredSource = findBestTieredAnchorSource(
     quanta,
-    earliestByBeat,
-    branchesToTarget,
-    earlyTargetBeat,
+    context,
     minLastBranchIndex,
     minLongBranch,
   );
@@ -712,13 +775,13 @@ function findBestLastBeat(
         : 0;
     const bestOutcome = selectBestBackwardNeighborOutcome(
       q,
-      earliestByBeat,
-      branchesToTarget,
+      context.earliestByBeat,
+      context.branchesToTarget,
     );
     if (bestOutcome) {
       if (
         i >= minLastBranchIndex &&
-        bestOutcome.earliestReachable <= earlyTargetBeat &&
+        bestOutcome.earliestReachable <= context.earlyTargetBeat &&
         (bestOutcome.branchesToTarget < bestEarlyTargetBranches ||
           (bestOutcome.branchesToTarget === bestEarlyTargetBranches &&
             bestOutcome.earliestReachable < bestEarlyReachable) ||
@@ -820,11 +883,13 @@ function addAnchorBranch(
   threshold: number,
   config: JukeboxConfig,
 ): number | null {
+  const decisionContext = buildAnchorDecisionContext(quanta);
   const preferredLateStart = Math.floor(quanta.length * 0.8);
   const maxAnchorThreshold = longestBackwardBranch(quanta) < 50 ? 65 : 55;
   const existingAnchorSource = findExistingAnchorSource(
     quanta,
     config.minLongBranch,
+    decisionContext,
   );
   if (existingAnchorSource !== null && existingAnchorSource >= preferredLateStart) {
     // Existing end-of-track branch already reaches the early target zone.
@@ -835,6 +900,7 @@ function addAnchorBranch(
     threshold,
     maxAnchorThreshold,
     preferredLateStart,
+    decisionContext,
   );
   if (lateInsertedSource !== null) {
     return lateInsertedSource;
@@ -842,7 +908,13 @@ function addAnchorBranch(
   if (existingAnchorSource !== null) {
     return existingAnchorSource;
   }
-  return insertBestBackwardBranch(quanta, threshold, maxAnchorThreshold);
+  return insertBestBackwardBranch(
+    quanta,
+    threshold,
+    maxAnchorThreshold,
+    Math.floor(quanta.length * 0.66),
+    decisionContext,
+  );
 }
 
 function applyBranchFilters(
@@ -851,12 +923,7 @@ function applyBranchFilters(
   preferredLastBranchPoint: number | null,
 ): { lastBranchPoint: number; longestReach: number } {
   calculateReachability(quanta);
-  const earlyTargetBeat = resolveEarlyTargetBeat(quanta, 25);
-  const branchesToTarget = calculateBranchesToEarlyTarget(
-    quanta,
-    earlyTargetBeat,
-  );
-  const earliestByBeat = calculateEarliestReachableByBeat(quanta);
+  const decisionContext = buildAnchorDecisionContext(quanta);
   let selectedLastBranchPoint: number;
   let selectedLongestReach: number;
   if (
@@ -875,9 +942,7 @@ function applyBranchFilters(
   } else {
     const { index, longestReach } = findBestLastBeat(
       quanta,
-      earliestByBeat,
-      branchesToTarget,
-      earlyTargetBeat,
+      decisionContext,
       config.minLongBranch,
     );
     selectedLastBranchPoint = index;
