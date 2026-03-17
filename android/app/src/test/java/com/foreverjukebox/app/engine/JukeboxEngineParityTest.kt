@@ -141,6 +141,39 @@ class JukeboxEngineParityTest {
     }
 
     @Test
+    fun deletingAnchorEdgePromotesFallbackAnchorSource() {
+        val engine = JukeboxEngine(FakePlayer())
+        val beats = mutableListOf(makeBeat(0), makeBeat(1), makeBeat(2))
+        linkBeats(beats)
+        val anchorEdge = makeEdge(0, beats[1], beats[0], 10.0)
+        val fallbackEdge = makeEdge(1, beats[2], beats[0], 9.0)
+        beats[1].neighbors = mutableListOf(anchorEdge)
+        beats[1].allNeighbors = mutableListOf(anchorEdge)
+        beats[2].neighbors = mutableListOf(fallbackEdge)
+        beats[2].allNeighbors = mutableListOf(fallbackEdge)
+        val graph = JukeboxGraphState(
+            computedThreshold = 0,
+            currentThreshold = 0,
+            lastBranchPoint = 1,
+            totalBeats = beats.size,
+            longestReach = 0.0,
+            allEdges = mutableListOf(anchorEdge, fallbackEdge)
+        )
+        setPrivateField(engine, "analysis", makeAnalysis(beats))
+        setPrivateField(engine, "graph", graph)
+        setPrivateField(engine, "beats", beats)
+
+        engine.deleteEdge(anchorEdge)
+
+        val updated = engine.getGraphState()
+        assertNotNull(updated)
+        assertEquals(2, updated?.lastBranchPoint)
+        val viz = engine.getVisualizationData()
+        assertNotNull(viz)
+        assertEquals(1, viz?.anchorEdgeId)
+    }
+
+    @Test
     fun doesNotForceBranchWhenOnlyCurrentBeatIsLastBranchPoint() {
         val player = FakePlayer()
         val engine = JukeboxEngine(player)

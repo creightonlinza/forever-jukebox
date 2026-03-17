@@ -30,33 +30,22 @@ function makePlayer(): JukeboxPlayer {
   };
 }
 
-function makeAnalysisPayload() {
-  const beats = [
-    { start: 0, duration: 1, confidence: 1 },
-    { start: 1, duration: 1, confidence: 1 },
-  ];
-  const segments = [
-    {
-      start: 0,
-      duration: 1,
-      confidence: 1,
-      loudness_start: 0,
-      loudness_max: 0,
-      loudness_max_time: 0,
-      pitches: Array(12).fill(0),
-      timbre: Array(12).fill(0),
-    },
-    {
-      start: 1,
-      duration: 1,
-      confidence: 1,
-      loudness_start: 0,
-      loudness_max: 0,
-      loudness_max_time: 0,
-      pitches: Array(12).fill(0),
-      timbre: Array(12).fill(0),
-    },
-  ];
+function makeAnalysisPayload(count = 2) {
+  const beats = Array.from({ length: count }, (_, i) => ({
+    start: i,
+    duration: 1,
+    confidence: 1,
+  }));
+  const segments = Array.from({ length: count }, (_, i) => ({
+    start: i,
+    duration: 1,
+    confidence: 1,
+    loudness_start: 0,
+    loudness_max: 0,
+    loudness_max_time: 0,
+    pitches: Array(12).fill(0),
+    timbre: Array(12).fill(0),
+  }));
   return {
     sections: beats,
     bars: beats,
@@ -150,5 +139,57 @@ describe("JukeboxEngine rebuildGraph", () => {
     engine.rebuildGraph();
     const beat = (engine as unknown as { beats: TrackAnalysis["beats"] }).beats[0];
     expect(beat.neighbors.find((candidate) => candidate.deleted)).toBeUndefined();
+  });
+
+  it("reassigns anchor source when deleted edges remove the current anchor branch", () => {
+    const mockedBuild = vi.mocked(buildJumpGraph);
+    mockedBuild.mockImplementation((analysis: TrackAnalysis) => {
+      const edgeA: Edge = {
+        id: 0,
+        src: analysis.beats[1],
+        dest: analysis.beats[0],
+        distance: 10,
+        deleted: false,
+      };
+      const edgeB: Edge = {
+        id: 1,
+        src: analysis.beats[2],
+        dest: analysis.beats[0],
+        distance: 9,
+        deleted: false,
+      };
+      for (const beat of analysis.beats) {
+        beat.neighbors = [];
+        beat.allNeighbors = [];
+      }
+      analysis.beats[1].neighbors = [edgeA];
+      analysis.beats[1].allNeighbors = [edgeA];
+      analysis.beats[2].neighbors = [edgeB];
+      analysis.beats[2].allNeighbors = [edgeB];
+      return {
+        computedThreshold: 10,
+        currentThreshold: 10,
+        lastBranchPoint: 1,
+        totalBeats: analysis.beats.length,
+        longestReach: 0,
+        allEdges: [edgeA, edgeB],
+      } satisfies JukeboxGraphState;
+    });
+
+    const engine = new JukeboxEngine(makePlayer());
+    engine.loadAnalysis(makeAnalysisPayload(3));
+    const before = engine.getGraphState();
+    const anchorEdge = before?.allEdges.find((edge) => edge.src.which === 1);
+    if (!anchorEdge) {
+      throw new Error("Expected initial anchor edge");
+    }
+
+    engine.deleteEdge(anchorEdge);
+    engine.rebuildGraph();
+
+    const after = engine.getGraphState();
+    expect(after?.lastBranchPoint).toBe(2);
+    const viz = engine.getVisualizationData();
+    expect(viz?.anchorEdgeId).toBe(1);
   });
 });

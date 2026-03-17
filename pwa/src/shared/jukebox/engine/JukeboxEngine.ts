@@ -250,6 +250,44 @@ export class JukeboxEngine {
       }
       beat.neighbors = beat.neighbors.filter((edge) => !edge.deleted);
     }
+    this.ensureAnchorSourceHasNeighbors();
+  }
+
+  private ensureAnchorSourceHasNeighbors() {
+    if (!this.graph || !this.analysis) {
+      return;
+    }
+    const anchorSource = this.analysis.beats[this.graph.lastBranchPoint];
+    if (anchorSource && anchorSource.neighbors.length > 0) {
+      return;
+    }
+    const fallback = this.findFallbackLastBranchPoint();
+    if (fallback !== null) {
+      this.graph.lastBranchPoint = fallback;
+    }
+  }
+
+  private findFallbackLastBranchPoint(): number | null {
+    if (!this.analysis) {
+      return null;
+    }
+    let latestAnySource: number | null = null;
+    for (let i = this.analysis.beats.length - 1; i >= 0; i -= 1) {
+      const beat = this.analysis.beats[i];
+      if (beat.neighbors.length === 0) {
+        continue;
+      }
+      if (latestAnySource === null) {
+        latestAnySource = i;
+      }
+      const hasBackward = beat.neighbors.some(
+        (edge) => edge.dest.which < beat.which,
+      );
+      if (hasBackward) {
+        return i;
+      }
+    }
+    return latestAnySource;
   }
 
   private clearEdgeDeletionFlags() {

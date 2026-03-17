@@ -343,6 +343,38 @@ class JukeboxEngine(
             }
             beat.neighbors = beat.neighbors.filter { !it.deleted }.toMutableList()
         }
+        ensureAnchorSourceHasNeighbors()
+    }
+
+    private fun ensureAnchorSourceHasNeighbors() {
+        val current = graph ?: return
+        val currentAnalysis = analysis ?: return
+        val anchorSource = currentAnalysis.beats.getOrNull(current.lastBranchPoint)
+        if (anchorSource != null && anchorSource.neighbors.isNotEmpty()) {
+            return
+        }
+        val fallback = findFallbackLastBranchPoint(currentAnalysis)
+        if (fallback != null) {
+            graph = current.copy(lastBranchPoint = fallback)
+        }
+    }
+
+    private fun findFallbackLastBranchPoint(currentAnalysis: TrackAnalysis): Int? {
+        var latestAnySource: Int? = null
+        for (i in currentAnalysis.beats.lastIndex downTo 0) {
+            val beat = currentAnalysis.beats[i]
+            if (beat.neighbors.isEmpty()) {
+                continue
+            }
+            if (latestAnySource == null) {
+                latestAnySource = i
+            }
+            val hasBackward = beat.neighbors.any { edge -> edge.dest.which < beat.which }
+            if (hasBackward) {
+                return i
+            }
+        }
+        return latestAnySource
     }
 
     private fun clearEdgeDeletionFlags() {
