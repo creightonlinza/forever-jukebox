@@ -209,6 +209,53 @@ function makeLateNearQualityPrefersLatestScenario() {
   return analysis;
 }
 
+function makeNearbyGuardrailScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(30));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 6, 10);
+  // Higher-quality nearby source with direct early target reach.
+  push(26, 6, 10);
+  // Slightly later source is one hop worse and materially shorter immediate jump.
+  push(27, 15, 10);
+  push(15, 6, 10);
+  return analysis;
+}
+
+function makeLateLandingDepthScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(30));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 6, 10);
+  // Best-quality direct source.
+  push(24, 6, 9);
+  // Qualifying one-hop source that lands early enough and should win via late bias.
+  push(28, 12, 10);
+  push(12, 6, 10);
+  // Latest one-hop source that lands too late (>50%) and should be filtered out.
+  push(29, 19, 10);
+  push(19, 6, 10);
+  return analysis;
+}
+
 function makeFallbackRangeAnchorScenario() {
   const analysis = normalizeAnalysis(makeLinearAnalysis(10));
   const beats = analysis.beats;
@@ -620,6 +667,56 @@ describe("buildJumpGraph", () => {
     expect(
       analysis.beats[graph.lastBranchPoint].neighbors.some(
         (edge) => edge.dest.which === 4,
+      ),
+    ).toBe(true);
+  });
+
+  it("uses nearby-source guardrail when latest candidate needs more branches", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 6,
+    };
+
+    const analysis = makeNearbyGuardrailScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(26);
+    expect(
+      analysis.beats[graph.lastBranchPoint].neighbors.some(
+        (edge) => edge.dest.which === 6,
+      ),
+    ).toBe(true);
+  });
+
+  it("filters extra-hop late-bias candidates that land past mid-track", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 6,
+    };
+
+    const analysis = makeLateLandingDepthScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(28);
+    expect(
+      analysis.beats[graph.lastBranchPoint].neighbors.some(
+        (edge) => edge.dest.which === 12,
       ),
     ).toBe(true);
   });

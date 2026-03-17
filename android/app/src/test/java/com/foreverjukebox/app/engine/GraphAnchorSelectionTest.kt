@@ -33,6 +33,32 @@ class GraphAnchorSelectionTest {
     }
 
     @Test
+    fun usesNearbySourceGuardrailWhenLatestCandidateNeedsMoreBranches() {
+        val analysis = makeNearbyGuardrailScenario()
+        val graph = buildJumpGraph(analysis, testConfig(minLongBranch = 6))
+
+        assertEquals(26, graph.lastBranchPoint)
+        assertTrue(
+            analysis.beats[graph.lastBranchPoint].neighbors.any { edge ->
+                edge.dest.which == 6
+            }
+        )
+    }
+
+    @Test
+    fun filtersExtraHopLateBiasCandidatesThatLandPastMidTrack() {
+        val analysis = makeLateLandingDepthScenario()
+        val graph = buildJumpGraph(analysis, testConfig(minLongBranch = 6))
+
+        assertEquals(28, graph.lastBranchPoint)
+        assertTrue(
+            analysis.beats[graph.lastBranchPoint].neighbors.any { edge ->
+                edge.dest.which == 12
+            }
+        )
+    }
+
+    @Test
     fun usesFallbackLateRangeWhenPreferredLateWindowHasNoCandidate() {
         val analysis = makeFallbackRangeAnchorScenario()
         val graph = buildJumpGraph(analysis, testConfig())
@@ -166,6 +192,53 @@ class GraphAnchorSelectionTest {
         // No qualifying branches in preferred late window (8-9).
         // Fallback late-range candidate in 66-80% window should be selected.
         push(7, 2, 10.0)
+        return analysis
+    }
+
+    private fun makeNearbyGuardrailScenario(): TrackAnalysis {
+        val analysis = makeLinearAnalysis(30)
+        val beats = analysis.beats
+        beats.forEach { beat ->
+            beat.allNeighbors = mutableListOf()
+            beat.neighbors = mutableListOf()
+        }
+        var id = 0
+        fun push(src: Int, dest: Int, distance: Double) {
+            beats[src].allNeighbors.add(makeEdge(id, beats[src], beats[dest], distance))
+            id += 1
+        }
+        // Keep beat 0 non-empty so graph build uses cached neighbors.
+        push(0, 6, 10.0)
+        // Higher-quality nearby source with direct early target reach.
+        push(26, 6, 10.0)
+        // Slightly later source is one hop worse and materially shorter immediate jump.
+        push(27, 15, 10.0)
+        push(15, 6, 10.0)
+        return analysis
+    }
+
+    private fun makeLateLandingDepthScenario(): TrackAnalysis {
+        val analysis = makeLinearAnalysis(30)
+        val beats = analysis.beats
+        beats.forEach { beat ->
+            beat.allNeighbors = mutableListOf()
+            beat.neighbors = mutableListOf()
+        }
+        var id = 0
+        fun push(src: Int, dest: Int, distance: Double) {
+            beats[src].allNeighbors.add(makeEdge(id, beats[src], beats[dest], distance))
+            id += 1
+        }
+        // Keep beat 0 non-empty so graph build uses cached neighbors.
+        push(0, 6, 10.0)
+        // Best-quality direct source.
+        push(24, 6, 9.0)
+        // Qualifying one-hop source that lands early enough and should win via late bias.
+        push(28, 12, 10.0)
+        push(12, 6, 10.0)
+        // Latest one-hop source that lands too late (>50%) and should be filtered out.
+        push(29, 19, 10.0)
+        push(19, 6, 10.0)
         return analysis
     }
 
