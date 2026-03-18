@@ -18,6 +18,9 @@ private const val LATE_ANCHOR_BRANCH_TOLERANCE = 1
 private const val LATE_ANCHOR_IMMEDIATE_RATIO = 0.6
 private const val LATE_ANCHOR_EARLIEST_SLACK_PCT = 0.02
 private const val LATE_ANCHOR_EARLIEST_SLACK_MIN = 4
+private const val LATE_ANCHOR_EXTRA_HOP_MAX_LANDING_PCT = 0.5
+private const val LATE_ANCHOR_NEARBY_SOURCE_WINDOW = 4
+private const val LATE_ANCHOR_NEARBY_IMMEDIATE_RATIO = 0.8
 
 private fun euclideanDistance(v1: List<Double>, v2: List<Double>): Double {
     var sum = 0.0
@@ -431,7 +434,15 @@ private fun findBestTieredAnchorSource(
                 rule.minImmediateBackward,
                 floor(bestQuality.outcome.immediateBackward * LATE_ANCHOR_IMMEDIATE_RATIO).toInt()
             )
+            val maxExtraHopLandingBeat = floor(
+                quanta.size * LATE_ANCHOR_EXTRA_HOP_MAX_LANDING_PCT
+            ).toInt()
             val lateBiasCandidates = candidates.filter { candidate ->
+                val landingBeat = candidate.index - candidate.outcome.immediateBackward
+                val allowByLandingDepth =
+                    candidate.outcome.branchesToTarget == 0 ||
+                        landingBeat <= maxExtraHopLandingBeat
+                allowByLandingDepth &&
                 candidate.outcome.branchesToTarget <=
                     bestQuality.outcome.branchesToTarget + LATE_ANCHOR_BRANCH_TOLERANCE &&
                     candidate.outcome.earliestReachable <=
@@ -439,7 +450,20 @@ private fun findBestTieredAnchorSource(
                     candidate.outcome.immediateBackward >= immediateFloor
             }
             if (lateBiasCandidates.isNotEmpty()) {
-                return lateBiasCandidates.maxByOrNull { it.index }!!.index
+                val latest = lateBiasCandidates.maxByOrNull { it.index }!!
+                val latestIsNearby =
+                    latest.index - bestQuality.index <= LATE_ANCHOR_NEARBY_SOURCE_WINDOW
+                val latestNeedsMoreBranches =
+                    latest.outcome.branchesToTarget > bestQuality.outcome.branchesToTarget
+                val nearbyImmediateFloor = floor(
+                    bestQuality.outcome.immediateBackward * LATE_ANCHOR_NEARBY_IMMEDIATE_RATIO
+                ).toInt()
+                val latestIsMeaningfullyShorter =
+                    latest.outcome.immediateBackward < nearbyImmediateFloor
+                if (latestIsNearby && latestNeedsMoreBranches && latestIsMeaningfullyShorter) {
+                    return bestQuality.index
+                }
+                return latest.index
             }
             return bestQuality.index
         }

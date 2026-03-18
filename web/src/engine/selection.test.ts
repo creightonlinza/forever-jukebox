@@ -384,6 +384,57 @@ describe("selectNextBeatIndex", () => {
     expect(selection.index).toBe(0);
     expect(selection.jumped).toBe(false);
   });
+
+  it("de-prioritizes immediately repeating the same non-anchor destination", () => {
+    const seed = makeBeat(4);
+    const firstTarget = makeBeat(1);
+    const secondTarget = makeBeat(2);
+    seed.neighbors.push(
+      {
+        id: 0,
+        src: seed,
+        dest: firstTarget,
+        distance: 10,
+        deleted: false,
+      },
+      {
+        id: 1,
+        src: seed,
+        dest: secondTarget,
+        distance: 10,
+        deleted: false,
+      },
+    );
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 60,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 1,
+      maxRandomBranchChance: 1,
+      randomBranchChanceDelta: 0,
+      minLongBranch: 1,
+    };
+    const graph: JukeboxGraphState = {
+      computedThreshold: 60,
+      currentThreshold: 60,
+      lastBranchPoint: 99,
+      totalBeats: 5,
+      longestReach: 0,
+      allEdges: [],
+    };
+    const rngValues = [0.49, 0.49];
+    const rng = () => rngValues.shift() ?? 0.49;
+    const state = { curRandomBranchChance: 1 };
+
+    const first = selectNextBeatIndex(seed, graph, config, rng, state);
+    const second = selectNextBeatIndex(seed, graph, config, rng, state);
+
+    expect(first.index).toBe(1);
+    expect(second.index).toBe(2);
+  });
 });
 
 describe("shouldRandomBranch", () => {
@@ -422,5 +473,20 @@ describe("shouldRandomBranch", () => {
     const shouldBranch = shouldRandomBranch(beat, graph, config, () => 0.0, state);
     expect(shouldBranch).toBe(true);
     expect(state.curRandomBranchChance).toBe(0.1);
+  });
+
+  it("ramps slower for short beats and faster for long beats", () => {
+    const shortBeat = makeBeat(0);
+    shortBeat.duration = 0.25;
+    const longBeat = makeBeat(1);
+    longBeat.duration = 1;
+    const shortState = { curRandomBranchChance: 0.1 };
+    const longState = { curRandomBranchChance: 0.1 };
+
+    shouldRandomBranch(shortBeat, graph, config, () => 0.99, shortState);
+    shouldRandomBranch(longBeat, graph, config, () => 0.99, longState);
+
+    expect(shortState.curRandomBranchChance).toBeCloseTo(0.125, 6);
+    expect(longState.curRandomBranchChance).toBeCloseTo(0.2, 6);
   });
 });

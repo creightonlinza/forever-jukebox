@@ -48,6 +48,54 @@
       }
     },
     {
+      "id": "nearby_guardrail",
+      "beats": 30,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 6
+      },
+      "edges": [
+        [0, 6, 10],
+        [26, 6, 10],
+        [27, 15, 10],
+        [15, 6, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": 26,
+        "forcedDest": 6,
+        "forcedInserted": false
+      },
+      "jumpExpectation": {
+        "nextIndex": 6,
+        "jumped": true
+      }
+    },
+    {
+      "id": "late_landing_depth_filter",
+      "beats": 30,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 6
+      },
+      "edges": [
+        [0, 6, 10],
+        [24, 6, 9],
+        [28, 12, 10],
+        [12, 6, 10],
+        [29, 19, 10],
+        [19, 6, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": 28,
+        "forcedDest": 12,
+        "forcedInserted": false
+      },
+      "jumpExpectation": {
+        "nextIndex": 12,
+        "jumped": true
+      }
+    },
+    {
       "id": "fallback_range",
       "beats": 10,
       "config": {

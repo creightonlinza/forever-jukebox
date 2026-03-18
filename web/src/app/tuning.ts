@@ -1,7 +1,7 @@
 import type { AppContext } from "./context";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
-const MAX_RANDOM_BRANCH_DELTA = 1;
+const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d"];
 
 function clamp(value: number, min: number, max: number) {

@@ -262,6 +262,11 @@ describe("JukeboxEngine playback loop", () => {
     expect(engine.getConfig().maxBranches).toBe(before + 1);
   });
 
+  it("uses legacy-calibrated default random branch ramp", () => {
+    const engine = new JukeboxEngine(makePlayer());
+    expect(engine.getConfig().randomBranchChanceDelta).toBe(0.02);
+  });
+
   it("ticks and advances beats based on audio time", () => {
     vi.useFakeTimers();
     if ("window" in globalThis) {

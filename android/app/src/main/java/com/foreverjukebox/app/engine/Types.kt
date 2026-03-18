@@ -15,7 +15,7 @@ data class JukeboxConfig(
     val removeSequentialBranches: Boolean = false,
     val minRandomBranchChance: Double = 0.18,
     val maxRandomBranchChance: Double = 0.5,
-    val randomBranchChanceDelta: Double = 0.1,
+    val randomBranchChanceDelta: Double = 0.02,
     val minLongBranch: Int = 0
 )
 

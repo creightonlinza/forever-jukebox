@@ -2,7 +2,10 @@ import { JukeboxConfig, JukeboxGraphState, QuantumBase } from "./types";
 
 export interface BranchState {
   curRandomBranchChance: number;
+  lastDestBySource?: Map<number, number>;
 }
+
+const REFERENCE_BEAT_DURATION_SECONDS = 0.5;
 
 function collectTimeline(seed: QuantumBase): QuantumBase[] {
   let start = seed;
@@ -196,8 +199,16 @@ export function shouldRandomBranch(
   if (q.which === graph.lastBranchPoint) {
     return true;
   }
-  // Gradually increase branch chance until a jump happens, then reset.
-  state.curRandomBranchChance += config.randomBranchChanceDelta;
+  // Gradually increase branch chance by elapsed musical time (not raw beat
+  // count), so fast songs do not ramp jump probability disproportionately.
+  const beatDuration =
+    Number.isFinite(q.duration) && q.duration > 0
+      ? q.duration
+      : REFERENCE_BEAT_DURATION_SECONDS;
+  const tempoNormalizedDelta =
+    config.randomBranchChanceDelta *
+    (beatDuration / REFERENCE_BEAT_DURATION_SECONDS);
+  state.curRandomBranchChance += tempoNormalizedDelta;
   if (state.curRandomBranchChance > config.maxRandomBranchChance) {
     state.curRandomBranchChance = config.maxRandomBranchChance;
   }
@@ -228,12 +239,48 @@ export function selectNextBeatIndex(
     const selected = seed.neighbors.splice(bestIndex, 1);
     nextEdge = selected[0];
   } else {
-    nextEdge = seed.neighbors.shift();
+    const selectedIndex = selectWeightedNeighborIndex(seed, rng, state);
+    const selected = seed.neighbors.splice(selectedIndex, 1);
+    nextEdge = selected[0];
   }
   if (!nextEdge) {
     return { index: seed.which, jumped: false };
   }
   seed.neighbors.push(nextEdge);
+  if (!state.lastDestBySource) {
+    state.lastDestBySource = new Map<number, number>();
+  }
+  state.lastDestBySource.set(seed.which, nextEdge.dest.which);
   const nextIndex = nextEdge.dest.which;
   return { index: nextIndex, jumped: nextIndex !== seed.which };
+}
+
+function selectWeightedNeighborIndex(
+  seed: QuantumBase,
+  rng: () => number,
+  state: BranchState,
+): number {
+  if (seed.neighbors.length <= 1) {
+    return 0;
+  }
+  const lastDest = state.lastDestBySource?.get(seed.which);
+  const weights = seed.neighbors.map((edge) => {
+    const distanceWeight = 1 / (1 + Math.max(0, edge.distance));
+    const repeatPenalty =
+      lastDest !== undefined && edge.dest.which === lastDest ? 0.35 : 1;
+    const weight = distanceWeight * repeatPenalty;
+    return Number.isFinite(weight) && weight > 0 ? weight : 0;
+  });
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalWeight <= 0) {
+    return 0;
+  }
+  let target = rng() * totalWeight;
+  for (let i = 0; i < weights.length; i += 1) {
+    target -= weights[i];
+    if (target <= 0) {
+      return i;
+    }
+  }
+  return weights.length - 1;
 }

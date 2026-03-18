@@ -57,7 +57,7 @@ const baseConfig: JukeboxConfig = {
   removeSequentialBranches: false,
   minRandomBranchChance: 0.18,
   maxRandomBranchChance: 0.5,
-  randomBranchChanceDelta: 0.1,
+  randomBranchChanceDelta: 0.02,
   minLongBranch: 0,
 };
 

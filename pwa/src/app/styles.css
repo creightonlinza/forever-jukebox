@@ -555,9 +555,9 @@ a {
 
 .viz-bottom {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
-  right: 12px;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -566,7 +566,7 @@ a {
   z-index: 3;
   color: var(--text);
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 0 0 12px;
   background: var(--viz-overlay);
   backdrop-filter: blur(8px);
 }

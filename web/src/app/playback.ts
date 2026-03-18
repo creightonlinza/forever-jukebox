@@ -26,6 +26,8 @@ import {
 import { storeAnchorHighlight } from "./anchorHighlight";
 
 const DEFAULT_VOLUME = 0.5;
+const MAX_RANDOM_BRANCH_DELTA = 0.2;
+const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 
 function getDeletedEdgeIdsFromGraph(
   graph: ReturnType<AppContext["engine"]["getGraphState"]>,
@@ -212,7 +214,8 @@ export function syncTuningUI(context: AppContext) {
   elements.thresholdVal.textContent = elements.thresholdInput.value;
   const minProbPct = Math.round(config.minRandomBranchChance * 100);
   const maxProbPct = Math.round(config.maxRandomBranchChance * 100);
-  const rampPct = Math.round(config.randomBranchChanceDelta * 1000) / 10;
+  const rampPct =
+    Math.round(config.randomBranchChanceDelta * RANDOM_BRANCH_DELTA_PERCENT_SCALE * 10) / 10;
   elements.minProbInput.value = `${minProbPct}`;
   elements.minProbVal.textContent = `${minProbPct}%`;
   elements.maxProbInput.value = `${maxProbPct}`;
@@ -243,7 +246,7 @@ export function applyTuningChanges(context: AppContext) {
     threshold === computed;
   let minProb = Number(elements.minProbInput.value) / 100;
   let maxProb = Number(elements.maxProbInput.value) / 100;
-  const ramp = Number(elements.rampInput.value) / 100;
+  const ramp = Number(elements.rampInput.value) / RANDOM_BRANCH_DELTA_PERCENT_SCALE;
   if (minProb > maxProb) {
     [minProb, maxProb] = [maxProb, minProb];
     elements.minProbInput.value = `${Math.round(minProb * 100)}`;

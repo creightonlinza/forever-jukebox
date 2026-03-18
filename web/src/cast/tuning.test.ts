@@ -55,6 +55,7 @@ describe("cast tuning", () => {
     expect(parsed?.config.justLongBranches).toBe(false);
     expect(parsed?.config.removeSequentialBranches).toBe(true);
     expect(parsed?.config.currentThreshold).toBe(31);
+    expect(parsed?.config.randomBranchChanceDelta).toBeCloseTo(0.06, 6);
     expect(parsed?.deletedEdgeIds).toEqual([1, 3]);
     expect(parsed?.highlightAnchorBranch).toBe(true);
     expect(parsed?.hasGraphTuning).toBe(true);
@@ -85,7 +86,7 @@ describe("cast tuning", () => {
     const parsed = parseCastTuningParams("bp=-10,130,450", makeDefaults());
     expect(parsed?.config.minRandomBranchChance).toBeCloseTo(0, 6);
     expect(parsed?.config.maxRandomBranchChance).toBeCloseTo(1, 6);
-    expect(parsed?.config.randomBranchChanceDelta).toBeCloseTo(1, 6);
+    expect(parsed?.config.randomBranchChanceDelta).toBeCloseTo(0.2, 6);
   });
 
   it("ignores malformed bp triplets", () => {

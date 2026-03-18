@@ -115,7 +115,7 @@ fun TuningDialog(
                         onClick = {
                             val minVal = minProb.coerceAtMost(maxProb) / 100.0
                             val maxVal = maxProb.coerceAtLeast(minProb) / 100.0
-                            val rampVal = ramp / 100.0
+                            val rampVal = ramp / 500.0
                             onApply(
                                 threshold.toInt(),
                                 minVal,
@@ -153,7 +153,7 @@ fun TuningDialog(
                     value = threshold,
                     onValueChange = { threshold = it },
                     valueRange = 2f..80f,
-                    steps = 38
+                    steps = 77
                 )
                 Text("Branch Probability Min: ${minProb.toInt()}%")
                 Slider(
