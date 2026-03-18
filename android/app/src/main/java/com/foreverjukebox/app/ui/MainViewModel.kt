@@ -1819,7 +1819,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     threshold = threshold.coerceAtLeast(2),
                     minProb = (minProb * 100.0).roundToInt().coerceIn(0, 100),
                     maxProb = (maxProb * 100.0).roundToInt().coerceIn(0, 100),
-                    ramp = (ramp * 100.0).roundToInt().coerceIn(0, 100),
+                    ramp = (ramp * RANDOM_BRANCH_DELTA_PERCENT_SCALE).roundToInt().coerceIn(0, 100),
                     highlightAnchorBranch = highlightAnchorBranch,
                     justBackwards = justBackwards,
                     justLong = justLongBranches,
@@ -2031,5 +2031,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val CAST_MAX_TRACK_DURATION_MINUTES = 7.0
         private const val GITHUB_REPO_OWNER = "creightonlinza"
         private const val GITHUB_REPO_NAME = "forever-jukebox"
+        private const val RANDOM_BRANCH_DELTA_PERCENT_SCALE = 500.0
     }
 }

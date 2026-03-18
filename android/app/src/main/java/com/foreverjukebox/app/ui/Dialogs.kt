@@ -115,7 +115,7 @@ fun TuningDialog(
                         onClick = {
                             val minVal = minProb.coerceAtMost(maxProb) / 100.0
                             val maxVal = maxProb.coerceAtLeast(minProb) / 100.0
-                            val rampVal = ramp / 100.0
+                            val rampVal = ramp / 500.0
                             onApply(
                                 threshold.toInt(),
                                 minVal,

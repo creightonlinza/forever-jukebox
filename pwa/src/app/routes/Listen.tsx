@@ -52,6 +52,8 @@ const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
 const VISUALIZATION_STORAGE_KEY = "fj-viz";
 const ANCHOR_HIGHLIGHT_STORAGE_KEY = "fj-highlight-anchor-branch";
 const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
+const MAX_RANDOM_BRANCH_DELTA = 0.2;
+const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 
 type PlayMode = "jukebox" | "autocanonizer";
 type AudioExportFormat = "mp3" | "wav";
@@ -179,7 +181,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     computedThreshold: 0,
     minProb: Math.round(DEFAULT_CONFIG.minRandomBranchChance * 100),
     maxProb: Math.round(DEFAULT_CONFIG.maxRandomBranchChance * 100),
-    ramp: Math.round(DEFAULT_CONFIG.randomBranchChanceDelta * 1000) / 10,
+    ramp:
+      Math.round(
+        DEFAULT_CONFIG.randomBranchChanceDelta *
+          RANDOM_BRANCH_DELTA_PERCENT_SCALE *
+          10,
+      ) / 10,
     volume: 50,
     highlightAnchorBranch,
     justBackwards: DEFAULT_CONFIG.justBackwards,
@@ -666,7 +673,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       computedThreshold,
       minProb: Math.round(config.minRandomBranchChance * 100),
       maxProb: Math.round(config.maxRandomBranchChance * 100),
-      ramp: Math.round(config.randomBranchChanceDelta * 1000) / 10,
+      ramp:
+        Math.round(
+          config.randomBranchChanceDelta *
+            RANDOM_BRANCH_DELTA_PERCENT_SCALE *
+            10,
+        ) / 10,
       volume: Math.round(player.getVolume() * 100),
       highlightAnchorBranch: nextHighlightAnchorBranch,
       justBackwards: config.justBackwards,
@@ -798,7 +810,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       currentThreshold: useAutoThreshold ? 0 : tuneForm.threshold,
       minRandomBranchChance: minProb / 100,
       maxRandomBranchChance: maxProb / 100,
-      randomBranchChanceDelta: tuneForm.ramp / 100,
+      randomBranchChanceDelta: tuneForm.ramp / RANDOM_BRANCH_DELTA_PERCENT_SCALE,
       justBackwards: tuneForm.justBackwards,
       justLongBranches: tuneForm.justLongBranches,
       removeSequentialBranches: tuneForm.removeSequentialBranches,

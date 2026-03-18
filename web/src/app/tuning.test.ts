@@ -21,7 +21,7 @@ function createConfig(overrides: Partial<JukeboxConfig> = {}): JukeboxConfig {
     removeSequentialBranches: false,
     minRandomBranchChance: 0.18,
     maxRandomBranchChance: 0.5,
-    randomBranchChanceDelta: 0.1,
+    randomBranchChanceDelta: 0.02,
     minLongBranch: 0,
     ...overrides,
   };
@@ -76,7 +76,7 @@ describe("tuning params", () => {
     expect(config.currentThreshold).toBe(25);
     expect(config.minRandomBranchChance).toBeCloseTo(0.18, 4);
     expect(config.maxRandomBranchChance).toBeCloseTo(0.5, 4);
-    expect(config.randomBranchChanceDelta).toBeCloseTo(0.1, 4);
+    expect(config.randomBranchChanceDelta).toBeCloseTo(0.02, 4);
   });
 
   it("serializes only non-default tuning params", () => {
@@ -138,7 +138,7 @@ describe("tuning params", () => {
     const config = context.engine.getConfig();
     expect(config.minRandomBranchChance).toBeCloseTo(0.18, 4);
     expect(config.maxRandomBranchChance).toBeCloseTo(0.5, 4);
-    expect(config.randomBranchChanceDelta).toBeCloseTo(0.1, 4);
+    expect(config.randomBranchChanceDelta).toBeCloseTo(0.02, 4);
   });
 
   it("ignores negative threshold values", () => {
@@ -156,6 +156,6 @@ describe("tuning params", () => {
     const config = context.engine.getConfig();
     expect(config.minRandomBranchChance).toBeCloseTo(0.25, 4);
     expect(config.maxRandomBranchChance).toBeCloseTo(0.5, 4);
-    expect(config.randomBranchChanceDelta).toBeCloseTo(0.1, 4);
+    expect(config.randomBranchChanceDelta).toBeCloseTo(0.02, 4);
   });
 });

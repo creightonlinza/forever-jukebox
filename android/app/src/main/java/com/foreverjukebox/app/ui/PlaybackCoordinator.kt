@@ -92,7 +92,11 @@ class PlaybackCoordinator(
         if (minChanged || maxChanged || deltaChanged) {
             val minPct = mapValueToPercent(config.minRandomBranchChance, 0.0, 1.0)
             val maxPct = mapValueToPercent(config.maxRandomBranchChance, 0.0, 1.0)
-            val deltaPct = mapValueToPercent(config.randomBranchChanceDelta, 0.0, 1.0)
+            val deltaPct = mapValueToPercent(
+                config.randomBranchChanceDelta,
+                0.0,
+                MAX_RANDOM_BRANCH_DELTA
+            )
             params.add("bp=$minPct,$maxPct,$deltaPct")
         }
         val deletedIds = getDeletedEdgeIds()
@@ -545,7 +549,7 @@ class PlaybackCoordinator(
                     threshold = thresholdValue,
                     minProb = (config.minRandomBranchChance * 100).toInt(),
                     maxProb = (config.maxRandomBranchChance * 100).toInt(),
-                    ramp = (config.randomBranchChanceDelta * 100).toInt(),
+                    ramp = (config.randomBranchChanceDelta * RANDOM_BRANCH_DELTA_PERCENT_SCALE).toInt(),
                     justBackwards = config.justBackwards,
                     justLong = config.justLongBranches,
                     removeSequential = config.removeSequentialBranches
@@ -742,7 +746,7 @@ class PlaybackCoordinator(
         }
         parsed.rampPercent?.let { value ->
             config = config.copy(
-                randomBranchChanceDelta = mapPercentToRange(value, 0.0, 1.0)
+                randomBranchChanceDelta = mapPercentToRange(value, 0.0, MAX_RANDOM_BRANCH_DELTA)
             )
         }
         return ResolvedTuningParams(config, parsed.deletedEdgeIds)
@@ -813,3 +817,5 @@ class PlaybackCoordinator(
 }
 
 private const val END_EPSILON_SECONDS = 0.02
+private const val MAX_RANDOM_BRANCH_DELTA = 0.2
+private const val RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100.0 / MAX_RANDOM_BRANCH_DELTA

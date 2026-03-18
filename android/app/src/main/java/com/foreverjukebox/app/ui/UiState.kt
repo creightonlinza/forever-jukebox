@@ -119,7 +119,7 @@ data class TuningState(
     val threshold: Int = 2,
     val minProb: Int = 18,
     val maxProb: Int = 50,
-    val ramp: Int = 2,
+    val ramp: Int = 10,
     val highlightAnchorBranch: Boolean = false,
     val justBackwards: Boolean = false,
     val justLong: Boolean = false,

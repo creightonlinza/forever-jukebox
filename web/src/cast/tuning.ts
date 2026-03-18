@@ -2,7 +2,7 @@ import type { JukeboxEngine } from "../engine";
 import type { JukeboxConfig } from "../engine/types";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
-const MAX_RANDOM_BRANCH_DELTA = 1;
+const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "ah"];
 
 function clamp(value: number, min: number, max: number) {
