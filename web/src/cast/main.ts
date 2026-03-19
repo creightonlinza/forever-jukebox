@@ -3,7 +3,7 @@ import { BufferedAudioPlayer } from "../audio/BufferedAudioPlayer";
 import { JukeboxEngine } from "../engine";
 import type { JukeboxConfig } from "../engine/types";
 import { JukeboxViz } from "../jukebox/JukeboxViz";
-import { fetchAnalysis, fetchAudio, fetchJobByYoutube } from "../app/api";
+import { fetchAnalysis, fetchAudio, fetchJobByYoutube, recordPlay } from "../app/api";
 import { formatDuration } from "../app/format";
 import { applyCastTuningToEngine, parseCastTuningParams } from "./tuning";
 
@@ -687,6 +687,9 @@ async function bootstrap() {
       if (token !== state.loadToken) {
         return;
       }
+      void recordPlay(jobId).catch((err) => {
+        console.warn(`Failed to record cast play: ${String(err)}`);
+      });
       engine.startJukebox();
       engine.play();
       isTrackPaused = false;
