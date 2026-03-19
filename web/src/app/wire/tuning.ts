@@ -111,6 +111,20 @@ export function createTuningHandlers(deps: TuningDeps) {
     elements.volumeControlPanel.classList.toggle("is-hidden");
   }
 
+  function handleVolumeDocumentClick(event: MouseEvent) {
+    if (elements.volumeControlPanel.classList.contains("is-hidden")) {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+    const clickedInsidePanel = elements.volumeControlPanel.contains(target);
+    const clickedVolumeButton = elements.volumeButton.contains(target);
+    if (!clickedInsidePanel && !clickedVolumeButton) {
+      elements.volumeControlPanel.classList.add("is-hidden");
+    }
+  }
 
   return {
     handleThresholdInput,
@@ -130,5 +144,6 @@ export function createTuningHandlers(deps: TuningDeps) {
     handleTuningApply,
     handleTuningReset,
     handleVolumeButtonClick,
+    handleVolumeDocumentClick,
   };
 }

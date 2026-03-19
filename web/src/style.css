@@ -1275,13 +1275,20 @@ button:hover {
 
 .volume-control-panel {
   position: absolute;
-  transform: translateX(50%);
+  transform: translateX(25%);
   bottom: 100%;
 }
 
 .volume-slider {
   writing-mode: vertical-lr;
   transform: rotate(180deg);
+}
+
+#volume-val {
+  display: inline-block;
+  min-width: 3ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .hint {
