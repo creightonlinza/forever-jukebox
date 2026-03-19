@@ -348,6 +348,35 @@
                 </div>
               </div>
             </div>
+              <div>
+                <div class="volume-control-panel is-hidden" id="volume-control-panel">
+                <label>
+                  <input
+                    class="volume-slider"
+                    id="volume"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="50"
+                  />
+                  <div class="label-line">
+                    <span id="volume-val">50</span>
+                  </div>
+                </label>
+              </div>
+                <button
+                  id="volume-button"
+                  class="volume-button"
+                  aria-label="Volume"
+                >
+                <span
+                  class="material-symbols-outlined volume-icon"
+                  aria-hidden="true"
+                  >volume_up</span
+                >
+                </button>
+              </div>
               <button
                 id="fullscreen"
                 class="fullscreen-toggle"
@@ -531,20 +560,6 @@
                 max="100"
                 step="2"
                 value="10"
-              />
-            </label>
-            <label>
-              <div class="label-line">
-                Volume:
-                <span id="volume-val">50</span>
-              </div>
-              <input
-                id="volume"
-                type="range"
-                min="0"
-                max="100"
-                step="2"
-                value="50"
               />
             </label>
             <div class="checkbox-row">

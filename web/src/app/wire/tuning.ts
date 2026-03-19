@@ -107,6 +107,25 @@ export function createTuningHandlers(deps: TuningDeps) {
     closeTuning(context);
   }
 
+  function handleVolumeButtonClick() {
+    elements.volumeControlPanel.classList.toggle("is-hidden");
+  }
+
+  function handleVolumeDocumentClick(event: MouseEvent) {
+    if (elements.volumeControlPanel.classList.contains("is-hidden")) {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+    const clickedInsidePanel = elements.volumeControlPanel.contains(target);
+    const clickedVolumeButton = elements.volumeButton.contains(target);
+    if (!clickedInsidePanel && !clickedVolumeButton) {
+      elements.volumeControlPanel.classList.add("is-hidden");
+    }
+  }
+
   return {
     handleThresholdInput,
     handleMinProbInput,
@@ -124,5 +143,7 @@ export function createTuningHandlers(deps: TuningDeps) {
     handleInfoModalClick,
     handleTuningApply,
     handleTuningReset,
+    handleVolumeButtonClick,
+    handleVolumeDocumentClick,
   };
 }

@@ -157,6 +157,7 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     cacheHandlers.handleClearCacheClick,
   );
+  elements.volumeButton.addEventListener("click", tuningHandlers.handleVolumeButtonClick);
 
   tuningHandlers.syncInfoButton();
   tuningHandlers.syncTuneButton();
@@ -180,6 +181,7 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     favoritesHandlers.handleFavoritesSyncDocumentClick,
   );
+  document.addEventListener("click", tuningHandlers.handleVolumeDocumentClick);
   window.addEventListener("keydown", playbackHandlers.handleKeydown);
   window.addEventListener("keyup", playbackHandlers.handleKeyup);
 

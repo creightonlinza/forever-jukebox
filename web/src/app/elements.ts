@@ -394,6 +394,14 @@ export function getElements() {
     "#cached-audio-clear"
   );
   const vizStats = document.querySelector<HTMLDivElement>("#viz-stats");
+  const volumeButton = requireElement(
+    document.querySelector<HTMLButtonElement>("#volume-button"),
+    "#volume-button"
+  );
+  const volumeControlPanel = requireElement(
+    document.querySelector<HTMLDivElement>("#volume-control-panel"),
+    "#volume-control-panel"
+  );
 
   return {
     listenTimeEl,
@@ -493,5 +501,7 @@ export function getElements() {
     toast,
     cachedAudioClearButton,
     vizStats,
+    volumeButton,
+    volumeControlPanel,
   };
 }
