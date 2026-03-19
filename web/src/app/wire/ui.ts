@@ -157,6 +157,7 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     cacheHandlers.handleClearCacheClick,
   );
+  elements.volumeButton.addEventListener("click", tuningHandlers.handleVolumeButtonClick);
 
   tuningHandlers.syncInfoButton();
   tuningHandlers.syncTuneButton();

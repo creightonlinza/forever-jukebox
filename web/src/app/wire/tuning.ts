@@ -107,6 +107,11 @@ export function createTuningHandlers(deps: TuningDeps) {
     closeTuning(context);
   }
 
+  function handleVolumeButtonClick() {
+    elements.volumeControlPanel.classList.toggle("is-hidden");
+  }
+
+
   return {
     handleThresholdInput,
     handleMinProbInput,
@@ -124,5 +129,6 @@ export function createTuningHandlers(deps: TuningDeps) {
     handleInfoModalClick,
     handleTuningApply,
     handleTuningReset,
+    handleVolumeButtonClick,
   };
 }

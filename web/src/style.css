@@ -780,6 +780,7 @@ button:hover {
   display: none;
 }
 
+.volume-button,
 .fullscreen-toggle {
   background: transparent;
   border: none;
@@ -1270,6 +1271,17 @@ button:hover {
   font-size: 17px;
   color: var(--muted);
   pointer-events: none;
+}
+
+.volume-control-panel {
+  position: absolute;
+  transform: translateX(50%);
+  bottom: 100%;
+}
+
+.volume-slider {
+  writing-mode: vertical-lr;
+  transform: rotate(180deg);
 }
 
 .hint {
