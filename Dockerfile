@@ -38,6 +38,7 @@ WORKDIR /app
 # Copy requirements first to improve Docker caching
 COPY api/requirements.txt /app/api/requirements.txt
 COPY engine/requirements.txt /app/engine/requirements.txt
+COPY engine/scripts/install_madmom_beats_lite.py /app/engine/scripts/install_madmom_beats_lite.py
 
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip setuptools wheel \
@@ -46,7 +47,10 @@ RUN python -m venv /opt/venv \
     # Ensure latest yt-dlp at build time even if cached requirements layer
     && /opt/venv/bin/pip install --upgrade "yt-dlp[default]" \
     # Critical: ensure Essentia is installed from a wheel (never source)
-    && /opt/venv/bin/pip install --no-build-isolation --only-binary=essentia -r /app/engine/requirements.txt
+    && /opt/venv/bin/pip install --no-build-isolation --only-binary=essentia -r /app/engine/requirements.txt \
+    && /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python \
+    && if /opt/venv/bin/pip show madmom >/dev/null 2>&1; then /opt/venv/bin/pip uninstall -y madmom && /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python; fi \
+    && /opt/venv/bin/pip install --force-reinstall --no-warn-conflicts "numpy==1.26.4" "scipy==1.11.4" "packaging==25.0"
 
 RUN curl -fsSL "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip" \
       -o /tmp/deno.zip \

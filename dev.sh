@@ -9,9 +9,10 @@ VITE_HOST_FLAG=""
 PYTHON_BIN=""
 PYTHON_VERSION=""
 # Local dev startup dependency refresh toggles.
-# Set either value to 0 to skip that upgrade step.
+# Set any value to 0 to skip that upgrade step.
 UPDATE_YTDLP=1
 UPDATE_DENO=1
+UPDATE_MADMOM_BEATS_LITE=1
 
 for arg in "$@"; do
   if [[ "$arg" == "--host" ]]; then
@@ -244,8 +245,38 @@ ensure_engine_env() {
   if ! "$ENGINE_VENV/bin/python" -c "import pkg_resources" >/dev/null 2>&1; then
     "$ENGINE_VENV/bin/python" -m pip install setuptools
   fi
-  if ! "$ENGINE_VENV/bin/python" -c "import madmom, mutagen" >/dev/null 2>&1; then
+  if ! "$ENGINE_VENV/bin/python" -c "import numpy, scipy, essentia, packaging" >/dev/null 2>&1; then
     "$ENGINE_VENV/bin/python" -m pip install -r "$ROOT/engine/requirements.txt"
+  fi
+  local has_madmom_beats_lite=0
+  if "$ENGINE_VENV/bin/python" -c "import madmom_beats_lite" >/dev/null 2>&1; then
+    has_madmom_beats_lite=1
+  fi
+  if [[ "$UPDATE_MADMOM_BEATS_LITE" == "1" || "$has_madmom_beats_lite" == "0" ]]; then
+    if ! "$ENGINE_VENV/bin/python" "$ROOT/engine/scripts/install_madmom_beats_lite.py" --python "$ENGINE_VENV/bin/python"; then
+      if [[ "$has_madmom_beats_lite" == "1" ]]; then
+        echo "Warning: could not auto-update madmom-beats-lite; continuing with installed version."
+      else
+        echo "Error: madmom-beats-lite installation failed."
+        exit 1
+      fi
+    fi
+  fi
+  if "$ENGINE_VENV/bin/python" -m pip show madmom >/dev/null 2>&1; then
+    "$ENGINE_VENV/bin/python" -m pip uninstall -y madmom
+    if ! "$ENGINE_VENV/bin/python" "$ROOT/engine/scripts/install_madmom_beats_lite.py" --python "$ENGINE_VENV/bin/python"; then
+      echo "Error: madmom-beats-lite reinstall failed after removing legacy madmom."
+      exit 1
+    fi
+  fi
+  if ! "$ENGINE_VENV/bin/python" - <<'PY' >/dev/null 2>&1
+import numpy, scipy, packaging
+assert numpy.__version__ == "1.26.4"
+assert scipy.__version__ == "1.11.4"
+assert packaging.__version__ == "25.0"
+PY
+  then
+    "$ENGINE_VENV/bin/python" -m pip install --force-reinstall --no-warn-conflicts "numpy==1.26.4" "scipy==1.11.4" "packaging==25.0"
   fi
 }
 

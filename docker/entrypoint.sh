@@ -30,6 +30,18 @@ if is_true "${AUTO_UPDATE_YTDLP:-true}"; then
   retry 3 2 /opt/venv/bin/python -m pip install --upgrade --no-cache-dir "yt-dlp[default]"
 fi
 
+if is_true "${AUTO_UPDATE_MADMOM_BEATS_LITE:-true}"; then
+  echo "Updating madmom-beats-lite..."
+  retry 3 2 /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python
+  if /opt/venv/bin/python -m pip show madmom >/dev/null 2>&1; then
+    echo "Removing legacy madmom package..."
+    /opt/venv/bin/python -m pip uninstall -y madmom
+    retry 3 2 /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python
+  fi
+  echo "Reapplying engine numeric pins..."
+  retry 3 2 /opt/venv/bin/python -m pip install --upgrade --force-reinstall --no-cache-dir --no-warn-conflicts "numpy==1.26.4" "scipy==1.11.4" "packaging==25.0"
+fi
+
 if is_true "${AUTO_UPDATE_DENO:-true}"; then
   echo "Updating Deno..."
   retry 3 2 deno upgrade

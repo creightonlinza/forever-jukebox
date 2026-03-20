@@ -55,13 +55,14 @@ export ALLOW_USER_UPLOAD=false
 export ALLOW_USER_YOUTUBE=false
 export ALLOW_FAVORITES_SYNC=false
 export AUTO_UPDATE_YTDLP=true
+export AUTO_UPDATE_MADMOM_BEATS_LITE=true
 export AUTO_UPDATE_DENO=true
 docker compose up --build
 ```
 
 `ENGINE_CONFIG` is optional and unused by default; set it only when you explicitly want to use calibration parameters.
 `MAX_TRACK_LENGTH` is optional (minutes) and limits both user-upload and YouTube analysis jobs by duration.
-`AUTO_UPDATE_YTDLP` and `AUTO_UPDATE_DENO` are optional startup flags for container boot-time upgrades (`true`/`false`, default `true`).
+`AUTO_UPDATE_YTDLP`, `AUTO_UPDATE_MADMOM_BEATS_LITE`, and `AUTO_UPDATE_DENO` are optional startup flags for container boot-time upgrades (`true`/`false`, default `true`).
 You can also put these values in a `.env` file (same directory as
 `docker-compose.yml`) and Compose will load them automatically.
 
@@ -86,7 +87,7 @@ API routes are under `/api/*`. The Compose file uses a named Docker volume
 - The Infinite Jukebox (Paul Lamere): original interactive concept and UX inspiration.
 - The Echo Nest / Spotify Audio Analysis: foundational analysis schema and ideas.
 - EternalJukebox: keeping the dream alive.
-- madmom: beat/downbeat tracking models and utilities.
+- madmom-beats-lite: parity-safe beat/downbeat extraction package.
 - Essentia: audio features and DSP toolkits.
 - ffmpeg: audio decoding.
 - yt-dlp: YouTube search metadata and audio.

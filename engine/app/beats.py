@@ -6,6 +6,7 @@ import math
 import warnings
 
 import numpy as np
+from madmom_beats_lite._shared import ensure_madmom_importable
 from scipy import signal as scipy_signal
 
 _CACHED = {}
@@ -103,6 +104,7 @@ def _get_downbeat_processors():
     proc = _CACHED.get("downbeat_proc")
     tracker = _CACHED.get("downbeat_tracker")
     if proc is None or tracker is None:
+        ensure_madmom_importable()
         from madmom.features.downbeats import DBNDownBeatTrackingProcessor, RNNDownBeatProcessor
         proc = RNNDownBeatProcessor(fps=_DOWNBEAT_FPS)
         tracker = DBNDownBeatTrackingProcessor(beats_per_bar=[3, 4], fps=_DOWNBEAT_FPS)
@@ -148,6 +150,7 @@ def extract_beats(
     if batch:
         proc, tracker = _get_downbeat_processors()
     else:
+        ensure_madmom_importable()
         from madmom.features.downbeats import DBNDownBeatTrackingProcessor, RNNDownBeatProcessor
         proc = RNNDownBeatProcessor(fps=_DOWNBEAT_FPS)
         tracker = DBNDownBeatTrackingProcessor(beats_per_bar=[3, 4], fps=_DOWNBEAT_FPS)
