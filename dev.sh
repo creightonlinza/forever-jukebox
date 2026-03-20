@@ -12,7 +12,7 @@ PYTHON_VERSION=""
 # Edit these values in this script when you want startup upgrade checks.
 UPDATE_YTDLP=false
 UPDATE_DENO=false
-UPDATE_MADMOM_BEATS_LITE=true
+UPDATE_MADMOM_BEATS_LITE=false
 
 for arg in "$@"; do
   if [[ "$arg" == "--host" ]]; then
