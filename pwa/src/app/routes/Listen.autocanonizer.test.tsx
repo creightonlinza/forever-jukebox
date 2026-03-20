@@ -118,6 +118,8 @@ vi.mock("@/shared/jukebox/engine", () => ({
       this.analysis = data;
     }
     onUpdate(_listener: (state: any) => void) {}
+    pauseJukebox() {}
+    syncToPlaybackPosition() {}
     stopJukebox() {}
     resetStats() {}
     startJukebox(_reset = true) {}
@@ -365,6 +367,30 @@ describe("Listen autocanonizer behavior", () => {
 
     expect(window.localStorage.getItem("fj-canonizer-finish")).toBe("false");
     expect(instance.setFinishOutSong).toHaveBeenLastCalledWith(false);
+    rendered.unmount();
+  });
+
+  it("supports play, pause, and resume controls", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    const playButton = getRequired<HTMLButtonElement>(rendered.container, "#play");
+
+    expect(playButton.textContent).toContain("Play");
+    expect(playButton.getAttribute("aria-label")).toBe("Play");
+
+    await click(playButton);
+    expect(playButton.textContent).toContain("Pause");
+    expect(playButton.getAttribute("aria-label")).toBe("Pause");
+
+    await click(playButton);
+    expect(playButton.textContent).toContain("Resume");
+    expect(playButton.getAttribute("aria-label")).toBe("Resume");
+
+    await click(playButton);
+    expect(playButton.textContent).toContain("Pause");
+    expect(playButton.getAttribute("aria-label")).toBe("Pause");
+
     rendered.unmount();
   });
 

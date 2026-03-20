@@ -168,7 +168,7 @@ export function updateVizVisibility(context: AppContext) {
     elements.playMenu.classList.remove("hidden");
     elements.vizPanel.classList.remove("hidden");
     elements.playButton.classList.remove("hidden");
-    updatePlayButton(context, state.isRunning);
+    updatePlayButton(context);
     if (state.playMode === "autocanonizer") {
       autocanonizer.resizeNow();
     } else {
@@ -338,17 +338,23 @@ export function stopListenTimer(context: AppContext) {
 }
 
 export function stopPlayback(context: AppContext) {
-  const { autocanonizer, elements, engine, player, state } = context;
+  const { autocanonizer, elements, engine, jukebox, player, state } = context;
   if (state.playMode === "autocanonizer") {
     autocanonizer.stop();
     player.stop();
+    autocanonizer.resetVisualization();
   }
   engine.stopJukebox();
-  if (state.lastPlayStamp !== null) {
-    state.playTimerMs += performance.now() - state.lastPlayStamp;
-    state.lastPlayStamp = null;
-  }
+  engine.resetStats();
+  state.playTimerMs = 0;
+  state.lastPlayStamp = null;
+  state.lastBeatIndex = null;
+  elements.beatsPlayedEl.textContent = "0";
+  jukebox.reset();
   state.isRunning = false;
+  state.isPaused = false;
+  state.shiftBranching = false;
+  engine.setForceBranch(false);
   if (state.bringItHomeMode) {
     state.bringItHomeMode = false;
     engine.setBringItHomeMode(false);
@@ -357,49 +363,93 @@ export function stopPlayback(context: AppContext) {
   }
   stopListenTimer(context);
   updateListenTimeDisplay(context);
-  updatePlayButton(context, false);
+  updatePlayButton(context);
+}
+
+function pausePlayback(context: AppContext) {
+  const { autocanonizer, engine, player, state } = context;
+  if (!state.isRunning) {
+    return;
+  }
+  if (state.playMode === "autocanonizer") {
+    autocanonizer.stop();
+    player.stop();
+  } else {
+    engine.pauseJukebox();
+    engine.syncToPlaybackPosition();
+  }
+  if (state.lastPlayStamp !== null) {
+    state.playTimerMs += performance.now() - state.lastPlayStamp;
+    state.lastPlayStamp = null;
+  }
+  state.isRunning = false;
+  state.isPaused = true;
+  state.shiftBranching = false;
+  engine.setForceBranch(false);
+  stopListenTimer(context);
+  updateListenTimeDisplay(context);
+  updatePlayButton(context);
+}
+
+function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
+  const { engine, elements, jukebox, player, state } = context;
+  if (player.getDuration() === null) {
+    console.warn("Audio not loaded");
+    if (!resetSession) {
+      stopPlayback(context);
+    }
+    return;
+  }
+  if (resetSession) {
+    engine.stopJukebox();
+    engine.resetStats();
+    state.playTimerMs = 0;
+    state.lastPlayStamp = null;
+    updateListenTimeDisplay(context);
+    elements.beatsPlayedEl.textContent = "0";
+    state.lastBeatIndex = null;
+    jukebox.reset();
+    if (elements.vizStats) {
+      elements.vizStats.classList.remove("pulse");
+      void elements.vizStats.offsetWidth;
+      elements.vizStats.classList.add("pulse");
+    }
+  } else {
+    engine.syncToPlaybackPosition();
+  }
+  engine.startJukebox(resetSession);
+  engine.play();
+  state.lastPlayStamp = performance.now();
+  state.isRunning = true;
+  state.isPaused = false;
+  startListenTimer(context);
+  updatePlayButton(context);
+  if (document.fullscreenElement) {
+    requestWakeLock(context);
+  }
 }
 
 export function togglePlayback(context: AppContext) {
-  const { engine, elements, jukebox, player, state } = context;
-  if (!state.isRunning) {
-    try {
-      if (state.playMode === "autocanonizer") {
-        startAutocanonizerPlayback(context, 0);
-        return;
-      }
-      if (player.getDuration() === null) {
-        console.warn("Audio not loaded");
-        return;
-      }
-      engine.stopJukebox();
-      engine.resetStats();
-      state.playTimerMs = 0;
-      state.lastPlayStamp = null;
-      updateListenTimeDisplay(context);
-      elements.beatsPlayedEl.textContent = "0";
-      state.lastBeatIndex = null;
-      jukebox.reset();
-      if (elements.vizStats) {
-        elements.vizStats.classList.remove("pulse");
-        void elements.vizStats.offsetWidth;
-        elements.vizStats.classList.add("pulse");
-      }
-
-      engine.startJukebox();
-      engine.play();
-      state.lastPlayStamp = performance.now();
-      state.isRunning = true;
-      startListenTimer(context);
-      updatePlayButton(context, true);
-      if (document.fullscreenElement) {
-        requestWakeLock(context);
-      }
-    } catch (err) {
-      console.warn(`Play error: ${String(err)}`);
+  const { state } = context;
+  if (state.isRunning) {
+    pausePlayback(context);
+    return;
+  }
+  try {
+    if (state.playMode === "autocanonizer") {
+      const startIndex = state.isPaused ? (state.lastBeatIndex ?? 0) : 0;
+      startAutocanonizerPlayback(context, startIndex, {
+        resetSession: !state.isPaused,
+      });
+      return;
     }
-  } else {
-    stopPlayback(context);
+    if (state.isPaused) {
+      startJukeboxPlayback(context, false);
+      return;
+    }
+    startJukeboxPlayback(context, true);
+  } catch (err) {
+    console.warn(`Play error: ${String(err)}`);
   }
 }
 
@@ -425,51 +475,62 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
     engine.play();
     state.lastPlayStamp = performance.now();
     state.isRunning = true;
+    state.isPaused = false;
     startListenTimer(context);
-    updatePlayButton(context, true);
+    updatePlayButton(context);
     if (document.fullscreenElement) {
       requestWakeLock(context);
     }
   }
 }
 
-export function startAutocanonizerPlayback(context: AppContext, index: number) {
+export function startAutocanonizerPlayback(
+  context: AppContext,
+  index: number,
+  options?: { resetSession?: boolean },
+) {
   const { autocanonizer, engine, elements, player, state } = context;
   if (!autocanonizer.isReady()) {
     console.warn("Autocanonizer not ready");
     return false;
   }
+  const resetSession = options?.resetSession ?? true;
   player.stop();
   engine.stopJukebox();
-  state.playTimerMs = 0;
-  state.lastPlayStamp = null;
-  updateListenTimeDisplay(context);
-  elements.beatsPlayedEl.textContent = "0";
-  state.lastBeatIndex = null;
-  if (elements.vizStats) {
-    elements.vizStats.classList.remove("pulse");
-    void elements.vizStats.offsetWidth;
-    elements.vizStats.classList.add("pulse");
+  if (resetSession) {
+    state.playTimerMs = 0;
+    state.lastPlayStamp = null;
+    updateListenTimeDisplay(context);
+    elements.beatsPlayedEl.textContent = "0";
+    state.lastBeatIndex = null;
+    if (elements.vizStats) {
+      elements.vizStats.classList.remove("pulse");
+      void elements.vizStats.offsetWidth;
+      elements.vizStats.classList.add("pulse");
+    }
+    autocanonizer.resetVisualization();
   }
-  autocanonizer.resetVisualization();
   autocanonizer.startAtIndex(index);
   state.lastPlayStamp = performance.now();
   state.isRunning = true;
+  state.isPaused = false;
   startListenTimer(context);
-  updatePlayButton(context, true);
+  updatePlayButton(context);
   if (document.fullscreenElement) {
     requestWakeLock(context);
   }
   return true;
 }
 
-function updatePlayButton(context: AppContext, isRunning: boolean) {
-  const label = isRunning ? "Stop" : "Play";
+function updatePlayButton(context: AppContext) {
+  const { state } = context;
+  const isRunning = state.isRunning;
+  const label = isRunning ? "Pause" : state.isPaused ? "Resume" : "Play";
   const updateButton = (button: HTMLButtonElement) => {
     const icon = button.querySelector<HTMLSpanElement>(".play-icon");
     const text = button.querySelector<HTMLSpanElement>(".play-text");
     if (icon) {
-      icon.textContent = isRunning ? "stop" : "play_arrow";
+      icon.textContent = isRunning ? "pause" : "play_arrow";
     }
     if (text) {
       text.textContent = label;
@@ -520,7 +581,7 @@ export function resetForNewTrack(
   if (elements.infoModal.classList.contains("open")) {
     elements.infoModal.classList.remove("open");
   }
-  if (state.isRunning) {
+  if (state.isRunning || state.isPaused) {
     stopPlayback(context);
   }
   autocanonizer.reset();
