@@ -152,6 +152,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
+  const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [bringItHomeMode, setBringItHomeMode] = React.useState(false);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
@@ -221,6 +222,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const lastPlayStampRef = React.useRef<number | null>(null);
   const wakeLockRef = React.useRef<{ release: () => Promise<void> } | null>(null);
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
+  const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     playerRef.current = new BufferedAudioPlayer();
@@ -542,6 +545,29 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!isVolumeOpen) {
+      return;
+    }
+    const onDocumentClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (volumePanelRef.current?.contains(target)) {
+        return;
+      }
+      if (volumeButtonRef.current?.contains(target)) {
+        return;
+      }
+      setIsVolumeOpen(false);
+    };
+    document.addEventListener("click", onDocumentClick);
+    return () => {
+      document.removeEventListener("click", onDocumentClick);
+    };
+  }, [isVolumeOpen]);
 
   const requestWakeLock = async () => {
     if (!("wakeLock" in navigator) || wakeLockRef.current) {
@@ -912,6 +938,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setIsTuningOpen(false);
   };
 
+  const onVolumeChange = (value: number) => {
+    setTuneForm((prev) => ({ ...prev, volume: value }));
+    const volume = value / 100;
+    playerRef.current?.setVolume(volume);
+    autocanonizerRef.current?.setVolume(volume);
+  };
+
   const onExportJukeboxAudio = async () => {
     const activeAnalysis = analysisRef.current ?? analysis;
     const player = playerRef.current;
@@ -1246,16 +1279,50 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </div>
               </div>
             </div>
-            <button
-              id="fullscreen"
-              className="fullscreen-toggle"
-              type="button"
-              onClick={onToggleFullscreen}
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-              aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-            >
-              <SymbolIcon className="fullscreen-icon" name={isFullscreen ? "fullscreen_exit" : "fullscreen"} />
-            </button>
+            <div className="viz-bottom-right">
+              <div className="volume-control-wrap">
+                <div
+                  className={`volume-control-panel ${isVolumeOpen ? "" : "is-hidden"}`}
+                  ref={volumePanelRef}
+                >
+                  <label>
+                    <input
+                      className="volume-slider"
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={tuneForm.volume}
+                      onChange={(event) => onVolumeChange(Number(event.target.value))}
+                    />
+                    <div className="label-line">
+                      <span className="volume-value">{tuneForm.volume}</span>
+                    </div>
+                  </label>
+                </div>
+                <button
+                  id="volume-button"
+                  className="volume-button"
+                  type="button"
+                  ref={volumeButtonRef}
+                  onClick={() => setIsVolumeOpen((prev) => !prev)}
+                  title="Volume"
+                  aria-label="Volume"
+                >
+                  <SymbolIcon className="volume-icon" name="volume_up" />
+                </button>
+              </div>
+              <button
+                id="fullscreen"
+                className="fullscreen-toggle"
+                type="button"
+                onClick={onToggleFullscreen}
+                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              >
+                <SymbolIcon className="fullscreen-icon" name={isFullscreen ? "fullscreen_exit" : "fullscreen"} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1448,22 +1515,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   value={tuneForm.ramp}
                   onChange={(event) =>
                     setTuneForm((prev) => ({ ...prev, ramp: Number(event.target.value) }))
-                  }
-                />
-              </label>
-              <label>
-                <div className="label-line">
-                  Volume:
-                  <span>{tuneForm.volume}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={2}
-                  value={tuneForm.volume}
-                  onChange={(event) =>
-                    setTuneForm((prev) => ({ ...prev, volume: Number(event.target.value) }))
                   }
                 />
               </label>

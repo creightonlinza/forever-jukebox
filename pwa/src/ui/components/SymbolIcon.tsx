@@ -6,6 +6,7 @@ type SymbolName =
   | "info"
   | "download"
   | "arrow_drop_down"
+  | "volume_up"
   | "fullscreen"
   | "fullscreen_exit"
   | "close";
@@ -61,6 +62,13 @@ export function SymbolIcon({ name, className }: SymbolIconProps) {
       ) : null}
       {name === "arrow_drop_down" ? (
         <polygon points="6 9 12 15 18 9" fill="currentColor" stroke="none" />
+      ) : null}
+      {name === "volume_up" ? (
+        <>
+          <polygon points="5 10 8 10 12 7 12 17 8 14 5 14" fill="currentColor" stroke="none" />
+          <path d="M15 9.5c1.3 1.3 1.3 3.7 0 5" />
+          <path d="M17.5 7c2.6 2.6 2.6 7.4 0 10" />
+        </>
       ) : null}
       {name === "fullscreen" ? (
         <>
