@@ -49,8 +49,7 @@ class ProgressEmitter:
         if clamped < self._last_percent:
             clamped = self._last_percent
         self._last_percent = clamped
-        payload = {"percent": clamped, "stage": stage, "message": message}
-        print(json.dumps(payload, separators=(",", ":")), flush=True)
+        return
 
 
 def pick_best_wheel(assets: list[dict[str, Any]]) -> dict[str, Any]:

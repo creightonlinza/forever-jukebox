@@ -269,15 +269,6 @@ ensure_engine_env() {
       exit 1
     fi
   fi
-  if ! "$ENGINE_VENV/bin/python" - <<'PY' >/dev/null 2>&1
-import numpy, scipy, packaging
-assert numpy.__version__ == "1.26.4"
-assert scipy.__version__ == "1.11.4"
-assert packaging.__version__ == "25.0"
-PY
-  then
-    "$ENGINE_VENV/bin/python" -m pip install --force-reinstall --no-warn-conflicts "numpy==1.26.4" "scipy==1.11.4" "packaging==25.0"
-  fi
 }
 
 ensure_web_deps() {
