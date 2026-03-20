@@ -1,5 +1,6 @@
 type SymbolName =
   | "play_arrow"
+  | "pause"
   | "stop"
   | "tune"
   | "info"
@@ -27,6 +28,12 @@ export function SymbolIcon({ name, className }: SymbolIconProps) {
       aria-hidden="true"
     >
       {name === "play_arrow" ? <polygon points="8 6 19 12 8 18 8 6" fill="currentColor" stroke="none" /> : null}
+      {name === "pause" ? (
+        <>
+          <rect x="8" y="6" width="3.5" height="12" fill="currentColor" stroke="none" />
+          <rect x="12.5" y="6" width="3.5" height="12" fill="currentColor" stroke="none" />
+        </>
+      ) : null}
       {name === "stop" ? <rect x="7" y="7" width="10" height="10" fill="currentColor" stroke="none" /> : null}
       {name === "tune" ? (
         <>

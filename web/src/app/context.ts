@@ -24,6 +24,7 @@ export type AppState = {
   lastBeatIndex: number | null;
   vizData: ReturnType<JukeboxEngine["getVisualizationData"]>;
   isRunning: boolean;
+  isPaused: boolean;
   audioLoaded: boolean;
   analysisLoaded: boolean;
   audioLoadInFlight: boolean;
