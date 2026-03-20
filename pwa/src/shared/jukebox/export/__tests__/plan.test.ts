@@ -13,7 +13,8 @@ function createVector(seed: number): number[] {
 function createAnalysis(totalBeats: number, beatDuration: number): AnalysisOutput {
   const duration = totalBeats * beatDuration;
   return {
-    engine_version: 2,
+    engine_version: 1,
+    engine_origin: "forever-jukebox-pwa",
     sections: [{ start: 0, duration, confidence: 1 }],
     bars: Array.from({ length: Math.ceil(totalBeats / 4) }, (_, idx) => ({
       start: idx * beatDuration * 4,

@@ -5,7 +5,8 @@ import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
 import { AudioDecoderPort } from "@/core/domain/ports/AudioDecoderPort";
 
 const analysis = {
-  engine_version: 2,
+  engine_version: 1,
+  engine_origin: "forever-jukebox-pwa",
   sections: [{ start: 0, duration: 1, confidence: 1 }],
   bars: [{ start: 0, duration: 1, confidence: 1 }],
   beats: [{ start: 0, duration: 0.5, confidence: 1 }],

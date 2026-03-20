@@ -225,7 +225,8 @@ class NativeLocalAnalyzer(
         val tempo = computeTempo(beatTimes)
 
         return buildJsonObject {
-            put("engine_version", JsonPrimitive(2))
+            put("engine_version", JsonPrimitive(1))
+            put("engine_origin", JsonPrimitive("forever-jukebox-android"))
             put("sections", quantaJson(sections))
             put("bars", quantaJson(bars))
             put("beats", quantaJson(beats))

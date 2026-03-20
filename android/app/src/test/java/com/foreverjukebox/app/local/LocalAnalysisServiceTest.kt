@@ -67,7 +67,8 @@ class LocalAnalysisServiceTest {
         cachedFile.writeText(
             """
             {
-              "engine_version": 2,
+              "engine_version": 1,
+              "engine_origin": "forever-jukebox-android",
               "track": {
                 "title": "Cached Track",
                 "artist": "Cached Artist",
@@ -227,7 +228,8 @@ private class FakeAnalyzer : LocalAnalyzer {
     ) = buildJsonObject {
         onStageProgress("madmom beats", 50)
         onStageProgress("madmom beats", 100)
-        put("engine_version", JsonPrimitive(2))
+        put("engine_version", JsonPrimitive(1))
+        put("engine_origin", JsonPrimitive("forever-jukebox-android"))
         put(
             "sections",
             buildJsonArray {
@@ -332,7 +334,8 @@ private class CountingSuccessfulAnalyzer : LocalAnalyzer {
     ) = buildJsonObject {
         calls += 1
         onStageProgress("madmom beats", 100)
-        put("engine_version", JsonPrimitive(2))
+        put("engine_version", JsonPrimitive(1))
+        put("engine_origin", JsonPrimitive("forever-jukebox-android"))
         put("sections", buildJsonArray { })
         put("bars", buildJsonArray { })
         put("beats", buildJsonArray { })

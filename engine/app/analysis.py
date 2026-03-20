@@ -359,7 +359,8 @@ def analyze_audio(
     tempo = float(np.median(tempos)) if tempos else 0.0
 
     analysis = {
-        "engine_version": 2,
+        "engine_version": 3,
+        "engine_origin": "forever-jukebox",
         "sections": sections,
         "bars": bars,
         "beats": beats,

@@ -9,10 +9,10 @@ VITE_HOST_FLAG=""
 PYTHON_BIN=""
 PYTHON_VERSION=""
 # Local dev startup dependency refresh toggles.
-# Defaults avoid update checks on every run; set to 1 to force upgrade checks.
-UPDATE_YTDLP="${UPDATE_YTDLP:-0}"
-UPDATE_DENO="${UPDATE_DENO:-0}"
-UPDATE_MADMOM_BEATS_LITE="${UPDATE_MADMOM_BEATS_LITE:-0}"
+# Edit these values in this script when you want startup upgrade checks.
+UPDATE_YTDLP=false
+UPDATE_DENO=false
+UPDATE_MADMOM_BEATS_LITE=true
 
 for arg in "$@"; do
   if [[ "$arg" == "--host" ]]; then
@@ -81,6 +81,12 @@ ensure_command() {
     echo "Missing required command: $cmd"
     exit 1
   fi
+}
+
+is_true() {
+  local value="${1:-}"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+  [[ "$value" == "true" ]]
 }
 
 resolve_python() {
@@ -263,7 +269,7 @@ ensure_api_env() {
   if ! "$API_VENV/bin/python" -c "import fastapi, yt_dlp, httpx, dotenv" >/dev/null 2>&1; then
     "$API_VENV/bin/python" -m pip install -r "$ROOT/api/requirements.txt"
   fi
-  if [[ "$UPDATE_YTDLP" == "1" ]]; then
+  if is_true "$UPDATE_YTDLP"; then
     if ! "$API_VENV/bin/python" -m pip install --upgrade "yt-dlp[default]"; then
       echo "Warning: could not auto-upgrade yt-dlp; continuing with installed version."
     fi
@@ -273,7 +279,7 @@ ensure_api_env() {
       print_deno_install_hint
     fi
   fi
-  if [[ "$UPDATE_DENO" == "1" ]] && command -v deno >/dev/null 2>&1; then
+  if is_true "$UPDATE_DENO" && command -v deno >/dev/null 2>&1; then
     if ! deno upgrade; then
       if ! try_deno_upgrade_with_package_manager; then
         print_deno_upgrade_hint
@@ -300,7 +306,7 @@ ensure_engine_env() {
   if "$ENGINE_VENV/bin/python" -c "import madmom_beats_lite" >/dev/null 2>&1; then
     has_madmom_beats_lite=1
   fi
-  if [[ "$UPDATE_MADMOM_BEATS_LITE" == "1" || "$has_madmom_beats_lite" == "0" ]]; then
+  if is_true "$UPDATE_MADMOM_BEATS_LITE" || [[ "$has_madmom_beats_lite" == "0" ]]; then
     if ! "$ENGINE_VENV/bin/python" "$ROOT/engine/scripts/install_madmom_beats_lite.py" --python "$ENGINE_VENV/bin/python"; then
       if [[ "$has_madmom_beats_lite" == "1" ]]; then
         echo "Warning: could not auto-update madmom-beats-lite; continuing with installed version."

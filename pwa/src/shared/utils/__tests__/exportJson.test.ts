@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { formatExportJson } from "../exportJson";
 
 const analysis = {
-  engine_version: 2,
+  engine_version: 1,
+  engine_origin: "forever-jukebox-pwa",
   sections: [{ start: 0, duration: 1, confidence: 1 }],
   bars: [{ start: 0, duration: 1, confidence: 1 }],
   beats: [{ start: 0, duration: 0.5, confidence: 1 }],
@@ -31,7 +32,8 @@ describe("export JSON", () => {
     });
     const parsed = JSON.parse(json);
     expect(parsed.metadata.fingerprint).toBe("abc");
-    expect(parsed.engine_version).toBe(2);
+    expect(parsed.engine_version).toBe(1);
+    expect(parsed.engine_origin).toBe("forever-jukebox-pwa");
     expect(json.includes("\n  \"metadata\"")).toBe(true);
   });
 });
