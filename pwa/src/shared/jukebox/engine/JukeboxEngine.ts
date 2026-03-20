@@ -186,6 +186,38 @@ export class JukeboxEngine {
     this.tick();
   }
 
+  pauseJukebox() {
+    if (!this.ticking) {
+      this.player.pause();
+      return;
+    }
+    this.ticking = false;
+    if (this.timerId !== null) {
+      backgroundClearTimeout(this.timerId);
+      this.timerId = null;
+    }
+    this.player.pause();
+  }
+
+  syncToPlaybackPosition() {
+    if (!this.analysis || this.beats.length === 0) {
+      return;
+    }
+    const trackTime = this.player.getCurrentTime();
+    const beatIndex = this.findBeatIndexByTime(trackTime);
+    if (beatIndex < 0 || beatIndex >= this.beats.length) {
+      return;
+    }
+    const beat = this.beats[beatIndex];
+    const beatEnd = beat.start + beat.duration;
+    const remainingInBeat = Math.max(0, beatEnd - trackTime);
+    this.currentBeatIndex = beatIndex;
+    this.nextAudioTime = this.player.getAudioTime() + remainingInBeat;
+    this.lastJumped = false;
+    this.lastJumpTime = null;
+    this.lastJumpFromIndex = null;
+  }
+
   stopJukebox() {
     this.ticking = false;
     if (this.timerId !== null) {

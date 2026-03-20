@@ -322,6 +322,12 @@ a {
   margin-left: auto;
 }
 
+.transport-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .play-toggle {
   border: 1px solid var(--border-control);
   border-radius: 8px;
@@ -366,6 +372,7 @@ a {
 .tune-toggle,
 .info-toggle,
 .copy-toggle,
+.volume-button,
 .fullscreen-toggle {
   background: transparent;
   border: none;
@@ -389,6 +396,7 @@ a {
 .tune-icon,
 .info-icon,
 .copy-icon,
+.volume-icon,
 .fullscreen-icon,
 .modal-close-icon {
   color: var(--text);
@@ -579,6 +587,16 @@ a {
   flex: 1;
 }
 
+.viz-bottom-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.volume-control-wrap {
+  position: relative;
+}
+
 .viz-play-toggle {
   display: none;
 }
@@ -641,6 +659,24 @@ a {
 
 .viz-divider {
   color: var(--muted);
+}
+
+.volume-control-panel {
+  position: absolute;
+  transform: translateX(25%);
+  bottom: 100%;
+}
+
+.volume-slider {
+  writing-mode: vertical-lr;
+  transform: rotate(180deg);
+}
+
+.volume-value {
+  display: inline-block;
+  min-width: 3ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress {

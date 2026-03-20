@@ -4,7 +4,9 @@ import type { AnalysisComplete } from "./api";
 import {
   applyAnalysisResult,
   applyTuningChanges,
+  stopPlayback,
   syncTuningUI,
+  togglePlayback,
   updateListenTimeDisplay,
 } from "./playback";
 import { setWindowUrl } from "./__tests__/test-utils";
@@ -56,6 +58,26 @@ function createSpan() {
   return { textContent: "" } as HTMLSpanElement;
 }
 
+function createPlayButton() {
+  const icon = createSpan();
+  const text = createSpan();
+  return {
+    classList: createClassList(),
+    disabled: false,
+    title: "",
+    querySelector: vi.fn((selector: string) => {
+      if (selector === ".play-icon") {
+        return icon;
+      }
+      if (selector === ".play-text") {
+        return text;
+      }
+      return null;
+    }),
+    setAttribute: vi.fn(),
+  };
+}
+
 function createElements() {
   return {
     thresholdInput: createInput("0"),
@@ -79,10 +101,12 @@ function createElements() {
     playStatusPanel: { classList: createClassList() },
     playMenu: { classList: createClassList() },
     vizPanel: { classList: createClassList() },
-    playButton: { classList: createClassList(), disabled: false },
+    beatsPlayedEl: createSpan(),
+    playButton: createPlayButton(),
     bringHomeLabel: { classList: createClassList() },
     bringHomeFullscreenLabel: { classList: createClassList() },
     playTabButton: { classList: createClassList(), disabled: false },
+    vizPlayButton: createPlayButton(),
     vizSelect: { disabled: false, value: "0" },
     canonizerFinish: { checked: false, addEventListener: vi.fn() },
     playTitle: createSpan(),
@@ -92,6 +116,10 @@ function createElements() {
     infoBranchesEl: createSpan(),
     infoDeletedBranchesEl: createSpan(),
     deleteButton: { classList: createClassList() },
+    vizStats: {
+      classList: createClassList(),
+      offsetWidth: 0,
+    },
   };
 }
 
@@ -114,11 +142,23 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     rebuildGraph: vi.fn(),
     getGraphState: vi.fn(() => ({ currentThreshold: 45, allEdges: [], totalBeats: 0 })),
     getVisualizationData: vi.fn(() => ({ beats: [], edges: [] })),
+    pauseJukebox: vi.fn(),
+    syncToPlaybackPosition: vi.fn(),
+    startJukebox: vi.fn(),
+    play: vi.fn(),
+    stopJukebox: vi.fn(),
+    resetStats: vi.fn(),
+    seekToBeat: vi.fn(),
+    setForceBranch: vi.fn(),
+    setBringItHomeMode: vi.fn(),
   };
   const player = {
     getVolume: vi.fn(() => 0.5),
     getDuration: vi.fn(() => null),
+    play: vi.fn(),
+    pause: vi.fn(),
     stop: vi.fn(),
+    seek: vi.fn(),
   };
   const autocanonizer = {
     setAnalysis: vi.fn(),
@@ -162,6 +202,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
       lastYouTubeId: null,
       lastJobId: null,
       isRunning: false,
+      isPaused: false,
       trackDurationSec: null,
       trackTitle: null,
       trackArtist: null,
@@ -382,5 +423,77 @@ describe("playback timers", () => {
     vi.spyOn(performance, "now").mockReturnValue(1000);
     updateListenTimeDisplay(context);
     expect(context.elements.listenTimeEl.textContent).toBe("00:00:02");
+  });
+});
+
+describe("playback controls", () => {
+  beforeEach(() => {
+    setWindowUrl("http://localhost/listen/abc");
+    vi.stubGlobal("document", { fullscreenElement: null });
+    (globalThis.window as unknown as { setInterval: typeof setInterval }).setInterval =
+      setInterval;
+    (globalThis.window as unknown as { clearInterval: typeof clearInterval }).clearInterval =
+      clearInterval;
+  });
+
+  it("pauses and resumes without resetting when already started", () => {
+    const context = createContext();
+    context.state.audioLoaded = true;
+    context.state.analysisLoaded = true;
+    (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
+
+    togglePlayback(context);
+
+    expect(context.engine.resetStats).toHaveBeenCalledTimes(1);
+    expect(context.engine.startJukebox).toHaveBeenCalledWith(true);
+    expect(context.state.isRunning).toBe(true);
+    expect(context.state.isPaused).toBe(false);
+
+    togglePlayback(context);
+
+    expect(context.engine.pauseJukebox).toHaveBeenCalledTimes(1);
+    expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
+    expect(context.state.isRunning).toBe(false);
+    expect(context.state.isPaused).toBe(true);
+    expect(context.elements.playButton.setAttribute).toHaveBeenLastCalledWith(
+      "aria-label",
+      "Resume",
+    );
+
+    togglePlayback(context);
+
+    expect(context.engine.resetStats).toHaveBeenCalledTimes(1);
+    expect(context.engine.startJukebox).toHaveBeenLastCalledWith(false);
+    expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(2);
+    expect(context.state.isRunning).toBe(true);
+    expect(context.state.isPaused).toBe(false);
+  });
+
+  it("stop clears paused state and forces next play to restart", () => {
+    const context = createContext();
+    context.state.audioLoaded = true;
+    context.state.analysisLoaded = true;
+    (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
+
+    togglePlayback(context);
+    togglePlayback(context);
+    context.state.playTimerMs = 12345;
+    context.state.lastBeatIndex = 7;
+    context.elements.beatsPlayedEl.textContent = "7";
+    stopPlayback(context);
+
+    expect(context.state.isPaused).toBe(false);
+    expect(context.state.isRunning).toBe(false);
+    expect(context.state.playTimerMs).toBe(0);
+    expect(context.state.lastBeatIndex).toBe(null);
+    expect(context.elements.beatsPlayedEl.textContent).toBe("0");
+    expect(context.engine.stopJukebox).toHaveBeenCalled();
+    expect(context.engine.resetStats).toHaveBeenCalled();
+    expect(context.jukebox.reset).toHaveBeenCalled();
+
+    togglePlayback(context);
+
+    expect(context.engine.resetStats).toHaveBeenCalledTimes(3);
+    expect(context.engine.startJukebox).toHaveBeenLastCalledWith(true);
   });
 });

@@ -146,11 +146,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
   const [isRunning, setIsRunning] = React.useState(false);
+  const [isPaused, setIsPaused] = React.useState(false);
   const [beatsPlayed, setBeatsPlayed] = React.useState(0);
   const [listenSeconds, setListenSeconds] = React.useState(0);
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
+  const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [bringItHomeMode, setBringItHomeMode] = React.useState(false);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
@@ -212,6 +214,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const engineRef = React.useRef<JukeboxEngine | null>(null);
   const playerRef = React.useRef<BufferedAudioPlayer | null>(null);
   const isRunningRef = React.useRef(false);
+  const isPausedRef = React.useRef(false);
   const playModeRef = React.useRef<PlayMode>("jukebox");
   const bringItHomeModeRef = React.useRef(false);
   const lastBeatRef = React.useRef<number | null>(null);
@@ -219,6 +222,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const lastPlayStampRef = React.useRef<number | null>(null);
   const wakeLockRef = React.useRef<{ release: () => Promise<void> } | null>(null);
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
+  const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     playerRef.current = new BufferedAudioPlayer();
@@ -294,6 +299,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [isRunning]);
 
   React.useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  React.useEffect(() => {
     bringItHomeModeRef.current = bringItHomeMode;
   }, [bringItHomeMode]);
 
@@ -358,6 +367,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     lastPlayStampRef.current = null;
     lastBeatRef.current = null;
     setIsRunning(false);
+    setIsPaused(false);
     setBringItHomeMode(false);
     setBeatsPlayed(0);
     setListenSeconds(0);
@@ -500,7 +510,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [selectedEdge, isRunning, isTuningOpen, isInfoOpen, isExportOpen, playMode, isActive]);
+  }, [selectedEdge, isRunning, isPaused, isTuningOpen, isInfoOpen, isExportOpen, playMode, isActive]);
 
   React.useEffect(() => {
     const onFullscreen = () => {
@@ -536,6 +546,29 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     };
   }, []);
 
+  React.useEffect(() => {
+    if (!isVolumeOpen) {
+      return;
+    }
+    const onDocumentClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (volumePanelRef.current?.contains(target)) {
+        return;
+      }
+      if (volumeButtonRef.current?.contains(target)) {
+        return;
+      }
+      setIsVolumeOpen(false);
+    };
+    document.addEventListener("click", onDocumentClick);
+    return () => {
+      document.removeEventListener("click", onDocumentClick);
+    };
+  }, [isVolumeOpen]);
+
   const requestWakeLock = async () => {
     if (!("wakeLock" in navigator) || wakeLockRef.current) {
       return;
@@ -563,18 +596,23 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (playModeRef.current === "autocanonizer") {
       autocanonizerRef.current?.stop();
       playerRef.current?.stop();
+      autocanonizerRef.current?.resetVisualization();
     }
     engineRef.current?.stopJukebox();
-    if (lastPlayStampRef.current !== null) {
-      playTimerMsRef.current += performance.now() - lastPlayStampRef.current;
-      lastPlayStampRef.current = null;
-    }
+    engineRef.current?.resetStats();
+    playTimerMsRef.current = 0;
+    lastPlayStampRef.current = null;
+    setListenSeconds(0);
+    setBeatsPlayed(0);
+    lastBeatRef.current = null;
+    vizControllerRef.current?.reset();
     if (bringItHomeModeRef.current) {
       bringItHomeModeRef.current = false;
       setBringItHomeMode(false);
       engineRef.current?.setBringItHomeMode(false);
     }
     setIsRunning(false);
+    setIsPaused(false);
   }
 
   React.useEffect(() => {
@@ -596,7 +634,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (playMode === mode) {
       return;
     }
-    if (isRunningRef.current) {
+    if (isRunningRef.current || isPausedRef.current) {
       stopPlayback();
     }
     playModeRef.current = mode;
@@ -687,17 +725,39 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     });
   };
 
-  const togglePlayback = () => {
+  const pausePlayback = () => {
+    const player = playerRef.current;
+    const engine = engineRef.current;
+    if (!player || !engine || !isRunningRef.current) {
+      return;
+    }
+    if (playModeRef.current === "autocanonizer") {
+      autocanonizerRef.current?.stop();
+      player.stop();
+    } else {
+      engine.pauseJukebox();
+      engine.syncToPlaybackPosition();
+    }
+    if (lastPlayStampRef.current !== null) {
+      playTimerMsRef.current += performance.now() - lastPlayStampRef.current;
+      lastPlayStampRef.current = null;
+    }
+    setIsRunning(false);
+    setIsPaused(true);
+  };
+
+  const startJukeboxPlayback = (resetSession: boolean) => {
     const player = playerRef.current;
     const engine = engineRef.current;
     if (!player || !engine || !analysisRef.current) {
       return;
     }
-    if (!isRunning) {
-      if (playMode === "autocanonizer") {
-        startAutocanonizerPlayback(0);
-        return;
-      }
+    if (!player.getBuffer()) {
+      console.warn("Audio not loaded");
+      stopPlayback();
+      return;
+    }
+    if (resetSession) {
       engine.stopJukebox();
       engine.resetStats();
       playTimerMsRef.current = 0;
@@ -706,17 +766,34 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       setBeatsPlayed(0);
       lastBeatRef.current = null;
       vizControllerRef.current?.reset();
+    } else {
+      engine.syncToPlaybackPosition();
+    }
+    engine.startJukebox(resetSession);
+    engine.play();
+    lastPlayStampRef.current = performance.now();
+    setIsRunning(true);
+    setIsPaused(false);
+    if (document.fullscreenElement === vizPanelRef.current) {
+      void requestWakeLock();
+    }
+  };
 
-      engine.startJukebox();
-      engine.play();
-      lastPlayStampRef.current = performance.now();
-      setIsRunning(true);
-      if (document.fullscreenElement === vizPanelRef.current) {
-        void requestWakeLock();
-      }
+  const togglePlayback = () => {
+    if (isRunning) {
+      pausePlayback();
       return;
     }
-    stopPlayback();
+    if (playMode === "autocanonizer") {
+      const startIndex = isPaused ? (lastBeatRef.current ?? 0) : 0;
+      startAutocanonizerPlayback(startIndex, { resetSession: !isPaused });
+      return;
+    }
+    if (isPaused) {
+      startJukeboxPlayback(false);
+      return;
+    }
+    startJukeboxPlayback(true);
   };
 
   const startFromBeat = (index: number, analysisData?: AnalysisOutput | null) => {
@@ -745,30 +822,38 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       engine.play();
       lastPlayStampRef.current = performance.now();
       setIsRunning(true);
+      setIsPaused(false);
       if (document.fullscreenElement === vizPanelRef.current) {
         void requestWakeLock();
       }
     }
   };
 
-  const startAutocanonizerPlayback = (index: number) => {
+  const startAutocanonizerPlayback = (
+    index: number,
+    options?: { resetSession?: boolean },
+  ) => {
     const autocanonizer = autocanonizerRef.current;
     const engine = engineRef.current;
     const player = playerRef.current;
     if (!autocanonizer || !engine || !player || !autocanonizer.isReady()) {
       return false;
     }
+    const resetSession = options?.resetSession ?? true;
     player.stop();
     engine.stopJukebox();
-    playTimerMsRef.current = 0;
-    lastPlayStampRef.current = null;
-    setListenSeconds(0);
-    setBeatsPlayed(0);
-    lastBeatRef.current = null;
-    autocanonizer.resetVisualization();
+    if (resetSession) {
+      playTimerMsRef.current = 0;
+      lastPlayStampRef.current = null;
+      setListenSeconds(0);
+      setBeatsPlayed(0);
+      lastBeatRef.current = null;
+      autocanonizer.resetVisualization();
+    }
     autocanonizer.startAtIndex(index);
     lastPlayStampRef.current = performance.now();
     setIsRunning(true);
+    setIsPaused(false);
     if (document.fullscreenElement === vizPanelRef.current) {
       void requestWakeLock();
     }
@@ -851,6 +936,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     autocanonizerRef.current?.setVolume(0.5);
     syncTuneFormFromEngine();
     setIsTuningOpen(false);
+  };
+
+  const onVolumeChange = (value: number) => {
+    setTuneForm((prev) => ({ ...prev, volume: value }));
+    const volume = value / 100;
+    playerRef.current?.setVolume(volume);
+    autocanonizerRef.current?.setVolume(volume);
   };
 
   const onExportJukeboxAudio = async () => {
@@ -1006,6 +1098,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const vizCount = vizControllerRef.current?.getCount() ?? 1;
   const currentFileKey = file ? `${file.name}:${file.size}:${file.lastModified}` : null;
   const showPlaybackUi = Boolean(analysis) && !isAnalyzing && readyFileKey === currentFileKey;
+  const playControlLabel = isRunning ? "Pause" : isPaused ? "Resume" : "Play";
 
   if (!file) {
     return (
@@ -1037,18 +1130,20 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       {showPlaybackUi ? (
         <div className="menu-bar">
           <div className="menu-left">
-            <button
-              id="play"
-              className="play-toggle"
-              type="button"
-              onClick={togglePlayback}
-              disabled={!analysis}
-              title={isRunning ? "Stop" : "Play"}
-              aria-label={isRunning ? "Stop" : "Play"}
-            >
-              <SymbolIcon className="play-icon" name={isRunning ? "stop" : "play_arrow"} />
-              <span className="play-text">{isRunning ? "Stop" : "Play"}</span>
-            </button>
+            <div className="transport-controls">
+              <button
+                id="play"
+                className="play-toggle"
+                type="button"
+                onClick={togglePlayback}
+                disabled={!analysis}
+                title={playControlLabel}
+                aria-label={playControlLabel}
+              >
+                <SymbolIcon className="play-icon" name={isRunning ? "pause" : "play_arrow"} />
+                <span className="play-text">{playControlLabel}</span>
+              </button>
+            </div>
             {playMode === "jukebox" && bringItHomeMode ? (
               <span className="bring-home-note">Bringing it on home</span>
             ) : null}
@@ -1165,10 +1260,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 type="button"
                 onClick={togglePlayback}
                 disabled={!analysis}
-                title={isRunning ? "Stop" : "Play"}
-                aria-label={isRunning ? "Stop" : "Play"}
+                title={playControlLabel}
+                aria-label={playControlLabel}
               >
-                <SymbolIcon className="play-icon" name={isRunning ? "stop" : "play_arrow"} />
+                <SymbolIcon className="play-icon" name={isRunning ? "pause" : "play_arrow"} />
               </button>
               <div className="viz-info">
                 <div className="viz-title" id="viz-now-playing">{displayTitle}</div>
@@ -1184,16 +1279,50 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </div>
               </div>
             </div>
-            <button
-              id="fullscreen"
-              className="fullscreen-toggle"
-              type="button"
-              onClick={onToggleFullscreen}
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-              aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-            >
-              <SymbolIcon className="fullscreen-icon" name={isFullscreen ? "fullscreen_exit" : "fullscreen"} />
-            </button>
+            <div className="viz-bottom-right">
+              <div className="volume-control-wrap">
+                <div
+                  className={`volume-control-panel ${isVolumeOpen ? "" : "is-hidden"}`}
+                  ref={volumePanelRef}
+                >
+                  <label>
+                    <input
+                      className="volume-slider"
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={tuneForm.volume}
+                      onChange={(event) => onVolumeChange(Number(event.target.value))}
+                    />
+                    <div className="label-line">
+                      <span className="volume-value">{tuneForm.volume}</span>
+                    </div>
+                  </label>
+                </div>
+                <button
+                  id="volume-button"
+                  className="volume-button"
+                  type="button"
+                  ref={volumeButtonRef}
+                  onClick={() => setIsVolumeOpen((prev) => !prev)}
+                  title="Volume"
+                  aria-label="Volume"
+                >
+                  <SymbolIcon className="volume-icon" name="volume_up" />
+                </button>
+              </div>
+              <button
+                id="fullscreen"
+                className="fullscreen-toggle"
+                type="button"
+                onClick={onToggleFullscreen}
+                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              >
+                <SymbolIcon className="fullscreen-icon" name={isFullscreen ? "fullscreen_exit" : "fullscreen"} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1389,22 +1518,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   }
                 />
               </label>
-              <label>
-                <div className="label-line">
-                  Volume:
-                  <span>{tuneForm.volume}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={2}
-                  value={tuneForm.volume}
-                  onChange={(event) =>
-                    setTuneForm((prev) => ({ ...prev, volume: Number(event.target.value) }))
-                  }
-                />
-              </label>
               <div className="checkbox-row">
                 <label>
                   <input
@@ -1488,7 +1601,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <h4>Keyboard commands</h4>
               <div className="info-row">
                 <span className="info-label">Space:</span>
-                <span>Start/stop playback</span>
+                <span>Play/pause playback</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Shift (hold):</span>

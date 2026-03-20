@@ -375,7 +375,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       syncBringItHomeLabel();
       return;
     }
-    if (state.isRunning) {
+    if (state.isRunning || state.isPaused) {
       stopPlayback(context);
     }
     state.playMode = mode;

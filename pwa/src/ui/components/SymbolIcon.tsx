@@ -1,10 +1,12 @@
 type SymbolName =
   | "play_arrow"
+  | "pause"
   | "stop"
   | "tune"
   | "info"
   | "download"
   | "arrow_drop_down"
+  | "volume_up"
   | "fullscreen"
   | "fullscreen_exit"
   | "close";
@@ -27,6 +29,12 @@ export function SymbolIcon({ name, className }: SymbolIconProps) {
       aria-hidden="true"
     >
       {name === "play_arrow" ? <polygon points="8 6 19 12 8 18 8 6" fill="currentColor" stroke="none" /> : null}
+      {name === "pause" ? (
+        <>
+          <rect x="8" y="6" width="3.5" height="12" fill="currentColor" stroke="none" />
+          <rect x="12.5" y="6" width="3.5" height="12" fill="currentColor" stroke="none" />
+        </>
+      ) : null}
       {name === "stop" ? <rect x="7" y="7" width="10" height="10" fill="currentColor" stroke="none" /> : null}
       {name === "tune" ? (
         <>
@@ -54,6 +62,13 @@ export function SymbolIcon({ name, className }: SymbolIconProps) {
       ) : null}
       {name === "arrow_drop_down" ? (
         <polygon points="6 9 12 15 18 9" fill="currentColor" stroke="none" />
+      ) : null}
+      {name === "volume_up" ? (
+        <>
+          <polygon points="5 10 8 10 12 7 12 17 8 14 5 14" fill="currentColor" stroke="none" />
+          <path d="M15 9.5c1.3 1.3 1.3 3.7 0 5" />
+          <path d="M17.5 7c2.6 2.6 2.6 7.4 0 10" />
+        </>
       ) : null}
       {name === "fullscreen" ? (
         <>
