@@ -9,10 +9,10 @@ VITE_HOST_FLAG=""
 PYTHON_BIN=""
 PYTHON_VERSION=""
 # Local dev startup dependency refresh toggles.
-# Set any value to 0 to skip that upgrade step.
-UPDATE_YTDLP=1
-UPDATE_DENO=1
-UPDATE_MADMOM_BEATS_LITE=1
+# Defaults avoid update checks on every run; set to 1 to force upgrade checks.
+UPDATE_YTDLP="${UPDATE_YTDLP:-0}"
+UPDATE_DENO="${UPDATE_DENO:-0}"
+UPDATE_MADMOM_BEATS_LITE="${UPDATE_MADMOM_BEATS_LITE:-0}"
 
 for arg in "$@"; do
   if [[ "$arg" == "--host" ]]; then
@@ -186,6 +186,38 @@ try_deno_upgrade_with_package_manager() {
   return 1
 }
 
+try_deno_install_with_package_manager() {
+  if command -v brew >/dev/null 2>&1; then
+    echo "Trying Homebrew install for deno..."
+    if brew install deno; then
+      return 0
+    fi
+  fi
+
+  if command -v scoop >/dev/null 2>&1; then
+    echo "Trying Scoop install for deno..."
+    if scoop install deno; then
+      return 0
+    fi
+  fi
+
+  if command -v choco >/dev/null 2>&1; then
+    echo "Trying Chocolatey install for deno..."
+    if choco install -y deno; then
+      return 0
+    fi
+  fi
+
+  if command -v winget >/dev/null 2>&1; then
+    echo "Trying winget install for deno..."
+    if winget install --id DenoLand.Deno --accept-package-agreements --accept-source-agreements; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 print_deno_upgrade_hint() {
   echo "Warning: could not auto-upgrade deno."
   if command -v brew >/dev/null 2>&1; then
@@ -211,6 +243,21 @@ print_deno_upgrade_hint() {
   fi
 }
 
+print_deno_install_hint() {
+  echo "Warning: deno not found and could not be auto-installed."
+  if command -v brew >/dev/null 2>&1; then
+    echo "Hint: install deno with Homebrew: brew install deno"
+  elif command -v scoop >/dev/null 2>&1; then
+    echo "Hint: install deno with Scoop: scoop install deno"
+  elif command -v choco >/dev/null 2>&1; then
+    echo "Hint: install deno with Chocolatey: choco install -y deno"
+  elif command -v winget >/dev/null 2>&1; then
+    echo "Hint: install deno with winget: winget install --id DenoLand.Deno"
+  else
+    echo "Hint: install deno using your OS package manager or https://deno.land/manual/getting_started/installation"
+  fi
+}
+
 ensure_api_env() {
   ensure_venv "$API_VENV"
   if ! "$API_VENV/bin/python" -c "import fastapi, yt_dlp, httpx, dotenv" >/dev/null 2>&1; then
@@ -221,15 +268,16 @@ ensure_api_env() {
       echo "Warning: could not auto-upgrade yt-dlp; continuing with installed version."
     fi
   fi
-  if [[ "$UPDATE_DENO" == "1" ]]; then
-    if command -v deno >/dev/null 2>&1; then
-      if ! deno upgrade; then
-        if ! try_deno_upgrade_with_package_manager; then
-          print_deno_upgrade_hint
-        fi
+  if ! command -v deno >/dev/null 2>&1; then
+    if ! try_deno_install_with_package_manager; then
+      print_deno_install_hint
+    fi
+  fi
+  if [[ "$UPDATE_DENO" == "1" ]] && command -v deno >/dev/null 2>&1; then
+    if ! deno upgrade; then
+      if ! try_deno_upgrade_with_package_manager; then
+        print_deno_upgrade_hint
       fi
-    else
-      echo "Warning: UPDATE_DENO=1 but deno not found in PATH."
     fi
   fi
   if ! command -v deno >/dev/null 2>&1; then
