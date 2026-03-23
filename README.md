@@ -28,6 +28,8 @@ All-in-one local dev:
 ./dev.sh
 ```
 
+Local dev startup installs missing dependencies by default and does not check for latest versions each run. To force dependency updates locally, temporarily enable the update toggles in `dev.sh` and rerun it.
+
 Then open the web UI at `http://localhost:5173`.
 
 ## Android (native app)
