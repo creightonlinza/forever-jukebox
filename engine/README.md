@@ -4,7 +4,7 @@ This package generates analysis JSON compatible with `schema.json` and the Forev
 
 ## Setup
 
-This engine stack currently targets Python 3.10 or 3.11.
+This engine stack currently targets Python 3.11.
 
 ```bash
 python3 -m venv .venv

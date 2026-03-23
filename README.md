@@ -20,7 +20,7 @@ by generating similar beat/segment/section data locally.
 
 ## Quick Start
 
-Prereqs: Python 3.10, npm (Node.js).
+Prereqs: Python 3.11, npm (Node.js).
 
 All-in-one (dev):
 

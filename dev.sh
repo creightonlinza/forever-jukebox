@@ -98,7 +98,7 @@ resolve_python() {
     echo "FJ_PYTHON is set but not executable: $FJ_PYTHON"
     exit 1
   fi
-  for candidate in python3.10 python3; do
+  for candidate in python3.11 python3; do
     if command -v "$candidate" >/dev/null 2>&1; then
       PYTHON_BIN="$(command -v "$candidate")"
       return
@@ -121,6 +121,11 @@ ensure_python() {
   resolve_python_version
   if [[ -z "$PYTHON_BIN" ]]; then
     echo "Missing required command: python3"
+    exit 1
+  fi
+  if [[ "$PYTHON_VERSION" != "3.11" ]]; then
+    echo "Python 3.11 is required for local dev (detected: $PYTHON_VERSION)."
+    echo "Install python3.11 or set FJ_PYTHON to a Python 3.11 executable."
     exit 1
   fi
 }

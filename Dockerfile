@@ -15,7 +15,7 @@ COPY pwa/ ./
 RUN npm run build
 
 # Force amd64 so pip can use Essentia's manylinux x86_64 wheel (no source builds)
-FROM --platform=linux/amd64 python:3.10-slim-bookworm AS runtime
+FROM --platform=linux/amd64 python:3.11-slim-bookworm AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
