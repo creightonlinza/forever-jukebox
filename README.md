@@ -20,9 +20,9 @@ by generating similar beat/segment/section data locally.
 
 ## Quick Start
 
-Prereqs: Python 3.11, npm (Node.js).
+Prereqs: Python 3.11, npm (Node.js), ffmpeg.
 
-All-in-one (dev):
+All-in-one local dev:
 
 ```bash
 ./dev.sh
@@ -30,7 +30,7 @@ All-in-one (dev):
 
 Then open the web UI at `http://localhost:5173`.
 
-## Android (native app):
+## Android (native app)
 
 - Download: [GitHub Releases](https://github.com/creightonlinza/forever-jukebox/releases/latest)
 - Signature (SHA-256):
@@ -41,7 +41,9 @@ Then open the web UI at `http://localhost:5173`.
 
 ## Docker (production)
 
-Build and run the container with Docker Compose (serves web UI + offline PWA + API):
+Build and run the container with Docker Compose (serves web UI + offline PWA + API).
+
+Set required environment variables:
 
 ```bash
 export SPOTIFY_CLIENT_ID=...
@@ -54,14 +56,23 @@ export MAX_TRACK_LENGTH=12
 export ALLOW_USER_UPLOAD=false
 export ALLOW_USER_YOUTUBE=false
 export ALLOW_FAVORITES_SYNC=false
+```
+
+You can also put these values in a `.env` file (same directory as
+`docker-compose.yml`) and Compose will load them automatically.
+
+Run:
+
+```bash
 docker compose up --build
 ```
 
-`ENGINE_CONFIG` is optional and unused by default; set it only when you explicitly want to use calibration parameters.
-`MAX_TRACK_LENGTH` is optional (minutes) and limits both user-upload and YouTube analysis jobs by duration.
-Dependency updates (`yt-dlp`, `madmom-beats-lite`, `deno`) happen at image build/deploy time. Container startup does not perform network updates.
-You can also put these values in a `.env` file (same directory as
-`docker-compose.yml`) and Compose will load them automatically.
+Notes:
+
+- `ENGINE_CONFIG` is optional and unused by default; set it only when you explicitly want to use calibration parameters.
+- `MAX_TRACK_LENGTH` is optional (minutes) and limits both user-upload and YouTube analysis jobs by duration.
+- Dependency updates (`yt-dlp`, `madmom-beats-lite`, `deno`) happen at image build/deploy time. Container startup does not perform network updates.
+- To force-refresh externally sourced dependencies, run `docker compose build --no-cache` and then `docker compose up`.
 
 Open:
 
@@ -71,13 +82,13 @@ Open:
 API routes are under `/api/*`. The Compose file uses a named Docker volume
 (`storage`) to persist `/app/api/storage`.
 
-## For standalone setup, see:
+## Standalone Setup
 
-- [`engine/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/engine/README.md)
-- [`api/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/api/README.md)
-- [`web/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/web/README.md)
-- [`pwa/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/pwa/README.md)
-- [`android/README.md`](https://github.com/creightonlinza/forever-jukebox/blob/master/android/README.md)
+- [`engine/README.md`](./engine/README.md)
+- [`api/README.md`](./api/README.md)
+- [`web/README.md`](./web/README.md)
+- [`pwa/README.md`](./pwa/README.md)
+- [`android/README.md`](./android/README.md)
 
 ## Credits
 
