@@ -99,6 +99,5 @@ API routes are under `/api/*`. The Compose file uses a named Docker volume
 - EternalJukebox: keeping the dream alive.
 - madmom-beats-lite: parity-safe beat/downbeat extraction package.
 - Essentia: audio features and DSP toolkits.
-- ffmpeg: audio decoding.
 - yt-dlp: YouTube search metadata and audio.
 - OpenAI Codex (GPT-5): implementation guidance and tooling.
