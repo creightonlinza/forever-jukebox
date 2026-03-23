@@ -1,6 +1,6 @@
 Cython==3.0.10
-madmom==0.16.1
-numpy==1.26.4
-scipy==1.11.4
+numpy==2.2.3
+scipy==1.13.1
 essentia==2.1b6.dev1389
+packaging
 setuptools==81.0.0

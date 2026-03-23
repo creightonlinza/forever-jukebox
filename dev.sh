@@ -9,9 +9,10 @@ VITE_HOST_FLAG=""
 PYTHON_BIN=""
 PYTHON_VERSION=""
 # Local dev startup dependency refresh toggles.
-# Set either value to 0 to skip that upgrade step.
-UPDATE_YTDLP=1
-UPDATE_DENO=1
+# Edit these values in this script when you want startup upgrade checks.
+UPDATE_YTDLP=false
+UPDATE_DENO=false
+UPDATE_MADMOM_BEATS_LITE=false
 
 for arg in "$@"; do
   if [[ "$arg" == "--host" ]]; then
@@ -82,6 +83,12 @@ ensure_command() {
   fi
 }
 
+is_true() {
+  local value="${1:-}"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+  [[ "$value" == "true" ]]
+}
+
 resolve_python() {
   if [[ -n "${FJ_PYTHON:-}" ]]; then
     if [[ -x "$FJ_PYTHON" ]]; then
@@ -91,7 +98,7 @@ resolve_python() {
     echo "FJ_PYTHON is set but not executable: $FJ_PYTHON"
     exit 1
   fi
-  for candidate in python3.10 python3; do
+  for candidate in python3.11 python3; do
     if command -v "$candidate" >/dev/null 2>&1; then
       PYTHON_BIN="$(command -v "$candidate")"
       return
@@ -114,6 +121,11 @@ ensure_python() {
   resolve_python_version
   if [[ -z "$PYTHON_BIN" ]]; then
     echo "Missing required command: python3"
+    exit 1
+  fi
+  if [[ "$PYTHON_VERSION" != "3.11" ]]; then
+    echo "Python 3.11 is required for local dev (detected: $PYTHON_VERSION)."
+    echo "Install python3.11 or set FJ_PYTHON to a Python 3.11 executable."
     exit 1
   fi
 }
@@ -185,6 +197,38 @@ try_deno_upgrade_with_package_manager() {
   return 1
 }
 
+try_deno_install_with_package_manager() {
+  if command -v brew >/dev/null 2>&1; then
+    echo "Trying Homebrew install for deno..."
+    if brew install deno; then
+      return 0
+    fi
+  fi
+
+  if command -v scoop >/dev/null 2>&1; then
+    echo "Trying Scoop install for deno..."
+    if scoop install deno; then
+      return 0
+    fi
+  fi
+
+  if command -v choco >/dev/null 2>&1; then
+    echo "Trying Chocolatey install for deno..."
+    if choco install -y deno; then
+      return 0
+    fi
+  fi
+
+  if command -v winget >/dev/null 2>&1; then
+    echo "Trying winget install for deno..."
+    if winget install --id DenoLand.Deno --accept-package-agreements --accept-source-agreements; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 print_deno_upgrade_hint() {
   echo "Warning: could not auto-upgrade deno."
   if command -v brew >/dev/null 2>&1; then
@@ -210,25 +254,41 @@ print_deno_upgrade_hint() {
   fi
 }
 
+print_deno_install_hint() {
+  echo "Warning: deno not found and could not be auto-installed."
+  if command -v brew >/dev/null 2>&1; then
+    echo "Hint: install deno with Homebrew: brew install deno"
+  elif command -v scoop >/dev/null 2>&1; then
+    echo "Hint: install deno with Scoop: scoop install deno"
+  elif command -v choco >/dev/null 2>&1; then
+    echo "Hint: install deno with Chocolatey: choco install -y deno"
+  elif command -v winget >/dev/null 2>&1; then
+    echo "Hint: install deno with winget: winget install --id DenoLand.Deno"
+  else
+    echo "Hint: install deno using your OS package manager or https://deno.land/manual/getting_started/installation"
+  fi
+}
+
 ensure_api_env() {
   ensure_venv "$API_VENV"
   if ! "$API_VENV/bin/python" -c "import fastapi, yt_dlp, httpx, dotenv" >/dev/null 2>&1; then
     "$API_VENV/bin/python" -m pip install -r "$ROOT/api/requirements.txt"
   fi
-  if [[ "$UPDATE_YTDLP" == "1" ]]; then
+  if is_true "$UPDATE_YTDLP"; then
     if ! "$API_VENV/bin/python" -m pip install --upgrade "yt-dlp[default]"; then
       echo "Warning: could not auto-upgrade yt-dlp; continuing with installed version."
     fi
   fi
-  if [[ "$UPDATE_DENO" == "1" ]]; then
-    if command -v deno >/dev/null 2>&1; then
-      if ! deno upgrade; then
-        if ! try_deno_upgrade_with_package_manager; then
-          print_deno_upgrade_hint
-        fi
+  if ! command -v deno >/dev/null 2>&1; then
+    if ! try_deno_install_with_package_manager; then
+      print_deno_install_hint
+    fi
+  fi
+  if is_true "$UPDATE_DENO" && command -v deno >/dev/null 2>&1; then
+    if ! deno upgrade; then
+      if ! try_deno_upgrade_with_package_manager; then
+        print_deno_upgrade_hint
       fi
-    else
-      echo "Warning: UPDATE_DENO=1 but deno not found in PATH."
     fi
   fi
   if ! command -v deno >/dev/null 2>&1; then
@@ -244,8 +304,29 @@ ensure_engine_env() {
   if ! "$ENGINE_VENV/bin/python" -c "import pkg_resources" >/dev/null 2>&1; then
     "$ENGINE_VENV/bin/python" -m pip install setuptools
   fi
-  if ! "$ENGINE_VENV/bin/python" -c "import madmom, mutagen" >/dev/null 2>&1; then
+  if ! "$ENGINE_VENV/bin/python" -c "import numpy, scipy, essentia, packaging" >/dev/null 2>&1; then
     "$ENGINE_VENV/bin/python" -m pip install -r "$ROOT/engine/requirements.txt"
+  fi
+  local has_madmom_beats_lite=0
+  if "$ENGINE_VENV/bin/python" -c "import madmom_beats_lite" >/dev/null 2>&1; then
+    has_madmom_beats_lite=1
+  fi
+  if is_true "$UPDATE_MADMOM_BEATS_LITE" || [[ "$has_madmom_beats_lite" == "0" ]]; then
+    if ! "$ENGINE_VENV/bin/python" "$ROOT/engine/scripts/install_madmom_beats_lite.py" --python "$ENGINE_VENV/bin/python"; then
+      if [[ "$has_madmom_beats_lite" == "1" ]]; then
+        echo "Warning: could not auto-update madmom-beats-lite; continuing with installed version."
+      else
+        echo "Error: madmom-beats-lite installation failed."
+        exit 1
+      fi
+    fi
+  fi
+  if "$ENGINE_VENV/bin/python" -m pip show madmom >/dev/null 2>&1; then
+    "$ENGINE_VENV/bin/python" -m pip uninstall -y madmom
+    if ! "$ENGINE_VENV/bin/python" "$ROOT/engine/scripts/install_madmom_beats_lite.py" --python "$ENGINE_VENV/bin/python"; then
+      echo "Error: madmom-beats-lite reinstall failed after removing legacy madmom."
+      exit 1
+    fi
   fi
 }
 

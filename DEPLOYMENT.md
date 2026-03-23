@@ -29,8 +29,7 @@ Notes:
 
 - The API serves the web UI at `/`, the offline PWA at `/offline/`, and JSON at `/api/*`.
 - Persist `api/storage/` with a volume (EBS/EFS on AWS); container storage is ephemeral.
-- On each container start (deploy), the entrypoint upgrades `yt-dlp` and `deno` to latest stable by default.
-- Optional: set `AUTO_UPDATE_YTDLP=0` and/or `AUTO_UPDATE_DENO=0` to disable startup upgrades.
+- Dependency updates (`yt-dlp`, `madmom-beats-lite`, `deno`) happen during image build/deploy; container startup performs no network updates.
 - Optional: set `PORT` to change the internal listen port (defaults to 8000).
 - Optional: set `WORKER_COUNT` (default `1`) to control worker concurrency.
 - Optional: set `MAX_TRACK_LENGTH` (minutes) to reject user-upload and YouTube jobs above that duration.

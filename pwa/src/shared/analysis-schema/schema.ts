@@ -25,8 +25,16 @@ const trackSchema = z.object({
   time_signature: z.number().optional(),
 });
 
+const engineVersionSchema = z.number().int();
+const engineOriginSchema = z.enum([
+  "forever-jukebox",
+  "forever-jukebox-android",
+  "forever-jukebox-pwa",
+]);
+
 export const analysisSchema = z.object({
-  engine_version: z.number().optional(),
+  engine_version: engineVersionSchema.optional(),
+  engine_origin: engineOriginSchema.optional(),
   sections: z.array(quantumSchema),
   bars: z.array(quantumSchema),
   beats: z.array(quantumSchema),

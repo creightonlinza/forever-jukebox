@@ -18,6 +18,14 @@
       "type": "object",
       "properties": {
         "engine_version": { "type": "integer" },
+        "engine_origin": {
+          "type": "string",
+          "enum": [
+            "forever-jukebox",
+            "forever-jukebox-android",
+            "forever-jukebox-pwa"
+          ]
+        },
         "sections": { "$ref": "#/definitions/quantumList" },
         "bars": { "$ref": "#/definitions/quantumList" },
         "beats": { "$ref": "#/definitions/quantumList" },

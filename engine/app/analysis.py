@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import threading
 from typing import Dict, Any, List, Optional, Callable
 
 import numpy as np
@@ -178,26 +177,20 @@ def analyze_audio(
     duration = len(audio) / sample_rate if sample_rate else 0.0
 
     report(10, "beats")
-    beat_stop = threading.Event()
-    beat_thread = None
-    if progress_cb and duration > 0:
-        def beat_heartbeat() -> None:
-            extra_minutes = max(0.0, (duration - 180.0) / 60.0)
-            wait_s = 2.0 + (0.75 * extra_minutes)
-            next_progress = 15
-            while not beat_stop.is_set() and next_progress < 85:
-                if beat_stop.wait(wait_s):
-                    break
-                report(next_progress, "beats")
-                next_progress += 5
-        beat_thread = threading.Thread(target=beat_heartbeat, daemon=True)
-        beat_thread.start()
-    try:
-        beat_times, beat_numbers, beat_confidences = extract_beats(audio, sample_rate, batch=batch)
-    finally:
-        if beat_thread:
-            beat_stop.set()
-            beat_thread.join(0.1)
+    def beat_progress(percent: int, stage: str, message: str) -> None:
+        del message
+        clamped = max(0, min(100, int(percent)))
+        mapped = 10 + int((clamped / 100.0) * 75.0)
+        stage_name = f"beats.{stage}" if stage else "beats"
+        report(mapped, stage_name)
+
+    beat_times, beat_numbers, beat_confidences = extract_beats(
+        audio,
+        sample_rate,
+        batch=batch,
+        progress_cb=beat_progress if progress_cb else None,
+    )
+    report(85, "beats")
     if not beat_times:
         beat_times = [0.0]
         beat_numbers = [1]
@@ -366,7 +359,8 @@ def analyze_audio(
     tempo = float(np.median(tempos)) if tempos else 0.0
 
     analysis = {
-        "engine_version": 2,
+        "engine_version": 3,
+        "engine_origin": "forever-jukebox",
         "sections": sections,
         "bars": bars,
         "beats": beats,
@@ -385,4 +379,3 @@ def analyze_audio(
 
 def _round_value(value: float, decimals: int) -> float:
     return float(np.round(value, decimals=decimals))
-

@@ -8,7 +8,8 @@ import {
 import type { Quantum, Segment } from "./analysis/helpers";
 
 type AnalysisResult = {
-  engine_version: number;
+  engine_version: 1;
+  engine_origin: "forever-jukebox-pwa";
   sections: Quantum[];
   bars: Quantum[];
   beats: Quantum[];
@@ -308,7 +309,8 @@ async function analyzeAudio(options: {
   const tempo = computeTempo(beatTimes);
 
   const result: AnalysisResult = {
-    engine_version: 2,
+    engine_version: 1,
+    engine_origin: "forever-jukebox-pwa",
     sections,
     bars,
     beats,

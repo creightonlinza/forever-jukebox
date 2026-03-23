@@ -4,7 +4,7 @@ This package generates analysis JSON compatible with `schema.json` and the Forev
 
 ## Setup
 
-This engine stack expects Python 3.10. Anything above has some dependency compatibility issues from madmom.
+This engine stack currently targets Python 3.11.
 
 ```bash
 python3 -m venv .venv
@@ -40,3 +40,4 @@ python -m app.main /path/to/audio.m4a -o /path/to/output.json --calibration /pat
 
 - `ffmpeg` must be installed and available in `PATH` for audio decoding.
 - `--calibration` is optional and not used in the default flow.
+- Beat/downbeat extraction is provided by `madmom-beats-lite` (installed from GitHub release wheels).
