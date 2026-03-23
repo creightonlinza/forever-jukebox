@@ -144,6 +144,23 @@ def _installed_version() -> str | None:
         return None
 
 
+def _release_version_from_tag(tag: str | None) -> str | None:
+    if not tag:
+        return None
+    normalized = str(tag).strip()
+    if normalized.startswith(("v", "V")):
+        normalized = normalized[1:]
+    return normalized or None
+
+
+def _is_package_importable() -> bool:
+    try:
+        import madmom_beats_lite  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
 def _pip_install(python_executable: str, wheel_path: Path) -> None:
     subprocess.run(
         [
@@ -152,7 +169,6 @@ def _pip_install(python_executable: str, wheel_path: Path) -> None:
             "pip",
             "install",
             "--upgrade",
-            "--force-reinstall",
             str(wheel_path),
         ],
         check=True,
@@ -179,6 +195,23 @@ def run_install(python_executable: str, download_dir: Path, progress: ProgressEm
         if not download_url:
             raise RuntimeError("MissingBrowserDownloadURL")
         progress.emit(12, "release", f"selected wheel {asset_name}")
+
+        release_version = _release_version_from_tag(release_tag)
+        installed_before = _installed_version()
+        if (
+            release_version
+            and installed_before == release_version
+            and _is_package_importable()
+        ):
+            progress.emit(100, "done", "already up to date")
+            return InstallOutcome(
+                ok=True,
+                release_tag=release_tag,
+                asset_name=asset_name,
+                install_status="up-to-date",
+                installed_version=installed_before,
+                error=None,
+            )
 
         download_dir.mkdir(parents=True, exist_ok=True)
         wheel_path = download_dir / asset_name

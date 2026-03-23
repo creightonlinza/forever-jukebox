@@ -41,11 +41,9 @@ COPY engine/requirements.txt /app/engine/requirements.txt
 COPY engine/scripts/install_madmom_beats_lite.py /app/engine/scripts/install_madmom_beats_lite.py
 
 RUN python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --upgrade pip setuptools wheel \
-    && /opt/venv/bin/pip install Cython "numpy==2.2.3" \
+    && /opt/venv/bin/pip install --upgrade pip wheel "setuptools==81.0.0" \
+    && /opt/venv/bin/pip install "numpy==2.2.3" \
     && /opt/venv/bin/pip install -r /app/api/requirements.txt \
-    # Ensure latest yt-dlp at build time even if cached requirements layer
-    && /opt/venv/bin/pip install --upgrade "yt-dlp[default]" \
     # Critical: ensure Essentia is installed from a wheel (never source)
     && /opt/venv/bin/pip install --no-build-isolation --only-binary=essentia -r /app/engine/requirements.txt \
     && /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python \

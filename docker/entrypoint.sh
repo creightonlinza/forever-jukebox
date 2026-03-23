@@ -1,50 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-retry() {
-  local attempts="$1"
-  shift
-  local delay="$1"
-  shift
-  local i=1
-  while true; do
-    if "$@"; then
-      return 0
-    fi
-    if [[ "$i" -ge "$attempts" ]]; then
-      return 1
-    fi
-    i=$((i + 1))
-    sleep "$delay"
-  done
-}
-
-is_true() {
-  local value="${1:-}"
-  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
-  [[ "$value" == "true" ]]
-}
-
-if is_true "${AUTO_UPDATE_YTDLP:-true}"; then
-  echo "Updating yt-dlp..."
-  retry 3 2 /opt/venv/bin/python -m pip install --upgrade --no-cache-dir "yt-dlp[default]"
-fi
-
-if is_true "${AUTO_UPDATE_MADMOM_BEATS_LITE:-true}"; then
-  echo "Updating madmom-beats-lite..."
-  retry 3 2 /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python
-  if /opt/venv/bin/python -m pip show madmom >/dev/null 2>&1; then
-    echo "Removing legacy madmom package..."
-    /opt/venv/bin/python -m pip uninstall -y madmom
-    retry 3 2 /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python
-  fi
-fi
-
-if is_true "${AUTO_UPDATE_DENO:-true}"; then
-  echo "Updating Deno..."
-  retry 3 2 deno upgrade
-fi
-
 cd /app/api
 
 python worker/worker.py &
