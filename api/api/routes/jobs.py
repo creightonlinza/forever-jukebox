@@ -138,6 +138,31 @@ def _sanitize_title(filename: str | None) -> str:
     return cleaned[:200]
 
 
+def _sanitize_log_text(value: str | None, max_len: int = 200) -> str | None:
+    if value is None:
+        return None
+    cleaned = "".join(ch for ch in value if ch.isprintable())
+    cleaned = " ".join(cleaned.split()).strip()
+    if not cleaned:
+        return None
+    return cleaned[:max_len]
+
+
+def _log_event(event: str, **fields: object) -> None:
+    payload: dict[str, object] = {"event": event}
+    for key, value in fields.items():
+        if value is None:
+            continue
+        if isinstance(value, str):
+            sanitized = _sanitize_log_text(value)
+            if sanitized is None:
+                continue
+            payload[key] = sanitized
+            continue
+        payload[key] = value
+    logger.info("%s", json.dumps(payload, separators=(",", ":"), ensure_ascii=True))
+
+
 def _is_enabled(env_key: str) -> bool:
     value = os.environ.get(env_key, "")
     return value.lower() in {"1", "true", "yes", "on"}
@@ -506,6 +531,18 @@ def create_analysis_youtube(
         raise HTTPException(status_code=400, detail="youtube_id is required")
     track_title = payload.get("title")
     track_artist = payload.get("artist")
+    spotify_track_id_raw = payload.get("spotify_track_id")
+    spotify_track_id = (
+        spotify_track_id_raw
+        if isinstance(spotify_track_id_raw, str) and spotify_track_id_raw.strip()
+        else None
+    )
+    duration_raw = payload.get("duration")
+    duration_s = None
+    if isinstance(duration_raw, (int, float)):
+        duration_value = float(duration_raw)
+        if math.isfinite(duration_value) and duration_value >= 0:
+            duration_s = int(duration_value)
     is_user_supplied = bool(payload.get("is_user_supplied"))
     if track_title is not None and not isinstance(track_title, str):
         raise HTTPException(status_code=400, detail="title must be a string")
@@ -514,6 +551,15 @@ def create_analysis_youtube(
 
     if is_user_supplied and not _is_enabled("ALLOW_USER_YOUTUBE"):
         raise HTTPException(status_code=403, detail="User-supplied YouTube jobs are disabled")
+
+    if track_title and track_artist and not is_user_supplied:
+        _log_event(
+            "spotify_selection",
+            spotify_track_id=spotify_track_id,
+            title=track_title,
+            artist=track_artist,
+            duration_s=duration_s,
+        )
 
     if track_title and track_artist:
         existing_by_track = get_job_by_track(DB_PATH, track_title, track_artist)
@@ -544,6 +590,13 @@ def create_analysis_youtube(
         youtube_id=youtube_id,
         progress=0,
         is_user_supplied=int(is_user_supplied),
+    )
+    _log_event(
+        "job_started",
+        job_id=job_id,
+        source="youtube",
+        youtube_id=youtube_id,
+        is_user_supplied=is_user_supplied,
     )
     background_tasks.add_task(_download_youtube_audio, job_id, youtube_id)
     payload = AnalysisStartResponse(
@@ -620,6 +673,13 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
         youtube_id=None,
         progress=0,
         is_user_supplied=1,
+    )
+    _log_event(
+        "job_started",
+        job_id=job_id,
+        source="upload",
+        is_user_supplied=True,
+        upload_ext=ext,
     )
     payload = AnalysisStartResponse(
         id=job_id,
