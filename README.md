@@ -5,9 +5,10 @@
 The Forever Jukebox is a self-hosted, end-to-end system that analyzes audio,
 serves the results via a lightweight API, and powers a refreshed Infinite
 Jukebox-style web UI with branching playback and multiple visualizations. It
-also includes an installable offline PWA and a native Android app for on-device
-playback. It replaces reliance on the deprecated Spotify Audio Analysis engine
-by generating similar beat/segment/section data locally.
+also includes an installable offline PWA. The native Android app now lives in a
+separate repository: [`creightonlinza/forever-jukebox-android`](https://github.com/creightonlinza/forever-jukebox-android).
+It replaces reliance on the deprecated Spotify Audio Analysis engine by
+generating similar beat/segment/section data locally.
 
 ## Structure
 
@@ -15,7 +16,6 @@ by generating similar beat/segment/section data locally.
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI.
 - `pwa/` — Offline/local analysis PWA that can also export jukebox audio.
-- `android/` — Native Android app.
 - `schema.json` — JSON schema reference for analysis output.
 
 ## Quick Start
@@ -32,14 +32,9 @@ Local dev startup installs missing dependencies by default and does not check fo
 
 Then open the web UI at `http://localhost:5173`.
 
-## Android (native app)
+## Android App (standalone repo)
 
-- Download: [GitHub Releases](https://github.com/creightonlinza/forever-jukebox/releases/latest)
-- Signature (SHA-256):
-
-```bash
-  B5:30:EB:FD:C1:7E:C2:D0:1A:2E:9A:9D:D9:DD:02:CA:5D:2F:E0:7A:E2:C6:E5:F8:45:E7:FF:41:FD:78:B4:4D
-```
+- Source + releases: [creightonlinza/forever-jukebox-android](https://github.com/creightonlinza/forever-jukebox-android)
 
 ## Docker (production)
 
@@ -90,7 +85,7 @@ API routes are under `/api/*`. The Compose file uses a named Docker volume
 - [`api/README.md`](./api/README.md)
 - [`web/README.md`](./web/README.md)
 - [`pwa/README.md`](./pwa/README.md)
-- [`android/README.md`](./android/README.md)
+- Android app docs: [`creightonlinza/forever-jukebox-android`](https://github.com/creightonlinza/forever-jukebox-android)
 
 ## Credits
 
