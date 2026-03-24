@@ -5,7 +5,7 @@ services:
     image: forever-jukebox
     build: .
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     volumes:
       - storage:/app/api/storage
     environment:
@@ -14,7 +14,9 @@ services:
       YOUTUBE_API_KEY: "${YOUTUBE_API_KEY:-}"
       ADMIN_KEY: "${ADMIN_KEY:-}"
       NTFY_TOPIC_KEY: "${NTFY_TOPIC_KEY:-}"
+      PORT: "${PORT:-8000}"
       WORKER_COUNT: "${WORKER_COUNT:-}"
+      ENGINE_CONFIG: "${ENGINE_CONFIG:-}"
       MAX_TRACK_LENGTH: "${MAX_TRACK_LENGTH:-}"
       ALLOW_USER_UPLOAD: "${ALLOW_USER_UPLOAD:-}"
       ALLOW_USER_YOUTUBE: "${ALLOW_USER_YOUTUBE:-}"
