@@ -2004,7 +2004,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val CAST_TRACK_DURATION_UNKNOWN_ERROR_CODE = "cast_track_duration_unknown"
         private const val CAST_MAX_TRACK_DURATION_MINUTES = 7.0
         private const val GITHUB_REPO_OWNER = "creightonlinza"
-        private const val GITHUB_REPO_NAME = "forever-jukebox"
+        private const val GITHUB_REPO_NAME = "forever-jukebox-android"
         private const val RANDOM_BRANCH_DELTA_PERCENT_SCALE = 500.0
     }
 }
