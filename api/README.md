@@ -12,46 +12,44 @@ pip install -r requirements.txt
 
 ## Configure the generator
 
-Set environment variable to point at the generator repo:
+Set environment variables:
+
+Required:
+
+- `ENGINE_REPO` (example: `../engine`)
+
+Optional:
+
+- `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`
+- `YOUTUBE_API_KEY`
+- `ADMIN_KEY`
+- `NTFY_TOPIC_KEY`
+- `WORKER_COUNT`
+- `MAX_TRACK_LENGTH`
+- `ALLOW_USER_UPLOAD`
+- `ALLOW_USER_YOUTUBE`
+- `ALLOW_FAVORITES_SYNC`
+- `ENGINE_CONFIG`
+
+For defaults and behavior details, see the canonical Docker env reference in the root README: [`../README.md#docker-production`](../README.md#docker-production).
+
+Example shell exports:
 
 ```bash
 export ENGINE_REPO=../engine
-```
-
-`ENGINE_CONFIG` is optional and unused by default. Set it only when you explicitly want to use calibration parameters:
-
-```bash
-export ENGINE_CONFIG=../engine/calibration.json
-```
-
-Set API keys:
-
-```bash
-export SPOTIFY_CLIENT_ID=...
-export SPOTIFY_CLIENT_SECRET=...
-export YOUTUBE_API_KEY=...
-export ADMIN_KEY=...
-export NTFY_TOPIC_KEY=...
+# Optional:
+# export SPOTIFY_CLIENT_ID=...
+# export SPOTIFY_CLIENT_SECRET=...
+# export YOUTUBE_API_KEY=
+# export ADMIN_KEY=
+# export NTFY_TOPIC_KEY=
 export WORKER_COUNT=1
-export MAX_TRACK_LENGTH=12
-export ALLOW_USER_UPLOAD=true
-export ALLOW_USER_YOUTUBE=true
-export ALLOW_FAVORITES_SYNC=true
+# export MAX_TRACK_LENGTH=12
+# export ALLOW_USER_UPLOAD=true
+# export ALLOW_USER_YOUTUBE=true
+# export ALLOW_FAVORITES_SYNC=true
+# export ENGINE_CONFIG=../engine/calibration.json
 ```
-
-### NTFY_TOPIC_KEY (optional)
-
-Set `NTFY_TOPIC_KEY` to enable ntfy alerts for YouTube download failures
-(HTTP 403 / “not a bot” challenge). The API will post to:
-
-```
-ntfy.sh/<NTFY_TOPIC_KEY>
-```
-
-### MAX_TRACK_LENGTH (optional)
-
-Set `MAX_TRACK_LENGTH` to a positive number of minutes to reject user-upload
-and YouTube jobs that exceed this duration.
 
 ## yt-dlp EJS runtime
 

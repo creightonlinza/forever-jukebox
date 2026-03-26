@@ -5,9 +5,10 @@
 The Forever Jukebox is a self-hosted, end-to-end system that analyzes audio,
 serves the results via a lightweight API, and powers a refreshed Infinite
 Jukebox-style web UI with branching playback and multiple visualizations. It
-also includes an installable offline PWA and a native Android app for on-device
-playback. It replaces reliance on the deprecated Spotify Audio Analysis engine
-by generating similar beat/segment/section data locally.
+also includes an installable offline PWA. The native Android app now lives in a
+separate repository: [`creightonlinza/forever-jukebox-android`](https://github.com/creightonlinza/forever-jukebox-android).
+It replaces reliance on the deprecated Spotify Audio Analysis engine by
+generating similar beat/segment/section data locally.
 
 ## Structure
 
@@ -15,7 +16,6 @@ by generating similar beat/segment/section data locally.
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI.
 - `pwa/` — Offline/local analysis PWA that can also export jukebox audio.
-- `android/` — Native Android app.
 - `schema.json` — JSON schema reference for analysis output.
 
 ## Quick Start
@@ -32,36 +32,51 @@ Local dev startup installs missing dependencies by default and does not check fo
 
 Then open the web UI at `http://localhost:5173`.
 
-## Android (native app)
+## Android App (standalone repo)
 
-- Download: [GitHub Releases](https://github.com/creightonlinza/forever-jukebox/releases/latest)
-- Signature (SHA-256):
-
-```bash
-  B5:30:EB:FD:C1:7E:C2:D0:1A:2E:9A:9D:D9:DD:02:CA:5D:2F:E0:7A:E2:C6:E5:F8:45:E7:FF:41:FD:78:B4:4D
-```
+- Source + releases: [creightonlinza/forever-jukebox-android](https://github.com/creightonlinza/forever-jukebox-android)
 
 ## Docker (production)
 
 Build and run the container with Docker Compose (serves web UI + offline PWA + API).
 
-Set required environment variables:
+Set environment variables:
+
+Required:
+
+- `SPOTIFY_CLIENT_ID`: required for `/api/search/spotify`.
+- `SPOTIFY_CLIENT_SECRET`: required for `/api/search/spotify`.
+
+Optional:
+
+- `YOUTUBE_API_KEY`: optional fallback for `/api/search/youtube` when `yt-dlp` search fails.
+- `ADMIN_KEY`: optional; required only for admin-only actions (play-count updates, and deletes outside the 30-minute grace window).
+- `NTFY_TOPIC_KEY`: optional; enables ntfy alerts for YouTube download errors.
+- `WORKER_COUNT`: optional; defaults to `1` and controls worker concurrency.
+- `MAX_TRACK_LENGTH`: optional; when set to a positive number (minutes), rejects jobs over that duration.
+- `ALLOW_USER_UPLOAD`: optional; defaults to `false`. Set `true` to enable `/api/upload`.
+- `ALLOW_USER_YOUTUBE`: optional; defaults to `false`. Set `true` to allow user-supplied YouTube jobs.
+- `ALLOW_FAVORITES_SYNC`: optional; defaults to `false`. Set `true` to enable favorites sync endpoints.
+- `PORT`: optional; defaults to `8000`.
+- `ENGINE_CONFIG`: optional and unused by default; set only when you explicitly want calibration parameters.
+
+Example `.env`:
 
 ```bash
-export SPOTIFY_CLIENT_ID=...
-export SPOTIFY_CLIENT_SECRET=...
-export YOUTUBE_API_KEY=...
-export ADMIN_KEY=...
-export NTFY_TOPIC_KEY=...
-export WORKER_COUNT=1
-export MAX_TRACK_LENGTH=12
-export ALLOW_USER_UPLOAD=false
-export ALLOW_USER_YOUTUBE=false
-export ALLOW_FAVORITES_SYNC=false
+SPOTIFY_CLIENT_ID=...
+SPOTIFY_CLIENT_SECRET=...
+YOUTUBE_API_KEY=
+ADMIN_KEY=
+NTFY_TOPIC_KEY=
+WORKER_COUNT=1
+MAX_TRACK_LENGTH=12
+ALLOW_USER_UPLOAD=false
+ALLOW_USER_YOUTUBE=false
+ALLOW_FAVORITES_SYNC=false
+PORT=8000
 ```
 
-You can also put these values in a `.env` file (same directory as
-`docker-compose.yml`) and Compose will load them automatically.
+You can put these values in a `.env` file (same directory as `docker-compose.yml`) and Compose will load them automatically.
 
 Run:
 
@@ -71,8 +86,6 @@ docker compose up --build
 
 Notes:
 
-- `ENGINE_CONFIG` is optional and unused by default; set it only when you explicitly want to use calibration parameters.
-- `MAX_TRACK_LENGTH` is optional (minutes) and limits both user-upload and YouTube analysis jobs by duration.
 - Dependency updates (`yt-dlp`, `madmom-beats-lite`, `deno`) happen at image build/deploy time. Container startup does not perform network updates.
 - To force-refresh externally sourced dependencies, run `docker compose build --no-cache` and then `docker compose up`.
 
@@ -90,7 +103,7 @@ API routes are under `/api/*`. The Compose file uses a named Docker volume
 - [`api/README.md`](./api/README.md)
 - [`web/README.md`](./web/README.md)
 - [`pwa/README.md`](./pwa/README.md)
-- [`android/README.md`](./android/README.md)
+- Android app docs: [`creightonlinza/forever-jukebox-android`](https://github.com/creightonlinza/forever-jukebox-android)
 
 ## Credits
 
