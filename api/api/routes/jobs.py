@@ -138,6 +138,31 @@ def _sanitize_title(filename: str | None) -> str:
     return cleaned[:200]
 
 
+def _sanitize_log_text(value: str | None, max_len: int = 200) -> str | None:
+    if value is None:
+        return None
+    cleaned = "".join(ch for ch in value if ch.isprintable())
+    cleaned = " ".join(cleaned.split()).strip()
+    if not cleaned:
+        return None
+    return cleaned[:max_len]
+
+
+def _log_event(event: str, **fields: object) -> None:
+    payload: dict[str, object] = {"event": event}
+    for key, value in fields.items():
+        if value is None:
+            continue
+        if isinstance(value, str):
+            sanitized = _sanitize_log_text(value)
+            if sanitized is None:
+                continue
+            payload[key] = sanitized
+            continue
+        payload[key] = value
+    logger.info("%s", json.dumps(payload, separators=(",", ":"), ensure_ascii=True))
+
+
 def _is_enabled(env_key: str) -> bool:
     value = os.environ.get(env_key, "")
     return value.lower() in {"1", "true", "yes", "on"}
@@ -545,6 +570,13 @@ def create_analysis_youtube(
         progress=0,
         is_user_supplied=int(is_user_supplied),
     )
+    _log_event(
+        "job_started",
+        job_id=job_id,
+        source="youtube",
+        youtube_id=youtube_id,
+        is_user_supplied=is_user_supplied,
+    )
     background_tasks.add_task(_download_youtube_audio, job_id, youtube_id)
     payload = AnalysisStartResponse(
         id=job_id,
@@ -620,6 +652,13 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
         youtube_id=None,
         progress=0,
         is_user_supplied=1,
+    )
+    _log_event(
+        "job_started",
+        job_id=job_id,
+        source="upload",
+        is_user_supplied=True,
+        upload_ext=ext,
     )
     payload = AnalysisStartResponse(
         id=job_id,
@@ -728,6 +767,7 @@ def get_job_by_youtube(youtube_id: str) -> JSONResponse:
 def get_job_by_track_match(
     title: str = Query(..., min_length=1), artist: str = Query(..., min_length=1)
 ) -> JSONResponse:
+    _log_event("spotify_selection", title=title, artist=artist)
     job = get_job_by_track(DB_PATH, title, artist)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
