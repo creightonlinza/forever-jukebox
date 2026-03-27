@@ -242,6 +242,29 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     autocanonizer.setFinishOutSong(input.checked);
   }
 
+  function selectAdjacentBranch(direction: -1 | 1) {
+    if (!state.selectedEdge) {
+      return;
+    }
+    const edges = (state.vizData?.edges ?? []).filter((edge) => !edge.deleted);
+    if (edges.length === 0) {
+      return;
+    }
+    const currentIndex = edges.findIndex(
+      (edge) => edge.id === state.selectedEdge?.id,
+    );
+    const nextIndex =
+      currentIndex >= 0
+        ? (currentIndex + direction + edges.length) % edges.length
+        : direction > 0
+          ? 0
+          : edges.length - 1;
+    const nextEdge = edges[nextIndex];
+    state.selectedEdge = nextEdge;
+    jukebox.setSelectedEdgeActive(nextEdge);
+    syncExtrasPopup(nextEdge);
+  }
+
   function handleKeydown(event: KeyboardEvent) {
     if (state.activeTabId !== "play") {
       return;
@@ -272,6 +295,14 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       state.extrasMode = !state.extrasMode;
       syncExtrasPopup(state.selectedEdge);
       showToast(context, `Extras mode ${state.extrasMode ? "enabled" : "disabled"}`);
+      return;
+    }
+    if (
+      (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+      state.selectedEdge
+    ) {
+      event.preventDefault();
+      selectAdjacentBranch(event.key === "ArrowRight" ? 1 : -1);
       return;
     }
     if (

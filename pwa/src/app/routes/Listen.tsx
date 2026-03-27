@@ -509,6 +509,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       }
       if (
         playMode === "jukebox" &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+        selectedEdge
+      ) {
+        event.preventDefault();
+        selectAdjacentBranch(event.key === "ArrowRight" ? 1 : -1);
+        return;
+      }
+      if (
+        playMode === "jukebox" &&
         (event.key === "Delete" || event.key === "Backspace") &&
         selectedEdge &&
         !selectedEdge.deleted
@@ -943,6 +952,29 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     vizControllerRef.current?.setSelectedEdge(null);
     setSelectedEdge(null);
     syncTuneFormFromEngine();
+  };
+
+  const selectAdjacentBranch = (direction: -1 | 1) => {
+    if (playModeRef.current !== "jukebox" || !selectedEdge) {
+      return;
+    }
+    const edges =
+      engineRef.current
+        ?.getVisualizationData()
+        ?.edges.filter((edge) => !edge.deleted) ?? [];
+    if (edges.length === 0) {
+      return;
+    }
+    const currentIndex = edges.findIndex((edge) => edge.id === selectedEdge.id);
+    const nextIndex =
+      currentIndex >= 0
+        ? (currentIndex + direction + edges.length) % edges.length
+        : direction > 0
+          ? 0
+          : edges.length - 1;
+    const nextEdge = edges[nextIndex];
+    setSelectedEdge(nextEdge);
+    vizControllerRef.current?.setSelectedEdgeActive(nextEdge);
   };
 
   const onApplyTuning = () => {
@@ -1739,6 +1771,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="info-row">
                 <span className="info-label">E:</span>
                 <span>Toggle Extras mode</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Left/Right:</span>
+                <span>Cycle selected branch</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Delete:</span>
