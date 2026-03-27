@@ -1087,6 +1087,47 @@ button:hover {
   z-index: 1;
 }
 
+.extras-popup {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  z-index: 4;
+  min-width: 160px;
+  border: 1px solid var(--border-panel);
+  border-radius: 10px;
+  background: var(--viz-overlay);
+  backdrop-filter: blur(8px);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 12px;
+  text-align: right;
+  pointer-events: none;
+}
+
+.extras-popup-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.extras-popup-row {
+  display: grid;
+  grid-template-columns: 1fr 60px;
+  gap: 8px;
+}
+
+.extras-popup-label {
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.extras-popup-value {
+  text-align: left;
+  white-space: nowrap;
+}
+
 .canonizer-layer {
   position: absolute;
   inset: 0;

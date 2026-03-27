@@ -35,6 +35,7 @@ export type AppState = {
   lastPlayCountedJobId: string | null;
   shiftBranching: boolean;
   bringItHomeMode: boolean;
+  extrasMode: boolean;
   selectedEdge: Edge | null;
   topSongsRefreshTimer: number | null;
   topSongsLoaded: boolean;
