@@ -49,6 +49,9 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
     updateTrackUrl,
     pollAnalysisJob,
   } = deps;
+  let searchInFlight = false;
+  let uploadFileInFlight = false;
+  let uploadYoutubeInFlight = false;
 
   function formatMinutes(value: number): string {
     const rounded = Math.round(value * 100) / 100;
@@ -60,6 +63,30 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
 
   function maxTrackLengthMessage(minutes: number): string {
     return `Error: The maximum track length for this server is ${formatMinutes(minutes)} minutes.`;
+  }
+
+  function setButtonBusy(button: HTMLButtonElement, busy: boolean) {
+    button.disabled = busy;
+    button.classList.toggle("is-loading", busy);
+    button.setAttribute("aria-busy", busy ? "true" : "false");
+  }
+
+  function setButtonBusySpinnerOnly(button: HTMLButtonElement, busy: boolean) {
+    setButtonBusy(button, busy);
+  }
+
+  async function triggerSearch() {
+    if (searchInFlight) {
+      return;
+    }
+    searchInFlight = true;
+    setButtonBusy(elements.searchButton, true);
+    try {
+      await runSearch(context, searchDeps);
+    } finally {
+      setButtonBusy(elements.searchButton, false);
+      searchInFlight = false;
+    }
   }
 
   async function probeAudioDurationSeconds(file: File): Promise<number | null> {
@@ -97,13 +124,13 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
   }
 
   function handleSearchClick() {
-    void runSearch(context, searchDeps);
+    void triggerSearch();
   }
 
   function handleSearchKeydown(event: KeyboardEvent) {
     if (event.key === "Enter") {
       event.preventDefault();
-      void runSearch(context, searchDeps);
+      void triggerSearch();
     }
   }
 
@@ -136,6 +163,9 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
   }
 
   async function handleUploadFileClick() {
+    if (uploadFileInFlight) {
+      return;
+    }
     const config = state.appConfig;
     if (!config?.allow_user_upload) {
       showToast(context, "Uploads are disabled.");
@@ -172,9 +202,8 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
         return;
       }
     }
-    const originalLabel = elements.uploadFileButton.textContent ?? "Load";
-    elements.uploadFileButton.disabled = true;
-    elements.uploadFileButton.textContent = "Loading";
+    uploadFileInFlight = true;
+    setButtonBusySpinnerOnly(elements.uploadFileButton, true);
     try {
       const response = await uploadAudio(file);
       if (!response || !response.id) {
@@ -216,12 +245,15 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       }
       showToast(context, `Upload failed: ${String(err)}`);
     } finally {
-      elements.uploadFileButton.disabled = false;
-      elements.uploadFileButton.textContent = originalLabel;
+      setButtonBusySpinnerOnly(elements.uploadFileButton, false);
+      uploadFileInFlight = false;
     }
   }
 
   async function handleUploadYoutubeClick() {
+    if (uploadYoutubeInFlight) {
+      return;
+    }
     const config = state.appConfig;
     if (!config?.allow_user_youtube) {
       showToast(context, "YouTube uploads are disabled.");
@@ -237,9 +269,8 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       showToast(context, "Invalid YouTube URL.");
       return;
     }
-    const originalLabel = elements.uploadYoutubeButton.textContent ?? "Load";
-    elements.uploadYoutubeButton.disabled = true;
-    elements.uploadYoutubeButton.textContent = "Loading";
+    uploadYoutubeInFlight = true;
+    setButtonBusySpinnerOnly(elements.uploadYoutubeButton, true);
     try {
       const response = await startYoutubeAnalysis({
         youtube_id: youtubeId,
@@ -258,10 +289,32 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       setLoadingProgress(context, null, "Fetching audio");
       await pollAnalysisJob(response.id);
     } catch (err) {
+      const trackTooLong =
+        (err as Error & { code?: string }).code === "track_too_long";
+      if (trackTooLong) {
+        const fallbackLimit =
+          typeof config.max_track_length === "number" &&
+            Number.isFinite(config.max_track_length) &&
+            config.max_track_length > 0
+            ? config.max_track_length
+            : null;
+        showToast(
+          context,
+          (err as Error).message ||
+            (fallbackLimit !== null
+              ? maxTrackLengthMessage(fallbackLimit)
+              : "Error: This track exceeds the server max track length."),
+          {
+            icon: "error",
+            tone: "error",
+          },
+        );
+        return;
+      }
       showToast(context, `Upload failed: ${String(err)}`);
     } finally {
-      elements.uploadYoutubeButton.disabled = false;
-      elements.uploadYoutubeButton.textContent = originalLabel;
+      setButtonBusySpinnerOnly(elements.uploadYoutubeButton, false);
+      uploadYoutubeInFlight = false;
     }
   }
 

@@ -228,7 +228,10 @@ export async function tryLoadExistingTrackByName(
 
 export async function runSearch(context: AppContext, deps: SearchDeps) {
   const { elements } = context;
-  const query = elements.searchInput.value.trim();
+  const query = elements.searchInput.value.trim().slice(0, 100);
+  if (elements.searchInput.value !== query) {
+    elements.searchInput.value = query;
+  }
   if (!query) {
     elements.searchResults.textContent = "Enter a search query.";
     return;

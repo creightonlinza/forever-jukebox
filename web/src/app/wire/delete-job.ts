@@ -36,13 +36,25 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
     isFavorite,
     removeFavorite,
   } = deps;
+  let deleteInFlight = false;
+
+  function setDeleteButtonBusy(busy: boolean) {
+    elements.deleteButton.disabled = busy;
+    elements.deleteButton.classList.toggle("is-loading", busy);
+    elements.deleteButton.setAttribute("aria-busy", busy ? "true" : "false");
+  }
 
   function handleDeleteJobClick() {
+    if (deleteInFlight) {
+      return;
+    }
     const jobId = state.lastJobId;
     const youtubeId = state.lastYouTubeId;
     if (!jobId) {
       return;
     }
+    deleteInFlight = true;
+    setDeleteButtonBusy(true);
     deleteJob(jobId)
       .then(() => {
         const favoriteId = youtubeId ?? jobId;
@@ -65,6 +77,10 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
         state.deleteEligibilityJobId = jobId;
         elements.deleteButton.classList.add("hidden");
         showToast(context, "Song can no longer be deleted");
+      })
+      .finally(() => {
+        setDeleteButtonBusy(false);
+        deleteInFlight = false;
       });
   }
 
