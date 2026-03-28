@@ -266,10 +266,33 @@
           </div>
         </div>
         <div id="viz-panel" class="hidden">
-          <div id="jukebox-viz" class="viz">
-            <div id="viz-layer" class="viz-layer"></div>
-            <div id="canonizer-layer" class="canonizer-layer"></div>
-            <div class="viz-top">
+            <div id="jukebox-viz" class="viz">
+              <div id="viz-layer" class="viz-layer"></div>
+              <div id="canonizer-layer" class="canonizer-layer"></div>
+              <div id="extras-popup" class="extras-popup hidden">
+                <div class="extras-popup-title" id="extras-title">Branch stats</div>
+                <div class="extras-popup-row">
+                  <span class="extras-popup-label">Direction:</span>
+                  <span class="extras-popup-value" id="extras-direction">Backward</span>
+                </div>
+                <div class="extras-popup-row">
+                  <span class="extras-popup-label">Start:</span>
+                  <span class="extras-popup-value" id="extras-start">00:00:00</span>
+                </div>
+                <div class="extras-popup-row">
+                  <span class="extras-popup-label">End:</span>
+                  <span class="extras-popup-value" id="extras-end">00:00:00</span>
+                </div>
+                <div class="extras-popup-row">
+                  <span class="extras-popup-label">Difference:</span>
+                  <span class="extras-popup-value" id="extras-delta">+00:00:00</span>
+                </div>
+                <div class="extras-popup-row">
+                  <span class="extras-popup-label">Branch Match:</span>
+                  <span class="extras-popup-value" id="extras-similarity">0%</span>
+                </div>
+              </div>
+              <div class="viz-top">
               <div class="viz-actions">
                 <label class="viz-select-group" for="play-mode-select">
                   <span class="viz-select-wrap">
@@ -628,6 +651,14 @@
             <div class="info-row">
               <span class="info-label">H:</span>
               <span>Toggle Bring It Home mode</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">E:</span>
+              <span>Toggle Extras mode</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Left/Right:</span>
+              <span>Cycle selected branch</span>
             </div>
             <div class="info-row">
               <span class="info-label">Delete:</span>

@@ -7,6 +7,7 @@ import type { JukeboxController } from "../../jukebox/JukeboxController";
 import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
 import type { ToastOptions } from "../ui";
 import { VISUALIZATION_LABELS } from "../constants";
+import { formatDuration } from "../format";
 
 type PlaybackUiDeps = {
   context: AppContext;
@@ -67,6 +68,18 @@ function getVisualizationSelectEntries(count: number) {
   })).sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 }
 
+function formatSignedDuration(seconds: number) {
+  return `${seconds >= 0 ? "+" : "-"}${formatDuration(Math.abs(seconds))}`;
+}
+
+function toSimilarityPercent(distance: number, maxDistance: number) {
+  if (!Number.isFinite(distance) || maxDistance <= 0) {
+    return 0;
+  }
+  const normalized = 1 - distance / maxDistance;
+  return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
+}
+
 export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   const {
     context,
@@ -95,9 +108,38 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     getCurrentTrackId,
   } = deps;
 
+  function syncExtrasPopup(edge: Edge | null) {
+    if (!state.extrasMode || state.playMode !== "jukebox" || !edge) {
+      elements.extrasPopup.classList.add("hidden");
+      return;
+    }
+    const startSeconds = Math.max(0, edge.src.start);
+    const endSeconds = Math.max(0, edge.dest.start);
+    const startDisplaySeconds = Math.floor(startSeconds);
+    const endDisplaySeconds = Math.floor(endSeconds);
+    const direction =
+      edge.dest.which < edge.src.which
+        ? "Backward"
+        : edge.dest.which > edge.src.which
+          ? "Forward"
+          : "Same beat";
+    const maxDistance = Math.max(1, engine.getConfig().maxBranchThreshold);
+    elements.extrasTitleEl.textContent = `Branch #${edge.id} stats`;
+    elements.extrasStartEl.textContent = formatDuration(startDisplaySeconds);
+    elements.extrasEndEl.textContent = formatDuration(endDisplaySeconds);
+    elements.extrasDeltaEl.textContent = formatSignedDuration(
+      endDisplaySeconds - startDisplaySeconds,
+    );
+    elements.extrasDirectionEl.textContent = direction;
+    elements.extrasSimilarityEl.textContent =
+      `${toSimilarityPercent(edge.distance, maxDistance)}%`;
+    elements.extrasPopup.classList.remove("hidden");
+  }
+
   function initializePlayback() {
     setPlayMode("jukebox");
     setBringItHomeMode(state.bringItHomeMode);
+    syncExtrasPopup(null);
     syncVisualizationSelectOptions();
 
     const storedViz = localStorage.getItem(vizStorageKey);
@@ -200,6 +242,29 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     autocanonizer.setFinishOutSong(input.checked);
   }
 
+  function selectAdjacentBranch(direction: -1 | 1) {
+    if (!state.selectedEdge) {
+      return;
+    }
+    const edges = (state.vizData?.edges ?? []).filter((edge) => !edge.deleted);
+    if (edges.length === 0) {
+      return;
+    }
+    const currentIndex = edges.findIndex(
+      (edge) => edge.id === state.selectedEdge?.id,
+    );
+    const nextIndex =
+      currentIndex >= 0
+        ? (currentIndex + direction + edges.length) % edges.length
+        : direction > 0
+          ? 0
+          : edges.length - 1;
+    const nextEdge = edges[nextIndex];
+    state.selectedEdge = nextEdge;
+    jukebox.setSelectedEdgeActive(nextEdge);
+    syncExtrasPopup(nextEdge);
+  }
+
   function handleKeydown(event: KeyboardEvent) {
     if (state.activeTabId !== "play") {
       return;
@@ -217,7 +282,27 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     if ((event.key === "h" || event.key === "H") && !event.repeat) {
       event.preventDefault();
-      setBringItHomeMode(!state.bringItHomeMode);
+      const enabled = !state.bringItHomeMode;
+      setBringItHomeMode(enabled);
+      showToast(
+        context,
+        `Bring It Home ${enabled ? "enabled" : "disabled"}`,
+      );
+      return;
+    }
+    if ((event.key === "e" || event.key === "E") && !event.repeat) {
+      event.preventDefault();
+      state.extrasMode = !state.extrasMode;
+      syncExtrasPopup(state.selectedEdge);
+      showToast(context, `Extras mode ${state.extrasMode ? "enabled" : "disabled"}`);
+      return;
+    }
+    if (
+      (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+      state.selectedEdge
+    ) {
+      event.preventDefault();
+      selectAdjacentBranch(event.key === "ArrowRight" ? 1 : -1);
       return;
     }
     if (
@@ -240,6 +325,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       writeTuningParamsToUrl(state.tuningParams, true);
       state.selectedEdge = null;
       jukebox.setSelectedEdge(null);
+      syncExtrasPopup(null);
       return;
     }
     if (
@@ -284,6 +370,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     state.selectedEdge = edge;
     jukebox.setSelectedEdgeActive(edge);
+    syncExtrasPopup(edge);
   }
 
   async function copyShortUrl() {
@@ -404,6 +491,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     );
     autocanonizer.setVisible(mode === "autocanonizer");
     jukebox.setVisible(mode === "jukebox");
+    syncExtrasPopup(state.selectedEdge);
     if (state.trackTitle || state.trackArtist) {
       const baseTitle = state.trackTitle ?? "Unknown";
       const withSuffix =

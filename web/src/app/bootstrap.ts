@@ -132,6 +132,7 @@ export function bootstrap() {
     lastPlayCountedJobId: null,
     shiftBranching: false,
     bringItHomeMode: false,
+    extrasMode: false,
     selectedEdge: null,
     topSongsRefreshTimer: null,
     topSongsLoaded: false,

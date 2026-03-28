@@ -389,6 +389,34 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#toast"),
     "#toast"
   );
+  const extrasPopup = requireElement(
+    document.querySelector<HTMLDivElement>("#extras-popup"),
+    "#extras-popup"
+  );
+  const extrasTitleEl = requireElement(
+    document.querySelector<HTMLDivElement>("#extras-title"),
+    "#extras-title"
+  );
+  const extrasStartEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#extras-start"),
+    "#extras-start"
+  );
+  const extrasEndEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#extras-end"),
+    "#extras-end"
+  );
+  const extrasDeltaEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#extras-delta"),
+    "#extras-delta"
+  );
+  const extrasDirectionEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#extras-direction"),
+    "#extras-direction"
+  );
+  const extrasSimilarityEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#extras-similarity"),
+    "#extras-similarity"
+  );
   const cachedAudioClearButton = requireElement(
     document.querySelector<HTMLButtonElement>("#cached-audio-clear"),
     "#cached-audio-clear"
@@ -499,6 +527,13 @@ export function getElements() {
     favoritesSyncMenu,
     favoritesSyncItems,
     toast,
+    extrasPopup,
+    extrasTitleEl,
+    extrasStartEl,
+    extrasEndEl,
+    extrasDeltaEl,
+    extrasDirectionEl,
+    extrasSimilarityEl,
     cachedAudioClearButton,
     vizStats,
     volumeButton,

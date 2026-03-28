@@ -135,6 +135,29 @@ function waitForNextPaint(): Promise<void> {
   return Promise.resolve();
 }
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  const tag = target.tagName.toLowerCase();
+  return (
+    tag === "input" ||
+    tag === "textarea" ||
+    tag === "button" ||
+    tag === "select" ||
+    tag === "a" ||
+    target.isContentEditable
+  );
+}
+
+function toSimilarityPercent(distance: number, maxDistance: number) {
+  if (!Number.isFinite(distance) || maxDistance <= 0) {
+    return 0;
+  }
+  const normalized = 1 - distance / maxDistance;
+  return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
+}
+
 export function Listen({ isActive = true }: { isActive?: boolean }) {
   const { file, setIsListenLoading } = useAppState();
   const [analysis, setAnalysis] = React.useState<AnalysisOutput | null>(null);
@@ -155,6 +178,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [bringItHomeMode, setBringItHomeMode] = React.useState(false);
+  const [extrasMode, setExtrasMode] = React.useState(false);
+  const [shortcutToast, setShortcutToast] = React.useState<string | null>(null);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
     try {
       const raw = window.localStorage.getItem(VISUALIZATION_STORAGE_KEY);
@@ -224,6 +249,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
   const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
+
+  const showShortcutToast = React.useCallback((message: string) => {
+    setShortcutToast(message);
+  }, []);
 
   React.useEffect(() => {
     playerRef.current = new BufferedAudioPlayer();
@@ -301,6 +330,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   React.useEffect(() => {
     isPausedRef.current = isPaused;
   }, [isPaused]);
+
+  React.useEffect(() => {
+    if (!shortcutToast) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setShortcutToast(null);
+    }, 2000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [shortcutToast]);
 
   React.useEffect(() => {
     bringItHomeModeRef.current = bringItHomeMode;
@@ -458,9 +499,21 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (isTuningOpen || isInfoOpen || isExportOpen) {
         return;
       }
+      if (isEditableTarget(event.target)) {
+        return;
+      }
       if (event.code === "Space") {
         event.preventDefault();
         togglePlayback();
+        return;
+      }
+      if (
+        playMode === "jukebox" &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+        selectedEdge
+      ) {
+        event.preventDefault();
+        selectAdjacentBranch(event.key === "ArrowRight" ? 1 : -1);
         return;
       }
       if (
@@ -486,6 +539,20 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         if (nextValue) {
           engineRef.current?.setForceBranch(false);
         }
+        showShortcutToast(`Bring It Home ${nextValue ? "enabled" : "disabled"}`);
+        return;
+      }
+      if (
+        playMode === "jukebox" &&
+        (event.key === "e" || event.key === "E") &&
+        !event.repeat
+      ) {
+        event.preventDefault();
+        setExtrasMode((prev) => {
+          const next = !prev;
+          showShortcutToast(`Extras mode ${next ? "enabled" : "disabled"}`);
+          return next;
+        });
         return;
       }
       if (
@@ -510,7 +577,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [selectedEdge, isRunning, isPaused, isTuningOpen, isInfoOpen, isExportOpen, playMode, isActive]);
+  }, [
+    selectedEdge,
+    isRunning,
+    isPaused,
+    isTuningOpen,
+    isInfoOpen,
+    isExportOpen,
+    playMode,
+    isActive,
+    showShortcutToast,
+  ]);
 
   React.useEffect(() => {
     const onFullscreen = () => {
@@ -877,6 +954,29 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     syncTuneFormFromEngine();
   };
 
+  const selectAdjacentBranch = (direction: -1 | 1) => {
+    if (playModeRef.current !== "jukebox" || !selectedEdge) {
+      return;
+    }
+    const edges =
+      engineRef.current
+        ?.getVisualizationData()
+        ?.edges.filter((edge) => !edge.deleted) ?? [];
+    if (edges.length === 0) {
+      return;
+    }
+    const currentIndex = edges.findIndex((edge) => edge.id === selectedEdge.id);
+    const nextIndex =
+      currentIndex >= 0
+        ? (currentIndex + direction + edges.length) % edges.length
+        : direction > 0
+          ? 0
+          : edges.length - 1;
+    const nextEdge = edges[nextIndex];
+    setSelectedEdge(nextEdge);
+    vizControllerRef.current?.setSelectedEdgeActive(nextEdge);
+  };
+
   const onApplyTuning = () => {
     const engine = engineRef.current;
     const player = playerRef.current;
@@ -1099,6 +1199,36 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const currentFileKey = file ? `${file.name}:${file.size}:${file.lastModified}` : null;
   const showPlaybackUi = Boolean(analysis) && !isAnalyzing && readyFileKey === currentFileKey;
   const playControlLabel = isRunning ? "Pause" : isPaused ? "Resume" : "Play";
+  const branchStats =
+    extrasMode && playMode === "jukebox" && selectedEdge
+      ? (() => {
+          const startSeconds = Math.max(0, selectedEdge.src.start);
+          const endSeconds = Math.max(0, selectedEdge.dest.start);
+          const startDisplaySeconds = Math.floor(startSeconds);
+          const endDisplaySeconds = Math.floor(endSeconds);
+          const deltaSeconds = endDisplaySeconds - startDisplaySeconds;
+          const direction =
+            selectedEdge.dest.which < selectedEdge.src.which
+              ? "Backward"
+              : selectedEdge.dest.which > selectedEdge.src.which
+                ? "Forward"
+                : "Same beat";
+          const maxDistance = Math.max(
+            1,
+            engineRef.current?.getConfig().maxBranchThreshold ?? 80,
+          );
+          const signedDelta =
+            `${deltaSeconds >= 0 ? "+" : "-"}${formatDuration(Math.abs(deltaSeconds))}`;
+          return {
+            id: selectedEdge.id,
+            start: formatDuration(startDisplaySeconds),
+            end: formatDuration(endDisplaySeconds),
+            delta: signedDelta,
+            direction,
+            similarity: `${toSimilarityPercent(selectedEdge.distance, maxDistance)}%`,
+          };
+        })()
+      : null;
 
   if (!file) {
     return (
@@ -1197,6 +1327,33 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         <div id="jukebox-viz" className={`viz ${playMode === "autocanonizer" ? "is-canonizer" : ""}`}>
           <div id="viz-layer" className="viz-layer" ref={vizLayerRef} />
           <div id="canonizer-layer" className="canonizer-layer" ref={canonizerLayerRef} />
+          {branchStats ? (
+            <div className="extras-popup">
+              <div className="extras-popup-title">
+                Branch #{branchStats.id} stats
+              </div>
+              <div className="extras-popup-row">
+                <span className="extras-popup-label">Direction:</span>
+                <span className="extras-popup-value">{branchStats.direction}</span>
+              </div>
+              <div className="extras-popup-row">
+                <span className="extras-popup-label">Start:</span>
+                <span className="extras-popup-value">{branchStats.start}</span>
+              </div>
+              <div className="extras-popup-row">
+                <span className="extras-popup-label">End:</span>
+                <span className="extras-popup-value">{branchStats.end}</span>
+              </div>
+              <div className="extras-popup-row">
+                <span className="extras-popup-label">Difference:</span>
+                <span className="extras-popup-value">{branchStats.delta}</span>
+              </div>
+              <div className="extras-popup-row">
+                <span className="extras-popup-label">Branch Match:</span>
+                <span className="extras-popup-value">{branchStats.similarity}</span>
+              </div>
+            </div>
+          ) : null}
           <div className="viz-top">
             <div className="viz-actions">
               <label className="viz-select-group" htmlFor="play-mode-select">
@@ -1612,11 +1769,24 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <span>Toggle Bring It Home mode</span>
               </div>
               <div className="info-row">
+                <span className="info-label">E:</span>
+                <span>Toggle Extras mode</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Left/Right:</span>
+                <span>Cycle selected branch</span>
+              </div>
+              <div className="info-row">
                 <span className="info-label">Delete:</span>
                 <span>Remove selected branch</span>
               </div>
             </div>
           </div>
+        </div>
+      ) : null}
+      {shortcutToast ? (
+        <div className="shortcut-toast" role="status" aria-live="polite">
+          {shortcutToast}
         </div>
       ) : null}
     </section>
