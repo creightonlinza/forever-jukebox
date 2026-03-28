@@ -6,6 +6,16 @@ const STORE_NAME = "analysis";
 let analysisDbPromise: Promise<IDBDatabase> | null = null;
 
 type CacheBackend = AnalysisCachePort;
+type TrackMetadata = {
+  title: string;
+  artist: string | null;
+  durationSeconds: number | null;
+};
+
+export type CachedAnalysisTrack = TrackMetadata & {
+  fingerprint: string;
+  updatedAtEpochMs: number | null;
+};
 
 export function createAnalysisCache(): AnalysisCachePort {
   if (isOpfsAvailable()) {
@@ -29,6 +39,13 @@ export async function clearAllAnalysisCache(): Promise<void> {
   await clearAllIndexedDbAnalysis();
 }
 
+export async function listCachedAnalysisTracks(): Promise<CachedAnalysisTrack[]> {
+  if (isOpfsAvailable()) {
+    return listOpfsAnalysisTracks();
+  }
+  return listIndexedDbAnalysisTracks();
+}
+
 export class MemoryAnalysisCache implements AnalysisCachePort {
   private store = new Map<string, AnalysisOutput>();
 
@@ -47,6 +64,59 @@ export class MemoryAnalysisCache implements AnalysisCachePort {
 
 function isOpfsAvailable() {
   return typeof navigator !== "undefined" && !!navigator.storage?.getDirectory;
+}
+
+function asString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+function extractTrackMetadata(
+  fingerprint: string,
+  analysis: unknown,
+): TrackMetadata {
+  const track =
+    analysis && typeof analysis === "object" && "track" in analysis
+      ? (analysis as { track?: unknown }).track
+      : null;
+  const trackRecord =
+    track && typeof track === "object" ? (track as Record<string, unknown>) : null;
+
+  const title =
+    asString(trackRecord?.title) ??
+    `Cached track ${fingerprint.slice(0, 8)}`;
+  const artist = asString(trackRecord?.artist);
+  const durationSeconds = asFiniteNumber(trackRecord?.duration);
+
+  return { title, artist, durationSeconds };
+}
+
+function sortCachedTracks(
+  tracks: CachedAnalysisTrack[],
+): CachedAnalysisTrack[] {
+  return tracks.sort((a, b) => {
+    const titleCompare = a.title.localeCompare(b.title, undefined, {
+      sensitivity: "base",
+    });
+    if (titleCompare !== 0) {
+      return titleCompare;
+    }
+    const artistA = a.artist ?? "";
+    const artistB = b.artist ?? "";
+    return artistA.localeCompare(artistB, undefined, {
+      sensitivity: "base",
+    });
+  });
 }
 
 async function openAnalysisDb(): Promise<IDBDatabase> {
@@ -113,6 +183,43 @@ async function clearAllOpfsAnalysis(): Promise<void> {
   }
 }
 
+async function listOpfsAnalysisTracks(): Promise<CachedAnalysisTrack[]> {
+  try {
+    const root = await navigator.storage.getDirectory();
+    const dir = await root.getDirectoryHandle("analysis");
+    const dirWithValues = dir as unknown as {
+      values?: () => AsyncIterable<FileSystemHandle>;
+    };
+    if (typeof dirWithValues.values !== "function") {
+      return [];
+    }
+    const tracks: CachedAnalysisTrack[] = [];
+    for await (const handle of dirWithValues.values()) {
+      if (handle.kind !== "file" || !handle.name.endsWith(".json")) {
+        continue;
+      }
+      try {
+        const fileHandle = handle as FileSystemFileHandle;
+        const file = await fileHandle.getFile();
+        const text = await file.text();
+        const parsed = JSON.parse(text) as unknown;
+        const fingerprint = handle.name.replace(/\.json$/u, "");
+        const metadata = extractTrackMetadata(fingerprint, parsed);
+        tracks.push({
+          fingerprint,
+          ...metadata,
+          updatedAtEpochMs: file.lastModified || null,
+        });
+      } catch {
+        // Skip malformed entries.
+      }
+    }
+    return sortCachedTracks(tracks);
+  } catch {
+    return [];
+  }
+}
+
 async function getIndexedDbAnalysisBytes(): Promise<number> {
   try {
     const db = await openAnalysisDb();
@@ -140,6 +247,39 @@ async function getIndexedDbAnalysisBytes(): Promise<number> {
 
 async function clearAllIndexedDbAnalysis(): Promise<void> {
   await withStore("readwrite", (store) => store.clear());
+}
+
+async function listIndexedDbAnalysisTracks(): Promise<CachedAnalysisTrack[]> {
+  try {
+    const db = await openAnalysisDb();
+    return await new Promise<CachedAnalysisTrack[]>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.openCursor();
+      const tracks: CachedAnalysisTrack[] = [];
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          resolve(sortCachedTracks(tracks));
+          return;
+        }
+        const fingerprint =
+          typeof cursor.key === "string"
+            ? cursor.key
+            : String(cursor.key);
+        const metadata = extractTrackMetadata(fingerprint, cursor.value as unknown);
+        tracks.push({
+          fingerprint,
+          ...metadata,
+          updatedAtEpochMs: null,
+        });
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error ?? new Error("IndexedDB read failed"));
+    });
+  } catch {
+    return [];
+  }
 }
 
 class OpfsAnalysisCache implements CacheBackend {

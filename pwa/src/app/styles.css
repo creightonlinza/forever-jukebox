@@ -283,6 +283,105 @@ a {
   display: none;
 }
 
+.home-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.cached-tracks {
+  border-top: 1px solid var(--border-panel);
+  padding-top: 14px;
+}
+
+.cached-tracks__title {
+  margin: 0 0 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.cached-tracks__title-hint {
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.cached-tracks p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.cached-tracks__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.cached-tracks__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--surface-control);
+}
+
+.cached-tracks__content {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.cached-tracks__name {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cached-tracks__meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cached-tracks__delete {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.cached-tracks__delete:hover:not(:disabled) {
+  background: var(--surface-panel);
+  color: var(--text);
+}
+
+.cached-tracks__delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cached-tracks__delete-icon {
+  width: 14px;
+  height: 14px;
+}
+
 .listen-page {
   display: grid;
   gap: 10px;
