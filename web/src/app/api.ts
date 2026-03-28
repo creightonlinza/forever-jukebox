@@ -87,8 +87,22 @@ export type FavoritesSyncPayload = {
 async function fetchJson(url: string, options?: RequestInit) {
   const response = await fetch(url, options);
   if (!response.ok) {
-    const error = new Error(`Request failed (${response.status})`);
-    (error as Error & { status?: number }).status = response.status;
+    let message = `Request failed (${response.status})`;
+    let code: string | undefined;
+    try {
+      const payload = await response.json();
+      const extracted = extractApiError(payload);
+      if (extracted) {
+        message = extracted.message;
+        code = extracted.code;
+      }
+    } catch {
+      // Ignore non-JSON error payloads.
+    }
+    const error = new Error(message);
+    const extended = error as Error & { status?: number; code?: string };
+    extended.status = response.status;
+    extended.code = code;
     throw error;
   }
   return response.json();

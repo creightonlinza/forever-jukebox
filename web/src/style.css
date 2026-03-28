@@ -449,8 +449,35 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
 button:hover {
   background: var(--surface-control);
+}
+
+button.is-loading {
+  pointer-events: none;
+  color: transparent;
+  position: relative;
+}
+
+button.is-loading::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  margin-top: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--text-rgb), 0.2);
+  border-top-color: var(--text);
+  animation: spin 0.9s linear infinite;
 }
 
 .theme-link {
@@ -669,6 +696,7 @@ button:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .delete-toggle.hidden {
@@ -684,6 +712,18 @@ button:hover {
   color: #e35a5a;
   font-size: 30px;
   line-height: 1;
+}
+
+.delete-toggle.is-loading .delete-icon {
+  opacity: 0;
+}
+
+.delete-toggle.is-loading::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-left: -6px;
+  margin-top: -6px;
 }
 
 .copy-toggle .copy-icon {
@@ -883,6 +923,56 @@ button:hover {
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 14px;
+}
+
+.search-bar-inline {
+  position: relative;
+}
+
+.search-bar-inline .search-input {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.search-inline-action {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.search-inline-action.is-loading {
+  position: absolute;
+}
+
+.search-inline-action:hover {
+  background: var(--surface-control);
+  color: var(--text);
+}
+
+.search-inline-action:focus-visible {
+  outline: 1px solid var(--border-control);
+  outline-offset: 1px;
+}
+
+.search-inline-icon {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 350,
+    "GRAD" 0,
+    "opsz" 20;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .toast {

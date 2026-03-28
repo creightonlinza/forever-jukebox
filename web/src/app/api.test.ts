@@ -9,6 +9,7 @@ import {
   updateFavoritesSync,
   fetchJobByTrack,
   fetchAudio,
+  startYoutubeAnalysis,
 } from "./api";
 
 function createResponse(
@@ -117,6 +118,28 @@ describe("api", () => {
     );
     const config = await fetchAppConfig();
     expect(config.allow_user_upload).toBe(true);
+  });
+
+  it("surfaces youtube start validation errors", async () => {
+    (fetch as any).mockResolvedValue(
+      createResponse(
+        422,
+        {
+          detail: {
+            error_code: "track_too_long",
+            message: "Error: Sorry, the max track length for this server is 12 minutes.",
+          },
+        },
+        false,
+      ),
+    );
+    await expect(
+      startYoutubeAnalysis({ youtube_id: "dQw4w9WgXcQ", is_user_supplied: true }),
+    ).rejects.toMatchObject({
+      message: "Error: Sorry, the max track length for this server is 12 minutes.",
+      code: "track_too_long",
+      status: 422,
+    });
   });
 
   it("fetches job by track and repairs missing analysis", async () => {

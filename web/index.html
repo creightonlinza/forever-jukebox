@@ -151,15 +151,27 @@
           <div class="search-hint" id="search-hint">
             Step 1: Find a Spotify track.
           </div>
-          <div class="search-bar">
+          <div class="search-bar search-bar-inline">
             <input
               id="search-input"
               class="search-input"
               type="search"
               placeholder="Search by artist or track"
+              maxlength="100"
               autocomplete="off"
             />
-            <button id="search-button">Search</button>
+            <button
+              id="search-button"
+              class="search-inline-action"
+              type="button"
+              aria-label="Search"
+            >
+              <span
+                class="material-symbols-outlined search-inline-icon"
+                aria-hidden="true"
+                >search</span
+              >
+            </button>
           </div>
           <div class="search-results" id="search-results">
             Search results will appear here.

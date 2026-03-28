@@ -229,6 +229,36 @@ def _probe_audio_duration_seconds(path: Path) -> float | None:
     return duration_s
 
 
+def _probe_youtube_duration_seconds(youtube_id: str) -> float | None:
+    try:
+        from yt_dlp import YoutubeDL
+    except Exception:
+        return None
+
+    ydl_opts = {
+        "quiet": True,
+        "skip_download": True,
+        "noplaylist": True,
+        "extract_flat": False,
+    }
+    apply_ejs_config(ydl_opts)
+    url = f"https://www.youtube.com/watch?v={youtube_id}"
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except Exception:
+        return None
+    if not isinstance(info, dict):
+        return None
+    duration = info.get("duration")
+    if not isinstance(duration, (int, float)):
+        return None
+    duration_s = float(duration)
+    if not math.isfinite(duration_s) or duration_s <= 0:
+        return None
+    return duration_s
+
+
 def _parse_timestamp(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -554,6 +584,18 @@ def create_analysis_youtube(
         existing = None
     if existing and existing.status != "failed":
         return _job_response(existing)
+
+    max_track_length_min = _env_positive_float("MAX_TRACK_LENGTH")
+    if is_user_supplied and max_track_length_min is not None:
+        duration_s = _probe_youtube_duration_seconds(youtube_id)
+        if duration_s is not None and duration_s > max_track_length_min * 60:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error_code": "track_too_long",
+                    "message": _max_track_length_error_message(max_track_length_min),
+                },
+            )
 
     job_id = uuid.uuid4().hex
     output_path = Path("analysis") / f"{job_id}.json"
