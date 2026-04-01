@@ -15,6 +15,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, File, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from ..db import (
+    count_queued_jobs_ahead,
     create_job,
     delete_job,
     get_job,
@@ -291,8 +292,6 @@ def _recycle_job(job) -> None:
 def _message_for_progress(status: str, progress: int | None) -> str | None:
     if status == "downloading":
         return "Fetching audio"
-    if status == "queued":
-        return "Queued"
     if status != "processing":
         return None
     if progress is None or progress < 10:
@@ -300,6 +299,13 @@ def _message_for_progress(status: str, progress: int | None) -> str | None:
     if progress < 90:
         return "Analyzing"
     return "Wrapping up"
+
+
+def _queued_message(job) -> str:
+    ahead = count_queued_jobs_ahead(DB_PATH, job.id, job.created_at)
+    if ahead <= 0:
+        return "Queued • Next in line"
+    return f"Queued • {ahead} ahead of you"
 
 
 def _job_response(job) -> JSONResponse:
@@ -311,7 +317,11 @@ def _job_response(job) -> JSONResponse:
     }
     if job.status in {"queued", "processing", "downloading"}:
         progress = job.progress if job.status == "processing" else None
-        message = _message_for_progress(job.status, progress)
+        message = (
+            _queued_message(job)
+            if job.status == "queued"
+            else _message_for_progress(job.status, progress)
+        )
         payload = JobProgress(
             status=job.status,
             progress=progress,
@@ -702,11 +712,14 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
         is_user_supplied=True,
         upload_ext=ext,
     )
+    job = get_job(DB_PATH, job_id)
+    if job:
+        return _job_response(job)
     payload = AnalysisStartResponse(
         id=job_id,
         status="queued",
         progress=None,
-        message=_message_for_progress("queued", None),
+        message="Queued • Next in line",
     )
     return JSONResponse(payload.model_dump(), status_code=202)
 

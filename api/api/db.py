@@ -151,7 +151,7 @@ def claim_next_job(db_path: Path) -> Optional[Job]:
         row = conn.execute(
             "SELECT id, status, input_path, output_path, error, "
             "track_title, track_artist, youtube_id, progress, play_count, is_user_supplied, created_at, updated_at "
-            "FROM jobs WHERE status = 'queued' ORDER BY created_at LIMIT 1"
+            "FROM jobs WHERE status = 'queued' ORDER BY created_at, id LIMIT 1"
         ).fetchone()
         if not row:
             conn.execute("COMMIT")
@@ -163,6 +163,26 @@ def claim_next_job(db_path: Path) -> Optional[Job]:
         )
         conn.execute("COMMIT")
     return job
+
+
+def count_queued_jobs_ahead(db_path: Path, job_id: str, created_at: str) -> int:
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM jobs
+            WHERE status = 'queued'
+              AND (
+                created_at < ?
+                OR (created_at = ? AND id < ?)
+              )
+            """,
+            (created_at, created_at, job_id),
+        ).fetchone()
+    if not row:
+        return 0
+    return int(row[0])
+
 
 def get_job_by_youtube_id(db_path: Path, youtube_id: str) -> Optional[Job]:
     with sqlite3.connect(db_path) as conn:
