@@ -930,14 +930,19 @@ export function requestWakeLock(context: AppContext) {
   if (!("wakeLock" in navigator)) {
     return;
   }
+  if (context.state.wakeLock || !document.fullscreenElement) {
+    return;
+  }
   navigator.wakeLock
     .request("screen")
     .then((lock) => {
       context.state.wakeLock = lock;
       function onRelease() {
-        handleWakeLockRelease(context);
+        if (context.state.wakeLock === lock) {
+          handleWakeLockRelease(context);
+        }
       }
-      context.state.wakeLock.addEventListener("release", onRelease);
+      lock.addEventListener("release", onRelease);
     })
     .catch(() => {
       console.warn("Wake lock unavailable");
@@ -949,13 +954,14 @@ function handleWakeLockRelease(context: AppContext) {
 }
 
 export function releaseWakeLock(context: AppContext) {
-  if (!context.state.wakeLock) {
+  const lock = context.state.wakeLock;
+  if (!lock) {
     return;
   }
-  context.state.wakeLock.release().catch(() => {
+  context.state.wakeLock = null;
+  lock.release().catch(() => {
     console.warn("Failed to release wake lock");
   });
-  context.state.wakeLock = null;
 }
 
 export function cancelPoll(context: AppContext) {
