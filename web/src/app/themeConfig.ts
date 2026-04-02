@@ -66,6 +66,6 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
     "--edge-stroke": "rgba(45, 33, 19, 0.42)",
     "--edge-selected": "#0F8A70",
     "--beat-fill": "#D08A3A",
-    "--beat-highlight": "#FFF4DF",
+    "--beat-highlight": "#D08A3A",
   },
 };
