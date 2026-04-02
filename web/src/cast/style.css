@@ -85,7 +85,7 @@ body {
   justify-content: flex-start;
   gap: 12px;
   padding: 12px 16px;
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--viz-overlay);
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);

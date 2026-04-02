@@ -47,7 +47,7 @@ button,
   background: var(--surface-hero);
   border: 1px solid var(--border-hero);
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 8px;
   margin-bottom: 16px;
   position: relative;
 }
@@ -55,45 +55,6 @@ button,
 .hero-actions {
   display: flex;
   justify-content: flex-end;
-}
-
-.offline-banner {
-  position: absolute;
-  top: 4px;
-  left: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-width: 110px;
-  height: 24px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, black);
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 2px 3px color-mix(in srgb, var(--accent), black 30%);
-  color: rgb(from var(--text) calc(255 - r) calc(255 - g) calc(255 - b));
-  font-family: "Tilt Neon", sans-serif;
-  font-size: 0.6rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  text-align: center;
-  text-decoration: none;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.offline-banner-icon {
-  font-size: 13px;
-  line-height: 1;
-}
-
-.offline-banner:hover,
-.offline-banner:focus-visible {
-  background: color-mix(in srgb, var(--accent) 86%, white);
-  color: rgb(from var(--text) calc(255 - r) calc(255 - g) calc(255 - b));
-  outline: none;
 }
 
 .hero-main {
@@ -213,9 +174,6 @@ button,
   gap: 2px;
   font-size: 11px;
   color: var(--muted);
-  position: absolute;
-  top: 14px;
-  right: 16px;
   border: 1px solid var(--border-control);
   border-radius: 8px;
   background: var(--surface-panel);
@@ -229,16 +187,17 @@ button,
 }
 
 .theme-sep {
-  color: var(--muted);
-  font-size: 0.75rem;
-  padding: 0 1px;
+  width: 1px;
+  height: 16px;
+  background: var(--border-control);
+  margin: 0 1px;
 }
 
 .panel {
   background: var(--surface-panel);
   border: 1px solid var(--border-panel);
   padding: 16px;
-  border-radius: 10px;
+  border-radius: 8px;
   margin-bottom: 16px;
 }
 
@@ -310,7 +269,7 @@ button,
   right: 0;
   min-width: 170px;
   padding: 6px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--border-control);
   background: var(--surface-panel);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
@@ -321,7 +280,7 @@ button,
   width: 100%;
   text-align: left;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
   background: transparent;
   color: var(--text);
@@ -347,7 +306,7 @@ button,
 
 .subtab-btn {
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid var(--border-control);
   background: var(--surface-panel);
   color: var(--text);
@@ -449,7 +408,7 @@ button,
 
 .tab-btn {
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid var(--border-control);
   background: var(--surface-panel);
   color: var(--text);
@@ -461,6 +420,22 @@ button,
   background: var(--surface-control);
   border-color: var(--border-control);
   color: var(--text);
+}
+
+.tab-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.tab-link:hover {
+  background: var(--surface-control);
+}
+
+.tab-link-icon {
+  font-size: 16px;
+  line-height: 1;
 }
 
 .controls .row {
@@ -487,7 +462,7 @@ label {
 
 button {
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid var(--border-control);
   background: var(--surface-panel);
   color: var(--text);
@@ -532,7 +507,7 @@ button.is-loading::after {
   border: none;
   padding: 2px 7px;
   min-height: 22px;
-  border-radius: 5px;
+  border-radius: 8px;
   font-size: 0.78rem;
   letter-spacing: 0;
   color: var(--muted);
@@ -562,7 +537,7 @@ button.is-loading::after {
   width: min(520px, 90vw);
   background: var(--surface-panel);
   border: 1px solid var(--border-panel);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -626,7 +601,7 @@ button.is-loading::after {
 
 .favorites-sync-code {
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--border-control);
   background: var(--surface-control);
   color: var(--text);
@@ -700,7 +675,7 @@ button.is-loading::after {
   width: 22px;
   height: 22px;
   padding: 0;
-  border-radius: 999px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -999,7 +974,7 @@ button.is-loading::after {
   height: 28px;
   border: none;
   background: transparent;
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -1036,7 +1011,7 @@ button.is-loading::after {
   right: 20px;
   bottom: 20px;
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--border-panel);
   background: var(--surface-panel);
   color: var(--text);
@@ -1088,7 +1063,7 @@ button.is-loading::after {
 .search-results {
   min-height: 140px;
   border: 1px dashed var(--border-panel);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 12px;
   color: var(--muted);
   font-size: 13px;
@@ -1186,7 +1161,7 @@ button.is-loading::after {
   height: clamp(360px, 65vh, 700px);
   background: var(--viz-bg);
   border: 1px solid var(--border-panel);
-  border-radius: 12px;
+  border-radius: 8px;
   position: relative;
   overflow: hidden;
   cursor: pointer;
@@ -1240,7 +1215,7 @@ button.is-loading::after {
   z-index: 4;
   min-width: 160px;
   border: 1px solid var(--border-panel);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--viz-overlay);
   backdrop-filter: blur(8px);
   color: var(--text);
@@ -1324,7 +1299,7 @@ button.is-loading::after {
   z-index: 3;
   color: var(--text);
   padding: 10px 12px;
-  border-radius: 0 0 12px;
+  border-radius: 0 0 8px;
   background: var(--viz-overlay);
   backdrop-filter: blur(8px);
 }
@@ -1347,7 +1322,7 @@ button.is-loading::after {
   padding: 0;
   width: 36px;
   height: 36px;
-  border-radius: 999px;
+  border-radius: 8px;
   justify-content: center;
 }
 
@@ -1443,7 +1418,7 @@ button.is-loading::after {
   background: var(--surface-panel);
   color: var(--text);
   font-size: 12px;
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 4px 30px 4px 10px;
   min-width: 116px;
 }
@@ -1536,15 +1511,6 @@ button.is-loading::after {
 @media (max-width: 760px) {
   .hero {
     padding-top: 42px;
-  }
-
-  .offline-banner {
-    left: 12px;
-  }
-
-  .theme-toggle {
-    top: 10px;
-    right: 12px;
   }
 
   .hero-main {
