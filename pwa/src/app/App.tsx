@@ -18,9 +18,11 @@ function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
   return (
     <div className="install-gate">
       <section className="install-gate__panel">
-        <h1 className="hero-title-neon install-gate__title">
-          THE FOREVER JUKEBOX
-        </h1>
+        <div className="hero-title-frame install-gate__title-frame">
+          <h1 className="hero-title-neon install-gate__title">
+            THE FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
+          </h1>
+        </div>
         <p className="install-gate__subtitle">
           Install to use the offline app.
         </p>
@@ -65,7 +67,11 @@ function AppLayout() {
         <div className="hero-actions" />
         <div className="hero-main">
           <div className="hero-title">
-            <h1 className="hero-title-neon">THE FOREVER JUKEBOX</h1>
+            <div className="hero-title-frame">
+              <h1 className="hero-title-neon">
+                THE FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
+              </h1>
+            </div>
             <span className="hero-subtitle">Offline App</span>
           </div>
           {!hideTabsWhileLoading ? (

@@ -83,10 +83,12 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#analysis-progress"),
     "#analysis-progress"
   );
-  const playButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#play"),
-    "#play"
-  );
+  const playButton =
+    document.querySelector<HTMLButtonElement>("#play") ??
+    requireElement(
+      document.querySelector<HTMLButtonElement>("#viz-play"),
+      "#viz-play"
+    );
   const bringHomeLabel = requireElement(
     document.querySelector<HTMLSpanElement>("#bring-home-label"),
     "#bring-home-label"

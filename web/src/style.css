@@ -71,6 +71,14 @@ button,
   flex-wrap: wrap;
   align-items: baseline;
   gap: 12px;
+  margin-top: -45px;
+  padding: 4px 12px 6px;
+  border: 4px solid var(--title-accent);
+  border-radius: 8px;
+  box-shadow:
+    0 0 12px var(--title-glow),
+    inset 0 0 10px color-mix(in srgb, var(--title-glow) 55%, transparent);
+  animation: neon-flicker 14s infinite;
 }
 
 .hero-title h1 {
@@ -92,31 +100,61 @@ button,
   text-shadow:
     0 0 12px var(--title-glow),
     0 0 28px var(--title-glow);
-  animation: neon-flicker 6s infinite;
+}
+
+.hero-title-jukebox {
+  display: inline-block;
+  animation: jukebox-flicker-off 18s steps(1, end) infinite;
+}
+
+@keyframes jukebox-flicker-off {
+  0%,
+  24.6%,
+  25.2%,
+  63.1%,
+  63.7%,
+  88.3%,
+  88.8%,
+  100% {
+    color: inherit;
+    text-shadow: inherit;
+  }
+  24.7%,
+  25.1%,
+  63.2%,
+  63.6%,
+  88.4%,
+  88.7% {
+    color: var(--bg);
+    text-shadow: none;
+  }
 }
 
 @keyframes neon-flicker {
   0%,
   100% {
     opacity: 1;
-    text-shadow:
+    border-color: var(--title-accent);
+    box-shadow:
       0 0 12px var(--title-glow),
-      0 0 28px var(--title-glow);
+      inset 0 0 10px color-mix(in srgb, var(--title-glow) 55%, transparent);
   }
   2% {
     opacity: 0.95;
-    text-shadow:
-      0 0 8px var(--title-glow),
-      0 0 22px var(--title-glow);
+    box-shadow:
+      0 0 9px var(--title-glow),
+      inset 0 0 7px color-mix(in srgb, var(--title-glow) 45%, transparent);
   }
   3% {
     opacity: 0.75;
-    text-shadow:
-      0 0 6px var(--title-glow),
-      0 0 14px var(--title-glow);
+    border-color: color-mix(in srgb, var(--title-accent) 78%, black);
+    box-shadow:
+      0 0 5px color-mix(in srgb, var(--title-glow) 78%, transparent),
+      inset 0 0 3px color-mix(in srgb, var(--title-glow) 35%, transparent);
   }
   4% {
     opacity: 1;
+    border-color: var(--title-accent);
   }
   6% {
     opacity: 0.85;
@@ -138,12 +176,14 @@ button,
   }
   44% {
     opacity: 0.7;
-    text-shadow:
-      0 0 5px var(--title-glow),
-      0 0 12px var(--title-glow);
+    border-color: color-mix(in srgb, var(--title-accent) 74%, black);
+    box-shadow:
+      0 0 4px color-mix(in srgb, var(--title-glow) 72%, transparent),
+      inset 0 0 3px color-mix(in srgb, var(--title-glow) 30%, transparent);
   }
   46% {
     opacity: 1;
+    border-color: var(--title-accent);
   }
   58% {
     opacity: 0.9;
@@ -153,9 +193,9 @@ button,
   }
   76% {
     opacity: 0.8;
-    text-shadow:
-      0 0 7px var(--title-glow),
-      0 0 18px var(--title-glow);
+    box-shadow:
+      0 0 7px color-mix(in srgb, var(--title-glow) 86%, transparent),
+      inset 0 0 5px color-mix(in srgb, var(--title-glow) 40%, transparent);
   }
   77% {
     opacity: 1;
@@ -385,6 +425,8 @@ button,
   justify-content: space-between;
   align-items: center;
   padding: 16px 0;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .menu-left,
@@ -392,6 +434,16 @@ button,
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.menu-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.menu-right {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .hidden {
@@ -794,7 +846,6 @@ button.is-loading::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
 }
 
 .is-hidden {
@@ -804,7 +855,7 @@ button.is-loading::after {
 .play-toggle {
   border: 1px solid var(--border-control);
   border-radius: 8px;
-  padding-right: 15px;
+  padding-right: 6px;
 }
 
 .tab-btn.is-playing {
@@ -833,11 +884,6 @@ button.is-loading::after {
   color: var(--text);
   font-size: 30px;
   line-height: 1;
-}
-
-.play-toggle .play-text {
-  font-size: 13px;
-  letter-spacing: 0.02em;
 }
 
 .bring-home-note {
@@ -1153,7 +1199,12 @@ button.is-loading::after {
   font-size: 16px;
   font-weight: 600;
   color: var(--text);
-  margin: 0 0 10px;
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .viz {
@@ -1313,17 +1364,13 @@ button.is-loading::after {
 }
 
 .viz-play-toggle {
-  display: none;
-}
-
-#viz-panel:fullscreen .play-toggle.viz-play-toggle,
-#viz-panel:-webkit-full-screen .play-toggle.viz-play-toggle {
   display: inline-flex;
   padding: 0;
   width: 36px;
   height: 36px;
   border-radius: 8px;
   justify-content: center;
+  flex: 0 0 auto;
 }
 
 .viz-info {
@@ -1505,6 +1552,10 @@ button.is-loading::after {
 
   .panel {
     padding: 16px;
+  }
+
+  .menu-bar {
+    flex-wrap: wrap;
   }
 }
 

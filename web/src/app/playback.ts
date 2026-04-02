@@ -528,18 +528,16 @@ function updatePlayButton(context: AppContext) {
   const label = isRunning ? "Pause" : state.isPaused ? "Resume" : "Play";
   const updateButton = (button: HTMLButtonElement) => {
     const icon = button.querySelector<HTMLSpanElement>(".play-icon");
-    const text = button.querySelector<HTMLSpanElement>(".play-text");
     if (icon) {
       icon.textContent = isRunning ? "pause" : "play_arrow";
-    }
-    if (text) {
-      text.textContent = label;
     }
     button.title = label;
     button.setAttribute("aria-label", label);
   };
   updateButton(context.elements.playButton);
-  updateButton(context.elements.vizPlayButton);
+  if (context.elements.vizPlayButton !== context.elements.playButton) {
+    updateButton(context.elements.vizPlayButton);
+  }
   const shouldPulse = isRunning && context.state.activeTabId !== "play";
   context.elements.playTabButton.classList.toggle("is-playing", shouldPulse);
 }
