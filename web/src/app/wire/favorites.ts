@@ -72,6 +72,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
 
   let syncUpdateInFlight = false;
   let pendingSyncDelta: FavoritesDelta | null = null;
+  let syncIdleWaiters: Array<() => void> = [];
 
   function handleFavoritesSyncToggle(event: Event) {
     event.stopPropagation();
@@ -432,10 +433,38 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     } finally {
       syncUpdateInFlight = false;
       if (pendingSyncDelta) {
-        scheduleFavoritesSync(pendingSyncDelta);
+        const nextDelta = pendingSyncDelta;
         pendingSyncDelta = null;
+        void syncFavoritesToBackend(nextDelta);
+      } else {
+        resolveSyncIdleWaiters();
       }
     }
+  }
+
+  function resolveSyncIdleWaiters() {
+    if (syncUpdateInFlight || pendingSyncDelta || syncIdleWaiters.length === 0) {
+      return;
+    }
+    const waiters = syncIdleWaiters;
+    syncIdleWaiters = [];
+    waiters.forEach((resolve) => resolve());
+  }
+
+  function waitForFavoritesSyncIdle() {
+    if (!state.appConfig?.allow_favorites_sync || !state.favoritesSyncCode) {
+      return Promise.resolve();
+    }
+    if (!syncUpdateInFlight && !pendingSyncDelta) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      syncIdleWaiters.push(resolve);
+    });
+  }
+
+  function shouldShowFavoriteToggleLoading() {
+    return Boolean(state.appConfig?.allow_favorites_sync && state.favoritesSyncCode);
   }
 
   function computeFavoritesDelta(
@@ -543,6 +572,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     elements.favoriteButton.title = label;
   }
 
+  function setFavoriteToggleLoading(busy: boolean) {
+    elements.favoriteButton.classList.toggle("is-loading", busy);
+    elements.favoriteButton.disabled = busy;
+    elements.favoriteButton.setAttribute("aria-busy", busy ? "true" : "false");
+  }
+
   function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
     if (!response.is_user_supplied) {
       return;
@@ -611,14 +646,30 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     showFavoriteToast("Removed from Favorites");
   }
 
-  function handleFavoriteToggle() {
+  async function handleFavoriteToggle() {
     const currentId = getCurrentFavoriteId();
     if (!currentId) {
       return;
     }
+    if (elements.favoriteButton.classList.contains("is-loading")) {
+      return;
+    }
     if (isFavorite(state.favorites, currentId)) {
-      updateFavorites(removeFavorite(state.favorites, currentId));
-      showFavoriteToast("Removed from Favorites");
+      const showLoading = shouldShowFavoriteToggleLoading();
+      if (showLoading) {
+        setFavoriteToggleLoading(true);
+      }
+      try {
+        updateFavorites(removeFavorite(state.favorites, currentId));
+        showFavoriteToast("Removed from Favorites");
+        if (showLoading) {
+          await waitForFavoritesSyncIdle();
+        }
+      } finally {
+        if (showLoading) {
+          setFavoriteToggleLoading(false);
+        }
+      }
       return;
     }
     const title = state.trackTitle || "Untitled";
@@ -636,11 +687,24 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       showToast(context, `Maximum favorites reached (${maxFavorites()}).`);
       return;
     }
-    updateFavorites(result.favorites);
-    if (result.status === "added") {
-      showFavoriteToast("Added to Favorites");
-    } else {
-      showToast(context, "Favorited");
+    const showLoading = shouldShowFavoriteToggleLoading();
+    if (showLoading) {
+      setFavoriteToggleLoading(true);
+    }
+    try {
+      updateFavorites(result.favorites);
+      if (result.status === "added") {
+        showFavoriteToast("Added to Favorites");
+      } else {
+        showToast(context, "Favorited");
+      }
+      if (showLoading) {
+        await waitForFavoritesSyncIdle();
+      }
+    } finally {
+      if (showLoading) {
+        setFavoriteToggleLoading(false);
+      }
     }
   }
 

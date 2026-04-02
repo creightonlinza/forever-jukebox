@@ -1255,11 +1255,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
       {error ? <div className="error">{error}</div> : null}
 
-      <div className="play-title">{displayTitle}</div>
-
       {showPlaybackUi ? (
         <div className="menu-bar">
           <div className="menu-left">
+            <div className="play-title">{displayTitle}</div>
             {playMode === "jukebox" && bringItHomeMode ? (
               <span className="bring-home-note">Bringing it on home</span>
             ) : null}

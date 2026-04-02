@@ -71,7 +71,7 @@ button,
   flex-wrap: wrap;
   align-items: baseline;
   gap: 12px;
-  margin-top: -45px;
+  margin-top: -40px;
   padding: 4px 12px 6px;
   border: 4px solid var(--title-accent);
   border-radius: 8px;
@@ -211,13 +211,13 @@ button,
 .theme-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  font-size: 11px;
+  gap: 1px;
+  font-size: 10px;
   color: var(--muted);
   border: 1px solid var(--border-control);
   border-radius: 8px;
   background: var(--surface-panel);
-  padding: 2px 3px;
+  padding: 1px 2px;
 }
 
 .theme-link.active {
@@ -228,7 +228,7 @@ button,
 
 .theme-sep {
   width: 1px;
-  height: 16px;
+  height: 14px;
   background: var(--border-control);
   margin: 0 1px;
 }
@@ -565,10 +565,10 @@ button.is-loading::after {
 .theme-link {
   background: transparent;
   border: none;
-  padding: 2px 7px;
-  min-height: 22px;
+  padding: 1px 6px;
+  min-height: 20px;
   border-radius: 8px;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   letter-spacing: 0;
   color: var(--muted);
   cursor: pointer;
@@ -748,6 +748,7 @@ button.is-loading::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .favorite-toggle .favorite-icon {
@@ -767,6 +768,10 @@ button.is-loading::after {
     "wght" 300,
     "GRAD" 0,
     "opsz" 30;
+}
+
+.favorite-toggle.is-loading .favorite-icon {
+  opacity: 0;
 }
 
 .copy-toggle {
