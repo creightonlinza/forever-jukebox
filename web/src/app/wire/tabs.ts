@@ -59,6 +59,15 @@ export function createTabsHandlers(deps: TabsDeps) {
       tabId === "search" ? "Search" : "Upload";
   }
 
+  function setFaqTab(tabId: "faq" | "whats-new") {
+    elements.faqSubtabButtons.forEach((button) => {
+      button.classList.toggle("active", button.dataset.faqSubtab === tabId);
+    });
+    elements.faqPanel.classList.toggle("hidden", tabId !== "faq");
+    elements.faqWhatsNewPanel.classList.toggle("hidden", tabId !== "whats-new");
+    elements.faqPanelTitle.textContent = tabId === "faq" ? "FAQ" : "What's New";
+  }
+
   function handleTopSongsTabClick(event: Event) {
     const button = event.currentTarget as HTMLButtonElement | null;
     const tabId = button?.dataset.topSubtab as
@@ -85,6 +94,15 @@ export function createTabsHandlers(deps: TabsDeps) {
     setSearchTab(tabId);
   }
 
+  function handleFaqSubtabClick(event: Event) {
+    const button = event.currentTarget as HTMLButtonElement | null;
+    const tabId = button?.dataset.faqSubtab as "faq" | "whats-new" | undefined;
+    if (!tabId) {
+      return;
+    }
+    setFaqTab(tabId);
+  }
+
   function handleTabClick(event: Event) {
     const button = event.currentTarget as HTMLButtonElement | null;
     const tabId = button?.dataset.tabButton as TabId | undefined;
@@ -97,6 +115,9 @@ export function createTabsHandlers(deps: TabsDeps) {
     if (tabId === "search") {
       setSearchTab("search");
     }
+    if (tabId === "faq") {
+      setFaqTab("faq");
+    }
     navigateToTabWithState(tabId);
     if (tabId === "faq") {
       onFaqOpen?.();
@@ -108,6 +129,8 @@ export function createTabsHandlers(deps: TabsDeps) {
     handleTopSongsTabClick,
     setSearchTab,
     handleSearchSubtabClick,
+    setFaqTab,
+    handleFaqSubtabClick,
     handleTabClick,
   };
 }

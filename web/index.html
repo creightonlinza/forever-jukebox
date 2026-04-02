@@ -428,8 +428,15 @@
         </div>
       </section>
       <section class="panel tab-panel hidden" data-tab-panel="faq">
-        <div class="panel-title">FAQ</div>
-        <div class="faq">
+        <div class="subtabs" id="faq-subtabs">
+          <button class="subtab-btn active" data-faq-subtab="faq">FAQ</button>
+          <span class="subtab-spacer" aria-hidden="true"></span>
+          <button class="subtab-btn" data-faq-subtab="whats-new">
+            What's New
+          </button>
+        </div>
+        <div class="panel-title" id="faq-panel-title">FAQ</div>
+        <div class="faq" id="faq-panel">
           <h4>What the what?</h4>
           <p>
             The Forever Jukebox is an open-source modernization of Paul Lamere's
@@ -522,6 +529,71 @@
 
           <h4>CACHED AUDIO</h4>
           <button id="cached-audio-clear" type="button">Clear 0MB</button>
+        </div>
+        <div class="faq faq-updates hidden" id="faq-whats-new-panel">
+          <h4>April 2026</h4>
+          <ul>
+            <li>Added <strong>What's New</strong> section - you found it!</li>
+          </ul>
+
+          <h4>March 2026</h4>
+          <ul>
+            <li>
+              <strong>Extras mode</strong> added new ways to explore branches,
+              including branch stats and keyboard-based branch cycling.
+            </li>
+            <li>
+              <strong>Bring It Home mode</strong> was added for a more linear
+              playback option that finishes the song cleanly.
+            </li>
+            <li>
+              Playback behavior was refined to improve jump consistency.
+            </li>
+            <li>
+              The backend moved to <strong>madmom-beats-lite</strong>,
+              improving progress reporting and memory footprint, while
+              providing the same analysis quality.
+            </li>
+            <li>
+              The Offline App (PWA) gained better cached-analysis management,
+              including the ability to view and delete saved analyses.
+            </li>
+          </ul>
+
+          <h4>February 2026</h4>
+          <ul>
+            <li>
+              The <strong>Offline App</strong> (PWA) launched, making it
+              possible to analyze and play tracks directly in the browser
+              without an internet connection.
+            </li>
+            <li><strong>Recently Played</strong> and <strong>Trending</strong> discovery lists were added.</li>
+            <li>A new <strong>Arc visualization</strong> replaced the Spiral view.</li>
+            <li>
+              Loop optimization and playback reliability continued to improve.
+            </li>
+          </ul>
+
+          <h4>January 2026</h4>
+          <ul>
+            <li>
+              <strong>Favorites</strong> launched, followed shortly by
+              <strong>Favorites Sync</strong> so saved tracks could travel
+              between sessions/devices.
+            </li>
+            <li>
+              Support was added for <strong>user uploads</strong> and
+              <strong>user-supplied YouTube jobs</strong>.
+            </li>
+            <li>
+              Playback timing and jump scheduling were improved for smoother,
+              more reliable transitions.
+            </li>
+            <li>
+              <strong>Autocanonizer mode</strong> was added as a new playback
+              option.
+            </li>
+          </ul>
         </div>
       </section>
       <div id="tuning-modal" class="modal">

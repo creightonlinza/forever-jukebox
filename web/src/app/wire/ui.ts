@@ -53,6 +53,9 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   elements.searchSubtabButtons.forEach((button) => {
     button.addEventListener("click", tabsHandlers.handleSearchSubtabClick);
   });
+  elements.faqSubtabButtons.forEach((button) => {
+    button.addEventListener("click", tabsHandlers.handleFaqSubtabClick);
+  });
   elements.favoritesSyncButton.addEventListener(
     "click",
     favoritesHandlers.handleFavoritesSyncToggle,

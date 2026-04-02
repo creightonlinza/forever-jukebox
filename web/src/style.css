@@ -342,6 +342,10 @@ body {
   font-size: 20px;
 }
 
+.faq-updates h4:first-child {
+  margin-top: 0;
+}
+
 .faq h4 {
   margin: 18px 0 6px;
   font-size: 14px;
@@ -779,8 +783,19 @@ button.is-loading::after {
 }
 
 .tab-btn.is-playing {
-  background: var(--title-accent);
-  color: rgb(from var(--text) calc(255 - r) calc(255 - g) calc(255 - b));
+  animation: play-tab-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes play-tab-pulse {
+  0%,
+  100% {
+    background: var(--title-accent);
+    color: rgb(from var(--text) calc(255 - r) calc(255 - g) calc(255 - b));
+  }
+  50% {
+    background: rgba(var(--text-rgb), 0.12);
+    color: var(--text);
+  }
 }
 
 .tune-toggle .tune-icon,
