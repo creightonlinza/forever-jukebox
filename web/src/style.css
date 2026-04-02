@@ -506,6 +506,13 @@ label {
   font-size: 14px;
 }
 
+input,
+select,
+textarea,
+option {
+  font-family: inherit;
+}
+
 .label-line {
   display: flex;
   align-items: center;
@@ -518,6 +525,7 @@ button {
   border: 1px solid var(--border-control);
   background: var(--surface-panel);
   color: var(--text);
+  font-family: inherit;
   font-size: 13px;
   letter-spacing: 0.02em;
   cursor: pointer;
