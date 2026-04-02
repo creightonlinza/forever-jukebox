@@ -35,39 +35,37 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
   },
   light: {
     // Core
-    "--bg": "#5F9EA0",
-    "--text": "#1B2A24",
-    "--text-rgb": "27, 42, 36",
-    "--muted": "#1B2A24",
-    "--accent": "#317873",
-    "--title-accent": "#5F9EA0",
-    "--title-glow": "rgba(95, 158, 160, 0.35)",
+    "--bg": "#F7F2E8",
+    "--text": "#2D2113",
+    "--text-rgb": "45, 33, 19",
+    "--muted": "#5E4B34",
+    "--accent": "#0F8A70",
+    "--title-accent": "#B06A1F",
+    "--title-glow": "rgba(176, 106, 31, 0.28)",
 
     // Surfaces
-    "--surface-panel": "#F4FAF7",
-    "--surface-hero": "#DDEBE3",
-    "--surface-control": "#D8EADB",
-    "--surface-control-hover": "#CCE2D3",
+    "--surface-panel": "#FFFDF8",
+    "--surface-hero": "#F5ECDD",
+    "--surface-control": "#F2E5D2",
+    "--surface-control-hover": "#EAD9BF",
 
     // Borders
-    "--border-panel": "rgba(27, 42, 36, 0.14)",
-    "--border-hero": "rgba(49, 120, 115, 0.20)",
-    "--border-control": "rgba(49, 120, 115, 0.26)",
+    "--border-panel": "rgba(75, 53, 26, 0.20)",
+    "--border-hero": "rgba(100, 69, 34, 0.24)",
+    "--border-control": "rgba(95, 71, 43, 0.32)",
 
     // Visualizer
     "--viz-bg":
-      "radial-gradient(900px circle at 18% 25%, rgba(160, 214, 180, 0.75), transparent 58%), " +
-      "radial-gradient(900px circle at 82% 20%, rgba(95, 158, 160, 0.55), transparent 62%), " +
-      "radial-gradient(1100px circle at 50% 88%, rgba(163, 193, 173, 0.55), transparent 60%), " +
-      "linear-gradient(180deg, #CFE5DA 0%, #F4FAF7 100%), " +
-      "radial-gradient(1200px circle at 50% 55%, rgba(255, 255, 255, 0.28) 0%, rgba(27, 42, 36, 0.10) 72%, rgba(27, 42, 36, 0.18) 100%)",
-    "--viz-shadow": "rgba(49, 120, 115, 0.18)",
-    "--viz-overlay": "rgba(244, 250, 247, 0.66)",
+      "radial-gradient(1000px circle at 28% 20%, rgba(241, 215, 170, 0.55), transparent 60%), " +
+      "radial-gradient(1000px circle at 80% 80%, rgba(211, 182, 136, 0.45), transparent 62%), " +
+      "linear-gradient(180deg, #F8EFE0 0%, #EFE2CC 100%)",
+    "--viz-shadow": "rgba(95, 71, 43, 0.20)",
+    "--viz-overlay": "rgba(255, 250, 240, 0.72)",
 
     // Graph/Beat
-    "--edge-stroke": "rgba(27, 42, 36, .5)",
-    "--edge-selected": "#317873",
-    "--beat-fill": "#5F9EA0",
-    "--beat-highlight": "#F4FAF7",
+    "--edge-stroke": "rgba(45, 33, 19, 0.42)",
+    "--edge-selected": "#0F8A70",
+    "--beat-fill": "#D08A3A",
+    "--beat-highlight": "#FFF4DF",
   },
 };

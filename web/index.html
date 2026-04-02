@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Tilt+Neon&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Tilt+Neon&display=swap"
       rel="stylesheet"
     />
     <link
@@ -43,11 +43,10 @@
             ><span>try the offline app</span></a
           >
           <div class="theme-toggle" id="theme-toggle">
-            <span>Theme:</span>
             <button type="button" class="theme-link" data-theme="light">
               Light
             </button>
-            <span class="theme-sep">|</span>
+            <span class="theme-sep">/</span>
             <button type="button" class="theme-link" data-theme="dark">
               Dark
             </button>
@@ -76,7 +75,12 @@
           <button class="subtab-btn" data-top-subtab="recent">Recents</button>
           <span class="subtab-spacer" aria-hidden="true"></span>
           <button class="subtab-btn" data-top-subtab="favorites">
-            Favorites
+            <span
+              class="material-symbols-outlined subtab-icon subtab-icon-filled"
+              aria-hidden="true"
+              >star</span
+            >
+            <span>Favorites</span>
           </button>
         </div>
         <div class="panel-title panel-title-row">

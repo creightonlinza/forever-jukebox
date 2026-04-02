@@ -4,10 +4,13 @@
 
 body {
   margin: 0;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Barlow", "Avenir Next", "Noto Sans", sans-serif;
   background: var(--bg);
   color: var(--text);
-  transition: opacity 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    background-color 0.22s ease,
+    color 0.22s ease;
 }
 
 body {
@@ -17,14 +20,27 @@ body {
 }
 
 #app {
-  max-width: 900px;
+  max-width: 1240px;
   width: 100%;
-  margin: 5px auto;
-  padding: 0 20px;
+  margin: 16px auto 24px;
+  padding: 0 16px;
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 10px);
+  min-height: calc(100vh - 40px);
+}
+
+.hero,
+.panel,
+.modal-panel,
+button,
+.search-input,
+.viz,
+.theme-toggle {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .hero {
@@ -194,21 +210,28 @@ body {
 .theme-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   font-size: 11px;
   color: var(--muted);
   position: absolute;
   top: 14px;
   right: 16px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--surface-panel);
+  padding: 2px 3px;
 }
 
 .theme-link.active {
   color: var(--text);
   font-weight: 700;
+  background: var(--surface-control);
 }
 
 .theme-sep {
   color: var(--muted);
+  font-size: 0.75rem;
+  padding: 0 1px;
 }
 
 .panel {
@@ -331,10 +354,26 @@ body {
   font-size: 12px;
   letter-spacing: 0.02em;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .subtab-btn.active {
   background: var(--surface-control);
+}
+
+.subtab-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.subtab-icon-filled {
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 20;
 }
 
 .faq h3 {
@@ -487,11 +526,18 @@ button.is-loading::after {
 .theme-link {
   background: transparent;
   border: none;
-  padding: 0;
-  font-size: 11px;
+  padding: 2px 7px;
+  min-height: 22px;
+  border-radius: 5px;
+  font-size: 0.78rem;
   letter-spacing: 0;
   color: var(--muted);
   cursor: pointer;
+  box-shadow: none;
+}
+
+.theme-link:hover {
+  background: color-mix(in srgb, var(--surface-control) 78%, transparent);
 }
 
 .modal {
@@ -1434,22 +1480,7 @@ button.is-loading::after {
 }
 
 .pulse {
-  animation: pulse-highlight 0.35s ease;
-}
-
-@keyframes pulse-highlight {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 rgb(from var(--beat-highlight) r g b / 0);
-  }
-  50% {
-    transform: scale(1.02);
-    box-shadow: 0 0 18px rgb(from var(--beat-highlight) r g b / 0.35);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 rgb(from var(--beat-highlight) r g b / 0);
-  }
+  animation: none;
 }
 
 .status-row {
@@ -1487,7 +1518,18 @@ button.is-loading::after {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1024px) {
+  #app {
+    width: min(100%, calc(100% - 20px));
+    margin-top: 10px;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 760px) {
   .hero {
     padding-top: 42px;
   }
