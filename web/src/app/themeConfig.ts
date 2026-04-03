@@ -35,37 +35,34 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
   },
   light: {
     // Core
-    "--bg": "#F7F2E8",
-    "--text": "#2D2113",
-    "--text-rgb": "45, 33, 19",
-    "--muted": "#5E4B34",
-    "--accent": "#0F8A70",
-    "--title-accent": "#B06A1F",
-    "--title-glow": "rgba(176, 106, 31, 0.28)",
+    "--bg": "#F6F1FF",
+    "--text": "#261A38",
+    "--text-rgb": "38, 26, 56",
+    "--muted": "#635280",
+    "--accent": "#2E8BFF",
+    "--title-accent": "#B144FF",
+    "--title-glow": "rgba(177, 68, 255, 0.34)",
 
     // Surfaces
-    "--surface-panel": "#FFFDF8",
-    "--surface-hero": "#F5ECDD",
-    "--surface-control": "#F2E5D2",
-    "--surface-control-hover": "#EAD9BF",
+    "--surface-panel": "#FCFAFF",
+    "--surface-hero": "#EFE5FF",
+    "--surface-control": "#E8DBFF",
+    "--surface-control-hover": "#DDCCFF",
 
     // Borders
-    "--border-panel": "rgba(75, 53, 26, 0.20)",
-    "--border-hero": "rgba(100, 69, 34, 0.24)",
-    "--border-control": "rgba(95, 71, 43, 0.32)",
+    "--border-panel": "rgba(73, 43, 113, 0.20)",
+    "--border-hero": "rgba(91, 48, 150, 0.26)",
+    "--border-control": "rgba(96, 56, 152, 0.34)",
 
     // Visualizer
-    "--viz-bg":
-      "radial-gradient(1000px circle at 28% 20%, rgba(241, 215, 170, 0.55), transparent 60%), " +
-      "radial-gradient(1000px circle at 80% 80%, rgba(211, 182, 136, 0.45), transparent 62%), " +
-      "linear-gradient(180deg, #F8EFE0 0%, #EFE2CC 100%)",
-    "--viz-shadow": "rgba(95, 71, 43, 0.20)",
-    "--viz-overlay": "rgba(255, 250, 240, 0.72)",
+    "--viz-bg": "radial-gradient(circle at 50% 50%, #D9C3FF 0%, #F6F1FF 70%)",
+    "--viz-shadow": "rgba(101, 52, 168, 0.24)",
+    "--viz-overlay": "rgba(250, 246, 255, 0.74)",
 
     // Graph/Beat
-    "--edge-stroke": "rgba(45, 33, 19, 0.42)",
-    "--edge-selected": "#0F8A70",
-    "--beat-fill": "#D08A3A",
-    "--beat-highlight": "#D08A3A",
+    "--edge-stroke": "rgba(77, 48, 120, 0.44)",
+    "--edge-selected": "#7F39FB",
+    "--beat-fill": "#B144FF",
+    "--beat-highlight": "#B144FF",
   },
 };
