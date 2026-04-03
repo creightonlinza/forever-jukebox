@@ -702,6 +702,27 @@ button.is-loading::after {
   color: var(--text);
 }
 
+.top-list > li,
+.favorites-list > li,
+.search-item {
+  border-radius: 8px;
+  transition: background-color 0.16s ease;
+}
+
+.top-list > li,
+.favorites-list > li {
+  padding: 4px 8px;
+}
+
+.top-list > li:hover,
+.top-list > li:focus-within,
+.favorites-list > li:hover,
+.favorites-list > li:focus-within,
+.search-item:hover,
+.search-item:focus-within {
+  background: color-mix(in srgb, var(--surface-control-hover) 82%, transparent);
+}
+
 .top-list.hidden {
   display: none;
 }
@@ -744,6 +765,15 @@ button.is-loading::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+}
+
+.favorites-list > li:hover .favorite-remove,
+.favorites-list > li:focus-within .favorite-remove {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .favorite-toggle {
@@ -1175,6 +1205,7 @@ button.is-loading::after {
   justify-content: space-between;
   gap: 12px;
   align-items: baseline;
+  padding: 6px 8px;
   color: var(--text);
   cursor: pointer;
 }
