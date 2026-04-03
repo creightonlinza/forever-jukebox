@@ -22,7 +22,7 @@ body {
 #app {
   max-width: 1240px;
   width: 100%;
-  margin: 16px auto 24px;
+  margin: 16px auto 16px;
   padding: 0 16px;
   flex: 1;
   display: flex;
@@ -238,7 +238,6 @@ button,
   border: 1px solid var(--border-panel);
   padding: 16px;
   border-radius: 8px;
-  margin-bottom: 16px;
 }
 
 .site-footer {
@@ -711,7 +710,7 @@ button.is-loading::after {
 
 .top-list > li,
 .favorites-list > li {
-  padding: 4px 8px;
+  padding: 2px 8px;
 }
 
 .top-list > li:hover,
