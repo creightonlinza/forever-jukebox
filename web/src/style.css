@@ -73,7 +73,7 @@ button,
   gap: 12px;
   margin-top: -40px;
   padding: 4px 12px 6px;
-  border: 4px solid var(--title-accent);
+  border: 2px solid var(--title-accent);
   border-radius: 8px;
   box-shadow:
     0 0 12px var(--title-glow),
