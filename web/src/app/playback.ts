@@ -482,6 +482,10 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
     if (document.fullscreenElement) {
       requestWakeLock(context);
     }
+    return;
+  }
+  if (!player.isPlaying()) {
+    engine.play();
   }
 }
 

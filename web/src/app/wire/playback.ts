@@ -156,9 +156,18 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     autocanonizer.setFinishOutSong(finishOutSong);
 
     player.setOnEnded(() => {
-      if (state.isRunning) {
-        stopPlayback(context);
+      if (!state.isRunning) {
+        return;
       }
+      if (state.playMode === "jukebox" && !state.bringItHomeMode) {
+        // Recover if audio hits buffer end before scheduled wrap executes.
+        startJukeboxFromBeat(context, 0);
+        if (!player.isPlaying()) {
+          engine.play();
+        }
+        return;
+      }
+      stopPlayback(context);
     });
 
     autocanonizer.setOnBeat((index) => {
