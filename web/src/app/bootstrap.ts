@@ -390,6 +390,9 @@ export function bootstrap() {
     playbackDeps,
     onFaqOpen: refreshCacheSafely,
   });
+  const heroTitleHomeButton = document.querySelector<HTMLButtonElement>(
+    "#hero-title-home",
+  );
 
   jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
   elements.vizSelect.disabled = true;
@@ -436,6 +439,9 @@ export function bootstrap() {
   }
 
   window.addEventListener("popstate", routingHandlers.handlePopState);
+  heroTitleHomeButton?.addEventListener("click", () => {
+    navigationHandlers.navigateToTabWithState("top");
+  });
   bindUiHandlers({
     elements,
     jukebox,
