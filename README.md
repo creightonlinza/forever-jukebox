@@ -50,7 +50,7 @@ Required:
 Optional:
 
 - `YOUTUBE_API_KEY`: optional fallback for `/api/search/youtube` when `yt-dlp` search fails.
-- `ADMIN_KEY`: optional; required only for admin-only actions (play-count updates, and deletes outside the 30-minute grace window).
+- `ADMIN_KEY`: optional; required only for admin-only actions (play-count updates, and deletes outside the 30-minute grace window). Send it via `X-Admin-Key` request header.
 - `NTFY_TOPIC_KEY`: optional; enables ntfy alerts for YouTube download errors.
 - `WORKER_COUNT`: optional; defaults to `1` and controls worker concurrency.
 - `MAX_TRACK_LENGTH`: optional; when set to a positive number (minutes), rejects jobs over that duration.

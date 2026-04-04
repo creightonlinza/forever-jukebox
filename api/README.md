@@ -80,7 +80,7 @@ Responses:
 
 - `202` for `downloading`, `queued`, or `processing` (includes `progress`)
 - `200` with `complete` + `result` JSON
-- `200` with `failed` + `error` (failed jobs are cleaned up for retry)
+- `200` with `failed` + `error` (failed jobs are retained with logs for inspection/repair)
 
 Search Spotify:
 
@@ -138,6 +138,15 @@ Increment play count:
 curl -X POST "/api/plays/<id>"
 ```
 
+Set play count (admin):
+
+```bash
+curl -X PATCH "/api/plays/<id>" \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Key: $ADMIN_KEY" \
+  -d '{"play_count":123}'
+```
+
 Fetch top songs (defaults to 10):
 
 ```bash
@@ -189,10 +198,10 @@ curl "/api/favorites/sync/bison-laser-sunset"
 Delete a job and its stored files:
 
 ```bash
-curl -X DELETE "/api/jobs/<id>?key=$ADMIN_KEY"
+curl -X DELETE "/api/jobs/<id>" -H "X-Admin-Key: $ADMIN_KEY"
 ```
 
-Within 30 minutes of creation/completion, the delete key is not required:
+Within 30 minutes of creation/completion, the admin header is not required:
 
 ```bash
 curl -X DELETE "/api/jobs/<id>"
