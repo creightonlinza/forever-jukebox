@@ -8,6 +8,7 @@ import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerC
 import type { ToastOptions } from "../ui";
 import { VISUALIZATION_LABELS } from "../constants";
 import { formatDuration } from "../format";
+import { setAutoMarqueeText } from "../marquee";
 
 type PlaybackUiDeps = {
   context: AppContext;
@@ -499,8 +500,8 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       const displayTitle = state.trackArtist
         ? `${withSuffix} — ${state.trackArtist}`
         : withSuffix;
-      elements.playTitle.textContent = displayTitle;
-      elements.vizNowPlayingEl.textContent = displayTitle;
+      setAutoMarqueeText(elements.playTitle, displayTitle);
+      setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
     }
     if (state.activeTabId === "play") {
       const currentId = getCurrentTrackId();

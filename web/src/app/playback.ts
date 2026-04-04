@@ -24,6 +24,7 @@ import {
   writeTuningParamsToUrl,
 } from "./tuning";
 import { storeAnchorHighlight } from "./anchorHighlight";
+import { setAutoMarqueeText } from "./marquee";
 
 const DEFAULT_VOLUME = 0.5;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
@@ -573,7 +574,7 @@ export function resetForNewTrack(
   state.lastBeatIndex = null;
   updateListenTimeDisplay(context);
   elements.beatsPlayedEl.textContent = "0";
-  elements.vizNowPlayingEl.textContent = "The Forever Jukebox";
+  setAutoMarqueeText(elements.vizNowPlayingEl, "The Forever Jukebox");
   if (elements.tuningModal.classList.contains("open")) {
     elements.tuningModal.classList.remove("open");
   }
@@ -592,7 +593,7 @@ export function resetForNewTrack(
   elements.computedThresholdEl.textContent = "-";
   engine.updateConfig({ ...defaultConfig });
   syncTuningUI(context);
-  elements.playTitle.textContent = "";
+  setAutoMarqueeText(elements.playTitle, "");
   elements.analysisStatus.textContent = "No song selected.";
   elements.analysisSpinner.classList.add("hidden");
   elements.analysisProgress.textContent = "";
@@ -714,11 +715,11 @@ export function applyAnalysisResult(
         ? `${baseTitle} (autocanonized)`
         : baseTitle;
     const displayTitle = artist ? `${withSuffix} — ${artist}` : withSuffix;
-    elements.playTitle.textContent = displayTitle;
-    elements.vizNowPlayingEl.textContent = displayTitle;
+    setAutoMarqueeText(elements.playTitle, displayTitle);
+    setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
   } else {
-    elements.playTitle.textContent = "";
-    elements.vizNowPlayingEl.textContent = "The Forever Jukebox";
+    setAutoMarqueeText(elements.playTitle, "");
+    setAutoMarqueeText(elements.vizNowPlayingEl, "The Forever Jukebox");
   }
   updateTrackInfo(context);
   onAnalysisLoaded?.(response);

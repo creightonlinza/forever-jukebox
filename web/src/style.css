@@ -1253,6 +1253,15 @@ button.is-loading::after {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.play-title::-webkit-scrollbar {
+  display: none;
+}
+
+.play-title.is-marquee-active {
+  text-overflow: clip;
 }
 
 .viz {
@@ -1436,6 +1445,15 @@ button.is-loading::after {
   overflow: hidden;
   text-overflow: ellipsis;
   display: none;
+  scrollbar-width: none;
+}
+
+.viz-title::-webkit-scrollbar {
+  display: none;
+}
+
+.viz-title.is-marquee-active {
+  text-overflow: clip;
 }
 
 #viz-panel:fullscreen .viz-title,
