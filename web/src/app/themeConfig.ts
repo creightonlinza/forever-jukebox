@@ -35,39 +35,34 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
   },
   light: {
     // Core
-    "--bg": "#5F9EA0",
-    "--text": "#1B2A24",
-    "--text-rgb": "27, 42, 36",
-    "--muted": "#1B2A24",
-    "--accent": "#317873",
-    "--title-accent": "#5F9EA0",
-    "--title-glow": "rgba(95, 158, 160, 0.35)",
+    "--bg": "#F6F1FF",
+    "--text": "#261A38",
+    "--text-rgb": "38, 26, 56",
+    "--muted": "#635280",
+    "--accent": "#2E8BFF",
+    "--title-accent": "#B144FF",
+    "--title-glow": "rgba(177, 68, 255, 0.34)",
 
     // Surfaces
-    "--surface-panel": "#F4FAF7",
-    "--surface-hero": "#DDEBE3",
-    "--surface-control": "#D8EADB",
-    "--surface-control-hover": "#CCE2D3",
+    "--surface-panel": "#FCFAFF",
+    "--surface-hero": "#EFE5FF",
+    "--surface-control": "#E8DBFF",
+    "--surface-control-hover": "#DDCCFF",
 
     // Borders
-    "--border-panel": "rgba(27, 42, 36, 0.14)",
-    "--border-hero": "rgba(49, 120, 115, 0.20)",
-    "--border-control": "rgba(49, 120, 115, 0.26)",
+    "--border-panel": "rgba(73, 43, 113, 0.20)",
+    "--border-hero": "rgba(91, 48, 150, 0.26)",
+    "--border-control": "rgba(96, 56, 152, 0.34)",
 
     // Visualizer
-    "--viz-bg":
-      "radial-gradient(900px circle at 18% 25%, rgba(160, 214, 180, 0.75), transparent 58%), " +
-      "radial-gradient(900px circle at 82% 20%, rgba(95, 158, 160, 0.55), transparent 62%), " +
-      "radial-gradient(1100px circle at 50% 88%, rgba(163, 193, 173, 0.55), transparent 60%), " +
-      "linear-gradient(180deg, #CFE5DA 0%, #F4FAF7 100%), " +
-      "radial-gradient(1200px circle at 50% 55%, rgba(255, 255, 255, 0.28) 0%, rgba(27, 42, 36, 0.10) 72%, rgba(27, 42, 36, 0.18) 100%)",
-    "--viz-shadow": "rgba(49, 120, 115, 0.18)",
-    "--viz-overlay": "rgba(244, 250, 247, 0.66)",
+    "--viz-bg": "radial-gradient(circle at 50% 50%, #D9C3FF 0%, #F6F1FF 70%)",
+    "--viz-shadow": "rgba(101, 52, 168, 0.24)",
+    "--viz-overlay": "rgba(250, 246, 255, 0.74)",
 
     // Graph/Beat
-    "--edge-stroke": "rgba(27, 42, 36, .5)",
-    "--edge-selected": "#317873",
-    "--beat-fill": "#5F9EA0",
-    "--beat-highlight": "#F4FAF7",
+    "--edge-stroke": "rgba(77, 48, 120, 0.44)",
+    "--edge-selected": "#7F39FB",
+    "--beat-fill": "#B144FF",
+    "--beat-highlight": "#B144FF",
   },
 };

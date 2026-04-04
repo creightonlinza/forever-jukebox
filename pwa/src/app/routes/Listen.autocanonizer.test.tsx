@@ -374,21 +374,17 @@ describe("Listen autocanonizer behavior", () => {
     const rendered = renderListen();
     await settleEffects();
 
-    const playButton = getRequired<HTMLButtonElement>(rendered.container, "#play");
+    const playButton = getRequired<HTMLButtonElement>(rendered.container, "#viz-play");
 
-    expect(playButton.textContent).toContain("Play");
     expect(playButton.getAttribute("aria-label")).toBe("Play");
 
     await click(playButton);
-    expect(playButton.textContent).toContain("Pause");
     expect(playButton.getAttribute("aria-label")).toBe("Pause");
 
     await click(playButton);
-    expect(playButton.textContent).toContain("Resume");
     expect(playButton.getAttribute("aria-label")).toBe("Resume");
 
     await click(playButton);
-    expect(playButton.textContent).toContain("Pause");
     expect(playButton.getAttribute("aria-label")).toBe("Pause");
 
     rendered.unmount();

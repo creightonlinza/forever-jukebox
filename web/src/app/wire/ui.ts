@@ -148,10 +148,12 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   elements.tuningApply.addEventListener("click", tuningHandlers.handleTuningApply);
   elements.tuningReset.addEventListener("click", tuningHandlers.handleTuningReset);
   elements.playButton.addEventListener("click", playbackHandlers.handlePlayClick);
-  elements.vizPlayButton.addEventListener(
-    "click",
-    playbackHandlers.handlePlayClick,
-  );
+  if (elements.vizPlayButton !== elements.playButton) {
+    elements.vizPlayButton.addEventListener(
+      "click",
+      playbackHandlers.handlePlayClick,
+    );
+  }
   elements.shortUrlButton.addEventListener(
     "click",
     playbackHandlers.handleShortUrlClick,

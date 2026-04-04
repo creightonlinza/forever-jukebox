@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Tilt+Neon&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Tilt+Neon&display=swap"
       rel="stylesheet"
     />
     <link
@@ -31,23 +31,11 @@
     <div id="app">
       <header class="hero">
         <div class="hero-actions">
-          <a
-            class="offline-banner"
-            href="/offline/"
-            target="_blank"
-            rel="noopener noreferrer"
-            ><span
-              class="material-symbols-outlined offline-banner-icon"
-              aria-hidden="true"
-              >download</span
-            ><span>try the offline app</span></a
-          >
           <div class="theme-toggle" id="theme-toggle">
-            <span>Theme:</span>
             <button type="button" class="theme-link" data-theme="light">
               Light
             </button>
-            <span class="theme-sep">|</span>
+            <span class="theme-sep" aria-hidden="true"></span>
             <button type="button" class="theme-link" data-theme="dark">
               Dark
             </button>
@@ -55,15 +43,32 @@
         </div>
         <div class="hero-main">
           <div class="hero-title">
-            <h1 class="hero-title-neon">THE FOREVER JUKEBOX</h1>
+            <h1 class="hero-title-neon">
+              THE FOREVER <span class="hero-title-jukebox">JUKEBOX</span>
+            </h1>
           </div>
           <nav class="tabs" aria-label="Primary">
             <button class="tab-btn active" data-tab-button="top">
-              Top Songs
+              <span class="tab-label-top-full">Top Songs</span>
+              <span class="tab-label-top-short">Top</span>
             </button>
             <button class="tab-btn" data-tab-button="search">Search</button>
             <button class="tab-btn" data-tab-button="play">Listen</button>
             <button class="tab-btn" data-tab-button="faq">FAQ</button>
+            <a
+              class="tab-btn tab-link"
+              href="/offline/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span
+                class="material-symbols-outlined tab-link-icon"
+                aria-hidden="true"
+                >download</span
+              >
+              <span class="tab-label-offline-full">Offline App</span>
+              <span class="tab-label-offline-short">App</span>
+            </a>
           </nav>
         </div>
       </header>
@@ -76,7 +81,12 @@
           <button class="subtab-btn" data-top-subtab="recent">Recents</button>
           <span class="subtab-spacer" aria-hidden="true"></span>
           <button class="subtab-btn" data-top-subtab="favorites">
-            Favorites
+            <span
+              class="material-symbols-outlined subtab-icon subtab-icon-filled"
+              aria-hidden="true"
+              >star</span
+            >
+            <span>Favorites</span>
           </button>
         </div>
         <div class="panel-title panel-title-row">
@@ -215,17 +225,9 @@
             </div>
           </div>
         </div>
-        <div class="play-title" id="play-title"></div>
         <div class="menu-bar hidden" id="play-menu">
           <div class="menu-left">
-            <button id="play" class="play-toggle hidden" aria-label="Play">
-              <span
-                class="material-symbols-outlined play-icon"
-                aria-hidden="true"
-                >play_arrow</span
-              >
-              <span class="play-text">Play</span>
-            </button>
+            <div class="play-title" id="play-title"></div>
             <span id="bring-home-label" class="bring-home-note is-hidden">
               Bringing it on home
             </span>
@@ -533,7 +535,7 @@
         <div class="faq faq-updates hidden" id="faq-whats-new-panel">
           <h4>April 2026</h4>
           <ul>
-            <li>Added <strong>What's New</strong> section - you found it!</li>
+            <li>Layout tweaks, a new light theme and added a <strong>What's New</strong> section - (you are here)!</li>
           </ul>
 
           <h4>March 2026</h4>

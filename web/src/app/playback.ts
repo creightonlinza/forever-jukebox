@@ -24,6 +24,7 @@ import {
   writeTuningParamsToUrl,
 } from "./tuning";
 import { storeAnchorHighlight } from "./anchorHighlight";
+import { setAutoMarqueeText } from "./marquee";
 
 const DEFAULT_VOLUME = 0.5;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
@@ -481,6 +482,10 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
     if (document.fullscreenElement) {
       requestWakeLock(context);
     }
+    return;
+  }
+  if (!player.isPlaying()) {
+    engine.play();
   }
 }
 
@@ -528,18 +533,16 @@ function updatePlayButton(context: AppContext) {
   const label = isRunning ? "Pause" : state.isPaused ? "Resume" : "Play";
   const updateButton = (button: HTMLButtonElement) => {
     const icon = button.querySelector<HTMLSpanElement>(".play-icon");
-    const text = button.querySelector<HTMLSpanElement>(".play-text");
     if (icon) {
       icon.textContent = isRunning ? "pause" : "play_arrow";
-    }
-    if (text) {
-      text.textContent = label;
     }
     button.title = label;
     button.setAttribute("aria-label", label);
   };
   updateButton(context.elements.playButton);
-  updateButton(context.elements.vizPlayButton);
+  if (context.elements.vizPlayButton !== context.elements.playButton) {
+    updateButton(context.elements.vizPlayButton);
+  }
   const shouldPulse = isRunning && context.state.activeTabId !== "play";
   context.elements.playTabButton.classList.toggle("is-playing", shouldPulse);
 }
@@ -575,7 +578,7 @@ export function resetForNewTrack(
   state.lastBeatIndex = null;
   updateListenTimeDisplay(context);
   elements.beatsPlayedEl.textContent = "0";
-  elements.vizNowPlayingEl.textContent = "The Forever Jukebox";
+  setAutoMarqueeText(elements.vizNowPlayingEl, "The Forever Jukebox");
   if (elements.tuningModal.classList.contains("open")) {
     elements.tuningModal.classList.remove("open");
   }
@@ -594,7 +597,7 @@ export function resetForNewTrack(
   elements.computedThresholdEl.textContent = "-";
   engine.updateConfig({ ...defaultConfig });
   syncTuningUI(context);
-  elements.playTitle.textContent = "";
+  setAutoMarqueeText(elements.playTitle, "");
   elements.analysisStatus.textContent = "No song selected.";
   elements.analysisSpinner.classList.add("hidden");
   elements.analysisProgress.textContent = "";
@@ -716,11 +719,11 @@ export function applyAnalysisResult(
         ? `${baseTitle} (autocanonized)`
         : baseTitle;
     const displayTitle = artist ? `${withSuffix} — ${artist}` : withSuffix;
-    elements.playTitle.textContent = displayTitle;
-    elements.vizNowPlayingEl.textContent = displayTitle;
+    setAutoMarqueeText(elements.playTitle, displayTitle);
+    setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
   } else {
-    elements.playTitle.textContent = "";
-    elements.vizNowPlayingEl.textContent = "The Forever Jukebox";
+    setAutoMarqueeText(elements.playTitle, "");
+    setAutoMarqueeText(elements.vizNowPlayingEl, "The Forever Jukebox");
   }
   updateTrackInfo(context);
   onAnalysisLoaded?.(response);
@@ -932,14 +935,19 @@ export function requestWakeLock(context: AppContext) {
   if (!("wakeLock" in navigator)) {
     return;
   }
+  if (context.state.wakeLock || !document.fullscreenElement) {
+    return;
+  }
   navigator.wakeLock
     .request("screen")
     .then((lock) => {
       context.state.wakeLock = lock;
       function onRelease() {
-        handleWakeLockRelease(context);
+        if (context.state.wakeLock === lock) {
+          handleWakeLockRelease(context);
+        }
       }
-      context.state.wakeLock.addEventListener("release", onRelease);
+      lock.addEventListener("release", onRelease);
     })
     .catch(() => {
       console.warn("Wake lock unavailable");
@@ -951,13 +959,14 @@ function handleWakeLockRelease(context: AppContext) {
 }
 
 export function releaseWakeLock(context: AppContext) {
-  if (!context.state.wakeLock) {
+  const lock = context.state.wakeLock;
+  if (!lock) {
     return;
   }
-  context.state.wakeLock.release().catch(() => {
+  context.state.wakeLock = null;
+  lock.release().catch(() => {
     console.warn("Failed to release wake lock");
   });
-  context.state.wakeLock = null;
 }
 
 export function cancelPoll(context: AppContext) {

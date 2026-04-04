@@ -4,6 +4,7 @@ import type { AnalysisComplete } from "./api";
 import {
   applyAnalysisResult,
   applyTuningChanges,
+  startJukeboxFromBeat,
   stopPlayback,
   syncTuningUI,
   togglePlayback,
@@ -163,6 +164,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     getVolume: vi.fn(() => 0.5),
     getDuration: vi.fn(() => null),
     play: vi.fn(),
+    isPlaying: vi.fn(() => true),
     pause: vi.fn(),
     stop: vi.fn(),
     seek: vi.fn(),
@@ -503,5 +505,43 @@ describe("playback controls", () => {
 
     expect(context.engine.resetStats).toHaveBeenCalledTimes(3);
     expect(context.engine.startJukebox).toHaveBeenLastCalledWith(true);
+  });
+
+  it("resumes audio output when selecting a beat while session is running", () => {
+    const context = createContext();
+    context.state.playMode = "jukebox";
+    context.state.isRunning = true;
+    context.state.vizData = {
+      beats: [{ start: 0, duration: 1 }],
+      edges: [],
+    } as unknown as AppContext["state"]["vizData"];
+    (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
+    (context.player.isPlaying as ReturnType<typeof vi.fn>).mockReturnValue(false);
+
+    startJukeboxFromBeat(context, 0);
+
+    expect(context.player.seek).toHaveBeenCalledWith(0);
+    expect(context.engine.seekToBeat).toHaveBeenCalledWith(0);
+    expect(context.engine.play).toHaveBeenCalledTimes(1);
+    expect(context.engine.startJukebox).not.toHaveBeenCalled();
+  });
+
+  it("does not replay when selecting a beat while already actively playing", () => {
+    const context = createContext();
+    context.state.playMode = "jukebox";
+    context.state.isRunning = true;
+    context.state.vizData = {
+      beats: [{ start: 2, duration: 1 }],
+      edges: [],
+    } as unknown as AppContext["state"]["vizData"];
+    (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
+    (context.player.isPlaying as ReturnType<typeof vi.fn>).mockReturnValue(true);
+
+    startJukeboxFromBeat(context, 0);
+
+    expect(context.player.seek).toHaveBeenCalledWith(2);
+    expect(context.engine.seekToBeat).toHaveBeenCalledWith(0);
+    expect(context.engine.play).not.toHaveBeenCalled();
+    expect(context.engine.startJukebox).not.toHaveBeenCalled();
   });
 });

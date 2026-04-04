@@ -8,6 +8,7 @@ import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerC
 import type { ToastOptions } from "../ui";
 import { VISUALIZATION_LABELS } from "../constants";
 import { formatDuration } from "../format";
+import { setAutoMarqueeText } from "../marquee";
 
 type PlaybackUiDeps = {
   context: AppContext;
@@ -155,9 +156,18 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     autocanonizer.setFinishOutSong(finishOutSong);
 
     player.setOnEnded(() => {
-      if (state.isRunning) {
-        stopPlayback(context);
+      if (!state.isRunning) {
+        return;
       }
+      if (state.playMode === "jukebox" && !state.bringItHomeMode) {
+        // Recover if audio hits buffer end before scheduled wrap executes.
+        startJukeboxFromBeat(context, 0);
+        if (!player.isPlaying()) {
+          engine.play();
+        }
+        return;
+      }
+      stopPlayback(context);
     });
 
     autocanonizer.setOnBeat((index) => {
@@ -499,8 +509,8 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       const displayTitle = state.trackArtist
         ? `${withSuffix} — ${state.trackArtist}`
         : withSuffix;
-      elements.playTitle.textContent = displayTitle;
-      elements.vizNowPlayingEl.textContent = displayTitle;
+      setAutoMarqueeText(elements.playTitle, displayTitle);
+      setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
     }
     if (state.activeTabId === "play") {
       const currentId = getCurrentTrackId();
