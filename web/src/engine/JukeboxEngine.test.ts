@@ -262,7 +262,7 @@ describe("JukeboxEngine playback loop", () => {
     expect(engine.getConfig().maxBranches).toBe(before + 1);
   });
 
-  it("uses legacy-calibrated default random branch ramp", () => {
+  it("uses legacy default random branch ramp", () => {
     const engine = new JukeboxEngine(makePlayer());
     expect(engine.getConfig().randomBranchChanceDelta).toBe(0.02);
   });

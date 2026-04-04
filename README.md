@@ -12,7 +12,7 @@ generating similar beat/segment/section data locally.
 
 ## Structure
 
-- `engine/` — The Forever Jukebox audio analysis engine (with optional calibration support).
+- `engine/` — The Forever Jukebox audio analysis engine.
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI.
 - `pwa/` — Offline/local analysis PWA that can also export jukebox audio.
@@ -58,7 +58,6 @@ Optional:
 - `ALLOW_USER_YOUTUBE`: optional; defaults to `false`. Set `true` to allow user-supplied YouTube jobs.
 - `ALLOW_FAVORITES_SYNC`: optional; defaults to `false`. Set `true` to enable favorites sync endpoints.
 - `PORT`: optional; defaults to `8000`.
-- `ENGINE_CONFIG`: optional and unused by default; set only when you explicitly want calibration parameters.
 
 Example `.env`:
 

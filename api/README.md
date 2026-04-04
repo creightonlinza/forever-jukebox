@@ -29,7 +29,6 @@ Optional:
 - `ALLOW_USER_UPLOAD`
 - `ALLOW_USER_YOUTUBE`
 - `ALLOW_FAVORITES_SYNC`
-- `ENGINE_CONFIG`
 
 For defaults and behavior details, see the canonical Docker env reference in the root README: [`../README.md#docker-production`](../README.md#docker-production).
 
@@ -48,7 +47,6 @@ export WORKER_COUNT=1
 # export ALLOW_USER_UPLOAD=true
 # export ALLOW_USER_YOUTUBE=true
 # export ALLOW_FAVORITES_SYNC=true
-# export ENGINE_CONFIG=../engine/calibration.json
 ```
 
 ## yt-dlp EJS runtime

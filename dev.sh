@@ -337,7 +337,6 @@ ensure_web_deps() {
 }
 
 export ENGINE_REPO="$ROOT/engine"
-# export ENGINE_CONFIG="$ROOT/engine/calibration.json"
 
 pids=()
 
