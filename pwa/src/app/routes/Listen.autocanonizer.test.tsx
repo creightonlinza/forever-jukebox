@@ -14,6 +14,10 @@ type MockAutocanonizerInstance = {
 };
 
 const autocanonizerInstances: MockAutocanonizerInstance[] = [];
+type MockPlayerInstance = {
+  emitEnded: () => void;
+};
+const playerInstances: MockPlayerInstance[] = [];
 
 const mockAnalysis = {
   sections: [{ start: 0, duration: 4, confidence: 1 }],
@@ -75,11 +79,17 @@ vi.mock("@/core/application/usecases/analyzeAudio", () => ({
 vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
   BufferedAudioPlayer: class BufferedAudioPlayer {
     private volume = 0.5;
+    private onEnded: (() => void) | null = null;
+    constructor() {
+      playerInstances.push(this);
+    }
     async loadBuffer(_buffer: AudioBuffer) {}
     getContext() {
       return {} as AudioContext;
     }
-    setOnEnded(_handler: (() => void) | null) {}
+    setOnEnded(handler: (() => void) | null) {
+      this.onEnded = handler;
+    }
     getBuffer() {
       return {} as AudioBuffer;
     }
@@ -93,6 +103,9 @@ vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
     }
     getVolume() {
       return this.volume;
+    }
+    emitEnded() {
+      this.onEnded?.();
     }
     async dispose() {}
   },
@@ -287,6 +300,7 @@ describe("Listen autocanonizer behavior", () => {
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
     autocanonizerInstances.length = 0;
+    playerInstances.length = 0;
     mockAppState.file = new File([new Uint8Array([1, 2, 3])], "song.wav", {
       lastModified: 1234,
     });
@@ -387,6 +401,26 @@ describe("Listen autocanonizer behavior", () => {
     await click(playButton);
     expect(playButton.getAttribute("aria-label")).toBe("Pause");
 
+    rendered.unmount();
+  });
+
+  it("keeps jukebox running when audio ended fires during normal looping", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    const playButton = getRequired<HTMLButtonElement>(rendered.container, "#viz-play");
+    await click(playButton);
+    expect(playButton.getAttribute("aria-label")).toBe("Pause");
+
+    const player = playerInstances[0];
+    if (!player) {
+      throw new Error("Expected buffered player instance");
+    }
+    await act(async () => {
+      player.emitEnded();
+    });
+
+    expect(playButton.getAttribute("aria-label")).toBe("Pause");
     rendered.unmount();
   });
 

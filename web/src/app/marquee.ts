@@ -106,8 +106,6 @@ function createMarqueeController(element: HTMLElement): MarqueeController {
         }
         return;
       }
-      case "idle":
-        return;
     }
   };
 

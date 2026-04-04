@@ -698,9 +698,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     player.setOnEnded(() => {
-      if (isRunningRef.current) {
-        stopPlayback();
+      if (!isRunningRef.current) {
+        return;
       }
+      if (playModeRef.current === "jukebox" && !bringItHomeModeRef.current) {
+        // Recover if audio reaches buffer end before the scheduled wrap jump.
+        startFromBeat(0);
+        if (!player.isPlaying()) {
+          engineRef.current?.play();
+        }
+        return;
+      }
+      stopPlayback();
     });
     return () => {
       player.setOnEnded(null);
@@ -894,7 +903,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     lastBeatRef.current = index;
     vizControllerRef.current?.update(index, true, null);
 
-    if (!player.isPlaying()) {
+    if (!isRunningRef.current) {
       engine.startJukebox(false);
       engine.play();
       lastPlayStampRef.current = performance.now();
@@ -903,6 +912,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (document.fullscreenElement === vizPanelRef.current) {
         void requestWakeLock();
       }
+      return;
+    }
+    if (!player.isPlaying()) {
+      engine.play();
     }
   };
 
