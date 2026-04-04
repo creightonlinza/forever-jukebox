@@ -1,4 +1,4 @@
-import type { AppContext } from "./context";
+import type { AppContext, TabId } from "./context";
 import { formatTrackDuration } from "./format";
 import {
   fetchJobByTrack,
@@ -6,17 +6,21 @@ import {
   searchYoutube,
   startYoutubeAnalysis,
   type AnalysisComplete,
-  type AnalysisFailed,
-  type AnalysisInProgress,
-  type AnalysisResponse,
+  type SpotifySearchItem,
+  type YoutubeSearchItem,
 } from "./api";
 import type { ToastOptions } from "./ui";
 import { tryLoadCachedAudio } from "./playback";
+import {
+  isAnalysisComplete,
+  isAnalysisFailed,
+  isAnalysisInProgress,
+} from "./analysisStatus";
 
 export type SearchDeps = {
-  setActiveTab: (tabId: "top" | "search" | "play" | "faq") => void;
+  setActiveTab: (tabId: TabId) => void;
   navigateToTab: (
-    tabId: "top" | "search" | "play" | "faq",
+    tabId: TabId,
     options?: { replace?: boolean; youtubeId?: string | null }
   ) => void;
   updateTrackUrl: (youtubeId: string, replace?: boolean) => void;
@@ -30,24 +34,6 @@ export type SearchDeps = {
   updateVizVisibility: () => void;
   onTrackChange?: (youtubeId: string | null) => void;
 };
-
-function isAnalysisComplete(response: AnalysisResponse | null): response is AnalysisComplete {
-  return response?.status === "complete";
-}
-
-function isAnalysisFailed(response: AnalysisResponse | null): response is AnalysisFailed {
-  return response?.status === "failed";
-}
-
-function isAnalysisInProgress(
-  response: AnalysisResponse | null
-): response is AnalysisInProgress {
-  return (
-    response?.status === "downloading" ||
-    response?.status === "queued" ||
-    response?.status === "processing"
-  );
-}
 
 function formatMinutes(value: number): string {
   const rounded = Math.round(value * 100) / 100;
@@ -63,6 +49,109 @@ function getMaxTrackLengthMinutes(context: AppContext): number | null {
     return null;
   }
   return value;
+}
+
+function isTrackLengthAllowed(
+  context: AppContext,
+  deps: SearchDeps,
+  duration: number,
+): boolean {
+  const maxTrackLengthMinutes = getMaxTrackLengthMinutes(context);
+  if (
+    maxTrackLengthMinutes !== null &&
+    Number.isFinite(duration) &&
+    duration > maxTrackLengthMinutes * 60
+  ) {
+    deps.showToast(
+      `Error: The maximum track length for this server is ${formatMinutes(maxTrackLengthMinutes)} minutes.`,
+      { icon: "error", tone: "error" },
+    );
+    return false;
+  }
+  return true;
+}
+
+function renderSearchList(
+  container: HTMLElement,
+  items: HTMLLIElement[],
+) {
+  const list = document.createElement("ol");
+  list.className = "search-list";
+  for (const item of items) {
+    list.append(item);
+  }
+  container.replaceChildren(list);
+}
+
+function buildYoutubeMatchItem(
+  context: AppContext,
+  deps: SearchDeps,
+  name: string,
+  artist: string,
+  item: YoutubeSearchItem,
+) {
+  const title = typeof item.title === "string" ? item.title : "Untitled";
+  const ytDuration = typeof item.duration === "number" ? item.duration : null;
+  const li = document.createElement("li");
+  li.className = "search-item";
+  li.dataset.youtubeId = item.id ? String(item.id) : "";
+  li.dataset.trackName = name;
+  li.dataset.trackArtist = artist;
+  li.dataset.trackDuration = ytDuration !== null ? String(ytDuration) : "";
+  const titleSpan = document.createElement("strong");
+  titleSpan.textContent = title;
+  const durationSpan = document.createElement("span");
+  durationSpan.textContent = formatTrackDuration(ytDuration);
+  const metaWrap = document.createElement("span");
+  metaWrap.className = "search-meta";
+  metaWrap.append(durationSpan);
+  if (item.id) {
+    const openLink = document.createElement("a");
+    openLink.className = "search-open";
+    openLink.href = `https://www.youtube.com/watch?v=${encodeURIComponent(String(item.id))}`;
+    openLink.target = "_blank";
+    openLink.rel = "noreferrer";
+    openLink.title = "Open on YouTube";
+    openLink.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+    const openIcon = document.createElement("span");
+    openIcon.className = "material-symbols-outlined search-open-icon";
+    openIcon.setAttribute("aria-hidden", "true");
+    openIcon.textContent = "open_in_new";
+    openLink.append(openIcon);
+    metaWrap.append(openLink);
+  }
+  li.append(titleSpan, metaWrap);
+  li.addEventListener("click", (event) => {
+    handleYoutubeMatchClick(context, deps, event);
+  });
+  return li;
+}
+
+function buildSpotifyMatchItem(
+  context: AppContext,
+  deps: SearchDeps,
+  item: SpotifySearchItem,
+) {
+  const name = typeof item.name === "string" ? item.name : "Untitled";
+  const artist = typeof item.artist === "string" ? item.artist : "";
+  const title = artist ? `${name} — ${artist}` : name;
+  const duration = typeof item.duration === "number" ? item.duration : null;
+  const li = document.createElement("li");
+  li.className = "search-item";
+  li.dataset.trackName = name;
+  li.dataset.trackArtist = artist;
+  li.dataset.trackDuration = duration !== null ? String(duration) : "";
+  const titleSpan = document.createElement("strong");
+  titleSpan.textContent = title;
+  const durationSpan = document.createElement("span");
+  durationSpan.textContent = formatTrackDuration(item.duration);
+  li.append(titleSpan, durationSpan);
+  li.addEventListener("click", (event) => {
+    handleSpotifyMatchClick(context, deps, event);
+  });
+  return li;
 }
 
 export async function startYoutubeAnalysisFlow(
@@ -116,51 +205,10 @@ export async function showYoutubeMatches(
       elements.searchHint.textContent = "Step 1: Find a Spotify track.";
       return;
     }
-    elements.searchResults.innerHTML = "";
-    const list = document.createElement("ol");
-    list.className = "search-list";
-    for (const item of ytItems) {
-      const title = typeof item.title === "string" ? item.title : "Untitled";
-      const ytDuration =
-        typeof item.duration === "number" ? item.duration : null;
-      const li = document.createElement("li");
-      li.className = "search-item";
-      li.dataset.youtubeId = item.id ? String(item.id) : "";
-      li.dataset.trackName = name;
-      li.dataset.trackArtist = artist;
-      li.dataset.trackDuration = ytDuration !== null ? String(ytDuration) : "";
-      const titleSpan = document.createElement("strong");
-      titleSpan.textContent = title;
-      const durationSpan = document.createElement("span");
-      durationSpan.textContent = formatTrackDuration(ytDuration);
-      const metaWrap = document.createElement("span");
-      metaWrap.className = "search-meta";
-      metaWrap.append(durationSpan);
-      if (item.id) {
-        const openLink = document.createElement("a");
-        openLink.className = "search-open";
-        openLink.href = `https://www.youtube.com/watch?v=${encodeURIComponent(String(item.id))}`;
-        openLink.target = "_blank";
-        openLink.rel = "noreferrer";
-        openLink.title = "Open on YouTube";
-        openLink.addEventListener("click", (event) => {
-          event.stopPropagation();
-        });
-        const openIcon = document.createElement("span");
-        openIcon.className = "material-symbols-outlined search-open-icon";
-        openIcon.setAttribute("aria-hidden", "true");
-        openIcon.textContent = "open_in_new";
-        openLink.append(openIcon);
-        metaWrap.append(openLink);
-      }
-      li.append(titleSpan, metaWrap);
-      function handleClick(event: Event) {
-        handleYoutubeMatchClick(context, deps, event);
-      }
-      li.addEventListener("click", handleClick);
-      list.append(li);
-    }
-    elements.searchResults.append(list);
+    const rows = ytItems.map((item) =>
+      buildYoutubeMatchItem(context, deps, name, artist, item),
+    );
+    renderSearchList(elements.searchResults, rows);
   } catch (err) {
     elements.searchResults.textContent = `YouTube search failed: ${String(err)}`;
     elements.searchHint.textContent = "Step 1: Find a Spotify track.";
@@ -245,31 +293,8 @@ export async function runSearch(context: AppContext, deps: SearchDeps) {
       elements.searchResults.textContent = "No Spotify results found.";
       return;
     }
-    elements.searchResults.innerHTML = "";
-    const list = document.createElement("ol");
-    list.className = "search-list";
-    for (const item of items) {
-      const name = typeof item.name === "string" ? item.name : "Untitled";
-      const artist = typeof item.artist === "string" ? item.artist : "";
-      const title = artist ? `${name} — ${artist}` : name;
-      const duration = typeof item.duration === "number" ? item.duration : null;
-      const li = document.createElement("li");
-      li.className = "search-item";
-      li.dataset.trackName = name;
-      li.dataset.trackArtist = artist;
-      li.dataset.trackDuration = duration !== null ? String(duration) : "";
-      const titleSpan = document.createElement("strong");
-      titleSpan.textContent = title;
-      const durationSpan = document.createElement("span");
-      durationSpan.textContent = formatTrackDuration(item.duration);
-      li.append(titleSpan, durationSpan);
-      function handleClick(event: Event) {
-        handleSpotifyMatchClick(context, deps, event);
-      }
-      li.addEventListener("click", handleClick);
-      list.append(li);
-    }
-    elements.searchResults.append(list);
+    const rows = items.map((item) => buildSpotifyMatchItem(context, deps, item));
+    renderSearchList(elements.searchResults, rows);
   } catch (err) {
     elements.searchResults.textContent = `Search failed: ${String(err)}`;
   } finally {
@@ -298,16 +323,7 @@ function handleYoutubeMatchClick(
     deps.setAnalysisStatus("No YouTube id available.", false);
     return;
   }
-  const maxTrackLengthMinutes = getMaxTrackLengthMinutes(context);
-  if (
-    maxTrackLengthMinutes !== null &&
-    Number.isFinite(duration) &&
-    duration > maxTrackLengthMinutes * 60
-  ) {
-    deps.showToast(
-      `Error: The maximum track length for this server is ${formatMinutes(maxTrackLengthMinutes)} minutes.`,
-      { icon: "error", tone: "error" },
-    );
+  if (!isTrackLengthAllowed(context, deps, duration)) {
     return;
   }
   startYoutubeAnalysisFlow(context, deps, youtubeId, name, artist).catch((err) => {
@@ -327,16 +343,7 @@ function handleSpotifyMatchClick(
   if (!name) {
     return;
   }
-  const maxTrackLengthMinutes = getMaxTrackLengthMinutes(context);
-  if (
-    maxTrackLengthMinutes !== null &&
-    Number.isFinite(duration) &&
-    duration > maxTrackLengthMinutes * 60
-  ) {
-    deps.showToast(
-      `Error: The maximum track length for this server is ${formatMinutes(maxTrackLengthMinutes)} minutes.`,
-      { icon: "error", tone: "error" },
-    );
+  if (!isTrackLengthAllowed(context, deps, duration)) {
     return;
   }
   tryLoadExistingTrackByName(context, deps, name, artist).then((loaded) => {

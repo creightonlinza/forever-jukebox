@@ -1,4 +1,5 @@
 import type { Elements } from "../elements";
+import type { TabId } from "../context";
 type TopSongsDeps = {
   elements: Elements;
   fetchTopSongs: (limit: number) => Promise<
@@ -12,7 +13,7 @@ type TopSongsDeps = {
   >;
   loadTrackByYouTubeId: (youtubeId: string) => void;
   navigateToTabWithState: (
-    tabId: "top" | "search" | "play" | "faq",
+    tabId: TabId,
     options?: { replace?: boolean; youtubeId?: string | null },
   ) => void;
   limit: number;

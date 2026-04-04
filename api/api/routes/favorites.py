@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import os
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
+from ..env import env_flag
 from ..favorites_db import (
     create_unique_code,
     load_favorites,
@@ -23,13 +22,8 @@ logger = get_logger()
 MAX_FAVORITES = 100
 
 
-def _is_enabled(env_key: str) -> bool:
-    value = os.environ.get(env_key, "")
-    return value.lower() in {"1", "true", "yes", "on"}
-
-
 def _ensure_sync_enabled() -> None:
-    if not _is_enabled("ALLOW_FAVORITES_SYNC"):
+    if not env_flag("ALLOW_FAVORITES_SYNC"):
         raise HTTPException(status_code=403, detail="Favorites sync disabled.")
 
 

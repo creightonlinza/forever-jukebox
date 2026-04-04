@@ -57,37 +57,3 @@ def compute_frame_features(audio: np.ndarray, config: FeatureConfig) -> Dict[str
         "hpcp": hpcps,
         "rms_db": rms_db,
     }
-
-
-def summarize_segment_features(frame_features: Dict[str, np.ndarray],
-                               start_time: float,
-                               end_time: float) -> Dict[str, np.ndarray]:
-    times = frame_features["frame_times"]
-    idx = np.where((times >= start_time) & (times < end_time))[0]
-    if len(idx) == 0:
-        if times.size == 0:
-            mfcc_dim = frame_features["mfcc"].shape[1] if frame_features["mfcc"].ndim == 2 else 13
-            hpcp_dim = frame_features["hpcp"].shape[1] if frame_features["hpcp"].ndim == 2 else 12
-            return {
-                "mfcc": np.zeros(mfcc_dim, dtype=float),
-                "hpcp": np.zeros(hpcp_dim, dtype=float),
-                "rms_db": [0.0],
-                "times": np.asarray([start_time], dtype=float),
-            }
-        candidate = np.searchsorted(times, start_time, side="left")
-        candidate = min(max(int(candidate), 0), len(times) - 1)
-        idx = np.array([candidate])
-    mfcc = frame_features["mfcc"][idx]
-    hpcp = frame_features["hpcp"][idx]
-    rms_db = frame_features["rms_db"][idx]
-
-    mfcc_mean = np.mean(mfcc, axis=0)
-    hpcp_mean = np.mean(hpcp, axis=0)
-    rms_seq = rms_db.tolist()
-
-    return {
-        "mfcc": mfcc_mean,
-        "hpcp": hpcp_mean,
-        "rms_db": rms_seq,
-        "times": times[idx],
-    }

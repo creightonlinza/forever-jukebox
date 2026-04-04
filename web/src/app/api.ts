@@ -270,27 +270,7 @@ export async function startYoutubeAnalysis(payload: {
 export async function uploadAudio(file: File) {
   const body = new FormData();
   body.append("file", file);
-  const response = await fetch("/api/upload", { method: "POST", body });
-  if (!response.ok) {
-    let message = `Upload failed (${response.status})`;
-    let code: string | undefined;
-    try {
-      const payload = await response.json();
-      const extracted = extractApiError(payload);
-      if (extracted) {
-        message = extracted.message;
-        code = extracted.code;
-      }
-    } catch {
-      // Ignore non-JSON error payloads.
-    }
-    const error = new Error(message);
-    const extended = error as Error & { status?: number; code?: string };
-    extended.status = response.status;
-    extended.code = code;
-    throw error;
-  }
-  const data = await response.json();
+  const data = await fetchJson("/api/upload", { method: "POST", body });
   return parseAnalysisResponse(data);
 }
 

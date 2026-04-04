@@ -119,6 +119,12 @@ type CastState = {
   activeVizIndex: number;
 };
 
+type CastTrackMeta = {
+  title?: string;
+  artist?: string;
+  duration?: unknown;
+};
+
 function getElements(): CastElements {
   const require = <T extends HTMLElement>(el: T | null, name: string) => {
     if (!el) {
@@ -225,6 +231,12 @@ function setIdleState(elements: CastElements) {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 async function pollAnalysis(
   jobId: string,
   statusEl: HTMLElement,
@@ -255,7 +267,7 @@ async function pollAnalysis(
       statusEl,
       progress === null ? message : `${message} (${progress}%)`,
     );
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    await sleep(intervalMs);
   }
 }
 
@@ -545,6 +557,127 @@ async function bootstrap() {
     elements.listenTime.textContent = formatDuration(elapsed / 1000);
   }, 500);
 
+  function setReceiverIdle() {
+    setIdleState(elements);
+    setLogoVisible(elements, true);
+    if (viz) {
+      viz.setVisible(false);
+    }
+    startIdleKeepAlive();
+    scheduleIdleStop();
+  }
+
+  function syncVizFromEngine() {
+    if (!engine) {
+      state.vizData = null;
+      if (viz) {
+        viz.reset();
+      }
+      return;
+    }
+    state.vizData = engine.getVisualizationData();
+    if (!state.vizData) {
+      if (viz) {
+        viz.reset();
+      }
+      return;
+    }
+    if (!viz) {
+      createViz(state.activeVizIndex);
+    }
+    if (viz) {
+      viz.setActiveIndex(state.activeVizIndex);
+      viz.setAnchorHighlightEnabled(anchorHighlightEnabled);
+      viz.setData(state.vizData);
+    }
+  }
+
+  function beginTrackLoad(trackId: string) {
+    setLogoVisible(elements, false);
+    if (viz) {
+      viz.setVisible(false);
+      viz.reset();
+    }
+    state.currentTrackId = trackId;
+    state.loadToken += 1;
+    const token = state.loadToken;
+    sendStatusUpdate();
+    setLoadingState(elements, true);
+    setStatus(elements.status, "Loading…");
+    elements.listenTime.textContent = "00:00:00";
+    elements.beatsPlayed.textContent = "0";
+    elements.title.textContent = "The Forever Jukebox";
+    state.trackTitle = null;
+    state.trackArtist = null;
+    state.trackDurationSeconds = null;
+    state.lastBeatIndex = null;
+    state.vizData = null;
+    isTrackPaused = false;
+    listenAccumulatedMs = 0;
+    return token;
+  }
+
+  function applyTrackMetadata(trackMeta: CastTrackMeta, durationSeconds: number) {
+    const title = trackMeta.title || "Unknown";
+    const artist = trackMeta.artist || "";
+    elements.title.textContent = artist ? `${title} — ${artist}` : title;
+    state.trackTitle = title;
+    state.trackArtist = artist || null;
+    state.trackDurationSeconds = durationSeconds;
+  }
+
+  async function finalizeTrackStart(jobId: string, token: number) {
+    if (!engine) {
+      throw new Error("Audio engine not ready");
+    }
+    setLoadingState(elements, false);
+    if (viz) {
+      viz.setVisible(true);
+    }
+    // Report "ready" as a paused-like non-loading status before autoplay so sender UIs update metadata immediately.
+    sendStatusUpdate();
+    await sleep(POST_LOAD_PLAY_DELAY_MS);
+    if (token !== state.loadToken) {
+      return;
+    }
+    void recordPlay(jobId).catch((err) => {
+      console.warn(`Failed to record cast play: ${String(err)}`);
+    });
+    engine.startJukebox();
+    engine.play();
+    isTrackPaused = false;
+    listenAccumulatedMs = 0;
+    playStartAtMs = performance.now();
+    clearIdleStopTimer();
+    sendStatusUpdate();
+  }
+
+  async function resetTrackAfterLoadError(errorMessage: string, errorCode: string | null) {
+    state.currentTrackId = null;
+    state.lastBeatIndex = null;
+    state.vizData = null;
+    state.trackTitle = null;
+    state.trackArtist = null;
+    state.trackDurationSeconds = null;
+    if (viz) {
+      viz.reset();
+      viz.setVisible(false);
+    }
+    if (engine) {
+      engine.stopJukebox();
+      engine.resetStats();
+    }
+    if (player) {
+      await player.dispose();
+    }
+    player = null;
+    engine = null;
+    playStartAtMs = null;
+    listenAccumulatedMs = 0;
+    setReceiverIdle();
+    sendStatusUpdate(errorMessage, errorCode);
+  }
+
   async function startTrack(
     trackId: string,
     tuningParams: string | null = null,
@@ -556,13 +689,7 @@ async function bootstrap() {
     clearIdleStopTimer();
     stopIdleKeepAlive();
     if (!trackId) {
-      setIdleState(elements);
-      setLogoVisible(elements, true);
-      if (viz) {
-        viz.setVisible(false);
-      }
-      startIdleKeepAlive();
-      scheduleIdleStop();
+      setReceiverIdle();
       return;
     }
     if (trackId === state.currentTrackId) {
@@ -583,30 +710,7 @@ async function bootstrap() {
       sendStatusUpdate();
       return;
     }
-    setLogoVisible(elements, false);
-    if (viz) {
-      viz.setVisible(false);
-    }
-    state.currentTrackId = trackId;
-    state.loadToken += 1;
-    const token = state.loadToken;
-    sendStatusUpdate();
-    setLoadingState(elements, true);
-    setStatus(elements.status, "Loading…");
-    elements.listenTime.textContent = "00:00:00";
-    elements.beatsPlayed.textContent = "0";
-    elements.title.textContent = "The Forever Jukebox";
-    state.trackTitle = null;
-    state.trackArtist = null;
-    state.trackDurationSeconds = null;
-    state.lastBeatIndex = null;
-    state.vizData = null;
-    isTrackPaused = false;
-    listenAccumulatedMs = 0;
-    if (viz) {
-      viz.reset();
-      viz.setVisible(false);
-    }
+    const token = beginTrackLoad(trackId);
     await resetEngine();
     if (token !== state.loadToken) {
       return;
@@ -657,46 +761,11 @@ async function bootstrap() {
       if (defaultConfig) {
         applyTuningToEngine(tuningParams);
       }
-      state.vizData = engine.getVisualizationData();
-      if (state.vizData) {
-        if (!viz) {
-          createViz(state.activeVizIndex);
-        }
-        if (viz) {
-          viz.setActiveIndex(state.activeVizIndex);
-          viz.setAnchorHighlightEnabled(anchorHighlightEnabled);
-          viz.setData(state.vizData);
-        }
-      }
+      syncVizFromEngine();
       if (trackMeta) {
-        const title = trackMeta.title || "Unknown";
-        const artist = trackMeta.artist || "";
-        elements.title.textContent = artist ? `${title} — ${artist}` : title;
-        state.trackTitle = title;
-        state.trackArtist = artist || null;
-        state.trackDurationSeconds = durationSeconds;
+        applyTrackMetadata(trackMeta, durationSeconds);
       }
-      setLoadingState(elements, false);
-      if (viz) {
-        viz.setVisible(true);
-      }
-      // Report "ready" as a paused-like non-loading status before the
-      // autoplay delay so sender UIs can update metadata immediately.
-      sendStatusUpdate();
-      await new Promise((resolve) => setTimeout(resolve, POST_LOAD_PLAY_DELAY_MS));
-      if (token !== state.loadToken) {
-        return;
-      }
-      void recordPlay(jobId).catch((err) => {
-        console.warn(`Failed to record cast play: ${String(err)}`);
-      });
-      engine.startJukebox();
-      engine.play();
-      isTrackPaused = false;
-      listenAccumulatedMs = 0;
-      playStartAtMs = performance.now();
-      clearIdleStopTimer();
-      sendStatusUpdate();
+      await finalizeTrackStart(jobId, token);
     } catch (err) {
       if (token !== state.loadToken) {
         return;
@@ -709,32 +778,7 @@ async function bootstrap() {
         typeof (err as { code?: unknown }).code === "string"
           ? (err as { code: string }).code
           : null;
-      state.currentTrackId = null;
-      state.lastBeatIndex = null;
-      state.vizData = null;
-      state.trackTitle = null;
-      state.trackArtist = null;
-      state.trackDurationSeconds = null;
-      if (viz) {
-        viz.reset();
-        viz.setVisible(false);
-      }
-      if (engine) {
-        engine.stopJukebox();
-        engine.resetStats();
-      }
-      if (player) {
-        await player.dispose();
-      }
-      player = null;
-      engine = null;
-      playStartAtMs = null;
-      listenAccumulatedMs = 0;
-      setIdleState(elements);
-      setLogoVisible(elements, true);
-      startIdleKeepAlive();
-      scheduleIdleStop();
-      sendStatusUpdate(errorMessage, errorCode);
+      await resetTrackAfterLoadError(errorMessage, errorCode);
     }
   }
 
@@ -760,19 +804,9 @@ async function bootstrap() {
         }
         return true;
       }
-      state.vizData = engine.getVisualizationData();
-      if (state.vizData) {
-        if (!viz) {
-          createViz(state.activeVizIndex);
-        }
-        if (viz) {
-          viz.setActiveIndex(state.activeVizIndex);
-          viz.setAnchorHighlightEnabled(anchorHighlightEnabled);
-          viz.setData(state.vizData);
-          viz.setVisible(true);
-        }
-      } else if (viz) {
-        viz.reset();
+      syncVizFromEngine();
+      if (viz) {
+        viz.setVisible(true);
       }
       return true;
     } catch (err) {

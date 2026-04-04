@@ -1,4 +1,4 @@
-import type { AppContext, AppState } from "../context";
+import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
 import type { ToastOptions } from "../ui";
 import type { FavoritesHandlers } from "./favorites";
@@ -12,7 +12,7 @@ type DeleteJobDeps = {
   deleteCachedTrack: (trackId: string) => Promise<void>;
   resetForNewTrack: (context: AppContext) => void;
   navigateToTabWithState: (
-    tabId: "top" | "search" | "play" | "faq",
+    tabId: TabId,
     options?: { replace?: boolean; youtubeId?: string | null },
   ) => void;
   showToast: (context: AppContext, message: string, options?: ToastOptions) => void;

@@ -1,4 +1,4 @@
-import type { AppContext, AppState } from "../context";
+import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
 import type { FavoriteTrack } from "../favorites";
 import type { AnalysisComplete } from "../api";
@@ -28,7 +28,7 @@ type FavoritesDeps = {
     favorites?: FavoriteTrack[];
   }>;
   navigateToTabWithState: (
-    tabId: "top" | "search" | "play" | "faq",
+    tabId: TabId,
     options?: { replace?: boolean; youtubeId?: string | null },
   ) => void;
   loadTrackByYouTubeId: (youtubeId: string) => void;

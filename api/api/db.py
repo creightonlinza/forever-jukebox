@@ -26,8 +26,40 @@ class Job:
     updated_at: str
 
 
+JOB_SELECT_COLUMNS = (
+    "id, status, input_path, output_path, error, "
+    "track_title, track_artist, youtube_id, progress, play_count, is_user_supplied, created_at, updated_at"
+)
+
+TRACKS_BASE_FILTER = """
+        track_title IS NOT NULL
+          AND track_title != ''
+          AND (
+            (COALESCE(is_user_supplied, 0) = 0 AND track_artist IS NOT NULL AND track_artist != '')
+            OR (COALESCE(is_user_supplied, 0) = 1 AND youtube_id IS NOT NULL AND youtube_id != '')
+          )
+          AND play_count > 0
+"""
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _job_from_row(row: tuple | None) -> Optional[Job]:
+    if not row:
+        return None
+    return Job(*row)
+
+
+def _top_track_from_row(row: tuple) -> dict[str, object]:
+    return {
+        "id": row[0],
+        "title": row[1],
+        "artist": row[2],
+        "youtube_id": row[3],
+        "play_count": row[4],
+    }
 
 
 def init_db(db_path: Path) -> None:
@@ -118,14 +150,10 @@ def create_job(
 def get_job(db_path: Path, job_id: str) -> Optional[Job]:
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT id, status, input_path, output_path, error, "
-            "track_title, track_artist, youtube_id, progress, play_count, is_user_supplied, created_at, updated_at "
-            "FROM jobs WHERE id = ?",
+            f"SELECT {JOB_SELECT_COLUMNS} FROM jobs WHERE id = ?",
             (job_id,),
         ).fetchone()
-    if not row:
-        return None
-    return Job(*row)
+    return _job_from_row(row)
 
 
 def set_job_status(db_path: Path, job_id: str, status: str, error: Optional[str] = None) -> None:
@@ -148,15 +176,15 @@ def claim_next_job(db_path: Path) -> Optional[Job]:
     with sqlite3.connect(db_path) as conn:
         conn.isolation_level = None
         conn.execute("BEGIN IMMEDIATE")
-        row = conn.execute(
-            "SELECT id, status, input_path, output_path, error, "
-            "track_title, track_artist, youtube_id, progress, play_count, is_user_supplied, created_at, updated_at "
-            "FROM jobs WHERE status = 'queued' ORDER BY created_at, id LIMIT 1"
-        ).fetchone()
-        if not row:
+        job = _job_from_row(
+            conn.execute(
+                f"SELECT {JOB_SELECT_COLUMNS} FROM jobs "
+                "WHERE status = 'queued' ORDER BY created_at, id LIMIT 1"
+            ).fetchone()
+        )
+        if not job:
             conn.execute("COMMIT")
             return None
-        job = Job(*row)
         conn.execute(
             "UPDATE jobs SET status = 'processing', progress = ?, updated_at = ? WHERE id = ?",
             (0, _utc_now(), job.id),
@@ -187,27 +215,21 @@ def count_queued_jobs_ahead(db_path: Path, job_id: str, created_at: str) -> int:
 def get_job_by_youtube_id(db_path: Path, youtube_id: str) -> Optional[Job]:
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT id, status, input_path, output_path, error, "
-            "track_title, track_artist, youtube_id, progress, play_count, is_user_supplied, created_at, updated_at "
-            "FROM jobs WHERE youtube_id = ? ORDER BY created_at DESC LIMIT 1",
+            f"SELECT {JOB_SELECT_COLUMNS} FROM jobs "
+            "WHERE youtube_id = ? ORDER BY created_at DESC LIMIT 1",
             (youtube_id,),
         ).fetchone()
-    if not row:
-        return None
-    return Job(*row)
+    return _job_from_row(row)
 
 
 def get_job_by_track(db_path: Path, title: str, artist: str) -> Optional[Job]:
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT id, status, input_path, output_path, error, "
-            "track_title, track_artist, youtube_id, progress, play_count, is_user_supplied, created_at, updated_at "
-            "FROM jobs WHERE track_title = ? AND track_artist = ? ORDER BY created_at DESC LIMIT 1",
+            f"SELECT {JOB_SELECT_COLUMNS} FROM jobs "
+            "WHERE track_title = ? AND track_artist = ? ORDER BY created_at DESC LIMIT 1",
             (title, artist),
         ).fetchone()
-    if not row:
-        return None
-    return Job(*row)
+    return _job_from_row(row)
 
 
 def increment_job_plays(db_path: Path, job_id: str) -> Optional[int]:
@@ -291,22 +313,12 @@ def get_top_tracks(
     if touched_within_days is not None:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=touched_within_days)).isoformat()
 
-    base_filter = """
-            track_title IS NOT NULL
-              AND track_title != ''
-              AND (
-                (COALESCE(is_user_supplied, 0) = 0 AND track_artist IS NOT NULL AND track_artist != '')
-                OR (COALESCE(is_user_supplied, 0) = 1 AND youtube_id IS NOT NULL AND youtube_id != '')
-              )
-              AND play_count > 0
-    """
-
     query = """
             SELECT id, track_title, track_artist, youtube_id, play_count
             FROM jobs
             WHERE
     """
-    query += base_filter
+    query += TRACKS_BASE_FILTER
 
     if exclude_top_n is not None:
         query += (
@@ -316,7 +328,7 @@ def get_top_tracks(
                 FROM jobs
                 WHERE
             """
-            + base_filter
+            + TRACKS_BASE_FILTER
             + """
                 ORDER BY play_count DESC, updated_at DESC
                 LIMIT ?
@@ -349,16 +361,7 @@ def get_top_tracks(
 
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(query, tuple(params)).fetchall()
-    return [
-        {
-            "id": row[0],
-            "title": row[1],
-            "artist": row[2],
-            "youtube_id": row[3],
-            "play_count": row[4],
-        }
-        for row in rows
-    ]
+    return [_top_track_from_row(row) for row in rows]
 
 
 def get_recent_tracks(db_path: Path, limit: int = 10) -> list[dict]:
@@ -367,25 +370,13 @@ def get_recent_tracks(db_path: Path, limit: int = 10) -> list[dict]:
             """
             SELECT id, track_title, track_artist, youtube_id, play_count
             FROM jobs
-            WHERE track_title IS NOT NULL
-              AND track_title != ''
-              AND (
-                (COALESCE(is_user_supplied, 0) = 0 AND track_artist IS NOT NULL AND track_artist != '')
-                OR (COALESCE(is_user_supplied, 0) = 1 AND youtube_id IS NOT NULL AND youtube_id != '')
-              )
-              AND play_count > 0
+            WHERE
+            """
+            + TRACKS_BASE_FILTER
+            + """
             ORDER BY updated_at DESC
             LIMIT ?
             """,
             (limit,),
         ).fetchall()
-    return [
-        {
-            "id": row[0],
-            "title": row[1],
-            "artist": row[2],
-            "youtube_id": row[3],
-            "play_count": row[4],
-        }
-        for row in rows
-    ]
+    return [_top_track_from_row(row) for row in rows]

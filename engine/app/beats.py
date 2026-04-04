@@ -9,11 +9,9 @@ _DEFAULT_CONFIG = ExtractionConfig(fps=100, beats_per_bar=(3, 4))
 def extract_beats(
     audio: np.ndarray,
     sample_rate: int,
-    batch: bool = False,
     progress_cb: Optional[Callable[[int, str, str], None]] = None,
 ) -> Tuple[List[float], List[int], List[float]]:
     """Return beat times and beat numbers (1-based within bar)."""
-    del batch
     signal = np.asarray(audio, dtype=np.float32)
 
     def on_progress(event: Any) -> None:
@@ -34,5 +32,5 @@ def extract_beats(
         if times:
             return times, beat_numbers, confidences
     except Exception as exc:
-        raise RuntimeError("madmom-beats-lite extraction failed") from exc
+        raise RuntimeError(f"madmom-beats-lite extraction failed: {exc}") from exc
     raise RuntimeError("madmom-beats-lite extraction empty")
