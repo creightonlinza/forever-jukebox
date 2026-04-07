@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"vite.config.ts\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
@@ -23,11 +24,15 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@eslint/js": "^9.36.0",
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.2",
+    "eslint": "^9.36.0",
+    "globals": "^16.4.0",
     "jsdom": "^25.0.1",
+    "typescript-eslint": "^8.44.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
     "vite-plugin-pwa": "^0.20.5",

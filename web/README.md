@@ -6,6 +6,12 @@ npm install
 npm run dev
 ```
 
+Lint:
+
+```bash
+npm run lint
+```
+
 Audio is decoded into a single in-memory buffer before playback to avoid stalls on jumps,
 and jumps are scheduled at beat boundaries.
 Use the Tuning panel to adjust branching behavior.

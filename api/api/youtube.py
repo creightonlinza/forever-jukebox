@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
+
 from .ytdlp_config import apply_ejs_config
 
 
@@ -49,14 +51,12 @@ def parse_iso8601_duration(value: str) -> int | None:
 
 
 def search_youtube_api(
-    client: "httpx.Client",
+    client: httpx.Client,
     api_key: str,
     query: str,
     max_results: int,
     target_duration: float | None,
 ) -> list[dict[str, Any]]:
-    import httpx
-
     params = {
         "part": "snippet",
         "q": query,

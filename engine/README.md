@@ -24,6 +24,13 @@ python -m pip install -r requirements.txt
 
 On macOS you can also install Essentia via Homebrew (`brew install essentia`).
 
+Linting (ruff):
+
+```bash
+python -m pip install -r requirements-dev.txt
+ruff check app scripts test
+```
+
 ## CLI Usage
 
 ```bash
