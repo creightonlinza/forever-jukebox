@@ -395,35 +395,13 @@ def set_play_count(
 @router.get("/api/top")
 def get_top_songs(
     limit: int = Query(10, ge=1, le=50),
-    days: int | None = Query(
-        None,
-        ge=1,
-        le=3650,
-        deprecated=True,
-        description="Deprecated on /api/top. Use /api/trending instead.",
-    ),
-    exclude_top_n: int | None = Query(
-        None,
-        ge=1,
-        le=500,
-        deprecated=True,
-        description="Deprecated on /api/top. Use /api/trending instead.",
-    ),
 ) -> JSONResponse:
     items = get_top_tracks(
         DB_PATH,
         limit=limit,
-        touched_within_days=days,
-        exclude_top_n=exclude_top_n,
     )
     payload = TopSongsResponse(items=items)
-    headers: dict[str, str] | None = None
-    if days is not None or exclude_top_n is not None:
-        headers = {
-            "Deprecation": "true",
-            "Link": '</api/trending>; rel="successor-version"',
-        }
-    return JSONResponse(payload.model_dump(), status_code=200, headers=headers)
+    return JSONResponse(payload.model_dump(), status_code=200)
 
 
 @router.get("/api/trending")

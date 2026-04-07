@@ -160,12 +160,6 @@ Fetch trending songs with explicit limit:
 curl "/api/trending?limit=25"
 ```
 
-Deprecated (still supported for backward compatibility): parameterized trending via `/api/top`:
-
-```bash
-curl "/api/top?limit=25&days=5&exclude_top_n=25"
-```
-
 Fetch recently played songs (defaults to 10):
 
 ```bash
