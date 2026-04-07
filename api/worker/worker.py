@@ -10,7 +10,13 @@ import time
 import multiprocessing
 from pathlib import Path
 
-from api.db import claim_next_job, delete_job, init_db, set_job_progress, set_job_status
+from api.db import (
+    claim_next_job,
+    init_db,
+    recover_stalled_processing_jobs,
+    set_job_progress,
+    set_job_status,
+)
 from api.utils import abs_storage_path, get_logger
 
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +24,6 @@ STORAGE_ROOT = (APP_ROOT / "storage").resolve()
 DB_PATH = STORAGE_ROOT / "jobs.db"
 
 ENGINE_REPO = Path(os.environ.get("ENGINE_REPO", ""))
-ENGINE_CONFIG = Path(os.environ.get("ENGINE_CONFIG", "")) if os.environ.get("ENGINE_CONFIG") else None
 
 
 def _env_int(key: str, default: int) -> int:
@@ -43,15 +48,23 @@ class JobFailure(Exception):
         self.output_lines = output_lines or []
 
 
+def _worker_env() -> dict[str, str]:
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH")
+    engine_path = str(ENGINE_REPO)
+    if existing_pythonpath:
+        env["PYTHONPATH"] = f"{engine_path}{os.pathsep}{existing_pythonpath}"
+    else:
+        env["PYTHONPATH"] = engine_path
+    env["ENGINE_PROGRESS"] = "true"
+    return env
+
+
 def run_job(job_id: str, input_path: str, output_path: str) -> None:
     if not ENGINE_REPO.exists():
         raise RuntimeError("ENGINE_REPO is not set or missing")
-    if ENGINE_CONFIG and not ENGINE_CONFIG.exists():
-        raise RuntimeError("ENGINE_CONFIG is set but missing")
 
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(ENGINE_REPO)
-    env["ENGINE_PROGRESS"] = "true"
+    env = _worker_env()
 
     input_abs = abs_storage_path(STORAGE_ROOT, input_path)
     if not input_abs.exists():
@@ -71,7 +84,6 @@ def run_job(job_id: str, input_path: str, output_path: str) -> None:
         str(input_abs),
         "-o",
         str(output_abs),
-        *(["--calibration", str(ENGINE_CONFIG)] if ENGINE_CONFIG else []),
     ]
 
     proc = subprocess.Popen(
@@ -144,7 +156,7 @@ def cleanup_failed_job(job, error: Exception) -> None:
         output_path = abs_storage_path(STORAGE_ROOT, job.output_path)
         if output_path.is_file():
             output_path.unlink()
-    delete_job(DB_PATH, job.id)
+    set_job_status(DB_PATH, job.id, "failed", str(error))
     logger.info("Job %s failed: %s (log: %s)", job.id, error, log_path)
 
 
@@ -170,6 +182,15 @@ def run_worker_loop() -> None:
         set_job_status(DB_PATH, job.id, "complete", None)
 
 def main() -> None:
+    init_db(DB_PATH)
+    STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+    (STORAGE_ROOT / "audio").mkdir(parents=True, exist_ok=True)
+    (STORAGE_ROOT / "analysis").mkdir(parents=True, exist_ok=True)
+    (STORAGE_ROOT / "logs").mkdir(parents=True, exist_ok=True)
+    recovered_jobs = recover_stalled_processing_jobs(DB_PATH)
+    if recovered_jobs > 0:
+        logger.info("Recovered %s stalled processing job(s) back to queue", recovered_jobs)
+
     if WORKER_COUNT <= 1:
         run_worker_loop()
         return

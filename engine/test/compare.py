@@ -2,7 +2,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import numpy as np
 
@@ -263,8 +263,8 @@ def load_analysis(path: Path) -> dict:
     return data
 
 
-def generate_analysis(audio_path: Path, calibration: Optional[str]) -> dict:
-    return analyze_audio(str(audio_path), calibration_path=calibration)
+def generate_analysis(audio_path: Path) -> dict:
+    return analyze_audio(str(audio_path))
 
 
 def main() -> None:
@@ -272,7 +272,6 @@ def main() -> None:
     parser.add_argument("--benchmark", required=True, help="Path to benchmark analysis JSON")
     parser.add_argument("--audio", help="Path to audio file to analyze and compare")
     parser.add_argument("--compare", help="Path to analysis JSON to compare (skip engine)")
-    parser.add_argument("--calibration", default=None, help="Path to calibration JSON bundle")
     parser.add_argument("--dump", action="store_true", help="Print component scores")
     args = parser.parse_args()
 
@@ -288,7 +287,7 @@ def main() -> None:
         generated = load_analysis(compare_path)
     else:
         audio_path = Path(args.audio)
-        generated = generate_analysis(audio_path, args.calibration)
+        generated = generate_analysis(audio_path)
 
     result = compare_analysis(benchmark, generated)
 

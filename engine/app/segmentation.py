@@ -55,14 +55,17 @@ def segment_from_novelty(frame_times: np.ndarray,
             continue
         merged.append(t)
 
-    if merged[-1] < duration:
+    if merged[-1] != duration:
+        merged.append(duration)
+    if len(merged) == 1:
         merged.append(duration)
 
     # Cap segment count.
     max_segments = int(max(1, duration * config.max_segments_per_second))
     if len(merged) - 1 > max_segments:
-        step = max(1, int((len(merged) - 1) / max_segments))
-        merged = [merged[0]] + merged[1:-1:step] + [merged[-1]]
-        merged = sorted(set(merged))
+        boundary_count = max_segments + 1
+        idx = np.linspace(0, len(merged) - 1, num=boundary_count, dtype=int)
+        merged = [merged[int(i)] for i in idx]
+        merged[-1] = duration
 
     return merged

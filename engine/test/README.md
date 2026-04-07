@@ -27,7 +27,6 @@ Notes:
 - `--benchmark` is required.
 - Pass exactly one of `--audio` or `--compare`.
 - Output always prints similarity; `--dump` prints component scores.
-- Add `--calibration /path/to/calibration.json` only when you explicitly want calibration.
 
 ## Batch analysis from id list
 
@@ -40,16 +39,5 @@ python engine/test/batch_analyze.py \
   --audio-dir /path/to/audio \
   --output-dir /path/to/output \
   --id-list /path/to/ids.txt \
-  --workers 2
-```
-
-Optional calibration usage:
-
-```bash
-python engine/test/batch_analyze.py \
-  --audio-dir /path/to/audio \
-  --output-dir /path/to/output \
-  --id-list /path/to/ids.txt \
-  --calibration /path/to/calibration.json \
   --workers 2
 ```

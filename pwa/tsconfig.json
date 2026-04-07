@@ -16,12 +16,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
     "paths": {
-      "@/app/*": ["src/app/*"],
-      "@/core/*": ["src/core/*"],
-      "@/shared/*": ["src/shared/*"],
-      "@/ui/*": ["src/ui/*"]
+      "@/app/*": ["./src/app/*"],
+      "@/core/*": ["./src/core/*"],
+      "@/shared/*": ["./src/shared/*"],
+      "@/ui/*": ["./src/ui/*"]
     }
   },
   "include": ["src", "vite.config.ts"]

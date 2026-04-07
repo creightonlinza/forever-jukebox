@@ -7,6 +7,10 @@ import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/a
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import { formatDuration } from "@/shared/utils/format";
 import {
+  safeLocalStorageGet,
+  safeLocalStorageSet,
+} from "@/shared/utils/safeStorage";
+import {
   pickBinaryExportFile,
   saveExportBinary,
 } from "@/shared/utils/exportJson";
@@ -25,6 +29,7 @@ import { JukeboxController } from "@/shared/jukebox/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
 import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
+import { useWakeLock } from "./listen/useWakeLock";
 
 const STEP_ORDER: Array<{ id: AnalyzeStage; label: string }> = [
   { id: "loading", label: "Loading file" },
@@ -54,6 +59,7 @@ const ANCHOR_HIGHLIGHT_STORAGE_KEY = "fj-highlight-anchor-branch";
 const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
+const DEFAULT_PLAYBACK_VOLUME = 0.5;
 
 type PlayMode = "jukebox" | "autocanonizer";
 type AudioExportFormat = "mp3" | "wav";
@@ -79,23 +85,12 @@ function buildAudioExportName(fileName: string, extension: string) {
 }
 
 function resolveStoredAnchorHighlight(): boolean {
-  try {
-    const stored = window.localStorage.getItem(ANCHOR_HIGHLIGHT_STORAGE_KEY);
-    return stored === "1" || stored === "true";
-  } catch {
-    return false;
-  }
+  const stored = safeLocalStorageGet(ANCHOR_HIGHLIGHT_STORAGE_KEY);
+  return stored === "1" || stored === "true";
 }
 
 function storeAnchorHighlight(enabled: boolean) {
-  try {
-    window.localStorage.setItem(
-      ANCHOR_HIGHLIGHT_STORAGE_KEY,
-      enabled ? "1" : "0",
-    );
-  } catch {
-    // ignore storage failures
-  }
+  safeLocalStorageSet(ANCHOR_HIGHLIGHT_STORAGE_KEY, enabled ? "1" : "0");
 }
 
 type TuneFormState = {
@@ -181,14 +176,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [extrasMode, setExtrasMode] = React.useState(false);
   const [shortcutToast, setShortcutToast] = React.useState<string | null>(null);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
-    try {
-      const raw = window.localStorage.getItem(VISUALIZATION_STORAGE_KEY);
-      if (raw !== null) {
-        const parsed = Number.parseInt(raw, 10);
-        return coerceVisualizationIndex(parsed);
-      }
-    } catch {
-      // ignore storage failures
+    const raw = safeLocalStorageGet(VISUALIZATION_STORAGE_KEY);
+    if (raw !== null) {
+      const parsed = Number.parseInt(raw, 10);
+      return coerceVisualizationIndex(parsed);
     }
     return DEFAULT_VISUALIZATION_INDEX;
   });
@@ -197,11 +188,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     () => resolveStoredAnchorHighlight(),
   );
   const [finishOutSong, setFinishOutSong] = React.useState<boolean>(() => {
-    try {
-      return window.localStorage.getItem(CANONIZER_FINISH_STORAGE_KEY) === "true";
-    } catch {
-      return false;
-    }
+    return safeLocalStorageGet(CANONIZER_FINISH_STORAGE_KEY) === "true";
   });
   const [tuneForm, setTuneForm] = React.useState<TuneFormState>({
     threshold: 0,
@@ -245,14 +232,44 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const lastBeatRef = React.useRef<number | null>(null);
   const playTimerMsRef = React.useRef(0);
   const lastPlayStampRef = React.useRef<number | null>(null);
-  const wakeLockRef = React.useRef<{ release: () => Promise<void> } | null>(null);
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
   const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
+  const { requestWakeLock, releaseWakeLock } = useWakeLock();
 
   const showShortcutToast = React.useCallback((message: string) => {
     setShortcutToast(message);
   }, []);
+
+  function resetPlaybackSessionMetrics() {
+    playTimerMsRef.current = 0;
+    lastPlayStampRef.current = null;
+    lastBeatRef.current = null;
+    setListenSeconds(0);
+    setBeatsPlayed(0);
+  }
+
+  function clearSelectedBranch() {
+    setSelectedEdge(null);
+    vizControllerRef.current?.setSelectedEdge(null);
+  }
+
+  function syncVizDataFromEngine() {
+    const data = engineRef.current?.getVisualizationData();
+    if (data) {
+      vizControllerRef.current?.setData(data);
+    }
+    return data ?? null;
+  }
+
+  function rebuildGraphAndSyncViz() {
+    const engine = engineRef.current;
+    if (!engine) {
+      return null;
+    }
+    engine.rebuildGraph();
+    return syncVizDataFromEngine();
+  }
 
   React.useEffect(() => {
     playerRef.current = new BufferedAudioPlayer();
@@ -267,14 +284,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [activeVizIndex]);
 
   React.useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        VISUALIZATION_STORAGE_KEY,
-        String(activeVizIndex)
-      );
-    } catch {
-      // ignore storage failures
-    }
+    safeLocalStorageSet(VISUALIZATION_STORAGE_KEY, String(activeVizIndex));
   }, [activeVizIndex]);
 
   React.useEffect(() => {
@@ -359,14 +369,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [playMode]);
 
   React.useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        CANONIZER_FINISH_STORAGE_KEY,
-        String(finishOutSong)
-      );
-    } catch {
-      // ignore storage failures
-    }
+    safeLocalStorageSet(CANONIZER_FINISH_STORAGE_KEY, String(finishOutSong));
     autocanonizerRef.current?.setFinishOutSong(finishOutSong);
   }, [finishOutSong]);
 
@@ -404,14 +407,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engineRef.current?.stopJukebox();
     engineRef.current?.setBringItHomeMode(false);
     autocanonizerRef.current?.stop();
-    playTimerMsRef.current = 0;
-    lastPlayStampRef.current = null;
-    lastBeatRef.current = null;
+    resetPlaybackSessionMetrics();
     setIsRunning(false);
     setIsPaused(false);
     setBringItHomeMode(false);
-    setBeatsPlayed(0);
-    setListenSeconds(0);
 
     setIsAnalyzing(true);
     setError(null);
@@ -419,7 +418,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setAnalysis(null);
     setReadyFileKey(null);
     analysisRef.current = null;
-    setSelectedEdge(null);
+    clearSelectedBranch();
     setIsExportOpen(false);
     setIsExporting(false);
     setExportError(null);
@@ -646,29 +645,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     };
   }, [isVolumeOpen]);
 
-  const requestWakeLock = async () => {
-    if (!("wakeLock" in navigator) || wakeLockRef.current) {
-      return;
-    }
-    try {
-      wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
-    } catch {
-      wakeLockRef.current = null;
-    }
-  };
-
-  const releaseWakeLock = async () => {
-    if (!wakeLockRef.current) {
-      return;
-    }
-    try {
-      await wakeLockRef.current.release();
-    } catch {
-      // ignore
-    }
-    wakeLockRef.current = null;
-  };
-
   function stopPlayback() {
     if (playModeRef.current === "autocanonizer") {
       autocanonizerRef.current?.stop();
@@ -677,11 +653,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     engineRef.current?.stopJukebox();
     engineRef.current?.resetStats();
-    playTimerMsRef.current = 0;
-    lastPlayStampRef.current = null;
-    setListenSeconds(0);
-    setBeatsPlayed(0);
-    lastBeatRef.current = null;
+    resetPlaybackSessionMetrics();
     vizControllerRef.current?.reset();
     if (bringItHomeModeRef.current) {
       bringItHomeModeRef.current = false;
@@ -728,8 +700,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (mode === "autocanonizer") {
       setIsTuningOpen(false);
       setIsInfoOpen(false);
-      setSelectedEdge(null);
-      vizControllerRef.current?.setSelectedEdge(null);
+      clearSelectedBranch();
     }
   };
 
@@ -757,10 +728,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engineRef.current = engine;
     autocanonizerRef.current?.setAnalysis(analysisData, analysisData.track?.duration);
 
-    const vizData = engine.getVisualizationData();
-    if (vizData) {
-      vizControllerRef.current?.setData(vizData);
-    }
+    syncVizDataFromEngine();
     vizControllerRef.current?.setOnSelect((index) => {
       if (playModeRef.current !== "jukebox") {
         return;
@@ -846,11 +814,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (resetSession) {
       engine.stopJukebox();
       engine.resetStats();
-      playTimerMsRef.current = 0;
-      lastPlayStampRef.current = null;
-      setListenSeconds(0);
-      setBeatsPlayed(0);
-      lastBeatRef.current = null;
+      resetPlaybackSessionMetrics();
       vizControllerRef.current?.reset();
     } else {
       engine.syncToPlaybackPosition();
@@ -933,11 +897,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     player.stop();
     engine.stopJukebox();
     if (resetSession) {
-      playTimerMsRef.current = 0;
-      lastPlayStampRef.current = null;
-      setListenSeconds(0);
-      setBeatsPlayed(0);
-      lastBeatRef.current = null;
+      resetPlaybackSessionMetrics();
       autocanonizer.resetVisualization();
     }
     autocanonizer.startAtIndex(index);
@@ -957,13 +917,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     engine.deleteEdge(edge);
-    engine.rebuildGraph();
-    const data = engine.getVisualizationData();
-    if (data) {
-      vizControllerRef.current?.setData(data);
-    }
-    vizControllerRef.current?.setSelectedEdge(null);
-    setSelectedEdge(null);
+    rebuildGraphAndSyncViz();
+    clearSelectedBranch();
     syncTuneFormFromEngine();
   };
 
@@ -1018,11 +973,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     vizControllerRef.current?.setAnchorHighlightEnabled(
       tuneForm.highlightAnchorBranch,
     );
-    engine.rebuildGraph();
-    const data = engine.getVisualizationData();
-    if (data) {
-      vizControllerRef.current?.setData(data);
-    }
+    rebuildGraphAndSyncViz();
     const volume = tuneForm.volume / 100;
     player.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
@@ -1038,15 +989,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     engine.clearDeletedEdges();
     engine.updateConfig(DEFAULT_CONFIG);
-    engine.rebuildGraph();
-    const data = engine.getVisualizationData();
-    if (data) {
-      vizControllerRef.current?.setData(data);
-    }
-    vizControllerRef.current?.setSelectedEdge(null);
-    setSelectedEdge(null);
-    player.setVolume(0.5);
-    autocanonizerRef.current?.setVolume(0.5);
+    rebuildGraphAndSyncViz();
+    clearSelectedBranch();
+    player.setVolume(DEFAULT_PLAYBACK_VOLUME);
+    autocanonizerRef.current?.setVolume(DEFAULT_PLAYBACK_VOLUME);
     syncTuneFormFromEngine();
     setIsTuningOpen(false);
   };

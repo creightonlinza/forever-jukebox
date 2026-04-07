@@ -197,20 +197,6 @@ function parseAnalysisResponse(data: unknown): AnalysisResponse | null {
   return null;
 }
 
-async function maybeRepairMissing(response: AnalysisResponse | null) {
-  if (!response || response.status !== "failed") {
-    return response;
-  }
-  if (response.error !== "Analysis missing" || !response.id) {
-    return response;
-  }
-  try {
-    return await repairJob(response.id);
-  } catch {
-    return response;
-  }
-}
-
 export async function fetchAnalysis(jobId: string, signal?: AbortSignal) {
   const response = await fetch(`/api/analysis/${encodeURIComponent(jobId)}`, {
     signal,
@@ -239,20 +225,6 @@ export async function fetchAudio(jobId: string, signal?: AbortSignal) {
   return response.arrayBuffer();
 }
 
-export async function repairJob(jobId: string, signal?: AbortSignal) {
-  const response = await fetch(`/api/repair/${encodeURIComponent(jobId)}`, {
-    method: "POST",
-    signal,
-  });
-  if (!response.ok) {
-    const error = new Error(`Repair failed (${response.status})`);
-    (error as Error & { status?: number }).status = response.status;
-    throw error;
-  }
-  const data = await response.json();
-  return parseAnalysisResponse(data);
-}
-
 export async function startYoutubeAnalysis(payload: {
   youtube_id: string;
   title?: string;
@@ -270,27 +242,7 @@ export async function startYoutubeAnalysis(payload: {
 export async function uploadAudio(file: File) {
   const body = new FormData();
   body.append("file", file);
-  const response = await fetch("/api/upload", { method: "POST", body });
-  if (!response.ok) {
-    let message = `Upload failed (${response.status})`;
-    let code: string | undefined;
-    try {
-      const payload = await response.json();
-      const extracted = extractApiError(payload);
-      if (extracted) {
-        message = extracted.message;
-        code = extracted.code;
-      }
-    } catch {
-      // Ignore non-JSON error payloads.
-    }
-    const error = new Error(message);
-    const extended = error as Error & { status?: number; code?: string };
-    extended.status = response.status;
-    extended.code = code;
-    throw error;
-  }
-  const data = await response.json();
+  const data = await fetchJson("/api/upload", { method: "POST", body });
   return parseAnalysisResponse(data);
 }
 
@@ -363,7 +315,7 @@ export async function fetchJobByYoutube(
     throw new Error(`Lookup failed (${response.status})`);
   }
   const data = await response.json();
-  return maybeRepairMissing(parseAnalysisResponse(data));
+  return parseAnalysisResponse(data);
 }
 
 export async function fetchJobByTrack(
@@ -379,7 +331,7 @@ export async function fetchJobByTrack(
     throw new Error(`Lookup failed (${response.status})`);
   }
   const data = await response.json();
-  return maybeRepairMissing(parseAnalysisResponse(data));
+  return parseAnalysisResponse(data);
 }
 
 export async function createFavoritesSync(favorites: FavoriteTrack[]) {

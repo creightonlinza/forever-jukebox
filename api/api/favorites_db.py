@@ -72,7 +72,7 @@ def load_favorites(db_path: Path, code: str) -> Optional[list[dict[str, Any]]]:
     return data
 
 
-def create_unique_code(db_path: Path, word_count: int = 3, max_attempts: int = 3) -> str:
+def create_unique_code(db_path: Path, max_attempts: int = 3) -> str:
     vibe_words, object_words, music_words = _load_word_buckets()
     if not vibe_words or not object_words or not music_words:
         raise RuntimeError("Wordlist does not contain enough entries")

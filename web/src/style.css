@@ -67,18 +67,33 @@ button,
 }
 
 .hero-title {
+  appearance: none;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 12px;
   margin-top: -40px;
+  margin-bottom: 0;
   padding: 4px 12px 6px;
   border: 2px solid var(--title-accent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   border-radius: 8px;
   box-shadow:
     0 0 12px var(--title-glow),
     inset 0 0 10px color-mix(in srgb, var(--title-glow) 55%, transparent);
   animation: neon-flicker 14s infinite;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hero-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 8px;
 }
 
 .hero-title h1 {

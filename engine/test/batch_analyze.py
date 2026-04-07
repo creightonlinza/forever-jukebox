@@ -44,17 +44,12 @@ def pick_audio(audio_dir: Path, track_id: str) -> Path | None:
 
 def analyze_to_file(
     task: tuple[str, str, str],
-    calibration: str | None,
     batch: bool,
 ) -> str:
     track_id, audio_path, output_path = task
     if batch:
         _set_batch_env()
-    data = analyze_audio(
-        audio_path,
-        calibration_path=calibration,
-        batch=batch,
-    )
+    data = analyze_audio(audio_path)
     with open(output_path, "w", encoding="utf-8") as handle:
         json.dump(data, handle, sort_keys=True, separators=(",", ":"))
     return track_id
@@ -67,7 +62,6 @@ def main() -> None:
     parser.add_argument("--audio-dir", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--id-list", required=True)
-    parser.add_argument("--calibration")
     parser.add_argument("--batch", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--workers", type=int, default=2)
     args = parser.parse_args()
@@ -105,7 +99,7 @@ def main() -> None:
     processed = 0
     with ProcessPoolExecutor(max_workers=max(args.workers, 1)) as executor:
         futures = [
-            executor.submit(analyze_to_file, task, args.calibration, args.batch)
+            executor.submit(analyze_to_file, task, args.batch)
             for task in tasks
         ]
         for future in as_completed(futures):

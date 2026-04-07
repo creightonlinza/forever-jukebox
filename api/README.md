@@ -29,7 +29,6 @@ Optional:
 - `ALLOW_USER_UPLOAD`
 - `ALLOW_USER_YOUTUBE`
 - `ALLOW_FAVORITES_SYNC`
-- `ENGINE_CONFIG`
 
 For defaults and behavior details, see the canonical Docker env reference in the root README: [`../README.md#docker-production`](../README.md#docker-production).
 
@@ -48,7 +47,6 @@ export WORKER_COUNT=1
 # export ALLOW_USER_UPLOAD=true
 # export ALLOW_USER_YOUTUBE=true
 # export ALLOW_FAVORITES_SYNC=true
-# export ENGINE_CONFIG=../engine/calibration.json
 ```
 
 ## yt-dlp EJS runtime
@@ -82,7 +80,7 @@ Responses:
 
 - `202` for `downloading`, `queued`, or `processing` (includes `progress`)
 - `200` with `complete` + `result` JSON
-- `200` with `failed` + `error` (failed jobs are cleaned up for retry)
+- `200` with `failed` + `error` (failed jobs are retained with logs for inspection/repair)
 
 Search Spotify:
 
@@ -122,11 +120,6 @@ Fetch audio for a job:
 curl "/api/audio/<id>"
 ```
 
-Repair missing audio or analysis for a job:
-
-```bash
-curl -X POST "/api/repair/<id>"
-```
 
 Lookup by YouTube ID:
 
@@ -138,6 +131,15 @@ Increment play count:
 
 ```bash
 curl -X POST "/api/plays/<id>"
+```
+
+Set play count (admin):
+
+```bash
+curl -X PATCH "/api/plays/<id>" \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Key: $ADMIN_KEY" \
+  -d '{"play_count":123}'
 ```
 
 Fetch top songs (defaults to 10):
@@ -191,10 +193,10 @@ curl "/api/favorites/sync/bison-laser-sunset"
 Delete a job and its stored files:
 
 ```bash
-curl -X DELETE "/api/jobs/<id>?key=$ADMIN_KEY"
+curl -X DELETE "/api/jobs/<id>" -H "X-Admin-Key: $ADMIN_KEY"
 ```
 
-Within 30 minutes of creation/completion, the delete key is not required:
+Within 30 minutes of creation/completion, the admin header is not required:
 
 ```bash
 curl -X DELETE "/api/jobs/<id>"

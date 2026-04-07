@@ -148,6 +148,8 @@ a {
   gap: 4px;
   flex: 1 1 auto;
   min-width: 0;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .hero-title-frame {
@@ -161,6 +163,8 @@ a {
     0 0 12px var(--title-glow),
     inset 0 0 10px color-mix(in srgb, var(--title-glow) 55%, transparent);
   animation: neon-flicker 14s infinite;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .hero-title-neon {

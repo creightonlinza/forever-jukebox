@@ -5,14 +5,13 @@
 The Forever Jukebox is a self-hosted, end-to-end system that analyzes audio,
 serves the results via a lightweight API, and powers a refreshed Infinite
 Jukebox-style web UI with branching playback and multiple visualizations. It
-also includes an installable offline PWA. The native Android app now lives in a
-separate repository: [`creightonlinza/forever-jukebox-android`](https://github.com/creightonlinza/forever-jukebox-android).
+also includes an installable offline PWA.
 It replaces reliance on the deprecated Spotify Audio Analysis engine by
 generating similar beat/segment/section data locally.
 
 ## Structure
 
-- `engine/` — The Forever Jukebox audio analysis engine (with optional calibration support).
+- `engine/` — The Forever Jukebox audio analysis engine.
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI.
 - `pwa/` — Offline/local analysis PWA that can also export jukebox audio.
@@ -50,7 +49,7 @@ Required:
 Optional:
 
 - `YOUTUBE_API_KEY`: optional fallback for `/api/search/youtube` when `yt-dlp` search fails.
-- `ADMIN_KEY`: optional; required only for admin-only actions (play-count updates, and deletes outside the 30-minute grace window).
+- `ADMIN_KEY`: optional; required only for admin-only actions (play-count updates, and deletes outside the 30-minute grace window). Send it via `X-Admin-Key` request header.
 - `NTFY_TOPIC_KEY`: optional; enables ntfy alerts for YouTube download errors.
 - `WORKER_COUNT`: optional; defaults to `1` and controls worker concurrency.
 - `MAX_TRACK_LENGTH`: optional; when set to a positive number (minutes), rejects jobs over that duration.
@@ -58,7 +57,6 @@ Optional:
 - `ALLOW_USER_YOUTUBE`: optional; defaults to `false`. Set `true` to allow user-supplied YouTube jobs.
 - `ALLOW_FAVORITES_SYNC`: optional; defaults to `false`. Set `true` to enable favorites sync endpoints.
 - `PORT`: optional; defaults to `8000`.
-- `ENGINE_CONFIG`: optional and unused by default; set only when you explicitly want calibration parameters.
 
 Example `.env`:
 
@@ -103,7 +101,6 @@ API routes are under `/api/*`. The Compose file uses a named Docker volume
 - [`api/README.md`](./api/README.md)
 - [`web/README.md`](./web/README.md)
 - [`pwa/README.md`](./pwa/README.md)
-- Android app docs: [`creightonlinza/forever-jukebox-android`](https://github.com/creightonlinza/forever-jukebox-android)
 
 ## Credits
 

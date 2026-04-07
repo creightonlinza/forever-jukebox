@@ -93,51 +93,109 @@ function formatNestedError(context: string, err: unknown) {
   return `${context}: ${message}`;
 }
 
+type WorkerTaskControls<TResult> = {
+  resolve: (result: TResult) => void;
+  reject: (error: Error) => void;
+};
+
+function runWorkerTask<TMessage, TResult>(options: {
+  createWorker: () => Worker;
+  payload: unknown;
+  transfer?: Transferable[];
+  onMessage: (message: TMessage, controls: WorkerTaskControls<TResult>) => void;
+  onRuntimeError: (event: ErrorEvent) => Error;
+  onMessageError: () => Error;
+}): Promise<TResult> {
+  const {
+    createWorker,
+    payload,
+    transfer,
+    onMessage,
+    onRuntimeError,
+    onMessageError,
+  } = options;
+  return new Promise<TResult>((resolve, reject) => {
+    const worker = createWorker();
+    let settled = false;
+    const finish = (done: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      worker.terminate();
+      done();
+    };
+    const controls: WorkerTaskControls<TResult> = {
+      resolve: (result) => finish(() => resolve(result)),
+      reject: (error) => finish(() => reject(error)),
+    };
+    worker.addEventListener("message", (event: MessageEvent<TMessage>) => {
+      onMessage(event.data, controls);
+    });
+    worker.addEventListener("error", (event) => {
+      controls.reject(onRuntimeError(event));
+    });
+    worker.addEventListener("messageerror", () => {
+      controls.reject(onMessageError());
+    });
+    worker.postMessage(payload, transfer ?? []);
+  });
+}
+
 async function runMadmomAnalysis(
   samples: Float32Array,
   sampleRate: number,
   onProgress?: (stage: string, progress: number) => void
 ): Promise<MadmomResult> {
-  return new Promise((resolve, reject) => {
-    const madmomWorkerUrl = new URL(
-      `${import.meta.env.BASE_URL}madmom/worker.js`,
-      self.location.origin
-    );
-    const worker = new Worker(madmomWorkerUrl, { type: "module" });
-    const handleMessage = (event: MessageEvent<MadmomMessage>) => {
-      const data = event.data;
+  return runWorkerTask<MadmomMessage, MadmomResult>({
+    createWorker: () => {
+      const madmomWorkerUrl = new URL(
+        `${import.meta.env.BASE_URL}madmom/worker.js`,
+        self.location.origin,
+      );
+      return new Worker(madmomWorkerUrl, { type: "module" });
+    },
+    payload: { type: "analyze", samples, sampleRate },
+    transfer: [samples.buffer],
+    onMessage: (data, controls) => {
       if (!data) {
         return;
       }
       if (data.type === "progress") {
         if (onProgress) {
-          const stageName = data.stage === 0 ? "features" : data.stage === 1 ? "inference" : "decode";
+          const stageName =
+            data.stage === 0
+              ? "features"
+              : data.stage === 1
+                ? "inference"
+                : "decode";
           onProgress(stageName, data.progress);
         }
         return;
       }
       if (data.type === "error") {
-        worker.terminate();
-        reject(new Error(formatNestedError("Beat detection failed", data.message || "Madmom worker error")));
+        controls.reject(
+          new Error(
+            formatNestedError(
+              "Beat detection failed",
+              data.message || "Madmom worker error",
+            ),
+          ),
+        );
         return;
       }
       if (data.type === "result") {
-        worker.terminate();
-        resolve(data.payload);
+        controls.resolve(data.payload);
       }
-    };
-    const handleRuntimeError = (event: ErrorEvent) => {
-      worker.terminate();
-      reject(new Error(formatNestedError("Beat detection worker runtime failure", event.message)));
-    };
-    const handleMessageError = () => {
-      worker.terminate();
-      reject(new Error("Beat detection worker message error"));
-    };
-    worker.addEventListener("message", handleMessage);
-    worker.addEventListener("error", handleRuntimeError);
-    worker.addEventListener("messageerror", handleMessageError);
-    worker.postMessage({ type: "analyze", samples, sampleRate }, [samples.buffer]);
+    },
+    onRuntimeError: (event) =>
+      new Error(
+        formatNestedError(
+          "Beat detection worker runtime failure",
+          event.message,
+        ),
+      ),
+    onMessageError: () => new Error("Beat detection worker message error"),
   });
 }
 
@@ -148,12 +206,14 @@ async function runEssentiaAnalysis(
   config: EssentiaWorkerConfig,
   onProgress?: (stage: string, progress: number) => void
 ): Promise<EssentiaResult> {
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL("./essentia.worker.ts", import.meta.url), {
-      type: "module",
-    });
-    const handleMessage = (event: MessageEvent<EssentiaMessage>) => {
-      const data = event.data;
+  return runWorkerTask<EssentiaMessage, EssentiaResult>({
+    createWorker: () =>
+      new Worker(new URL("./essentia.worker.ts", import.meta.url), {
+        type: "module",
+      }),
+    payload: { type: "analyze", samples, sampleRate, beats, config },
+    transfer: [samples.buffer],
+    onMessage: (data, controls) => {
       if (!data) {
         return;
       }
@@ -162,28 +222,28 @@ async function runEssentiaAnalysis(
         return;
       }
       if (data.type === "error") {
-        worker.terminate();
-        reject(new Error(formatNestedError("Feature extraction failed", data.message || "Essentia worker error")));
+        controls.reject(
+          new Error(
+            formatNestedError(
+              "Feature extraction failed",
+              data.message || "Essentia worker error",
+            ),
+          ),
+        );
         return;
       }
       if (data.type === "result") {
-        worker.terminate();
-        resolve(data.payload);
+        controls.resolve(data.payload);
       }
-    };
-    worker.addEventListener("message", handleMessage);
-    worker.addEventListener("error", (event) => {
-      worker.terminate();
-      reject(new Error(formatNestedError("Feature extraction worker runtime failure", event.message || "Essentia worker crashed")));
-    });
-    worker.addEventListener("messageerror", () => {
-      worker.terminate();
-      reject(new Error("Essentia worker message error"));
-    });
-    worker.postMessage(
-      { type: "analyze", samples, sampleRate, beats, config },
-      [samples.buffer]
-    );
+    },
+    onRuntimeError: (event) =>
+      new Error(
+        formatNestedError(
+          "Feature extraction worker runtime failure",
+          event.message || "Essentia worker crashed",
+        ),
+      ),
+    onMessageError: () => new Error("Essentia worker message error"),
   });
 }
 

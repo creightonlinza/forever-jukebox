@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from typing import Literal
 
 
 class JobBase(BaseModel):
@@ -13,20 +14,20 @@ class JobBase(BaseModel):
 
 
 class JobProgress(JobBase):
-    status: str
+    status: Literal["queued", "downloading", "processing"]
     progress: int | None = None
     message: str | None = None
 
 
 class JobError(JobBase):
-    status: str
+    status: Literal["failed"]
     error: str | None = None
     error_code: str | None = None
 
 
 class JobComplete(JobBase):
-    status: str
-    result: dict
+    status: Literal["complete"]
+    result: dict[str, object]
     progress: int | None = None
 
 
@@ -78,9 +79,16 @@ class PlayCountUpdate(BaseModel):
 
 class AnalysisStartResponse(BaseModel):
     id: str
-    status: str
+    status: Literal["queued", "downloading"]
     progress: int | None = None
     message: str | None = None
+
+
+class AnalysisYoutubeRequest(BaseModel):
+    youtube_id: str = Field(min_length=1)
+    title: str | None = None
+    artist: str | None = None
+    is_user_supplied: StrictBool = False
 
 
 class AppConfigResponse(BaseModel):

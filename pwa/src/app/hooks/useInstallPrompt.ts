@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import {
+  safeSessionStorageGet,
+  safeSessionStorageSet,
+} from "@/shared/utils/safeStorage";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -35,11 +39,7 @@ export function useInstallPrompt() {
       setIsStandalone(standalone);
       if (standalone) {
         setGateUnlocked(true);
-        try {
-          window.sessionStorage.setItem(GATE_UNLOCKED_KEY, "1");
-        } catch {
-          // ignore session storage failures
-        }
+        safeSessionStorageSet(GATE_UNLOCKED_KEY, "1");
       }
     };
 
@@ -52,11 +52,7 @@ export function useInstallPrompt() {
       updateStandalone();
     };
 
-    try {
-      setGateUnlocked(window.sessionStorage.getItem(GATE_UNLOCKED_KEY) === "1");
-    } catch {
-      setGateUnlocked(false);
-    }
+    setGateUnlocked(safeSessionStorageGet(GATE_UNLOCKED_KEY) === "1");
     updateStandalone();
     window.addEventListener("beforeinstallprompt", handler);
     window.addEventListener("appinstalled", onInstalled);

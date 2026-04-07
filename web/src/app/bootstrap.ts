@@ -202,35 +202,12 @@ export function bootstrap() {
       setAnalysisStatus(context, message, spinning),
     setLoadingProgress: (progress: number | null, message?: string | null) =>
       setLoadingProgress(context, progress, message),
-    onTrackChange: () => favoritesHandlers.syncFavoriteButton(),
-    onAnalysisLoaded: (response) =>
-      favoritesHandlers.maybeAutoFavoriteUserSupplied(response),
   };
-  const searchDeps: SearchDeps = {
-    setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
-    navigateToTab: (
-      tabId: TabId,
-      options?: { replace?: boolean; youtubeId?: string | null },
-    ) => navigationHandlers.navigateToTabWithState(tabId, options),
-    updateTrackUrl: (youtubeId: string, replace?: boolean) =>
-      updateTrackUrl(youtubeId, replace, state.tuningParams, state.playMode),
-    setAnalysisStatus: (message: string, spinning: boolean) =>
-      setAnalysisStatus(context, message, spinning),
-    showToast: (message, options) => showToast(context, message, options),
-    setLoadingProgress: (progress: number | null, message?: string | null) =>
-      setLoadingProgress(context, progress, message),
-    pollAnalysis: (jobId: string) => pollAnalysis(context, playbackDeps, jobId),
-    applyAnalysisResult: (response) =>
-      applyAnalysisResult(
-        context,
-        response,
-        favoritesHandlers.maybeAutoFavoriteUserSupplied,
-      ),
-    loadAudioFromJob: (jobId: string) => loadAudioFromJob(context, jobId),
-    resetForNewTrack: (options) => resetForNewTrack(context, options),
-    updateVizVisibility: () => updateVizVisibility(context),
-    onTrackChange: () => favoritesHandlers.syncFavoriteButton(),
-  };
+  const cacheHandlers = createCacheHandlers({
+    context,
+    elements,
+    showToast,
+  });
   const favoritesHandlers = createFavoritesHandlers({
     context,
     elements,
@@ -259,6 +236,34 @@ export function bootstrap() {
     syncTuningParamsState,
     setPlayMode: playbackHandlers.setPlayMode,
   });
+  playbackDeps.onTrackChange = () => favoritesHandlers.syncFavoriteButton();
+  playbackDeps.onAnalysisLoaded = (response) =>
+    favoritesHandlers.maybeAutoFavoriteUserSupplied(response);
+  const searchDeps: SearchDeps = {
+    setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
+    navigateToTab: (
+      tabId: TabId,
+      options?: { replace?: boolean; youtubeId?: string | null },
+    ) => navigationHandlers.navigateToTabWithState(tabId, options),
+    updateTrackUrl: (youtubeId: string, replace?: boolean) =>
+      updateTrackUrl(youtubeId, replace, state.tuningParams, state.playMode),
+    setAnalysisStatus: (message: string, spinning: boolean) =>
+      setAnalysisStatus(context, message, spinning),
+    showToast: (message, options) => showToast(context, message, options),
+    setLoadingProgress: (progress: number | null, message?: string | null) =>
+      setLoadingProgress(context, progress, message),
+    pollAnalysis: (jobId: string) => pollAnalysis(context, playbackDeps, jobId),
+    applyAnalysisResult: (response) =>
+      applyAnalysisResult(
+        context,
+        response,
+        favoritesHandlers.maybeAutoFavoriteUserSupplied,
+      ),
+    loadAudioFromJob: (jobId: string) => loadAudioFromJob(context, jobId),
+    resetForNewTrack: (options) => resetForNewTrack(context, options),
+    updateVizVisibility: () => updateVizVisibility(context),
+    onTrackChange: () => favoritesHandlers.syncFavoriteButton(),
+  };
   const topSongsHandlers = createTopSongsHandlers({
     elements,
     fetchTopSongs,
@@ -269,57 +274,55 @@ export function bootstrap() {
       loadTrackByYouTubeId(context, playbackDeps, youtubeId),
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
   });
+  const topSongsTabLoaders = {
+    top: {
+      loaded: () => state.topSongsLoaded,
+      markLoaded: () => {
+        state.topSongsLoaded = true;
+      },
+      fetch: () => topSongsHandlers.fetchTopSongsList(),
+      errorLabel: "Top songs",
+    },
+    trending: {
+      loaded: () => state.trendingSongsLoaded,
+      markLoaded: () => {
+        state.trendingSongsLoaded = true;
+      },
+      fetch: () => topSongsHandlers.fetchTrendingSongsList(),
+      errorLabel: "Trending songs",
+    },
+    recent: {
+      loaded: () => state.recentSongsLoaded,
+      markLoaded: () => {
+        state.recentSongsLoaded = true;
+      },
+      fetch: () => topSongsHandlers.fetchRecentSongsList(),
+      errorLabel: "Recent songs",
+    },
+  } as const;
+  const refreshCacheSafely = () => {
+    cacheHandlers.refreshCacheButton().catch((err) => {
+      console.warn(`Cache size failed: ${String(err)}`);
+    });
+  };
   const tabsHandlers = createTabsHandlers({
     elements,
     state,
     favoritesHandlers,
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
     onTopSongsTabChange: (tabId) => {
-      if (tabId === "top") {
-        if (state.topSongsLoaded) {
-          return;
-        }
-        topSongsHandlers
-          .fetchTopSongsList()
-          .then(() => {
-            state.topSongsLoaded = true;
-          })
-          .catch((err) => {
-            console.warn(`Top songs load failed: ${String(err)}`);
-          });
+      if (!(tabId in topSongsTabLoaders)) {
+        return;
       }
-      if (tabId === "trending") {
-        if (state.trendingSongsLoaded) {
-          return;
-        }
-        topSongsHandlers
-          .fetchTrendingSongsList()
-          .then(() => {
-            state.trendingSongsLoaded = true;
-          })
-          .catch((err) => {
-            console.warn(`Trending songs load failed: ${String(err)}`);
-          });
+      const loader = topSongsTabLoaders[tabId as keyof typeof topSongsTabLoaders];
+      if (loader.loaded()) {
+        return;
       }
-      if (tabId === "recent") {
-        if (state.recentSongsLoaded) {
-          return;
-        }
-        topSongsHandlers
-          .fetchRecentSongsList()
-          .then(() => {
-            state.recentSongsLoaded = true;
-          })
-          .catch((err) => {
-            console.warn(`Recent songs load failed: ${String(err)}`);
-          });
-      }
-    },
-    onFaqOpen: () => {
-      cacheHandlers.refreshCacheButton().catch((err) => {
-        console.warn(`Cache size failed: ${String(err)}`);
+      loader.fetch().then(loader.markLoaded).catch((err) => {
+        console.warn(`${loader.errorLabel} load failed: ${String(err)}`);
       });
     },
+    onFaqOpen: refreshCacheSafely,
   });
   const appConfigHandlers = createAppConfigHandlers({
     elements,
@@ -385,17 +388,11 @@ export function bootstrap() {
     playbackHandlers,
     handleRouteChange,
     playbackDeps,
-    onFaqOpen: () => {
-      cacheHandlers.refreshCacheButton().catch((err) => {
-        console.warn(`Cache size failed: ${String(err)}`);
-      });
-    },
+    onFaqOpen: refreshCacheSafely,
   });
-  const cacheHandlers = createCacheHandlers({
-    context,
-    elements,
-    showToast,
-  });
+  const heroTitleHomeButton = document.querySelector<HTMLButtonElement>(
+    "#hero-title-home",
+  );
 
   jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
   elements.vizSelect.disabled = true;
@@ -426,9 +423,7 @@ export function bootstrap() {
   favoritesHandlers.renderFavoritesList();
   tabsHandlers.setTopSongsTab("top");
   favoritesHandlers.updateFavoritesSyncControls();
-  cacheHandlers.refreshCacheButton().catch((err) => {
-    console.warn(`Cache size failed: ${String(err)}`);
-  });
+  refreshCacheSafely();
 
   resetForNewTrack(context);
   favoritesHandlers.syncFavoriteButton();
@@ -440,12 +435,13 @@ export function bootstrap() {
     },
   );
   if (window.location.pathname.startsWith("/faq")) {
-    cacheHandlers.refreshCacheButton().catch((err) => {
-      console.warn(`Cache size failed: ${String(err)}`);
-    });
+    refreshCacheSafely();
   }
 
   window.addEventListener("popstate", routingHandlers.handlePopState);
+  heroTitleHomeButton?.addEventListener("click", () => {
+    navigationHandlers.navigateToTabWithState("top");
+  });
   bindUiHandlers({
     elements,
     jukebox,

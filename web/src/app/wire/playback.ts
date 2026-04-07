@@ -1,4 +1,4 @@
-import type { AppContext, AppState } from "../context";
+import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
 import type { Edge } from "../../engine/types";
 import type { BufferedAudioPlayer } from "../../audio/BufferedAudioPlayer";
@@ -41,7 +41,7 @@ type PlaybackUiDeps = {
     playMode?: "jukebox" | "autocanonizer",
   ) => void;
   navigateToTab: (
-    tabId: "top" | "search" | "play" | "faq",
+    tabId: TabId,
     options?: { replace?: boolean; youtubeId?: string | null },
     lastYouTubeId?: string | null,
     tuningParams?: string | null,

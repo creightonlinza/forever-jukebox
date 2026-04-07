@@ -8,6 +8,7 @@ import {
   fetchFavoritesSync,
   updateFavoritesSync,
   fetchJobByTrack,
+  fetchJobByYoutube,
   fetchAudio,
   startYoutubeAnalysis,
 } from "./api";
@@ -142,29 +143,58 @@ describe("api", () => {
     });
   });
 
-  it("fetches job by track and repairs missing analysis", async () => {
-    (fetch as any)
-      .mockResolvedValueOnce(
-        createResponse(200, {
-          status: "failed",
-          id: "job1",
-          error: "Analysis missing",
-        }),
-      )
-      .mockResolvedValueOnce(
-        createResponse(200, {
-          status: "complete",
-          id: "job1",
-          result: {},
-        }),
-      );
+  it("returns failed lookup response without client-side repair", async () => {
+    (fetch as any).mockResolvedValue(
+      createResponse(200, {
+        status: "failed",
+        id: "job1",
+        error: "Analysis missing",
+      }),
+    );
     const result = await fetchJobByTrack("Song", "Artist");
-    expect(result?.status).toBe("complete");
+    expect(result?.status).toBe("failed");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("parses queued lookup response from by-youtube", async () => {
+    (fetch as any).mockResolvedValue(
+      createResponse(202, {
+        status: "queued",
+        id: "job-q",
+        message: "Queued • Next in line",
+      }),
+    );
+    const result = await fetchJobByYoutube("yt-q");
+    expect(result?.status).toBe("queued");
+    if (result?.status === "queued") {
+      expect(result.id).toBe("job-q");
+    }
+  });
+
+  it("parses downloading lookup response from by-youtube", async () => {
+    (fetch as any).mockResolvedValue(
+      createResponse(202, {
+        status: "downloading",
+        id: "job-d",
+        message: "Fetching audio",
+      }),
+    );
+    const result = await fetchJobByYoutube("yt-d");
+    expect(result?.status).toBe("downloading");
+    if (result?.status === "downloading") {
+      expect(result.id).toBe("job-d");
+    }
   });
 
   it("returns null for missing track lookup", async () => {
     (fetch as any).mockResolvedValue(createResponse(404, {}));
     const result = await fetchJobByTrack("Song", "Artist");
+    expect(result).toBeNull();
+  });
+
+  it("returns null for missing by-youtube lookup", async () => {
+    (fetch as any).mockResolvedValue(createResponse(404, {}));
+    const result = await fetchJobByYoutube("missing");
     expect(result).toBeNull();
   });
 

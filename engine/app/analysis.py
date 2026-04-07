@@ -6,27 +6,9 @@ import numpy as np
 
 from .audio import decode_audio
 from .beats import extract_beats
-from .config import AnalysisConfig, load_calibration
+from .config import AnalysisConfig
 from .features import compute_frame_features
 from .segmentation import compute_novelty, segment_from_novelty
-
-
-def _apply_affine(values: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    return values * a + b
-
-
-def _apply_confidence_mapping(values: np.ndarray, mapping: Dict[str, Any]) -> np.ndarray:
-    src = np.asarray(mapping.get("source", []), dtype=float)
-    tgt = np.asarray(mapping.get("target", []), dtype=float)
-    if src.size == 0 or tgt.size == 0:
-        return values
-    return np.interp(values, src, tgt)
-
-
-def _apply_pitch_power(values: np.ndarray, power: float) -> np.ndarray:
-    if power is None:
-        return values
-    return np.power(values, power)
 
 
 def _segment_confidence(novelty: np.ndarray, frame_times: np.ndarray, start: float) -> float:
@@ -147,8 +129,6 @@ def _sections_from_bars(
 
 def analyze_audio(
     audio_path: str,
-    calibration_path: Optional[str] = None,
-    batch: bool = False,
     progress_cb: Optional[Callable[[int, str], None]] = None,
 ) -> Dict[str, Any]:
     last_reported = -1
@@ -165,12 +145,6 @@ def analyze_audio(
         progress_cb(pct, stage)
 
     config = AnalysisConfig()
-    calibration = None
-    if calibration_path:
-        calibration = load_calibration(calibration_path)
-        config_data = calibration.get("config")
-        if config_data:
-            config = AnalysisConfig.from_dict(config_data)
 
     report(0, "decode")
     audio, sample_rate = decode_audio(audio_path, sample_rate=config.features.sample_rate)
@@ -187,7 +161,6 @@ def analyze_audio(
     beat_times, beat_numbers, beat_confidences = extract_beats(
         audio,
         sample_rate,
-        batch=batch,
         progress_cb=beat_progress if progress_cb else None,
     )
     report(85, "beats")
@@ -211,6 +184,8 @@ def analyze_audio(
         config.segmentation,
         duration,
     )
+    if len(boundaries) < 2:
+        boundaries = [0.0, float(duration)]
 
     segments = []
     total_segments = max(len(boundaries) - 1, 1)
@@ -286,41 +261,6 @@ def analyze_audio(
             "timbre": timbre.astype(float).tolist(),
         }
         segments.append(segment)
-
-    if calibration:
-        timbre_map = calibration.get("timbre")
-        loud_map = calibration.get("loudness")
-        conf_map = calibration.get("confidence")
-        pitch_map = calibration.get("pitch")
-        for seg in segments:
-            if timbre_map:
-                a = np.asarray(timbre_map.get("a", [1.0] * 12))
-                b = np.asarray(timbre_map.get("b", [0.0] * 12))
-                seg["timbre"] = _apply_affine(np.asarray(seg["timbre"]), a, b).tolist()
-            if loud_map:
-                start_map = loud_map.get("start", {})
-                max_map = loud_map.get("max", {})
-                la = float(start_map.get("a", 1.0))
-                lb = float(start_map.get("b", 0.0))
-                ma = float(max_map.get("a", 1.0))
-                mb = float(max_map.get("b", 0.0))
-                seg["loudness_start"] = float(seg["loudness_start"] * la + lb)
-                seg["loudness_max"] = float(seg["loudness_max"] * ma + mb)
-            if conf_map:
-                seg["confidence"] = float(_apply_confidence_mapping(
-                    np.asarray([seg["confidence"]]), conf_map
-                )[0])
-            if pitch_map:
-                power = float(pitch_map.get("power", 1.0))
-                weights = np.asarray(pitch_map.get("weights", [1.0] * 12), dtype=float)
-                pitches = np.asarray(seg["pitches"], dtype=float)
-                pitches = np.maximum(pitches, 0.0)
-                pitches = pitches ** power
-                pitches = pitches * weights
-                total = float(pitches.sum())
-                if total > 0:
-                    pitches = pitches / total
-                seg["pitches"] = pitches.tolist()
 
     beats = _make_quanta(beat_times, duration, confidence=beat_confidences)
 

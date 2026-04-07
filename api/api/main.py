@@ -84,6 +84,6 @@ if WEB_DIST.exists():
                     return FileResponse(offline_candidate)
                 return FileResponse(offline_index)
         candidate = (WEB_DIST / full_path).resolve()
-        if candidate.is_file():
+        if candidate.is_file() and candidate.is_relative_to(WEB_DIST):
             return FileResponse(candidate)
         return FileResponse(WEB_DIST / "index.html")
