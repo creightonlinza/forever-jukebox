@@ -10,7 +10,13 @@ import time
 import multiprocessing
 from pathlib import Path
 
-from api.db import claim_next_job, init_db, set_job_progress, set_job_status
+from api.db import (
+    claim_next_job,
+    init_db,
+    recover_stalled_processing_jobs,
+    set_job_progress,
+    set_job_status,
+)
 from api.utils import abs_storage_path, get_logger
 
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -176,6 +182,15 @@ def run_worker_loop() -> None:
         set_job_status(DB_PATH, job.id, "complete", None)
 
 def main() -> None:
+    init_db(DB_PATH)
+    STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+    (STORAGE_ROOT / "audio").mkdir(parents=True, exist_ok=True)
+    (STORAGE_ROOT / "analysis").mkdir(parents=True, exist_ok=True)
+    (STORAGE_ROOT / "logs").mkdir(parents=True, exist_ok=True)
+    recovered_jobs = recover_stalled_processing_jobs(DB_PATH)
+    if recovered_jobs > 0:
+        logger.info("Recovered %s stalled processing job(s) back to queue", recovered_jobs)
+
     if WORKER_COUNT <= 1:
         run_worker_loop()
         return

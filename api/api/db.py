@@ -166,6 +166,18 @@ def set_job_status(db_path: Path, job_id: str, status: str, error: Optional[str]
         conn.commit()
 
 
+def recover_stalled_processing_jobs(db_path: Path) -> int:
+    now = _utc_now()
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.execute(
+            "UPDATE jobs SET status = 'queued', progress = 0, error = NULL, updated_at = ? "
+            "WHERE status = 'processing'",
+            (now,),
+        )
+        conn.commit()
+    return int(cur.rowcount or 0)
+
+
 def delete_job(db_path: Path, job_id: str) -> None:
     with sqlite3.connect(db_path) as conn:
         conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
