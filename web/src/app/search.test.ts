@@ -85,11 +85,36 @@ describe("search flows", () => {
     expect(deps.applyAnalysisResult).toHaveBeenCalled();
   });
 
+  it("returns false for failed existing lookup so caller can show youtube matches", async () => {
+    const context = createContext();
+    const deps = createDeps();
+    (api.fetchJobByTrack as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "failed",
+      id: "job-f",
+      youtube_id: "yt-f",
+      error: "ERROR: [download] This video is not available.",
+    });
+    const result = await tryLoadExistingTrackByName(
+      context,
+      deps,
+      "Song",
+      "Artist",
+    );
+    expect(result).toBe(false);
+    expect(deps.pollAnalysis).not.toHaveBeenCalled();
+    expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
+  });
+
   it("starts youtube analysis flow", async () => {
     const context = createContext();
     const deps = createDeps();
     (api.startYoutubeAnalysis as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "job2", status: "queued" });
     await startYoutubeAnalysisFlow(context, deps, "yt2", "Song", "Artist");
+    expect(api.startYoutubeAnalysis).toHaveBeenCalledWith({
+      youtube_id: "yt2",
+      title: "Song",
+      artist: "Artist",
+    });
     expect(deps.updateTrackUrl).toHaveBeenCalledWith("yt2");
     expect(deps.pollAnalysis).toHaveBeenCalledWith("job2");
   });

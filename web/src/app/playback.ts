@@ -9,7 +9,6 @@ import {
   fetchAudio,
   fetchJobByYoutube,
   recordPlay,
-  repairJob,
   type AnalysisComplete,
   type AnalysisResponse,
 } from "./api";
@@ -643,14 +642,6 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     }
     return true;
   } catch (err) {
-    const status = (err as Error & { status?: number }).status;
-    if (status === 404) {
-      try {
-        await repairJob(jobId);
-      } catch (repairErr) {
-        console.warn(`Repair failed: ${String(repairErr)}`);
-      }
-    }
     state.audioLoadInFlight = false;
     return false;
   }
@@ -769,14 +760,6 @@ export async function pollAnalysis(
           await loadAudioFromJob(context, jobId);
         }
       } else if (isAnalysisFailed(response)) {
-        if (response.error_code === "analysis_missing" && response.id) {
-          try {
-            await repairJob(response.id);
-            continue;
-          } catch (err) {
-            console.warn(`Repair failed: ${String(err)}`);
-          }
-        }
         deps.setAnalysisStatus(response.error || "Loading failed.", false);
         return;
       } else if (isAnalysisComplete(response)) {

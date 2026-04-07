@@ -120,11 +120,6 @@ Fetch audio for a job:
 curl "/api/audio/<id>"
 ```
 
-Repair missing audio or analysis for a job:
-
-```bash
-curl -X POST "/api/repair/<id>"
-```
 
 Lookup by YouTube ID:
 

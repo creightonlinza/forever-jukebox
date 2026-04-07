@@ -88,9 +88,69 @@ def _queued_message(job) -> str:
     return f"Queued • {ahead} ahead of you"
 
 
-def _job_not_found_response(job_id: str) -> JSONResponse:
-    payload = JobError(status="failed", error="Job not found", id=job_id, youtube_id=None)
-    return JSONResponse(payload.model_dump(), status_code=404)
+def _find_audio_path(job) -> Path | None:
+    if job.input_path:
+        configured_path = abs_storage_path(STORAGE_ROOT, job.input_path)
+        if configured_path.exists():
+            return configured_path
+    candidates = sorted((STORAGE_ROOT / "audio").glob(f"{job.id}.*"))
+    if candidates:
+        return candidates[0]
+    return None
+
+
+def _ensure_audio_path(job) -> Path | None:
+    audio_path = _find_audio_path(job)
+    if not audio_path:
+        return None
+    if job.input_path:
+        configured_path = abs_storage_path(STORAGE_ROOT, job.input_path)
+        if configured_path == audio_path:
+            return audio_path
+    relative_path = Path("audio") / audio_path.name
+    update_job_input_path(DB_PATH, job.id, str(relative_path))
+    return audio_path
+
+
+def _should_attempt_auto_repair(job) -> bool:
+    if job.status in {"downloading", "queued", "processing"}:
+        return False
+    if job.status == "failed":
+        return job.error == ANALYSIS_MISSING_MESSAGE
+    result_path = abs_storage_path(STORAGE_ROOT, job.output_path)
+    if not result_path.exists():
+        return True
+    if not job.youtube_id:
+        return False
+    return _find_audio_path(job) is None
+
+
+def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
+    if job.status in {"downloading", "queued", "processing"}:
+        return job
+
+    audio_path = _ensure_audio_path(job)
+    analysis_path = abs_storage_path(STORAGE_ROOT, job.output_path)
+    audio_missing = not audio_path or not audio_path.exists()
+    analysis_missing = not analysis_path.exists()
+
+    if analysis_missing and not audio_missing:
+        set_job_progress(DB_PATH, job.id, 25)
+        set_job_status(DB_PATH, job.id, "queued", None)
+    elif audio_missing and job.youtube_id:
+        set_job_progress(DB_PATH, job.id, 0)
+        set_job_status(DB_PATH, job.id, "downloading", None)
+        background_tasks.add_task(download_youtube_audio, job.id, job.youtube_id)
+
+    refreshed_job = get_job(DB_PATH, job.id)
+    return refreshed_job or job
+
+
+def _response_with_auto_repair(job, background_tasks: BackgroundTasks) -> JSONResponse:
+    if not _should_attempt_auto_repair(job):
+        return _job_response(job)
+    repaired_job = _attempt_auto_repair(job, background_tasks)
+    return _job_response(repaired_job)
 
 
 def _job_response(job) -> JSONResponse:
@@ -149,52 +209,11 @@ def _job_response(job) -> JSONResponse:
 
 
 @router.get("/api/analysis/{job_id}")
-def get_analysis(job_id: str) -> JSONResponse:
+def get_analysis(job_id: str, background_tasks: BackgroundTasks) -> JSONResponse:
     job = get_job(DB_PATH, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return _job_response(job)
-
-
-@router.post("/api/repair/{job_id}")
-def repair_job(job_id: str, background_tasks: BackgroundTasks) -> JSONResponse:
-    job = get_job(DB_PATH, job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    if job.status in {"downloading", "queued", "processing"}:
-        return _job_response(job)
-
-    audio_path = None
-    if job.input_path:
-        audio_path = abs_storage_path(STORAGE_ROOT, job.input_path)
-    if not audio_path or not audio_path.exists():
-        candidates = sorted((STORAGE_ROOT / "audio").glob(f"{job_id}.*"))
-        if candidates:
-            candidate = candidates[0]
-            relative_path = Path("audio") / candidate.name
-            update_job_input_path(DB_PATH, job_id, str(relative_path))
-            audio_path = candidate
-
-    analysis_path = abs_storage_path(STORAGE_ROOT, job.output_path)
-    audio_missing = not audio_path or not audio_path.exists()
-    analysis_missing = not analysis_path.exists()
-
-    if analysis_missing and not audio_missing:
-        set_job_progress(DB_PATH, job_id, 25)
-        set_job_status(DB_PATH, job_id, "queued", None)
-        job = get_job(DB_PATH, job_id)
-        return _job_response(job) if job else _job_not_found_response(job_id)
-
-    if audio_missing:
-        if not job.youtube_id:
-            raise HTTPException(status_code=404, detail="Job is missing youtube_id")
-        set_job_progress(DB_PATH, job_id, 0)
-        set_job_status(DB_PATH, job_id, "downloading", None)
-        background_tasks.add_task(download_youtube_audio, job_id, job.youtube_id)
-        job = get_job(DB_PATH, job_id)
-        return _job_response(job) if job else _job_not_found_response(job_id)
-
-    return _job_response(job)
+    return _response_with_auto_repair(job, background_tasks)
 
 
 @router.post("/api/analysis/youtube")
@@ -429,18 +448,19 @@ def get_recent_songs(limit: int = Query(10, ge=1, le=50)) -> JSONResponse:
 
 
 @router.get("/api/jobs/by-youtube/{youtube_id}")
-def get_job_by_youtube(youtube_id: str) -> JSONResponse:
+def get_job_by_youtube(youtube_id: str, background_tasks: BackgroundTasks) -> JSONResponse:
     job = get_job_by_youtube_id(DB_PATH, youtube_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     if should_recycle_job(job):
         recycle_job(job)
         raise HTTPException(status_code=404, detail="Job not found")
-    return _job_response(job)
+    return _response_with_auto_repair(job, background_tasks)
 
 
 @router.get("/api/jobs/by-track")
 def get_job_by_track_match(
+    background_tasks: BackgroundTasks,
     title: str = Query(..., min_length=1),
     artist: str = Query(..., min_length=1),
 ) -> JSONResponse:
@@ -451,7 +471,7 @@ def get_job_by_track_match(
     if should_recycle_job(job):
         recycle_job(job)
         raise HTTPException(status_code=404, detail="Job not found")
-    return _job_response(job)
+    return _response_with_auto_repair(job, background_tasks)
 
 
 @router.delete("/api/jobs/{job_id}")

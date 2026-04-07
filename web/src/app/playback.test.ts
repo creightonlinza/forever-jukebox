@@ -4,6 +4,7 @@ import type { AnalysisComplete } from "./api";
 import {
   applyAnalysisResult,
   applyTuningChanges,
+  loadAudioFromJob,
   startJukeboxFromBeat,
   stopPlayback,
   syncTuningUI,
@@ -543,5 +544,26 @@ describe("playback controls", () => {
     expect(context.engine.seekToBeat).toHaveBeenCalledWith(0);
     expect(context.engine.play).not.toHaveBeenCalled();
     expect(context.engine.startJukebox).not.toHaveBeenCalled();
+  });
+});
+
+describe("playback loading", () => {
+  it("returns false on missing audio without calling repair endpoint", async () => {
+    const context = createContext();
+    context.state.audioLoadInFlight = true;
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+    } as Response);
+
+    const loaded = await loadAudioFromJob(context, "upload-job");
+
+    expect(loaded).toBe(false);
+    expect(context.state.audioLoadInFlight).toBe(false);
+    const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls[0]?.[0]).toBe("/api/audio/upload-job");
+    expect(calls.some((call) => String(call[0]).includes("/api/repair/"))).toBe(
+      false,
+    );
   });
 });
