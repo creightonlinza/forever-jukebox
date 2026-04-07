@@ -242,6 +242,14 @@ def _notify_youtube_issue(raw: str | None, youtube_id: str | None, job_id: str) 
     if not topic_key:
         return
     lowered = raw.lower()
+    age_restricted = (
+        "sign in to confirm your age" in lowered
+        or "inappropriate for some users" in lowered
+        or "age-restricted" in lowered
+        or "age restriction" in lowered
+    )
+    if age_restricted:
+        return
     issues: list[str] = []
     if "http error 403" in lowered or "unable to download video data" in lowered:
         issues.append("403: Forbidden")
