@@ -196,9 +196,7 @@ def analyze_audio(
         idx = np.where((times >= start) & (times < end))[0]
         if len(idx) == 0:
             if times.size == 0:
-                mfcc_dim = frame_features["mfcc"].shape[1] if frame_features["mfcc"].ndim == 2 else 13
                 hpcp_dim = frame_features["hpcp"].shape[1] if frame_features["hpcp"].ndim == 2 else 12
-                mfcc = np.zeros(mfcc_dim, dtype=float)
                 hpcp = np.zeros(hpcp_dim, dtype=float)
                 rms_seq = np.asarray([0.0], dtype=float)
                 seg_times = np.asarray([start], dtype=float)

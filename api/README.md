@@ -10,6 +10,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Linting (ruff):
+
+```bash
+pip install -r requirements-dev.txt
+ruff check api worker
+```
+
 ## Configure the generator
 
 Set environment variables:

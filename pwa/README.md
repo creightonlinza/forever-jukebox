@@ -20,6 +20,7 @@ npm run dev
 npm run dev      # local dev server
 npm run build    # production build
 npm run preview  # preview production build
+npm run lint     # eslint checks
 npm run test     # unit tests
 ```
 
