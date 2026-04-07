@@ -23,12 +23,12 @@ from ..paths import DB_PATH, STORAGE_ROOT
 from ..utils import abs_storage_path, get_logger
 from ..ytdlp_config import apply_ejs_config
 
-ERROR_ENGINE = "ERROR: [engine] Analysis engine encountered an issue."
-ERROR_YOUTUBE_UNAVAILABLE = "ERROR: [youtube] This video is not available."
-ERROR_DOWNLOAD_UNAVAILABLE = "ERROR: [download] This video is not available."
-ERROR_YOUTUBE_AGE_RESTRICTED = "ERROR: [youtube] YouTube fetch failed due to age restriction block."
-ERROR_YOUTUBE_UNREACHABLE = "ERROR: [youtube] Unable to reach YouTube"
-ERROR_TRACK_TOO_LONG = "ERROR: [track_length] This track exceeds the server length limit."
+ERROR_ENGINE = "ERROR: Analysis engine encountered an issue."
+ERROR_YOUTUBE_UNAVAILABLE = "ERROR: This video is not available on YouTube."
+ERROR_DOWNLOAD_UNAVAILABLE = "ERROR: Unable to download video data."
+ERROR_YOUTUBE_AGE_RESTRICTED = "ERROR: YouTube fetch failed due to age restriction block."
+ERROR_YOUTUBE_UNREACHABLE = "ERROR: Unable to reach YouTube"
+ERROR_TRACK_TOO_LONG = "ERROR: This track exceeds the server length limit."
 ERROR_GENERIC = "ERROR: Something went wrong. Please try again or report an issue on GitHub."
 ERROR_CODE_ANALYSIS_MISSING = "analysis_missing"
 ANALYSIS_MISSING_MESSAGE = "Analysis missing"
