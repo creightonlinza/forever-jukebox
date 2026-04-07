@@ -5,8 +5,7 @@
 The Forever Jukebox is a self-hosted, end-to-end system that analyzes audio,
 serves the results via a lightweight API, and powers a refreshed Infinite
 Jukebox-style web UI with branching playback and multiple visualizations. It
-also includes an installable offline PWA. The native Android app now lives in a
-separate repository: [`creightonlinza/forever-jukebox-android`](https://github.com/creightonlinza/forever-jukebox-android).
+also includes an installable offline PWA.
 It replaces reliance on the deprecated Spotify Audio Analysis engine by
 generating similar beat/segment/section data locally.
 
@@ -102,7 +101,6 @@ API routes are under `/api/*`. The Compose file uses a named Docker volume
 - [`api/README.md`](./api/README.md)
 - [`web/README.md`](./web/README.md)
 - [`pwa/README.md`](./pwa/README.md)
-- Android app docs: [`creightonlinza/forever-jukebox-android`](https://github.com/creightonlinza/forever-jukebox-android)
 
 ## Credits
 
