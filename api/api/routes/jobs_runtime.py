@@ -26,6 +26,7 @@ from ..ytdlp_config import apply_ejs_config
 ERROR_ENGINE = "ERROR: [engine] Analysis engine encountered an issue."
 ERROR_YOUTUBE_UNAVAILABLE = "ERROR: [youtube] This video is not available."
 ERROR_DOWNLOAD_UNAVAILABLE = "ERROR: [download] This video is not available."
+ERROR_YOUTUBE_AGE_RESTRICTED = "ERROR: [youtube] YouTube fetch failed due to age restriction block."
 ERROR_YOUTUBE_UNREACHABLE = "ERROR: [youtube] Unable to reach YouTube"
 ERROR_TRACK_TOO_LONG = "ERROR: [track_length] This track exceeds the server length limit."
 ERROR_GENERIC = "ERROR: Something went wrong. Please try again or report an issue on GitHub."
@@ -49,6 +50,13 @@ def normalize_job_error(raw: str | None) -> str:
         return ERROR_YOUTUBE_UNAVAILABLE
     if "http error 403" in lowered or "[download]" in lowered or "unable to download video data" in lowered:
         return ERROR_DOWNLOAD_UNAVAILABLE
+    if (
+        "sign in to confirm your age" in lowered
+        or "inappropriate for some users" in lowered
+        or "age-restricted" in lowered
+        or "age restriction" in lowered
+    ):
+        return ERROR_YOUTUBE_AGE_RESTRICTED
     if "sign in to confirm" in lowered or "not a bot" in lowered:
         return ERROR_YOUTUBE_UNREACHABLE
     if "max_track_length" in lowered or "track exceeds max track length" in lowered:
