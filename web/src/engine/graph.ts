@@ -684,6 +684,13 @@ function findExistingAnchorSource(
   return bestSource >= 0 ? bestSource : null;
 }
 
+export function selectExistingAnchorSource(
+  quanta: QuantumBase[],
+  minLongBranch: number,
+): number | null {
+  return findExistingAnchorSource(quanta, minLongBranch);
+}
+
 function calculateReachability(quanta: QuantumBase[]) {
   const maxIter = 1000;
   for (const q of quanta) {
@@ -932,21 +939,42 @@ function applyBranchFilters(
     preferredLastBranchPoint < quanta.length &&
     quanta[preferredLastBranchPoint].neighbors.length > 0
   ) {
-    const distanceToEnd = quanta.length - preferredLastBranchPoint;
     const q = quanta[preferredLastBranchPoint];
-    selectedLastBranchPoint = preferredLastBranchPoint;
-    selectedLongestReach =
-      q.reach !== undefined
-        ? ((q.reach - distanceToEnd) * 100) / quanta.length
-        : 0;
-  } else {
-    const { index, longestReach } = findBestLastBeat(
-      quanta,
-      decisionContext,
-      config.minLongBranch,
+    const preferredOutcome = selectBestBackwardNeighborOutcome(
+      q,
+      decisionContext.earliestByBeat,
+      decisionContext.branchesToTarget,
     );
-    selectedLastBranchPoint = index;
-    selectedLongestReach = longestReach;
+    const preferredCanReachTarget =
+      preferredOutcome !== null &&
+      Number.isFinite(preferredOutcome.branchesToTarget);
+    if (!preferredCanReachTarget) {
+      selectedLastBranchPoint = -1;
+      selectedLongestReach = 0;
+    } else {
+      const distanceToEnd = quanta.length - preferredLastBranchPoint;
+      selectedLastBranchPoint = preferredLastBranchPoint;
+      selectedLongestReach =
+        q.reach !== undefined
+          ? ((q.reach - distanceToEnd) * 100) / quanta.length
+          : 0;
+    }
+  } else {
+    const hasEligibleAnchorSource =
+      findExistingAnchorSource(quanta, config.minLongBranch, decisionContext) !==
+      null;
+    if (!hasEligibleAnchorSource) {
+      selectedLastBranchPoint = -1;
+      selectedLongestReach = 0;
+    } else {
+      const { index, longestReach } = findBestLastBeat(
+        quanta,
+        decisionContext,
+        config.minLongBranch,
+      );
+      selectedLastBranchPoint = index;
+      selectedLongestReach = longestReach;
+    }
   }
   filterOutBadBranches(quanta, selectedLastBranchPoint);
   if (config.removeSequentialBranches) {

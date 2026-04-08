@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "no_backward_branches",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 2
+      },
+      "edges": [
+        [0, 2, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": -1
+      }
+    },
+    {
+      "id": "only_early_backward_source",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 2
+      },
+      "edges": [
+        [0, 2, 10],
+        [4, 1, 10]
+      ],
+      "expected": {
+        "lastBranchPoint": -1
+      }
+    },
+    {
+      "id": "unreachable_preferred_insertion",
+      "beats": 30,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 6
+      },
+      "edges": [
+        [0, 2, 10],
+        [20, 8, 10],
+        [8, 2, 10],
+        [27, 26, 40],
+        [28, 27, 42]
+      ],
+      "expected": {
+        "lastBranchPoint": -1
+      }
+    }
+  ]
+}
