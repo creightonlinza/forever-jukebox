@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "reset_clears_prior_deleted_anchor",
+      "beats": 3,
+      "initialLastBranchPoint": 1,
+      "edges": [
+        [0, 1, 0, 10],
+        [1, 2, 0, 9]
+      ],
+      "firstDeleteEdgeId": 0,
+      "secondDeleteEdgeId": 1,
+      "expected": {
+        "afterFirstDelete": {
+          "lastBranchPoint": 2,
+          "anchorEdgeId": 1,
+          "deletedEdgeIds": [0]
+        },
+        "afterReset": {
+          "lastBranchPoint": 1,
+          "anchorEdgeId": 0,
+          "deletedEdgeIds": []
+        },
+        "afterSecondDelete": {
+          "lastBranchPoint": 1,
+          "anchorEdgeId": 0,
+          "deletedEdgeIds": [1]
+        }
+      }
+    },
+    {
+      "id": "reset_then_delete_late_source_falls_back_to_none",
+      "beats": 6,
+      "initialLastBranchPoint": 5,
+      "edges": [
+        [0, 5, 0, 10],
+        [1, 2, 0, 8]
+      ],
+      "firstDeleteEdgeId": 1,
+      "secondDeleteEdgeId": 0,
+      "expected": {
+        "afterFirstDelete": {
+          "lastBranchPoint": 5,
+          "anchorEdgeId": 0,
+          "deletedEdgeIds": [1]
+        },
+        "afterReset": {
+          "lastBranchPoint": 5,
+          "anchorEdgeId": 0,
+          "deletedEdgeIds": []
+        },
+        "afterSecondDelete": {
+          "lastBranchPoint": -1,
+          "anchorEdgeId": null,
+          "deletedEdgeIds": [0]
+        }
+      }
+    }
+  ]
+}

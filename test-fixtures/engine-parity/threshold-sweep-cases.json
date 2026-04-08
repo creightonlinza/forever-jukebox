@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "stable_existing_anchor_across_thresholds",
+      "beats": 10,
+      "config": {
+        "minLongBranch": 2
+      },
+      "edges": [
+        [0, 2, 10],
+        [8, 2, 10],
+        [9, 4, 10],
+        [4, 2, 10]
+      ],
+      "expected": [
+        {
+          "threshold": 15,
+          "lastBranchPoint": 9,
+          "forcedDest": 4,
+          "forcedInserted": false
+        },
+        {
+          "threshold": 20,
+          "lastBranchPoint": 9,
+          "forcedDest": 4,
+          "forcedInserted": false
+        },
+        {
+          "threshold": 35,
+          "lastBranchPoint": 9,
+          "forcedDest": 4,
+          "forcedInserted": false
+        }
+      ]
+    },
+    {
+      "id": "inserted_anchor_converges_to_existing_at_higher_threshold",
+      "beats": 10,
+      "config": {
+        "minLongBranch": 2
+      },
+      "edges": [
+        [0, 2, 10],
+        [3, 1, 10],
+        [8, 1, 40]
+      ],
+      "expected": [
+        {
+          "threshold": 20,
+          "lastBranchPoint": 8,
+          "forcedDest": 1,
+          "forcedInserted": true
+        },
+        {
+          "threshold": 34,
+          "lastBranchPoint": 8,
+          "forcedDest": 1,
+          "forcedInserted": true
+        },
+        {
+          "threshold": 40,
+          "lastBranchPoint": 8,
+          "forcedDest": 1,
+          "forcedInserted": false
+        },
+        {
+          "threshold": 45,
+          "lastBranchPoint": 8,
+          "forcedDest": 1,
+          "forcedInserted": false
+        }
+      ]
+    },
+    {
+      "id": "no_anchor_across_thresholds",
+      "beats": 10,
+      "config": {
+        "minLongBranch": 2
+      },
+      "edges": [
+        [0, 2, 10]
+      ],
+      "expected": [
+        {
+          "threshold": 20,
+          "lastBranchPoint": -1,
+          "forcedDest": null,
+          "forcedInserted": false
+        },
+        {
+          "threshold": 40,
+          "lastBranchPoint": -1,
+          "forcedDest": null,
+          "forcedInserted": false
+        }
+      ]
+    }
+  ]
+}

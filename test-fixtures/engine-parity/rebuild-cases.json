@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "baseline_keep_anchor",
+      "beats": 3,
+      "initialLastBranchPoint": 1,
+      "edges": [
+        [0, 1, 0, 10],
+        [1, 2, 0, 9]
+      ],
+      "deleteEdgeIds": [],
+      "expected": {
+        "lastBranchPoint": 1,
+        "anchorEdgeId": 0
+      }
+    },
+    {
+      "id": "delete_anchor_reassigns",
+      "beats": 3,
+      "initialLastBranchPoint": 1,
+      "edges": [
+        [0, 1, 0, 10],
+        [1, 2, 0, 9]
+      ],
+      "deleteEdgeIds": [0],
+      "expected": {
+        "lastBranchPoint": 2,
+        "anchorEdgeId": 1
+      }
+    },
+    {
+      "id": "delete_all_sources_falls_back_to_none",
+      "beats": 3,
+      "initialLastBranchPoint": 1,
+      "edges": [
+        [0, 1, 0, 10]
+      ],
+      "deleteEdgeIds": [0],
+      "expected": {
+        "lastBranchPoint": -1,
+        "anchorEdgeId": null
+      }
+    },
+    {
+      "id": "delete_late_source_only_early_remains_falls_back_to_none",
+      "beats": 6,
+      "initialLastBranchPoint": 5,
+      "edges": [
+        [0, 5, 0, 10],
+        [1, 2, 0, 8]
+      ],
+      "deleteEdgeIds": [0],
+      "expected": {
+        "lastBranchPoint": -1,
+        "anchorEdgeId": null
+      }
+    }
+  ]
+}
