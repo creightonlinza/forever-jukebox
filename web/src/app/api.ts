@@ -9,9 +9,9 @@ function isRecord(value: unknown): value is RecordValue {
 }
 
 type AnalysisBase = {
-  youtube_id?: string;
+  source_id?: string;
+  source_provider?: string;
   created_at?: string;
-  is_user_supplied?: boolean;
 };
 
 export type AnalysisInProgress = AnalysisBase & {
@@ -58,16 +58,18 @@ export type YoutubeSearchItem = {
 };
 
 export type TopSongItem = {
+  id?: string;
   title?: string;
   artist?: string;
-  youtube_id?: string;
+  source_id?: string;
+  source_provider?: string;
 };
 
 export type RecentSongItem = TopSongItem;
 
 export type AppConfig = {
   allow_user_upload: boolean;
-  allow_user_youtube: boolean;
+  allow_user_url: boolean;
   allow_favorites_sync?: boolean;
   max_upload_size?: number | null;
   allowed_upload_exts?: string[] | null;
@@ -132,18 +134,16 @@ function parseAnalysisResponse(data: unknown): AnalysisResponse | null {
   }
   const status = typeof data.status === "string" ? data.status : null;
   const id = typeof data.id === "string" ? data.id : undefined;
-  const youtubeId =
-    typeof data.youtube_id === "string" ? data.youtube_id : undefined;
+  const sourceId =
+    typeof data.source_id === "string"
+      ? data.source_id
+      : (typeof data.youtube_id === "string" ? data.youtube_id : undefined);
+  const sourceProvider =
+    typeof data.source_provider === "string" ? data.source_provider : undefined;
   const createdAt =
     typeof data.created_at === "string" ? data.created_at : undefined;
   const progress = typeof data.progress === "number" ? data.progress : undefined;
   const message = typeof data.message === "string" ? data.message : undefined;
-  let isUserSupplied: boolean | undefined;
-  if (typeof data.is_user_supplied === "boolean") {
-    isUserSupplied = data.is_user_supplied;
-  } else if (typeof data.is_user_supplied === "number") {
-    isUserSupplied = data.is_user_supplied !== 0;
-  }
   if (status === "downloading" || status === "queued" || status === "processing") {
     if (!id) {
       return null;
@@ -153,18 +153,18 @@ function parseAnalysisResponse(data: unknown): AnalysisResponse | null {
       id,
       progress,
       message,
-      youtube_id: youtubeId,
+      source_id: sourceId,
+      source_provider: sourceProvider,
       created_at: createdAt,
-      is_user_supplied: isUserSupplied,
     };
   }
   if (status === "failed") {
     return {
       status,
       id,
-      youtube_id: youtubeId,
+      source_id: sourceId,
+      source_provider: sourceProvider,
       created_at: createdAt,
-      is_user_supplied: isUserSupplied,
       error: typeof data.error === "string" ? data.error : undefined,
       error_code: typeof data.error_code === "string" ? data.error_code : undefined,
     };
@@ -177,9 +177,9 @@ function parseAnalysisResponse(data: unknown): AnalysisResponse | null {
       status,
       id,
       result: data.result as AnalysisResult,
-      youtube_id: youtubeId,
+      source_id: sourceId,
+      source_provider: sourceProvider,
       created_at: createdAt,
-      is_user_supplied: isUserSupplied,
       track: isRecord(data.track) ? (data.track as TrackMeta) : undefined,
     };
   }
@@ -188,9 +188,9 @@ function parseAnalysisResponse(data: unknown): AnalysisResponse | null {
       status: "complete",
       id,
       result: data.result as AnalysisResult,
-      youtube_id: youtubeId,
+      source_id: sourceId,
+      source_provider: sourceProvider,
       created_at: createdAt,
-      is_user_supplied: isUserSupplied,
       track: isRecord(data.track) ? (data.track as TrackMeta) : undefined,
     };
   }
@@ -229,9 +229,21 @@ export async function startYoutubeAnalysis(payload: {
   youtube_id: string;
   title?: string;
   artist?: string;
-  is_user_supplied?: boolean;
 }) {
   const data = await fetchJson("/api/analysis/youtube", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseAnalysisResponse(data);
+}
+
+export async function startUrlAnalysis(payload: {
+  url: string;
+  title?: string;
+  artist?: string;
+}) {
+  const data = await fetchJson("/api/analysis/url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -302,11 +314,12 @@ export async function deleteJob(jobId: string) {
   }
 }
 
-export async function fetchJobByYoutube(
-  youtubeId: string
+export async function fetchJobBySource(
+  sourceProvider: string,
+  sourceId: string,
 ): Promise<AnalysisResponse | null> {
   const response = await fetch(
-    `/api/jobs/by-youtube/${encodeURIComponent(youtubeId)}`
+    `/api/jobs/by-source/${encodeURIComponent(sourceProvider)}/${encodeURIComponent(sourceId)}`
   );
   if (response.status === 404) {
     return null;

@@ -169,6 +169,7 @@ export async function startYoutubeAnalysisFlow(
   deps.setActiveTab("play");
   deps.setLoadingProgress(null, "Fetching audio");
   context.state.lastYouTubeId = youtubeId;
+  context.state.lastSourceProvider = "youtube";
   deps.onTrackChange?.(youtubeId);
   deps.updateTrackUrl(youtubeId);
   await tryLoadCachedAudio(context, youtubeId);
@@ -233,7 +234,10 @@ export async function tryLoadExistingTrackByName(
       return false;
     }
     const jobId = response.id;
-    const youtubeId = response.youtube_id ?? state.lastYouTubeId;
+    const youtubeId = response.source_id ?? state.lastYouTubeId;
+    if (typeof response.source_provider === "string") {
+      state.lastSourceProvider = response.source_provider;
+    }
     if (!youtubeId) {
       return false;
     }
@@ -244,8 +248,13 @@ export async function tryLoadExistingTrackByName(
     deps.updateVizVisibility();
     deps.setActiveTab("play");
     deps.setLoadingProgress(null, "Fetching audio");
-    state.lastYouTubeId = youtubeId;
-    deps.onTrackChange?.(youtubeId);
+    if (response.source_provider && response.source_provider !== "youtube") {
+      state.lastYouTubeId = null;
+      deps.onTrackChange?.(null);
+    } else {
+      state.lastYouTubeId = youtubeId;
+      deps.onTrackChange?.(youtubeId);
+    }
     deps.updateTrackUrl(youtubeId);
     state.lastJobId = jobId;
     if (isAnalysisInProgress(response)) {

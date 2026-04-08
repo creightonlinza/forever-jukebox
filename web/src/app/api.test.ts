@@ -8,9 +8,10 @@ import {
   fetchFavoritesSync,
   updateFavoritesSync,
   fetchJobByTrack,
-  fetchJobByYoutube,
+  fetchJobBySource,
   fetchAudio,
   startYoutubeAnalysis,
+  startUrlAnalysis,
 } from "./api";
 
 function createResponse(
@@ -115,7 +116,7 @@ describe("api", () => {
 
   it("fetches app config", async () => {
     (fetch as any).mockResolvedValue(
-      createResponse(200, { allow_user_upload: true, allow_user_youtube: false }),
+      createResponse(200, { allow_user_upload: true, allow_user_url: false }),
     );
     const config = await fetchAppConfig();
     expect(config.allow_user_upload).toBe(true);
@@ -135,12 +136,33 @@ describe("api", () => {
       ),
     );
     await expect(
-      startYoutubeAnalysis({ youtube_id: "dQw4w9WgXcQ", is_user_supplied: true }),
+      startYoutubeAnalysis({
+        youtube_id: "dQw4w9WgXcQ",
+      }),
     ).rejects.toMatchObject({
       message: "Error: Sorry, the max track length for this server is 12 minutes.",
       code: "track_too_long",
       status: 422,
     });
+  });
+
+  it("starts analysis from URL endpoint", async () => {
+    (fetch as any).mockResolvedValue(
+      createResponse(202, {
+        status: "downloading",
+        id: "job-url",
+        source_id: "abc123",
+        source_provider: "soundcloud",
+      }),
+    );
+    const result = await startUrlAnalysis({
+      url: "https://soundcloud.com/artist/track",
+    });
+    expect(result?.status).toBe("downloading");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/analysis/url",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("returns failed lookup response without client-side repair", async () => {
@@ -156,7 +178,7 @@ describe("api", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("parses queued lookup response from by-youtube", async () => {
+  it("parses queued lookup response from by-source", async () => {
     (fetch as any).mockResolvedValue(
       createResponse(202, {
         status: "queued",
@@ -164,14 +186,14 @@ describe("api", () => {
         message: "Queued • Next in line",
       }),
     );
-    const result = await fetchJobByYoutube("yt-q");
+    const result = await fetchJobBySource("youtube", "yt-q");
     expect(result?.status).toBe("queued");
     if (result?.status === "queued") {
       expect(result.id).toBe("job-q");
     }
   });
 
-  it("parses downloading lookup response from by-youtube", async () => {
+  it("parses downloading lookup response from by-source", async () => {
     (fetch as any).mockResolvedValue(
       createResponse(202, {
         status: "downloading",
@@ -179,7 +201,7 @@ describe("api", () => {
         message: "Fetching audio",
       }),
     );
-    const result = await fetchJobByYoutube("yt-d");
+    const result = await fetchJobBySource("youtube", "yt-d");
     expect(result?.status).toBe("downloading");
     if (result?.status === "downloading") {
       expect(result.id).toBe("job-d");
@@ -192,10 +214,24 @@ describe("api", () => {
     expect(result).toBeNull();
   });
 
-  it("returns null for missing by-youtube lookup", async () => {
+  it("returns null for missing by-source lookup", async () => {
     (fetch as any).mockResolvedValue(createResponse(404, {}));
-    const result = await fetchJobByYoutube("missing");
+    const result = await fetchJobBySource("youtube", "missing");
     expect(result).toBeNull();
+  });
+
+  it("looks up job by source id", async () => {
+    (fetch as any).mockResolvedValue(
+      createResponse(202, {
+        status: "queued",
+        id: "job-src",
+        source_id: "xyz",
+        source_provider: "bandcamp",
+      }),
+    );
+    const result = await fetchJobBySource("bandcamp", "xyz");
+    expect(result?.status).toBe("queued");
+    expect(fetch).toHaveBeenCalledWith("/api/jobs/by-source/bandcamp/xyz");
   });
 
   it("fetches audio and throws on failure", async () => {

@@ -18,26 +18,24 @@ class Job:
     error: Optional[str]
     track_title: Optional[str]
     track_artist: Optional[str]
-    youtube_id: Optional[str]
+    source_id: Optional[str]
+    source_provider: Optional[str]
+    source_url: Optional[str]
     progress: int
     play_count: int
-    is_user_supplied: int
     created_at: str
     updated_at: str
 
 
 JOB_SELECT_COLUMNS = (
     "id, status, input_path, output_path, error, "
-    "track_title, track_artist, youtube_id, progress, play_count, is_user_supplied, created_at, updated_at"
+    "track_title, track_artist, source_id, source_provider, source_url, progress, "
+    "play_count, created_at, updated_at"
 )
 
 TRACKS_BASE_FILTER = """
         track_title IS NOT NULL
           AND track_title != ''
-          AND (
-            (COALESCE(is_user_supplied, 0) = 0 AND track_artist IS NOT NULL AND track_artist != '')
-            OR (COALESCE(is_user_supplied, 0) = 1 AND youtube_id IS NOT NULL AND youtube_id != '')
-          )
           AND play_count > 0
 """
 
@@ -57,9 +55,60 @@ def _top_track_from_row(row: tuple) -> dict[str, object]:
         "id": row[0],
         "title": row[1],
         "artist": row[2],
-        "youtube_id": row[3],
-        "play_count": row[4],
+        "source_id": row[3],
+        "source_provider": row[4],
+        "play_count": row[5],
     }
+
+
+def _drop_legacy_column(conn: sqlite3.Connection, column_name: str) -> None:
+    try:
+        conn.execute(f"ALTER TABLE jobs DROP COLUMN {column_name}")
+        return
+    except sqlite3.OperationalError:
+        # Fallback for older SQLite versions without DROP COLUMN support.
+        pass
+
+    conn.execute("DROP TABLE IF EXISTS jobs__migrated")
+    conn.execute(
+        """
+        CREATE TABLE jobs__migrated (
+            id TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
+            input_path TEXT NOT NULL,
+            output_path TEXT NOT NULL,
+            error TEXT,
+            track_title TEXT,
+            track_artist TEXT,
+            source_id TEXT,
+            source_provider TEXT,
+            source_url TEXT,
+            progress INTEGER NOT NULL DEFAULT 0,
+            play_count INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO jobs__migrated (
+            id, status, input_path, output_path, error,
+            track_title, track_artist, source_id, source_provider, source_url,
+            progress, play_count, created_at, updated_at
+        )
+        SELECT
+            id, status, input_path, output_path, error,
+            track_title, track_artist, source_id, source_provider, source_url,
+            COALESCE(progress, 0),
+            COALESCE(play_count, 0),
+            created_at,
+            updated_at
+        FROM jobs
+        """
+    )
+    conn.execute("DROP TABLE jobs")
+    conn.execute("ALTER TABLE jobs__migrated RENAME TO jobs")
 
 
 def init_db(db_path: Path) -> None:
@@ -75,10 +124,11 @@ def init_db(db_path: Path) -> None:
                 error TEXT,
                 track_title TEXT,
                 track_artist TEXT,
-                youtube_id TEXT,
+                source_id TEXT,
+                source_provider TEXT,
+                source_url TEXT,
                 progress INTEGER NOT NULL DEFAULT 0,
                 play_count INTEGER NOT NULL DEFAULT 0,
-                is_user_supplied INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
@@ -91,18 +141,86 @@ def init_db(db_path: Path) -> None:
             conn.execute("ALTER TABLE jobs ADD COLUMN track_title TEXT")
         if "track_artist" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN track_artist TEXT")
-        if "youtube_id" not in columns:
-            conn.execute("ALTER TABLE jobs ADD COLUMN youtube_id TEXT")
+        if "source_id" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN source_id TEXT")
+        if "source_provider" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN source_provider TEXT")
+        if "source_url" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN source_url TEXT")
         if "progress" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN progress INTEGER NOT NULL DEFAULT 0")
         if "play_count" not in columns:
             conn.execute(
                 "ALTER TABLE jobs ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0"
             )
-        if "is_user_supplied" not in columns:
+        if "youtube_id" in columns:
             conn.execute(
-                "ALTER TABLE jobs ADD COLUMN is_user_supplied INTEGER NOT NULL DEFAULT 0"
+                """
+                UPDATE jobs
+                SET source_id = youtube_id
+                WHERE (source_id IS NULL OR source_id = '')
+                  AND youtube_id IS NOT NULL
+                  AND youtube_id != ''
+                """
             )
+        if "is_user_supplied" in columns:
+            conn.execute(
+                """
+                UPDATE jobs
+                SET source_provider = CASE
+                    WHEN source_id IS NOT NULL AND source_id LIKE 'soundcloud:%' THEN 'soundcloud'
+                    WHEN source_id IS NOT NULL AND source_id LIKE 'bandcamp:%' THEN 'bandcamp'
+                    WHEN source_id IS NOT NULL AND source_id != '' THEN 'youtube'
+                    WHEN source_url LIKE '%soundcloud.com%' THEN 'soundcloud'
+                    WHEN source_url LIKE '%bandcamp.com%' THEN 'bandcamp'
+                    WHEN source_url LIKE '%youtube.com%' OR source_url LIKE '%youtu.be%' THEN 'youtube'
+                    ELSE 'upload'
+                END
+                WHERE is_user_supplied = 1
+                  AND (source_provider IS NULL OR source_provider = '' OR source_provider = 'user')
+                """
+            )
+        conn.execute(
+            """
+            UPDATE jobs
+            SET source_id = CASE
+                WHEN source_provider = 'soundcloud' AND source_id LIKE 'soundcloud:%'
+                    THEN SUBSTR(source_id, 12)
+                WHEN source_provider = 'bandcamp' AND source_id LIKE 'bandcamp:%'
+                    THEN SUBSTR(source_id, 10)
+                WHEN source_provider = 'youtube' AND source_id LIKE 'youtube:%'
+                    THEN SUBSTR(source_id, 9)
+                ELSE source_id
+            END
+            WHERE source_id IS NOT NULL AND source_id != ''
+            """
+        )
+        conn.execute(
+            """
+            UPDATE jobs
+            SET source_provider = CASE
+                WHEN source_id IS NOT NULL AND source_id LIKE 'soundcloud:%' THEN 'soundcloud'
+                WHEN source_id IS NOT NULL AND source_id LIKE 'bandcamp:%' THEN 'bandcamp'
+                WHEN source_id IS NOT NULL AND source_id != '' THEN 'youtube'
+                WHEN source_url LIKE '%soundcloud.com%' THEN 'soundcloud'
+                WHEN source_url LIKE '%bandcamp.com%' THEN 'bandcamp'
+                WHEN source_url LIKE '%youtube.com%' OR source_url LIKE '%youtu.be%' THEN 'youtube'
+                WHEN input_path IS NOT NULL AND input_path != '' THEN 'upload'
+                ELSE source_provider
+            END
+            WHERE source_provider IS NULL OR source_provider = '' OR source_provider = 'user'
+            """
+        )
+        columns_after_migration = {
+            row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+        }
+        if "youtube_id" in columns_after_migration:
+            _drop_legacy_column(conn, "youtube_id")
+            columns_after_migration = {
+                row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+            }
+        if "is_user_supplied" in columns_after_migration:
+            _drop_legacy_column(conn, "is_user_supplied")
         conn.commit()
 
 
@@ -114,10 +232,11 @@ def create_job(
     status: str = "queued",
     track_title: Optional[str] = None,
     track_artist: Optional[str] = None,
-    youtube_id: Optional[str] = None,
+    source_id: Optional[str] = None,
+    source_provider: Optional[str] = None,
+    source_url: Optional[str] = None,
     progress: int = 0,
     play_count: int = 0,
-    is_user_supplied: int = 0,
 ) -> None:
     now = _utc_now()
     with sqlite3.connect(db_path) as conn:
@@ -125,9 +244,10 @@ def create_job(
             """
             INSERT INTO jobs (
                 id, status, input_path, output_path, error,
-                track_title, track_artist, youtube_id, progress, play_count, is_user_supplied, created_at, updated_at
+                track_title, track_artist, source_id, source_provider, source_url, progress, play_count,
+                created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_id,
@@ -136,10 +256,11 @@ def create_job(
                 output_path,
                 track_title,
                 track_artist,
-                youtube_id,
+                source_id,
+                source_provider,
+                source_url,
                 progress,
                 play_count,
-                is_user_supplied,
                 now,
                 now,
             ),
@@ -224,12 +345,13 @@ def count_queued_jobs_ahead(db_path: Path, job_id: str, created_at: str) -> int:
     return int(row[0])
 
 
-def get_job_by_youtube_id(db_path: Path, youtube_id: str) -> Optional[Job]:
+def get_job_by_source(db_path: Path, source_provider: str, source_id: str) -> Optional[Job]:
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
             f"SELECT {JOB_SELECT_COLUMNS} FROM jobs "
-            "WHERE youtube_id = ? ORDER BY created_at DESC LIMIT 1",
-            (youtube_id,),
+            "WHERE source_provider = ? AND source_id = ? "
+            "ORDER BY created_at DESC LIMIT 1",
+            (source_provider, source_id),
         ).fetchone()
     return _job_from_row(row)
 
@@ -326,7 +448,7 @@ def get_top_tracks(
         cutoff = (datetime.now(timezone.utc) - timedelta(days=touched_within_days)).isoformat()
 
     query = """
-            SELECT id, track_title, track_artist, youtube_id, play_count
+            SELECT id, track_title, track_artist, source_id, source_provider, play_count
             FROM jobs
             WHERE
     """
@@ -380,7 +502,7 @@ def get_recent_tracks(db_path: Path, limit: int = 10) -> list[dict]:
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(
             """
-            SELECT id, track_title, track_artist, youtube_id, play_count
+            SELECT id, track_title, track_artist, source_id, source_provider, play_count
             FROM jobs
             WHERE
             """

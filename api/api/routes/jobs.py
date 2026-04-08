@@ -16,8 +16,8 @@ from ..db import (
     create_job,
     delete_job,
     get_job,
+    get_job_by_source,
     get_job_by_track,
-    get_job_by_youtube_id,
     get_recent_tracks,
     get_top_tracks,
     increment_job_plays,
@@ -30,6 +30,7 @@ from ..env import env_flag, env_positive_float
 from ..models import (
     AnalysisStartResponse,
     AnalysisYoutubeRequest,
+    AnalysisUrlRequest,
     JobComplete,
     JobError,
     JobProgress,
@@ -45,16 +46,19 @@ from .jobs_runtime import (
     ANALYSIS_MISSING_MESSAGE,
     MAX_UPLOAD_BYTES,
     delete_job_artifacts,
-    download_youtube_audio,
+    download_source_audio,
     error_code_for,
+    fallback_source_url_for_source_id,
     log_event,
     message_for_progress,
+    normalize_user_source_url,
     normalize_job_error,
     parse_timestamp,
     probe_audio_duration_seconds,
-    probe_youtube_duration_seconds,
     recycle_job,
+    resolve_source_info,
     sanitize_title,
+    source_url_from_source_id,
     should_recycle_job,
     track_too_long_detail,
 )
@@ -66,6 +70,12 @@ TRENDING_DEFAULT_DAYS = 5
 TRENDING_DEFAULT_EXCLUDE_TOP_N = 25
 TRENDING_DEFAULT_LIMIT = 25
 DELETE_WITHOUT_ADMIN_SECONDS = 1800
+SUPPORTED_USER_SOURCE_PROVIDERS = {"youtube", "soundcloud", "bandcamp"}
+SUPPORTED_SOURCE_PROVIDERS = {"youtube", "soundcloud", "bandcamp", "upload"}
+
+
+def _allow_user_url() -> bool:
+    return env_flag("ALLOW_USER_URL")
 
 
 def _admin_key_matches(provided_key: str | None) -> bool:
@@ -79,6 +89,77 @@ def _require_admin_key(provided_key: str | None) -> None:
         raise HTTPException(status_code=403, detail="ADMIN_KEY is not configured")
     if not provided_key or provided_key != expected_key:
         raise HTTPException(status_code=403, detail="Invalid admin key")
+
+
+def _create_source_job(
+    background_tasks: BackgroundTasks,
+    *,
+    source_id: str,
+    source_url: str,
+    source_provider: str,
+    track_title: str | None,
+    track_artist: str | None,
+    duration_s: float | None = None,
+    require_user_url_enabled: bool = False,
+) -> JSONResponse:
+    if require_user_url_enabled and not _allow_user_url():
+        raise HTTPException(status_code=403, detail="User-supplied URL jobs are disabled")
+
+    if track_title and track_artist:
+        existing_by_track = get_job_by_track(DB_PATH, track_title, track_artist)
+        if existing_by_track and should_recycle_job(existing_by_track):
+            recycle_job(existing_by_track)
+            existing_by_track = None
+        if existing_by_track and existing_by_track.status != "failed":
+            return _job_response(existing_by_track)
+
+    existing = get_job_by_source(DB_PATH, source_provider, source_id)
+    if existing and should_recycle_job(existing):
+        recycle_job(existing)
+        existing = None
+    if existing and existing.status != "failed":
+        return _job_response(existing)
+
+    max_track_length_min = env_positive_float("MAX_TRACK_LENGTH")
+    if max_track_length_min is not None:
+        if duration_s is not None and duration_s > max_track_length_min * 60:
+            raise HTTPException(
+                status_code=422,
+                detail=track_too_long_detail(max_track_length_min),
+            )
+
+    job_id = uuid.uuid4().hex
+    output_path = Path("analysis") / f"{job_id}.json"
+    create_job(
+        DB_PATH,
+        job_id,
+        "",
+        str(output_path),
+        status="downloading",
+        track_title=track_title,
+        track_artist=track_artist,
+        source_id=source_id,
+        source_provider=source_provider,
+        source_url=source_url,
+        progress=0,
+    )
+    log_event(
+        "job_started",
+        job_id=job_id,
+        source=source_provider,
+        source_id=source_id,
+        source_url=source_url,
+    )
+    background_tasks.add_task(download_source_audio, job_id, source_url, source_id, source_provider)
+    response_payload = AnalysisStartResponse(
+        id=job_id,
+        status="downloading",
+        source_id=source_id,
+        source_provider=source_provider,
+        progress=None,
+        message=message_for_progress("downloading", None),
+    )
+    return JSONResponse(response_payload.model_dump(), status_code=202)
 
 
 def _queued_message(job) -> str:
@@ -120,7 +201,7 @@ def _should_attempt_auto_repair(job) -> bool:
     result_path = abs_storage_path(STORAGE_ROOT, job.output_path)
     if not result_path.exists():
         return True
-    if not job.youtube_id:
+    if not job.source_id:
         return False
     return _find_audio_path(job) is None
 
@@ -137,10 +218,24 @@ def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
     if analysis_missing and not audio_missing:
         set_job_progress(DB_PATH, job.id, 25)
         set_job_status(DB_PATH, job.id, "queued", None)
-    elif audio_missing and job.youtube_id:
+    elif audio_missing and job.source_id:
+        source_url = (
+            job.source_url
+            or source_url_from_source_id(job.source_provider, job.source_id)
+            or fallback_source_url_for_source_id(job.source_id)
+        )
+        if not source_url:
+            refreshed_job = get_job(DB_PATH, job.id)
+            return refreshed_job or job
         set_job_progress(DB_PATH, job.id, 0)
         set_job_status(DB_PATH, job.id, "downloading", None)
-        background_tasks.add_task(download_youtube_audio, job.id, job.youtube_id)
+        background_tasks.add_task(
+            download_source_audio,
+            job.id,
+            source_url,
+            job.source_id,
+            job.source_provider,
+        )
 
     refreshed_job = get_job(DB_PATH, job.id)
     return refreshed_job or job
@@ -156,9 +251,9 @@ def _response_with_auto_repair(job, background_tasks: BackgroundTasks) -> JSONRe
 def _job_response(job) -> JSONResponse:
     base_payload = {
         "id": job.id,
-        "youtube_id": job.youtube_id,
+        "source_id": job.source_id,
+        "source_provider": job.source_provider,
         "created_at": job.created_at,
-        "is_user_supplied": bool(job.is_user_supplied),
     }
     if job.status in {"queued", "processing", "downloading"}:
         progress = job.progress if job.status == "processing" else None
@@ -224,67 +319,64 @@ def create_analysis_youtube(
     youtube_id = payload.youtube_id.strip()
     if not youtube_id:
         raise HTTPException(status_code=400, detail="youtube_id is required")
+    source_url = source_url_from_source_id("youtube", youtube_id)
+    if not source_url:
+        raise HTTPException(status_code=400, detail="Invalid YouTube ID")
     track_title = payload.title
     track_artist = payload.artist
-    is_user_supplied = payload.is_user_supplied
-
-    if is_user_supplied and not env_flag("ALLOW_USER_YOUTUBE"):
-        raise HTTPException(status_code=403, detail="User-supplied YouTube jobs are disabled")
-
-    if track_title and track_artist:
-        existing_by_track = get_job_by_track(DB_PATH, track_title, track_artist)
-        if existing_by_track and should_recycle_job(existing_by_track):
-            recycle_job(existing_by_track)
-            existing_by_track = None
-        if existing_by_track and existing_by_track.status != "failed":
-            return _job_response(existing_by_track)
-
-    existing = get_job_by_youtube_id(DB_PATH, youtube_id)
-    if existing and should_recycle_job(existing):
-        recycle_job(existing)
-        existing = None
-    if existing and existing.status != "failed":
-        return _job_response(existing)
+    duration_s = None
 
     max_track_length_min = env_positive_float("MAX_TRACK_LENGTH")
-    if is_user_supplied and max_track_length_min is not None:
-        duration_s = probe_youtube_duration_seconds(youtube_id)
-        if duration_s is not None and duration_s > max_track_length_min * 60:
-            raise HTTPException(
-                status_code=422,
-                detail=track_too_long_detail(max_track_length_min),
-            )
-
-    job_id = uuid.uuid4().hex
-    output_path = Path("analysis") / f"{job_id}.json"
-
-    create_job(
-        DB_PATH,
-        job_id,
-        "",
-        str(output_path),
-        status="downloading",
+    if max_track_length_min is not None:
+        try:
+            duration_s = resolve_source_info(source_url).duration_s
+        except Exception:
+            duration_s = None
+    return _create_source_job(
+        background_tasks,
+        source_id=youtube_id,
+        source_url=source_url,
+        source_provider="youtube",
         track_title=track_title,
         track_artist=track_artist,
-        youtube_id=youtube_id,
-        progress=0,
-        is_user_supplied=int(is_user_supplied),
+        duration_s=duration_s,
     )
-    log_event(
-        "job_started",
-        job_id=job_id,
-        source="youtube",
-        youtube_id=youtube_id,
-        is_user_supplied=is_user_supplied,
+
+
+@router.post("/api/analysis/url")
+def create_analysis_url(
+    background_tasks: BackgroundTasks,
+    payload: AnalysisUrlRequest,
+) -> JSONResponse:
+    if not _allow_user_url():
+        raise HTTPException(status_code=403, detail="User-supplied URL jobs are disabled")
+    raw_url = payload.url.strip()
+    if not raw_url:
+        raise HTTPException(status_code=400, detail="url is required")
+    normalized_url = normalize_user_source_url(raw_url)
+    if not normalized_url:
+        raise HTTPException(status_code=400, detail="Invalid or unsupported URL")
+    try:
+        source_info = resolve_source_info(normalized_url)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Unable to process URL: {exc}") from exc
+
+    if source_info.provider not in SUPPORTED_USER_SOURCE_PROVIDERS:
+        raise HTTPException(status_code=400, detail="Unsupported URL provider")
+    return _create_source_job(
+        background_tasks,
+        source_id=source_info.source_id,
+        source_url=source_info.source_url,
+        source_provider=source_info.provider,
+        track_title=payload.title,
+        track_artist=payload.artist,
+        duration_s=source_info.duration_s,
+        require_user_url_enabled=True,
     )
-    background_tasks.add_task(download_youtube_audio, job_id, youtube_id)
-    response_payload = AnalysisStartResponse(
-        id=job_id,
-        status="downloading",
-        progress=None,
-        message=message_for_progress("downloading", None),
-    )
-    return JSONResponse(response_payload.model_dump(), status_code=202)
 
 
 @router.post("/api/upload")
@@ -346,15 +438,14 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
         status="queued",
         track_title=title,
         track_artist="",
-        youtube_id=None,
+        source_id=None,
+        source_provider="upload",
         progress=0,
-        is_user_supplied=1,
     )
     log_event(
         "job_started",
         job_id=job_id,
         source="upload",
-        is_user_supplied=True,
         upload_ext=ext,
     )
     job = get_job(DB_PATH, job_id)
@@ -425,9 +516,19 @@ def get_recent_songs(limit: int = Query(10, ge=1, le=50)) -> JSONResponse:
     return JSONResponse(payload.model_dump(), status_code=200)
 
 
-@router.get("/api/jobs/by-youtube/{youtube_id}")
-def get_job_by_youtube(youtube_id: str, background_tasks: BackgroundTasks) -> JSONResponse:
-    job = get_job_by_youtube_id(DB_PATH, youtube_id)
+@router.get("/api/jobs/by-source/{source_provider}/{source_id:path}")
+def get_job_by_source_route(
+    source_provider: str,
+    source_id: str,
+    background_tasks: BackgroundTasks,
+) -> JSONResponse:
+    provider = source_provider.strip().lower()
+    if provider not in SUPPORTED_SOURCE_PROVIDERS:
+        raise HTTPException(status_code=400, detail="Unsupported source provider")
+    source_key = source_id.strip()
+    if not source_key:
+        raise HTTPException(status_code=400, detail="source_id is required")
+    job = get_job_by_source(DB_PATH, provider, source_key)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     if should_recycle_job(job):

@@ -31,6 +31,7 @@ export type AppState = {
   autoComputedThreshold: number | null;
   lastJobId: string | null;
   lastYouTubeId: string | null;
+  lastSourceProvider: string | null;
   pendingAutoFavoriteId: string | null;
   lastPlayCountedJobId: string | null;
   shiftBranching: boolean;

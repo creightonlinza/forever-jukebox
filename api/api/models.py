@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
 
 
 class JobBase(BaseModel):
     id: str
-    youtube_id: str | None = None
+    source_id: str | None = None
+    source_provider: str | None = None
     created_at: str | None = None
-    is_user_supplied: bool | None = None
 
 
 class JobProgress(JobBase):
@@ -54,7 +54,8 @@ class SpotifySearchResponse(BaseModel):
 
 class TopSongItem(BaseModel):
     id: str | None = None
-    youtube_id: str | None = None
+    source_id: str | None = None
+    source_provider: str | None = None
     title: str | None = None
     artist: str | None = None
     play_count: int | None = None
@@ -80,6 +81,8 @@ class PlayCountUpdate(BaseModel):
 class AnalysisStartResponse(BaseModel):
     id: str
     status: Literal["queued", "downloading"]
+    source_id: str | None = None
+    source_provider: str | None = None
     progress: int | None = None
     message: str | None = None
 
@@ -88,12 +91,17 @@ class AnalysisYoutubeRequest(BaseModel):
     youtube_id: str = Field(min_length=1)
     title: str | None = None
     artist: str | None = None
-    is_user_supplied: StrictBool = False
+
+
+class AnalysisUrlRequest(BaseModel):
+    url: str = Field(min_length=1)
+    title: str | None = None
+    artist: str | None = None
 
 
 class AppConfigResponse(BaseModel):
     allow_user_upload: bool
-    allow_user_youtube: bool
+    allow_user_url: bool
     allow_favorites_sync: bool = False
     max_upload_size: int | None = None
     allowed_upload_exts: list[str] | None = None

@@ -34,7 +34,7 @@ Optional:
 - `WORKER_COUNT`
 - `MAX_TRACK_LENGTH`
 - `ALLOW_USER_UPLOAD`
-- `ALLOW_USER_YOUTUBE`
+- `ALLOW_USER_URL`
 - `ALLOW_FAVORITES_SYNC`
 
 For defaults and behavior details, see the canonical Docker env reference in the root README: [`../README.md#docker-production`](../README.md#docker-production).
@@ -52,7 +52,7 @@ export ENGINE_REPO=../engine
 export WORKER_COUNT=1
 # export MAX_TRACK_LENGTH=12
 # export ALLOW_USER_UPLOAD=true
-# export ALLOW_USER_YOUTUBE=true
+# export ALLOW_USER_URL=true
 # export ALLOW_FAVORITES_SYNC=true
 ```
 
@@ -101,10 +101,16 @@ Search YouTube (closest matches by duration):
 curl "/api/search/youtube?q=daft%20punk&target_duration=210"
 ```
 
-Create analysis from YouTube (requires `ALLOW_USER_YOUTUBE=true` for user-supplied jobs):
+Create analysis from YouTube ID:
 
 ```bash
-curl -X POST "/api/analysis/youtube" -H "Content-Type: application/json" -d '{"youtube_id":"dQw4w9WgXcQ","is_user_supplied":true}'
+curl -X POST "/api/analysis/youtube" -H "Content-Type: application/json" -d '{"youtube_id":"dQw4w9WgXcQ"}'
+```
+
+Create analysis from URL (requires `ALLOW_USER_URL=true` for user-supplied jobs; supported domains: YouTube, SoundCloud, Bandcamp):
+
+```bash
+curl -X POST "/api/analysis/url" -H "Content-Type: application/json" -d '{"url":"https://soundcloud.com/artist/track"}'
 ```
 
 Upload audio (requires `ALLOW_USER_UPLOAD=true`, max 20MB, m4a/webm/mp3/wav/flac/ogg/aac; also limited by optional `MAX_TRACK_LENGTH`):
@@ -119,7 +125,7 @@ Get app configuration flags:
 curl "/api/app-config"
 ```
 
-Response fields include `allow_user_upload`, `allow_user_youtube`, `max_upload_size` (bytes, only when uploads enabled), `allowed_upload_exts` (only when uploads enabled), and optional `max_track_length` (minutes).
+Response fields include `allow_user_upload`, `allow_user_url`, `max_upload_size` (bytes, only when uploads enabled), `allowed_upload_exts` (only when uploads enabled), and optional `max_track_length` (minutes).
 
 Fetch audio for a job:
 
@@ -128,10 +134,10 @@ curl "/api/audio/<id>"
 ```
 
 
-Lookup by YouTube ID:
+Lookup by source ID:
 
 ```bash
-curl "/api/jobs/by-youtube/dQw4w9WgXcQ"
+curl "/api/jobs/by-source/soundcloud/12345"
 ```
 
 Increment play count:

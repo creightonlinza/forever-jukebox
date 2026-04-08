@@ -71,7 +71,7 @@ describe("search flows", () => {
     (api.fetchJobByTrack as ReturnType<typeof vi.fn>).mockResolvedValue({
       status: "complete",
       id: "job1",
-      youtube_id: "yt1",
+      source_id: "yt1",
       result: {},
     });
     const result = await tryLoadExistingTrackByName(
@@ -91,7 +91,7 @@ describe("search flows", () => {
     (api.fetchJobByTrack as ReturnType<typeof vi.fn>).mockResolvedValue({
       status: "failed",
       id: "job-f",
-      youtube_id: "yt-f",
+      source_id: "yt-f",
       error: "ERROR: [download] This video is not available.",
     });
     const result = await tryLoadExistingTrackByName(

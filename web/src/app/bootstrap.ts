@@ -23,8 +23,8 @@ import {
   fetchTrendingSongs,
   fetchRecentSongs,
   createFavoritesSync,
+  startUrlAnalysis,
   updateFavoritesSync,
-  startYoutubeAnalysis,
   uploadAudio,
 } from "./api";
 import { deleteCachedTrack, loadAppConfig, saveAppConfig } from "./cache";
@@ -128,6 +128,7 @@ export function bootstrap() {
     autoComputedThreshold: null,
     lastJobId: null,
     lastYouTubeId: null,
+    lastSourceProvider: null,
     pendingAutoFavoriteId: null,
     lastPlayCountedJobId: null,
     shiftBranching: false,
@@ -224,9 +225,10 @@ export function bootstrap() {
     createFavoritesSync,
     updateFavoritesSync,
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
-    loadTrackByYouTubeId: (youtubeId) =>
+    loadTrackByYouTubeId: (youtubeId, sourceProvider) =>
       loadTrackByYouTubeId(context, playbackDeps, youtubeId, {
         preserveUrlTuning: true,
+        sourceProvider,
       }),
     loadTrackByJobId: (jobId) =>
       loadTrackByJobId(context, playbackDeps, jobId, {
@@ -270,8 +272,10 @@ export function bootstrap() {
     fetchTrendingSongs,
     fetchRecentSongs,
     limit: TOP_SONGS_LIMIT,
-    loadTrackByYouTubeId: (youtubeId: string) =>
-      loadTrackByYouTubeId(context, playbackDeps, youtubeId),
+    loadTrackBySourceId: (sourceId: string, sourceProvider?: string) =>
+      loadTrackByYouTubeId(context, playbackDeps, sourceId, { sourceProvider }),
+    loadTrackByJobId: (jobId: string) =>
+      loadTrackByJobId(context, playbackDeps, jobId),
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
   });
   const topSongsTabLoaders = {
@@ -338,7 +342,7 @@ export function bootstrap() {
     runSearch,
     showToast,
     uploadAudio,
-    startYoutubeAnalysis,
+    startUrlAnalysis,
     resetForNewTrack,
     setActiveTabWithRefresh: navigationHandlers.setActiveTabWithRefresh,
     setLoadingProgress,

@@ -3,15 +3,16 @@ import type { TabId } from "../context";
 type TopSongsDeps = {
   elements: Elements;
   fetchTopSongs: (limit: number) => Promise<
-    Array<{ title?: string; artist?: string; youtube_id?: string }>
+    Array<{ id?: string; title?: string; artist?: string; source_id?: string; source_provider?: string }>
   >;
   fetchTrendingSongs: () => Promise<
-    Array<{ title?: string; artist?: string; youtube_id?: string }>
+    Array<{ id?: string; title?: string; artist?: string; source_id?: string; source_provider?: string }>
   >;
   fetchRecentSongs: (limit: number) => Promise<
-    Array<{ title?: string; artist?: string; youtube_id?: string }>
+    Array<{ id?: string; title?: string; artist?: string; source_id?: string; source_provider?: string }>
   >;
-  loadTrackByYouTubeId: (youtubeId: string) => void;
+  loadTrackBySourceId: (sourceId: string, sourceProvider?: string) => void;
+  loadTrackByJobId: (jobId: string) => void;
   navigateToTabWithState: (
     tabId: TabId,
     options?: { replace?: boolean; youtubeId?: string | null },
@@ -27,15 +28,20 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     fetchTopSongs,
     fetchTrendingSongs,
     fetchRecentSongs,
-    loadTrackByYouTubeId,
+    loadTrackBySourceId,
+    loadTrackByJobId,
     navigateToTabWithState,
     limit,
   } = deps;
 
+  function isLikelyJobId(value: string) {
+    return /^[a-f0-9]{32}$/.test(value);
+  }
+
   async function renderSongList(options: {
     listEl: HTMLOListElement;
     fetchItems: () => Promise<
-      Array<{ title?: string; artist?: string; youtube_id?: string }>
+      Array<{ id?: string; title?: string; artist?: string; source_id?: string; source_provider?: string }>
     >;
     loadingText: string;
     emptyText: string;
@@ -53,14 +59,24 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
       for (const item of items.slice(0, limit)) {
         const title = typeof item.title === "string" ? item.title : "Untitled";
         const artist = typeof item.artist === "string" ? item.artist : "";
-        const youtubeId =
-          typeof item.youtube_id === "string" ? item.youtube_id : "";
+        const sourceId =
+          typeof item.source_id === "string" ? item.source_id : "";
+        const jobId = typeof item.id === "string" ? item.id : "";
+        const sourceProvider =
+          typeof item.source_provider === "string" ? item.source_provider : "";
+        const listenId =
+          sourceProvider === "youtube" && sourceId
+            ? sourceId
+            : (jobId || sourceId);
         const li = document.createElement("li");
-        if (youtubeId) {
+        if (listenId) {
           const link = document.createElement("a");
-          link.href = `/listen/${encodeURIComponent(youtubeId)}`;
+          link.href = `/listen/${encodeURIComponent(listenId)}`;
           link.textContent = artist ? `${title} — ${artist}` : title;
-          link.dataset.youtubeId = youtubeId;
+          link.dataset.trackId = listenId;
+          if (sourceProvider) {
+            link.dataset.sourceProvider = sourceProvider;
+          }
           link.addEventListener("click", handleTopSongClick);
           li.appendChild(link);
         } else {
@@ -107,12 +123,17 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
   function handleTopSongClick(event: Event) {
     event.preventDefault();
     const target = event.currentTarget as HTMLAnchorElement | null;
-    const youtubeId = target?.dataset.youtubeId;
-    if (!youtubeId) {
+    const trackId = target?.dataset.trackId;
+    const sourceProvider = target?.dataset.sourceProvider;
+    if (!trackId) {
       return;
     }
-    navigateToTabWithState("play", { youtubeId });
-    loadTrackByYouTubeId(youtubeId);
+    navigateToTabWithState("play", { youtubeId: trackId });
+    if (isLikelyJobId(trackId)) {
+      loadTrackByJobId(trackId);
+      return;
+    }
+    loadTrackBySourceId(trackId, sourceProvider);
   }
 
   return { fetchTopSongsList, fetchTrendingSongsList, fetchRecentSongsList };

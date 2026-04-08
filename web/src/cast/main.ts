@@ -3,7 +3,7 @@ import { BufferedAudioPlayer } from "../audio/BufferedAudioPlayer";
 import { JukeboxEngine } from "../engine";
 import type { JukeboxConfig } from "../engine/types";
 import { JukeboxViz } from "../jukebox/JukeboxViz";
-import { fetchAnalysis, fetchAudio, fetchJobByYoutube, recordPlay } from "../app/api";
+import { fetchAnalysis, fetchAudio, fetchJobBySource, recordPlay } from "../app/api";
 import { formatDuration } from "../app/format";
 import { applyCastTuningToEngine, parseCastTuningParams } from "./tuning";
 
@@ -148,8 +148,23 @@ function getElements(): CastElements {
   };
 }
 
-function isLikelyYoutubeId(value: string) {
-  return /^[a-zA-Z0-9_-]{11}$/.test(value);
+function isLikelyJobId(value: string) {
+  return /^[a-f0-9]{32}$/.test(value);
+}
+
+function parseSourceTrackId(trackId: string): { provider: string; sourceId: string } {
+  const marker = trackId.indexOf(":");
+  if (marker > 0) {
+    const provider = trackId.slice(0, marker).toLowerCase();
+    const sourceId = trackId.slice(marker + 1);
+    if (
+      sourceId &&
+      (provider === "youtube" || provider === "soundcloud" || provider === "bandcamp")
+    ) {
+      return { provider, sourceId };
+    }
+  }
+  return { provider: "youtube", sourceId: trackId };
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -197,7 +212,11 @@ function buildCastTrackDurationUnknownError(): CastErrorInfo {
 function getTrackId(): string | null {
   const parts = window.location.pathname.split("/").filter(Boolean);
   if (parts[0] === "cast" && parts[1]) {
-    return parts[1];
+    try {
+      return decodeURIComponent(parts[1]);
+    } catch {
+      return parts[1];
+    }
   }
   const param = new URLSearchParams(window.location.search).get("id");
   return param || null;
@@ -280,9 +299,10 @@ async function loadAnalysis(
   analysis: Awaited<ReturnType<typeof fetchAnalysis>>;
   jobId: string;
 }> {
-  if (isLikelyYoutubeId(trackId)) {
+  if (!isLikelyJobId(trackId)) {
     setStatus(statusEl, "Loading analysis");
-    const response = await fetchJobByYoutube(trackId);
+    const parsedSource = parseSourceTrackId(trackId);
+    const response = await fetchJobBySource(parsedSource.provider, parsedSource.sourceId);
     if (!response || !response.id) {
       throw new Error("Analysis lookup failed");
     }
