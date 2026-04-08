@@ -405,6 +405,29 @@ function makeLateInsertionPreferenceScenario() {
   return analysis;
 }
 
+function makeUnreachableLateInsertionScenario() {
+  const analysis = normalizeAnalysis(makeLinearAnalysis(30));
+  const beats = analysis.beats;
+  for (const beat of beats) {
+    beat.allNeighbors = [];
+    beat.neighbors = [];
+  }
+  let id = 0;
+  const push = (src: number, dest: number, distance: number) => {
+    beats[src].allNeighbors.push(makeEdge(id, beats[src], beats[dest], distance));
+    id += 1;
+  };
+  // Keep beat 0 non-empty so graph build uses cached neighbors.
+  push(0, 2, 10);
+  // Existing source in the last third but before the preferred late window.
+  push(20, 8, 10);
+  push(8, 2, 10);
+  // Only late-window insertion options are short and cannot reach early target.
+  push(27, 26, 40);
+  push(28, 27, 42);
+  return analysis;
+}
+
 function collectEdgeKeys(analysis: ReturnType<typeof normalizeAnalysis>): string[] {
   const keys: string[] = [];
   for (const beat of analysis.beats) {
@@ -846,5 +869,25 @@ describe("buildJumpGraph", () => {
     const graph = buildJumpGraph(analysis, config);
 
     expect(graph.lastBranchPoint).toBe(90);
+  });
+
+  it("falls back to no anchor when preferred inserted source cannot reach early target", () => {
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.018,
+      minLongBranch: 6,
+    };
+
+    const analysis = makeUnreachableLateInsertionScenario();
+    const graph = buildJumpGraph(analysis, config);
+
+    expect(graph.lastBranchPoint).toBe(-1);
   });
 });
