@@ -151,7 +151,6 @@ describe("api", () => {
       createResponse(202, {
         status: "downloading",
         id: "job-url",
-        source_id: "abc123",
         source_provider: "soundcloud",
       }),
     );
@@ -159,6 +158,10 @@ describe("api", () => {
       url: "https://soundcloud.com/artist/track",
     });
     expect(result?.status).toBe("downloading");
+    if (result?.status === "downloading") {
+      expect(result.source_id).toBeUndefined();
+      expect(result.source_provider).toBe("soundcloud");
+    }
     expect(fetch).toHaveBeenCalledWith(
       "/api/analysis/url",
       expect.objectContaining({ method: "POST" }),

@@ -278,15 +278,18 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       });
       const sourceId = response?.source_id;
       const sourceProvider = response?.source_provider;
-      if (!response || !response.id || !sourceId || !sourceProvider) {
+      if (!response || !response.id || !sourceProvider) {
+        throw new Error("Upload failed");
+      }
+      if (sourceProvider === "youtube" && !sourceId) {
         throw new Error("Upload failed");
       }
       const listenId =
         sourceProvider === "youtube"
-          ? sourceId
+          ? (sourceId as string)
           : response.id;
       resetForNewTrack(context);
-      state.lastYouTubeId = sourceProvider === "youtube" ? sourceId : null;
+      state.lastYouTubeId = sourceProvider === "youtube" ? (sourceId as string) : null;
       state.lastJobId = response.id;
       state.lastSourceProvider = sourceProvider;
       state.pendingAutoFavoriteId = listenId;

@@ -17,6 +17,7 @@ from ..db import (
     delete_job,
     get_job,
     get_job_by_source,
+    get_job_by_source_url,
     get_job_by_track,
     get_recent_tracks,
     get_top_tracks,
@@ -113,7 +114,11 @@ def _create_source_job(
         if existing_by_track and existing_by_track.status != "failed":
             return _job_response(existing_by_track)
 
-    existing = get_job_by_source(DB_PATH, source_provider, source_id)
+    existing = None
+    if source_provider == "youtube" and source_id:
+        existing = get_job_by_source(DB_PATH, source_provider, source_id)
+    elif source_url:
+        existing = get_job_by_source_url(DB_PATH, source_url)
     if existing and should_recycle_job(existing):
         recycle_job(existing)
         existing = None
@@ -151,10 +156,11 @@ def _create_source_job(
         source_url=source_url,
     )
     background_tasks.add_task(download_source_audio, job_id, source_url, source_id, source_provider)
+    response_source_id = source_id if source_provider == "youtube" else None
     response_payload = AnalysisStartResponse(
         id=job_id,
         status="downloading",
-        source_id=source_id,
+        source_id=response_source_id,
         source_provider=source_provider,
         progress=None,
         message=message_for_progress("downloading", None),
