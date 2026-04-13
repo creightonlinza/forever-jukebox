@@ -385,12 +385,7 @@ def delete_job(db_path: Path, job_id: str) -> None:
             ).fetchone()
             remaining_count = int(remaining[0]) if remaining else 0
             if remaining_count <= 0:
-                source_row = conn.execute(
-                    "SELECT play_count FROM sources WHERE id = ?",
-                    (source_ref,),
-                ).fetchone()
-                if source_row and int(source_row[0] or 0) <= 0:
-                    conn.execute("DELETE FROM sources WHERE id = ?", (source_ref,))
+                conn.execute("DELETE FROM sources WHERE id = ?", (source_ref,))
         conn.commit()
 
 
