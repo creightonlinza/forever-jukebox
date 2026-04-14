@@ -112,6 +112,12 @@ def _create_source_job(
             recycle_job(existing_by_track)
             existing_by_track = None
         if existing_by_track and existing_by_track.status != "failed":
+            log_event(
+                "job_reused",
+                job_id=existing_by_track.id,
+                source=existing_by_track.source_provider or "unknown",
+                match="by_track",
+            )
             return _job_response(existing_by_track)
 
     existing = None
@@ -123,6 +129,12 @@ def _create_source_job(
         recycle_job(existing)
         existing = None
     if existing and existing.status != "failed":
+        log_event(
+            "job_reused",
+            job_id=existing.id,
+            source=existing.source_provider or "unknown",
+            match="by_source",
+        )
         return _job_response(existing)
 
     max_track_length_min = env_positive_float("MAX_TRACK_LENGTH")
@@ -224,6 +236,13 @@ def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
     if analysis_missing and not audio_missing:
         set_job_progress(DB_PATH, job.id, 25)
         set_job_status(DB_PATH, job.id, "queued", None)
+        log_event(
+            "auto_repair",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            trigger="analysis_missing",
+            result="queued",
+        )
     elif audio_missing and job.source_id:
         source_url = (
             job.source_url
@@ -231,6 +250,13 @@ def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
             or fallback_source_url_for_source_id(job.source_id)
         )
         if not source_url:
+            log_event(
+                "auto_repair",
+                job_id=job.id,
+                source=job.source_provider or "unknown",
+                trigger="audio_missing",
+                result="skipped_no_source_url",
+            )
             refreshed_job = get_job(DB_PATH, job.id)
             return refreshed_job or job
         set_job_progress(DB_PATH, job.id, 0)
@@ -241,6 +267,21 @@ def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
             source_url,
             job.source_id,
             job.source_provider,
+        )
+        log_event(
+            "auto_repair",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            trigger="audio_missing",
+            result="redownload_started",
+        )
+    elif audio_missing:
+        log_event(
+            "auto_repair",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            trigger="audio_missing",
+            result="skipped_no_source_id",
         )
 
     refreshed_job = get_job(DB_PATH, job.id)
@@ -452,7 +493,6 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
         "job_started",
         job_id=job_id,
         source="upload",
-        upload_ext=ext,
     )
     job = get_job(DB_PATH, job_id)
     if job:
@@ -556,6 +596,12 @@ def get_job_by_track_match(
     if should_recycle_job(job):
         recycle_job(job)
         raise HTTPException(status_code=404, detail="Job not found")
+    log_event(
+        "job_reused",
+        job_id=job.id,
+        source=job.source_provider or "unknown",
+        match="by_track_lookup",
+    )
     return _response_with_auto_repair(job, background_tasks)
 
 
@@ -568,7 +614,8 @@ def delete_job_by_id(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if not _admin_key_matches(admin_key):
+    is_admin_delete = _admin_key_matches(admin_key)
+    if not is_admin_delete:
         created_at = parse_timestamp(job.created_at)
         completion_time = None
         if job.status == "complete" and job.output_path:
@@ -592,4 +639,10 @@ def delete_job_by_id(
 
     delete_job_artifacts(job_id, job)
     delete_job(DB_PATH, job_id)
+    log_event(
+        "job_deleted",
+        job_id=job_id,
+        source=job.source_provider or "unknown",
+        delete_mode="admin" if is_admin_delete else "window",
+    )
     return JSONResponse({"status": "deleted", "id": job_id}, status_code=200)

@@ -212,6 +212,23 @@ def error_code_for(raw: str | None) -> str | None:
     return None
 
 
+def failure_code_for(raw: str | None) -> str:
+    normalized = normalize_job_error(raw)
+    if normalized == ERROR_ENGINE:
+        return "engine_error"
+    if normalized == ERROR_YOUTUBE_UNAVAILABLE:
+        return "youtube_unavailable"
+    if normalized == ERROR_DOWNLOAD_UNAVAILABLE:
+        return "download_unavailable"
+    if normalized == ERROR_YOUTUBE_AGE_RESTRICTED:
+        return "youtube_age_restricted"
+    if normalized == ERROR_YOUTUBE_UNREACHABLE:
+        return "youtube_unreachable"
+    if normalized == ERROR_TRACK_TOO_LONG:
+        return "track_too_long"
+    return "generic_error"
+
+
 def sanitize_title(filename: str | None) -> str:
     if not filename:
         return "Untitled"
@@ -428,6 +445,13 @@ def cleanup_failure(
     if result_path.is_file():
         result_path.unlink()
     set_job_status(DB_PATH, job_id, "failed", message)
+    log_event(
+        "job_failed",
+        job_id=job_id,
+        source=source_provider or "unknown",
+        error_code=failure_code_for(message),
+        stage="download",
+    )
     logger.info("Job %s failed: %s", job_id, message)
 
 
