@@ -72,20 +72,34 @@ describe("routing", () => {
       context,
       deps,
       "abc123def45",
-      { preserveUrlTuning: true },
+      { preserveUrlTuning: true, sourceProvider: "youtube" },
     );
   });
 
   it("loads job id from /listen", async () => {
-    setWindowUrl("http://localhost/listen/job123");
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    setWindowUrl(`http://localhost/listen/${jobId}`);
     const context = createContext();
     const deps = createDeps();
-    await handleRouteChange(context, deps, "/listen/job123");
+    await handleRouteChange(context, deps, `/listen/${jobId}`);
     expect(playbackModule.loadTrackByJobId).toHaveBeenCalledWith(
       context,
       deps,
-      "job123",
+      jobId,
       { preserveUrlTuning: false },
+    );
+  });
+
+  it("loads source id from /listen for non-job identifiers", async () => {
+    setWindowUrl("http://localhost/listen/soundcloud%3A123456");
+    const context = createContext();
+    const deps = createDeps();
+    await handleRouteChange(context, deps, "/listen/soundcloud%3A123456");
+    expect(playbackModule.loadTrackByYouTubeId).toHaveBeenCalledWith(
+      context,
+      deps,
+      "123456",
+      { preserveUrlTuning: false, sourceProvider: "soundcloud" },
     );
   });
 

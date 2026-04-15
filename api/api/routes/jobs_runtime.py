@@ -5,10 +5,13 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from ..db import (
     delete_job,
@@ -38,6 +41,141 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 ALLOWED_UPLOAD_EXTS = {".m4a", ".webm", ".mp3", ".wav", ".flac", ".ogg", ".aac"}
 
 logger = get_logger()
+YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
+SOURCE_HOST_PROVIDER = (
+    ("youtu.be", "youtube"),
+    ("youtube.com", "youtube"),
+    ("soundcloud.com", "soundcloud"),
+    ("bandcamp.com", "bandcamp"),
+)
+
+
+@dataclass(frozen=True)
+class SourceInfo:
+    provider: str
+    source_id: str
+    source_url: str
+    duration_s: float | None
+
+
+def source_url_from_youtube_id(youtube_id: str) -> str:
+    return f"https://www.youtube.com/watch?v={youtube_id}"
+
+
+def source_url_from_source_id(source_provider: str | None, source_id: str | None) -> str | None:
+    if not source_provider or not source_id:
+        return None
+    if source_provider == "youtube":
+        return source_url_from_youtube_id(source_id)
+    return None
+
+
+def fallback_source_url_for_source_id(source_id: str | None) -> str | None:
+    if not source_id:
+        return None
+    if not YOUTUBE_ID_RE.fullmatch(source_id):
+        return None
+    return source_url_from_youtube_id(source_id)
+
+
+def _provider_for_host(host: str | None) -> str | None:
+    if not host:
+        return None
+    lowered = host.lower()
+    for suffix, provider in SOURCE_HOST_PROVIDER:
+        if lowered == suffix or lowered.endswith(f".{suffix}"):
+            return provider
+    return None
+
+
+def normalize_user_source_url(raw: str) -> str | None:
+    value = raw.strip()
+    if not value:
+        return None
+    if YOUTUBE_ID_RE.fullmatch(value):
+        return source_url_from_youtube_id(value)
+    parsed = urlsplit(value)
+    if parsed.scheme.lower() not in {"http", "https"}:
+        return None
+    provider = _provider_for_host(parsed.hostname)
+    if not provider:
+        return None
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, parsed.query, ""))
+
+
+def _coerce_duration(value: object) -> float | None:
+    if not isinstance(value, (int, float)):
+        return None
+    duration_s = float(value)
+    if not math.isfinite(duration_s) or duration_s <= 0:
+        return None
+    return duration_s
+
+
+def _canonical_source_url(info: dict, fallback: str) -> str:
+    for key in ("webpage_url", "original_url"):
+        candidate = info.get(key)
+        if isinstance(candidate, str) and candidate.strip():
+            parsed = urlsplit(candidate)
+            if parsed.scheme.lower() in {"http", "https"}:
+                return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, parsed.query, ""))
+    return fallback
+
+
+def _provider_from_info(info: dict, source_url: str) -> str | None:
+    extractor = str(info.get("extractor_key") or info.get("extractor") or "").lower()
+    for provider in ("youtube", "soundcloud", "bandcamp"):
+        if provider in extractor:
+            return provider
+    return _provider_for_host(urlsplit(source_url).hostname)
+
+
+def _source_id_for_provider(provider: str, raw_id: str) -> str:
+    return raw_id
+
+
+def resolve_source_info(source_url: str) -> SourceInfo:
+    try:
+        from yt_dlp import YoutubeDL
+    except Exception as exc:
+        raise RuntimeError("yt-dlp is not available") from exc
+
+    ydl_opts = {
+        "quiet": True,
+        "skip_download": True,
+        "noplaylist": True,
+        "extract_flat": False,
+    }
+    apply_ejs_config(ydl_opts)
+    with YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(source_url, download=False)
+    if not isinstance(info, dict):
+        raise ValueError("Unsupported URL")
+    entries = info.get("entries")
+    if isinstance(entries, list) and entries:
+        raise ValueError("Playlists and albums are not supported")
+    canonical_url = _canonical_source_url(info, source_url)
+    provider = _provider_from_info(info, canonical_url)
+    if provider is None:
+        raise ValueError("Unsupported URL")
+    raw_id = info.get("id")
+    if not isinstance(raw_id, str) or not raw_id.strip():
+        raise ValueError("Unable to resolve source id")
+    source_id = _source_id_for_provider(provider, raw_id.strip())
+    return SourceInfo(
+        provider=provider,
+        source_id=source_id,
+        source_url=canonical_url,
+        duration_s=_coerce_duration(info.get("duration")),
+    )
+
+
+def probe_source_duration_seconds(source_url: str) -> float | None:
+    try:
+        info = resolve_source_info(source_url)
+    except Exception:
+        return None
+    return info.duration_s
 
 
 def normalize_job_error(raw: str | None) -> str:
@@ -72,6 +210,23 @@ def error_code_for(raw: str | None) -> str | None:
     if raw == ANALYSIS_MISSING_MESSAGE:
         return ERROR_CODE_ANALYSIS_MISSING
     return None
+
+
+def failure_code_for(raw: str | None) -> str:
+    normalized = normalize_job_error(raw)
+    if normalized == ERROR_ENGINE:
+        return "engine_error"
+    if normalized == ERROR_YOUTUBE_UNAVAILABLE:
+        return "youtube_unavailable"
+    if normalized == ERROR_DOWNLOAD_UNAVAILABLE:
+        return "download_unavailable"
+    if normalized == ERROR_YOUTUBE_AGE_RESTRICTED:
+        return "youtube_age_restricted"
+    if normalized == ERROR_YOUTUBE_UNREACHABLE:
+        return "youtube_unreachable"
+    if normalized == ERROR_TRACK_TOO_LONG:
+        return "track_too_long"
+    return "generic_error"
 
 
 def sanitize_title(filename: str | None) -> str:
@@ -165,33 +320,7 @@ def probe_audio_duration_seconds(path: Path) -> float | None:
 
 
 def probe_youtube_duration_seconds(youtube_id: str) -> float | None:
-    try:
-        from yt_dlp import YoutubeDL
-    except Exception:
-        return None
-
-    ydl_opts = {
-        "quiet": True,
-        "skip_download": True,
-        "noplaylist": True,
-        "extract_flat": False,
-    }
-    apply_ejs_config(ydl_opts)
-    url = f"https://www.youtube.com/watch?v={youtube_id}"
-    try:
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-    except Exception:
-        return None
-    if not isinstance(info, dict):
-        return None
-    duration = info.get("duration")
-    if not isinstance(duration, (int, float)):
-        return None
-    duration_s = float(duration)
-    if not math.isfinite(duration_s) or duration_s <= 0:
-        return None
-    return duration_s
+    return probe_source_duration_seconds(source_url_from_youtube_id(youtube_id))
 
 
 def parse_timestamp(value: str | None) -> datetime | None:
@@ -235,8 +364,23 @@ def message_for_progress(status: str, progress: int | None) -> str | None:
     return "Wrapping up"
 
 
-def _notify_youtube_issue(raw: str | None, youtube_id: str | None, job_id: str) -> None:
+def _is_youtube_source_id(source_provider: str | None, source_id: str | None) -> bool:
+    if source_provider != "youtube":
+        return False
+    if not source_id:
+        return False
+    return bool(YOUTUBE_ID_RE.fullmatch(source_id))
+
+
+def _notify_youtube_issue(
+    raw: str | None,
+    source_provider: str | None,
+    source_id: str | None,
+    job_id: str,
+) -> None:
     if not raw:
+        return
+    if not _is_youtube_source_id(source_provider, source_id):
         return
     topic_key = os.environ.get(NTFY_TOPIC_ENV)
     if not topic_key:
@@ -257,7 +401,7 @@ def _notify_youtube_issue(raw: str | None, youtube_id: str | None, job_id: str) 
         issues.append("Sign in to confirm you're not a bot")
     if not issues:
         return
-    video_label = youtube_id or "unknown"
+    video_label = source_id or "unknown"
     log_path = f"/api/logs/{job_id}"
     message = (
         "[Forever Jukebox] Youtube error on "
@@ -286,8 +430,13 @@ def _write_failure_log(job_id: str, message: str) -> None:
     log_path.write_text(f"Job failed: {message}\n", encoding="utf-8")
 
 
-def cleanup_failure(job_id: str, message: str, youtube_id: str | None = None) -> None:
-    _notify_youtube_issue(message, youtube_id, job_id)
+def cleanup_failure(
+    job_id: str,
+    message: str,
+    source_id: str | None = None,
+    source_provider: str | None = None,
+) -> None:
+    _notify_youtube_issue(message, source_provider, source_id, job_id)
     _write_failure_log(job_id, message)
     for candidate in (STORAGE_ROOT / "audio").glob(f"{job_id}.*"):
         if candidate.is_file():
@@ -296,6 +445,13 @@ def cleanup_failure(job_id: str, message: str, youtube_id: str | None = None) ->
     if result_path.is_file():
         result_path.unlink()
     set_job_status(DB_PATH, job_id, "failed", message)
+    log_event(
+        "job_failed",
+        job_id=job_id,
+        source=source_provider or "unknown",
+        error_code=failure_code_for(message),
+        stage="download",
+    )
     logger.info("Job %s failed: %s", job_id, message)
 
 
@@ -317,11 +473,16 @@ def delete_job_artifacts(job_id: str, job) -> None:
             candidate.unlink()
 
 
-def download_youtube_audio(job_id: str, youtube_id: str) -> None:
+def download_source_audio(
+    job_id: str,
+    source_url: str,
+    source_id: str | None = None,
+    source_provider: str | None = None,
+) -> None:
     try:
         from yt_dlp import YoutubeDL
     except Exception:
-        cleanup_failure(job_id, "yt-dlp is not available", youtube_id)
+        cleanup_failure(job_id, "yt-dlp is not available", source_id, source_provider)
         return
 
     audio_dir = STORAGE_ROOT / "audio"
@@ -374,16 +535,15 @@ def download_youtube_audio(job_id: str, youtube_id: str) -> None:
 
         ydl_opts["match_filter"] = match_filter
     apply_ejs_config(ydl_opts)
-    url = f"https://www.youtube.com/watch?v={youtube_id}"
     try:
         with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
+            info = ydl.extract_info(source_url, download=True)
     except Exception as exc:  # pragma: no cover - network call
-        cleanup_failure(job_id, str(exc), youtube_id)
+        cleanup_failure(job_id, str(exc), source_id, source_provider)
         return
 
     job = get_job(DB_PATH, job_id)
-    if job and job.is_user_supplied and (not job.track_title or not job.track_title.strip()):
+    if job and job.source_provider != "upload" and (not job.track_title or not job.track_title.strip()):
         if isinstance(info, dict):
             info_title = info.get("title")
             if isinstance(info_title, str) and info_title.strip():
@@ -407,7 +567,7 @@ def download_youtube_audio(job_id: str, youtube_id: str) -> None:
                 break
 
     if not input_path:
-        cleanup_failure(job_id, "Download failed", youtube_id)
+        cleanup_failure(job_id, "Download failed", source_id, source_provider)
         return
 
     input_path_obj = Path(input_path)
@@ -420,3 +580,7 @@ def download_youtube_audio(job_id: str, youtube_id: str) -> None:
     update_job_input_path(DB_PATH, job_id, str(relative_path))
     set_job_progress(DB_PATH, job_id, 25)
     set_job_status(DB_PATH, job_id, "queued", None)
+
+
+def download_youtube_audio(job_id: str, youtube_id: str) -> None:
+    download_source_audio(job_id, source_url_from_youtube_id(youtube_id), youtube_id, "youtube")

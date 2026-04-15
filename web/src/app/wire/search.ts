@@ -11,10 +11,9 @@ type SearchHandlersDeps = {
   runSearch: (context: AppContext, deps: SearchDeps) => Promise<void>;
   showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
   uploadAudio: (file: File) => Promise<{ id?: string } | null>;
-  startYoutubeAnalysis: (payload: {
-    youtube_id: string;
-    is_user_supplied?: boolean;
-  }) => Promise<{ id?: string } | null>;
+  startUrlAnalysis: (payload: {
+    url: string;
+  }) => Promise<{ id?: string; source_id?: string; source_provider?: string } | null>;
   resetForNewTrack: (context: AppContext) => void;
   setActiveTabWithRefresh: (tabId: TabId) => void;
   setLoadingProgress: (
@@ -42,7 +41,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
     runSearch,
     showToast,
     uploadAudio,
-    startYoutubeAnalysis,
+    startUrlAnalysis,
     resetForNewTrack,
     setActiveTabWithRefresh,
     setLoadingProgress,
@@ -134,10 +133,10 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
     }
   }
 
-  function extractYoutubeId(value: string) {
+  function normalizeSupportedSourceUrl(value: string) {
     const trimmed = value.trim();
     if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
-      return trimmed;
+      return `https://www.youtube.com/watch?v=${trimmed}`;
     }
     let url: URL;
     try {
@@ -145,21 +144,20 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
     } catch {
       return null;
     }
+    if (!["http:", "https:"].includes(url.protocol)) {
+      return null;
+    }
     const host = url.hostname.replace(/^www\./, "");
-    if (host === "youtu.be") {
-      return url.pathname.split("/").filter(Boolean)[0] ?? null;
+    const allowed =
+      host === "youtu.be" ||
+      host.endsWith("youtube.com") ||
+      host.endsWith("soundcloud.com") ||
+      host.endsWith("bandcamp.com");
+    if (!allowed) {
+      return null;
     }
-    if (host.endsWith("youtube.com")) {
-      const idParam = url.searchParams.get("v");
-      if (idParam) {
-        return idParam;
-      }
-      const parts = url.pathname.split("/").filter(Boolean);
-      if (parts[0] === "embed" || parts[0] === "shorts") {
-        return parts[1] ?? null;
-      }
-    }
-    return null;
+    url.hash = "";
+    return url.toString();
   }
 
   async function handleUploadFileClick() {
@@ -213,6 +211,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       state.lastJobId = response.id;
       state.pendingAutoFavoriteId = response.id;
       state.lastYouTubeId = null;
+      state.lastSourceProvider = "upload";
       state.audioLoaded = false;
       state.analysisLoaded = false;
       updateTrackUrl(response.id, true, state.tuningParams, state.playMode);
@@ -224,11 +223,12 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       const trackTooLong =
         (err as Error & { code?: string }).code === "track_too_long";
       if (trackTooLong) {
+        const maxTrackLength = config?.max_track_length;
         const fallbackLimit =
-          typeof config.max_track_length === "number" &&
-            Number.isFinite(config.max_track_length) &&
-            config.max_track_length > 0
-            ? config.max_track_length
+          typeof maxTrackLength === "number" &&
+            Number.isFinite(maxTrackLength) &&
+            maxTrackLength > 0
+            ? maxTrackLength
             : null;
         showToast(
           context,
@@ -255,36 +255,46 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       return;
     }
     const config = state.appConfig;
-    if (!config?.allow_user_youtube) {
-      showToast(context, "YouTube uploads are disabled.");
+    const allowUserUrl = Boolean(config?.allow_user_url);
+    if (!allowUserUrl) {
+      showToast(context, "URL uploads are disabled.");
       return;
     }
     const raw = elements.uploadYoutubeInput.value.trim();
     if (!raw) {
-      showToast(context, "Enter a YouTube URL.");
+      showToast(context, "Enter a supported URL.");
       return;
     }
-    const youtubeId = extractYoutubeId(raw);
-    if (!youtubeId) {
-      showToast(context, "Invalid YouTube URL.");
+    const sourceUrl = normalizeSupportedSourceUrl(raw);
+    if (!sourceUrl) {
+      showToast(context, "Invalid or unsupported URL.");
       return;
     }
     uploadYoutubeInFlight = true;
     setButtonBusySpinnerOnly(elements.uploadYoutubeButton, true);
     try {
-      const response = await startYoutubeAnalysis({
-        youtube_id: youtubeId,
-        is_user_supplied: true,
+      const response = await startUrlAnalysis({
+        url: sourceUrl,
       });
-      if (!response || !response.id) {
+      const sourceId = response?.source_id;
+      const sourceProvider = response?.source_provider;
+      if (!response || !response.id || !sourceProvider) {
         throw new Error("Upload failed");
       }
+      if (sourceProvider === "youtube" && !sourceId) {
+        throw new Error("Upload failed");
+      }
+      const listenId =
+        sourceProvider === "youtube"
+          ? (sourceId as string)
+          : response.id;
       resetForNewTrack(context);
-      state.lastYouTubeId = youtubeId;
+      state.lastYouTubeId = sourceProvider === "youtube" ? (sourceId as string) : null;
       state.lastJobId = response.id;
-      state.pendingAutoFavoriteId = youtubeId;
+      state.lastSourceProvider = sourceProvider;
+      state.pendingAutoFavoriteId = listenId;
       elements.uploadYoutubeInput.value = "";
-      updateTrackUrl(youtubeId, true, state.tuningParams, state.playMode);
+      updateTrackUrl(listenId, true, state.tuningParams, state.playMode);
       setActiveTabWithRefresh("play");
       setLoadingProgress(context, null, "Fetching audio");
       await pollAnalysisJob(response.id);
@@ -292,11 +302,12 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       const trackTooLong =
         (err as Error & { code?: string }).code === "track_too_long";
       if (trackTooLong) {
+        const maxTrackLength = config?.max_track_length;
         const fallbackLimit =
-          typeof config.max_track_length === "number" &&
-            Number.isFinite(config.max_track_length) &&
-            config.max_track_length > 0
-            ? config.max_track_length
+          typeof maxTrackLength === "number" &&
+            Number.isFinite(maxTrackLength) &&
+            maxTrackLength > 0
+            ? maxTrackLength
             : null;
         showToast(
           context,

@@ -7,7 +7,7 @@ import { formatDuration } from "./format";
 import {
   fetchAnalysis,
   fetchAudio,
-  fetchJobByYoutube,
+  fetchJobBySource,
   recordPlay,
   type AnalysisComplete,
   type AnalysisResponse,
@@ -575,6 +575,7 @@ export function resetForNewTrack(
   state.audioLoadInFlight = false;
   state.lastJobId = null;
   state.lastYouTubeId = null;
+  state.lastSourceProvider = null;
   state.lastPlayCountedJobId = null;
   updateVizVisibility(context);
   state.playTimerMs = 0;
@@ -799,6 +800,20 @@ async function continueTrackLoadWithResponse(
   }
   maybeUpdateDeleteEligibility(context, response, response.id);
   context.state.lastJobId = response.id;
+  if (typeof response.source_provider === "string") {
+    context.state.lastSourceProvider = response.source_provider;
+  }
+  if (
+    response.source_provider === "youtube" &&
+    typeof response.source_id === "string" &&
+    response.source_id
+  ) {
+    context.state.lastYouTubeId = response.source_id;
+    deps.onTrackChange?.(response.source_id);
+  } else if (response.source_provider && response.source_provider !== "youtube") {
+    context.state.lastYouTubeId = null;
+    deps.onTrackChange?.(null);
+  }
   if (isAnalysisInProgress(response)) {
     await pollAnalysis(context, deps, response.id);
     return;
@@ -821,26 +836,39 @@ async function continueTrackLoadWithResponse(
 async function loadTrack(
   context: AppContext,
   deps: PlaybackDeps,
-  source: { type: "youtube"; id: string } | { type: "job"; id: string },
+  source:
+    | { type: "source"; id: string; provider: string }
+    | { type: "job"; id: string },
   options?: { preserveUrlTuning?: boolean },
 ) {
   const shouldClear = !options?.preserveUrlTuning;
   resetForNewTrack(context, { clearTuning: shouldClear });
   deps.setActiveTab("play");
   deps.setLoadingProgress(null, "Fetching audio");
-  if (source.type === "youtube") {
-    context.state.lastYouTubeId = source.id;
-    deps.onTrackChange?.(source.id);
+  if (source.type === "source") {
+    context.state.lastSourceProvider = source.provider;
+    if (source.provider === "youtube") {
+      context.state.lastYouTubeId = source.id;
+      deps.onTrackChange?.(source.id);
+    } else {
+      context.state.lastYouTubeId = null;
+      deps.onTrackChange?.(null);
+    }
   } else {
     context.state.lastJobId = source.id;
     context.state.lastYouTubeId = null;
+    context.state.lastSourceProvider = "upload";
     deps.onTrackChange?.(null);
   }
-  await tryLoadCachedAudio(context, source.id);
+  const cacheKey =
+    source.type === "source" && source.provider !== "youtube"
+      ? `${source.provider}:${source.id}`
+      : source.id;
+  await tryLoadCachedAudio(context, cacheKey);
   try {
     const response =
-      source.type === "youtube"
-        ? await fetchJobByYoutube(source.id)
+      source.type === "source"
+        ? await fetchJobBySource(source.provider, source.id)
         : await fetchAnalysis(source.id);
     await continueTrackLoadWithResponse(context, deps, response);
   } catch (err) {
@@ -852,9 +880,10 @@ export async function loadTrackByYouTubeId(
   context: AppContext,
   deps: PlaybackDeps,
   youtubeId: string,
-  options?: { preserveUrlTuning?: boolean },
+  options?: { preserveUrlTuning?: boolean; sourceProvider?: string },
 ) {
-  await loadTrack(context, deps, { type: "youtube", id: youtubeId }, options);
+  const provider = options?.sourceProvider ?? "youtube";
+  await loadTrack(context, deps, { type: "source", id: youtubeId, provider }, options);
 }
 
 export async function loadTrackByJobId(

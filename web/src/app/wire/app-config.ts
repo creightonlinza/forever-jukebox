@@ -19,11 +19,11 @@ export function createAppConfigHandlers(deps: AppConfigDeps) {
   function applyAppConfig(config: AppConfig) {
     state.appConfig = config;
     const allowUpload = Boolean(config.allow_user_upload);
-    const allowYoutube = Boolean(config.allow_user_youtube);
-    const showUpload = allowUpload || allowYoutube;
+    const allowUrl = Boolean(config.allow_user_url);
+    const showUpload = allowUpload || allowUrl;
     elements.searchSubtabs.classList.toggle("hidden", !showUpload);
     elements.uploadFileSection.classList.toggle("hidden", !allowUpload);
-    elements.uploadYoutubeSection.classList.toggle("hidden", !allowYoutube);
+    elements.uploadYoutubeSection.classList.toggle("hidden", !allowUrl);
     if (allowUpload) {
       const extList = (config.allowed_upload_exts || []).join(", ");
       const maxSize = config.max_upload_size

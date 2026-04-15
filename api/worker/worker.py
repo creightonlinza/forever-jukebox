@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 import multiprocessing
+from datetime import datetime, timezone
 from pathlib import Path
 
 from api.db import (
@@ -17,6 +18,7 @@ from api.db import (
     set_job_progress,
     set_job_status,
 )
+from api.routes.jobs_runtime import failure_code_for, log_event
 from api.utils import abs_storage_path, get_logger
 
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -135,6 +137,39 @@ def apply_track_metadata(output_path: str, title: str | None, artist: str | None
     result_path.write_text(json.dumps(data), encoding="utf-8")
 
 
+def _parse_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _extract_track_duration_seconds(output_path: str) -> float | None:
+    result_path = abs_storage_path(STORAGE_ROOT, output_path)
+    if not result_path.exists():
+        return None
+    try:
+        data = json.loads(result_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    track = data.get("track")
+    if not isinstance(track, dict):
+        return None
+    value = track.get("duration")
+    if isinstance(value, (int, float)):
+        duration_s = float(value)
+        if duration_s > 0:
+            return duration_s
+    return None
+
+
 def cleanup_failed_job(job, error: Exception) -> None:
     log_dir = STORAGE_ROOT / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -157,6 +192,13 @@ def cleanup_failed_job(job, error: Exception) -> None:
         if output_path.is_file():
             output_path.unlink()
     set_job_status(DB_PATH, job.id, "failed", str(error))
+    log_event(
+        "job_failed",
+        job_id=job.id,
+        source=job.source_provider or "unknown",
+        error_code=failure_code_for(str(error)),
+        stage="analysis",
+    )
     logger.info("Job %s failed: %s (log: %s)", job.id, error, log_path)
 
 
@@ -180,6 +222,20 @@ def run_worker_loop() -> None:
             cleanup_failed_job(job, exc)
             continue
         set_job_status(DB_PATH, job.id, "complete", None)
+        created_at = _parse_timestamp(job.created_at)
+        elapsed_ms: int | None = None
+        if created_at is not None:
+            elapsed_ms = max(
+                0,
+                int((datetime.now(timezone.utc) - created_at).total_seconds() * 1000),
+            )
+        log_event(
+            "job_completed",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            duration_s=_extract_track_duration_seconds(job.output_path),
+            elapsed_ms=elapsed_ms,
+        )
 
 def main() -> None:
     init_db(DB_PATH)

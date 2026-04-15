@@ -31,7 +31,10 @@ type FavoritesDeps = {
     tabId: TabId,
     options?: { replace?: boolean; youtubeId?: string | null },
   ) => void;
-  loadTrackByYouTubeId: (youtubeId: string) => void;
+  loadTrackByYouTubeId: (
+    youtubeId: string,
+    sourceProvider?: FavoriteTrack["sourceType"],
+  ) => void;
   loadTrackByJobId: (jobId: string) => void;
   writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
   syncTuningParamsState: (context: AppContext) => string | null;
@@ -340,7 +343,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
           ? item.duration
           : null;
       const sourceType =
-        item.sourceType === "upload" ? "upload" : ("youtube" as const);
+        item.sourceType === "upload" ||
+          item.sourceType === "youtube" ||
+          item.sourceType === "soundcloud" ||
+          item.sourceType === "bandcamp"
+          ? item.sourceType
+          : inferSourceTypeFromId(item.uniqueSongId);
       const tuningParams =
         typeof item.tuningParams === "string" && item.tuningParams.trim()
           ? item.tuningParams.trim()
@@ -509,8 +517,34 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return state.lastYouTubeId ?? state.lastJobId;
   }
 
+  function inferSourceTypeFromId(sourceId: string): FavoriteTrack["sourceType"] {
+    if (sourceId.startsWith("soundcloud:")) {
+      return "soundcloud";
+    }
+    if (sourceId.startsWith("bandcamp:")) {
+      return "bandcamp";
+    }
+    return "youtube";
+  }
+
+  function isLikelyJobId(value: string): boolean {
+    return /^[a-f0-9]{32}$/.test(value);
+  }
+
   function getCurrentFavoriteSourceType(): FavoriteTrack["sourceType"] {
-    return state.lastYouTubeId ? "youtube" : "upload";
+    const sourceProvider = state.lastSourceProvider;
+    if (
+      sourceProvider === "upload" ||
+      sourceProvider === "youtube" ||
+      sourceProvider === "soundcloud" ||
+      sourceProvider === "bandcamp"
+    ) {
+      return sourceProvider;
+    }
+    if (!state.lastYouTubeId) {
+      return "upload";
+    }
+    return inferSourceTypeFromId(state.lastYouTubeId);
   }
 
   function getFavoriteTuningParams() {
@@ -530,7 +564,9 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       const li = document.createElement("li");
       const row = document.createElement("div");
       row.className = "favorite-row";
-      const sourceType = item.sourceType ?? "youtube";
+      const sourceType =
+        item.sourceType ??
+        (item.uniqueSongId ? inferSourceTypeFromId(item.uniqueSongId) : "youtube");
       const link = document.createElement("a");
       link.href = `/listen/${encodeURIComponent(item.uniqueSongId)}`;
       const titleText = item.title || "Untitled";
@@ -578,10 +614,15 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
-    if (!response.is_user_supplied) {
-      return;
-    }
-    const favoriteId = response.youtube_id ?? response.id;
+    const provider =
+      response.source_provider === "upload" ||
+      response.source_provider === "youtube" ||
+      response.source_provider === "soundcloud" ||
+      response.source_provider === "bandcamp"
+        ? response.source_provider
+        : null;
+    const favoriteId =
+      provider === "youtube" && response.source_id ? response.source_id : response.id;
     if (!favoriteId || state.pendingAutoFavoriteId !== favoriteId) {
       return;
     }
@@ -591,12 +632,16 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
     const title = state.trackTitle || "Untitled";
     const artist = state.trackArtist || "";
+    const inferredSourceType = response.source_id
+      ? inferSourceTypeFromId(response.source_id)
+      : "upload";
     const track: FavoriteTrack = {
       uniqueSongId: favoriteId,
       title,
       artist,
       duration: state.trackDurationSec,
-      sourceType: response.youtube_id ? "youtube" : "upload",
+      sourceType:
+        provider ?? inferredSourceType,
       tuningParams: getFavoriteTuningParams(),
     };
     const result = addFavorite(state.favorites, track);
@@ -624,13 +669,20 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (state.playMode === "jukebox") {
       writeTuningParamsToUrl(state.tuningParams, true);
     }
-    const sourceType = target?.dataset.sourceType ?? "youtube";
+    const sourceTypeRaw = target?.dataset.sourceType ?? "youtube";
+    const sourceType: FavoriteTrack["sourceType"] =
+      sourceTypeRaw === "upload" ||
+      sourceTypeRaw === "youtube" ||
+      sourceTypeRaw === "soundcloud" ||
+      sourceTypeRaw === "bandcamp"
+        ? sourceTypeRaw
+        : "youtube";
     navigateToTabWithState("play", { youtubeId: favoriteId });
-    if (sourceType === "upload") {
+    if (sourceType === "upload" || isLikelyJobId(favoriteId)) {
       loadTrackByJobId(favoriteId);
       return;
     }
-    loadTrackByYouTubeId(favoriteId);
+    loadTrackByYouTubeId(favoriteId, sourceType);
   }
 
   function handleFavoriteRemove(event: Event) {

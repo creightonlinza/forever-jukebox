@@ -3,7 +3,7 @@ export type FavoriteTrack = {
   title: string;
   artist: string;
   duration: number | null;
-  sourceType: "youtube" | "upload";
+  sourceType: "youtube" | "soundcloud" | "bandcamp" | "upload";
   tuningParams?: string | null;
 };
 

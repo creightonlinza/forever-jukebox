@@ -15,11 +15,12 @@ router = APIRouter()
 @router.get("/api/app-config")
 def get_app_config() -> JSONResponse:
     allow_user_upload = env_flag("ALLOW_USER_UPLOAD")
+    allow_user_url = env_flag("ALLOW_USER_URL")
     max_upload_size = MAX_UPLOAD_BYTES if allow_user_upload else None
     allowed_upload_exts = sorted(ALLOWED_UPLOAD_EXTS) if allow_user_upload else None
     payload = AppConfigResponse(
         allow_user_upload=allow_user_upload,
-        allow_user_youtube=env_flag("ALLOW_USER_YOUTUBE"),
+        allow_user_url=allow_user_url,
         allow_favorites_sync=env_flag("ALLOW_FAVORITES_SYNC"),
         max_upload_size=max_upload_size,
         allowed_upload_exts=allowed_upload_exts,

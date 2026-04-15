@@ -54,7 +54,7 @@ Optional:
 - `WORKER_COUNT`: optional; defaults to `1` and controls worker concurrency.
 - `MAX_TRACK_LENGTH`: optional; when set to a positive number (minutes), rejects jobs over that duration.
 - `ALLOW_USER_UPLOAD`: optional; defaults to `false`. Set `true` to enable `/api/upload`.
-- `ALLOW_USER_YOUTUBE`: optional; defaults to `false`. Set `true` to allow user-supplied YouTube jobs.
+- `ALLOW_USER_URL`: optional; defaults to `false`. Set `true` to allow user-supplied URL jobs (YouTube, SoundCloud, Bandcamp).
 - `ALLOW_FAVORITES_SYNC`: optional; defaults to `false`. Set `true` to enable favorites sync endpoints.
 - `PORT`: optional; defaults to `8000`.
 
@@ -69,7 +69,7 @@ NTFY_TOPIC_KEY=
 WORKER_COUNT=1
 MAX_TRACK_LENGTH=12
 ALLOW_USER_UPLOAD=false
-ALLOW_USER_YOUTUBE=false
+ALLOW_USER_URL=false
 ALLOW_FAVORITES_SYNC=false
 PORT=8000
 ```

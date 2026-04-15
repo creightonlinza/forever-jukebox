@@ -14,7 +14,7 @@ import {
   TrackAnalysis,
 } from "./types";
 
-const DEFAULT_CONFIG: JukeboxConfig = {
+export const DEFAULT_JUKEBOX_CONFIG: JukeboxConfig = {
   maxBranches: 4,
   maxBranchThreshold: 80,
   currentThreshold: 0,
@@ -72,7 +72,7 @@ export class JukeboxEngine {
 
   constructor(player: JukeboxPlayer, options: JukeboxEngineOptions = {}) {
     this.player = player;
-    this.config = { ...DEFAULT_CONFIG, ...options.config };
+    this.config = { ...DEFAULT_JUKEBOX_CONFIG, ...options.config };
     this.rng = createRng(options.randomMode ?? "random", options.seed);
     this.branchState.curRandomBranchChance = this.config.minRandomBranchChance;
   }
