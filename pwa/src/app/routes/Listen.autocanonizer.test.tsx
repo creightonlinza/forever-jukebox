@@ -16,8 +16,13 @@ type MockAutocanonizerInstance = {
 const autocanonizerInstances: MockAutocanonizerInstance[] = [];
 type MockPlayerInstance = {
   emitEnded: () => void;
+  getAudioMode: () => string;
 };
 const playerInstances: MockPlayerInstance[] = [];
+type MockJukeboxControllerInstance = {
+  emitEdgeSelect: (edge: unknown) => void;
+};
+const jukeboxControllerInstances: MockJukeboxControllerInstance[] = [];
 
 const mockAnalysis = {
   sections: [{ start: 0, duration: 4, confidence: 1 }],
@@ -80,6 +85,7 @@ vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
   BufferedAudioPlayer: class BufferedAudioPlayer {
     private volume = 0.5;
     private onEnded: (() => void) | null = null;
+    private audioMode = "off";
     constructor() {
       playerInstances.push(this);
     }
@@ -104,8 +110,20 @@ vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
     getVolume() {
       return this.volume;
     }
+    setJukeboxAudioMode(mode: string) {
+      this.audioMode = mode;
+    }
+    getJukeboxAudioMode() {
+      return this.audioMode;
+    }
+    getPlaybackRate() {
+      return 1;
+    }
     emitEnded() {
       this.onEnded?.();
+    }
+    getAudioMode() {
+      return this.audioMode;
     }
     async dispose() {}
   },
@@ -168,7 +186,10 @@ vi.mock("@/shared/jukebox/engine", () => ({
 
 vi.mock("@/shared/jukebox/viz/JukeboxController", () => ({
   JukeboxController: class JukeboxController {
-    constructor(_layer: HTMLElement) {}
+    private onEdgeSelect: ((edge: unknown) => void) | null = null;
+    constructor(_layer: HTMLElement) {
+      jukeboxControllerInstances.push(this);
+    }
     setActiveIndex(_index: number) {}
     setVisible(_visible: boolean) {}
     setAnchorHighlightEnabled(_enabled: boolean) {}
@@ -176,13 +197,18 @@ vi.mock("@/shared/jukebox/viz/JukeboxController", () => ({
     reset() {}
     setData(_data: unknown) {}
     setOnSelect(_handler: (index: number) => void) {}
-    setOnEdgeSelect(_handler: (edge: unknown) => void) {}
+    setOnEdgeSelect(handler: (edge: unknown) => void) {
+      this.onEdgeSelect = handler;
+    }
     setSelectedEdge(_edge: unknown) {}
     setSelectedEdgeActive(_edge: unknown) {}
     update(_index: number, _animate: boolean, _jumpFrom: number | null) {}
     destroy() {}
     getCount() {
       return 2;
+    }
+    emitEdgeSelect(edge: unknown) {
+      this.onEdgeSelect?.(edge);
     }
   },
 }));
@@ -239,6 +265,7 @@ class MockResizeObserver {
 
 type RenderedListen = {
   container: HTMLDivElement;
+  rerender: () => void;
   unmount: () => void;
 };
 
@@ -257,6 +284,17 @@ function renderListen(): RenderedListen {
   });
   return {
     container,
+    rerender: () => {
+      act(() => {
+        root.render(
+          <MemoryRouter
+            future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+          >
+            <Listen />
+          </MemoryRouter>
+        );
+      });
+    },
     unmount: () => {
       act(() => {
         root.unmount();
@@ -295,16 +333,28 @@ function getRequired<T extends Element>(container: ParentNode, selector: string)
   return node as T;
 }
 
+async function openTuningModal(container: ParentNode) {
+  const tuningButton = getRequired<HTMLButtonElement>(container, "#tuning");
+  await click(tuningButton);
+}
+
+async function switchToExtrasTab(container: ParentNode) {
+  const tabToggle = getRequired<HTMLButtonElement>(container, "#tuning-tab-toggle");
+  await click(tabToggle);
+}
+
 describe("Listen autocanonizer behavior", () => {
   beforeEach(() => {
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
     autocanonizerInstances.length = 0;
     playerInstances.length = 0;
+    jukeboxControllerInstances.length = 0;
     mockAppState.file = new File([new Uint8Array([1, 2, 3])], "song.wav", {
       lastModified: 1234,
     });
     mockAppState.setIsListenLoading.mockReset();
+    window.history.replaceState({}, "", "/");
     window.localStorage.clear();
     vi.spyOn(window, "setInterval").mockImplementation(
       ((() =>
@@ -452,6 +502,206 @@ describe("Listen autocanonizer behavior", () => {
       "Match Current Playback Exactly"
     );
 
+    rendered.unmount();
+  });
+
+  it("applies extras settings and updates title/url", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    const titleText = getRequired<HTMLSpanElement>(
+      rendered.container,
+      "#tuning-title-text"
+    );
+    expect(titleText.textContent).toBe("Tuning");
+
+    await switchToExtrasTab(rendered.container);
+    expect(titleText.textContent).toBe("Extras");
+    const betaTag = getRequired<HTMLSpanElement>(rendered.container, "#tuning-beta-tag");
+    expect(betaTag.classList.contains("hidden")).toBe(false);
+
+    const branchStatsInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#extras-enabled"
+    );
+    await click(branchStatsInput);
+    const daycoreInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-daycore"
+    );
+    await click(daycoreInput);
+
+    const footerButtons = Array.from(
+      rendered.container.querySelectorAll<HTMLButtonElement>(".tuning-footer .tab-btn")
+    );
+    await click(footerButtons[1] as HTMLButtonElement);
+
+    expect(window.localStorage.getItem("fj-branch-stats-enabled")).toBe("1");
+    const playTitle = getRequired<HTMLDivElement>(rendered.container, ".play-title");
+    expect(playTitle.textContent).toContain("(daycore)");
+    expect(window.location.search).toContain("am=daycore");
+    rendered.unmount();
+  });
+
+  it("hides visible branch stats popup when branch stats is disabled", async () => {
+    window.localStorage.setItem("fj-branch-stats-enabled", "1");
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    if (!controller) {
+      throw new Error("Expected jukebox controller instance");
+    }
+    await act(async () => {
+      controller.emitEdgeSelect({
+        id: 7,
+        src: { start: 10, which: 10 },
+        dest: { start: 20, which: 20 },
+        distance: 10,
+      });
+    });
+    expect(rendered.container.querySelector(".extras-popup")).not.toBeNull();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    const branchStatsInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#extras-enabled"
+    );
+    expect(branchStatsInput.checked).toBe(true);
+    await click(branchStatsInput);
+    const applyButton = getRequired<HTMLButtonElement>(
+      rendered.container,
+      ".tuning-footer .tab-btn:last-child"
+    );
+    await click(applyButton);
+
+    expect(rendered.container.querySelector(".extras-popup")).toBeNull();
+    rendered.unmount();
+  });
+
+  it("resets audio mode when switching to a different track", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    const daycoreInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-daycore"
+    );
+    await click(daycoreInput);
+    const applyButton = getRequired<HTMLButtonElement>(
+      rendered.container,
+      ".tuning-footer .tab-btn:last-child"
+    );
+    await click(applyButton);
+
+    const playTitle = getRequired<HTMLDivElement>(rendered.container, ".play-title");
+    expect(playTitle.textContent).toContain("(daycore)");
+    expect(window.location.search).toContain("am=daycore");
+
+    mockAppState.file = new File([new Uint8Array([9, 9, 9])], "song-two.wav", {
+      lastModified: 9999,
+    });
+    rendered.rerender();
+    await settleEffects();
+
+    const player = playerInstances[0];
+    if (!player) {
+      throw new Error("Expected buffered player instance");
+    }
+    expect(player.getAudioMode()).toBe("off");
+    expect(window.location.search).not.toContain("am=daycore");
+    rendered.unmount();
+  });
+
+  it("keeps tuning changes unapplied when applying extras tab only", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    const thresholdInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      '#tuning-panel-tuning input[type="range"]'
+    );
+    await act(async () => {
+      thresholdInput.value = "55";
+      thresholdInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await switchToExtrasTab(rendered.container);
+    const nightcoreInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-nightcore"
+    );
+    await click(nightcoreInput);
+    const applyButton = getRequired<HTMLButtonElement>(
+      rendered.container,
+      ".tuning-footer .tab-btn:last-child"
+    );
+    await click(applyButton);
+
+    await openTuningModal(rendered.container);
+    const thresholdValue = getRequired<HTMLSpanElement>(
+      rendered.container,
+      "#tuning-panel-tuning .label-line span"
+    );
+    expect(thresholdValue.textContent).toBe("20");
+    rendered.unmount();
+  });
+
+  it("loads audio mode from url params into title and extras radios", async () => {
+    window.history.replaceState({}, "", "/?am=vaporwave");
+    const rendered = renderListen();
+    await settleEffects();
+
+    const playTitle = getRequired<HTMLDivElement>(rendered.container, ".play-title");
+    expect(playTitle.textContent).toContain("(vaporwave)");
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    const vaporwaveInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-vaporwave"
+    );
+    expect(vaporwaveInput.checked).toBe(true);
+    rendered.unmount();
+  });
+
+  it("maps audio mode hover text correctly", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+
+    const offInput = getRequired<HTMLInputElement>(rendered.container, "#audio-mode-off");
+    const nightcoreInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-nightcore"
+    );
+    const daycoreInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-daycore"
+    );
+    const vaporwaveInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-vaporwave"
+    );
+    const eightDInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-eight-d"
+    );
+    const lofiInput = getRequired<HTMLInputElement>(rendered.container, "#audio-mode-lofi");
+
+    expect(offInput.title).toBe("");
+    expect(nightcoreInput.title).toBe("Fast & Bright");
+    expect(daycoreInput.title).toBe("Slow & Deep");
+    expect(vaporwaveInput.title).toBe("Muffled & Slow");
+    expect(eightDInput.title).toBe("Spinning/Spatial");
+    expect(lofiInput.title).toBe("Radio Filter");
     rendered.unmount();
   });
 });

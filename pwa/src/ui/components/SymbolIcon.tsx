@@ -9,7 +9,8 @@ type SymbolName =
   | "volume_up"
   | "fullscreen"
   | "fullscreen_exit"
-  | "close";
+  | "close"
+  | "science";
 
 type SymbolIconProps = {
   name: SymbolName;
@@ -90,6 +91,13 @@ export function SymbolIcon({ name, className }: SymbolIconProps) {
         <>
           <path d="M6 6l12 12" />
           <path d="M18 6L6 18" />
+        </>
+      ) : null}
+      {name === "science" ? (
+        <>
+          <path d="M10 4h4" />
+          <path d="M11 4v5l-5.5 9.5A2 2 0 0 0 7.2 22h9.6a2 2 0 0 0 1.7-3.5L13 9V4" />
+          <path d="M9 14h6" />
         </>
       ) : null}
     </svg>

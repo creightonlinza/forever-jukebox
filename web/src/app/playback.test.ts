@@ -8,6 +8,7 @@ import {
   resetExtrasDefaults,
   applyTuningChanges,
   loadAudioFromJob,
+  resetForNewTrack,
   setActiveTuningTab,
   startJukeboxFromBeat,
   stopPlayback,
@@ -158,6 +159,9 @@ function createElements() {
     playStatusPanel: { classList: createClassList() },
     playMenu: { classList: createClassList() },
     vizPanel: { classList: createClassList() },
+    analysisStatus: createSpan(),
+    analysisSpinner: { classList: createClassList() },
+    analysisProgress: createSpan(),
     beatsPlayedEl: createSpan(),
     playButton: createPlayButton(),
     bringHomeLabel: { classList: createClassList() },
@@ -212,6 +216,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     play: vi.fn(),
     stopJukebox: vi.fn(),
     resetStats: vi.fn(),
+    clearDeletedEdges: vi.fn(),
     seekToBeat: vi.fn(),
     setForceBranch: vi.fn(),
     setBringItHomeMode: vi.fn(),
@@ -398,6 +403,17 @@ describe("playback tuning", () => {
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
   });
 
+  it("hides branch stats popup when extras branch stats is disabled", () => {
+    const context = createContext();
+    context.state.playMode = "jukebox";
+    context.state.branchStatsEnabled = true;
+    context.elements.extrasEnabledInput.checked = false;
+
+    applyExtrasChanges(context);
+
+    expect(context.elements.extrasPopup.classList.add).toHaveBeenCalledWith("hidden");
+  });
+
   it("resets extras options to defaults", () => {
     const context = createContext();
     context.state.playMode = "jukebox";
@@ -410,6 +426,20 @@ describe("playback tuning", () => {
     expect(context.state.branchStatsEnabled).toBe(false);
     expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("0");
     expect(context.state.jukeboxAudioMode).toBe("off");
+    expect(context.elements.extrasPopup.classList.add).toHaveBeenCalledWith("hidden");
+  });
+
+  it("resets audio mode on track change", () => {
+    setWindowUrl("http://localhost/listen/abc?am=daycore");
+    const context = createContext();
+    context.state.analysisLoaded = true;
+    context.state.jukeboxAudioMode = "daycore";
+
+    resetForNewTrack(context);
+
+    expect(context.state.jukeboxAudioMode).toBe("off");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("off");
+    expect(window.location.search).not.toContain("am=daycore");
   });
 
   it("applies deleted edges from url when analysis loads", () => {

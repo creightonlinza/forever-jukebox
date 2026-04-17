@@ -316,6 +316,9 @@ export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
   const previousAudioMode = state.jukeboxAudioMode;
   state.branchStatsEnabled =
     state.playMode === "jukebox" && elements.extrasEnabledInput.checked;
+  if (!state.branchStatsEnabled) {
+    elements.extrasPopup.classList.add("hidden");
+  }
   storeBranchStatsEnabled(state.branchStatsEnabled);
   const nextAudioMode = getSelectedAudioMode(context);
   state.jukeboxAudioMode = nextAudioMode;
@@ -337,10 +340,11 @@ export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
 }
 
 export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
-  const { engine, player, state } = context;
+  const { elements, engine, player, state } = context;
   const previousBranchStatsEnabled = state.branchStatsEnabled;
   const previousAudioMode = state.jukeboxAudioMode;
   state.branchStatsEnabled = false;
+  elements.extrasPopup.classList.add("hidden");
   storeBranchStatsEnabled(false);
   state.jukeboxAudioMode = "off";
   player.setJukeboxAudioMode("off");
@@ -708,9 +712,19 @@ export function resetForNewTrack(
   context: AppContext,
   options?: { clearTuning?: boolean },
 ) {
-  const { autocanonizer, elements, engine, jukebox, state, defaultConfig } =
+  const { autocanonizer, elements, engine, jukebox, player, state, defaultConfig } =
     context;
   const shouldClearTuning = options?.clearTuning ?? false;
+  const hadTrackLoaded =
+    state.audioLoaded ||
+    state.analysisLoaded ||
+    state.lastJobId !== null ||
+    state.lastYouTubeId !== null ||
+    state.trackTitle !== null;
+  if (hadTrackLoaded) {
+    state.jukeboxAudioMode = "off";
+    player.setJukeboxAudioMode("off");
+  }
   cancelPoll(context);
   state.shiftBranching = false;
   engine.setForceBranch(false);
@@ -767,6 +781,9 @@ export function resetForNewTrack(
   elements.deleteButton.classList.add("hidden");
   state.vizData = null;
   syncTuningParamsState(context);
+  if (hadTrackLoaded && !shouldClearTuning) {
+    writeTuningParamsToUrl(state.tuningParams, true);
+  }
   updateTrackInfo(context);
   const emptyVizData = {
     beats: [],

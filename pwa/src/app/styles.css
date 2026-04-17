@@ -555,6 +555,10 @@ a {
   display: none !important;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .fullscreen-toggle:disabled,
 .modal-close:disabled {
   cursor: not-allowed;
@@ -994,11 +998,83 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
+}
+
+.modal-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.modal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-control);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+#tuning-tab-toggle {
+  border-color: var(--beat-fill);
+  color: var(--beat-fill);
+}
+
+#tuning-tab-toggle:hover {
+  background: color-mix(in srgb, var(--beat-fill) 14%, var(--surface-control));
+}
+
+#tuning-tab-toggle:focus-visible {
+  outline: 2px solid var(--beat-fill);
+  outline-offset: 2px;
+}
+
+.modal-tab.hidden {
+  display: none;
+}
+
+.beta-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--beat-fill);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--beat-fill);
+  background: color-mix(in srgb, var(--beat-fill) 14%, transparent);
+}
+
+.beta-tag.hidden {
+  display: none;
+}
+
+.modal-tab-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.9;
 }
 
 .modal-close {
@@ -1081,6 +1157,38 @@ label {
   flex-direction: row;
   align-items: center;
   gap: 8px;
+}
+
+.extras-checkbox-row {
+  grid-template-columns: 1fr;
+}
+
+.audio-mode-group {
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-control);
+}
+
+.audio-mode-group .label-line {
+  margin-bottom: 12px;
+}
+
+.audio-mode-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.audio-mode-option {
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.audio-mode-option input[type="radio"] {
+  margin: 0;
 }
 
 .modal-footer {
