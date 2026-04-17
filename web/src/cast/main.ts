@@ -19,6 +19,7 @@ type CastCommand = {
     | "play"
     | "pause"
     | "stop"
+    | "reset"
     | "getStatus"
     | "setTuning"
     | "setVisualization";
@@ -29,6 +30,8 @@ type CastCommand = {
 type CastStatus = {
   type: "status";
   songId: string | null;
+  jobId: string | null;
+  createdAt: string | null;
   title: string | null;
   artist: string | null;
   trackDurationSeconds: number | null;
@@ -113,6 +116,8 @@ type CastState = {
   vizData: ReturnType<JukeboxEngine["getVisualizationData"]> | null;
   loadToken: number;
   currentTrackId: string | null;
+  currentJobId: string | null;
+  currentJobCreatedAt: string | null;
   trackTitle: string | null;
   trackArtist: string | null;
   trackDurationSeconds: number | null;
@@ -388,6 +393,8 @@ async function bootstrap() {
     vizData: null,
     loadToken: 0,
     currentTrackId: null,
+    currentJobId: null,
+    currentJobCreatedAt: null,
     trackTitle: null,
     trackArtist: null,
     trackDurationSeconds: null,
@@ -462,6 +469,8 @@ async function bootstrap() {
     const status: CastStatus = {
       type: "status",
       songId: state.currentTrackId,
+      jobId: state.currentJobId,
+      createdAt: state.currentJobCreatedAt,
       title: state.trackTitle,
       artist: state.trackArtist,
       trackDurationSeconds,
@@ -587,6 +596,40 @@ async function bootstrap() {
     scheduleIdleStop();
   }
 
+  async function resetReceiverToSplash() {
+    // Invalidate any active load/poll operations so stale async work bails out.
+    state.loadToken += 1;
+    if (engine) {
+      engine.stopJukebox();
+      engine.resetStats();
+    }
+    if (player) {
+      player.stop();
+      await player.dispose();
+    }
+    destroyViz();
+    player = null;
+    engine = null;
+    defaultConfig = null;
+    anchorHighlightEnabled = false;
+    state.lastBeatIndex = null;
+    state.vizData = null;
+    state.currentTrackId = null;
+    state.currentJobId = null;
+    state.currentJobCreatedAt = null;
+    state.trackTitle = null;
+    state.trackArtist = null;
+    state.trackDurationSeconds = null;
+    isTrackPaused = false;
+    playStartAtMs = null;
+    listenAccumulatedMs = 0;
+    elements.listenTime.textContent = "00:00:00";
+    elements.beatsPlayed.textContent = "0";
+    elements.title.textContent = "The Forever Jukebox";
+    setReceiverIdle();
+    sendStatusUpdate();
+  }
+
   function syncVizFromEngine() {
     if (!engine) {
       state.vizData = null;
@@ -619,6 +662,8 @@ async function bootstrap() {
       viz.reset();
     }
     state.currentTrackId = trackId;
+    state.currentJobId = isLikelyJobId(trackId) ? trackId : null;
+    state.currentJobCreatedAt = null;
     state.loadToken += 1;
     const token = state.loadToken;
     sendStatusUpdate();
@@ -674,6 +719,8 @@ async function bootstrap() {
 
   async function resetTrackAfterLoadError(errorMessage: string, errorCode: string | null) {
     state.currentTrackId = null;
+    state.currentJobId = null;
+    state.currentJobCreatedAt = null;
     state.lastBeatIndex = null;
     state.vizData = null;
     state.trackTitle = null;
@@ -750,6 +797,9 @@ async function bootstrap() {
       if (!analysis || analysis.status !== "complete") {
         throw new Error("Analysis unavailable");
       }
+      state.currentJobId = isLikelyJobId(jobId) ? jobId : null;
+      state.currentJobCreatedAt =
+        typeof analysis.created_at === "string" ? analysis.created_at : null;
       if (!player || !engine) {
         throw new Error("Audio engine not ready");
       }
@@ -839,6 +889,12 @@ async function bootstrap() {
   }
 
   function handleCastCommand(command: CastCommand) {
+    if (command.type === "reset") {
+      void resetReceiverToSplash().catch((err) => {
+        console.error("Failed to reset cast receiver", err);
+      });
+      return;
+    }
     if (!engine || !player) {
       return;
     }
