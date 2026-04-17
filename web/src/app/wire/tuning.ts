@@ -2,6 +2,7 @@ import type { AppContext } from "../context";
 import type { Elements } from "../elements";
 import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
 import type { BufferedAudioPlayer } from "../../audio/BufferedAudioPlayer";
+import { setAutoMarqueeText } from "../marquee";
 
 type TuningDeps = {
   context: AppContext;
@@ -14,6 +15,18 @@ type TuningDeps = {
   closeInfo: (context: AppContext) => void;
   applyTuningChanges: (context: AppContext) => void;
   resetTuningDefaults: (context: AppContext) => void;
+  applyExtrasChanges: (context: AppContext) => {
+    branchStatsChanged: boolean;
+    audioModeChanged: boolean;
+  };
+  resetExtrasDefaults: (context: AppContext) => {
+    branchStatsChanged: boolean;
+    audioModeChanged: boolean;
+  };
+  syncExtrasUI: (context: AppContext) => void;
+  syncTuningTabsUI: (context: AppContext) => void;
+  setActiveTuningTab: (context: AppContext, tab: "tuning" | "extras") => void;
+  getActiveTuningTab: (context: AppContext) => "tuning" | "extras";
 };
 
 export type TuningHandlers = ReturnType<typeof createTuningHandlers>;
@@ -30,7 +43,30 @@ export function createTuningHandlers(deps: TuningDeps) {
     closeInfo,
     applyTuningChanges,
     resetTuningDefaults,
+    applyExtrasChanges,
+    resetExtrasDefaults,
+    syncExtrasUI,
+    syncTuningTabsUI,
+    setActiveTuningTab,
+    getActiveTuningTab,
   } = deps;
+
+  function syncTrackTitle() {
+    const { state } = context;
+    if (!state.trackTitle && !state.trackArtist) {
+      return;
+    }
+    const baseTitle = state.trackTitle ?? "Unknown";
+    const title =
+      state.playMode === "autocanonizer"
+        ? `${baseTitle} (autocanonized)`
+        : state.jukeboxAudioMode !== "off"
+          ? `${baseTitle} (${state.jukeboxAudioMode})`
+          : baseTitle;
+    const displayTitle = state.trackArtist ? `${title} — ${state.trackArtist}` : title;
+    setAutoMarqueeText(elements.playTitle, displayTitle);
+    setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
+  }
 
   function handleThresholdInput() {
     elements.thresholdVal.textContent = elements.thresholdInput.value;
@@ -71,6 +107,11 @@ export function createTuningHandlers(deps: TuningDeps) {
     closeInfo(context);
   }
 
+  function handleTuningTabToggle() {
+    const activeTab = getActiveTuningTab(context);
+    setActiveTuningTab(context, activeTab === "tuning" ? "extras" : "tuning");
+  }
+
   function syncInfoButton() {
     elements.infoButton.title = "Info";
     elements.infoButton.setAttribute("aria-label", "Info");
@@ -99,10 +140,32 @@ export function createTuningHandlers(deps: TuningDeps) {
   }
 
   function handleTuningApply() {
+    const activeTab = getActiveTuningTab(context);
+    if (activeTab === "extras") {
+      const result = applyExtrasChanges(context);
+      syncExtrasUI(context);
+      syncTuningTabsUI(context);
+      if (result.audioModeChanged) {
+        syncTrackTitle();
+      }
+      closeTuning(context);
+      return;
+    }
     applyTuningChanges(context);
   }
 
   function handleTuningReset() {
+    const activeTab = getActiveTuningTab(context);
+    if (activeTab === "extras") {
+      const result = resetExtrasDefaults(context);
+      syncExtrasUI(context);
+      syncTuningTabsUI(context);
+      if (result.audioModeChanged) {
+        syncTrackTitle();
+      }
+      closeTuning(context);
+      return;
+    }
     resetTuningDefaults(context);
     closeTuning(context);
   }
@@ -136,6 +199,7 @@ export function createTuningHandlers(deps: TuningDeps) {
     handleOpenInfo,
     handleCloseTuning,
     handleCloseInfo,
+    handleTuningTabToggle,
     syncInfoButton,
     syncTuneButton,
     syncCopyButton,

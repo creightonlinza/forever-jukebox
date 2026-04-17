@@ -6,6 +6,7 @@ import { AutocanonizerController } from "../autocanonizer/AutocanonizerControlle
 import { JukeboxController } from "../jukebox/JukeboxController";
 import { applyTheme, applyThemeVariables, resolveStoredTheme } from "./theme";
 import { resolveStoredAnchorHighlight } from "./anchorHighlight";
+import { resolveStoredBranchStatsEnabled } from "./extrasMode";
 import {
   setAnalysisStatus,
   setLoadingProgress,
@@ -31,6 +32,8 @@ import { deleteCachedTrack, loadAppConfig, saveAppConfig } from "./cache";
 import {
   applyAnalysisResult,
   applyTuningChanges,
+  applyExtrasChanges,
+  resetExtrasDefaults,
   closeInfo,
   closeTuning,
   resetTuningDefaults,
@@ -47,6 +50,10 @@ import {
   startAutocanonizerPlayback,
   startJukeboxFromBeat,
   stopPlayback,
+  syncExtrasUI,
+  syncTuningTabsUI,
+  setActiveTuningTab,
+  getActiveTuningTab,
   togglePlayback,
   updateTrackInfo,
   updateVizVisibility,
@@ -107,6 +114,7 @@ export function bootstrap() {
   const autocanonizer = new AutocanonizerController(elements.canonizerLayer);
   const jukebox = new JukeboxController(elements.vizLayer);
   const highlightAnchorBranch = resolveStoredAnchorHighlight();
+  const branchStatsEnabled = resolveStoredBranchStatsEnabled();
   jukebox.setAnchorHighlightEnabled(highlightAnchorBranch);
   const defaultConfig = engine.getConfig();
   const state: AppState = {
@@ -133,7 +141,8 @@ export function bootstrap() {
     lastPlayCountedJobId: null,
     shiftBranching: false,
     bringItHomeMode: false,
-    extrasMode: false,
+    branchStatsEnabled,
+    jukeboxAudioMode: "off",
     selectedEdge: null,
     topSongsRefreshTimer: null,
     topSongsLoaded: false,
@@ -184,6 +193,7 @@ export function bootstrap() {
     updateTrackUrl,
     navigateToTab,
     updateVizVisibility,
+    syncTuningTabsUI,
     getTuningParamsFromEngine,
     writeTuningParamsToUrl,
     syncDeletedEdgeState,
@@ -361,6 +371,12 @@ export function bootstrap() {
     closeInfo,
     applyTuningChanges,
     resetTuningDefaults,
+    applyExtrasChanges,
+    resetExtrasDefaults,
+    syncExtrasUI,
+    syncTuningTabsUI,
+    setActiveTuningTab,
+    getActiveTuningTab,
   });
   const fullscreenHandlers = createFullscreenHandlers({
     context,

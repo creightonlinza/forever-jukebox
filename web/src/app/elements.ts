@@ -145,6 +145,30 @@ export function getElements() {
     document.querySelector<HTMLButtonElement>("#tuning-close"),
     "#tuning-close"
   );
+  const tuningTitle = requireElement(
+    document.querySelector<HTMLHeadingElement>("#tuning-title"),
+    "#tuning-title"
+  );
+  const tuningTabToggle = requireElement(
+    document.querySelector<HTMLButtonElement>("#tuning-tab-toggle"),
+    "#tuning-tab-toggle"
+  );
+  const tuningTabToggleIcon = requireElement(
+    document.querySelector<HTMLSpanElement>("#tuning-tab-toggle-icon"),
+    "#tuning-tab-toggle-icon"
+  );
+  const tuningTabToggleLabel = requireElement(
+    document.querySelector<HTMLSpanElement>("#tuning-tab-toggle-label"),
+    "#tuning-tab-toggle-label"
+  );
+  const tuningPanelTuning = requireElement(
+    document.querySelector<HTMLDivElement>("#tuning-panel-tuning"),
+    "#tuning-panel-tuning"
+  );
+  const tuningPanelExtras = requireElement(
+    document.querySelector<HTMLDivElement>("#tuning-panel-extras"),
+    "#tuning-panel-extras"
+  );
   const infoClose = requireElement(
     document.querySelector<HTMLButtonElement>("#info-close"),
     "#info-close"
@@ -278,6 +302,26 @@ export function getElements() {
   const highlightAnchorBranchInput = requireElement(
     document.querySelector<HTMLInputElement>("#highlight-anchor-branch"),
     "#highlight-anchor-branch"
+  );
+  const extrasEnabledInput = requireElement(
+    document.querySelector<HTMLInputElement>("#extras-enabled"),
+    "#extras-enabled"
+  );
+  const jukeboxAudioModeGroup = requireElement(
+    document.querySelector<HTMLDivElement>("#jukebox-audio-mode-group"),
+    "#jukebox-audio-mode-group"
+  );
+  const audioModeOffInput = requireElement(
+    document.querySelector<HTMLInputElement>("#audio-mode-off"),
+    "#audio-mode-off"
+  );
+  const audioModeNightcoreInput = requireElement(
+    document.querySelector<HTMLInputElement>("#audio-mode-nightcore"),
+    "#audio-mode-nightcore"
+  );
+  const audioModeDaycoreInput = requireElement(
+    document.querySelector<HTMLInputElement>("#audio-mode-daycore"),
+    "#audio-mode-daycore"
   );
   const searchInput = requireElement(
     document.querySelector<HTMLInputElement>("#search-input"),
@@ -489,6 +533,12 @@ export function getElements() {
     tuningModal,
     infoModal,
     tuningClose,
+    tuningTitle,
+    tuningTabToggle,
+    tuningTabToggleIcon,
+    tuningTabToggleLabel,
+    tuningPanelTuning,
+    tuningPanelExtras,
     infoClose,
     tuningApply,
     tuningReset,
@@ -522,6 +572,11 @@ export function getElements() {
     justLongInput,
     removeSeqInput,
     highlightAnchorBranchInput,
+    extrasEnabledInput,
+    jukeboxAudioModeGroup,
+    audioModeOffInput,
+    audioModeNightcoreInput,
+    audioModeDaycoreInput,
     searchInput,
     searchButton,
     searchSubtabs,

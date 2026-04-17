@@ -650,7 +650,20 @@
       <div id="tuning-modal" class="modal">
         <div class="modal-panel">
           <div class="modal-header">
-            <h2>Tuning</h2>
+            <div class="modal-header-main">
+              <h2 id="tuning-title">Tuning</h2>
+              <div class="modal-tabs" aria-label="Tune sections">
+                <button id="tuning-tab-toggle" class="modal-tab hidden" type="button">
+                  <span
+                    id="tuning-tab-toggle-icon"
+                    class="material-symbols-outlined modal-tab-icon"
+                    aria-hidden="true"
+                    >science</span
+                  >
+                  <span id="tuning-tab-toggle-label">Extras</span>
+                </button>
+              </div>
+            </div>
             <button id="tuning-close" class="modal-close" aria-label="Close">
               <span
                 class="material-symbols-outlined modal-close-icon"
@@ -660,83 +673,130 @@
             </button>
           </div>
           <div class="modal-body">
-            <label>
-              <div class="label-line">
-                Branch Similarity Threshold:
-                <span id="threshold-val">2</span>
+            <div id="tuning-panel-tuning">
+              <label>
+                <div class="label-line">
+                  Branch Similarity Threshold:
+                  <span id="threshold-val">2</span>
+                </div>
+                <div class="hint">
+                  Computed default threshold:
+                  <span id="computed-threshold">-</span>
+                </div>
+                <input
+                  id="threshold"
+                  type="range"
+                  min="2"
+                  max="80"
+                  step="1"
+                  value="2"
+                />
+              </label>
+              <label>
+                <div class="label-line">
+                  Branch Probability Min:
+                  <span id="min-prob-val">18%</span>
+                </div>
+                <input
+                  id="min-prob"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="2"
+                  value="18"
+                />
+              </label>
+              <label>
+                <div class="label-line">
+                  Branch Probability Max:
+                  <span id="max-prob-val">50%</span>
+                </div>
+                <input
+                  id="max-prob"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="2"
+                  value="50"
+                />
+              </label>
+              <label>
+                <div class="label-line">
+                  Branch Ramp Speed:
+                  <span id="ramp-val">10%</span>
+                </div>
+                <input
+                  id="ramp"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="2"
+                  value="10"
+                />
+              </label>
+              <div class="checkbox-row">
+                <label
+                  ><input id="just-backwards" type="checkbox" /> Allow only
+                  reverse branches</label
+                >
+                <label
+                  ><input id="just-long" type="checkbox" /> Allow only long
+                  branches</label
+                >
+                <label
+                  ><input id="remove-seq" type="checkbox" /> Remove sequential
+                  branches</label
+                >
+                <label
+                  ><input id="highlight-anchor-branch" type="checkbox" />
+                  Highlight forced anchor jump</label
+                >
               </div>
-              <div class="hint">
-                Computed default threshold:
-                <span id="computed-threshold">-</span>
+            </div>
+            <div id="tuning-panel-extras" class="hidden">
+              <div class="checkbox-row extras-checkbox-row">
+                <label>
+                  <input id="extras-enabled" type="checkbox" />
+                  Enable branch stats
+                </label>
               </div>
-              <input
-                id="threshold"
-                type="range"
-                min="2"
-                max="80"
-                step="1"
-                value="2"
-              />
-            </label>
-            <label>
-              <div class="label-line">
-                Branch Probability Min:
-                <span id="min-prob-val">18%</span>
+              <div id="jukebox-audio-mode-group" class="audio-mode-group">
+                <div class="label-line">Audio Mode</div>
+                <div
+                  class="audio-mode-options"
+                  role="radiogroup"
+                  aria-label="Audio mode"
+                >
+                  <label class="audio-mode-option">
+                    <input
+                      id="audio-mode-off"
+                      type="radio"
+                      name="audio-mode"
+                      value="off"
+                      checked
+                    />
+                    Off
+                  </label>
+                  <label class="audio-mode-option">
+                    <input
+                      id="audio-mode-nightcore"
+                      type="radio"
+                      name="audio-mode"
+                      value="nightcore"
+                    />
+                    Nightcore
+                  </label>
+                  <label class="audio-mode-option">
+                    <input
+                      id="audio-mode-daycore"
+                      type="radio"
+                      name="audio-mode"
+                      value="daycore"
+                    />
+                    Daycore
+                  </label>
+                </div>
               </div>
-              <input
-                id="min-prob"
-                type="range"
-                min="0"
-                max="100"
-                step="2"
-                value="18"
-              />
-            </label>
-            <label>
-              <div class="label-line">
-                Branch Probability Max:
-                <span id="max-prob-val">50%</span>
-              </div>
-              <input
-                id="max-prob"
-                type="range"
-                min="0"
-                max="100"
-                step="2"
-                value="50"
-              />
-            </label>
-            <label>
-              <div class="label-line">
-                Branch Ramp Speed:
-                <span id="ramp-val">10%</span>
-              </div>
-              <input
-                id="ramp"
-                type="range"
-                min="0"
-                max="100"
-                step="2"
-                value="10"
-              />
-            </label>
-            <div class="checkbox-row">
-              <label
-                ><input id="just-backwards" type="checkbox" /> Allow only
-                reverse branches</label
-              >
-              <label
-                ><input id="just-long" type="checkbox" /> Allow only long
-                branches</label
-              >
-              <label
-                ><input id="remove-seq" type="checkbox" /> Remove sequential
-                branches</label
-              >
-              <label
-                ><input id="highlight-anchor-branch" type="checkbox" />
-                Highlight forced anchor jump</label
-              >
             </div>
           </div>
           <div class="modal-footer tuning-footer">
@@ -786,10 +846,6 @@
             <div class="info-row">
               <span class="info-label">H:</span>
               <span>Toggle Bring It Home mode</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">E:</span>
-              <span>Toggle Extras mode</span>
             </div>
             <div class="info-row">
               <span class="info-label">Left/Right:</span>

@@ -86,6 +86,7 @@ function makePlayer(): JukeboxPlayer {
     scheduleJump: vi.fn(),
     getCurrentTime: () => 0,
     getAudioTime: () => 0,
+    getPlaybackRate: () => 1,
     isPlaying: () => true,
   };
 }
@@ -611,6 +612,50 @@ describe("JukeboxEngine jump timing", () => {
     const [targetTime] = (player.scheduleJump as ReturnType<typeof vi.fn>).mock.calls[0];
     const offset = targetTime - beats[1].start;
     expect(offset).toBe(0);
+  });
+
+  it("scales beat-boundary timing by playback rate", () => {
+    const player = makePlayer();
+    player.getPlaybackRate = () => 1.2;
+    const engine = new JukeboxEngine(player, {
+      randomMode: "seeded",
+      seed: 1,
+      config: {
+        minRandomBranchChance: 0,
+        maxRandomBranchChance: 0,
+        randomBranchChanceDelta: 0,
+      },
+    });
+    const beats = [0, 1, 2].map(makeBeat);
+    linkBeats(beats);
+    const graph: JukeboxGraphState = {
+      computedThreshold: 0,
+      currentThreshold: 0,
+      lastBranchPoint: -1,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [],
+    };
+    const engineAny = engine as unknown as {
+      analysis: TrackAnalysis;
+      graph: JukeboxGraphState;
+      beats: QuantumBase[];
+      currentBeatIndex: number;
+      nextAudioTime: number;
+      curRandomBranchChance: number;
+      advanceBeat: (audioTime: number) => void;
+    };
+    engineAny.analysis = makeAnalysis(beats);
+    engineAny.graph = graph;
+    engineAny.beats = beats;
+    engineAny.currentBeatIndex = 0;
+    engineAny.nextAudioTime = 5;
+    engineAny.curRandomBranchChance = 0;
+
+    engineAny.advanceBeat(5);
+
+    expect(engineAny.currentBeatIndex).toBe(1);
+    expect(engineAny.nextAudioTime).toBeCloseTo(5 + 1 / 1.2, 6);
   });
 
   it("advances once per beat when audio time crosses boundaries", () => {

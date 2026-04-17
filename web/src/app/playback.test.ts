@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppContext } from "./context";
 import type { AnalysisComplete } from "./api";
 import {
+  applyExtrasChanges,
   applyAnalysisResult,
+  resetExtrasDefaults,
   applyTuningChanges,
   loadAudioFromJob,
   startJukeboxFromBeat,
@@ -97,8 +99,15 @@ function createElements() {
     justLongInput: createInput(),
     removeSeqInput: createInput(),
     highlightAnchorBranchInput: createInput(),
+    jukeboxAudioModeGroup: { classList: createClassList() },
+    audioModeOffInput: createInput(),
+    audioModeNightcoreInput: createInput(),
+    audioModeDaycoreInput: createInput(),
+    extrasEnabledInput: createInput(),
+    extrasJukeboxOnlyHint: { classList: createClassList() },
     tuningModal: { classList: createClassList() },
     infoModal: { classList: createClassList() },
+    extrasModal: { classList: createClassList() },
     listenTimeEl: createSpan(),
     playStatusPanel: { classList: createClassList() },
     playMenu: { classList: createClassList() },
@@ -169,6 +178,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     pause: vi.fn(),
     stop: vi.fn(),
     seek: vi.fn(),
+    setJukeboxAudioMode: vi.fn(),
   };
   const autocanonizer = {
     setAnalysis: vi.fn(),
@@ -221,7 +231,8 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
       deleteEligibilityJobId: null,
       shiftBranching: false,
       lastBeatIndex: null,
-      extrasMode: false,
+      branchStatsEnabled: false,
+      jukeboxAudioMode: "off",
       listenTimerId: null,
       pollController: null,
       wakeLock: null,
@@ -324,6 +335,37 @@ describe("playback tuning", () => {
     expect(context.jukebox.setAnchorHighlightEnabled).toHaveBeenCalledWith(true);
   });
 
+  it("applies branch stats toggle and audio mode from extras controls", () => {
+    const context = createContext();
+    context.state.isRunning = true;
+    context.state.playMode = "jukebox";
+    context.elements.extrasEnabledInput.checked = true;
+    context.elements.audioModeDaycoreInput.checked = true;
+
+    const result = applyExtrasChanges(context);
+
+    expect(result).toEqual({ branchStatsChanged: true, audioModeChanged: true });
+    expect(context.state.branchStatsEnabled).toBe(true);
+    expect(context.state.jukeboxAudioMode).toBe("daycore");
+    expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("1");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("daycore");
+    expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets extras options to defaults", () => {
+    const context = createContext();
+    context.state.playMode = "jukebox";
+    context.state.branchStatsEnabled = true;
+    context.state.jukeboxAudioMode = "nightcore";
+
+    const result = resetExtrasDefaults(context);
+
+    expect(result).toEqual({ branchStatsChanged: true, audioModeChanged: true });
+    expect(context.state.branchStatsEnabled).toBe(false);
+    expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("0");
+    expect(context.state.jukeboxAudioMode).toBe("off");
+  });
+
   it("applies deleted edges from url when analysis loads", () => {
     setWindowUrl("http://localhost/listen/abc?d=1,3");
     const graph = {
@@ -372,6 +414,42 @@ describe("playback tuning", () => {
     expect(graph.allEdges[0].deleted).toBe(true);
     expect(graph.allEdges[2].deleted).toBe(true);
     expect(context.state.deletedEdgeIds).toEqual([1, 3]);
+  });
+
+  it("adds nightcore suffix to displayed title in jukebox mode", () => {
+    const context = createContext({
+      engine: {
+        getConfig: vi.fn(() => ({
+          currentThreshold: 0,
+          minRandomBranchChance: 0.18,
+          maxRandomBranchChance: 0.5,
+          randomBranchChanceDelta: 0.02,
+          justBackwards: false,
+          justLongBranches: false,
+          removeSequentialBranches: false,
+        })),
+        updateConfig: vi.fn(),
+        loadAnalysis: vi.fn(),
+        getGraphState: vi.fn(() => ({ currentThreshold: 45, allEdges: [], totalBeats: 0 })),
+        getVisualizationData: vi.fn(() => ({ beats: [], edges: [] })),
+        deleteEdge: vi.fn(),
+        rebuildGraph: vi.fn(),
+      } as unknown as AppContext["engine"],
+    });
+    context.state.playMode = "jukebox";
+    context.state.jukeboxAudioMode = "nightcore";
+
+    const response: AnalysisComplete = {
+      status: "complete",
+      id: "job123",
+      result: { beats: [], track: { title: "Song", artist: "Artist" } },
+    };
+
+    const applied = applyAnalysisResult(context, response);
+
+    expect(applied).toBe(true);
+    expect(context.elements.playTitle.textContent).toBe("Song (nightcore) — Artist");
+    expect(context.elements.vizNowPlayingEl.textContent).toBe("Song (nightcore) — Artist");
   });
 
   it("applies tuning params and deleted edges from url together", () => {

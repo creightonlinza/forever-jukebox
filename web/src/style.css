@@ -658,6 +658,52 @@ button.is-loading::after {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
+}
+
+.modal-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.modal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-control);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.modal-tab.hidden {
+  display: none;
+}
+
+.modal-tab-icon {
+  font-size: 16px;
+}
+
+.modal-tab.is-active {
+  background: var(--surface-control);
+  color: var(--text);
 }
 
 .modal-body {
@@ -735,6 +781,34 @@ button.is-loading::after {
 }
 
 .checkbox-row input[type="checkbox"] {
+  margin: 0;
+}
+
+.extras-checkbox-row {
+  grid-template-columns: 1fr;
+}
+
+.audio-mode-group {
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-control);
+}
+
+.audio-mode-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.audio-mode-option {
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.audio-mode-option input[type="radio"] {
   margin: 0;
 }
 

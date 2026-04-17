@@ -1,5 +1,8 @@
 import type { JukeboxEngine } from "../engine";
-import type { BufferedAudioPlayer } from "../audio/BufferedAudioPlayer";
+import type {
+  BufferedAudioPlayer,
+  JukeboxAudioMode,
+} from "../audio/BufferedAudioPlayer";
 import type { Edge } from "../engine/types";
 import type { getElements } from "./elements";
 import type { FavoriteTrack } from "./favorites";
@@ -36,7 +39,8 @@ export type AppState = {
   lastPlayCountedJobId: string | null;
   shiftBranching: boolean;
   bringItHomeMode: boolean;
-  extrasMode: boolean;
+  branchStatsEnabled: boolean;
+  jukeboxAudioMode: JukeboxAudioMode;
   selectedEdge: Edge | null;
   topSongsRefreshTimer: number | null;
   topSongsLoaded: boolean;

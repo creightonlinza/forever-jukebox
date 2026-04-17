@@ -24,7 +24,6 @@ data under storage pressure.
 - Space: play/pause while on the Listen tab.
 - Shift (hold): force branches while the jukebox is playing.
 - H: toggle Bring It Home mode.
-- E: toggle Extras mode (branch stats popup on branch tap).
 - Left/Right: cycle selected branch.
 - Delete: remove a selected branch (click a branch in the visualization first).
 

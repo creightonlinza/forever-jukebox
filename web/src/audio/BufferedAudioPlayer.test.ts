@@ -4,23 +4,57 @@ import { BufferedAudioPlayer } from "./BufferedAudioPlayer";
 class MockGainNode {
   gain = { value: 1 };
   connect = vi.fn();
+  disconnect = vi.fn();
 }
 
 class MockSourceNode {
   buffer: AudioBuffer | null = null;
   onended: (() => void) | null = null;
+  playbackRate = { value: 1 };
   connect = vi.fn();
   disconnect = vi.fn();
   start = vi.fn();
   stop = vi.fn();
 }
 
+class MockBiquadNode {
+  type: BiquadFilterType = "lowpass";
+  frequency = { value: 0 };
+  gain = { value: 0 };
+  connect = vi.fn();
+  disconnect = vi.fn();
+}
+
+class MockConvolverNode {
+  buffer: AudioBuffer | null = null;
+  connect = vi.fn();
+  disconnect = vi.fn();
+}
+
 class MockAudioContext {
   currentTime = 0;
   destination = {};
+  sampleRate = 48_000;
   createdSources: MockSourceNode[] = [];
   createGain() {
     return new MockGainNode();
+  }
+  createBiquadFilter() {
+    return new MockBiquadNode();
+  }
+  createConvolver() {
+    return new MockConvolverNode();
+  }
+  createBuffer(channels: number, length: number, sampleRate: number) {
+    const data = Array.from({ length: channels }, () => new Float32Array(length));
+    return {
+      length,
+      sampleRate,
+      numberOfChannels: channels,
+      getChannelData(channel: number) {
+        return data[channel] as Float32Array;
+      },
+    } as AudioBuffer;
   }
   createBufferSource() {
     const source = new MockSourceNode();
@@ -86,6 +120,16 @@ describe("BufferedAudioPlayer", () => {
     const player = new BufferedAudioPlayer();
     await player.decode(new ArrayBuffer(3));
     expect(player.getDuration()).toBe(3);
+  });
+
+  it("tracks buffer time using selected playback rate", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    player.setJukeboxAudioMode("nightcore");
+    await player.loadBuffer({ duration: 30 } as AudioBuffer);
+    player.play();
+    context.currentTime = 5;
+    expect(player.getCurrentTime()).toBe(6);
   });
 
   it("waits for resume before starting playback", async () => {

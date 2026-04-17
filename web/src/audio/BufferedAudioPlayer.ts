@@ -1,3 +1,21 @@
+export type JukeboxAudioMode = "off" | "nightcore" | "daycore";
+
+type AudioModeSettings = {
+  rate: number;
+  highPass: boolean;
+  bass: boolean;
+  reverb: boolean;
+};
+
+const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = {
+  off: { rate: 1, highPass: false, bass: false, reverb: false },
+  nightcore: { rate: 1.2, highPass: true, bass: true, reverb: false },
+  daycore: { rate: 0.8, highPass: false, bass: true, reverb: true },
+};
+
+const REVERB_SECONDS = 2;
+const REVERB_WET_GAIN = 0.4;
+
 export class BufferedAudioPlayer {
   private context: AudioContext;
   private buffer: AudioBuffer | null = null;
@@ -6,18 +24,28 @@ export class BufferedAudioPlayer {
   private pendingSwapAt: number | null = null;
   private pendingStartAt = 0;
   private masterGain: GainNode;
+  private sourceChainInput: GainNode;
+  private sourceChainOutput: GainNode;
+  private chainNodes: AudioNode[] = [];
+  private reverbImpulseBuffer: AudioBuffer | null = null;
   private volume = 0.5;
   private startAt = 0;
   private offset = 0;
   private playing = false;
   private playRequestId = 0;
   private onEnded: (() => void) | null = null;
+  private audioMode: JukeboxAudioMode = "off";
+  private playbackRate = AUDIO_MODE_SETTINGS.off.rate;
 
   constructor(context?: AudioContext) {
     this.context = context ?? new AudioContext();
     this.masterGain = this.context.createGain();
     this.masterGain.gain.value = this.volume;
     this.masterGain.connect(this.context.destination);
+    this.sourceChainInput = this.context.createGain();
+    this.sourceChainOutput = this.context.createGain();
+    this.sourceChainOutput.connect(this.masterGain);
+    this.rebuildSourceChain();
   }
 
   async loadBuffer(buffer: AudioBuffer) {
@@ -106,8 +134,8 @@ export class BufferedAudioPlayer {
     if (!this.playing) {
       return this.offset;
     }
-    const time = this.context.currentTime - this.startAt;
-    return Math.max(0, Math.min(this.buffer.duration, time));
+    const elapsed = (this.context.currentTime - this.startAt) * this.playbackRate;
+    return Math.max(0, Math.min(this.buffer.duration, elapsed));
   }
 
   getAudioTime(): number {
@@ -136,6 +164,35 @@ export class BufferedAudioPlayer {
     return this.volume;
   }
 
+  setJukeboxAudioMode(mode: JukeboxAudioMode) {
+    if (mode === this.audioMode) {
+      return;
+    }
+    const shouldResume = this.playing && this.buffer !== null;
+    const resumeOffset = shouldResume ? this.getCurrentTime() : this.offset;
+    this.audioMode = mode;
+    this.playbackRate = AUDIO_MODE_SETTINGS[mode].rate;
+    this.rebuildSourceChain();
+    if (!this.buffer) {
+      return;
+    }
+    this.offset = Math.max(0, Math.min(this.buffer.duration, resumeOffset));
+    if (!shouldResume) {
+      return;
+    }
+    const now = this.context.currentTime;
+    this.stopSource();
+    this.startSourceAt(this.offset, now);
+  }
+
+  getJukeboxAudioMode(): JukeboxAudioMode {
+    return this.audioMode;
+  }
+
+  getPlaybackRate(): number {
+    return this.playbackRate;
+  }
+
   scheduleJump(targetTime: number, audioStart: number) {
     if (!this.buffer || !this.playing) {
       return;
@@ -143,7 +200,8 @@ export class BufferedAudioPlayer {
     const startTime = audioStart === 0 ? this.context.currentTime : audioStart;
     const source = this.context.createBufferSource();
     source.buffer = this.buffer;
-    source.connect(this.masterGain);
+    source.playbackRate.value = this.playbackRate;
+    source.connect(this.sourceChainInput);
     source.onended = () => {
       if (this.source !== source) {
         return;
@@ -166,7 +224,7 @@ export class BufferedAudioPlayer {
     }
     this.clearPendingSwap();
     this.pendingSource = source;
-    this.pendingStartAt = startTime - targetTime;
+    this.pendingStartAt = startTime - targetTime / this.playbackRate;
     this.pendingSwapAt = startTime;
   }
 
@@ -222,9 +280,10 @@ export class BufferedAudioPlayer {
     }
     const source = this.context.createBufferSource();
     source.buffer = this.buffer;
-    source.connect(this.masterGain);
+    source.playbackRate.value = this.playbackRate;
+    source.connect(this.sourceChainInput);
     this.source = source;
-    this.startAt = startTime - offset;
+    this.startAt = startTime - offset / this.playbackRate;
     this.playing = true;
     source.onended = () => {
       if (this.source !== source) {
@@ -240,10 +299,91 @@ export class BufferedAudioPlayer {
     source.start(startTime, offset, Math.max(0, duration));
   }
 
+  private rebuildSourceChain() {
+    this.clearSourceChain();
+    const settings = AUDIO_MODE_SETTINGS[this.audioMode];
+    let lastNode: AudioNode = this.sourceChainInput;
+
+    if (settings.highPass) {
+      const highPass = this.context.createBiquadFilter();
+      highPass.type = "highpass";
+      highPass.frequency.value = 150;
+      this.chainNodes.push(highPass);
+      lastNode.connect(highPass);
+      lastNode = highPass;
+    }
+
+    if (settings.bass) {
+      const bass = this.context.createBiquadFilter();
+      bass.type = "lowshelf";
+      bass.frequency.value = 200;
+      bass.gain.value = 8;
+      this.chainNodes.push(bass);
+      lastNode.connect(bass);
+      lastNode = bass;
+    }
+
+    if (settings.reverb) {
+      const dryGain = this.context.createGain();
+      const wetGain = this.context.createGain();
+      const reverb = this.context.createConvolver();
+      wetGain.gain.value = REVERB_WET_GAIN;
+      reverb.buffer = this.getReverbImpulseBuffer();
+      this.chainNodes.push(dryGain, wetGain, reverb);
+      lastNode.connect(dryGain);
+      dryGain.connect(this.sourceChainOutput);
+      lastNode.connect(reverb);
+      reverb.connect(wetGain);
+      wetGain.connect(this.sourceChainOutput);
+      return;
+    }
+
+    lastNode.connect(this.sourceChainOutput);
+  }
+
+  private clearSourceChain() {
+    try {
+      this.sourceChainInput.disconnect();
+    } catch {
+      // no-op
+    }
+    for (const node of this.chainNodes) {
+      try {
+        node.disconnect();
+      } catch {
+        // no-op
+      }
+    }
+    this.chainNodes = [];
+  }
+
+  private getReverbImpulseBuffer() {
+    if (this.reverbImpulseBuffer) {
+      return this.reverbImpulseBuffer;
+    }
+    const length = Math.floor(this.context.sampleRate * REVERB_SECONDS);
+    const impulse = this.context.createBuffer(2, length, this.context.sampleRate);
+    for (let channelIndex = 0; channelIndex < 2; channelIndex += 1) {
+      const channel = impulse.getChannelData(channelIndex);
+      for (let sampleIndex = 0; sampleIndex < length; sampleIndex += 1) {
+        channel[sampleIndex] =
+          (Math.random() * 2 - 1) * Math.pow(1 - sampleIndex / length, 2);
+      }
+    }
+    this.reverbImpulseBuffer = impulse;
+    return impulse;
+  }
+
   async dispose() {
     this.stop();
     this.buffer = null;
     this.onEnded = null;
+    this.clearSourceChain();
+    try {
+      this.sourceChainOutput.disconnect();
+    } catch {
+      // no-op
+    }
     try {
       this.masterGain.disconnect();
     } catch {

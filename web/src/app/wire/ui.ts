@@ -109,6 +109,7 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     tuningHandlers.handleVolumeInput,
   );
   elements.tuningButton.addEventListener("click", tuningHandlers.handleOpenTuning);
+  elements.tuningTabToggle.addEventListener("click", tuningHandlers.handleTuningTabToggle);
   elements.infoButton.addEventListener("click", tuningHandlers.handleOpenInfo);
   elements.favoriteButton.addEventListener(
     "click",
