@@ -77,3 +77,12 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
 - URL param support: `am=<mode>` (example: `?am=nightcore`).
 - Branch stats toggle is stored in localStorage (`fj-branch-stats-enabled`).
 - Audio mode selection is URL-driven and not persisted in localStorage.
+
+## Keyboard shortcuts
+
+- Space: play/pause while on the Listen tab.
+- E: open the Extras options modal tab.
+- Shift (hold): force branches while the jukebox is playing.
+- H: toggle Bring It Home mode.
+- Left/Right: cycle selected branch.
+- Delete: remove a selected branch (click a branch in the visualization first).

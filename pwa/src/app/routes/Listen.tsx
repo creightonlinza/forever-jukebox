@@ -615,6 +615,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (isEditableTarget(event.target)) {
         return;
       }
+      if (
+        playMode === "jukebox" &&
+        (event.key === "e" || event.key === "E") &&
+        !event.repeat
+      ) {
+        event.preventDefault();
+        openTuningModalTab("extras");
+        return;
+      }
       if (event.code === "Space") {
         event.preventDefault();
         togglePlayback();
@@ -887,6 +896,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       audioMode: jukeboxAudioMode,
     });
   }, [branchStatsEnabled, jukeboxAudioMode]);
+
+  const openTuningModalTab = (tab: TuningModalTab) => {
+    if (playModeRef.current !== "jukebox") {
+      return;
+    }
+    syncTuneFormFromEngine();
+    syncExtrasFormFromState();
+    setTuningActiveTab(tab);
+    setIsTuningOpen(true);
+  };
 
   const pausePlayback = () => {
     const player = playerRef.current;
@@ -1400,12 +1419,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               id="tuning"
               className={`tune-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
               type="button"
-              onClick={() => {
-                syncTuneFormFromEngine();
-                syncExtrasFormFromState();
-                setTuningActiveTab("tuning");
-                setIsTuningOpen(true);
-              }}
+              onClick={() => openTuningModalTab("tuning")}
               disabled={!analysis || playMode === "autocanonizer"}
               title="Tune"
               aria-label="Tune"
@@ -1880,7 +1894,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       }
                       disabled={playMode !== "jukebox"}
                     />
-                    Enable branch stats
+                    Show selected branch stats
                   </label>
                 </div>
                 <div id="jukebox-audio-mode-group" className="audio-mode-group">
@@ -1952,6 +1966,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="info-row">
                 <span className="info-label">Space:</span>
                 <span>Play/pause playback</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">E:</span>
+                <span>Open Extras options</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Shift (hold):</span>

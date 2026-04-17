@@ -8,6 +8,7 @@ import {
   resetExtrasDefaults,
   applyTuningChanges,
   loadAudioFromJob,
+  openExtras,
   resetForNewTrack,
   setActiveTuningTab,
   startJukeboxFromBeat,
@@ -582,6 +583,16 @@ describe("playback tuning", () => {
     expect(context.elements.tuningTabToggleLabel.textContent).toBe("Tuning");
     expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(true);
     expect(getActiveTuningTab(context)).toBe("extras");
+  });
+
+  it("opens tuning modal on extras tab", () => {
+    const context = createContext();
+    context.state.playMode = "jukebox";
+
+    openExtras(context);
+
+    expect(getActiveTuningTab(context)).toBe("extras");
+    expect(context.elements.tuningModal.classList.add).toHaveBeenCalledWith("open");
   });
 
   it("forces tuning tab state when mode does not support extras", () => {

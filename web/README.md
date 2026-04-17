@@ -32,6 +32,7 @@ data under storage pressure.
 
 ## Keyboard shortcuts
 - Space: play/pause while on the Listen tab.
+- E: open the Extras options modal tab.
 - Shift (hold): force branches while the jukebox is playing.
 - H: toggle Bring It Home mode.
 - Left/Right: cycle selected branch.

@@ -205,12 +205,20 @@ export function updateVizVisibility(context: AppContext) {
   }
 }
 
-export function openTuning(context: AppContext) {
+function openTuningTab(context: AppContext, tab: "tuning" | "extras") {
   syncTuningUI(context);
   syncExtrasUI(context);
   syncTuningTabsUI(context);
-  setActiveTuningTab(context, "tuning");
+  setActiveTuningTab(context, tab);
   context.elements.tuningModal.classList.add("open");
+}
+
+export function openTuning(context: AppContext) {
+  openTuningTab(context, "tuning");
+}
+
+export function openExtras(context: AppContext) {
+  openTuningTab(context, "extras");
 }
 
 export function closeTuning(context: AppContext) {

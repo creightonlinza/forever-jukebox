@@ -48,6 +48,7 @@ type PlaybackUiDeps = {
     playMode?: "jukebox" | "autocanonizer",
   ) => void;
   updateVizVisibility: (context: AppContext) => void;
+  openExtras: (context: AppContext) => void;
   syncTuningTabsUI: (context: AppContext) => void;
   getTuningParamsFromEngine: (context: AppContext) => URLSearchParams;
   writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
@@ -116,6 +117,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     updateTrackUrl,
     navigateToTab,
     updateVizVisibility,
+    openExtras,
     syncTuningTabsUI,
     getTuningParamsFromEngine,
     writeTuningParamsToUrl,
@@ -306,6 +308,15 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if (event.code === "Space") {
       event.preventDefault();
       togglePlayback(context);
+      return;
+    }
+    if (
+      state.playMode === "jukebox" &&
+      (event.key === "e" || event.key === "E") &&
+      !event.repeat
+    ) {
+      event.preventDefault();
+      openExtras(context);
       return;
     }
     if (state.playMode === "autocanonizer") {

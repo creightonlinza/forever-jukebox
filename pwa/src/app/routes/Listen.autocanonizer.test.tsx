@@ -317,6 +317,18 @@ async function changeSelect(element: HTMLSelectElement, value: string) {
   });
 }
 
+async function keydown(key: string, code?: string) {
+  await act(async () => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key,
+        code: code ?? (key.length === 1 ? `Key${key.toUpperCase()}` : key),
+        bubbles: true,
+      })
+    );
+  });
+}
+
 async function settleEffects() {
   await act(async () => {
     await Promise.resolve();
@@ -541,6 +553,30 @@ describe("Listen autocanonizer behavior", () => {
     const playTitle = getRequired<HTMLDivElement>(rendered.container, ".play-title");
     expect(playTitle.textContent).toContain("(daycore)");
     expect(window.location.search).toContain("am=daycore");
+    rendered.unmount();
+  });
+
+  it("opens extras tab with E keyboard shortcut", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await keydown("e", "KeyE");
+
+    const titleText = getRequired<HTMLSpanElement>(
+      rendered.container,
+      "#tuning-title-text"
+    );
+    expect(titleText.textContent).toBe("Extras");
+    const tuningPanel = getRequired<HTMLDivElement>(
+      rendered.container,
+      "#tuning-panel-tuning"
+    );
+    const extrasPanel = getRequired<HTMLDivElement>(
+      rendered.container,
+      "#tuning-panel-extras"
+    );
+    expect(tuningPanel.classList.contains("hidden")).toBe(true);
+    expect(extrasPanel.classList.contains("hidden")).toBe(false);
     rendered.unmount();
   });
 
