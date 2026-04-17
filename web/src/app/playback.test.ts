@@ -135,9 +135,14 @@ function createElements() {
     audioModeOffInput: createInput(),
     audioModeNightcoreInput: createInput(),
     audioModeDaycoreInput: createInput(),
+    audioModeVaporwaveInput: createInput(),
+    audioModeEightDInput: createInput(),
+    audioModeLofiInput: createInput(),
     extrasEnabledInput: createInput(),
     extrasJukeboxOnlyHint: { classList: createClassList() },
     tuningTitle: createSpan(),
+    tuningTitleText: createSpan(),
+    tuningBetaTag: { classList: createMutableClassList(["hidden"]) },
     tuningTabToggle: {
       classList: createMutableClassList(),
       setAttribute: vi.fn(),
@@ -535,13 +540,15 @@ describe("playback tuning", () => {
     context.state.playMode = "jukebox";
 
     setActiveTuningTab(context, "tuning");
-    expect(context.elements.tuningTitle.textContent).toBe("Tuning");
+    expect(context.elements.tuningTitleText.textContent).toBe("Tuning");
+    expect(context.elements.tuningBetaTag.classList.contains("hidden")).toBe(true);
     expect(context.elements.tuningTabToggleLabel.textContent).toBe("Extras");
     expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(false);
     expect(getActiveTuningTab(context)).toBe("tuning");
 
     setActiveTuningTab(context, "extras");
-    expect(context.elements.tuningTitle.textContent).toBe("Extras");
+    expect(context.elements.tuningTitleText.textContent).toBe("Extras");
+    expect(context.elements.tuningBetaTag.classList.contains("hidden")).toBe(false);
     expect(context.elements.tuningTabToggleLabel.textContent).toBe("Tuning");
     expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(true);
     expect(getActiveTuningTab(context)).toBe("extras");
@@ -555,7 +562,8 @@ describe("playback tuning", () => {
 
     syncTuningTabsUI(context);
 
-    expect(context.elements.tuningTitle.textContent).toBe("Tuning");
+    expect(context.elements.tuningTitleText.textContent).toBe("Tuning");
+    expect(context.elements.tuningBetaTag.classList.contains("hidden")).toBe(true);
     expect(context.elements.tuningPanelTuning.classList.contains("hidden")).toBe(false);
     expect(context.elements.tuningPanelExtras.classList.contains("hidden")).toBe(true);
     expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(true);

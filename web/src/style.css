@@ -671,6 +671,9 @@ button.is-loading::after {
 
 .modal-header h2 {
   margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .modal-tabs {
@@ -708,6 +711,23 @@ button.is-loading::after {
 }
 
 .modal-tab.hidden {
+  display: none;
+}
+
+.beta-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--beat-fill);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--beat-fill);
+  background: color-mix(in srgb, var(--beat-fill) 14%, transparent);
+}
+
+.beta-tag.hidden {
   display: none;
 }
 

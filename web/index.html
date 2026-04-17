@@ -651,7 +651,10 @@
         <div class="modal-panel">
           <div class="modal-header">
             <div class="modal-header-main">
-              <h2 id="tuning-title">Tuning</h2>
+              <h2 id="tuning-title">
+                <span id="tuning-title-text">Tuning</span>
+                <span id="tuning-beta-tag" class="beta-tag hidden">Beta</span>
+              </h2>
               <div class="modal-tabs" aria-label="Tune sections">
                 <button id="tuning-tab-toggle" class="modal-tab hidden" type="button">
                   <span
@@ -777,23 +780,55 @@
                     />
                     Off
                   </label>
-                  <label class="audio-mode-option">
+                  <label class="audio-mode-option" title="Fast & Bright">
                     <input
                       id="audio-mode-nightcore"
                       type="radio"
                       name="audio-mode"
                       value="nightcore"
+                      title="Fast & Bright"
                     />
                     Nightcore
                   </label>
-                  <label class="audio-mode-option">
+                  <label class="audio-mode-option" title="Slow & Deep">
                     <input
                       id="audio-mode-daycore"
                       type="radio"
                       name="audio-mode"
                       value="daycore"
+                      title="Slow & Deep"
                     />
                     Daycore
+                  </label>
+                  <label class="audio-mode-option" title="Muffled & Slow">
+                    <input
+                      id="audio-mode-vaporwave"
+                      type="radio"
+                      name="audio-mode"
+                      value="vaporwave"
+                      title="Muffled & Slow"
+                    />
+                    Vaporwave
+                  </label>
+                  <label class="audio-mode-option" title="Spinning/Spatial">
+                    <input
+                      id="audio-mode-eight-d"
+                      type="radio"
+                      name="audio-mode"
+                      value="eight_d"
+                      title="Spinning/Spatial"
+                    />
+                    8D Audio
+                  </label>
+                  <label class="audio-mode-option" title="Radio Filter">
+                    <input
+                      id="audio-mode-lofi"
+                      type="radio"
+                      name="audio-mode"
+                      value="lofi"
+                      title="Radio Filter"
+                    />
+                    Lofi
                   </label>
                 </div>
               </div>

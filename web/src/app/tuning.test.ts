@@ -93,6 +93,15 @@ describe("tuning params", () => {
     expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
   });
 
+  it("applies newly supported audio modes from params", () => {
+    const context = createContext();
+    const params = new URLSearchParams("am=eight_d");
+    const applied = applyTuningParamsToEngine(context, params);
+    expect(applied).toBe(true);
+    expect(context.state.jukeboxAudioMode).toBe("eight_d");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_d");
+  });
+
   it("serializes only non-default tuning params", () => {
     const context = createContext({
       justBackwards: true,

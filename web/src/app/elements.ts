@@ -149,6 +149,14 @@ export function getElements() {
     document.querySelector<HTMLHeadingElement>("#tuning-title"),
     "#tuning-title"
   );
+  const tuningTitleText = requireElement(
+    document.querySelector<HTMLSpanElement>("#tuning-title-text"),
+    "#tuning-title-text"
+  );
+  const tuningBetaTag = requireElement(
+    document.querySelector<HTMLSpanElement>("#tuning-beta-tag"),
+    "#tuning-beta-tag"
+  );
   const tuningTabToggle = requireElement(
     document.querySelector<HTMLButtonElement>("#tuning-tab-toggle"),
     "#tuning-tab-toggle"
@@ -322,6 +330,18 @@ export function getElements() {
   const audioModeDaycoreInput = requireElement(
     document.querySelector<HTMLInputElement>("#audio-mode-daycore"),
     "#audio-mode-daycore"
+  );
+  const audioModeVaporwaveInput = requireElement(
+    document.querySelector<HTMLInputElement>("#audio-mode-vaporwave"),
+    "#audio-mode-vaporwave"
+  );
+  const audioModeEightDInput = requireElement(
+    document.querySelector<HTMLInputElement>("#audio-mode-eight-d"),
+    "#audio-mode-eight-d"
+  );
+  const audioModeLofiInput = requireElement(
+    document.querySelector<HTMLInputElement>("#audio-mode-lofi"),
+    "#audio-mode-lofi"
   );
   const searchInput = requireElement(
     document.querySelector<HTMLInputElement>("#search-input"),
@@ -534,6 +554,8 @@ export function getElements() {
     infoModal,
     tuningClose,
     tuningTitle,
+    tuningTitleText,
+    tuningBetaTag,
     tuningTabToggle,
     tuningTabToggleIcon,
     tuningTabToggleLabel,
@@ -577,6 +599,9 @@ export function getElements() {
     audioModeOffInput,
     audioModeNightcoreInput,
     audioModeDaycoreInput,
+    audioModeVaporwaveInput,
+    audioModeEightDInput,
+    audioModeLofiInput,
     searchInput,
     searchButton,
     searchSubtabs,

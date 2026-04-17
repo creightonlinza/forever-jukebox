@@ -5,7 +5,14 @@ const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "am"];
 
 function parseAudioMode(raw: string | null) {
-  if (raw === "off" || raw === "nightcore" || raw === "daycore") {
+  if (
+    raw === "off" ||
+    raw === "nightcore" ||
+    raw === "daycore" ||
+    raw === "vaporwave" ||
+    raw === "eight_d" ||
+    raw === "lofi"
+  ) {
     return raw;
   }
   return null;

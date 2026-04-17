@@ -1,20 +1,73 @@
-export type JukeboxAudioMode = "off" | "nightcore" | "daycore";
+export type JukeboxAudioMode =
+  | "off"
+  | "nightcore"
+  | "daycore"
+  | "vaporwave"
+  | "eight_d"
+  | "lofi";
 
 type AudioModeSettings = {
   rate: number;
-  highPass: boolean;
-  bass: boolean;
-  reverb: boolean;
+  highPassFrequency: number | null;
+  lowPassFrequency: number | null;
+  useBandPass: boolean;
+  reverbMix: number;
+  pan: boolean;
 };
 
 const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = {
-  off: { rate: 1, highPass: false, bass: false, reverb: false },
-  nightcore: { rate: 1.2, highPass: true, bass: true, reverb: false },
-  daycore: { rate: 0.8, highPass: false, bass: true, reverb: true },
+  off: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: null,
+    useBandPass: false,
+    reverbMix: 0,
+    pan: false,
+  },
+  nightcore: {
+    rate: 1.2,
+    highPassFrequency: 150,
+    lowPassFrequency: null,
+    useBandPass: false,
+    reverbMix: 0,
+    pan: false,
+  },
+  daycore: {
+    rate: 0.8,
+    highPassFrequency: null,
+    lowPassFrequency: null,
+    useBandPass: false,
+    reverbMix: 0.4,
+    pan: false,
+  },
+  vaporwave: {
+    rate: 0.65,
+    highPassFrequency: null,
+    lowPassFrequency: 1000,
+    useBandPass: false,
+    reverbMix: 0.6,
+    pan: false,
+  },
+  eight_d: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: null,
+    useBandPass: false,
+    reverbMix: 0.5,
+    pan: true,
+  },
+  lofi: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: 2000,
+    useBandPass: true,
+    reverbMix: 0.1,
+    pan: false,
+  },
 };
 
-const REVERB_SECONDS = 2;
-const REVERB_WET_GAIN = 0.4;
+const REVERB_SECONDS = 2.5;
+const PAN_STEP = 0.007;
 
 export class BufferedAudioPlayer {
   private context: AudioContext;
@@ -26,6 +79,7 @@ export class BufferedAudioPlayer {
   private masterGain: GainNode;
   private sourceChainInput: GainNode;
   private sourceChainOutput: GainNode;
+  private stereoPanner: StereoPannerNode | null = null;
   private chainNodes: AudioNode[] = [];
   private reverbImpulseBuffer: AudioBuffer | null = null;
   private volume = 0.5;
@@ -36,6 +90,8 @@ export class BufferedAudioPlayer {
   private onEnded: (() => void) | null = null;
   private audioMode: JukeboxAudioMode = "off";
   private playbackRate = AUDIO_MODE_SETTINGS.off.rate;
+  private panAngle = 0;
+  private panFrameId: number | null = null;
 
   constructor(context?: AudioContext) {
     this.context = context ?? new AudioContext();
@@ -44,7 +100,13 @@ export class BufferedAudioPlayer {
     this.masterGain.connect(this.context.destination);
     this.sourceChainInput = this.context.createGain();
     this.sourceChainOutput = this.context.createGain();
-    this.sourceChainOutput.connect(this.masterGain);
+    if (typeof this.context.createStereoPanner === "function") {
+      this.stereoPanner = this.context.createStereoPanner();
+      this.sourceChainOutput.connect(this.stereoPanner);
+      this.stereoPanner.connect(this.masterGain);
+    } else {
+      this.sourceChainOutput.connect(this.masterGain);
+    }
     this.rebuildSourceChain();
   }
 
@@ -104,6 +166,7 @@ export class BufferedAudioPlayer {
     this.offset = this.getCurrentTime();
     this.stopSource();
     this.playing = false;
+    this.stopPanMotion();
   }
 
   stop() {
@@ -111,6 +174,7 @@ export class BufferedAudioPlayer {
     this.stopSource();
     this.playing = false;
     this.offset = 0;
+    this.stopPanMotion();
   }
 
   seek(time: number) {
@@ -173,6 +237,7 @@ export class BufferedAudioPlayer {
     this.audioMode = mode;
     this.playbackRate = AUDIO_MODE_SETTINGS[mode].rate;
     this.rebuildSourceChain();
+    this.syncPanMotion();
     if (!this.buffer) {
       return;
     }
@@ -209,6 +274,7 @@ export class BufferedAudioPlayer {
       if (this.playing) {
         this.playing = false;
         this.offset = this.buffer ? this.buffer.duration : 0;
+        this.stopPanMotion();
         this.onEnded?.();
       }
     };
@@ -285,6 +351,7 @@ export class BufferedAudioPlayer {
     this.source = source;
     this.startAt = startTime - offset / this.playbackRate;
     this.playing = true;
+    this.syncPanMotion();
     source.onended = () => {
       if (this.source !== source) {
         return;
@@ -292,6 +359,7 @@ export class BufferedAudioPlayer {
       if (this.playing) {
         this.playing = false;
         this.offset = this.buffer ? this.buffer.duration : 0;
+        this.stopPanMotion();
         this.onEnded?.();
       }
     };
@@ -304,30 +372,29 @@ export class BufferedAudioPlayer {
     const settings = AUDIO_MODE_SETTINGS[this.audioMode];
     let lastNode: AudioNode = this.sourceChainInput;
 
-    if (settings.highPass) {
+    if (settings.highPassFrequency !== null) {
       const highPass = this.context.createBiquadFilter();
       highPass.type = "highpass";
-      highPass.frequency.value = 150;
+      highPass.frequency.value = settings.highPassFrequency;
       this.chainNodes.push(highPass);
       lastNode.connect(highPass);
       lastNode = highPass;
     }
 
-    if (settings.bass) {
-      const bass = this.context.createBiquadFilter();
-      bass.type = "lowshelf";
-      bass.frequency.value = 200;
-      bass.gain.value = 8;
-      this.chainNodes.push(bass);
-      lastNode.connect(bass);
-      lastNode = bass;
+    if (settings.lowPassFrequency !== null) {
+      const lowPass = this.context.createBiquadFilter();
+      lowPass.type = settings.useBandPass ? "bandpass" : "lowpass";
+      lowPass.frequency.value = settings.lowPassFrequency;
+      this.chainNodes.push(lowPass);
+      lastNode.connect(lowPass);
+      lastNode = lowPass;
     }
 
-    if (settings.reverb) {
+    if (settings.reverbMix > 0) {
       const dryGain = this.context.createGain();
       const wetGain = this.context.createGain();
       const reverb = this.context.createConvolver();
-      wetGain.gain.value = REVERB_WET_GAIN;
+      wetGain.gain.value = settings.reverbMix;
       reverb.buffer = this.getReverbImpulseBuffer();
       this.chainNodes.push(dryGain, wetGain, reverb);
       lastNode.connect(dryGain);
@@ -357,6 +424,45 @@ export class BufferedAudioPlayer {
     this.chainNodes = [];
   }
 
+  private syncPanMotion() {
+    const settings = AUDIO_MODE_SETTINGS[this.audioMode];
+    if (!settings.pan || !this.playing || !this.stereoPanner) {
+      this.stopPanMotion();
+      return;
+    }
+    if (typeof globalThis.requestAnimationFrame !== "function") {
+      this.stereoPanner.pan.value = 0;
+      return;
+    }
+    if (this.panFrameId !== null) {
+      return;
+    }
+    const tick = () => {
+      const currentSettings = AUDIO_MODE_SETTINGS[this.audioMode];
+      if (!this.playing || !currentSettings.pan || !this.stereoPanner) {
+        this.stopPanMotion();
+        return;
+      }
+      this.stereoPanner.pan.value = Math.sin(this.panAngle);
+      this.panAngle += PAN_STEP;
+      this.panFrameId = globalThis.requestAnimationFrame(tick);
+    };
+    this.panFrameId = globalThis.requestAnimationFrame(tick);
+  }
+
+  private stopPanMotion() {
+    if (
+      this.panFrameId !== null &&
+      typeof globalThis.cancelAnimationFrame === "function"
+    ) {
+      globalThis.cancelAnimationFrame(this.panFrameId);
+    }
+    this.panFrameId = null;
+    if (this.stereoPanner) {
+      this.stereoPanner.pan.value = 0;
+    }
+  }
+
   private getReverbImpulseBuffer() {
     if (this.reverbImpulseBuffer) {
       return this.reverbImpulseBuffer;
@@ -378,6 +484,7 @@ export class BufferedAudioPlayer {
     this.stop();
     this.buffer = null;
     this.onEnded = null;
+    this.stopPanMotion();
     this.clearSourceChain();
     try {
       this.sourceChainOutput.disconnect();
@@ -388,6 +495,14 @@ export class BufferedAudioPlayer {
       this.masterGain.disconnect();
     } catch {
       // no-op
+    }
+    if (this.stereoPanner) {
+      try {
+        this.stereoPanner.disconnect();
+      } catch {
+        // no-op
+      }
+      this.stereoPanner = null;
     }
     if (this.context.state !== "closed") {
       try {

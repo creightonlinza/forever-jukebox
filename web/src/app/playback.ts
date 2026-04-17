@@ -234,6 +234,15 @@ function getSelectedAudioMode(context: AppContext): JukeboxAudioMode {
   if (elements.audioModeDaycoreInput.checked) {
     return "daycore";
   }
+  if (elements.audioModeVaporwaveInput.checked) {
+    return "vaporwave";
+  }
+  if (elements.audioModeEightDInput.checked) {
+    return "eight_d";
+  }
+  if (elements.audioModeLofiInput.checked) {
+    return "lofi";
+  }
   return "off";
 }
 
@@ -247,9 +256,15 @@ export function syncExtrasUI(context: AppContext) {
   elements.audioModeOffInput.checked = audioMode === "off";
   elements.audioModeNightcoreInput.checked = audioMode === "nightcore";
   elements.audioModeDaycoreInput.checked = audioMode === "daycore";
+  elements.audioModeVaporwaveInput.checked = audioMode === "vaporwave";
+  elements.audioModeEightDInput.checked = audioMode === "eight_d";
+  elements.audioModeLofiInput.checked = audioMode === "lofi";
   elements.audioModeOffInput.disabled = !inJukeboxMode;
   elements.audioModeNightcoreInput.disabled = !inJukeboxMode;
   elements.audioModeDaycoreInput.disabled = !inJukeboxMode;
+  elements.audioModeVaporwaveInput.disabled = !inJukeboxMode;
+  elements.audioModeEightDInput.disabled = !inJukeboxMode;
+  elements.audioModeLofiInput.disabled = !inJukeboxMode;
 }
 
 export type TuningModalTab = "tuning" | "extras";
@@ -271,7 +286,8 @@ export function setActiveTuningTab(context: AppContext, tab: TuningModalTab) {
   const hasExtrasTab = state.playMode === "jukebox";
   const nextTab = tab === "extras" && hasExtrasTab ? "extras" : "tuning";
   const tuningActive = nextTab === "tuning";
-  elements.tuningTitle.textContent = tuningActive ? "Tuning" : "Extras";
+  elements.tuningTitleText.textContent = tuningActive ? "Tuning" : "Extras";
+  elements.tuningBetaTag.classList.toggle("hidden", tuningActive);
   elements.tuningTabToggle.classList.toggle("hidden", !hasExtrasTab || !tuningActive);
   elements.tuningTabToggleIcon.textContent = tuningActive ? "science" : "tune";
   elements.tuningTabToggleLabel.textContent = tuningActive ? "Extras" : "Tuning";

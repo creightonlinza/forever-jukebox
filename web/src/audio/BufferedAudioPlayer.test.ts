@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BufferedAudioPlayer } from "./BufferedAudioPlayer";
 
 class MockGainNode {
@@ -31,6 +31,12 @@ class MockConvolverNode {
   disconnect = vi.fn();
 }
 
+class MockStereoPannerNode {
+  pan = { value: 0 };
+  connect = vi.fn();
+  disconnect = vi.fn();
+}
+
 class MockAudioContext {
   currentTime = 0;
   destination = {};
@@ -39,6 +45,7 @@ class MockAudioContext {
   createdGains: MockGainNode[] = [];
   createdBiquads: MockBiquadNode[] = [];
   createdConvolvers: MockConvolverNode[] = [];
+  createdPanners: MockStereoPannerNode[] = [];
   createGain() {
     const gain = new MockGainNode();
     this.createdGains.push(gain);
@@ -53,6 +60,11 @@ class MockAudioContext {
     const convolver = new MockConvolverNode();
     this.createdConvolvers.push(convolver);
     return convolver;
+  }
+  createStereoPanner() {
+    const panner = new MockStereoPannerNode();
+    this.createdPanners.push(panner);
+    return panner;
   }
   createBuffer(channels: number, length: number, sampleRate: number) {
     const data = Array.from({ length: channels }, () => new Float32Array(length));
@@ -97,6 +109,12 @@ async function flushMicrotasks(count = 5) {
 describe("BufferedAudioPlayer", () => {
   beforeEach(() => {
     (globalThis as any).AudioContext = MockAudioContext;
+    (globalThis as any).requestAnimationFrame = vi.fn(() => 1);
+    (globalThis as any).cancelAnimationFrame = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("clamps and returns volume", () => {
@@ -141,7 +159,7 @@ describe("BufferedAudioPlayer", () => {
     expect(player.getCurrentTime()).toBe(6);
   });
 
-  it("builds daycore audio chain with bass + reverb and 0.8 playback rate", async () => {
+  it("builds daycore audio chain with reverb and 0.8 playback rate", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
     await player.loadBuffer({ duration: 20 } as AudioBuffer);
@@ -149,9 +167,51 @@ describe("BufferedAudioPlayer", () => {
     player.play();
 
     expect(context.createdConvolvers.length).toBeGreaterThan(0);
-    expect(context.createdBiquads.some((node) => node.type === "lowshelf")).toBe(true);
+    expect(context.createdBiquads.length).toBe(0);
     expect(context.createdBiquads.some((node) => node.type === "highpass")).toBe(false);
     expect(context.createdSources[0]?.playbackRate.value).toBe(0.8);
+  });
+
+  it("builds vaporwave chain with lowpass filter and slower playback", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("vaporwave");
+    player.play();
+
+    const lowPass = context.createdBiquads.find((node) => node.type === "lowpass");
+    expect(lowPass).toBeDefined();
+    expect(lowPass?.frequency.value).toBe(1000);
+    expect(context.createdSources[0]?.playbackRate.value).toBe(0.65);
+    expect(context.createdConvolvers.length).toBeGreaterThan(0);
+  });
+
+  it("builds lofi chain with bandpass filter", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("lofi");
+    player.play();
+
+    const bandPass = context.createdBiquads.find((node) => node.type === "bandpass");
+    expect(bandPass).toBeDefined();
+    expect(bandPass?.frequency.value).toBe(2000);
+    expect(context.createdSources[0]?.playbackRate.value).toBe(1);
+  });
+
+  it("starts panning loop for eight_d mode and resets on mode change", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("eight_d");
+    player.play();
+
+    expect(globalThis.requestAnimationFrame).toHaveBeenCalled();
+    expect(context.createdPanners[0]?.pan.value).toBe(0);
+
+    player.setJukeboxAudioMode("off");
+    expect(globalThis.cancelAnimationFrame).toHaveBeenCalled();
+    expect(context.createdPanners[0]?.pan.value).toBe(0);
   });
 
   it("waits for resume before starting playback", async () => {
