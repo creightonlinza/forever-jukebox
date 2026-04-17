@@ -36,14 +36,23 @@ class MockAudioContext {
   destination = {};
   sampleRate = 48_000;
   createdSources: MockSourceNode[] = [];
+  createdGains: MockGainNode[] = [];
+  createdBiquads: MockBiquadNode[] = [];
+  createdConvolvers: MockConvolverNode[] = [];
   createGain() {
-    return new MockGainNode();
+    const gain = new MockGainNode();
+    this.createdGains.push(gain);
+    return gain;
   }
   createBiquadFilter() {
-    return new MockBiquadNode();
+    const biquad = new MockBiquadNode();
+    this.createdBiquads.push(biquad);
+    return biquad;
   }
   createConvolver() {
-    return new MockConvolverNode();
+    const convolver = new MockConvolverNode();
+    this.createdConvolvers.push(convolver);
+    return convolver;
   }
   createBuffer(channels: number, length: number, sampleRate: number) {
     const data = Array.from({ length: channels }, () => new Float32Array(length));
@@ -130,6 +139,19 @@ describe("BufferedAudioPlayer", () => {
     player.play();
     context.currentTime = 5;
     expect(player.getCurrentTime()).toBe(6);
+  });
+
+  it("builds daycore audio chain with bass + reverb and 0.8 playback rate", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("daycore");
+    player.play();
+
+    expect(context.createdConvolvers.length).toBeGreaterThan(0);
+    expect(context.createdBiquads.some((node) => node.type === "lowshelf")).toBe(true);
+    expect(context.createdBiquads.some((node) => node.type === "highpass")).toBe(false);
+    expect(context.createdSources[0]?.playbackRate.value).toBe(0.8);
   });
 
   it("waits for resume before starting playback", async () => {

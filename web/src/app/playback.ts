@@ -272,6 +272,7 @@ export function setActiveTuningTab(context: AppContext, tab: TuningModalTab) {
   const nextTab = tab === "extras" && hasExtrasTab ? "extras" : "tuning";
   const tuningActive = nextTab === "tuning";
   elements.tuningTitle.textContent = tuningActive ? "Tuning" : "Extras";
+  elements.tuningTabToggle.classList.toggle("hidden", !hasExtrasTab || !tuningActive);
   elements.tuningTabToggleIcon.textContent = tuningActive ? "science" : "tune";
   elements.tuningTabToggleLabel.textContent = tuningActive ? "Extras" : "Tuning";
   elements.tuningTabToggle.setAttribute(
@@ -310,6 +311,8 @@ export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
   ) {
     engine.syncToPlaybackPosition();
   }
+  syncTuningParamsState(context);
+  writeTuningParamsToUrl(state.tuningParams, true);
   return {
     branchStatsChanged:
       previousBranchStatsEnabled !== state.branchStatsEnabled,
@@ -332,6 +335,8 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   ) {
     engine.syncToPlaybackPosition();
   }
+  syncTuningParamsState(context);
+  writeTuningParamsToUrl(state.tuningParams, true);
   return {
     branchStatsChanged:
       previousBranchStatsEnabled !== state.branchStatsEnabled,

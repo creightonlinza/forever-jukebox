@@ -39,6 +39,12 @@ describe("tabs", () => {
     expect(window.location.search).toBe("?lg=1");
   });
 
+  it("updates track URL with audio mode tuning param", () => {
+    updateTrackUrl("xyz", true, "am=nightcore", "jukebox");
+    expect(window.location.pathname).toBe("/listen/xyz");
+    expect(window.location.search).toBe("?am=nightcore");
+  });
+
   it("adds mode param for autocanonizer", () => {
     updateTrackUrl("xyz", true, "lg=1", "autocanonizer");
     expect(window.location.pathname).toBe("/listen/xyz");

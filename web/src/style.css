@@ -693,6 +693,20 @@ button.is-loading::after {
   letter-spacing: 0.02em;
 }
 
+#tuning-tab-toggle {
+  border-color: var(--beat-fill);
+  color: var(--beat-fill);
+}
+
+#tuning-tab-toggle:hover {
+  background: color-mix(in srgb, var(--beat-fill) 14%, var(--surface-control));
+}
+
+#tuning-tab-toggle:focus-visible {
+  outline: 2px solid var(--beat-fill);
+  outline-offset: 2px;
+}
+
 .modal-tab.hidden {
   display: none;
 }
@@ -793,6 +807,10 @@ button.is-loading::after {
   border-radius: 8px;
   padding: 10px 12px;
   background: var(--surface-control);
+}
+
+.audio-mode-group .label-line {
+  margin-bottom: 10px;
 }
 
 .audio-mode-options {

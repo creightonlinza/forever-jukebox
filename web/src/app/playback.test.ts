@@ -4,11 +4,14 @@ import type { AnalysisComplete } from "./api";
 import {
   applyExtrasChanges,
   applyAnalysisResult,
+  getActiveTuningTab,
   resetExtrasDefaults,
   applyTuningChanges,
   loadAudioFromJob,
+  setActiveTuningTab,
   startJukeboxFromBeat,
   stopPlayback,
+  syncTuningTabsUI,
   syncTuningUI,
   togglePlayback,
   updateListenTimeDisplay,
@@ -21,6 +24,35 @@ function createClassList() {
     remove: vi.fn(),
     toggle: vi.fn(),
     contains: vi.fn().mockReturnValue(false),
+  };
+}
+
+function createMutableClassList(initial: string[] = []) {
+  const classes = new Set(initial);
+  return {
+    add: vi.fn((token: string) => {
+      classes.add(token);
+    }),
+    remove: vi.fn((token: string) => {
+      classes.delete(token);
+    }),
+    toggle: vi.fn((token: string, force?: boolean) => {
+      if (force === true) {
+        classes.add(token);
+        return true;
+      }
+      if (force === false) {
+        classes.delete(token);
+        return false;
+      }
+      if (classes.has(token)) {
+        classes.delete(token);
+        return false;
+      }
+      classes.add(token);
+      return true;
+    }),
+    contains: vi.fn((token: string) => classes.has(token)),
   };
 }
 
@@ -105,6 +137,15 @@ function createElements() {
     audioModeDaycoreInput: createInput(),
     extrasEnabledInput: createInput(),
     extrasJukeboxOnlyHint: { classList: createClassList() },
+    tuningTitle: createSpan(),
+    tuningTabToggle: {
+      classList: createMutableClassList(),
+      setAttribute: vi.fn(),
+    },
+    tuningTabToggleIcon: createSpan(),
+    tuningTabToggleLabel: createSpan(),
+    tuningPanelTuning: { classList: createMutableClassList() },
+    tuningPanelExtras: { classList: createMutableClassList(["hidden"]) },
     tuningModal: { classList: createClassList() },
     infoModal: { classList: createClassList() },
     extrasModal: { classList: createClassList() },
@@ -450,6 +491,74 @@ describe("playback tuning", () => {
     expect(applied).toBe(true);
     expect(context.elements.playTitle.textContent).toBe("Song (nightcore) — Artist");
     expect(context.elements.vizNowPlayingEl.textContent).toBe("Song (nightcore) — Artist");
+  });
+
+  it("applies audio mode from URL params when loading analysis", () => {
+    setWindowUrl("http://localhost/listen/abc?am=daycore");
+    const context = createContext({
+      engine: {
+        getConfig: vi.fn(() => ({
+          currentThreshold: 0,
+          minRandomBranchChance: 0.18,
+          maxRandomBranchChance: 0.5,
+          randomBranchChanceDelta: 0.02,
+          justBackwards: false,
+          justLongBranches: false,
+          removeSequentialBranches: false,
+        })),
+        updateConfig: vi.fn(),
+        loadAnalysis: vi.fn(),
+        getGraphState: vi.fn(() => ({ currentThreshold: 45, allEdges: [], totalBeats: 0 })),
+        getVisualizationData: vi.fn(() => ({ beats: [], edges: [] })),
+        deleteEdge: vi.fn(),
+        rebuildGraph: vi.fn(),
+      } as unknown as AppContext["engine"],
+    });
+    context.state.playMode = "jukebox";
+    const response: AnalysisComplete = {
+      status: "complete",
+      id: "job123",
+      result: { beats: [], track: { title: "Song", artist: "Artist" } },
+    };
+
+    const applied = applyAnalysisResult(context, response);
+
+    expect(applied).toBe(true);
+    expect(context.state.jukeboxAudioMode).toBe("daycore");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("daycore");
+    expect(context.elements.playTitle.textContent).toBe("Song (daycore) — Artist");
+    expect(context.state.tuningParams).toContain("am=daycore");
+  });
+
+  it("switches modal header title/toggle visibility by active tuning tab", () => {
+    const context = createContext();
+    context.state.playMode = "jukebox";
+
+    setActiveTuningTab(context, "tuning");
+    expect(context.elements.tuningTitle.textContent).toBe("Tuning");
+    expect(context.elements.tuningTabToggleLabel.textContent).toBe("Extras");
+    expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(false);
+    expect(getActiveTuningTab(context)).toBe("tuning");
+
+    setActiveTuningTab(context, "extras");
+    expect(context.elements.tuningTitle.textContent).toBe("Extras");
+    expect(context.elements.tuningTabToggleLabel.textContent).toBe("Tuning");
+    expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(true);
+    expect(getActiveTuningTab(context)).toBe("extras");
+  });
+
+  it("forces tuning tab state when mode does not support extras", () => {
+    const context = createContext();
+    context.state.playMode = "jukebox";
+    setActiveTuningTab(context, "extras");
+    context.state.playMode = "autocanonizer";
+
+    syncTuningTabsUI(context);
+
+    expect(context.elements.tuningTitle.textContent).toBe("Tuning");
+    expect(context.elements.tuningPanelTuning.classList.contains("hidden")).toBe(false);
+    expect(context.elements.tuningPanelExtras.classList.contains("hidden")).toBe(true);
+    expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(true);
   });
 
   it("applies tuning params and deleted edges from url together", () => {
