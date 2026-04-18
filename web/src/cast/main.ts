@@ -3,13 +3,13 @@ import { BufferedAudioPlayer } from "../audio/BufferedAudioPlayer";
 import { JukeboxEngine } from "../engine";
 import type { JukeboxConfig } from "../engine/types";
 import { JukeboxViz } from "../jukebox/JukeboxViz";
-import { fetchAnalysis, fetchAudio, fetchJobBySource, recordPlay } from "../app/api";
+import { fetchAnalysis, fetchAudio, recordPlay } from "../app/api";
 import { formatDuration } from "../app/format";
 import { applyCastTuningToEngine, parseCastTuningParams } from "./tuning";
 
 type CastCustomData = {
   baseUrl?: string;
-  songId?: string;
+  jobId?: string;
   tuningParams?: string;
   vizIndex?: number;
 };
@@ -29,7 +29,6 @@ type CastCommand = {
 
 type CastStatus = {
   type: "status";
-  songId: string | null;
   jobId: string | null;
   createdAt: string | null;
   title: string | null;
@@ -115,7 +114,6 @@ type CastState = {
   lastBeatIndex: number | null;
   vizData: ReturnType<JukeboxEngine["getVisualizationData"]> | null;
   loadToken: number;
-  currentTrackId: string | null;
   currentJobId: string | null;
   currentJobCreatedAt: string | null;
   trackTitle: string | null;
@@ -153,23 +151,8 @@ function getElements(): CastElements {
   };
 }
 
-function isLikelyJobId(value: string) {
+function isValidJobId(value: string) {
   return /^[a-f0-9]{32}$/.test(value);
-}
-
-function parseSourceTrackId(trackId: string): { provider: string; sourceId: string } {
-  const marker = trackId.indexOf(":");
-  if (marker > 0) {
-    const provider = trackId.slice(0, marker).toLowerCase();
-    const sourceId = trackId.slice(marker + 1);
-    if (
-      sourceId &&
-      (provider === "youtube" || provider === "soundcloud" || provider === "bandcamp")
-    ) {
-      return { provider, sourceId };
-    }
-  }
-  return { provider: "youtube", sourceId: trackId };
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -214,17 +197,23 @@ function buildCastTrackDurationUnknownError(): CastErrorInfo {
   };
 }
 
-function getTrackId(): string | null {
+function getInitialJobId(): string | null {
+  let candidate: string | null = null;
   const parts = window.location.pathname.split("/").filter(Boolean);
   if (parts[0] === "cast" && parts[1]) {
     try {
-      return decodeURIComponent(parts[1]);
+      candidate = decodeURIComponent(parts[1]);
     } catch {
-      return parts[1];
+      candidate = parts[1];
     }
   }
-  const param = new URLSearchParams(window.location.search).get("id");
-  return param || null;
+  if (!candidate) {
+    candidate = new URLSearchParams(window.location.search).get("id");
+  }
+  if (!candidate || !isValidJobId(candidate)) {
+    return null;
+  }
+  return candidate;
 }
 
 function setStatus(el: HTMLElement, message: string) {
@@ -296,36 +285,17 @@ async function pollAnalysis(
 }
 
 async function loadAnalysis(
-  trackId: string,
+  jobId: string,
   statusEl: HTMLElement,
   token: number,
   state: CastState,
-): Promise<{
-  analysis: Awaited<ReturnType<typeof fetchAnalysis>>;
-  jobId: string;
-}> {
-  if (!isLikelyJobId(trackId)) {
-    setStatus(statusEl, "Loading analysis");
-    const parsedSource = parseSourceTrackId(trackId);
-    const response = await fetchJobBySource(parsedSource.provider, parsedSource.sourceId);
-    if (!response || !response.id) {
-      throw new Error("Analysis lookup failed");
-    }
-    if (response.status === "failed") {
-      throw new Error(response.error || "Analysis failed");
-    }
-    if (response.status === "complete") {
-      return { analysis: response, jobId: response.id };
-    }
-    const analysis = await pollAnalysis(response.id, statusEl, token, state);
-    return { analysis, jobId: response.id };
-  }
+): Promise<Awaited<ReturnType<typeof fetchAnalysis>>> {
   setStatus(statusEl, "Loading analysis");
-  const analysis = await pollAnalysis(trackId, statusEl, token, state);
+  const analysis = await pollAnalysis(jobId, statusEl, token, state);
   if (!analysis || analysis.status !== "complete" || !analysis.id) {
     throw new Error("Analysis lookup failed");
   }
-  return { analysis, jobId: analysis.id };
+  return analysis;
 }
 
 async function loadAudio(
@@ -392,7 +362,6 @@ async function bootstrap() {
     lastBeatIndex: null,
     vizData: null,
     loadToken: 0,
-    currentTrackId: null,
     currentJobId: null,
     currentJobCreatedAt: null,
     trackTitle: null,
@@ -414,8 +383,8 @@ async function bootstrap() {
       return;
     }
     const isLoading =
-      state.loadToken > 0 && !!state.currentTrackId && !state.vizData;
-    const hasTrack = !!state.currentTrackId;
+      state.loadToken > 0 && !!state.currentJobId && !state.vizData;
+    const hasTrack = !!state.currentJobId;
     const isPlaying = player?.isPlaying() ?? false;
     const graphState = engine?.getGraphState?.() ?? null;
     const trackDurationSeconds = (() => {
@@ -468,7 +437,6 @@ async function bootstrap() {
             : "paused";
     const status: CastStatus = {
       type: "status",
-      songId: state.currentTrackId,
       jobId: state.currentJobId,
       createdAt: state.currentJobCreatedAt,
       title: state.trackTitle,
@@ -551,14 +519,33 @@ async function bootstrap() {
     });
   };
 
+  const disposePlayerSafely = async (options?: { stop?: boolean }) => {
+    const currentPlayer = player;
+    // Clear shared reference first so concurrent teardown paths cannot double-dispose.
+    player = null;
+    if (!currentPlayer) {
+      return;
+    }
+    if (options?.stop) {
+      try {
+        currentPlayer.stop();
+      } catch (err) {
+        console.warn("Failed to stop cast player cleanly", err);
+      }
+    }
+    try {
+      await currentPlayer.dispose();
+    } catch (err) {
+      console.warn("Failed to dispose cast player cleanly", err);
+    }
+  };
+
   const resetEngine = async () => {
     if (engine) {
       engine.stopJukebox();
       engine.resetStats();
     }
-    if (player) {
-      await player.dispose();
-    }
+    await disposePlayerSafely();
     destroyViz();
     player = new BufferedAudioPlayer();
     player.setOnEnded(() => {
@@ -603,18 +590,13 @@ async function bootstrap() {
       engine.stopJukebox();
       engine.resetStats();
     }
-    if (player) {
-      player.stop();
-      await player.dispose();
-    }
+    await disposePlayerSafely({ stop: true });
     destroyViz();
-    player = null;
     engine = null;
     defaultConfig = null;
     anchorHighlightEnabled = false;
     state.lastBeatIndex = null;
     state.vizData = null;
-    state.currentTrackId = null;
     state.currentJobId = null;
     state.currentJobCreatedAt = null;
     state.trackTitle = null;
@@ -655,14 +637,13 @@ async function bootstrap() {
     }
   }
 
-  function beginTrackLoad(trackId: string) {
+  function beginTrackLoad(jobId: string) {
     setLogoVisible(elements, false);
     if (viz) {
       viz.setVisible(false);
       viz.reset();
     }
-    state.currentTrackId = trackId;
-    state.currentJobId = isLikelyJobId(trackId) ? trackId : null;
+    state.currentJobId = jobId;
     state.currentJobCreatedAt = null;
     state.loadToken += 1;
     const token = state.loadToken;
@@ -718,7 +699,6 @@ async function bootstrap() {
   }
 
   async function resetTrackAfterLoadError(errorMessage: string, errorCode: string | null) {
-    state.currentTrackId = null;
     state.currentJobId = null;
     state.currentJobCreatedAt = null;
     state.lastBeatIndex = null;
@@ -734,10 +714,7 @@ async function bootstrap() {
       engine.stopJukebox();
       engine.resetStats();
     }
-    if (player) {
-      await player.dispose();
-    }
-    player = null;
+    await disposePlayerSafely();
     engine = null;
     playStartAtMs = null;
     listenAccumulatedMs = 0;
@@ -746,7 +723,7 @@ async function bootstrap() {
   }
 
   async function startTrack(
-    trackId: string,
+    jobId: string,
     tuningParams: string | null = null,
     vizIndex: number | null = null,
   ) {
@@ -755,11 +732,11 @@ async function bootstrap() {
     }
     clearIdleStopTimer();
     stopIdleKeepAlive();
-    if (!trackId) {
+    if (!jobId) {
       setReceiverIdle();
       return;
     }
-    if (trackId === state.currentTrackId) {
+    if (jobId === state.currentJobId) {
       let tuningApplied = true;
       if (tuningParams !== null) {
         tuningApplied = applyTuningUpdate(tuningParams);
@@ -777,7 +754,7 @@ async function bootstrap() {
       sendStatusUpdate();
       return;
     }
-    const token = beginTrackLoad(trackId);
+    const token = beginTrackLoad(jobId);
     await resetEngine();
     if (token !== state.loadToken) {
       return;
@@ -785,19 +762,14 @@ async function bootstrap() {
     playStartAtMs = null;
 
     try {
-      const { analysis, jobId } = await loadAnalysis(
-        trackId,
-        elements.status,
-        token,
-        state,
-      );
+      const analysis = await loadAnalysis(jobId, elements.status, token, state);
       if (token !== state.loadToken) {
         return;
       }
       if (!analysis || analysis.status !== "complete") {
         throw new Error("Analysis unavailable");
       }
-      state.currentJobId = isLikelyJobId(jobId) ? jobId : null;
+      state.currentJobId = analysis.id;
       state.currentJobCreatedAt =
         typeof analysis.created_at === "string" ? analysis.created_at : null;
       if (!player || !engine) {
@@ -853,7 +825,7 @@ async function bootstrap() {
   }
 
   function applyTuningToEngine(tuningParams: string | null) {
-    if (!engine || !defaultConfig || !state.currentTrackId) {
+    if (!engine || !defaultConfig || !state.currentJobId) {
       return { parsed: null, highlightOnly: false };
     }
     const result = applyCastTuningToEngine(engine, defaultConfig, tuningParams);
@@ -862,7 +834,7 @@ async function bootstrap() {
   }
 
   function applyTuningUpdate(tuningParams: string | null): boolean {
-    if (!engine || !defaultConfig || !state.currentTrackId) {
+    if (!engine || !defaultConfig || !state.currentJobId) {
       return false;
     }
     try {
@@ -991,8 +963,8 @@ async function bootstrap() {
           loadRequestData.customData ?? loadRequestData.media?.customData ?? {};
         const baseUrl =
           typeof customData.baseUrl === "string" ? customData.baseUrl : null;
-        const songId =
-          typeof customData.songId === "string" ? customData.songId : null;
+        const jobId =
+          typeof customData.jobId === "string" ? customData.jobId : null;
         const tuningParams =
           typeof customData.tuningParams === "string"
             ? customData.tuningParams
@@ -1002,14 +974,14 @@ async function bootstrap() {
           Number.isFinite(customData.vizIndex)
             ? customData.vizIndex
             : null;
-        if (songId) {
+        if (jobId && isValidJobId(jobId)) {
           const nextUrl = baseUrl
-            ? `${baseUrl.replace(/\/+$/, "")}/cast/${encodeURIComponent(songId)}`
+            ? `${baseUrl.replace(/\/+$/, "")}/cast/${encodeURIComponent(jobId)}`
             : null;
           if (nextUrl) {
             window.history.replaceState({}, "", nextUrl);
           }
-          void startTrack(songId, tuningParams, vizIndex);
+          void startTrack(jobId, tuningParams, vizIndex);
         }
         return loadRequestData;
       },
@@ -1050,9 +1022,9 @@ async function bootstrap() {
       clearInterval(timer);
     }
   }, 250);
-  const initialTrackId = getTrackId();
-  if (initialTrackId) {
-    void startTrack(initialTrackId, null);
+  const initialJobId = getInitialJobId();
+  if (initialJobId) {
+    void startTrack(initialJobId, null);
   } else {
     setIdleState(elements);
     startIdleKeepAlive();
