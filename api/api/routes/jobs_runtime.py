@@ -545,9 +545,11 @@ def download_source_audio(
     job = get_job(DB_PATH, job_id)
     if job and job.source_provider != "upload" and (not job.track_title or not job.track_title.strip()):
         if isinstance(info, dict):
-            info_title = info.get("title")
+            info_title = info.get("track") or info.get("title")
+            info_artist = info.get("artist") or info.get("uploader") or info.get("creator")
             if isinstance(info_title, str) and info_title.strip():
-                update_job_track_metadata(DB_PATH, job_id, sanitize_title(info_title), "")
+                _artist = info_artist if isinstance(info_artist, str) else ""
+                update_job_track_metadata(DB_PATH, job_id, sanitize_title(info_title), _artist.strip())
 
     input_path = None
     if isinstance(info, dict):
