@@ -580,6 +580,7 @@ def get_top_tracks(
     limit: int = 10,
     touched_within_days: int | None = None,
     exclude_top_n: int | None = None,
+    min_play_count: int | None = None,
 ) -> list[dict]:
     cutoff: str | None = None
     if touched_within_days is not None:
@@ -598,6 +599,9 @@ def get_top_tracks(
         if cutoff is not None:
             where_parts.append(f"{activity_expr} >= ?")
             params.append(cutoff)
+        if min_play_count is not None:
+            where_parts.append("s.play_count >= ?")
+            params.append(max(1, int(min_play_count)))
 
         if excluded_refs:
             placeholders = ",".join("?" for _ in excluded_refs)

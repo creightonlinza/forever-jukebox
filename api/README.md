@@ -161,7 +161,7 @@ Fetch top songs (defaults to 10):
 curl "/api/top?limit=10"
 ```
 
-Fetch trending songs (defaults: limit 25, past 5 days, excluding all-time top 25):
+Fetch trending songs (defaults: limit 25, past 5 days, excluding all-time top 25, minimum play count 3):
 
 ```bash
 curl "/api/trending"

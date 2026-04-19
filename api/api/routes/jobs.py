@@ -70,6 +70,7 @@ ADMIN_KEY_HEADER = "X-Admin-Key"
 TRENDING_DEFAULT_DAYS = 5
 TRENDING_DEFAULT_EXCLUDE_TOP_N = 25
 TRENDING_DEFAULT_LIMIT = 25
+TRENDING_MIN_PLAY_COUNT = 3
 DELETE_WITHOUT_ADMIN_SECONDS = 1800
 SUPPORTED_USER_SOURCE_PROVIDERS = {"youtube", "soundcloud", "bandcamp"}
 SUPPORTED_SOURCE_PROVIDERS = {"youtube", "soundcloud", "bandcamp", "upload"}
@@ -550,6 +551,7 @@ def get_trending_songs(
         limit=limit,
         touched_within_days=TRENDING_DEFAULT_DAYS,
         exclude_top_n=TRENDING_DEFAULT_EXCLUDE_TOP_N,
+        min_play_count=TRENDING_MIN_PLAY_COUNT,
     )
     payload = TopSongsResponse(items=items)
     return JSONResponse(payload.model_dump(), status_code=200)

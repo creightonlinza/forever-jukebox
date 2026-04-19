@@ -235,7 +235,6 @@ def _is_current_schema(conn: sqlite3.Connection) -> bool:
     return (
         required_jobs.issubset(jobs_cols)
         and required_sources.issubset(sources_cols)
-        and "last_played_at" not in sources_cols
     )
 
 
