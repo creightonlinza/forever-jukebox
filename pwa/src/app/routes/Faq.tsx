@@ -71,7 +71,7 @@ export function Faq() {
           >
             Autocanonizer
           </a>{" "}
-          apps — rebuilt from the ground up by{" "}
+          — rebuilt from the ground up by{" "}
           <a href="https://creighton.dev" target="_blank" rel="noreferrer">
             Creighton Linza
           </a>
@@ -80,7 +80,7 @@ export function Faq() {
 
         <h2>How does it work?</h2>
         <p>
-          The app analyzes your audio locally to estimate beats, segments, and
+          The app analyzes your provided audio to estimate beats, segments, and
           related features. Those features drive beat-synchronous playback. On
           each beat, the player may jump to a different, sonically similar point
           based on timbre, loudness, segment duration, and beat position. The
@@ -98,12 +98,6 @@ export function Faq() {
           repository.
         </p>
 
-        <h2>Why does the first analysis take time?</h2>
-        <p>
-          Beat tracking and feature extraction are compute-heavy. The first run
-          caches the analysis, so reloading the same file is instant.
-        </p>
-
         <h2>How can I tune the Jukebox?</h2>
         <ul>
           <li>
@@ -115,8 +109,9 @@ export function Faq() {
 
         <h2>Where is analysis stored?</h2>
         <p>
-          Analysis is stored locally in your browser. You can clear it at any
-          time:
+          Analysis is stored locally in your browser. You can clear individual
+          track analysis on the Home screen, or all cached analysis by clicking
+          the button below:
         </p>
         <button
           className="tab-btn"

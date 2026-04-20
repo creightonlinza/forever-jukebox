@@ -1968,16 +1968,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <span>Play/pause playback</span>
               </div>
               <div className="info-row">
-                <span className="info-label">E:</span>
-                <span>Open Extras options</span>
-              </div>
-              <div className="info-row">
                 <span className="info-label">Shift (hold):</span>
                 <span>Force branching while playing</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">H:</span>
-                <span>Toggle Bring It Home mode</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Left/Right:</span>
@@ -1986,6 +1978,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="info-row">
                 <span className="info-label">Delete:</span>
                 <span>Remove selected branch</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">E:</span>
+                <span>Open the Extras menu</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">H:</span>
+                <span>Toggle Bring It Home mode</span>
               </div>
             </div>
           </div>
