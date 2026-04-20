@@ -2,6 +2,8 @@ import type { AppContext, TabId } from "./context";
 import { TOP_SONGS_REFRESH_MS } from "./constants";
 import { serializeParams } from "./tuning";
 
+export type FaqSubtabId = "faq" | "whats-new";
+
 export function pathForTab(tabId: TabId, youtubeId?: string | null) {
   if (tabId === "search") {
     return "/search";
@@ -16,6 +18,10 @@ export function pathForTab(tabId: TabId, youtubeId?: string | null) {
     return "/faq";
   }
   return "/";
+}
+
+export function pathForFaqSubtab(subtabId: FaqSubtabId) {
+  return subtabId === "whats-new" ? "/whats-new" : "/faq";
 }
 
 export function setActiveTab(
@@ -66,6 +72,20 @@ export function navigateToTab(
   const url = new URL(window.location.href);
   url.pathname = path;
   url.search = tabId === "play" ? buildSearchParams(tuningParams, playMode) : "";
+  if (options?.replace) {
+    window.history.replaceState({}, "", url.toString());
+  } else {
+    window.history.pushState({}, "", url.toString());
+  }
+}
+
+export function navigateToFaqSubtab(
+  subtabId: FaqSubtabId,
+  options?: { replace?: boolean },
+) {
+  const url = new URL(window.location.href);
+  url.pathname = pathForFaqSubtab(subtabId);
+  url.search = "";
   if (options?.replace) {
     window.history.replaceState({}, "", url.toString());
   } else {

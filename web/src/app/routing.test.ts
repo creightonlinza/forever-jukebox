@@ -109,4 +109,20 @@ describe("routing", () => {
     await handleRouteChange(context, deps, "/search");
     expect(deps.navigateToTab).toHaveBeenCalledWith("search", { replace: true });
   });
+
+  it("routes /faq to FAQ tab without rewriting path", async () => {
+    const context = createContext();
+    const deps = createDeps();
+    await handleRouteChange(context, deps, "/faq");
+    expect(deps.setActiveTab).toHaveBeenCalledWith("faq");
+    expect(deps.navigateToTab).not.toHaveBeenCalledWith("faq", { replace: true });
+  });
+
+  it("routes /whats-new to FAQ tab without rewriting path", async () => {
+    const context = createContext();
+    const deps = createDeps();
+    await handleRouteChange(context, deps, "/whats-new");
+    expect(deps.setActiveTab).toHaveBeenCalledWith("faq");
+    expect(deps.navigateToTab).not.toHaveBeenCalledWith("faq", { replace: true });
+  });
 });

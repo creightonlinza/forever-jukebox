@@ -37,8 +37,8 @@ export async function handleRouteChange(
     deps.navigateToTab("search", { replace: true });
     return;
   }
-  if (pathname.startsWith("/faq")) {
-    deps.navigateToTab("faq", { replace: true });
+  if (pathname.startsWith("/faq") || pathname.startsWith("/whats-new")) {
+    deps.setActiveTab("faq");
     return;
   }
   if (pathname.startsWith("/listen")) {

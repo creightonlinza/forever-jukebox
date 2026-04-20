@@ -424,6 +424,10 @@ button,
   color: var(--beat-fill);
 }
 
+.subtab-btn[data-faq-subtab="whats-new"] .subtab-icon {
+  color: var(--beat-fill);
+}
+
 .faq h3 {
   margin: 0 0 6px;
   font-size: 20px;

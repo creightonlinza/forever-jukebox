@@ -1,6 +1,7 @@
 import type { AppContext } from "../context";
 import type { PlaybackUiHandlers } from "./playback";
 import type { PlaybackDeps } from "../playback";
+import type { FaqSubtabId } from "../tabs";
 
 type RoutingDeps = {
   context: AppContext;
@@ -11,7 +12,7 @@ type RoutingDeps = {
     path: string,
   ) => Promise<void>;
   playbackDeps: PlaybackDeps;
-  onFaqOpen?: () => void;
+  onFaqRoute?: (subtabId: FaqSubtabId) => void;
 };
 
 export type RoutingHandlers = ReturnType<typeof createRoutingHandlers>;
@@ -22,7 +23,7 @@ export function createRoutingHandlers(deps: RoutingDeps) {
     playbackHandlers,
     handleRouteChange,
     playbackDeps,
-    onFaqOpen,
+    onFaqRoute,
   } = deps;
 
   function handlePopState() {
@@ -31,7 +32,11 @@ export function createRoutingHandlers(deps: RoutingDeps) {
     handleRouteChange(context, playbackDeps, path)
       .then(() => {
         if (path.startsWith("/faq")) {
-          onFaqOpen?.();
+          onFaqRoute?.("faq");
+          return;
+        }
+        if (path.startsWith("/whats-new")) {
+          onFaqRoute?.("whats-new");
         }
       })
       .catch((err) => {

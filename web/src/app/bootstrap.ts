@@ -13,7 +13,7 @@ import {
   isEditableTarget,
   showToast,
 } from "./ui";
-import { navigateToTab, updateTrackUrl } from "./tabs";
+import { navigateToTab, type FaqSubtabId, updateTrackUrl } from "./tabs";
 import { handleRouteChange } from "./routing";
 import { initBackgroundTimer } from "../shared/backgroundTimer";
 import {
@@ -340,6 +340,23 @@ export function bootstrap() {
     },
     onFaqOpen: refreshCacheSafely,
   });
+  const getFaqSubtabFromPath = (pathname: string): FaqSubtabId | null => {
+    if (pathname.startsWith("/whats-new")) {
+      return "whats-new";
+    }
+    if (pathname.startsWith("/faq")) {
+      return "faq";
+    }
+    return null;
+  };
+  const applyFaqRouteState = (pathname: string) => {
+    const faqSubtab = getFaqSubtabFromPath(pathname);
+    if (!faqSubtab) {
+      return;
+    }
+    tabsHandlers.setFaqTab(faqSubtab);
+    refreshCacheSafely();
+  };
   const appConfigHandlers = createAppConfigHandlers({
     elements,
     state,
@@ -410,7 +427,10 @@ export function bootstrap() {
     playbackHandlers,
     handleRouteChange,
     playbackDeps,
-    onFaqOpen: refreshCacheSafely,
+    onFaqRoute: (subtabId) => {
+      tabsHandlers.setFaqTab(subtabId);
+      refreshCacheSafely();
+    },
   });
   const heroTitleHomeButton = document.querySelector<HTMLButtonElement>(
     "#hero-title-home",
@@ -451,14 +471,13 @@ export function bootstrap() {
   favoritesHandlers.syncFavoriteButton();
 
   playbackHandlers.applyModeFromUrl();
-  handleRouteChange(context, playbackDeps, window.location.pathname).catch(
-    (err) => {
+  handleRouteChange(context, playbackDeps, window.location.pathname)
+    .then(() => {
+      applyFaqRouteState(window.location.pathname);
+    })
+    .catch((err) => {
       console.warn(`Route load failed: ${String(err)}`);
-    },
-  );
-  if (window.location.pathname.startsWith("/faq")) {
-    refreshCacheSafely();
-  }
+    });
 
   window.addEventListener("popstate", routingHandlers.handlePopState);
   heroTitleHomeButton?.addEventListener("click", () => {
