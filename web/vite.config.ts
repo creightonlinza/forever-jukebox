@@ -33,6 +33,12 @@ export default defineConfig(() => {
           target: "http://localhost:8000",
           changeOrigin: true,
         },
+        "/sitemap.xml": {
+          target: "http://localhost:8000",
+        },
+        "/robots.txt": {
+          target: "http://localhost:8000",
+        },
       },
     },
     build: {
