@@ -45,6 +45,7 @@ export interface JukeboxPlayer {
   scheduleJump: (targetTime: number, audioStart: number) => void;
   getCurrentTime: () => number;
   getAudioTime: () => number;
+  getPlaybackRate: () => number;
   isPlaying: () => boolean;
 }
 
@@ -88,8 +89,9 @@ export class JukeboxEngine {
     const clamped = Math.max(0, Math.min(index, this.beats.length - 1));
     const beat = this.beats[clamped];
     const audioNow = this.player.getAudioTime();
+    const playbackRate = this.getPlaybackRate();
     this.currentBeatIndex = clamped;
-    this.nextAudioTime = audioNow + beat.duration;
+    this.nextAudioTime = audioNow + beat.duration / playbackRate;
     this.curRandomBranchChance = this.config.minRandomBranchChance;
     this.branchState.curRandomBranchChance = this.curRandomBranchChance;
     this.lastJumped = false;
@@ -211,8 +213,9 @@ export class JukeboxEngine {
     const beat = this.beats[beatIndex];
     const beatEnd = beat.start + beat.duration;
     const remainingInBeat = Math.max(0, beatEnd - trackTime);
+    const playbackRate = this.getPlaybackRate();
     this.currentBeatIndex = beatIndex;
-    this.nextAudioTime = this.player.getAudioTime() + remainingInBeat;
+    this.nextAudioTime = this.player.getAudioTime() + remainingInBeat / playbackRate;
     this.lastJumped = false;
     this.lastJumpTime = null;
     this.lastJumpFromIndex = null;
@@ -442,8 +445,14 @@ export class JukeboxEngine {
 
     this.currentBeatIndex = chosenIndex;
     const startTime = this.nextAudioTime === 0 ? audioTime : this.nextAudioTime;
-    this.nextAudioTime = startTime + targetBeat.duration;
+    const playbackRate = this.getPlaybackRate();
+    this.nextAudioTime = startTime + targetBeat.duration / playbackRate;
     this.beatsPlayed += 1;
+  }
+
+  private getPlaybackRate(): number {
+    const rate = this.player.getPlaybackRate();
+    return Number.isFinite(rate) && rate > 0 ? rate : 1;
   }
 
   private findBeatIndexByTime(time: number): number {

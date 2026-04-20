@@ -1,4 +1,5 @@
 import type { AppContext, TabId } from "./context";
+import type { JukeboxAudioMode } from "../audio/BufferedAudioPlayer";
 import {
   ANALYSIS_POLL_INTERVAL_MS,
   LISTEN_TIMER_INTERVAL_MS,
@@ -21,6 +22,7 @@ import {
   writeTuningParamsToUrl,
 } from "./tuning";
 import { storeAnchorHighlight } from "./anchorHighlight";
+import { storeBranchStatsEnabled } from "./extrasMode";
 import { setAutoMarqueeText } from "./marquee";
 import {
   isAnalysisComplete,
@@ -33,6 +35,20 @@ const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const GENERIC_LOAD_ERROR_MESSAGE =
   "ERROR: Something went wrong. Please try again or report an issue on GitHub.";
+
+function formatTrackTitle(
+  baseTitle: string,
+  playMode: AppContext["state"]["playMode"],
+  audioMode: JukeboxAudioMode,
+) {
+  if (playMode === "autocanonizer") {
+    return `${baseTitle} (autocanonized)`;
+  }
+  if (audioMode !== "off") {
+    return `${baseTitle} (${audioMode})`;
+  }
+  return baseTitle;
+}
 
 function getDeletedEdgeIdsFromGraph(
   graph: ReturnType<AppContext["engine"]["getGraphState"]>,
@@ -189,9 +205,20 @@ export function updateVizVisibility(context: AppContext) {
   }
 }
 
-export function openTuning(context: AppContext) {
+function openTuningTab(context: AppContext, tab: "tuning" | "extras") {
   syncTuningUI(context);
+  syncExtrasUI(context);
+  syncTuningTabsUI(context);
+  setActiveTuningTab(context, tab);
   context.elements.tuningModal.classList.add("open");
+}
+
+export function openTuning(context: AppContext) {
+  openTuningTab(context, "tuning");
+}
+
+export function openExtras(context: AppContext) {
+  openTuningTab(context, "extras");
 }
 
 export function closeTuning(context: AppContext) {
@@ -205,6 +232,144 @@ export function openInfo(context: AppContext) {
 
 export function closeInfo(context: AppContext) {
   context.elements.infoModal.classList.remove("open");
+}
+
+function getSelectedAudioMode(context: AppContext): JukeboxAudioMode {
+  const { elements } = context;
+  if (elements.audioModeNightcoreInput.checked) {
+    return "nightcore";
+  }
+  if (elements.audioModeDaycoreInput.checked) {
+    return "daycore";
+  }
+  if (elements.audioModeVaporwaveInput.checked) {
+    return "vaporwave";
+  }
+  if (elements.audioModeEightDInput.checked) {
+    return "eight_d";
+  }
+  if (elements.audioModeLofiInput.checked) {
+    return "lofi";
+  }
+  return "off";
+}
+
+export function syncExtrasUI(context: AppContext) {
+  const { elements, state } = context;
+  const inJukeboxMode = state.playMode === "jukebox";
+  elements.extrasEnabledInput.checked =
+    inJukeboxMode && state.branchStatsEnabled;
+  elements.extrasEnabledInput.disabled = !inJukeboxMode;
+  const audioMode = state.jukeboxAudioMode;
+  elements.audioModeOffInput.checked = audioMode === "off";
+  elements.audioModeNightcoreInput.checked = audioMode === "nightcore";
+  elements.audioModeDaycoreInput.checked = audioMode === "daycore";
+  elements.audioModeVaporwaveInput.checked = audioMode === "vaporwave";
+  elements.audioModeEightDInput.checked = audioMode === "eight_d";
+  elements.audioModeLofiInput.checked = audioMode === "lofi";
+  elements.audioModeOffInput.disabled = !inJukeboxMode;
+  elements.audioModeNightcoreInput.disabled = !inJukeboxMode;
+  elements.audioModeDaycoreInput.disabled = !inJukeboxMode;
+  elements.audioModeVaporwaveInput.disabled = !inJukeboxMode;
+  elements.audioModeEightDInput.disabled = !inJukeboxMode;
+  elements.audioModeLofiInput.disabled = !inJukeboxMode;
+}
+
+export type TuningModalTab = "tuning" | "extras";
+
+export function syncTuningTabsUI(context: AppContext) {
+  const { elements, state } = context;
+  const hasExtrasTab = state.playMode === "jukebox";
+  elements.tuningTabToggle.classList.toggle("hidden", !hasExtrasTab);
+  if (!hasExtrasTab) {
+    setActiveTuningTab(context, "tuning");
+    return;
+  }
+  const activeTab = getActiveTuningTab(context);
+  setActiveTuningTab(context, activeTab);
+}
+
+export function setActiveTuningTab(context: AppContext, tab: TuningModalTab) {
+  const { elements, state } = context;
+  const hasExtrasTab = state.playMode === "jukebox";
+  const nextTab = tab === "extras" && hasExtrasTab ? "extras" : "tuning";
+  const tuningActive = nextTab === "tuning";
+  elements.tuningTitleText.textContent = tuningActive ? "Tuning" : "Extras";
+  elements.tuningBetaTag.classList.toggle("hidden", tuningActive);
+  elements.tuningTabToggle.classList.toggle("hidden", !hasExtrasTab || !tuningActive);
+  elements.tuningTabToggleIcon.textContent = tuningActive ? "science" : "tune";
+  elements.tuningTabToggleLabel.textContent = tuningActive ? "Extras" : "Tuning";
+  elements.tuningTabToggle.setAttribute(
+    "aria-label",
+    tuningActive ? "Switch to Extras" : "Switch to Tuning"
+  );
+  elements.tuningPanelTuning.classList.toggle("hidden", !tuningActive);
+  elements.tuningPanelExtras.classList.toggle("hidden", tuningActive);
+}
+
+export function getActiveTuningTab(context: AppContext): TuningModalTab {
+  return context.elements.tuningPanelTuning.classList.contains("hidden")
+    ? "extras"
+    : "tuning";
+}
+
+export type ExtrasApplyResult = {
+  branchStatsChanged: boolean;
+  audioModeChanged: boolean;
+};
+
+export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
+  const { elements, engine, player, state } = context;
+  const previousBranchStatsEnabled = state.branchStatsEnabled;
+  const previousAudioMode = state.jukeboxAudioMode;
+  state.branchStatsEnabled =
+    state.playMode === "jukebox" && elements.extrasEnabledInput.checked;
+  if (!state.branchStatsEnabled) {
+    elements.extrasPopup.classList.add("hidden");
+  }
+  storeBranchStatsEnabled(state.branchStatsEnabled);
+  const nextAudioMode = getSelectedAudioMode(context);
+  state.jukeboxAudioMode = nextAudioMode;
+  player.setJukeboxAudioMode(nextAudioMode);
+  if (
+    previousAudioMode !== nextAudioMode &&
+    state.playMode === "jukebox" &&
+    (state.isRunning || state.isPaused)
+  ) {
+    engine.syncToPlaybackPosition();
+  }
+  syncTuningParamsState(context);
+  writeTuningParamsToUrl(state.tuningParams, true);
+  return {
+    branchStatsChanged:
+      previousBranchStatsEnabled !== state.branchStatsEnabled,
+    audioModeChanged: previousAudioMode !== state.jukeboxAudioMode,
+  };
+}
+
+export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
+  const { elements, engine, player, state } = context;
+  const previousBranchStatsEnabled = state.branchStatsEnabled;
+  const previousAudioMode = state.jukeboxAudioMode;
+  state.branchStatsEnabled = false;
+  elements.extrasPopup.classList.add("hidden");
+  storeBranchStatsEnabled(false);
+  state.jukeboxAudioMode = "off";
+  player.setJukeboxAudioMode("off");
+  if (
+    previousAudioMode !== "off" &&
+    state.playMode === "jukebox" &&
+    (state.isRunning || state.isPaused)
+  ) {
+    engine.syncToPlaybackPosition();
+  }
+  syncTuningParamsState(context);
+  writeTuningParamsToUrl(state.tuningParams, true);
+  return {
+    branchStatsChanged:
+      previousBranchStatsEnabled !== state.branchStatsEnabled,
+    audioModeChanged: previousAudioMode !== state.jukeboxAudioMode,
+  };
 }
 
 export function syncTuningUI(context: AppContext) {
@@ -555,9 +720,19 @@ export function resetForNewTrack(
   context: AppContext,
   options?: { clearTuning?: boolean },
 ) {
-  const { autocanonizer, elements, engine, jukebox, state, defaultConfig } =
+  const { autocanonizer, elements, engine, jukebox, player, state, defaultConfig } =
     context;
   const shouldClearTuning = options?.clearTuning ?? false;
+  const hadTrackLoaded =
+    state.audioLoaded ||
+    state.analysisLoaded ||
+    state.lastJobId !== null ||
+    state.lastYouTubeId !== null ||
+    state.trackTitle !== null;
+  if (hadTrackLoaded) {
+    state.jukeboxAudioMode = "off";
+    player.setJukeboxAudioMode("off");
+  }
   cancelPoll(context);
   state.shiftBranching = false;
   engine.setForceBranch(false);
@@ -614,6 +789,9 @@ export function resetForNewTrack(
   elements.deleteButton.classList.add("hidden");
   state.vizData = null;
   syncTuningParamsState(context);
+  if (hadTrackLoaded && !shouldClearTuning) {
+    writeTuningParamsToUrl(state.tuningParams, true);
+  }
   updateTrackInfo(context);
   const emptyVizData = {
     beats: [],
@@ -689,10 +867,11 @@ export function applyAnalysisResult(
       : null;
   if (title || artist) {
     const baseTitle = title ?? "Unknown";
-    const withSuffix =
-      state.playMode === "autocanonizer"
-        ? `${baseTitle} (autocanonized)`
-        : baseTitle;
+    const withSuffix = formatTrackTitle(
+      baseTitle,
+      state.playMode,
+      state.jukeboxAudioMode,
+    );
     const displayTitle = artist ? `${withSuffix} — ${artist}` : withSuffix;
     setAutoMarqueeText(elements.playTitle, displayTitle);
     setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);

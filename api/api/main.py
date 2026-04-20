@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from xml.sax.saxutils import escape
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
@@ -35,6 +36,15 @@ WP_GARBAGE_RE = re.compile(
     re.IGNORECASE,
 )
 
+SITEMAP_PATHS = (
+    "/",
+    "/search",
+    "/faq",
+    "/whats-new",
+    "/listen",
+    "/offline/",
+)
+
 
 @app.middleware("http")
 async def block_garbage_paths(request: Request, call_next):
@@ -56,6 +66,37 @@ def _startup() -> None:
 @app.on_event("shutdown")
 def _shutdown() -> None:
     close_client()
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml(request: Request):
+    base_url = str(request.base_url).rstrip("/")
+    urls = [
+        base_url if path == "/" else f"{base_url}{path}"
+        for path in SITEMAP_PATHS
+    ]
+    entries = "".join(
+        f"<url><loc>{escape(url)}</loc></url>"
+        for url in urls
+    )
+    content = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f"{entries}"
+        "</urlset>"
+    )
+    return Response(content=content, media_type="application/xml")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt(request: Request):
+    base_url = str(request.base_url).rstrip("/")
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        f"Sitemap: {base_url}/sitemap.xml\n"
+    )
+    return Response(content=content, media_type="text/plain; charset=utf-8")
 
 
 if WEB_DIST.exists():

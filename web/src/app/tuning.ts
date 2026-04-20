@@ -2,7 +2,21 @@ import type { AppContext } from "./context";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
-const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d"];
+const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "am"];
+
+function parseAudioMode(raw: string | null) {
+  if (
+    raw === "off" ||
+    raw === "nightcore" ||
+    raw === "daycore" ||
+    raw === "vaporwave" ||
+    raw === "eight_d" ||
+    raw === "lofi"
+  ) {
+    return raw;
+  }
+  return null;
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -115,6 +129,11 @@ export function applyTuningParamsToEngine(
     }
   }
   context.engine.updateConfig(nextConfig);
+  const audioMode = parseAudioMode(params.get("am"));
+  if (audioMode) {
+    context.state.jukeboxAudioMode = audioMode;
+    context.player.setJukeboxAudioMode(audioMode);
+  }
   return true;
 }
 
@@ -171,6 +190,9 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
     : context.state.deletedEdgeIds;
   if (deletedIds.length > 0) {
     params.set("d", deletedIds.join(","));
+  }
+  if (context.state.jukeboxAudioMode !== "off") {
+    params.set("am", context.state.jukeboxAudioMode);
   }
   return params;
 }

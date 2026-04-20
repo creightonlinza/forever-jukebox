@@ -64,3 +64,25 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
 - Max export length: 7200 seconds (2 hours).
 - Long MP3 exports are rendered/encoded in chunks to avoid browser memory spikes.
 - Very long WAV exports can still hit browser memory limits; use MP3 for long durations.
+
+## Extras audio modes
+
+- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `lofi`.
+- UI labels/tooltips:
+  - Nightcore (Fast & Bright)
+  - Daycore (Slow & Deep)
+  - Vaporwave (Muffled & Slow)
+  - 8D Audio (Spinning/Spatial)
+  - Lofi (Radio Filter)
+- URL param support: `am=<mode>` (example: `?am=nightcore`).
+- Branch stats toggle is stored in localStorage (`fj-branch-stats-enabled`).
+- Audio mode selection is URL-driven and not persisted in localStorage.
+
+## Keyboard shortcuts
+
+- Space: play/pause while on the Listen tab.
+- E: open the Extras options modal tab.
+- Shift (hold): force branches while the jukebox is playing.
+- H: toggle Bring It Home mode.
+- Left/Right: cycle selected branch.
+- Delete: remove a selected branch (click a branch in the visualization first).

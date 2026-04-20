@@ -14,7 +14,10 @@ import {
   pickBinaryExportFile,
   saveExportBinary,
 } from "@/shared/utils/exportJson";
-import { BufferedAudioPlayer } from "@/shared/jukebox/audio/BufferedAudioPlayer";
+import {
+  BufferedAudioPlayer,
+  type JukeboxAudioMode,
+} from "@/shared/jukebox/audio/BufferedAudioPlayer";
 import { Edge, JukeboxConfig, JukeboxEngine } from "@/shared/jukebox/engine";
 import {
   DEFAULT_VISUALIZATION_INDEX,
@@ -56,13 +59,36 @@ const DEFAULT_CONFIG: JukeboxConfig = {
 const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
 const VISUALIZATION_STORAGE_KEY = "fj-viz";
 const ANCHOR_HIGHLIGHT_STORAGE_KEY = "fj-highlight-anchor-branch";
+const BRANCH_STATS_STORAGE_KEY = "fj-branch-stats-enabled";
+const AUDIO_MODE_QUERY_KEY = "am";
 const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const DEFAULT_PLAYBACK_VOLUME = 0.5;
 
 type PlayMode = "jukebox" | "autocanonizer";
+type TuningModalTab = "tuning" | "extras";
 type AudioExportFormat = "mp3" | "wav";
+
+type ExtrasFormState = {
+  branchStatsEnabled: boolean;
+  audioMode: JukeboxAudioMode;
+};
+
+type AudioModeOption = {
+  value: JukeboxAudioMode;
+  label: string;
+  tooltip?: string;
+};
+
+const AUDIO_MODE_OPTIONS: AudioModeOption[] = [
+  { value: "off", label: "Off" },
+  { value: "nightcore", label: "Nightcore", tooltip: "Fast & Bright" },
+  { value: "daycore", label: "Daycore", tooltip: "Slow & Deep" },
+  { value: "vaporwave", label: "Vaporwave", tooltip: "Muffled & Slow" },
+  { value: "eight_d", label: "8D Audio", tooltip: "Spinning/Spatial" },
+  { value: "lofi", label: "Lofi", tooltip: "Radio Filter" },
+];
 
 function getVisualizationLabel(index: number) {
   return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
@@ -89,8 +115,66 @@ function resolveStoredAnchorHighlight(): boolean {
   return stored === "1" || stored === "true";
 }
 
+function resolveStoredBranchStatsEnabled(): boolean {
+  const stored = safeLocalStorageGet(BRANCH_STATS_STORAGE_KEY);
+  return stored === "1" || stored === "true";
+}
+
 function storeAnchorHighlight(enabled: boolean) {
   safeLocalStorageSet(ANCHOR_HIGHLIGHT_STORAGE_KEY, enabled ? "1" : "0");
+}
+
+function storeBranchStatsEnabled(enabled: boolean) {
+  safeLocalStorageSet(BRANCH_STATS_STORAGE_KEY, enabled ? "1" : "0");
+}
+
+function parseAudioMode(value: string | null): JukeboxAudioMode | null {
+  if (
+    value === "off" ||
+    value === "nightcore" ||
+    value === "daycore" ||
+    value === "vaporwave" ||
+    value === "eight_d" ||
+    value === "lofi"
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function resolveAudioModeFromUrl(): JukeboxAudioMode {
+  if (typeof window === "undefined") {
+    return "off";
+  }
+  const params = new URLSearchParams(window.location.search);
+  return parseAudioMode(params.get(AUDIO_MODE_QUERY_KEY)) ?? "off";
+}
+
+function writeAudioModeToUrl(mode: JukeboxAudioMode, replace = true) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const url = new URL(window.location.href);
+  if (mode === "off") {
+    url.searchParams.delete(AUDIO_MODE_QUERY_KEY);
+  } else {
+    url.searchParams.set(AUDIO_MODE_QUERY_KEY, mode);
+  }
+  if (replace) {
+    window.history.replaceState({}, "", url.toString());
+    return;
+  }
+  window.history.pushState({}, "", url.toString());
+}
+
+function formatTrackTitle(baseTitle: string, playMode: PlayMode, audioMode: JukeboxAudioMode) {
+  if (playMode === "autocanonizer") {
+    return `${baseTitle} (autocanonized)`;
+  }
+  if (audioMode !== "off") {
+    return `${baseTitle} (${audioMode})`;
+  }
+  return baseTitle;
 }
 
 type TuneFormState = {
@@ -155,6 +239,7 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
 
 export function Listen({ isActive = true }: { isActive?: boolean }) {
   const { file, setIsListenLoading } = useAppState();
+  const initialAudioMode = React.useMemo(() => resolveAudioModeFromUrl(), []);
   const [analysis, setAnalysis] = React.useState<AnalysisOutput | null>(null);
   const [readyFileKey, setReadyFileKey] = React.useState<string | null>(null);
   const [progressStage, setProgressStage] = React.useState<AnalyzeStage>("loading");
@@ -173,7 +258,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [bringItHomeMode, setBringItHomeMode] = React.useState(false);
-  const [extrasMode, setExtrasMode] = React.useState(false);
+  const [branchStatsEnabled, setBranchStatsEnabled] = React.useState<boolean>(
+    () => resolveStoredBranchStatsEnabled(),
+  );
+  const [jukeboxAudioMode, setJukeboxAudioMode] =
+    React.useState<JukeboxAudioMode>(initialAudioMode);
+  const [tuningActiveTab, setTuningActiveTab] =
+    React.useState<TuningModalTab>("tuning");
   const [shortcutToast, setShortcutToast] = React.useState<string | null>(null);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
     const raw = safeLocalStorageGet(VISUALIZATION_STORAGE_KEY);
@@ -207,6 +298,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     justLongBranches: DEFAULT_CONFIG.justLongBranches,
     removeSequentialBranches: DEFAULT_CONFIG.removeSequentialBranches,
   });
+  const [extrasForm, setExtrasForm] = React.useState<ExtrasFormState>({
+    branchStatsEnabled: resolveStoredBranchStatsEnabled(),
+    audioMode: initialAudioMode,
+  });
   const [isExportOpen, setIsExportOpen] = React.useState(false);
   const [isExporting, setIsExporting] = React.useState(false);
   const [exportError, setExportError] = React.useState<string | null>(null);
@@ -233,6 +328,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const playTimerMsRef = React.useRef(0);
   const lastPlayStampRef = React.useRef<number | null>(null);
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
+  const previousFileKeyRef = React.useRef<string | null>(null);
   const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
   const { requestWakeLock, releaseWakeLock } = useWakeLock();
@@ -273,11 +369,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
   React.useEffect(() => {
     playerRef.current = new BufferedAudioPlayer();
+    playerRef.current.setJukeboxAudioMode(jukeboxAudioMode);
     return () => {
       void playerRef.current?.dispose();
       playerRef.current = null;
     };
   }, []);
+
+  React.useEffect(() => {
+    playerRef.current?.setJukeboxAudioMode(jukeboxAudioMode);
+  }, [jukeboxAudioMode]);
 
   React.useEffect(() => {
     vizControllerRef.current?.setActiveIndex(activeVizIndex);
@@ -396,6 +497,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (!file || !playerRef.current) {
       return;
     }
+    const currentFileKey = `${file.name}:${file.size}:${file.lastModified}`;
+    const previousFileKey = previousFileKeyRef.current;
+    const isTrackChange = previousFileKey !== null && previousFileKey !== currentFileKey;
+    previousFileKeyRef.current = currentFileKey;
+    if (isTrackChange) {
+      playerRef.current.setJukeboxAudioMode("off");
+      setJukeboxAudioMode("off");
+      setExtrasForm((prev) =>
+        prev.audioMode === "off" ? prev : { ...prev, audioMode: "off" },
+      );
+      writeAudioModeToUrl("off", true);
+    }
+
     const fileKey = `${file.name}:${file.size}:${file.lastModified}`;
     let cancelled = false;
 
@@ -501,6 +615,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (isEditableTarget(event.target)) {
         return;
       }
+      if (
+        playMode === "jukebox" &&
+        (event.key === "e" || event.key === "E") &&
+        !event.repeat
+      ) {
+        event.preventDefault();
+        openTuningModalTab("extras");
+        return;
+      }
       if (event.code === "Space") {
         event.preventDefault();
         togglePlayback();
@@ -539,19 +662,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           engineRef.current?.setForceBranch(false);
         }
         showShortcutToast(`Bring It Home ${nextValue ? "enabled" : "disabled"}`);
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "e" || event.key === "E") &&
-        !event.repeat
-      ) {
-        event.preventDefault();
-        setExtrasMode((prev) => {
-          const next = !prev;
-          showShortcutToast(`Extras mode ${next ? "enabled" : "disabled"}`);
-          return next;
-        });
         return;
       }
       if (
@@ -700,6 +810,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (mode === "autocanonizer") {
       setIsTuningOpen(false);
       setIsInfoOpen(false);
+      setTuningActiveTab("tuning");
       clearSelectedBranch();
     }
   };
@@ -777,6 +888,23 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       justLongBranches: config.justLongBranches,
       removeSequentialBranches: config.removeSequentialBranches,
     });
+  };
+
+  const syncExtrasFormFromState = React.useCallback(() => {
+    setExtrasForm({
+      branchStatsEnabled,
+      audioMode: jukeboxAudioMode,
+    });
+  }, [branchStatsEnabled, jukeboxAudioMode]);
+
+  const openTuningModalTab = (tab: TuningModalTab) => {
+    if (playModeRef.current !== "jukebox") {
+      return;
+    }
+    syncTuneFormFromEngine();
+    syncExtrasFormFromState();
+    setTuningActiveTab(tab);
+    setIsTuningOpen(true);
   };
 
   const pausePlayback = () => {
@@ -997,6 +1125,71 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setIsTuningOpen(false);
   };
 
+  const onApplyExtras = () => {
+    const player = playerRef.current;
+    if (!player) {
+      return;
+    }
+    const previousAudioMode = jukeboxAudioMode;
+    const nextBranchStatsEnabled = playModeRef.current === "jukebox" && extrasForm.branchStatsEnabled;
+    const nextAudioMode = extrasForm.audioMode;
+    setBranchStatsEnabled(nextBranchStatsEnabled);
+    storeBranchStatsEnabled(nextBranchStatsEnabled);
+    setJukeboxAudioMode(nextAudioMode);
+    player.setJukeboxAudioMode(nextAudioMode);
+    writeAudioModeToUrl(nextAudioMode, true);
+    if (
+      previousAudioMode !== nextAudioMode &&
+      playModeRef.current === "jukebox" &&
+      (isRunningRef.current || isPausedRef.current)
+    ) {
+      engineRef.current?.syncToPlaybackPosition();
+    }
+    setIsTuningOpen(false);
+  };
+
+  const onResetExtras = () => {
+    const player = playerRef.current;
+    if (!player) {
+      return;
+    }
+    const previousAudioMode = jukeboxAudioMode;
+    const defaultState: ExtrasFormState = {
+      branchStatsEnabled: false,
+      audioMode: "off",
+    };
+    setExtrasForm(defaultState);
+    setBranchStatsEnabled(false);
+    storeBranchStatsEnabled(false);
+    setJukeboxAudioMode("off");
+    player.setJukeboxAudioMode("off");
+    writeAudioModeToUrl("off", true);
+    if (
+      previousAudioMode !== "off" &&
+      playModeRef.current === "jukebox" &&
+      (isRunningRef.current || isPausedRef.current)
+    ) {
+      engineRef.current?.syncToPlaybackPosition();
+    }
+    setIsTuningOpen(false);
+  };
+
+  const onApplyTuningModal = () => {
+    if (tuningActiveTab === "extras") {
+      onApplyExtras();
+      return;
+    }
+    onApplyTuning();
+  };
+
+  const onResetTuningModal = () => {
+    if (tuningActiveTab === "extras") {
+      onResetExtras();
+      return;
+    }
+    onResetTuning();
+  };
+
   const onVolumeChange = (value: number) => {
     setTuneForm((prev) => ({ ...prev, volume: value }));
     const volume = value / 100;
@@ -1159,7 +1352,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const showPlaybackUi = Boolean(analysis) && !isAnalyzing && readyFileKey === currentFileKey;
   const playControlLabel = isRunning ? "Pause" : isPaused ? "Resume" : "Play";
   const branchStats =
-    extrasMode && playMode === "jukebox" && selectedEdge
+    branchStatsEnabled && playMode === "jukebox" && selectedEdge
       ? (() => {
           const startSeconds = Math.max(0, selectedEdge.src.start);
           const endSeconds = Math.max(0, selectedEdge.dest.start);
@@ -1197,8 +1390,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       </section>
     );
   }
-  const displayTitle =
-    playMode === "autocanonizer" ? `${file.name} (autocanonized)` : file.name;
+  const displayTitle = formatTrackTitle(file.name, playMode, jukeboxAudioMode);
 
   return (
     <section className="listen-page">
@@ -1227,10 +1419,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               id="tuning"
               className={`tune-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
               type="button"
-              onClick={() => {
-                syncTuneFormFromEngine();
-                setIsTuningOpen(true);
-              }}
+              onClick={() => openTuningModalTab("tuning")}
               disabled={!analysis || playMode === "autocanonizer"}
               title="Tune"
               aria-label="Tune"
@@ -1545,129 +1734,203 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         <div className="modal open" onClick={(event) => event.target === event.currentTarget && setIsTuningOpen(false)}>
           <div className="modal-panel">
             <div className="modal-header">
-              <h2>Tuning</h2>
+              <div className="modal-header-main">
+                <h2 id="tuning-title">
+                  <span id="tuning-title-text">
+                    {tuningActiveTab === "tuning" ? "Tuning" : "Extras"}
+                  </span>
+                  <span
+                    id="tuning-beta-tag"
+                    className={`beta-tag ${tuningActiveTab === "extras" ? "" : "hidden"}`}
+                  >
+                    Beta
+                  </span>
+                </h2>
+                <div className="modal-tabs" aria-label="Tune sections">
+                  <button
+                    id="tuning-tab-toggle"
+                    className={`modal-tab ${playMode !== "jukebox" || tuningActiveTab !== "tuning" ? "hidden" : ""}`}
+                    type="button"
+                    onClick={() => setTuningActiveTab("extras")}
+                    aria-label="Switch to Extras"
+                  >
+                    <SymbolIcon className="modal-tab-icon" name="science" />
+                    <span id="tuning-tab-toggle-label">Extras</span>
+                  </button>
+                </div>
+              </div>
               <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label="Close">
                 <SymbolIcon className="modal-close-icon" name="close" />
               </button>
             </div>
             <div className="modal-body">
-              <label>
-                <div className="label-line">
-                  Branch Similarity Threshold:
-                  <span>{tuneForm.threshold}</span>
-                </div>
-                <div className="hint">
-                  Computed default threshold:
-                  <span>{tuneForm.computedThreshold}</span>
-                </div>
-                <input
-                  type="range"
-                  min={2}
-                  max={80}
-                  step={1}
-                  value={tuneForm.threshold}
-                  onChange={(event) =>
-                    setTuneForm((prev) => ({ ...prev, threshold: Number(event.target.value) }))
-                  }
-                />
-              </label>
-              <label>
-                <div className="label-line">
-                  Branch Probability Min:
-                  <span>{tuneForm.minProb}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={2}
-                  value={tuneForm.minProb}
-                  onChange={(event) =>
-                    setTuneForm((prev) => ({ ...prev, minProb: Number(event.target.value) }))
-                  }
-                />
-              </label>
-              <label>
-                <div className="label-line">
-                  Branch Probability Max:
-                  <span>{tuneForm.maxProb}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={2}
-                  value={tuneForm.maxProb}
-                  onChange={(event) =>
-                    setTuneForm((prev) => ({ ...prev, maxProb: Number(event.target.value) }))
-                  }
-                />
-              </label>
-              <label>
-                <div className="label-line">
-                  Branch Ramp Speed:
-                  <span>{tuneForm.ramp}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={2}
-                  value={tuneForm.ramp}
-                  onChange={(event) =>
-                    setTuneForm((prev) => ({ ...prev, ramp: Number(event.target.value) }))
-                  }
-                />
-              </label>
-              <div className="checkbox-row">
+              <div id="tuning-panel-tuning" className={tuningActiveTab === "tuning" ? "" : "hidden"}>
                 <label>
+                  <div className="label-line">
+                    Branch Similarity Threshold:
+                    <span>{tuneForm.threshold}</span>
+                  </div>
+                  <div className="hint">
+                    Computed default threshold:
+                    <span>{tuneForm.computedThreshold}</span>
+                  </div>
                   <input
-                    type="checkbox"
-                    checked={tuneForm.justBackwards}
+                    type="range"
+                    min={2}
+                    max={80}
+                    step={1}
+                    value={tuneForm.threshold}
                     onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, justBackwards: event.target.checked }))
+                      setTuneForm((prev) => ({ ...prev, threshold: Number(event.target.value) }))
                     }
                   />
-                  Allow only reverse branches
                 </label>
                 <label>
+                  <div className="label-line">
+                    Branch Probability Min:
+                    <span>{tuneForm.minProb}%</span>
+                  </div>
                   <input
-                    type="checkbox"
-                    checked={tuneForm.justLongBranches}
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={2}
+                    value={tuneForm.minProb}
                     onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, justLongBranches: event.target.checked }))
+                      setTuneForm((prev) => ({ ...prev, minProb: Number(event.target.value) }))
                     }
                   />
-                  Allow only long branches
                 </label>
                 <label>
+                  <div className="label-line">
+                    Branch Probability Max:
+                    <span>{tuneForm.maxProb}%</span>
+                  </div>
                   <input
-                    type="checkbox"
-                    checked={tuneForm.removeSequentialBranches}
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={2}
+                    value={tuneForm.maxProb}
                     onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, removeSequentialBranches: event.target.checked }))
+                      setTuneForm((prev) => ({ ...prev, maxProb: Number(event.target.value) }))
                     }
                   />
-                  Remove sequential branches
                 </label>
                 <label>
+                  <div className="label-line">
+                    Branch Ramp Speed:
+                    <span>{tuneForm.ramp}%</span>
+                  </div>
                   <input
-                    type="checkbox"
-                    checked={tuneForm.highlightAnchorBranch}
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={2}
+                    value={tuneForm.ramp}
                     onChange={(event) =>
-                      setTuneForm((prev) => ({
-                        ...prev,
-                        highlightAnchorBranch: event.target.checked,
-                      }))
+                      setTuneForm((prev) => ({ ...prev, ramp: Number(event.target.value) }))
                     }
                   />
-                  Highlight forced anchor jump
                 </label>
+                <div className="checkbox-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={tuneForm.justBackwards}
+                      onChange={(event) =>
+                        setTuneForm((prev) => ({ ...prev, justBackwards: event.target.checked }))
+                      }
+                    />
+                    Allow only reverse branches
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={tuneForm.justLongBranches}
+                      onChange={(event) =>
+                        setTuneForm((prev) => ({ ...prev, justLongBranches: event.target.checked }))
+                      }
+                    />
+                    Allow only long branches
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={tuneForm.removeSequentialBranches}
+                      onChange={(event) =>
+                        setTuneForm((prev) => ({ ...prev, removeSequentialBranches: event.target.checked }))
+                      }
+                    />
+                    Remove sequential branches
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={tuneForm.highlightAnchorBranch}
+                      onChange={(event) =>
+                        setTuneForm((prev) => ({
+                          ...prev,
+                          highlightAnchorBranch: event.target.checked,
+                        }))
+                      }
+                    />
+                    Highlight forced anchor jump
+                  </label>
+                </div>
+              </div>
+              <div id="tuning-panel-extras" className={tuningActiveTab === "extras" ? "" : "hidden"}>
+                <div className="checkbox-row extras-checkbox-row">
+                  <label>
+                    <input
+                      id="extras-enabled"
+                      type="checkbox"
+                      checked={extrasForm.branchStatsEnabled}
+                      onChange={(event) =>
+                        setExtrasForm((prev) => ({
+                          ...prev,
+                          branchStatsEnabled: event.target.checked,
+                        }))
+                      }
+                      disabled={playMode !== "jukebox"}
+                    />
+                    Show selected branch stats
+                  </label>
+                </div>
+                <div id="jukebox-audio-mode-group" className="audio-mode-group">
+                  <div className="label-line">Audio Mode</div>
+                  <div className="audio-mode-options" role="radiogroup" aria-label="Audio mode">
+                    {AUDIO_MODE_OPTIONS.map((option) => (
+                      <label
+                        key={option.value}
+                        className="audio-mode-option"
+                        title={option.tooltip}
+                      >
+                        <input
+                          id={`audio-mode-${option.value.replace(/_/g, "-")}`}
+                          type="radio"
+                          name="audio-mode"
+                          value={option.value}
+                          checked={extrasForm.audioMode === option.value}
+                          onChange={() =>
+                            setExtrasForm((prev) => ({
+                              ...prev,
+                              audioMode: option.value,
+                            }))
+                          }
+                          title={option.tooltip}
+                          disabled={playMode !== "jukebox"}
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="modal-footer tuning-footer">
-              <button className="tab-btn" type="button" onClick={onResetTuning}>Reset</button>
-              <button className="tab-btn" type="button" onClick={onApplyTuning}>Apply</button>
+              <button className="tab-btn" type="button" onClick={onResetTuningModal}>Reset</button>
+              <button className="tab-btn" type="button" onClick={onApplyTuningModal}>Apply</button>
             </div>
           </div>
         </div>
@@ -1709,20 +1972,20 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <span>Force branching while playing</span>
               </div>
               <div className="info-row">
-                <span className="info-label">H:</span>
-                <span>Toggle Bring It Home mode</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">E:</span>
-                <span>Toggle Extras mode</span>
-              </div>
-              <div className="info-row">
                 <span className="info-label">Left/Right:</span>
                 <span>Cycle selected branch</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Delete:</span>
                 <span>Remove selected branch</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">E:</span>
+                <span>Open the Extras menu</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">H:</span>
+                <span>Toggle Bring It Home mode</span>
               </div>
             </div>
           </div>

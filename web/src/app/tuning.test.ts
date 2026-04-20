@@ -46,13 +46,16 @@ function createContext(
     elements: {
       canonizerFinish: { checked: false, addEventListener: vi.fn() },
     } as unknown as AppContext["elements"],
-    player: {} as unknown as AppContext["player"],
+    player: {
+      setJukeboxAudioMode: vi.fn(),
+    } as unknown as AppContext["player"],
     autocanonizer: {} as unknown as AppContext["autocanonizer"],
     jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
     state: {
       tuningParams: null,
       playMode: "jukebox",
       deletedEdgeIds: [],
+      jukeboxAudioMode: "off",
     } as unknown as AppContext["state"],
   };
 }
@@ -65,7 +68,7 @@ describe("tuning params", () => {
   it("applies tuning params to engine config", () => {
     const context = createContext();
     const params = new URLSearchParams(
-      "jb=1&lg=1&sq=0&thresh=25&bp=18,50,10",
+      "jb=1&lg=1&sq=0&thresh=25&bp=18,50,10&am=nightcore",
     );
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
@@ -77,6 +80,26 @@ describe("tuning params", () => {
     expect(config.minRandomBranchChance).toBeCloseTo(0.18, 4);
     expect(config.maxRandomBranchChance).toBeCloseTo(0.5, 4);
     expect(config.randomBranchChanceDelta).toBeCloseTo(0.02, 4);
+    expect(context.state.jukeboxAudioMode).toBe("nightcore");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("nightcore");
+  });
+
+  it("ignores unsupported audio mode values", () => {
+    const context = createContext();
+    const params = new URLSearchParams("am=chipmunk");
+    const applied = applyTuningParamsToEngine(context, params);
+    expect(applied).toBe(true);
+    expect(context.state.jukeboxAudioMode).toBe("off");
+    expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
+  });
+
+  it("applies newly supported audio modes from params", () => {
+    const context = createContext();
+    const params = new URLSearchParams("am=eight_d");
+    const applied = applyTuningParamsToEngine(context, params);
+    expect(applied).toBe(true);
+    expect(context.state.jukeboxAudioMode).toBe("eight_d");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_d");
   });
 
   it("serializes only non-default tuning params", () => {
@@ -88,6 +111,13 @@ describe("tuning params", () => {
     expect(params.get("jb")).toBe("1");
     expect(params.get("thresh")).toBe("30");
     expect(params.get("bp")).toBeNull();
+  });
+
+  it("serializes audio mode when enabled", () => {
+    const context = createContext();
+    context.state.jukeboxAudioMode = "daycore";
+    const params = getTuningParamsFromEngine(context);
+    expect(params.get("am")).toBe("daycore");
   });
 
   it("serializes deleted edge ids when present", () => {
@@ -119,16 +149,18 @@ describe("tuning params", () => {
 
   it("writes and clears tuning params in the URL", () => {
     setWindowUrl("http://localhost/listen/abc?foo=bar");
-    writeTuningParamsToUrl("jb=1&thresh=20&bp=25,50,10", true);
+    writeTuningParamsToUrl("jb=1&thresh=20&bp=25,50,10&am=nightcore", true);
     expect(window.location.search).toContain("foo=bar");
     expect(window.location.search).toContain("jb=1");
     expect(window.location.search).toContain("thresh=20");
     expect(window.location.search).toContain("bp=25,50,10");
+    expect(window.location.search).toContain("am=nightcore");
 
     clearTuningParamsFromUrl(true);
     expect(window.location.search).toContain("foo=bar");
     expect(window.location.search).not.toContain("jb=1");
     expect(window.location.search).not.toContain("thresh=20");
+    expect(window.location.search).not.toContain("am=nightcore");
   });
 
   it("ignores malformed bp values", () => {

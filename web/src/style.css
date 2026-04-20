@@ -424,6 +424,10 @@ button,
   color: var(--beat-fill);
 }
 
+.subtab-btn[data-faq-subtab="whats-new"] .subtab-icon {
+  color: var(--beat-fill);
+}
+
 .faq h3 {
   margin: 0 0 6px;
   font-size: 20px;
@@ -658,6 +662,86 @@ button.is-loading::after {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
+}
+
+.modal-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.modal-header h2 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.modal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-control);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+#tuning-tab-toggle {
+  border-color: var(--beat-fill);
+  color: var(--beat-fill);
+}
+
+#tuning-tab-toggle:hover {
+  background: color-mix(in srgb, var(--beat-fill) 14%, var(--surface-control));
+}
+
+#tuning-tab-toggle:focus-visible {
+  outline: 2px solid var(--beat-fill);
+  outline-offset: 2px;
+}
+
+.modal-tab.hidden {
+  display: none;
+}
+
+.beta-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--beat-fill);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--beat-fill);
+  background: color-mix(in srgb, var(--beat-fill) 14%, transparent);
+}
+
+.beta-tag.hidden {
+  display: none;
+}
+
+.modal-tab-icon {
+  font-size: 16px;
+}
+
+.modal-tab.is-active {
+  background: var(--surface-control);
+  color: var(--text);
 }
 
 .modal-body {
@@ -735,6 +819,38 @@ button.is-loading::after {
 }
 
 .checkbox-row input[type="checkbox"] {
+  margin: 0;
+}
+
+.extras-checkbox-row {
+  grid-template-columns: 1fr;
+}
+
+.audio-mode-group {
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-control);
+}
+
+.audio-mode-group .label-line {
+  margin-bottom: 10px;
+}
+
+.audio-mode-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.audio-mode-option {
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.audio-mode-option input[type="radio"] {
   margin: 0;
 }
 

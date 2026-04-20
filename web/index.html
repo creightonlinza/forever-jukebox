@@ -482,7 +482,12 @@
           <button class="subtab-btn active" data-faq-subtab="faq">FAQ</button>
           <span class="subtab-spacer" aria-hidden="true"></span>
           <button class="subtab-btn" data-faq-subtab="whats-new">
-            What's New
+            <span
+              class="material-symbols-outlined subtab-icon subtab-icon-filled"
+              aria-hidden="true"
+              >add_circle</span
+            >
+            <span>What's New</span>
           </button>
         </div>
         <div class="panel-title" id="faq-panel-title">FAQ</div>
@@ -503,7 +508,7 @@
               rel="noreferrer"
               >Autocanonizer</a
             >
-            — rebuilt from the ground up and launched on January 1, 2026 by
+            — rebuilt from the ground up by
             <a href="https://creighton.dev" target="_blank" rel="noreferrer"
               >Creighton Linza</a
             >. It generates a forever-evolving version of any song.
@@ -583,31 +588,31 @@
         <div class="faq faq-updates hidden" id="faq-whats-new-panel">
           <h4>April 2026</h4>
           <ul>
-            <li>Layout tweaks, a new light theme and added a <strong>What's New</strong> section - (you are here)!</li>
-            <li>Added <strong>SoundCloud</strong> and <strong>Bandcamp</strong> support in Upload by URL.</li>
+            <li>Added a <strong>What's New</strong> section (you are here)!</li>
+            <li>Added <strong>SoundCloud</strong> and <strong>Bandcamp</strong> support via Upload by URL.</li>
+            <li>
+              <strong>Extras</strong> menu added (press E on the Listen screen or access in the tuning menu)
+              for experimental features.
+            </li>
+            <li>
+              Added highly requested <strong>nightcore</strong>, <strong>daycore</strong>, &amp; other <strong>Audio Mode</strong>
+              options to the Extras menu.</li>
           </ul>
 
           <h4>March 2026</h4>
           <ul>
             <li>
-              <strong>Extras mode</strong> added new ways to explore branches,
-              including branch stats and keyboard-based branch cycling.
+              <strong>Branch stats</strong> toggle was added to provide helpful data points like direction,
+              timing, &amp; match percentage.
             </li>
             <li>
-              <strong>Bring It Home mode</strong> was added for a more linear
+              <strong>Bring It Home mode</strong> (press H on your keyboard to toggle) was added for a more linear
               playback option that finishes the song cleanly.
-            </li>
-            <li>
-              Playback behavior was refined to improve jump consistency.
             </li>
             <li>
               The backend moved to <strong>madmom-beats-lite</strong>,
               improving progress reporting and memory footprint, while
-              providing the same analysis quality.
-            </li>
-            <li>
-              The Offline App (PWA) gained better cached-analysis management,
-              including the ability to view and delete saved analyses.
+              maintaining quality analysis.
             </li>
           </ul>
 
@@ -615,30 +620,24 @@
           <ul>
             <li>
               The <strong>Offline App</strong> (PWA) launched, making it
-              possible to analyze and play tracks directly in the browser
-              without an internet connection.
+              possible to analyze and play tracks directly - without an internet connection.
             </li>
             <li><strong>Recently Played</strong> and <strong>Trending</strong> discovery lists were added.</li>
             <li>A new <strong>Arc visualization</strong> replaced the Spiral view.</li>
-            <li>
-              Loop optimization and playback reliability continued to improve.
-            </li>
           </ul>
 
           <h4>January 2026</h4>
           <ul>
             <li>
-              <strong>Favorites</strong> launched, followed shortly by
-              <strong>Favorites Sync</strong> so saved tracks could travel
-              between sessions/devices.
+              Happy new year! Site <strong>launched</strong> on the first of the year.</li>
+            <li>
+              <strong>Favorites</strong> feature added, along with
+              <strong>Favorites Sync</strong> so saved tracks can travel
+              between sessions &amp; devices.
             </li>
             <li>
               Support was added for <strong>user uploads</strong> and
-              <strong>user-supplied YouTube jobs</strong>.
-            </li>
-            <li>
-              Playback timing and jump scheduling were improved for smoother,
-              more reliable transitions.
+              manually added <strong>YouTube links</strong>.
             </li>
             <li>
               <strong>Autocanonizer mode</strong> was added as a new playback
@@ -650,7 +649,23 @@
       <div id="tuning-modal" class="modal">
         <div class="modal-panel">
           <div class="modal-header">
-            <h2>Tuning</h2>
+            <div class="modal-header-main">
+              <h2 id="tuning-title">
+                <span id="tuning-title-text">Tuning</span>
+                <span id="tuning-beta-tag" class="beta-tag hidden">Beta</span>
+              </h2>
+              <div class="modal-tabs" aria-label="Tune sections">
+                <button id="tuning-tab-toggle" class="modal-tab hidden" type="button">
+                  <span
+                    id="tuning-tab-toggle-icon"
+                    class="material-symbols-outlined modal-tab-icon"
+                    aria-hidden="true"
+                    >science</span
+                  >
+                  <span id="tuning-tab-toggle-label">Extras</span>
+                </button>
+              </div>
+            </div>
             <button id="tuning-close" class="modal-close" aria-label="Close">
               <span
                 class="material-symbols-outlined modal-close-icon"
@@ -660,83 +675,162 @@
             </button>
           </div>
           <div class="modal-body">
-            <label>
-              <div class="label-line">
-                Branch Similarity Threshold:
-                <span id="threshold-val">2</span>
+            <div id="tuning-panel-tuning">
+              <label>
+                <div class="label-line">
+                  Branch Similarity Threshold:
+                  <span id="threshold-val">2</span>
+                </div>
+                <div class="hint">
+                  Computed default threshold:
+                  <span id="computed-threshold">-</span>
+                </div>
+                <input
+                  id="threshold"
+                  type="range"
+                  min="2"
+                  max="80"
+                  step="1"
+                  value="2"
+                />
+              </label>
+              <label>
+                <div class="label-line">
+                  Branch Probability Min:
+                  <span id="min-prob-val">18%</span>
+                </div>
+                <input
+                  id="min-prob"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="2"
+                  value="18"
+                />
+              </label>
+              <label>
+                <div class="label-line">
+                  Branch Probability Max:
+                  <span id="max-prob-val">50%</span>
+                </div>
+                <input
+                  id="max-prob"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="2"
+                  value="50"
+                />
+              </label>
+              <label>
+                <div class="label-line">
+                  Branch Ramp Speed:
+                  <span id="ramp-val">10%</span>
+                </div>
+                <input
+                  id="ramp"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="2"
+                  value="10"
+                />
+              </label>
+              <div class="checkbox-row">
+                <label
+                  ><input id="just-backwards" type="checkbox" /> Allow only
+                  reverse branches</label
+                >
+                <label
+                  ><input id="just-long" type="checkbox" /> Allow only long
+                  branches</label
+                >
+                <label
+                  ><input id="remove-seq" type="checkbox" /> Remove sequential
+                  branches</label
+                >
+                <label
+                  ><input id="highlight-anchor-branch" type="checkbox" />
+                  Highlight forced anchor jump</label
+                >
               </div>
-              <div class="hint">
-                Computed default threshold:
-                <span id="computed-threshold">-</span>
+            </div>
+            <div id="tuning-panel-extras" class="hidden">
+              <div class="checkbox-row extras-checkbox-row">
+                <label>
+                  <input id="extras-enabled" type="checkbox" />
+                  Show selected branch stats
+                </label>
               </div>
-              <input
-                id="threshold"
-                type="range"
-                min="2"
-                max="80"
-                step="1"
-                value="2"
-              />
-            </label>
-            <label>
-              <div class="label-line">
-                Branch Probability Min:
-                <span id="min-prob-val">18%</span>
+              <div id="jukebox-audio-mode-group" class="audio-mode-group">
+                <div class="label-line">Audio Mode</div>
+                <div
+                  class="audio-mode-options"
+                  role="radiogroup"
+                  aria-label="Audio mode"
+                >
+                  <label class="audio-mode-option">
+                    <input
+                      id="audio-mode-off"
+                      type="radio"
+                      name="audio-mode"
+                      value="off"
+                      checked
+                    />
+                    Off
+                  </label>
+                  <label class="audio-mode-option" title="Fast & Bright">
+                    <input
+                      id="audio-mode-nightcore"
+                      type="radio"
+                      name="audio-mode"
+                      value="nightcore"
+                      title="Fast & Bright"
+                    />
+                    Nightcore
+                  </label>
+                  <label class="audio-mode-option" title="Slow & Deep">
+                    <input
+                      id="audio-mode-daycore"
+                      type="radio"
+                      name="audio-mode"
+                      value="daycore"
+                      title="Slow & Deep"
+                    />
+                    Daycore
+                  </label>
+                  <label class="audio-mode-option" title="Muffled & Slow">
+                    <input
+                      id="audio-mode-vaporwave"
+                      type="radio"
+                      name="audio-mode"
+                      value="vaporwave"
+                      title="Muffled & Slow"
+                    />
+                    Vaporwave
+                  </label>
+                  <label class="audio-mode-option" title="Spinning/Spatial">
+                    <input
+                      id="audio-mode-eight-d"
+                      type="radio"
+                      name="audio-mode"
+                      value="eight_d"
+                      title="Spinning/Spatial"
+                    />
+                    8D Audio
+                  </label>
+                  <label class="audio-mode-option" title="Radio Filter">
+                    <input
+                      id="audio-mode-lofi"
+                      type="radio"
+                      name="audio-mode"
+                      value="lofi"
+                      title="Radio Filter"
+                    />
+                    Lofi
+                  </label>
+                </div>
               </div>
-              <input
-                id="min-prob"
-                type="range"
-                min="0"
-                max="100"
-                step="2"
-                value="18"
-              />
-            </label>
-            <label>
-              <div class="label-line">
-                Branch Probability Max:
-                <span id="max-prob-val">50%</span>
-              </div>
-              <input
-                id="max-prob"
-                type="range"
-                min="0"
-                max="100"
-                step="2"
-                value="50"
-              />
-            </label>
-            <label>
-              <div class="label-line">
-                Branch Ramp Speed:
-                <span id="ramp-val">10%</span>
-              </div>
-              <input
-                id="ramp"
-                type="range"
-                min="0"
-                max="100"
-                step="2"
-                value="10"
-              />
-            </label>
-            <div class="checkbox-row">
-              <label
-                ><input id="just-backwards" type="checkbox" /> Allow only
-                reverse branches</label
-              >
-              <label
-                ><input id="just-long" type="checkbox" /> Allow only long
-                branches</label
-              >
-              <label
-                ><input id="remove-seq" type="checkbox" /> Remove sequential
-                branches</label
-              >
-              <label
-                ><input id="highlight-anchor-branch" type="checkbox" />
-                Highlight forced anchor jump</label
-              >
             </div>
           </div>
           <div class="modal-footer tuning-footer">
@@ -784,20 +878,20 @@
               <span>Force branching while playing</span>
             </div>
             <div class="info-row">
-              <span class="info-label">H:</span>
-              <span>Toggle Bring It Home mode</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">E:</span>
-              <span>Toggle Extras mode</span>
-            </div>
-            <div class="info-row">
               <span class="info-label">Left/Right:</span>
               <span>Cycle selected branch</span>
             </div>
             <div class="info-row">
               <span class="info-label">Delete:</span>
               <span>Remove a selected branch</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">E:</span>
+              <span>Open the Extras menu</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">H:</span>
+              <span>Toggle Bring It Home mode</span>
             </div>
           </div>
         </div>

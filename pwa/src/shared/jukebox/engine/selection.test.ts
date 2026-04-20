@@ -66,6 +66,9 @@ describe("PWA branch ramp parity", () => {
       getAudioTime() {
         return 0;
       },
+      getPlaybackRate() {
+        return 1;
+      },
       isPlaying() {
         return false;
       },
@@ -137,6 +140,9 @@ describe("PWA branch ramp parity", () => {
       },
       getAudioTime() {
         return 0;
+      },
+      getPlaybackRate() {
+        return 1;
       },
       isPlaying() {
         return false;

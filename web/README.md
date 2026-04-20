@@ -20,11 +20,21 @@ Use the Visualization buttons (1–6) to switch layouts while audio continues.
 Audio results are cached locally in IndexedDB when available; browsers may evict cached
 data under storage pressure.
 
+## Extras audio modes
+- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `lofi`.
+- UI labels/tooltips:
+  - Nightcore (Fast & Bright)
+  - Daycore (Slow & Deep)
+  - Vaporwave (Muffled & Slow)
+  - 8D Audio (Spinning/Spatial)
+  - Lofi (Radio Filter)
+- Shared listen URLs can include `am=<mode>` (for example `am=nightcore`).
+
 ## Keyboard shortcuts
 - Space: play/pause while on the Listen tab.
+- E: open the Extras options modal tab.
 - Shift (hold): force branches while the jukebox is playing.
 - H: toggle Bring It Home mode.
-- E: toggle Extras mode (branch stats popup on branch tap).
 - Left/Right: cycle selected branch.
 - Delete: remove a selected branch (click a branch in the visualization first).
 
