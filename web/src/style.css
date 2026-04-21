@@ -298,11 +298,6 @@ a:focus-visible {
   text-decoration: none;
 }
 
-.hero-social-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 .hero-social-link:focus:not(:focus-visible) {
   outline: none;
 }
@@ -412,10 +407,6 @@ a:focus-visible {
 
 .subtab-btn.active {
   background: var(--surface-control);
-}
-
-.subtab-btn:focus-visible {
-  outline: 2px solid var(--accent);
 }
 
 .subtab-icon {
@@ -534,11 +525,6 @@ a:focus-visible {
   color: var(--text);
 }
 
-.tab-btn:focus-visible,
-.tab-link:focus-visible {
-  outline: 2px solid var(--accent);
-}
-
 .tab-link {
   display: inline-flex;
   align-items: center;
@@ -610,6 +596,16 @@ button:hover {
   background: var(--surface-control);
 }
 
+button:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
 button.is-loading {
   pointer-events: none;
   color: transparent;
@@ -647,10 +643,6 @@ button.is-loading::after {
 
 .theme-link:hover {
   background: color-mix(in srgb, var(--surface-control) 78%, transparent);
-}
-
-.theme-link:focus-visible {
-  outline: 2px solid var(--accent);
 }
 
 .modal {
@@ -1091,19 +1083,6 @@ button.is-loading::after {
   border-radius: 8px;
 }
 
-.tune-toggle:focus-visible,
-.play-toggle:focus-visible,
-.info-toggle:focus-visible,
-.copy-toggle:focus-visible,
-.favorite-toggle:focus-visible,
-.favorites-sync-button:focus-visible,
-.delete-toggle:focus-visible,
-.volume-button:focus-visible,
-.fullscreen-toggle:focus-visible,
-.modal-close:focus-visible {
-  outline: 2px solid var(--accent);
-}
-
 .is-hidden {
   display: none !important;
 }
@@ -1291,10 +1270,6 @@ button.is-loading::after {
 .search-inline-action:hover {
   background: var(--surface-control);
   color: var(--text);
-}
-
-.search-inline-action:focus-visible {
-  outline: 2px solid var(--accent);
 }
 
 .search-inline-icon {
@@ -1750,10 +1725,6 @@ button.is-loading::after {
 
 .viz-select:disabled {
   opacity: 0.55;
-}
-
-.viz-select:focus-visible {
-  outline: 2px solid var(--accent);
 }
 
 .viz-select-arrow {

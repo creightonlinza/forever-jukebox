@@ -62,6 +62,16 @@ a:focus-visible {
   border-radius: 2px;
 }
 
+button:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
 .app {
   width: 100%;
   margin: 0;
@@ -318,10 +328,6 @@ a:focus-visible {
   border-color: var(--border-control);
 }
 
-.tab-btn:focus-visible {
-  outline: 2px solid var(--accent);
-}
-
 .tab-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -573,16 +579,6 @@ a:focus-visible {
   border-radius: 8px;
 }
 
-.tune-toggle:focus-visible,
-.play-toggle:focus-visible,
-.info-toggle:focus-visible,
-.copy-toggle:focus-visible,
-.volume-button:focus-visible,
-.fullscreen-toggle:focus-visible,
-.modal-close:focus-visible {
-  outline: 2px solid var(--accent);
-}
-
 .is-hidden {
   display: none !important;
 }
@@ -804,10 +800,6 @@ a:focus-visible {
 
 .viz-select:disabled {
   opacity: 0.55;
-}
-
-.viz-select:focus-visible {
-  outline: 2px solid var(--accent);
 }
 
 .viz-select-arrow {
