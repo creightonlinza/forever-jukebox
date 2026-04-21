@@ -94,7 +94,6 @@ button,
 
 .hero-title:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 6px;
   border-radius: 8px;
 }
 
@@ -285,19 +284,19 @@ button,
   height: 22px;
   color: var(--accent);
   text-decoration: none;
-  border: none;
-  outline: none;
-  box-shadow: none;
+  border-radius: 6px;
 }
 
 .hero-social-link:hover {
   text-decoration: none;
 }
 
-.hero-social-link:focus,
 .hero-social-link:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.hero-social-link:focus:not(:focus-visible) {
   outline: none;
-  box-shadow: none;
 }
 
 .hero-social-icon {
@@ -711,7 +710,6 @@ button.is-loading::after {
 
 #tuning-tab-toggle:focus-visible {
   outline: 2px solid var(--beat-fill);
-  outline-offset: 2px;
 }
 
 .modal-tab.hidden {
@@ -1057,6 +1055,34 @@ button.is-loading::after {
   justify-content: center;
 }
 
+.tune-toggle,
+.play-toggle,
+.info-toggle,
+.copy-toggle,
+.favorite-toggle,
+.favorites-sync-button,
+.delete-toggle,
+.volume-button,
+.fullscreen-toggle,
+.modal-close {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+}
+
+.tune-toggle:focus-visible,
+.play-toggle:focus-visible,
+.info-toggle:focus-visible,
+.copy-toggle:focus-visible,
+.favorite-toggle:focus-visible,
+.favorites-sync-button:focus-visible,
+.delete-toggle:focus-visible,
+.volume-button:focus-visible,
+.fullscreen-toggle:focus-visible,
+.modal-close:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
 .is-hidden {
   display: none !important;
 }
@@ -1248,7 +1274,6 @@ button.is-loading::after {
 
 .search-inline-action:focus-visible {
   outline: 1px solid var(--border-control);
-  outline-offset: 1px;
 }
 
 .search-inline-icon {

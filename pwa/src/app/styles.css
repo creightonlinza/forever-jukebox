@@ -551,6 +551,28 @@ a {
   cursor: pointer;
 }
 
+.tune-toggle,
+.play-toggle,
+.info-toggle,
+.copy-toggle,
+.volume-button,
+.fullscreen-toggle,
+.modal-close {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+}
+
+.tune-toggle:focus-visible,
+.play-toggle:focus-visible,
+.info-toggle:focus-visible,
+.copy-toggle:focus-visible,
+.volume-button:focus-visible,
+.fullscreen-toggle:focus-visible,
+.modal-close:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
 .is-hidden {
   display: none !important;
 }
@@ -1047,7 +1069,6 @@ a {
 
 #tuning-tab-toggle:focus-visible {
   outline: 2px solid var(--beat-fill);
-  outline-offset: 2px;
 }
 
 .modal-tab.hidden {
