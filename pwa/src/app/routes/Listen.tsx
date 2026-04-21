@@ -1458,8 +1458,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
       <div id="viz-panel" ref={vizPanelRef} hidden={!showPlaybackUi}>
         <div id="jukebox-viz" className={`viz ${playMode === "autocanonizer" ? "is-canonizer" : ""}`}>
-          <div id="viz-layer" className="viz-layer" ref={vizLayerRef} />
-          <div id="canonizer-layer" className="canonizer-layer" ref={canonizerLayerRef} />
           {branchStats ? (
             <div className="extras-popup">
               <div className="extras-popup-title">
@@ -1542,6 +1540,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <span>Finish out the song</span>
             </div>
           </div>
+          <div id="viz-layer" className="viz-layer" ref={vizLayerRef} />
+          <div id="canonizer-layer" className="canonizer-layer" ref={canonizerLayerRef} />
           <div className="viz-bottom" id="viz-stats">
             <div className="viz-bottom-left">
               <button

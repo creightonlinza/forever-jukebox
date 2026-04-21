@@ -66,7 +66,7 @@ export class AutocanonizerViz {
     hPad: 20,
     vPad: 20,
     topPad: 0,
-    bottomPad: 64,
+    bottomPad: 0,
   };
 
   constructor(container: HTMLElement) {

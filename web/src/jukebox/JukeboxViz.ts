@@ -939,7 +939,7 @@ function createGalaxyPositioner(): Positioner {
     const count = data.beats.length;
     const cx = width / 2;
     const cy = height / 2;
-    const maxRadius = Math.min(width, height) * 0.42;
+    const maxRadius = Math.min(width, height) * 0.46;
     const minRadius = Math.min(width, height) * 0.08;
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
     return Array.from({ length: count }, (_, i) => {
@@ -991,7 +991,7 @@ export class JukeboxViz {
   static createClassicPositioner(): Positioner {
     return (data: VisualizationData, width: number, height: number) => {
       const count = data.beats.length;
-      const radius = Math.min(width, height) * 0.4;
+      const radius = Math.min(width, height) * 0.44;
       const cx = width / 2;
       const cy = height / 2;
       return Array.from({ length: count }, (_, i) => {

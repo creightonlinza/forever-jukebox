@@ -558,8 +558,8 @@ a {
 .volume-button,
 .fullscreen-toggle,
 .modal-close {
-  min-width: 36px;
-  min-height: 36px;
+  min-width: 32px;
+  min-height: 32px;
   border-radius: 8px;
 }
 
@@ -619,6 +619,11 @@ a {
   cursor: default;
 }
 
+#jukebox-viz {
+  display: flex;
+  flex-direction: column;
+}
+
 #viz-panel:fullscreen {
   padding: 0;
   margin: 0;
@@ -652,9 +657,10 @@ a {
 }
 
 .viz-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
 }
 
 .extras-popup {
@@ -699,9 +705,10 @@ a {
 }
 
 .canonizer-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
   display: none;
 }
 
@@ -719,14 +726,10 @@ a {
 }
 
 .viz-top {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
-  z-index: 3;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin: 12px 12px 0;
 }
 
 .viz-controls {
@@ -803,16 +806,11 @@ a {
 }
 
 .viz-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
   font-size: 14px;
-  z-index: 3;
   color: var(--text);
   padding: 10px 12px;
   border-radius: 0 0 8px;
@@ -841,8 +839,8 @@ a {
 .viz-play-toggle {
   display: inline-flex;
   padding: 0;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   justify-content: center;
   flex: 0 0 auto;
