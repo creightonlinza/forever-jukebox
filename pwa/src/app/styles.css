@@ -673,7 +673,7 @@ a:focus-visible {
   height: 100%;
 }
 
-.extras-popup {
+.branch-stats-popup {
   position: absolute;
   top: 60px;
   right: 12px;
@@ -690,26 +690,26 @@ a:focus-visible {
   pointer-events: none;
 }
 
-.extras-popup-title {
+.branch-stats-popup-title {
   font-weight: 600;
   font-size: 12px;
   margin-bottom: 6px;
   text-align: center;
 }
 
-.extras-popup-row {
+.branch-stats-popup-row {
   display: grid;
   grid-template-columns: 1fr 60px;
   gap: 8px;
 }
 
-.extras-popup-label {
+.branch-stats-popup-label {
   color: var(--muted);
   text-align: right;
   white-space: nowrap;
 }
 
-.extras-popup-value {
+.branch-stats-popup-value {
   text-align: left;
   white-space: nowrap;
 }

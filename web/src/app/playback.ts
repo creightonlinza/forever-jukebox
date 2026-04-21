@@ -325,7 +325,7 @@ export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
   state.branchStatsEnabled =
     state.playMode === "jukebox" && elements.extrasEnabledInput.checked;
   if (!state.branchStatsEnabled) {
-    elements.extrasPopup.classList.add("hidden");
+    elements.branchStatsPopup.classList.add("hidden");
   }
   storeBranchStatsEnabled(state.branchStatsEnabled);
   const nextAudioMode = getSelectedAudioMode(context);
@@ -352,7 +352,7 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   const previousBranchStatsEnabled = state.branchStatsEnabled;
   const previousAudioMode = state.jukeboxAudioMode;
   state.branchStatsEnabled = false;
-  elements.extrasPopup.classList.add("hidden");
+  elements.branchStatsPopup.classList.add("hidden");
   storeBranchStatsEnabled(false);
   state.jukeboxAudioMode = "off";
   player.setJukeboxAudioMode("off");
@@ -742,7 +742,7 @@ export function resetForNewTrack(
   elements.bringHomeFullscreenLabel.classList.add("is-hidden");
   state.selectedEdge = null;
   jukebox.setSelectedEdge(null);
-  elements.extrasPopup.classList.add("hidden");
+  elements.branchStatsPopup.classList.add("hidden");
   engine.clearDeletedEdges();
   state.deletedEdgeIds = [];
   state.audioLoaded = false;
@@ -851,7 +851,7 @@ export function applyAnalysisResult(
   }
   state.selectedEdge = null;
   jukebox.setSelectedEdge(null);
-  elements.extrasPopup.classList.add("hidden");
+  elements.branchStatsPopup.classList.add("hidden");
   syncDeletedEdgeState(context);
   state.analysisLoaded = true;
   updateVizVisibility(context);

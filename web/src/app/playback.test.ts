@@ -177,13 +177,13 @@ function createElements() {
     infoBeatsEl: createSpan(),
     infoBranchesEl: createSpan(),
     infoDeletedBranchesEl: createSpan(),
-    extrasPopup: { classList: createClassList() },
-    extrasTitleEl: createSpan(),
-    extrasStartEl: createSpan(),
-    extrasEndEl: createSpan(),
-    extrasDeltaEl: createSpan(),
-    extrasDirectionEl: createSpan(),
-    extrasSimilarityEl: createSpan(),
+    branchStatsPopup: { classList: createClassList() },
+    branchStatsTitleEl: createSpan(),
+    branchStatsStartEl: createSpan(),
+    branchStatsEndEl: createSpan(),
+    branchStatsDeltaEl: createSpan(),
+    branchStatsDirectionEl: createSpan(),
+    branchStatsSimilarityEl: createSpan(),
     deleteButton: { classList: createClassList() },
     vizStats: {
       classList: createClassList(),
@@ -412,7 +412,7 @@ describe("playback tuning", () => {
 
     applyExtrasChanges(context);
 
-    expect(context.elements.extrasPopup.classList.add).toHaveBeenCalledWith("hidden");
+    expect(context.elements.branchStatsPopup.classList.add).toHaveBeenCalledWith("hidden");
   });
 
   it("resets extras options to defaults", () => {
@@ -427,7 +427,7 @@ describe("playback tuning", () => {
     expect(context.state.branchStatsEnabled).toBe(false);
     expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("0");
     expect(context.state.jukeboxAudioMode).toBe("off");
-    expect(context.elements.extrasPopup.classList.add).toHaveBeenCalledWith("hidden");
+    expect(context.elements.branchStatsPopup.classList.add).toHaveBeenCalledWith("hidden");
   });
 
   it("resets audio mode on track change", () => {

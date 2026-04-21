@@ -475,33 +475,33 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#toast"),
     "#toast"
   );
-  const extrasPopup = requireElement(
-    document.querySelector<HTMLDivElement>("#extras-popup"),
-    "#extras-popup"
+  const branchStatsPopup = requireElement(
+    document.querySelector<HTMLDivElement>("#branch-stats-popup"),
+    "#branch-stats-popup"
   );
-  const extrasTitleEl = requireElement(
-    document.querySelector<HTMLDivElement>("#extras-title"),
-    "#extras-title"
+  const branchStatsTitleEl = requireElement(
+    document.querySelector<HTMLDivElement>("#branch-stats-title"),
+    "#branch-stats-title"
   );
-  const extrasStartEl = requireElement(
-    document.querySelector<HTMLSpanElement>("#extras-start"),
-    "#extras-start"
+  const branchStatsStartEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#branch-stats-start"),
+    "#branch-stats-start"
   );
-  const extrasEndEl = requireElement(
-    document.querySelector<HTMLSpanElement>("#extras-end"),
-    "#extras-end"
+  const branchStatsEndEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#branch-stats-end"),
+    "#branch-stats-end"
   );
-  const extrasDeltaEl = requireElement(
-    document.querySelector<HTMLSpanElement>("#extras-delta"),
-    "#extras-delta"
+  const branchStatsDeltaEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#branch-stats-delta"),
+    "#branch-stats-delta"
   );
-  const extrasDirectionEl = requireElement(
-    document.querySelector<HTMLSpanElement>("#extras-direction"),
-    "#extras-direction"
+  const branchStatsDirectionEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#branch-stats-direction"),
+    "#branch-stats-direction"
   );
-  const extrasSimilarityEl = requireElement(
-    document.querySelector<HTMLSpanElement>("#extras-similarity"),
-    "#extras-similarity"
+  const branchStatsSimilarityEl = requireElement(
+    document.querySelector<HTMLSpanElement>("#branch-stats-similarity"),
+    "#branch-stats-similarity"
   );
   const cachedAudioClearButton = requireElement(
     document.querySelector<HTMLButtonElement>("#cached-audio-clear"),
@@ -634,13 +634,13 @@ export function getElements() {
     favoritesSyncMenu,
     favoritesSyncItems,
     toast,
-    extrasPopup,
-    extrasTitleEl,
-    extrasStartEl,
-    extrasEndEl,
-    extrasDeltaEl,
-    extrasDirectionEl,
-    extrasSimilarityEl,
+    branchStatsPopup,
+    branchStatsTitleEl,
+    branchStatsStartEl,
+    branchStatsEndEl,
+    branchStatsDeltaEl,
+    branchStatsDirectionEl,
+    branchStatsSimilarityEl,
     cachedAudioClearButton,
     vizStats,
     volumeButton,

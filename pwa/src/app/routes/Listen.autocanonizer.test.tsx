@@ -597,7 +597,7 @@ describe("Listen autocanonizer behavior", () => {
         distance: 10,
       });
     });
-    expect(rendered.container.querySelector(".extras-popup")).not.toBeNull();
+    expect(rendered.container.querySelector(".branch-stats-popup")).not.toBeNull();
 
     await openTuningModal(rendered.container);
     await switchToExtrasTab(rendered.container);
@@ -613,7 +613,7 @@ describe("Listen autocanonizer behavior", () => {
     );
     await click(applyButton);
 
-    expect(rendered.container.querySelector(".extras-popup")).toBeNull();
+    expect(rendered.container.querySelector(".branch-stats-popup")).toBeNull();
     rendered.unmount();
   });
 

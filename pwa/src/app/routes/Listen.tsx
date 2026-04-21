@@ -1459,29 +1459,29 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       <div id="viz-panel" ref={vizPanelRef} hidden={!showPlaybackUi}>
         <div id="jukebox-viz" className={`viz ${playMode === "autocanonizer" ? "is-canonizer" : ""}`}>
           {branchStats ? (
-            <div className="extras-popup">
-              <div className="extras-popup-title">
+            <div className="branch-stats-popup">
+              <div className="branch-stats-popup-title">
                 Branch #{branchStats.id} stats
               </div>
-              <div className="extras-popup-row">
-                <span className="extras-popup-label">Direction:</span>
-                <span className="extras-popup-value">{branchStats.direction}</span>
+              <div className="branch-stats-popup-row">
+                <span className="branch-stats-popup-label">Direction:</span>
+                <span className="branch-stats-popup-value">{branchStats.direction}</span>
               </div>
-              <div className="extras-popup-row">
-                <span className="extras-popup-label">Start:</span>
-                <span className="extras-popup-value">{branchStats.start}</span>
+              <div className="branch-stats-popup-row">
+                <span className="branch-stats-popup-label">Start:</span>
+                <span className="branch-stats-popup-value">{branchStats.start}</span>
               </div>
-              <div className="extras-popup-row">
-                <span className="extras-popup-label">End:</span>
-                <span className="extras-popup-value">{branchStats.end}</span>
+              <div className="branch-stats-popup-row">
+                <span className="branch-stats-popup-label">End:</span>
+                <span className="branch-stats-popup-value">{branchStats.end}</span>
               </div>
-              <div className="extras-popup-row">
-                <span className="extras-popup-label">Difference:</span>
-                <span className="extras-popup-value">{branchStats.delta}</span>
+              <div className="branch-stats-popup-row">
+                <span className="branch-stats-popup-label">Difference:</span>
+                <span className="branch-stats-popup-value">{branchStats.delta}</span>
               </div>
-              <div className="extras-popup-row">
-                <span className="extras-popup-label">Branch Match:</span>
-                <span className="extras-popup-value">{branchStats.similarity}</span>
+              <div className="branch-stats-popup-row">
+                <span className="branch-stats-popup-label">Branch Match:</span>
+                <span className="branch-stats-popup-value">{branchStats.similarity}</span>
               </div>
             </div>
           ) : null}

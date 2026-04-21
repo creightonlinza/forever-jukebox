@@ -133,7 +133,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       state.playMode !== "jukebox" ||
       !edge
     ) {
-      elements.extrasPopup.classList.add("hidden");
+      elements.branchStatsPopup.classList.add("hidden");
       return;
     }
     const startSeconds = Math.max(0, edge.src.start);
@@ -147,16 +147,16 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
           ? "Forward"
           : "Same beat";
     const maxDistance = Math.max(1, engine.getConfig().maxBranchThreshold);
-    elements.extrasTitleEl.textContent = `Branch #${edge.id} stats`;
-    elements.extrasStartEl.textContent = formatDuration(startDisplaySeconds);
-    elements.extrasEndEl.textContent = formatDuration(endDisplaySeconds);
-    elements.extrasDeltaEl.textContent = formatSignedDuration(
+    elements.branchStatsTitleEl.textContent = `Branch #${edge.id} stats`;
+    elements.branchStatsStartEl.textContent = formatDuration(startDisplaySeconds);
+    elements.branchStatsEndEl.textContent = formatDuration(endDisplaySeconds);
+    elements.branchStatsDeltaEl.textContent = formatSignedDuration(
       endDisplaySeconds - startDisplaySeconds,
     );
-    elements.extrasDirectionEl.textContent = direction;
-    elements.extrasSimilarityEl.textContent =
+    elements.branchStatsDirectionEl.textContent = direction;
+    elements.branchStatsSimilarityEl.textContent =
       `${toSimilarityPercent(edge.distance, maxDistance)}%`;
-    elements.extrasPopup.classList.remove("hidden");
+    elements.branchStatsPopup.classList.remove("hidden");
   }
 
   function initializePlayback() {
