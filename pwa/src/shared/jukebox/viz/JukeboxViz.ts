@@ -751,15 +751,13 @@ function createArcDiagramControlPointResolver(): EdgeControlPointResolver {
     // Gate: forward jumps arc above the timeline, backward jumps arc below.
     const direction = forward ? -1 : 1;
     const canvasHeight = center.y * 2;
-    const edgeMargin = 8;
     const availableLift =
-      direction < 0 ? baseY - edgeMargin : canvasHeight - baseY - edgeMargin;
+      direction < 0
+        ? baseY + 100
+        : canvasHeight - baseY + 100;
     const maxLift = Math.max(4, availableLift);
-    const minLift = Math.min(18, maxLift);
-    const desiredLift = Math.max(
-      minLift,
-      span * 1.05
-    );
+    const minLift = Math.min(24, maxLift);
+    const desiredLift = Math.max(minLift, span * 1.25);
     const lift = Math.min(maxLift, desiredLift);
     return [midX, baseY + direction * lift];
   };

@@ -56,6 +56,12 @@ a {
   text-decoration: none;
 }
 
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .app {
   width: 100%;
   margin: 0;
@@ -310,6 +316,10 @@ a {
 .tab-btn:hover {
   background: var(--surface-control);
   border-color: var(--border-control);
+}
+
+.tab-btn:focus-visible {
+  outline: 2px solid var(--accent);
 }
 
 .tab-btn:disabled {
@@ -794,6 +804,10 @@ a {
 
 .viz-select:disabled {
   opacity: 0.55;
+}
+
+.viz-select:focus-visible {
+  outline: 2px solid var(--accent);
 }
 
 .viz-select-arrow {

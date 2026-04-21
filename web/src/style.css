@@ -93,7 +93,8 @@ button,
 }
 
 .hero-title:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--beat-fill);
+  outline-offset: 4px;
   border-radius: 8px;
 }
 
@@ -269,6 +270,12 @@ button,
   text-decoration: underline;
 }
 
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .hero-socials {
   display: inline-flex;
   align-items: center;
@@ -293,6 +300,7 @@ button,
 
 .hero-social-link:focus-visible {
   outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .hero-social-link:focus:not(:focus-visible) {
@@ -404,6 +412,10 @@ button,
 
 .subtab-btn.active {
   background: var(--surface-control);
+}
+
+.subtab-btn:focus-visible {
+  outline: 2px solid var(--accent);
 }
 
 .subtab-icon {
@@ -522,6 +534,11 @@ button,
   color: var(--text);
 }
 
+.tab-btn:focus-visible,
+.tab-link:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
 .tab-link {
   display: inline-flex;
   align-items: center;
@@ -630,6 +647,10 @@ button.is-loading::after {
 
 .theme-link:hover {
   background: color-mix(in srgb, var(--surface-control) 78%, transparent);
+}
+
+.theme-link:focus-visible {
+  outline: 2px solid var(--accent);
 }
 
 .modal {
@@ -1273,7 +1294,7 @@ button.is-loading::after {
 }
 
 .search-inline-action:focus-visible {
-  outline: 1px solid var(--border-control);
+  outline: 2px solid var(--accent);
 }
 
 .search-inline-icon {
@@ -1729,6 +1750,10 @@ button.is-loading::after {
 
 .viz-select:disabled {
   opacity: 0.55;
+}
+
+.viz-select:focus-visible {
+  outline: 2px solid var(--accent);
 }
 
 .viz-select-arrow {
