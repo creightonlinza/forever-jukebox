@@ -108,6 +108,12 @@
           "sourceType": {
             "anyOf": [
               {
+                "enum": [
+                  "youtube",
+                  "soundcloud",
+                  "bandcamp",
+                  "upload"
+                ],
                 "type": "string"
               },
               {
@@ -119,6 +125,17 @@
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "tuningParams": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tuningparams"
           },
           "uniqueSongId": {
             "title": "Uniquesongid",

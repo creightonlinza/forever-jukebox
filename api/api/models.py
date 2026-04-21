@@ -113,7 +113,8 @@ class FavoriteTrack(BaseModel):
     title: str
     artist: str
     duration: float | None = None
-    sourceType: str | None = None
+    sourceType: Literal["youtube", "soundcloud", "bandcamp", "upload"] | None = None
+    tuningParams: str | None = None
 
     model_config = ConfigDict(extra="allow")
 

@@ -116,11 +116,34 @@ describe("api", () => {
 
   it("creates favorites sync", async () => {
     (fetch as any).mockResolvedValue(createResponse(200, { code: "sync123" }));
-    const created = await createFavoritesSync([]);
+    const created = await createFavoritesSync([
+      {
+        uniqueSongId: "mvJjmWTg7Qo",
+        title: "Track",
+        artist: "Artist",
+        duration: 123,
+        sourceType: "youtube",
+        tuningParams: "jb=1&ah=1",
+      },
+    ]);
     expect(created.code).toBe("sync123");
     expect(fetch).toHaveBeenCalledWith(
       "/api/favorites/sync",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          favorites: [
+            {
+              uniqueSongId: "mvJjmWTg7Qo",
+              title: "Track",
+              artist: "Artist",
+              duration: 123,
+              sourceType: "youtube",
+              tuningParams: "jb=1&ah=1",
+            },
+          ],
+        }),
+      }),
     );
   });
 
