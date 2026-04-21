@@ -722,7 +722,7 @@ class CanvasViz {
 function createArcDiagramPositioner(): Positioner {
   return (data: VisualizationData, width: number, height: number) => {
     const count = data.beats.length;
-    const paddingX = 36;
+    const paddingX = 30;
     const timelineY = height * 0.5;
     const span = Math.max(0, width - paddingX * 2);
     if (count <= 0) {
@@ -741,30 +741,29 @@ function createArcDiagramPositioner(): Positioner {
   };
 }
 
-const arcDiagramControlPointResolver: EdgeControlPointResolver = ({
-  edge,
-  from,
-  to,
-  fromIndex,
-  toIndex,
-  center,
-}) => {
-  const midX = (from.x + to.x) / 2;
-  const baseY = (from.y + to.y) / 2;
-  const span = Math.abs(to.x - from.x);
-  const forward =
-    edge !== null ? edge.dest.which >= edge.src.which : toIndex >= fromIndex;
-  // Gate: forward jumps arc above the timeline, backward jumps arc below.
-  const direction = forward ? -1 : 1;
-  const canvasHeight = center.y * 2;
-  const availableLift =
-    direction < 0 ? baseY - 14 : canvasHeight - baseY - 14;
-  const maxLift = Math.max(4, availableLift);
-  const minLift = Math.min(18, maxLift);
-  const desiredLift = Math.max(minLift, span * 0.95);
-  const lift = Math.min(maxLift, desiredLift);
-  return [midX, baseY + direction * lift];
-};
+function createArcDiagramControlPointResolver(): EdgeControlPointResolver {
+  return ({ edge, from, to, fromIndex, toIndex, center }) => {
+    const midX = (from.x + to.x) / 2;
+    const baseY = (from.y + to.y) / 2;
+    const span = Math.abs(to.x - from.x);
+    const forward =
+      edge !== null ? edge.dest.which >= edge.src.which : toIndex >= fromIndex;
+    // Gate: forward jumps arc above the timeline, backward jumps arc below.
+    const direction = forward ? -1 : 1;
+    const canvasHeight = center.y * 2;
+    const edgeMargin = 8;
+    const availableLift =
+      direction < 0 ? baseY - edgeMargin : canvasHeight - baseY - edgeMargin;
+    const maxLift = Math.max(4, availableLift);
+    const minLift = Math.min(18, maxLift);
+    const desiredLift = Math.max(
+      minLift,
+      span * 1.05
+    );
+    const lift = Math.min(maxLift, desiredLift);
+    return [midX, baseY + direction * lift];
+  };
+}
 
 function createGridPositioner(): Positioner {
   return (data: VisualizationData, width: number, height: number) => {
@@ -854,9 +853,10 @@ function createGridPositioner(): Positioner {
       }
     }
     const rows = Math.max(1, rowBars.length);
-    const paddingX = 40;
-    const paddingTop = 64;
-    const paddingBottom = 80;
+    const paddingX = 28;
+    const verticalPad = Math.max(18, Math.min(36, height * 0.08));
+    const paddingTop = verticalPad;
+    const paddingBottom = verticalPad;
     const gridW = width - paddingX * 2;
     const gridH = height - paddingTop - paddingBottom;
     const safeRatio = (index: number, max: number) =>
@@ -902,8 +902,8 @@ function createGridPositioner(): Positioner {
 function createWavePositioner(): Positioner {
   return (data: VisualizationData, width: number, height: number) => {
     const count = data.beats.length;
-    const padding = 40;
-    const amp = height * 0.25;
+    const padding = 28;
+    const amp = Math.min(Math.max(0, height * 0.42), Math.max(0, height / 2 - 18));
     const center = height / 2;
     const span = width - padding * 2;
     const waveTurns = 3;
@@ -922,8 +922,8 @@ function createInfinitePositioner(): Positioner {
     const count = data.beats.length;
     const cx = width / 2;
     const cy = height / 2;
-    const ampX = width * 0.35;
-    const ampY = height * 0.25;
+    const ampX = width * 0.4;
+    const ampY = Math.min(Math.max(0, height * 0.42), Math.max(0, height / 2 - 18));
     return Array.from({ length: count }, (_, i) => {
       const t = (i / count) * Math.PI * 2;
       return {
@@ -939,7 +939,7 @@ function createGalaxyPositioner(): Positioner {
     const count = data.beats.length;
     const cx = width / 2;
     const cy = height / 2;
-    const maxRadius = Math.min(width, height) * 0.46;
+    const maxRadius = Math.min(width, height) * 0.49;
     const minRadius = Math.min(width, height) * 0.08;
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
     return Array.from({ length: count }, (_, i) => {
@@ -963,7 +963,7 @@ function getDefaultVisualizationDefinitions(): VisualizationDefinition[] {
       positioner: createArcDiagramPositioner(),
       options: {
         forceBendEdges: true,
-        edgeControlPointResolver: arcDiagramControlPointResolver,
+        edgeControlPointResolver: createArcDiagramControlPointResolver(),
       },
     },
     { positioner: JukeboxViz.createClassicPositioner() },
@@ -991,7 +991,7 @@ export class JukeboxViz {
   static createClassicPositioner(): Positioner {
     return (data: VisualizationData, width: number, height: number) => {
       const count = data.beats.length;
-      const radius = Math.min(width, height) * 0.44;
+      const radius = Math.min(width, height) * 0.48;
       const cx = width / 2;
       const cy = height / 2;
       return Array.from({ length: count }, (_, i) => {
@@ -1006,7 +1006,10 @@ export class JukeboxViz {
 
   constructor(
     vizLayer: HTMLElement,
-    options?: { positioners?: Positioner[]; enableInteraction?: boolean }
+    options?: {
+      positioners?: Positioner[];
+      enableInteraction?: boolean;
+    }
   ) {
     this.vizLayer = vizLayer;
     this.enableInteraction = options?.enableInteraction ?? true;

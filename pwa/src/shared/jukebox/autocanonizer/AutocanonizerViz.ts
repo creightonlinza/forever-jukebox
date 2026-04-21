@@ -65,7 +65,7 @@ export class AutocanonizerViz {
     tileHeight: 0,
     connectionHeight: 0,
     hPad: 20,
-    vPad: 20,
+    vPad: 12,
     topPad: 0,
     bottomPad: 0,
   };
@@ -178,8 +178,8 @@ export class AutocanonizerViz {
       0,
       rect.height - this.layoutMetrics.bottomPad - this.layoutMetrics.topPad,
     );
-    const tileHeight = Math.max(120, availableHeight * 0.66);
-    const connectionHeight = Math.max(80, availableHeight - tileHeight - 10);
+    const tileHeight = Math.max(120, availableHeight * 0.64);
+    const connectionHeight = Math.max(80, availableHeight - tileHeight - 6);
     this.layoutMetrics = {
       width: rect.width,
       height: availableHeight,
@@ -187,7 +187,7 @@ export class AutocanonizerViz {
       tileHeight,
       connectionHeight,
       hPad: 20,
-      vPad: 20,
+      vPad: 12,
       topPad: this.layoutMetrics.topPad,
       bottomPad: this.layoutMetrics.bottomPad,
     };
@@ -200,7 +200,7 @@ export class AutocanonizerViz {
       const height =
         (tileHeight - vPad) *
         Math.pow(Math.max(0, beat.median_volume), 4) *
-        0.5;
+        0.9;
       const y = baseY - height;
       const otherX =
         hPad +
@@ -253,11 +253,14 @@ export class AutocanonizerViz {
       const fromX = hPad + (spanWidth * beat.other.start) / this.trackDuration;
       const toX = hPad + (spanWidth * next.other.start) / this.trackDuration;
       const cx = (toX - fromX) / 2 + fromX;
-      let cy = (Math.abs(delta) / maxDelta) * connectionHeight * 1.2;
-      if (cy < 20) {
-        cy = 30;
+      let cy = (Math.abs(delta) / maxDelta) * connectionHeight * 1.35;
+      if (cy < 24) {
+        cy = 24;
       }
-      cy = topPad + tileHeight + cy;
+      cy = Math.min(
+        topPad + tileHeight + connectionHeight - 8,
+        topPad + tileHeight + cy,
+      );
       const samples = sampleQuadraticPath(
         fromX,
         startY,
@@ -309,7 +312,7 @@ export class AutocanonizerViz {
     }
     this.baseCtx.restore();
     if (this.sections.length) {
-      const sectionY = topPad + tileHeight - 20;
+      const sectionY = topPad + tileHeight - 16;
       this.baseCtx.save();
       for (let i = 0; i < this.sections.length; i += 1) {
         const section = this.sections[i];
@@ -374,7 +377,7 @@ export class AutocanonizerViz {
     const otherLayout = this.layouts[otherIndex];
     const cursorWidth = 8;
     const cursorHeight = 8;
-    const sectionY = topPad + tileHeight - 20;
+    const sectionY = topPad + tileHeight - 16;
     this.overlayCtx.save();
     this.overlayCtx.fillStyle = "rgba(79, 143, 255, 0.65)";
     this.overlayCtx.fillRect(
