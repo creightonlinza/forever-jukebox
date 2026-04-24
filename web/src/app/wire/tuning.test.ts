@@ -133,12 +133,14 @@ describe("tuning wire handlers", () => {
     tuningDeps.handlers.handleTuningReset();
     expect(tuningDeps.resetTuningDefaults).toHaveBeenCalledWith(tuningDeps.context);
     expect(tuningDeps.closeTuning).toHaveBeenCalledWith(tuningDeps.context);
+    expect(tuningDeps.resetExtrasDefaults).not.toHaveBeenCalled();
 
     const extrasDeps = createDeps("extras");
     extrasDeps.handlers.handleTuningReset();
     expect(extrasDeps.resetExtrasDefaults).toHaveBeenCalledWith(extrasDeps.context);
     expect(extrasDeps.syncExtrasUI).toHaveBeenCalledWith(extrasDeps.context);
     expect(extrasDeps.syncTuningTabsUI).toHaveBeenCalledWith(extrasDeps.context);
+    expect(extrasDeps.resetTuningDefaults).not.toHaveBeenCalled();
     expect(extrasDeps.closeTuning).toHaveBeenCalledWith(extrasDeps.context);
   });
 });

@@ -119,6 +119,10 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     deleteJobHandlers.handleDeleteJobClick,
   );
+  elements.branchStatsDeleteButton.addEventListener(
+    "click",
+    playbackHandlers.handleBranchStatsDeleteClick,
+  );
   elements.fullscreenButton.addEventListener(
     "click",
     fullscreenHandlers.handleFullscreenToggle,

@@ -331,7 +331,21 @@
         <div id="viz-panel" class="hidden">
             <div id="jukebox-viz" class="viz">
               <div id="branch-stats-popup" class="branch-stats-popup hidden">
-                <div class="branch-stats-popup-title" id="branch-stats-title">Branch stats</div>
+                <div class="branch-stats-popup-header">
+                  <div class="branch-stats-popup-title" id="branch-stats-title">Branch stats</div>
+                  <button
+                    id="branch-stats-delete"
+                    class="branch-stats-delete"
+                    aria-label="Delete selected branch"
+                    title="Delete selected branch"
+                  >
+                    <span
+                      class="material-symbols-outlined branch-stats-delete-icon"
+                      aria-hidden="true"
+                      >delete</span
+                    >
+                  </button>
+                </div>
                 <div class="branch-stats-popup-row">
                   <span class="branch-stats-popup-label">Direction:</span>
                   <span class="branch-stats-popup-value" id="branch-stats-direction">Backward</span>
@@ -761,6 +775,10 @@
                 <label>
                   <input id="extras-enabled" type="checkbox" />
                   Show selected branch stats
+                </label>
+                <label>
+                  <input id="bring-home-enabled" type="checkbox" />
+                  Bring It Home mode
                 </label>
               </div>
               <div id="jukebox-audio-mode-group" class="audio-mode-group">

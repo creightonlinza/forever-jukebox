@@ -1531,8 +1531,47 @@ button.is-loading::after {
 .branch-stats-popup-title {
   font-weight: 600;
   font-size: 12px;
+  text-align: left;
+}
+
+.branch-stats-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 6px;
-  text-align: center;
+  pointer-events: auto;
+}
+
+.branch-stats-delete {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #e35a5a;
+  padding: 0 6px;
+  min-width: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.branch-stats-delete:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.branch-stats-delete-icon {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 20;
+  color: #e35a5a;
+  font-size: 25px;
+  line-height: 1;
 }
 
 .branch-stats-popup-row {

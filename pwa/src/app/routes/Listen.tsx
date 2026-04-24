@@ -72,6 +72,7 @@ type AudioExportFormat = "mp3" | "wav";
 
 type ExtrasFormState = {
   branchStatsEnabled: boolean;
+  bringItHomeMode: boolean;
   audioMode: JukeboxAudioMode;
 };
 
@@ -300,6 +301,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   });
   const [extrasForm, setExtrasForm] = React.useState<ExtrasFormState>({
     branchStatsEnabled: resolveStoredBranchStatsEnabled(),
+    bringItHomeMode: false,
     audioMode: initialAudioMode,
   });
   const [isExportOpen, setIsExportOpen] = React.useState(false);
@@ -893,9 +895,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const syncExtrasFormFromState = React.useCallback(() => {
     setExtrasForm({
       branchStatsEnabled,
+      bringItHomeMode,
       audioMode: jukeboxAudioMode,
     });
-  }, [branchStatsEnabled, jukeboxAudioMode]);
+  }, [branchStatsEnabled, bringItHomeMode, jukeboxAudioMode]);
 
   const openTuningModalTab = (tab: TuningModalTab) => {
     if (playModeRef.current !== "jukebox") {
@@ -1132,7 +1135,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     const previousAudioMode = jukeboxAudioMode;
     const nextBranchStatsEnabled = playModeRef.current === "jukebox" && extrasForm.branchStatsEnabled;
+    const nextBringItHomeMode = playModeRef.current === "jukebox" && extrasForm.bringItHomeMode;
     const nextAudioMode = extrasForm.audioMode;
+    bringItHomeModeRef.current = nextBringItHomeMode;
+    setBringItHomeMode(nextBringItHomeMode);
+    if (nextBringItHomeMode) {
+      engineRef.current?.setForceBranch(false);
+    }
+    engineRef.current?.setBringItHomeMode(nextBringItHomeMode);
     setBranchStatsEnabled(nextBranchStatsEnabled);
     storeBranchStatsEnabled(nextBranchStatsEnabled);
     setJukeboxAudioMode(nextAudioMode);
@@ -1156,8 +1166,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const previousAudioMode = jukeboxAudioMode;
     const defaultState: ExtrasFormState = {
       branchStatsEnabled: false,
+      bringItHomeMode: false,
       audioMode: "off",
     };
+    bringItHomeModeRef.current = false;
+    setBringItHomeMode(false);
+    engineRef.current?.setBringItHomeMode(false);
     setExtrasForm(defaultState);
     setBranchStatsEnabled(false);
     storeBranchStatsEnabled(false);
@@ -1460,8 +1474,25 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         <div id="jukebox-viz" className={`viz ${playMode === "autocanonizer" ? "is-canonizer" : ""}`}>
           {branchStats ? (
             <div className="branch-stats-popup">
-              <div className="branch-stats-popup-title">
-                Branch #{branchStats.id} stats
+              <div className="branch-stats-popup-header">
+                <div className="branch-stats-popup-title">
+                  Branch #{branchStats.id} stats
+                </div>
+                <button
+                  id="branch-stats-delete"
+                  className="branch-stats-delete"
+                  type="button"
+                  aria-label="Delete selected branch"
+                  title="Delete selected branch"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    deleteSelectedBranch();
+                  }}
+                  disabled={Boolean(selectedEdge?.deleted)}
+                >
+                  <SymbolIcon className="branch-stats-delete-icon" name="delete" />
+                </button>
               </div>
               <div className="branch-stats-popup-row">
                 <span className="branch-stats-popup-label">Direction:</span>
@@ -1895,6 +1926,21 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       disabled={playMode !== "jukebox"}
                     />
                     Show selected branch stats
+                  </label>
+                  <label>
+                    <input
+                      id="bring-home-enabled"
+                      type="checkbox"
+                      checked={extrasForm.bringItHomeMode}
+                      onChange={(event) =>
+                        setExtrasForm((prev) => ({
+                          ...prev,
+                          bringItHomeMode: event.target.checked,
+                        }))
+                      }
+                      disabled={playMode !== "jukebox"}
+                    />
+                    Bring It Home mode
                   </label>
                 </div>
                 <div id="jukebox-audio-mode-group" className="audio-mode-group">

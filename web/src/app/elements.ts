@@ -315,6 +315,10 @@ export function getElements() {
     document.querySelector<HTMLInputElement>("#extras-enabled"),
     "#extras-enabled"
   );
+  const bringHomeEnabledInput = requireElement(
+    document.querySelector<HTMLInputElement>("#bring-home-enabled"),
+    "#bring-home-enabled"
+  );
   const jukeboxAudioModeGroup = requireElement(
     document.querySelector<HTMLDivElement>("#jukebox-audio-mode-group"),
     "#jukebox-audio-mode-group"
@@ -483,6 +487,10 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#branch-stats-title"),
     "#branch-stats-title"
   );
+  const branchStatsDeleteButton = requireElement(
+    document.querySelector<HTMLButtonElement>("#branch-stats-delete"),
+    "#branch-stats-delete"
+  );
   const branchStatsStartEl = requireElement(
     document.querySelector<HTMLSpanElement>("#branch-stats-start"),
     "#branch-stats-start"
@@ -595,6 +603,7 @@ export function getElements() {
     removeSeqInput,
     highlightAnchorBranchInput,
     extrasEnabledInput,
+    bringHomeEnabledInput,
     jukeboxAudioModeGroup,
     audioModeOffInput,
     audioModeNightcoreInput,
@@ -636,6 +645,7 @@ export function getElements() {
     toast,
     branchStatsPopup,
     branchStatsTitleEl,
+    branchStatsDeleteButton,
     branchStatsStartEl,
     branchStatsEndEl,
     branchStatsDeltaEl,

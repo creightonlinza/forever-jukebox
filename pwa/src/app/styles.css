@@ -537,6 +537,7 @@ textarea:focus-visible {
 .tune-toggle:disabled,
 .info-toggle:disabled,
 .copy-toggle:disabled,
+.branch-stats-delete:disabled,
 .play-toggle:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -556,6 +557,7 @@ textarea:focus-visible {
 .tune-toggle,
 .info-toggle,
 .copy-toggle,
+.branch-stats-delete,
 .volume-button,
 .fullscreen-toggle {
   background: transparent;
@@ -571,6 +573,7 @@ textarea:focus-visible {
 .play-toggle,
 .info-toggle,
 .copy-toggle,
+.branch-stats-delete,
 .volume-button,
 .fullscreen-toggle,
 .modal-close {
@@ -689,8 +692,28 @@ textarea:focus-visible {
 .branch-stats-popup-title {
   font-weight: 600;
   font-size: 12px;
+  text-align: left;
+}
+
+.branch-stats-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 6px;
-  text-align: center;
+  pointer-events: auto;
+}
+
+.branch-stats-delete {
+  color: #e35a5a;
+  pointer-events: auto;
+}
+
+.branch-stats-delete-icon {
+  color: #e35a5a;
+  width: 25px;
+  height: 25px;
+  line-height: 1;
 }
 
 .branch-stats-popup-row {

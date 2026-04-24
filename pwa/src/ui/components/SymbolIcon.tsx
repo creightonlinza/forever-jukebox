@@ -5,6 +5,7 @@ type SymbolName =
   | "tune"
   | "info"
   | "download"
+  | "delete"
   | "arrow_drop_down"
   | "volume_up"
   | "fullscreen"
@@ -59,6 +60,15 @@ export function SymbolIcon({ name, className }: SymbolIconProps) {
           <path d="M12 4v10" />
           <path d="M8.5 10.5L12 14l3.5-3.5" />
           <path d="M5 19h14" />
+        </>
+      ) : null}
+      {name === "delete" ? (
+        <>
+          <path d="M4 7h16" />
+          <path d="M9 7V5h6v2" />
+          <path d="M7.5 7l.8 12h7.4l.8-12" />
+          <path d="M10 10v6" />
+          <path d="M14 10v6" />
         </>
       ) : null}
       {name === "arrow_drop_down" ? (

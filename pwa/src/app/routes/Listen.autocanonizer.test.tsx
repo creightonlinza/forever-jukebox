@@ -538,6 +538,11 @@ describe("Listen autocanonizer behavior", () => {
       "#extras-enabled"
     );
     await click(branchStatsInput);
+    const bringHomeInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#bring-home-enabled"
+    );
+    await click(bringHomeInput);
     const daycoreInput = getRequired<HTMLInputElement>(
       rendered.container,
       "#audio-mode-daycore"
@@ -552,6 +557,7 @@ describe("Listen autocanonizer behavior", () => {
     expect(window.localStorage.getItem("fj-branch-stats-enabled")).toBe("1");
     const playTitle = getRequired<HTMLDivElement>(rendered.container, ".play-title");
     expect(playTitle.textContent).toContain("(daycore)");
+    expect(rendered.container.textContent).toContain("Bringing it on home");
     expect(window.location.search).toContain("am=daycore");
     rendered.unmount();
   });
@@ -614,6 +620,68 @@ describe("Listen autocanonizer behavior", () => {
     await click(applyButton);
 
     expect(rendered.container.querySelector(".branch-stats-popup")).toBeNull();
+    rendered.unmount();
+  });
+
+  it("deletes selected branch from branch stats popup delete button", async () => {
+    window.localStorage.setItem("fj-branch-stats-enabled", "1");
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    if (!controller) {
+      throw new Error("Expected jukebox controller instance");
+    }
+    await act(async () => {
+      controller.emitEdgeSelect({
+        id: 9,
+        deleted: false,
+        src: { start: 12, which: 12 },
+        dest: { start: 24, which: 24 },
+        distance: 8,
+      });
+    });
+
+    const deleteButton = getRequired<HTMLButtonElement>(
+      rendered.container,
+      "#branch-stats-delete"
+    );
+    await click(deleteButton);
+
+    expect(rendered.container.querySelector(".branch-stats-popup")).toBeNull();
+    rendered.unmount();
+  });
+
+  it("resets only extras settings when reset is clicked from extras tab", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#extras-enabled"));
+    await click(getRequired<HTMLInputElement>(rendered.container, "#bring-home-enabled"));
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-daycore"));
+    await click(
+      getRequired<HTMLButtonElement>(rendered.container, ".tuning-footer .tab-btn:last-child")
+    );
+
+    expect(window.localStorage.getItem("fj-branch-stats-enabled")).toBe("1");
+    expect(
+      getRequired<HTMLDivElement>(rendered.container, ".play-title").textContent
+    ).toContain("(daycore)");
+    expect(rendered.container.textContent).toContain("Bringing it on home");
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(
+      getRequired<HTMLButtonElement>(rendered.container, ".tuning-footer .tab-btn:first-child")
+    );
+
+    expect(window.localStorage.getItem("fj-branch-stats-enabled")).toBe("0");
+    expect(
+      getRequired<HTMLDivElement>(rendered.container, ".play-title").textContent
+    ).not.toContain("(daycore)");
+    expect(rendered.container.textContent).not.toContain("Bringing it on home");
     rendered.unmount();
   });
 

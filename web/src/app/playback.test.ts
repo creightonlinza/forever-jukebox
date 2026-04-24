@@ -141,6 +141,7 @@ function createElements() {
     audioModeEightDInput: createInput(),
     audioModeLofiInput: createInput(),
     extrasEnabledInput: createInput(),
+    bringHomeEnabledInput: createInput(),
     extrasJukeboxOnlyHint: { classList: createClassList() },
     tuningTitle: createSpan(),
     tuningTitleText: createSpan(),
@@ -282,6 +283,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
       deleteEligible: false,
       deleteEligibilityJobId: null,
       shiftBranching: false,
+      bringItHomeMode: false,
       lastBeatIndex: null,
       branchStatsEnabled: false,
       jukeboxAudioMode: "off",
@@ -404,6 +406,27 @@ describe("playback tuning", () => {
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
   });
 
+  it("applies bring it home mode from extras controls", () => {
+    const context = createContext();
+    context.state.playMode = "jukebox";
+    context.state.shiftBranching = true;
+    context.elements.bringHomeEnabledInput.checked = true;
+
+    applyExtrasChanges(context);
+
+    expect(context.state.bringItHomeMode).toBe(true);
+    expect(context.state.shiftBranching).toBe(false);
+    expect(context.engine.setForceBranch).toHaveBeenCalledWith(false);
+    expect(context.engine.setBringItHomeMode).toHaveBeenCalledWith(true);
+    expect(context.elements.bringHomeLabel.classList.toggle).toHaveBeenCalledWith(
+      "is-hidden",
+      false,
+    );
+    expect(
+      context.elements.bringHomeFullscreenLabel.classList.toggle,
+    ).toHaveBeenCalledWith("is-hidden", false);
+  });
+
   it("hides branch stats popup when extras branch stats is disabled", () => {
     const context = createContext();
     context.state.playMode = "jukebox";
@@ -419,6 +442,7 @@ describe("playback tuning", () => {
     const context = createContext();
     context.state.playMode = "jukebox";
     context.state.branchStatsEnabled = true;
+    context.state.bringItHomeMode = true;
     context.state.jukeboxAudioMode = "nightcore";
 
     const result = resetExtrasDefaults(context);
@@ -426,6 +450,8 @@ describe("playback tuning", () => {
     expect(result).toEqual({ branchStatsChanged: true, audioModeChanged: true });
     expect(context.state.branchStatsEnabled).toBe(false);
     expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("0");
+    expect(context.state.bringItHomeMode).toBe(false);
+    expect(context.engine.setBringItHomeMode).toHaveBeenCalledWith(false);
     expect(context.state.jukeboxAudioMode).toBe("off");
     expect(context.elements.branchStatsPopup.classList.add).toHaveBeenCalledWith("hidden");
   });

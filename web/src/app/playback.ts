@@ -254,12 +254,22 @@ function getSelectedAudioMode(context: AppContext): JukeboxAudioMode {
   return "off";
 }
 
+function syncBringItHomeLabels(context: AppContext) {
+  const { elements, state } = context;
+  const visible = state.playMode === "jukebox" && state.bringItHomeMode;
+  elements.bringHomeLabel.classList.toggle("is-hidden", !visible);
+  elements.bringHomeFullscreenLabel.classList.toggle("is-hidden", !visible);
+}
+
 export function syncExtrasUI(context: AppContext) {
   const { elements, state } = context;
   const inJukeboxMode = state.playMode === "jukebox";
   elements.extrasEnabledInput.checked =
     inJukeboxMode && state.branchStatsEnabled;
   elements.extrasEnabledInput.disabled = !inJukeboxMode;
+  elements.bringHomeEnabledInput.checked =
+    inJukeboxMode && state.bringItHomeMode;
+  elements.bringHomeEnabledInput.disabled = !inJukeboxMode;
   const audioMode = state.jukeboxAudioMode;
   elements.audioModeOffInput.checked = audioMode === "off";
   elements.audioModeNightcoreInput.checked = audioMode === "nightcore";
@@ -322,6 +332,14 @@ export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
   const { elements, engine, player, state } = context;
   const previousBranchStatsEnabled = state.branchStatsEnabled;
   const previousAudioMode = state.jukeboxAudioMode;
+  state.bringItHomeMode =
+    state.playMode === "jukebox" && elements.bringHomeEnabledInput.checked;
+  if (state.bringItHomeMode && state.shiftBranching) {
+    state.shiftBranching = false;
+    engine.setForceBranch(false);
+  }
+  engine.setBringItHomeMode(state.bringItHomeMode);
+  syncBringItHomeLabels(context);
   state.branchStatsEnabled =
     state.playMode === "jukebox" && elements.extrasEnabledInput.checked;
   if (!state.branchStatsEnabled) {
@@ -351,6 +369,9 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   const { elements, engine, player, state } = context;
   const previousBranchStatsEnabled = state.branchStatsEnabled;
   const previousAudioMode = state.jukeboxAudioMode;
+  state.bringItHomeMode = false;
+  engine.setBringItHomeMode(false);
+  syncBringItHomeLabels(context);
   state.branchStatsEnabled = false;
   elements.branchStatsPopup.classList.add("hidden");
   storeBranchStatsEnabled(false);
