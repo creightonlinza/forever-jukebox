@@ -68,6 +68,7 @@ const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = {
 
 const REVERB_SECONDS = 2.5;
 const PAN_STEP = 0.007;
+const MAX_LATE_JUMP_FRAMES = 8;
 
 export class BufferedAudioPlayer {
   private context: AudioContext;
@@ -258,11 +259,19 @@ export class BufferedAudioPlayer {
     return this.playbackRate;
   }
 
-  scheduleJump(targetTime: number, audioStart: number) {
+  scheduleJump(targetTime: number, sourceStartTime: number) {
     if (!this.buffer || !this.playing) {
       return;
     }
-    const startTime = audioStart === 0 ? this.context.currentTime : audioStart;
+    const currentSourceTime = this.getCurrentTime();
+    this.clearPendingSwap();
+    const lateBy = currentSourceTime - sourceStartTime;
+    const maxLateSeconds = MAX_LATE_JUMP_FRAMES / this.context.sampleRate;
+    if (lateBy > maxLateSeconds) {
+      return;
+    }
+    const sourceLead = Math.max(0, sourceStartTime - currentSourceTime);
+    const startTime = this.context.currentTime + sourceLead / this.playbackRate;
     const source = this.context.createBufferSource();
     source.buffer = this.buffer;
     source.playbackRate.value = this.playbackRate;
@@ -288,10 +297,13 @@ export class BufferedAudioPlayer {
         // no-op
       }
     }
-    this.clearPendingSwap();
     this.pendingSource = source;
     this.pendingStartAt = startTime - targetTime / this.playbackRate;
     this.pendingSwapAt = startTime;
+  }
+
+  cancelScheduledJump() {
+    this.clearPendingSwap();
   }
 
   private stopSource() {

@@ -794,8 +794,8 @@ async function bootstrap() {
     void recordPlay(jobId).catch((err) => {
       console.warn(`Failed to record cast play: ${String(err)}`);
     });
-    engine.startJukebox();
     engine.play();
+    engine.startJukebox();
     isTrackPaused = false;
     listenAccumulatedMs = 0;
     playStartAtMs = performance.now();
@@ -1027,9 +1027,12 @@ async function bootstrap() {
         if (isTrackPaused) {
           engine.syncToPlaybackPosition();
         }
+        engine.play();
         engine.startJukebox(!isTrackPaused);
       }
-      engine.play();
+      if (!player.isPlaying()) {
+        engine.play();
+      }
       if (playStartAtMs === null) {
         playStartAtMs = performance.now();
       }
