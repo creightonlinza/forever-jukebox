@@ -251,11 +251,55 @@ describe("BufferedAudioPlayer", () => {
     await player.loadBuffer({ duration: 10 } as AudioBuffer);
     player.play();
     expect(context.createdSources).toHaveLength(1);
-    player.scheduleJump(2, 0);
+    player.scheduleJump(2, 1);
     const firstPending = context.createdSources[1];
     expect(firstPending).toBeDefined();
-    player.scheduleJump(3, 0);
+    player.scheduleJump(3, 1);
     expect(firstPending?.stop).toHaveBeenCalled();
     expect(firstPending?.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("schedules jumps from the current source cursor", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 10;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 10.25;
+
+    player.scheduleJump(2, 1);
+
+    expect(context.createdSources).toHaveLength(2);
+    expect(context.createdSources[1]?.start).toHaveBeenCalledWith(11, 2, 18);
+    expect(context.createdSources[0]?.stop).toHaveBeenCalledWith(11);
+  });
+
+  it("skips stale jumps that are already past the source boundary", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 1;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 1.01;
+
+    player.scheduleJump(2, 0);
+
+    expect(context.createdSources).toHaveLength(1);
+    expect(context.createdSources[0]?.stop).not.toHaveBeenCalled();
+  });
+
+  it("cancels a pending scheduled jump", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 1;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    player.scheduleJump(2, 1);
+    const pending = context.createdSources[1];
+
+    player.cancelScheduledJump();
+
+    expect(pending?.stop).toHaveBeenCalled();
+    expect(pending?.disconnect).toHaveBeenCalledTimes(1);
   });
 });

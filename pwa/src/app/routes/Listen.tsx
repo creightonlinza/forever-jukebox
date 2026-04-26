@@ -950,8 +950,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     } else {
       engine.syncToPlaybackPosition();
     }
-    engine.startJukebox(resetSession);
     engine.play();
+    engine.startJukebox(resetSession);
     lastPlayStampRef.current = performance.now();
     setIsRunning(true);
     setIsPaused(false);
@@ -999,8 +999,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     vizControllerRef.current?.update(index, true, null);
 
     if (!isRunningRef.current) {
-      engine.startJukebox(false);
       engine.play();
+      engine.startJukebox(false);
       lastPlayStampRef.current = performance.now();
       setIsRunning(true);
       setIsPaused(false);

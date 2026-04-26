@@ -94,6 +94,7 @@ function makePlayer(): JukeboxPlayer {
     stop: vi.fn(),
     seek: vi.fn(),
     scheduleJump: vi.fn(),
+    cancelScheduledJump: vi.fn(),
     getCurrentTime: () => 0,
     getAudioTime: () => 0,
     getPlaybackRate: () => 1,

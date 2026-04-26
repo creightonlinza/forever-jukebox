@@ -84,6 +84,7 @@ function makePlayer(): JukeboxPlayer {
     stop: vi.fn(),
     seek: vi.fn(),
     scheduleJump: vi.fn(),
+    cancelScheduledJump: vi.fn(),
     getCurrentTime: () => 0,
     getAudioTime: () => 0,
     getPlaybackRate: () => 1,
@@ -188,6 +189,7 @@ describe("JukeboxEngine branching", () => {
 
     expect(engineAny.currentBeatIndex).toBe(0);
     expect(player.scheduleJump).toHaveBeenCalledTimes(1);
+    expect(player.scheduleJump).toHaveBeenCalledWith(0, 1);
     expect(engineAny.lastJumpFromIndex).toBe(1);
   });
 
@@ -226,7 +228,70 @@ describe("JukeboxEngine branching", () => {
 
     expect(engineAny.currentBeatIndex).toBe(0);
     expect(player.scheduleJump).toHaveBeenCalledTimes(1);
+    expect(player.scheduleJump).toHaveBeenCalledWith(0, 2);
     expect(engineAny.lastJumpFromIndex).toBe(1);
+  });
+
+  it("skips a branch when the source boundary is too close to schedule", () => {
+    const player = {
+      ...makePlayer(),
+      getCurrentTime: () => 0.95,
+    };
+    const engine = new JukeboxEngine(player, { randomMode: "seeded", seed: 1 });
+    const beats = [0, 1, 2].map(makeBeat);
+    linkBeats(beats);
+    const edge: Edge = {
+      id: 0,
+      src: beats[1],
+      dest: beats[0],
+      distance: 10,
+      deleted: false,
+    };
+    beats[1].neighbors = [edge];
+    beats[1].allNeighbors = [edge];
+    const graph: JukeboxGraphState = {
+      computedThreshold: 0,
+      currentThreshold: 0,
+      lastBranchPoint: 1,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [edge],
+    };
+
+    const engineAny = engine as unknown as {
+      analysis: TrackAnalysis;
+      graph: JukeboxGraphState;
+      beats: QuantumBase[];
+      currentBeatIndex: number;
+      nextAudioTime: number;
+      curRandomBranchChance: number;
+      lastJumpFromIndex: number | null;
+      advanceBeat: (audioTime: number) => void;
+    };
+    engineAny.analysis = makeAnalysis(beats);
+    engineAny.graph = graph;
+    engineAny.beats = beats;
+    engineAny.currentBeatIndex = 0;
+    engineAny.nextAudioTime = 10.05;
+    engineAny.curRandomBranchChance = engine.getConfig().minRandomBranchChance;
+
+    engineAny.advanceBeat(engineAny.nextAudioTime);
+
+    expect(engineAny.currentBeatIndex).toBe(1);
+    expect(player.scheduleJump).not.toHaveBeenCalled();
+    expect(engineAny.lastJumpFromIndex).toBe(null);
+  });
+
+  it("resetStats clears per-source branch repeat history", () => {
+    const engine = new JukeboxEngine(makePlayer());
+    const engineAny = engine as unknown as {
+      branchState: { lastDestBySource: Map<number, number> | null };
+    };
+    engineAny.branchState.lastDestBySource = new Map([[4, 1]]);
+
+    engine.resetStats();
+
+    expect(engineAny.branchState.lastDestBySource).toBeNull();
   });
 });
 

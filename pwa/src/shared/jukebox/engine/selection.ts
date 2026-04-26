@@ -2,7 +2,7 @@ import { JukeboxConfig, JukeboxGraphState, QuantumBase } from "./types";
 
 export interface BranchState {
   curRandomBranchChance: number;
-  lastDestBySource?: Map<number, number>;
+  lastDestBySource?: Map<number, number> | null;
 }
 
 const REFERENCE_BEAT_DURATION_SECONDS = 0.5;
