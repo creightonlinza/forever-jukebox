@@ -4,6 +4,8 @@ const doubles = vi.hoisted(() => {
   const fetchAnalysisMock = vi.fn();
   const fetchAudioMock = vi.fn();
   const recordPlayMock = vi.fn();
+  const parseCastTuningParamsMock = vi.fn();
+  const applyCastTuningToEngineMock = vi.fn();
   const playerInstances: any[] = [];
   const engineInstances: any[] = [];
   const vizInstances: any[] = [];
@@ -22,12 +24,24 @@ const doubles = vi.hoisted(() => {
       }),
       isPlaying: vi.fn(() => player.isPlayingValue),
       getDuration: vi.fn(() => 120),
+      setJukeboxAudioMode: vi.fn(),
     };
     return player;
   };
 
   const makeEngine = (player: any) => {
-    const config = { currentThreshold: 20 };
+    const config = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 20,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0.02,
+      minLongBranch: 2,
+    };
     const engine: any = {
       running: false,
       onUpdate: vi.fn(),
@@ -37,6 +51,7 @@ const doubles = vi.hoisted(() => {
       rebuildGraph: vi.fn(),
       deleteEdge: vi.fn(),
       getGraphState: vi.fn(() => ({
+        computedThreshold: 18,
         currentThreshold: 20,
         totalBeats: 0,
         allEdges: [],
@@ -78,6 +93,8 @@ const doubles = vi.hoisted(() => {
     fetchAnalysisMock,
     fetchAudioMock,
     recordPlayMock,
+    parseCastTuningParamsMock,
+    applyCastTuningToEngineMock,
     playerInstances,
     engineInstances,
     vizInstances,
@@ -122,12 +139,8 @@ vi.mock("../app/format", () => ({
 }));
 
 vi.mock("./tuning", () => ({
-  parseCastTuningParams: vi.fn(() => null),
-  applyCastTuningToEngine: vi.fn(() => ({
-    parsed: null,
-    highlightOnly: false,
-    highlightAnchorBranch: false,
-  })),
+  parseCastTuningParams: doubles.parseCastTuningParamsMock,
+  applyCastTuningToEngine: doubles.applyCastTuningToEngineMock,
 }));
 
 type CastHarness = {
@@ -277,6 +290,14 @@ describe("cast receiver main", () => {
     doubles.fetchAnalysisMock.mockReset();
     doubles.fetchAudioMock.mockReset();
     doubles.recordPlayMock.mockReset();
+    doubles.parseCastTuningParamsMock.mockReset();
+    doubles.parseCastTuningParamsMock.mockReturnValue(null);
+    doubles.applyCastTuningToEngineMock.mockReset();
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: null,
+      highlightOnly: false,
+      highlightAnchorBranch: false,
+    });
     doubles.playerInstances.length = 0;
     doubles.engineInstances.length = 0;
     doubles.vizInstances.length = 0;
@@ -341,6 +362,257 @@ describe("cast receiver main", () => {
       type: "status",
       jobId,
       createdAt,
+      tuning: {
+        justBackwards: false,
+        justLongBranches: false,
+        removeSequentialBranches: false,
+        threshold: 20,
+        computedThreshold: 18,
+        branchProbability: {
+          minPercent: 18,
+          maxPercent: 50,
+          deltaPercent: 10,
+        },
+        deletedEdgeIds: [],
+        highlightAnchorBranch: false,
+        audioMode: "off",
+      },
+    });
+  });
+
+  it("applies audio mode from load tuning params", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: {
+        audioMode: "eight_d",
+        hasAudioModeParam: true,
+        hasGraphTuning: false,
+      },
+      highlightOnly: false,
+      highlightAnchorBranch: false,
+    });
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({
+      customData: {
+        jobId,
+        tuningParams: "am=eight_d",
+      },
+    });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("eight_d");
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
+    const status = statusCall?.[2] as
+      | Record<string, unknown>
+      | undefined;
+    expect(status).toMatchObject({
+      type: "status",
+      jobId,
+      tuning: {
+        threshold: 20,
+        computedThreshold: 18,
+        audioMode: "eight_d",
+      },
+    });
+  });
+
+  it("clears prior track fields while loading a different track", async () => {
+    const firstJobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    const nextJobId = "b3f3c0dc73c6476c9db95c227f9206f3";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: firstJobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Old Track", artist: "Old Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: {
+        audioMode: "eight_d",
+        hasAudioModeParam: true,
+        hasGraphTuning: false,
+      },
+      highlightOnly: false,
+      highlightAnchorBranch: false,
+    });
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({
+      customData: {
+        jobId: firstJobId,
+        tuningParams: "am=eight_d",
+      },
+    });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+    harness.sendCustomMessage.mockClear();
+
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: nextJobId,
+      created_at: "2026-04-17T01:00:00.000000+00:00",
+      result: { track: { duration: 90 } },
+      track: { title: "Next Track", artist: "Next Artist", duration: 90 },
+    });
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: null,
+      highlightOnly: false,
+      highlightAnchorBranch: false,
+    });
+    harness.getLoadInterceptor()?.({ customData: { jobId: nextJobId } });
+
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
+    const status = statusCall?.[2] as
+      | Record<string, unknown>
+      | undefined;
+    expect(status).toMatchObject({
+      type: "status",
+      jobId: nextJobId,
+      createdAt: null,
+      title: null,
+      artist: null,
+      trackDurationSeconds: null,
+      totalBeats: null,
+      totalBranches: null,
+      isPlaying: false,
+      isLoading: true,
+      tuning: null,
+      playbackState: "loading",
+    });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+  });
+
+  it("updates audio mode from a setTuning command", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: {
+        audioMode: "lofi",
+        hasAudioModeParam: true,
+        hasGraphTuning: false,
+      },
+      highlightOnly: false,
+      highlightAnchorBranch: false,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "am=lofi" },
+    });
+    await flushMicrotasks();
+
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("lofi");
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
+    const status = statusCall?.[2] as
+      | Record<string, unknown>
+      | undefined;
+    expect(status).toMatchObject({
+      type: "status",
+      tuning: {
+        threshold: 20,
+        computedThreshold: 18,
+        audioMode: "lofi",
+      },
+    });
+  });
+
+  it("returns the current tuning state on getStatus after reconnect", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: {
+        audioMode: "daycore",
+        hasAudioModeParam: true,
+        hasGraphTuning: true,
+      },
+      highlightOnly: false,
+      highlightAnchorBranch: true,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "jb=1&ah=1&am=daycore" },
+    });
+    await flushMicrotasks();
+    harness.sendCustomMessage.mockClear();
+
+    harness.getMessageListener()?.({ data: { type: "getStatus" } });
+    await flushMicrotasks();
+
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
+    const status = statusCall?.[2] as
+      | Record<string, unknown>
+      | undefined;
+    expect(status).toMatchObject({
+      type: "status",
+      jobId,
+      tuning: {
+        justBackwards: false,
+        justLongBranches: false,
+        removeSequentialBranches: false,
+        threshold: 20,
+        computedThreshold: 18,
+        branchProbability: {
+          minPercent: 18,
+          maxPercent: 50,
+          deltaPercent: 10,
+        },
+        deletedEdgeIds: [],
+        highlightAnchorBranch: true,
+        audioMode: "daycore",
+      },
+      activeVizIndex: 0,
     });
   });
 
