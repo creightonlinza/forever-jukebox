@@ -45,9 +45,9 @@ function makeEngine(): CastTuningEngine {
 }
 
 describe("cast tuning", () => {
-  it("parses supported fields including booleans and highlight", () => {
+  it("parses supported fields including booleans, highlight, and audio mode", () => {
     const parsed = parseCastTuningParams(
-      "jb=1&lg=0&sq=0&thresh=31&bp=10,20,30&d=1,3&ah=1",
+      "jb=1&lg=0&sq=0&thresh=31&bp=10,20,30&d=1,3&ah=1&am=eight_d",
       makeDefaults(),
     );
     expect(parsed).not.toBeNull();
@@ -58,6 +58,8 @@ describe("cast tuning", () => {
     expect(parsed?.config.randomBranchChanceDelta).toBeCloseTo(0.06, 6);
     expect(parsed?.deletedEdgeIds).toEqual([1, 3]);
     expect(parsed?.highlightAnchorBranch).toBe(true);
+    expect(parsed?.audioMode).toBe("eight_d");
+    expect(parsed?.hasAudioModeParam).toBe(true);
     expect(parsed?.hasGraphTuning).toBe(true);
   });
 
@@ -106,27 +108,53 @@ describe("cast tuning", () => {
     expect(parseCastTuningParams("foo=bar", makeDefaults())).toBeNull();
   });
 
-  it("short-circuits graph work for highlight-only payloads", () => {
+  it("parses audio-only payloads without graph tuning", () => {
+    const parsed = parseCastTuningParams("am=lofi", makeDefaults());
+    expect(parsed).not.toBeNull();
+    expect(parsed?.audioMode).toBe("lofi");
+    expect(parsed?.hasAudioModeParam).toBe(true);
+    expect(parsed?.hasGraphTuning).toBe(false);
+  });
+
+  it("ignores unsupported audio mode values", () => {
+    const parsed = parseCastTuningParams("am=chipmunk", makeDefaults());
+    expect(parsed).not.toBeNull();
+    expect(parsed?.audioMode).toBeNull();
+    expect(parsed?.hasAudioModeParam).toBe(true);
+    expect(parsed?.hasGraphTuning).toBe(false);
+  });
+
+  it("applies defaults and graph rebuild for highlight-only payloads", () => {
     const engine = makeEngine();
     const result = applyCastTuningToEngine(engine, makeDefaults(), "ah=1");
-    expect(result.highlightOnly).toBe(true);
+    expect(result.highlightOnly).toBe(false);
     expect(result.highlightAnchorBranch).toBe(true);
-    expect(engine.updateConfig).not.toHaveBeenCalled();
-    expect(engine.clearDeletedEdges).not.toHaveBeenCalled();
-    expect(engine.rebuildGraph).not.toHaveBeenCalled();
+    expect(engine.updateConfig).toHaveBeenCalledTimes(2);
+    expect(engine.clearDeletedEdges).toHaveBeenCalledTimes(1);
+    expect(engine.rebuildGraph).toHaveBeenCalledTimes(1);
   });
 
-  it("treats ah=0 payload as highlight-only and avoids graph mutations", () => {
+  it("treats ah=0 payload as a full reset with highlight disabled", () => {
     const engine = makeEngine();
     const result = applyCastTuningToEngine(engine, makeDefaults(), "ah=0");
-    expect(result.highlightOnly).toBe(true);
+    expect(result.highlightOnly).toBe(false);
     expect(result.highlightAnchorBranch).toBe(false);
-    expect(engine.updateConfig).not.toHaveBeenCalled();
-    expect(engine.clearDeletedEdges).not.toHaveBeenCalled();
-    expect(engine.rebuildGraph).not.toHaveBeenCalled();
+    expect(engine.updateConfig).toHaveBeenCalledTimes(2);
+    expect(engine.clearDeletedEdges).toHaveBeenCalledTimes(1);
+    expect(engine.rebuildGraph).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps graph untouched when toggling highlight after tuning was applied", () => {
+  it("applies graph defaults for audio-only payloads", () => {
+    const engine = makeEngine();
+    const result = applyCastTuningToEngine(engine, makeDefaults(), "am=vaporwave");
+    expect(result.highlightOnly).toBe(false);
+    expect(result.parsed?.audioMode).toBe("vaporwave");
+    expect(engine.updateConfig).toHaveBeenCalledTimes(2);
+    expect(engine.clearDeletedEdges).toHaveBeenCalledTimes(1);
+    expect(engine.rebuildGraph).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets graph tuning when toggling highlight without other params", () => {
     const engine = makeEngine();
     const defaults = makeDefaults();
     applyCastTuningToEngine(engine, defaults, "jb=1&thresh=33&ah=1");
@@ -136,11 +164,11 @@ describe("cast tuning", () => {
     vi.mocked(engine.deleteEdge).mockClear();
 
     const result = applyCastTuningToEngine(engine, defaults, "ah=0");
-    expect(result.highlightOnly).toBe(true);
+    expect(result.highlightOnly).toBe(false);
     expect(result.highlightAnchorBranch).toBe(false);
-    expect(engine.updateConfig).not.toHaveBeenCalled();
-    expect(engine.clearDeletedEdges).not.toHaveBeenCalled();
-    expect(engine.rebuildGraph).not.toHaveBeenCalled();
+    expect(engine.updateConfig).toHaveBeenCalledTimes(2);
+    expect(engine.clearDeletedEdges).toHaveBeenCalledTimes(1);
+    expect(engine.rebuildGraph).toHaveBeenCalledTimes(1);
     expect(engine.deleteEdge).not.toHaveBeenCalled();
   });
 

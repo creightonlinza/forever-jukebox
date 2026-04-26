@@ -1,5 +1,8 @@
 import "../cast/style.css";
-import { BufferedAudioPlayer } from "../audio/BufferedAudioPlayer";
+import {
+  BufferedAudioPlayer,
+  type JukeboxAudioMode,
+} from "../audio/BufferedAudioPlayer";
 import { JukeboxEngine } from "../engine";
 import type { JukeboxConfig } from "../engine/types";
 import { JukeboxViz } from "../jukebox/JukeboxViz";
@@ -39,10 +42,26 @@ type CastStatus = {
   isPlaying: boolean;
   isLoading: boolean;
   activeVizIndex: number;
-  resolvedThreshold: number | null;
+  tuning: CastTuningStatus | null;
   error?: string | null;
   errorCode?: string | null;
   playbackState: "idle" | "loading" | "playing" | "paused" | "error";
+};
+
+type CastTuningStatus = {
+  justBackwards: boolean;
+  justLongBranches: boolean;
+  removeSequentialBranches: boolean;
+  threshold: number | null;
+  computedThreshold: number | null;
+  branchProbability: {
+    minPercent: number;
+    maxPercent: number;
+    deltaPercent: number;
+  };
+  deletedEdgeIds: number[];
+  highlightAnchorBranch: boolean;
+  audioMode: JukeboxAudioMode;
 };
 
 type CastLoadRequest = {
@@ -120,6 +139,8 @@ type CastState = {
   trackArtist: string | null;
   trackDurationSeconds: number | null;
   activeVizIndex: number;
+  tuningParams: string | null;
+  audioMode: JukeboxAudioMode;
 };
 
 type CastTrackMeta = {
@@ -175,6 +196,8 @@ function parseDurationSeconds(value: unknown): number | null {
 const CAST_MAX_TRACK_DURATION_SECONDS = 7 * 60;
 const CAST_TRACK_TOO_LONG_ERROR_CODE = "cast_track_too_long";
 const CAST_TRACK_DURATION_UNKNOWN_ERROR_CODE = "cast_track_duration_unknown";
+const MIN_RANDOM_BRANCH_DELTA = 0;
+const MAX_RANDOM_BRANCH_DELTA = 0.2;
 
 type CastErrorInfo = {
   message: string;
@@ -218,6 +241,11 @@ function getInitialJobId(): string | null {
 
 function setStatus(el: HTMLElement, message: string) {
   el.textContent = message;
+}
+
+function mapValueToPercent(value: number, min: number, max: number) {
+  const safeValue = clamp(value, min, max);
+  return Math.round((100 * (safeValue - min)) / (max - min));
 }
 
 function setLoadingState(elements: CastElements, isLoading: boolean) {
@@ -368,14 +396,76 @@ async function bootstrap() {
     trackArtist: null,
     trackDurationSeconds: null,
     activeVizIndex: 0,
+    tuningParams: null,
+    audioMode: "off",
   };
   let isTrackPaused = false;
+
+  function getDisplayTitle() {
+    if (!state.trackTitle) {
+      return "The Forever Jukebox";
+    }
+    return state.audioMode === "off"
+      ? state.trackTitle
+      : `${state.trackTitle} (${state.audioMode})`;
+  }
+
+  function updateDisplayedTitle() {
+    const title = getDisplayTitle();
+    const artist = state.trackArtist || "";
+    elements.title.textContent = artist ? `${title} — ${artist}` : title;
+  }
+
+  function setAudioMode(mode: JukeboxAudioMode) {
+    state.audioMode = mode;
+    player?.setJukeboxAudioMode(mode);
+    updateDisplayedTitle();
+  }
+
   function applyVisualizationIndex(nextIndex: number) {
     const normalized = clamp(Math.trunc(nextIndex), 0, MAX_VIZ_INDEX);
     state.activeVizIndex = normalized;
     if (viz) {
       viz.setActiveIndex(normalized);
     }
+  }
+
+  function getTuningStatus(
+    threshold: number | null,
+    graphState: ReturnType<JukeboxEngine["getGraphState"]>,
+  ): CastTuningStatus | null {
+    if (!engine || !state.currentJobId) {
+      return null;
+    }
+    const config = engine.getConfig();
+    const computedThreshold =
+      typeof graphState?.computedThreshold === "number" &&
+      Number.isFinite(graphState.computedThreshold)
+        ? Math.trunc(graphState.computedThreshold)
+        : null;
+    const deletedEdgeIds =
+      graphState?.allEdges
+        .filter((edge) => edge.deleted)
+        .map((edge) => edge.id) ?? [];
+    return {
+      justBackwards: config.justBackwards,
+      justLongBranches: config.justLongBranches,
+      removeSequentialBranches: config.removeSequentialBranches,
+      threshold,
+      computedThreshold,
+      branchProbability: {
+        minPercent: mapValueToPercent(config.minRandomBranchChance, 0, 1),
+        maxPercent: mapValueToPercent(config.maxRandomBranchChance, 0, 1),
+        deltaPercent: mapValueToPercent(
+          config.randomBranchChanceDelta,
+          MIN_RANDOM_BRANCH_DELTA,
+          MAX_RANDOM_BRANCH_DELTA,
+        ),
+      },
+      deletedEdgeIds,
+      highlightAnchorBranch: anchorHighlightEnabled,
+      audioMode: state.audioMode,
+    };
   }
 
   function sendStatusUpdate(error?: string | null, errorCode?: string | null) {
@@ -385,9 +475,12 @@ async function bootstrap() {
     const isLoading =
       state.loadToken > 0 && !!state.currentJobId && !state.vizData;
     const hasTrack = !!state.currentJobId;
-    const isPlaying = player?.isPlaying() ?? false;
-    const graphState = engine?.getGraphState?.() ?? null;
+    const isPlaying = isLoading ? false : player?.isPlaying() ?? false;
+    const graphState = isLoading ? null : engine?.getGraphState?.() ?? null;
     const trackDurationSeconds = (() => {
+      if (isLoading) {
+        return null;
+      }
       if (
         typeof state.trackDurationSeconds === "number" &&
         Number.isFinite(state.trackDurationSeconds) &&
@@ -405,11 +498,15 @@ async function bootstrap() {
       }
       return null;
     })();
-    const totalBeats = state.vizData?.beats?.length ?? graphState?.totalBeats ?? null;
+    const totalBeats = isLoading
+      ? null
+      : state.vizData?.beats?.length ?? graphState?.totalBeats ?? null;
     const totalBranches =
-      state.vizData?.edges?.length ?? graphState?.allEdges?.length ?? null;
-    const resolvedThreshold = (() => {
-      if (!engine) {
+      isLoading
+        ? null
+        : state.vizData?.edges?.length ?? graphState?.allEdges?.length ?? null;
+    const threshold = (() => {
+      if (isLoading || !engine) {
         return null;
       }
       const configThreshold = engine.getConfig().currentThreshold;
@@ -435,6 +532,10 @@ async function bootstrap() {
           : isPlaying
             ? "playing"
             : "paused";
+    const tuning =
+      playbackState === "loading" || playbackState === "error"
+        ? null
+        : getTuningStatus(threshold, graphState);
     const status: CastStatus = {
       type: "status",
       jobId: state.currentJobId,
@@ -447,7 +548,7 @@ async function bootstrap() {
       isPlaying,
       isLoading,
       activeVizIndex: state.activeVizIndex,
-      resolvedThreshold,
+      tuning,
       error: error ?? null,
       errorCode: errorCode ?? null,
       playbackState,
@@ -602,6 +703,8 @@ async function bootstrap() {
     state.trackTitle = null;
     state.trackArtist = null;
     state.trackDurationSeconds = null;
+    state.tuningParams = null;
+    state.audioMode = "off";
     isTrackPaused = false;
     playStartAtMs = null;
     listenAccumulatedMs = 0;
@@ -647,29 +750,31 @@ async function bootstrap() {
     state.currentJobCreatedAt = null;
     state.loadToken += 1;
     const token = state.loadToken;
-    sendStatusUpdate();
+    state.trackTitle = null;
+    state.trackArtist = null;
+    state.trackDurationSeconds = null;
+    state.tuningParams = null;
+    state.audioMode = "off";
+    state.lastBeatIndex = null;
+    state.vizData = null;
+    isTrackPaused = false;
+    listenAccumulatedMs = 0;
     setLoadingState(elements, true);
     setStatus(elements.status, "Loading…");
     elements.listenTime.textContent = "00:00:00";
     elements.beatsPlayed.textContent = "0";
     elements.title.textContent = "The Forever Jukebox";
-    state.trackTitle = null;
-    state.trackArtist = null;
-    state.trackDurationSeconds = null;
-    state.lastBeatIndex = null;
-    state.vizData = null;
-    isTrackPaused = false;
-    listenAccumulatedMs = 0;
+    sendStatusUpdate();
     return token;
   }
 
   function applyTrackMetadata(trackMeta: CastTrackMeta, durationSeconds: number) {
     const title = trackMeta.title || "Unknown";
     const artist = trackMeta.artist || "";
-    elements.title.textContent = artist ? `${title} — ${artist}` : title;
     state.trackTitle = title;
     state.trackArtist = artist || null;
     state.trackDurationSeconds = durationSeconds;
+    updateDisplayedTitle();
   }
 
   async function finalizeTrackStart(jobId: string, token: number) {
@@ -706,6 +811,7 @@ async function bootstrap() {
     state.trackTitle = null;
     state.trackArtist = null;
     state.trackDurationSeconds = null;
+    state.tuningParams = null;
     if (viz) {
       viz.reset();
       viz.setVisible(false);
@@ -801,7 +907,10 @@ async function bootstrap() {
       }
       engine.loadAnalysis(analysis.result);
       if (defaultConfig) {
-        applyTuningToEngine(tuningParams);
+        applyTuningToEngine(tuningParams, {
+          resetAudioModeWhenMissing: true,
+          storeTuningParams: true,
+        });
       }
       syncVizFromEngine();
       if (trackMeta) {
@@ -824,12 +933,30 @@ async function bootstrap() {
     }
   }
 
-  function applyTuningToEngine(tuningParams: string | null) {
+  function applyTuningToEngine(
+    tuningParams: string | null,
+    options: {
+      resetAudioModeWhenMissing?: boolean;
+      storeTuningParams?: boolean;
+    } = {},
+  ) {
     if (!engine || !defaultConfig || !state.currentJobId) {
       return { parsed: null, highlightOnly: false };
     }
     const result = applyCastTuningToEngine(engine, defaultConfig, tuningParams);
+    if (result.parsed?.hasAudioModeParam) {
+      setAudioMode(result.parsed.audioMode ?? "off");
+    } else if (
+      tuningParams === null ||
+      options.resetAudioModeWhenMissing ||
+      !!result.parsed
+    ) {
+      setAudioMode("off");
+    }
     anchorHighlightEnabled = result.highlightAnchorBranch;
+    if (options.storeTuningParams) {
+      state.tuningParams = tuningParams;
+    }
     return { parsed: result.parsed, highlightOnly: result.highlightOnly };
   }
 
@@ -838,7 +965,9 @@ async function bootstrap() {
       return false;
     }
     try {
-      const result = applyTuningToEngine(tuningParams);
+      const result = applyTuningToEngine(tuningParams, {
+        storeTuningParams: true,
+      });
       if (result.highlightOnly) {
         if (viz) {
           viz.setAnchorHighlightEnabled(anchorHighlightEnabled);

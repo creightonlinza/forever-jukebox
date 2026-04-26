@@ -1,9 +1,10 @@
 import type { JukeboxEngine } from "../engine";
 import type { JukeboxConfig } from "../engine/types";
+import type { JukeboxAudioMode } from "../audio/BufferedAudioPlayer";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
-const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "ah"];
+const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "ah", "am"];
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -24,10 +25,26 @@ function parseDeletedEdgeIds(raw: string | null): number[] {
     .filter((value) => Number.isFinite(value) && value >= 0);
 }
 
+function parseAudioMode(raw: string | null): JukeboxAudioMode | null {
+  if (
+    raw === "off" ||
+    raw === "nightcore" ||
+    raw === "daycore" ||
+    raw === "vaporwave" ||
+    raw === "eight_d" ||
+    raw === "lofi"
+  ) {
+    return raw;
+  }
+  return null;
+}
+
 export type CastParsedTuning = {
   config: JukeboxConfig;
   deletedEdgeIds: number[];
   highlightAnchorBranch: boolean;
+  audioMode: JukeboxAudioMode | null;
+  hasAudioModeParam: boolean;
   hasGraphTuning: boolean;
 };
 
@@ -105,7 +122,16 @@ export function parseCastTuningParams(
   }
   const deletedEdgeIds = parseDeletedEdgeIds(params.get("d"));
   const highlightAnchorBranch = parseBool(params.get("ah")) ?? false;
-  return { config: nextConfig, deletedEdgeIds, highlightAnchorBranch, hasGraphTuning };
+  const hasAudioModeParam = params.has("am");
+  const audioMode = parseAudioMode(params.get("am"));
+  return {
+    config: nextConfig,
+    deletedEdgeIds,
+    highlightAnchorBranch,
+    audioMode,
+    hasAudioModeParam,
+    hasGraphTuning,
+  };
 }
 
 export type CastTuningApplyResult = {
@@ -126,10 +152,6 @@ export function applyCastTuningToEngine(
 ): CastTuningApplyResult {
   const parsed = parseCastTuningParams(tuningParams, defaults);
   const highlightAnchorBranch = parsed?.highlightAnchorBranch ?? false;
-  const highlightOnly = !!parsed && !parsed.hasGraphTuning;
-  if (highlightOnly) {
-    return { parsed, highlightOnly, highlightAnchorBranch };
-  }
   engine.updateConfig(defaults);
   engine.clearDeletedEdges();
   if (parsed) {
