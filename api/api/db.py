@@ -366,7 +366,7 @@ def recover_stalled_processing_jobs(db_path: Path) -> int:
     with sqlite3.connect(db_path) as conn:
         cur = conn.execute(
             "UPDATE jobs SET status = 'queued', progress = 0, error = NULL, updated_at = ? "
-            "WHERE status = 'processing'",
+            "WHERE status = 'processing' AND error IS NULL",
             (now,),
         )
         conn.commit()

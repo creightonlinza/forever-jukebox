@@ -216,7 +216,7 @@ def _should_attempt_auto_repair(job) -> bool:
     if job.status in {"downloading", "queued", "processing"}:
         return False
     if job.status == "failed":
-        return job.error == ANALYSIS_MISSING_MESSAGE
+        return False
     result_path = abs_storage_path(STORAGE_ROOT, job.output_path)
     if not result_path.exists():
         return True
