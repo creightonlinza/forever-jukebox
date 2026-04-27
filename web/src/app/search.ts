@@ -262,7 +262,8 @@ export async function tryLoadExistingTrackByName(
       return true;
     }
     if (isAnalysisFailed(response)) {
-      return false;
+      deps.setAnalysisStatus(response.error || "Loading failed.", false);
+      return true;
     }
     if (isAnalysisComplete(response)) {
       if (!state.audioLoaded) {

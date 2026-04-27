@@ -112,7 +112,7 @@ def _create_source_job(
         if existing_by_track and should_recycle_job(existing_by_track):
             recycle_job(existing_by_track)
             existing_by_track = None
-        if existing_by_track and existing_by_track.status != "failed":
+        if existing_by_track:
             log_event(
                 "job_reused",
                 job_id=existing_by_track.id,
@@ -129,7 +129,7 @@ def _create_source_job(
     if existing and should_recycle_job(existing):
         recycle_job(existing)
         existing = None
-    if existing and existing.status != "failed":
+    if existing:
         log_event(
             "job_reused",
             job_id=existing.id,

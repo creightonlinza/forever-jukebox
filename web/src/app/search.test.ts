@@ -85,7 +85,7 @@ describe("search flows", () => {
     expect(deps.applyAnalysisResult).toHaveBeenCalled();
   });
 
-  it("returns false for failed existing lookup so caller can show youtube matches", async () => {
+  it("treats failed existing lookup as a terminal cached result", async () => {
     const context = createContext();
     const deps = createDeps();
     (api.fetchJobByTrack as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -100,7 +100,11 @@ describe("search flows", () => {
       "Song",
       "Artist",
     );
-    expect(result).toBe(false);
+    expect(result).toBe(true);
+    expect(deps.setAnalysisStatus).toHaveBeenCalledWith(
+      "ERROR: [download] This video is not available.",
+      false,
+    );
     expect(deps.pollAnalysis).not.toHaveBeenCalled();
     expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
   });
