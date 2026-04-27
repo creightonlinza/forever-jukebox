@@ -29,8 +29,6 @@ def extract_beats(
         times = [float(x) for x in result.beat_times]
         beat_numbers = [int(x) for x in result.beat_numbers]
         confidences = [float(x) for x in result.beat_confidences]
-        if times:
-            return times, beat_numbers, confidences
+        return times, beat_numbers, confidences
     except Exception as exc:
         raise RuntimeError(f"madmom-beats-lite extraction failed: {exc}") from exc
-    raise RuntimeError("madmom-beats-lite extraction empty")

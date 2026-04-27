@@ -11,6 +11,20 @@ from .features import compute_frame_features
 from .segmentation import compute_novelty, segment_from_novelty
 
 
+NO_BEATS_DETECTED_MESSAGE = (
+    "No beats or downbeats were detected in this audio. "
+    "The track may be silent or lack a clear rhythm."
+)
+
+
+class AnalysisError(RuntimeError):
+    """Expected analysis failure with a user-facing message."""
+
+
+class NoBeatsDetectedError(AnalysisError):
+    """Raised when beat extraction completed but found no usable beat grid."""
+
+
 def _segment_confidence(novelty: np.ndarray, frame_times: np.ndarray, start: float) -> float:
     if novelty.size == 0:
         return 0.5
@@ -165,9 +179,7 @@ def analyze_audio(
     )
     report(85, "beats")
     if not beat_times:
-        beat_times = [0.0]
-        beat_numbers = [1]
-        beat_confidences = [1.0]
+        raise NoBeatsDetectedError(NO_BEATS_DETECTED_MESSAGE)
 
     report(90, "features")
     frame_features = compute_frame_features(audio, config.features)

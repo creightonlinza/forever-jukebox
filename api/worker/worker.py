@@ -50,6 +50,14 @@ class JobFailure(Exception):
         self.output_lines = output_lines or []
 
 
+def _extract_engine_error(output_lines: list[str]) -> str | None:
+    for line in reversed(output_lines):
+        message = line.strip()
+        if message.startswith("ERROR:"):
+            return message
+    return None
+
+
 def _worker_env() -> dict[str, str]:
     env = os.environ.copy()
     existing_pythonpath = env.get("PYTHONPATH")
@@ -113,7 +121,8 @@ def run_job(job_id: str, input_path: str, output_path: str) -> None:
         logger.info("%s", line.rstrip())
     returncode = proc.wait()
     if returncode != 0:
-        raise JobFailure(f"Engine exited with status {returncode}", output_lines)
+        message = _extract_engine_error(output_lines) or f"Engine exited with status {returncode}"
+        raise JobFailure(message, output_lines)
 
 
 def apply_track_metadata(output_path: str, title: str | None, artist: str | None) -> None:

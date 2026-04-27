@@ -27,6 +27,10 @@ from ..utils import abs_storage_path, get_logger
 from ..ytdlp_config import apply_ejs_config
 
 ERROR_ENGINE = "ERROR: Analysis engine encountered an issue."
+ERROR_NO_BEATS_DETECTED = (
+    "ERROR: No beats or downbeats were detected in this audio. "
+    "The track may be silent or lack a clear rhythm."
+)
 ERROR_YOUTUBE_UNAVAILABLE = "ERROR: This video is not available on YouTube."
 ERROR_DOWNLOAD_UNAVAILABLE = "ERROR: Unable to download video data."
 ERROR_YOUTUBE_AGE_RESTRICTED = "ERROR: YouTube fetch failed due to age restriction block."
@@ -34,6 +38,7 @@ ERROR_YOUTUBE_UNREACHABLE = "ERROR: Unable to reach YouTube"
 ERROR_TRACK_TOO_LONG = "ERROR: This track exceeds the server length limit."
 ERROR_GENERIC = "ERROR: Something went wrong. Please try again or report an issue on GitHub."
 ERROR_CODE_ANALYSIS_MISSING = "analysis_missing"
+ERROR_CODE_NO_BEATS_DETECTED = "no_beats_detected"
 ANALYSIS_MISSING_MESSAGE = "Analysis missing"
 NTFY_TOPIC_ENV = "NTFY_TOPIC_KEY"
 
@@ -182,6 +187,11 @@ def normalize_job_error(raw: str | None) -> str:
     if not raw:
         return ERROR_GENERIC
     lowered = raw.lower()
+    if (
+        "no beats or downbeats were detected" in lowered
+        or "madmom-beats-lite extraction empty" in lowered
+    ):
+        return ERROR_NO_BEATS_DETECTED
     if "engine exited" in lowered:
         return ERROR_ENGINE
     if "video unavailable" in lowered or "this video is not available" in lowered:
@@ -209,11 +219,15 @@ def error_code_for(raw: str | None) -> str | None:
         return None
     if raw == ANALYSIS_MISSING_MESSAGE:
         return ERROR_CODE_ANALYSIS_MISSING
+    if normalize_job_error(raw) == ERROR_NO_BEATS_DETECTED:
+        return ERROR_CODE_NO_BEATS_DETECTED
     return None
 
 
 def failure_code_for(raw: str | None) -> str:
     normalized = normalize_job_error(raw)
+    if normalized == ERROR_NO_BEATS_DETECTED:
+        return ERROR_CODE_NO_BEATS_DETECTED
     if normalized == ERROR_ENGINE:
         return "engine_error"
     if normalized == ERROR_YOUTUBE_UNAVAILABLE:
