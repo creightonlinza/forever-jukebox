@@ -106,11 +106,11 @@ describe("CowbellOverlayService", () => {
     expect(context.createdSources[0]?.start).toHaveBeenCalledWith(0);
   });
 
-  it("may schedule a subdivision hit inside the current beat", async () => {
+  it("may schedule a quiet quarter-hit subdivision burst inside the current beat", async () => {
     const context = new MockAudioContext();
     const service = new CowbellOverlayService(context as unknown as AudioContext, {
       fetch: createFetch(),
-      random: createRandom([0.5, 0.2, 0.5, 0.1, 0.5, 0.2, 0.5]),
+      random: createRandom([0.5, 0.2, 0.5, 0.01, 0.5, 0.2, 0.5]),
       sampleUrls: ["/cowbell.wav"],
       walkenSampleUrls: [],
       trillSampleUrls: [],
@@ -119,16 +119,18 @@ describe("CowbellOverlayService", () => {
     await flushMicrotasks();
     service.handleBeatEnter(0, beat);
 
-    expect(context.createdSources).toHaveLength(2);
+    expect(context.createdSources).toHaveLength(4);
     expect(context.createdSources[0]?.start).toHaveBeenCalledWith(0);
-    expect(context.createdSources[1]?.start).toHaveBeenCalledWith(0.4);
+    expect(context.createdSources[1]?.start).toHaveBeenCalledWith(0.2);
+    expect(context.createdSources[2]?.start).toHaveBeenCalledWith(0.4);
+    expect(context.createdSources[3]?.start).toHaveBeenCalledWith(0.6000000000000001);
   });
 
   it("disabling prevents future cowbell events", async () => {
     const context = new MockAudioContext();
     const service = new CowbellOverlayService(context as unknown as AudioContext, {
       fetch: createFetch(),
-      random: createRandom([0.5, 0.2, 0.5, 0.1, 0.5, 0.2, 0.5]),
+      random: createRandom([0.5, 0.2, 0.5, 0.01, 0.5, 0.2, 0.5]),
       sampleUrls: ["/cowbell.wav"],
       walkenSampleUrls: [],
       trillSampleUrls: [],
@@ -140,8 +142,10 @@ describe("CowbellOverlayService", () => {
     service.handleBeatEnter(1, { start: 0.8, duration: 0.8 });
 
     expect(service.isEnabled()).toBe(false);
-    expect(context.createdSources).toHaveLength(2);
+    expect(context.createdSources).toHaveLength(4);
     expect(context.createdSources[1]?.stop).toHaveBeenCalledWith(0);
+    expect(context.createdSources[2]?.stop).toHaveBeenCalledWith(0);
+    expect(context.createdSources[3]?.stop).toHaveBeenCalledWith(0);
   });
 
   it("sample load failure leaves playback unaffected", async () => {
@@ -165,7 +169,7 @@ describe("CowbellOverlayService", () => {
     const context = new MockAudioContext();
     const service = new CowbellOverlayService(context as unknown as AudioContext, {
       fetch: createFetch(),
-      random: createRandom([0.5, 0.2, 0.5, 0.1, 0.5, 0.2, 0.5]),
+      random: createRandom([0.5, 0.2, 0.5, 0.01, 0.5, 0.2, 0.5]),
       sampleUrls: ["/cowbell.wav"],
       walkenSampleUrls: [],
       trillSampleUrls: [],
@@ -178,7 +182,9 @@ describe("CowbellOverlayService", () => {
 
     expect(context.createdSources[0]?.stop).not.toHaveBeenCalled();
     expect(context.createdSources[1]?.stop).toHaveBeenCalledWith(0);
-    expect(context.createdSources.length).toBeLessThanOrEqual(4);
+    expect(context.createdSources[2]?.stop).toHaveBeenCalledWith(0);
+    expect(context.createdSources[3]?.stop).toHaveBeenCalledWith(0);
+    expect(context.createdSources.length).toBeLessThanOrEqual(8);
   });
 
   it("schedules a Walken effect on inferred section entry beats", async () => {

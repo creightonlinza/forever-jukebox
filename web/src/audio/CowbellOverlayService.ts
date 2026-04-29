@@ -27,18 +27,17 @@ const DEFAULT_COWBELL_SAMPLE_URLS = getSoundUrls("cowbell");
 const DEFAULT_WALKEN_SAMPLE_URLS = getSoundUrls("walken");
 const DEFAULT_TRILL_SAMPLE_URLS = getSoundUrls("trill");
 
-const BASE_COWBELL_GAIN = 0.3;
+const BASE_COWBELL_GAIN = 0.25;
 const ACCENT_GAIN_MIN = 0.82;
 const ACCENT_GAIN_MAX = 1.12;
 const SUBDIVISION_GAIN_MIN = 0.54;
 const SUBDIVISION_GAIN_MAX = 0.78;
-const WALKEN_GAIN = 3;
+const WALKEN_GAIN = 2.5;
 const TRILL_GAIN = 1.32;
 const WALKEN_EFFECT_PROBABILITY = 0.72;
 const PAN_RANGE = 0.24;
-const SUBDIVISION_PROBABILITY = 0.32;
-const SUBDIVISION_TIMING = 0.5;
-const MAX_SUBDIVISION_LOOKAHEAD_SECONDS = 0.42;
+const SUBDIVISION_BURST_PROBABILITY = 0.06;
+const SUBDIVISION_BURST_TIMINGS = [0.25, 0.5, 0.75];
 const MIN_SUBDIVISION_BEAT_SECONDS = 0.28;
 const STOP_FUTURE_EPSILON_SECONDS = 0.015;
 
@@ -134,16 +133,14 @@ export class CowbellOverlayService {
     const beatSeconds = this.getRealtimeBeatDuration(beat, nextBeat);
     if (
       beatSeconds >= MIN_SUBDIVISION_BEAT_SECONDS &&
-      this.random() < SUBDIVISION_PROBABILITY
+      this.random() < SUBDIVISION_BURST_PROBABILITY
     ) {
-      const offset = Math.min(
-        beatSeconds * SUBDIVISION_TIMING,
-        MAX_SUBDIVISION_LOOKAHEAD_SECONDS,
-      );
-      this.scheduleHit(
-        now + offset,
-        this.randomGain(SUBDIVISION_GAIN_MIN, SUBDIVISION_GAIN_MAX),
-      );
+      for (const timing of SUBDIVISION_BURST_TIMINGS) {
+        this.scheduleHit(
+          now + beatSeconds * timing,
+          this.randomGain(SUBDIVISION_GAIN_MIN, SUBDIVISION_GAIN_MAX),
+        );
+      }
     }
     this.maybeScheduleSectionEffect(now, beatIndex);
   }
