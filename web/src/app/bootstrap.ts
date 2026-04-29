@@ -144,6 +144,8 @@ export function bootstrap() {
     bringItHomeMode: false,
     branchStatsEnabled,
     jukeboxAudioMode: "off",
+    swingPreparing: false,
+    swingRenderToken: 0,
     selectedEdge: null,
     topSongsRefreshTimer: null,
     topSongsLoaded: false,

@@ -21,13 +21,15 @@ Audio results are cached locally in IndexedDB when available; browsers may evict
 data under storage pressure.
 
 ## Extras audio modes
-- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `lofi`.
+- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `lofi`, `swing`.
 - UI labels/tooltips:
+  - Normal
   - Nightcore (Fast & Bright)
   - Daycore (Slow & Deep)
   - Vaporwave (Muffled & Slow)
   - 8D Audio (Spinning/Spatial)
   - Lofi (Radio Filter)
+  - Swing (pre-renders a pitch-preserved swung buffer with Rubber Band WASM)
 - Shared listen URLs can include `am=<mode>` (for example `am=nightcore`).
 
 ## Keyboard shortcuts
