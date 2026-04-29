@@ -51,6 +51,10 @@ function createContext(
     } as unknown as AppContext["player"],
     autocanonizer: {} as unknown as AppContext["autocanonizer"],
     jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
+    cowbellOverlay: {
+      enable: vi.fn(),
+      disable: vi.fn(),
+    } as unknown as AppContext["cowbellOverlay"],
     state: {
       tuningParams: null,
       playMode: "jukebox",
@@ -102,6 +106,16 @@ describe("tuning params", () => {
     expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
   });
 
+  it("applies cowbell audio mode from params", () => {
+    const context = createContext();
+    const params = new URLSearchParams("am=cowbell");
+    const applied = applyTuningParamsToEngine(context, params);
+    expect(applied).toBe(true);
+    expect(context.state.jukeboxAudioMode).toBe("cowbell");
+    expect(context.cowbellOverlay.enable).toHaveBeenCalledTimes(1);
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cowbell");
+  });
+
   it("serializes only non-default tuning params", () => {
     const context = createContext({
       justBackwards: true,
@@ -115,9 +129,9 @@ describe("tuning params", () => {
 
   it("serializes audio mode when enabled", () => {
     const context = createContext();
-    context.state.jukeboxAudioMode = "daycore";
+    context.state.jukeboxAudioMode = "cowbell";
     const params = getTuningParamsFromEngine(context);
-    expect(params.get("am")).toBe("daycore");
+    expect(params.get("am")).toBe("cowbell");
   });
 
   it("serializes deleted edge ids when present", () => {

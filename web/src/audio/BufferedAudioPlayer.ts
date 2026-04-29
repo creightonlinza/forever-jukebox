@@ -5,6 +5,7 @@ export type JukeboxAudioMode =
   | "vaporwave"
   | "eight_d"
   | "lofi"
+  | "cowbell"
   | "swing";
 
 type AudioModeSettings = {
@@ -63,6 +64,14 @@ const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = {
     lowPassFrequency: 2000,
     useBandPass: true,
     reverbMix: 0.1,
+    pan: false,
+  },
+  cowbell: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: null,
+    useBandPass: false,
+    reverbMix: 0,
     pan: false,
   },
   swing: {

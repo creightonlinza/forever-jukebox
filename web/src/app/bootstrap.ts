@@ -1,5 +1,6 @@
 import { JukeboxEngine } from "../engine";
 import { BufferedAudioPlayer } from "../audio/BufferedAudioPlayer";
+import { CowbellOverlayService } from "../audio/CowbellOverlayService";
 import { getElements } from "./elements";
 import { attachVisualizationResize } from "./visualization";
 import { AutocanonizerController } from "../autocanonizer/AutocanonizerController";
@@ -111,6 +112,9 @@ export function bootstrap() {
     link.classList.toggle("active", link.dataset.theme === initialTheme);
   });
   const player = new BufferedAudioPlayer();
+  const cowbellOverlay = new CowbellOverlayService(player.getContext(), {
+    getPlaybackRate: () => player.getPlaybackRate(),
+  });
   const engine = new JukeboxEngine(player, { randomMode: "random" });
   const autocanonizer = new AutocanonizerController(elements.canonizerLayer);
   const jukebox = new JukeboxController(elements.vizLayer);
@@ -172,6 +176,7 @@ export function bootstrap() {
     player,
     autocanonizer,
     jukebox,
+    cowbellOverlay,
     defaultConfig,
     state,
   };

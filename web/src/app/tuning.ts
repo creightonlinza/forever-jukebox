@@ -12,6 +12,7 @@ function parseAudioMode(raw: string | null) {
     raw === "vaporwave" ||
     raw === "eight_d" ||
     raw === "lofi" ||
+    raw === "cowbell" ||
     raw === "swing"
   ) {
     return raw;
@@ -133,6 +134,11 @@ export function applyTuningParamsToEngine(
   const audioMode = parseAudioMode(params.get("am"));
   if (audioMode) {
     context.state.jukeboxAudioMode = audioMode;
+    if (audioMode === "cowbell") {
+      context.cowbellOverlay.enable();
+    } else {
+      context.cowbellOverlay.disable();
+    }
     if (audioMode !== "swing") {
       context.player.setJukeboxAudioMode(audioMode);
     }

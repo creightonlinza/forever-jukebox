@@ -84,6 +84,9 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
 }
 
 function formatAudioModeLabel(audioMode: AppState["jukeboxAudioMode"]) {
+  if (audioMode === "cowbell") {
+    return "more cowbell";
+  }
   return audioMode === "swing" ? "swing" : audioMode;
 }
 
@@ -130,6 +133,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     isEditableTarget,
     getCurrentTrackId,
   } = deps;
+  let lastCowbellBeatsPlayed = 0;
 
   function syncExtrasPopup(edge: Edge | null) {
     if (
@@ -239,6 +243,17 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     engine.onUpdate((engineState) => {
       elements.beatsPlayedEl.textContent = `${engineState.beatsPlayed}`;
       if (engineState.currentBeatIndex >= 0) {
+        if (engineState.beatsPlayed !== lastCowbellBeatsPlayed) {
+          lastCowbellBeatsPlayed = engineState.beatsPlayed;
+          const beat = state.vizData?.beats[engineState.currentBeatIndex];
+          if (beat) {
+            context.cowbellOverlay.handleBeatEnter(
+              engineState.currentBeatIndex,
+              beat,
+              state.vizData?.beats[engineState.currentBeatIndex + 1],
+            );
+          }
+        }
         const jumpFrom =
           engineState.lastJumped && engineState.lastJumpFromIndex !== null
             ? engineState.lastJumpFromIndex
@@ -520,6 +535,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if (state.isRunning || state.isPaused) {
       stopPlayback(context);
     }
+    context.cowbellOverlay.cancelScheduledHits();
     state.playMode = mode;
     elements.playModeSelect.value = mode;
     elements.jukeboxViz.classList.toggle(
