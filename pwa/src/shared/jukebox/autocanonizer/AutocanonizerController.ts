@@ -26,7 +26,7 @@ class AutocanonizerPlayer {
   private mainGain: GainNode;
   private otherGain: GainNode;
   private masterBlend: number;
-  private baseVolume = 1;
+  private baseVolume = 0.5;
 
   private currentBeat: CanonizerBeat | null = null;
   private mainSource: AudioBufferSourceNode | null = null;
