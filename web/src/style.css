@@ -849,6 +849,22 @@ button.is-loading::after {
 }
 
 .audio-mode-options {
+  display: grid;
+  gap: 12px;
+}
+
+.audio-mode-section {
+  display: grid;
+  gap: 8px;
+}
+
+.audio-mode-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.audio-mode-section-options {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -857,8 +873,16 @@ button.is-loading::after {
 .audio-mode-option {
   padding-bottom: 0;
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
+  justify-self: start;
   gap: 6px;
+  width: fit-content;
+  border: 1px solid var(--border-control);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: var(--surface);
+  white-space: nowrap;
 }
 
 .audio-mode-option input[type="radio"] {

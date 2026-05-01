@@ -98,6 +98,31 @@ afterEach(() => {
 });
 
 describe("JukeboxEngine branching", () => {
+  it("derives section-start beat indices from normalized analysis", () => {
+    const player = makePlayer();
+    const engine = new JukeboxEngine(player);
+    const beats = Array.from({ length: 8 }, (_, i) => ({
+      start: i,
+      duration: 1,
+      confidence: 1,
+    }));
+    const segments = Array.from({ length: 8 }, (_, i) => makeSegment(i));
+    engine.loadAnalysis({
+      sections: [
+        { start: 0, duration: 2.1, confidence: 1 },
+        { start: 2.1, duration: 2.9, confidence: 1 },
+        { start: 5, duration: 3, confidence: 1 },
+      ],
+      bars: beats,
+      beats,
+      tatums: beats,
+      segments,
+      track: { duration: 8 },
+    });
+
+    expect(engine.getSectionStartBeatIndices()).toEqual([3, 5]);
+  });
+
   it("does not force a branch when only the current beat is the last branch point", () => {
     const player = makePlayer();
     const engine = new JukeboxEngine(player, { randomMode: "seeded", seed: 1 });

@@ -7,6 +7,19 @@ import { fileURLToPath } from "node:url";
 export default defineConfig(({ command }) => {
   const isDev = command === "serve";
   const appBase = isDev ? "/" : "/offline/";
+  const scriptSrc = isDev
+    ? "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval';"
+    : "script-src 'self' 'wasm-unsafe-eval';";
+  const csp = [
+    "default-src 'self';",
+    "connect-src 'self' blob: data:;",
+    "img-src 'self' blob: data:;",
+    "media-src 'self' blob: data:;",
+    scriptSrc,
+    "style-src 'self' 'unsafe-inline';",
+    "worker-src 'self' blob:;",
+    "font-src 'self' data:;",
+  ].join(" ");
 
   return {
     base: appBase,
@@ -23,6 +36,12 @@ export default defineConfig(({ command }) => {
       },
     },
     plugins: [
+      {
+        name: "pwa-csp",
+        transformIndexHtml(html) {
+          return html.replace("__PWA_CSP__", csp);
+        },
+      },
       react(),
       VitePWA({
         injectRegister: null,
@@ -64,12 +83,12 @@ export default defineConfig(({ command }) => {
             ? {}
             : {
                 maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
-                globPatterns: ["**/*.{js,css,html,wasm,json,webmanifest,png,svg,ico,ttf,woff,woff2}"],
+                globPatterns: ["**/*.{js,css,html,wasm,json,webmanifest,png,svg,ico,ttf,woff,woff2,wav}"],
                 runtimeCaching: [
                   {
                     urlPattern: ({ request }) =>
                       request.mode === "navigate" ||
-                      ["script", "style", "worker", "image", "font"].includes(request.destination),
+                      ["script", "style", "worker", "image", "font", "audio"].includes(request.destination),
                     handler: "CacheOnly",
                   },
                 ],

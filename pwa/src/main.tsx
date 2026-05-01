@@ -9,7 +9,7 @@ import "@fontsource/barlow/latin-700.css";
 import "@/app/styles.css";
 
 function registerServiceWorker() {
-  if (!("serviceWorker" in navigator)) {
+  if (!import.meta.env.PROD || !("serviceWorker" in navigator)) {
     return;
   }
   window.addEventListener("load", () => {

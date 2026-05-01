@@ -40,6 +40,9 @@ const GENERIC_LOAD_ERROR_MESSAGE =
   "ERROR: Something went wrong. Please try again or report an issue on GitHub.";
 
 function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
+  if (audioMode === "cowbell") {
+    return "more cowbell";
+  }
   return audioMode === "swing" ? "swing" : audioMode;
 }
 
@@ -267,6 +270,9 @@ function getSelectedAudioMode(context: AppContext): JukeboxAudioMode {
   if (elements.audioModeLofiInput.checked) {
     return "lofi";
   }
+  if (elements.audioModeCowbellInput.checked) {
+    return "cowbell";
+  }
   if (elements.audioModeSwingInput.checked) {
     return "swing";
   }
@@ -307,6 +313,7 @@ function prepareSwingMode(context: AppContext) {
   if (!sourceBuffer || !beats || beats.length === 0) {
     return;
   }
+  const resumeAfterPrepare = context.state.isRunning;
   if (context.state.isRunning) {
     pausePlayback(context);
   }
@@ -352,6 +359,14 @@ function prepareSwingMode(context: AppContext) {
         context.engine.syncToPlaybackPosition();
       }
       updatePlayButton(context);
+      if (
+        resumeAfterPrepare &&
+        context.state.playMode === "jukebox" &&
+        context.state.jukeboxAudioMode === "swing" &&
+        !context.state.isRunning
+      ) {
+        startJukeboxPlayback(context, false);
+      }
     })
     .catch((err: unknown) => {
       if (context.state.swingRenderToken !== renderToken) {
@@ -408,6 +423,7 @@ export function syncExtrasUI(context: AppContext) {
   elements.audioModeVaporwaveInput.checked = audioMode === "vaporwave";
   elements.audioModeEightDInput.checked = audioMode === "eight_d";
   elements.audioModeLofiInput.checked = audioMode === "lofi";
+  elements.audioModeCowbellInput.checked = audioMode === "cowbell";
   elements.audioModeSwingInput.checked = audioMode === "swing";
   elements.audioModeOffInput.disabled = !inJukeboxMode;
   elements.audioModeNightcoreInput.disabled = !inJukeboxMode;
@@ -415,6 +431,7 @@ export function syncExtrasUI(context: AppContext) {
   elements.audioModeVaporwaveInput.disabled = !inJukeboxMode;
   elements.audioModeEightDInput.disabled = !inJukeboxMode;
   elements.audioModeLofiInput.disabled = !inJukeboxMode;
+  elements.audioModeCowbellInput.disabled = !inJukeboxMode;
   elements.audioModeSwingInput.disabled = !inJukeboxMode;
 }
 
@@ -462,7 +479,7 @@ export type ExtrasApplyResult = {
 };
 
 export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
-  const { elements, engine, player, state } = context;
+  const { cowbellOverlay, elements, engine, player, state } = context;
   const previousBranchStatsEnabled = state.branchStatsEnabled;
   const previousAudioMode = state.jukeboxAudioMode;
   state.bringItHomeMode =
@@ -481,6 +498,11 @@ export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
   storeBranchStatsEnabled(state.branchStatsEnabled);
   const nextAudioMode = getSelectedAudioMode(context);
   state.jukeboxAudioMode = nextAudioMode;
+  if (nextAudioMode === "cowbell") {
+    cowbellOverlay.enable();
+  } else {
+    cowbellOverlay.disable();
+  }
   if (nextAudioMode === "swing") {
     if (canPrepareSwingMode(context)) {
       prepareSwingMode(context);
@@ -512,7 +534,7 @@ export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
 }
 
 export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
-  const { elements, engine, player, state } = context;
+  const { cowbellOverlay, elements, engine, player, state } = context;
   const previousBranchStatsEnabled = state.branchStatsEnabled;
   const previousAudioMode = state.jukeboxAudioMode;
   state.bringItHomeMode = false;
@@ -521,6 +543,7 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   state.branchStatsEnabled = false;
   elements.branchStatsPopup.classList.add("hidden");
   storeBranchStatsEnabled(false);
+  cowbellOverlay.disable();
   state.swingRenderToken += 1;
   state.swingPreparing = false;
   state.jukeboxAudioMode = "off";
@@ -678,7 +701,16 @@ export function stopListenTimer(context: AppContext) {
 }
 
 export function stopPlayback(context: AppContext) {
-  const { autocanonizer, elements, engine, jukebox, player, state } = context;
+  const {
+    autocanonizer,
+    cowbellOverlay,
+    elements,
+    engine,
+    jukebox,
+    player,
+    state,
+  } = context;
+  cowbellOverlay.cancelScheduledHits();
   if (state.playMode === "autocanonizer") {
     autocanonizer.stop();
     player.stop();
@@ -707,10 +739,11 @@ export function stopPlayback(context: AppContext) {
 }
 
 function pausePlayback(context: AppContext) {
-  const { autocanonizer, engine, player, state } = context;
+  const { autocanonizer, cowbellOverlay, engine, player, state } = context;
   if (!state.isRunning) {
     return;
   }
+  cowbellOverlay.cancelScheduledHits();
   if (state.playMode === "autocanonizer") {
     autocanonizer.stop();
     player.stop();
@@ -732,7 +765,7 @@ function pausePlayback(context: AppContext) {
 }
 
 function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
-  const { engine, elements, jukebox, player, state } = context;
+  const { cowbellOverlay, engine, elements, jukebox, player, state } = context;
   if (isPlaybackBlockedForSwing(context)) {
     showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
     updatePlayButton(context);
@@ -746,6 +779,7 @@ function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
     return;
   }
   if (resetSession) {
+    cowbellOverlay.cancelScheduledHits();
     engine.stopJukebox();
     engine.resetStats();
     state.playTimerMs = 0;
@@ -799,7 +833,7 @@ export function togglePlayback(context: AppContext) {
 }
 
 export function startJukeboxFromBeat(context: AppContext, index: number) {
-  const { engine, player, state } = context;
+  const { cowbellOverlay, engine, player, state } = context;
   if (state.playMode !== "jukebox") {
     return;
   }
@@ -817,6 +851,7 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
     return;
   }
 
+  cowbellOverlay.cancelScheduledHits();
   player.seek(beat.start);
   engine.seekToBeat(index);
   state.lastBeatIndex = index;
@@ -843,13 +878,15 @@ export function startAutocanonizerPlayback(
   index: number,
   options?: { resetSession?: boolean },
 ) {
-  const { autocanonizer, engine, elements, player, state } = context;
+  const { autocanonizer, cowbellOverlay, engine, elements, player, state } =
+    context;
   if (!autocanonizer.isReady()) {
     console.warn("Autocanonizer not ready");
     return false;
   }
   const resetSession = options?.resetSession ?? true;
   player.stop();
+  cowbellOverlay.cancelScheduledHits();
   engine.stopJukebox();
   if (resetSession) {
     state.playTimerMs = 0;
@@ -912,8 +949,16 @@ export function resetForNewTrack(
   context: AppContext,
   options?: { clearTuning?: boolean },
 ) {
-  const { autocanonizer, elements, engine, jukebox, player, state, defaultConfig } =
-    context;
+  const {
+    autocanonizer,
+    cowbellOverlay,
+    elements,
+    engine,
+    jukebox,
+    player,
+    state,
+    defaultConfig,
+  } = context;
   const shouldClearTuning = options?.clearTuning ?? false;
   const hadTrackLoaded =
     state.audioLoaded ||
@@ -925,6 +970,8 @@ export function resetForNewTrack(
     state.jukeboxAudioMode = "off";
     player.setJukeboxAudioMode("off");
   }
+  cowbellOverlay.disable();
+  cowbellOverlay.setSectionStartBeatIndices([]);
   state.swingRenderToken += 1;
   state.swingPreparing = false;
   cancelPoll(context);
@@ -1030,10 +1077,12 @@ export function applyAnalysisResult(
     return false;
   }
   maybeUpdateDeleteEligibility(context, response, response.id);
-  const { autocanonizer, elements, engine, jukebox, state } = context;
+  const { autocanonizer, cowbellOverlay, elements, engine, jukebox, state } =
+    context;
   applyTuningParamsFromUrl(context);
   const useAutoThreshold = engine.getConfig().currentThreshold === 0;
   engine.loadAnalysis(response.result);
+  cowbellOverlay.setSectionStartBeatIndices(engine.getSectionStartBeatIndices());
   applyDeletedEdgesFromUrl(context);
   autocanonizer.setAnalysis(response.result, response.result.track?.duration);
   const graph = engine.getGraphState();

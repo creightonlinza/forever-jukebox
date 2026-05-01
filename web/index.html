@@ -572,6 +572,20 @@
             </li>
           </ul>
 
+          <h4>What are the extra audio modes?</h4>
+          <p>
+            Extras can play the Jukebox normally, speed it up with Nightcore,
+            slow and deepen it with Daycore, muffle and slow it with Vaporwave,
+            add spatial panning with 8D Audio, or add a filtered LoFi sound.
+            More Cowbell and Swing are beat-aware remix toys inspired by
+            <a
+              href="https://github.com/echonest/remix"
+              target="_blank"
+              rel="noreferrer"
+              >Echo Nest Remix</a
+            >.
+          </p>
+
           <h4>How do Favorites work?</h4>
           <ul>
             <li>
@@ -601,6 +615,15 @@
           <button id="cached-audio-clear" type="button">Clear 0MB</button>
         </div>
         <div class="faq faq-updates hidden" id="faq-whats-new-panel">
+          <h4>May 2026</h4>
+          <ul>
+            <li>
+              Added <strong>More Cowbell</strong> and <strong>Swing</strong>
+              remix toys to Extras, giving beat-aware ways to reshape tracks
+              while the Jukebox plays.
+            </li>
+          </ul>
+
           <h4>April 2026</h4>
           <ul>
             <li>Added a <strong>What's New</strong> section (you are here)!</li>
@@ -788,7 +811,7 @@
                   role="radiogroup"
                   aria-label="Audio mode"
                 >
-                  <label class="audio-mode-option">
+                  <label class="audio-mode-option audio-mode-default-option">
                     <input
                       id="audio-mode-off"
                       type="radio"
@@ -796,71 +819,91 @@
                       value="off"
                       checked
                     />
-                    Normal
+                    Off
                   </label>
-                  <label class="audio-mode-option" title="Fast & Bright">
-                    <input
-                      id="audio-mode-nightcore"
-                      type="radio"
-                      name="audio-mode"
-                      value="nightcore"
-                      title="Fast & Bright"
-                    />
-                    Nightcore
-                  </label>
-                  <label class="audio-mode-option" title="Slow & Deep">
-                    <input
-                      id="audio-mode-daycore"
-                      type="radio"
-                      name="audio-mode"
-                      value="daycore"
-                      title="Slow & Deep"
-                    />
-                    Daycore
-                  </label>
-                  <label class="audio-mode-option" title="Muffled & Slow">
-                    <input
-                      id="audio-mode-vaporwave"
-                      type="radio"
-                      name="audio-mode"
-                      value="vaporwave"
-                      title="Muffled & Slow"
-                    />
-                    Vaporwave
-                  </label>
-                  <label class="audio-mode-option" title="Spinning/Spatial">
-                    <input
-                      id="audio-mode-eight-d"
-                      type="radio"
-                      name="audio-mode"
-                      value="eight_d"
-                      title="Spinning/Spatial"
-                    />
-                    8D Audio
-                  </label>
-                  <label class="audio-mode-option" title="Radio Filter">
-                    <input
-                      id="audio-mode-lofi"
-                      type="radio"
-                      name="audio-mode"
-                      value="lofi"
-                      title="Radio Filter"
-                    />
-                    Lofi
-                  </label>
-                  <label
-                    class="audio-mode-option"
-                    title="Adds a swung feel by stretching and compressing each beat internally."
-                  >
-                    <input
-                      id="audio-mode-swing"
-                      type="radio"
-                      name="audio-mode"
-                      value="swing"
-                      title="Adds a swung feel by stretching and compressing each beat internally."
-                    />
-                    Swing
-                  </label>
+                  <div class="audio-mode-section">
+                    <div class="audio-mode-section-title">Playback Styles</div>
+                    <div class="audio-mode-section-options">
+                      <label class="audio-mode-option" title="Fast & Bright">
+                        <input
+                          id="audio-mode-nightcore"
+                          type="radio"
+                          name="audio-mode"
+                          value="nightcore"
+                          title="Fast & Bright"
+                        />
+                        Nightcore
+                      </label>
+                      <label class="audio-mode-option" title="Slow & Deep">
+                        <input
+                          id="audio-mode-daycore"
+                          type="radio"
+                          name="audio-mode"
+                          value="daycore"
+                          title="Slow & Deep"
+                        />
+                        Daycore
+                      </label>
+                      <label class="audio-mode-option" title="Muffled & Slow">
+                        <input
+                          id="audio-mode-vaporwave"
+                          type="radio"
+                          name="audio-mode"
+                          value="vaporwave"
+                          title="Muffled & Slow"
+                        />
+                        Vaporwave
+                      </label>
+                      <label class="audio-mode-option" title="Spinning/Spatial">
+                        <input
+                          id="audio-mode-eight-d"
+                          type="radio"
+                          name="audio-mode"
+                          value="eight_d"
+                          title="Spinning/Spatial"
+                        />
+                        8D Audio
+                      </label>
+                      <label class="audio-mode-option" title="Radio Filter">
+                        <input
+                          id="audio-mode-lofi"
+                          type="radio"
+                          name="audio-mode"
+                          value="lofi"
+                          title="Radio Filter"
+                        />
+                        LoFi
+                      </label>
+                    </div>
+                  </div>
+                  <div class="audio-mode-section">
+                    <div class="audio-mode-section-title">Remix Toys</div>
+                    <div class="audio-mode-section-options">
+                      <label class="audio-mode-option" title="More Cowbell">
+                        <input
+                          id="audio-mode-cowbell"
+                          type="radio"
+                          name="audio-mode"
+                          value="cowbell"
+                          title="More Cowbell"
+                        />
+                        More Cowbell
+                      </label>
+                      <label
+                        class="audio-mode-option"
+                        title="Adds a swung feel by stretching and compressing each beat internally."
+                      >
+                        <input
+                          id="audio-mode-swing"
+                          type="radio"
+                          name="audio-mode"
+                          value="swing"
+                          title="Adds a swung feel by stretching and compressing each beat internally."
+                        />
+                        Swing
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

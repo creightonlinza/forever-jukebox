@@ -21,7 +21,7 @@ Audio results are cached locally in IndexedDB when available; browsers may evict
 data under storage pressure.
 
 ## Extras audio modes
-- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `lofi`, `swing`.
+- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `lofi`, `cowbell`, `swing`.
 - UI labels/tooltips:
   - Normal
   - Nightcore (Fast & Bright)
@@ -29,7 +29,10 @@ data under storage pressure.
   - Vaporwave (Muffled & Slow)
   - 8D Audio (Spinning/Spatial)
   - Lofi (Radio Filter)
+  - More Cowbell
   - Swing (pre-renders a pitch-preserved swung buffer with Rubber Band WASM)
+- More Cowbell and Swing are beat-aware remix toys inspired by Echo Nest Remix:
+  https://github.com/echonest/remix
 - Shared listen URLs can include `am=<mode>` (for example `am=nightcore`).
 
 ## Keyboard shortcuts

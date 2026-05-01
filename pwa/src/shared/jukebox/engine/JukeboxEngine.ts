@@ -358,6 +358,20 @@ export class JukeboxEngine {
     return idx >= 0 ? this.beats[idx] : null;
   }
 
+  getSectionStartBeatIndices(): number[] {
+    if (!this.analysis || this.beats.length === 0) {
+      return [];
+    }
+    const indices = new Set<number>();
+    for (const section of this.analysis.sections.slice(1)) {
+      const idx = this.findBeatIndexAtOrAfterTime(section.start);
+      if (idx > 0) {
+        indices.add(idx);
+      }
+    }
+    return Array.from(indices).sort((left, right) => left - right);
+  }
+
   private resetState() {
     this.currentBeatIndex = -1;
     this.nextAudioTime = 0;
@@ -602,6 +616,23 @@ export class JukeboxEngine {
       }
     }
     return Math.max(0, Math.min(this.beats.length - 1, low - 1));
+  }
+
+  private findBeatIndexAtOrAfterTime(time: number): number {
+    let low = 0;
+    let high = this.beats.length - 1;
+    let result = this.beats.length - 1;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const beat = this.beats[mid];
+      if (beat.start >= time) {
+        result = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+    return result;
   }
 
   private emitState(jumped: boolean) {
