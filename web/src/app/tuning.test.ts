@@ -95,11 +95,11 @@ describe("tuning params", () => {
 
   it("applies newly supported audio modes from params", () => {
     const context = createContext();
-    const params = new URLSearchParams("am=eight_d");
+    const params = new URLSearchParams("am=swing");
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
-    expect(context.state.jukeboxAudioMode).toBe("eight_d");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_d");
+    expect(context.state.jukeboxAudioMode).toBe("swing");
+    expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
   });
 
   it("serializes only non-default tuning params", () => {

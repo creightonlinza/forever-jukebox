@@ -1,5 +1,7 @@
 import type { AppContext, TabId } from "./context";
 import type { JukeboxAudioMode } from "../audio/BufferedAudioPlayer";
+import { getOrCreateSwingBuffer } from "../audio/swingBufferCache";
+import { renderSwingBuffer } from "../audio/swingRenderer";
 import {
   ANALYSIS_POLL_INTERVAL_MS,
   LISTEN_TIMER_INTERVAL_MS,
@@ -24,6 +26,7 @@ import {
 import { storeAnchorHighlight } from "./anchorHighlight";
 import { storeBranchStatsEnabled } from "./extrasMode";
 import { setAutoMarqueeText } from "./marquee";
+import { showToast } from "./ui";
 import {
   isAnalysisComplete,
   isAnalysisFailed,
@@ -36,6 +39,10 @@ const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const GENERIC_LOAD_ERROR_MESSAGE =
   "ERROR: Something went wrong. Please try again or report an issue on GitHub.";
 
+function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
+  return audioMode === "swing" ? "swing" : audioMode;
+}
+
 function formatTrackTitle(
   baseTitle: string,
   playMode: AppContext["state"]["playMode"],
@@ -45,7 +52,7 @@ function formatTrackTitle(
     return `${baseTitle} (autocanonized)`;
   }
   if (audioMode !== "off") {
-    return `${baseTitle} (${audioMode})`;
+    return `${baseTitle} (${formatAudioModeLabel(audioMode)})`;
   }
   return baseTitle;
 }
@@ -184,6 +191,15 @@ export function updateTrackInfo(context: AppContext) {
 
 export function updateVizVisibility(context: AppContext) {
   const { autocanonizer, elements, jukebox, state } = context;
+  if (state.swingPreparing) {
+    elements.playStatusPanel.classList.remove("hidden");
+    elements.playMenu.classList.add("hidden");
+    elements.vizPanel.classList.add("hidden");
+    elements.playButton.classList.add("hidden");
+    elements.vizSelect.disabled = true;
+    updatePlayButton(context);
+    return;
+  }
   if (state.audioLoaded && state.analysisLoaded) {
     elements.playStatusPanel.classList.add("hidden");
     elements.playMenu.classList.remove("hidden");
@@ -251,7 +267,122 @@ function getSelectedAudioMode(context: AppContext): JukeboxAudioMode {
   if (elements.audioModeLofiInput.checked) {
     return "lofi";
   }
+  if (elements.audioModeSwingInput.checked) {
+    return "swing";
+  }
   return "off";
+}
+
+function getCurrentSwingSourceIdentity(context: AppContext): string | null {
+  const { state } = context;
+  return state.lastJobId ?? state.lastYouTubeId ?? null;
+}
+
+function canPrepareSwingMode(context: AppContext) {
+  return (
+    context.state.playMode === "jukebox" &&
+    context.state.audioLoaded &&
+    context.state.analysisLoaded &&
+    context.player.getSourceBuffer() !== null &&
+    context.state.vizData !== null &&
+    context.state.vizData.beats.length > 0
+  );
+}
+
+function isPlaybackBlockedForSwing(context: AppContext) {
+  const { state } = context;
+  return (
+    state.playMode === "jukebox" &&
+    state.jukeboxAudioMode === "swing" &&
+    state.swingPreparing
+  );
+}
+
+function prepareSwingMode(context: AppContext) {
+  if (context.state.jukeboxAudioMode !== "swing") {
+    return;
+  }
+  const sourceBuffer = context.player.getSourceBuffer();
+  const beats = context.state.vizData?.beats;
+  if (!sourceBuffer || !beats || beats.length === 0) {
+    return;
+  }
+  if (context.state.isRunning) {
+    pausePlayback(context);
+  }
+  const renderToken = context.state.swingRenderToken + 1;
+  context.state.swingRenderToken = renderToken;
+  context.state.swingPreparing = true;
+  context.elements.analysisStatus.textContent = "Adding swing to the track...";
+  context.elements.analysisSpinner.classList.remove("hidden");
+  context.elements.analysisProgress.textContent = "0%";
+  updateVizVisibility(context);
+  updatePlayButton(context);
+
+  const sourceIdentity = getCurrentSwingSourceIdentity(context);
+  void getOrCreateSwingBuffer(sourceBuffer, sourceIdentity, () =>
+    renderSwingBuffer(sourceBuffer, beats, {
+      onProgress: (progress) => {
+        if (
+          context.state.swingRenderToken !== renderToken ||
+          context.state.jukeboxAudioMode !== "swing"
+        ) {
+          return;
+        }
+        const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
+        context.elements.analysisProgress.textContent = `${percent}%`;
+      },
+    }),
+  )
+    .then((buffer) => {
+      if (
+        context.state.swingRenderToken !== renderToken ||
+        context.state.jukeboxAudioMode !== "swing"
+      ) {
+        return;
+      }
+      context.state.swingPreparing = false;
+      context.player.setRenderedJukeboxAudioBuffer("swing", buffer);
+      context.player.setJukeboxAudioMode("swing");
+      context.elements.analysisStatus.textContent = "Swing mode ready.";
+      context.elements.analysisSpinner.classList.add("hidden");
+      context.elements.analysisProgress.textContent = "";
+      updateVizVisibility(context);
+      if (context.state.isRunning || context.state.isPaused) {
+        context.engine.syncToPlaybackPosition();
+      }
+      updatePlayButton(context);
+    })
+    .catch((err: unknown) => {
+      if (context.state.swingRenderToken !== renderToken) {
+        return;
+      }
+      console.warn(`Swing render failed: ${String(err)}`);
+      context.state.swingPreparing = false;
+      context.state.jukeboxAudioMode = "off";
+      context.player.setJukeboxAudioMode("off");
+      context.elements.analysisStatus.textContent = "Swing mode failed.";
+      context.elements.analysisSpinner.classList.add("hidden");
+      context.elements.analysisProgress.textContent = "";
+      updateVizVisibility(context);
+      syncTuningParamsState(context);
+      writeTuningParamsToUrl(context.state.tuningParams, true);
+      updatePlayButton(context);
+      showToast(context, "Swing mode failed. Using Normal mode.", {
+        icon: "error",
+        tone: "error",
+      });
+    });
+}
+
+function maybePrepareSwingMode(context: AppContext) {
+  if (context.state.jukeboxAudioMode !== "swing") {
+    return;
+  }
+  if (!canPrepareSwingMode(context)) {
+    return;
+  }
+  prepareSwingMode(context);
 }
 
 function syncBringItHomeLabels(context: AppContext) {
@@ -277,12 +408,14 @@ export function syncExtrasUI(context: AppContext) {
   elements.audioModeVaporwaveInput.checked = audioMode === "vaporwave";
   elements.audioModeEightDInput.checked = audioMode === "eight_d";
   elements.audioModeLofiInput.checked = audioMode === "lofi";
+  elements.audioModeSwingInput.checked = audioMode === "swing";
   elements.audioModeOffInput.disabled = !inJukeboxMode;
   elements.audioModeNightcoreInput.disabled = !inJukeboxMode;
   elements.audioModeDaycoreInput.disabled = !inJukeboxMode;
   elements.audioModeVaporwaveInput.disabled = !inJukeboxMode;
   elements.audioModeEightDInput.disabled = !inJukeboxMode;
   elements.audioModeLofiInput.disabled = !inJukeboxMode;
+  elements.audioModeSwingInput.disabled = !inJukeboxMode;
 }
 
 export type TuningModalTab = "tuning" | "extras";
@@ -348,13 +481,26 @@ export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
   storeBranchStatsEnabled(state.branchStatsEnabled);
   const nextAudioMode = getSelectedAudioMode(context);
   state.jukeboxAudioMode = nextAudioMode;
-  player.setJukeboxAudioMode(nextAudioMode);
-  if (
-    previousAudioMode !== nextAudioMode &&
-    state.playMode === "jukebox" &&
-    (state.isRunning || state.isPaused)
-  ) {
-    engine.syncToPlaybackPosition();
+  if (nextAudioMode === "swing") {
+    if (canPrepareSwingMode(context)) {
+      prepareSwingMode(context);
+    } else {
+      showToast(context, "Swing mode will prepare once audio is loaded", {
+        icon: "hourglass_top",
+      });
+    }
+  } else {
+    state.swingRenderToken += 1;
+    state.swingPreparing = false;
+    player.setJukeboxAudioMode(nextAudioMode);
+    if (
+      previousAudioMode !== nextAudioMode &&
+      state.playMode === "jukebox" &&
+      (state.isRunning || state.isPaused)
+    ) {
+      engine.syncToPlaybackPosition();
+    }
+    updatePlayButton(context);
   }
   syncTuningParamsState(context);
   writeTuningParamsToUrl(state.tuningParams, true);
@@ -375,8 +521,11 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   state.branchStatsEnabled = false;
   elements.branchStatsPopup.classList.add("hidden");
   storeBranchStatsEnabled(false);
+  state.swingRenderToken += 1;
+  state.swingPreparing = false;
   state.jukeboxAudioMode = "off";
   player.setJukeboxAudioMode("off");
+  updatePlayButton(context);
   if (
     previousAudioMode !== "off" &&
     state.playMode === "jukebox" &&
@@ -584,6 +733,11 @@ function pausePlayback(context: AppContext) {
 
 function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
   const { engine, elements, jukebox, player, state } = context;
+  if (isPlaybackBlockedForSwing(context)) {
+    showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
+    updatePlayButton(context);
+    return;
+  }
   if (player.getDuration() === null) {
     console.warn("Audio not loaded");
     if (!resetSession) {
@@ -647,6 +801,11 @@ export function togglePlayback(context: AppContext) {
 export function startJukeboxFromBeat(context: AppContext, index: number) {
   const { engine, player, state } = context;
   if (state.playMode !== "jukebox") {
+    return;
+  }
+  if (isPlaybackBlockedForSwing(context)) {
+    showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
+    updatePlayButton(context);
     return;
   }
   if (player.getDuration() === null) {
@@ -720,12 +879,24 @@ export function startAutocanonizerPlayback(
 function updatePlayButton(context: AppContext) {
   const { state } = context;
   const isRunning = state.isRunning;
-  const label = isRunning ? "Pause" : state.isPaused ? "Resume" : "Play";
+  const isBlocked = isPlaybackBlockedForSwing(context);
+  const label = isBlocked
+    ? "Preparing Swing mode"
+    : isRunning
+      ? "Pause"
+      : state.isPaused
+        ? "Resume"
+        : "Play";
   const updateButton = (button: HTMLButtonElement) => {
     const icon = button.querySelector<HTMLSpanElement>(".play-icon");
     if (icon) {
-      icon.textContent = isRunning ? "pause" : "play_arrow";
+      icon.textContent = isBlocked
+        ? "hourglass_top"
+        : isRunning
+          ? "pause"
+          : "play_arrow";
     }
+    button.disabled = isBlocked;
     button.title = label;
     button.setAttribute("aria-label", label);
   };
@@ -754,6 +925,8 @@ export function resetForNewTrack(
     state.jukeboxAudioMode = "off";
     player.setJukeboxAudioMode("off");
   }
+  state.swingRenderToken += 1;
+  state.swingPreparing = false;
   cancelPoll(context);
   state.shiftBranching = false;
   engine.setForceBranch(false);
@@ -834,6 +1007,7 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     state.audioLoadInFlight = false;
     updateVizVisibility(context);
     updateTrackInfo(context);
+    maybePrepareSwingMode(context);
     const cacheId = state.lastYouTubeId ?? state.lastJobId;
     if (cacheId) {
       updateCachedTrack(cacheId, { audio: buffer, jobId }).catch((err) => {
@@ -876,6 +1050,7 @@ export function applyAnalysisResult(
   syncDeletedEdgeState(context);
   state.analysisLoaded = true;
   updateVizVisibility(context);
+  maybePrepareSwingMode(context);
   const resultTrack = response.result.track ?? null;
   const track = resultTrack ?? response.track;
   const title = track?.title;
@@ -1175,6 +1350,7 @@ export async function tryLoadCachedAudio(
     state.audioLoadInFlight = false;
     updateVizVisibility(context);
     updateTrackInfo(context);
+    maybePrepareSwingMode(context);
     return true;
   } catch (err) {
     console.warn(`Cache lookup failed: ${String(err)}`);

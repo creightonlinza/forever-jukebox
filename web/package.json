@@ -15,7 +15,8 @@
   "dependencies": {
     "abortcontroller-polyfill": "^1.7.5",
     "core-js": "^3.38.1",
-    "regenerator-runtime": "^0.14.1"
+    "regenerator-runtime": "^0.14.1",
+    "rubberband-wasm": "^3.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
@@ -24,8 +25,8 @@
     "eslint": "^9.36.0",
     "globals": "^16.4.0",
     "terser": "^5.46.0",
-    "typescript-eslint": "^8.44.1",
     "typescript": "^5.4.5",
+    "typescript-eslint": "^8.44.1",
     "vite": "^5.4.0",
     "vitest": "^1.6.0"
   }

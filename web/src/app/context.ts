@@ -41,6 +41,8 @@ export type AppState = {
   bringItHomeMode: boolean;
   branchStatsEnabled: boolean;
   jukeboxAudioMode: JukeboxAudioMode;
+  swingPreparing: boolean;
+  swingRenderToken: number;
   selectedEdge: Edge | null;
   topSongsRefreshTimer: number | null;
   topSongsLoaded: boolean;

@@ -16,6 +16,7 @@ import {
   syncTuningTabsUI,
   syncTuningUI,
   togglePlayback,
+  updateVizVisibility,
   updateListenTimeDisplay,
 } from "./playback";
 import { setWindowUrl } from "./__tests__/test-utils";
@@ -140,6 +141,7 @@ function createElements() {
     audioModeVaporwaveInput: createInput(),
     audioModeEightDInput: createInput(),
     audioModeLofiInput: createInput(),
+    audioModeSwingInput: createInput(),
     extrasEnabledInput: createInput(),
     bringHomeEnabledInput: createInput(),
     extrasJukeboxOnlyHint: { classList: createClassList() },
@@ -164,6 +166,11 @@ function createElements() {
     analysisStatus: createSpan(),
     analysisSpinner: { classList: createClassList() },
     analysisProgress: createSpan(),
+    toast: {
+      classList: createClassList(),
+      innerHTML: "",
+      textContent: "",
+    },
     beatsPlayedEl: createSpan(),
     playButton: createPlayButton(),
     bringHomeLabel: { classList: createClassList() },
@@ -232,6 +239,8 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     stop: vi.fn(),
     seek: vi.fn(),
     setJukeboxAudioMode: vi.fn(),
+    getSourceBuffer: vi.fn(() => null),
+    setRenderedJukeboxAudioBuffer: vi.fn(),
   };
   const autocanonizer = {
     setAnalysis: vi.fn(),
@@ -287,6 +296,8 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
       lastBeatIndex: null,
       branchStatsEnabled: false,
       jukeboxAudioMode: "off",
+      swingPreparing: false,
+      swingRenderToken: 0,
       listenTimerId: null,
       pollController: null,
       wakeLock: null,
@@ -707,6 +718,10 @@ describe("playback controls", () => {
       setInterval;
     (globalThis.window as unknown as { clearInterval: typeof clearInterval }).clearInterval =
       clearInterval;
+    (globalThis.window as unknown as { setTimeout: typeof setTimeout }).setTimeout =
+      setTimeout;
+    (globalThis.window as unknown as { clearTimeout: typeof clearTimeout }).clearTimeout =
+      clearTimeout;
   });
 
   it("pauses and resumes without resetting when already started", () => {
@@ -740,6 +755,65 @@ describe("playback controls", () => {
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(2);
     expect(context.state.isRunning).toBe(true);
     expect(context.state.isPaused).toBe(false);
+  });
+
+  it("blocks jukebox playback while swing mode is preparing", () => {
+    const context = createContext();
+    context.state.audioLoaded = true;
+    context.state.analysisLoaded = true;
+    context.state.jukeboxAudioMode = "swing";
+    context.state.swingPreparing = true;
+    (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
+
+    togglePlayback(context);
+
+    expect(context.engine.play).not.toHaveBeenCalled();
+    expect(context.engine.startJukebox).not.toHaveBeenCalled();
+    expect(context.state.isRunning).toBe(false);
+    expect(context.elements.playButton.disabled).toBe(true);
+    expect(context.elements.playButton.setAttribute).toHaveBeenLastCalledWith(
+      "aria-label",
+      "Preparing Swing mode",
+    );
+    expect(context.elements.vizPlayButton.disabled).toBe(true);
+  });
+
+  it("shows only loading status panel while swing mode is preparing", () => {
+    const context = createContext();
+    context.state.audioLoaded = true;
+    context.state.analysisLoaded = true;
+    context.state.jukeboxAudioMode = "swing";
+    context.state.swingPreparing = true;
+
+    updateVizVisibility(context);
+
+    expect(context.elements.playStatusPanel.classList.remove).toHaveBeenCalledWith(
+      "hidden",
+    );
+    expect(context.elements.playMenu.classList.add).toHaveBeenCalledWith("hidden");
+    expect(context.elements.vizPanel.classList.add).toHaveBeenCalledWith("hidden");
+    expect(context.elements.playButton.classList.add).toHaveBeenCalledWith("hidden");
+    expect(context.elements.vizSelect.disabled).toBe(true);
+  });
+
+  it("blocks beat-start playback while swing mode is preparing", () => {
+    const context = createContext();
+    context.state.playMode = "jukebox";
+    context.state.jukeboxAudioMode = "swing";
+    context.state.swingPreparing = true;
+    context.state.vizData = {
+      beats: [{ start: 2, duration: 1 }],
+      edges: [],
+    } as unknown as AppContext["state"]["vizData"];
+    (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
+
+    startJukeboxFromBeat(context, 0);
+
+    expect(context.player.seek).not.toHaveBeenCalled();
+    expect(context.engine.seekToBeat).not.toHaveBeenCalled();
+    expect(context.engine.play).not.toHaveBeenCalled();
+    expect(context.engine.startJukebox).not.toHaveBeenCalled();
+    expect(context.elements.playButton.disabled).toBe(true);
   });
 
   it("stop clears paused state and forces next play to restart", () => {

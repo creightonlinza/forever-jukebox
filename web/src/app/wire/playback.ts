@@ -83,6 +83,10 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
   return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
 }
 
+function formatAudioModeLabel(audioMode: AppState["jukeboxAudioMode"]) {
+  return audioMode === "swing" ? "swing" : audioMode;
+}
+
 function formatTrackTitle(
   baseTitle: string,
   playMode: AppState["playMode"],
@@ -92,7 +96,7 @@ function formatTrackTitle(
     return `${baseTitle} (autocanonized)`;
   }
   if (audioMode !== "off") {
-    return `${baseTitle} (${audioMode})`;
+    return `${baseTitle} (${formatAudioModeLabel(audioMode)})`;
   }
   return baseTitle;
 }
