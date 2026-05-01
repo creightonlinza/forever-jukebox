@@ -199,6 +199,34 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.playbackRate.value).toBe(1);
   });
 
+  it("switches swing mode to a rendered buffer without playbackRate slicing", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    const sourceBuffer = { duration: 2 } as AudioBuffer;
+    const swingBuffer = { duration: 2 } as AudioBuffer;
+    await player.loadBuffer(sourceBuffer);
+    player.setRenderedJukeboxAudioBuffer("swing", swingBuffer);
+    player.setJukeboxAudioMode("swing");
+    player.play();
+
+    expect(player.getPlaybackRate()).toBe(1);
+    expect(context.createdSources).toHaveLength(1);
+    expect(context.createdSources[0]?.buffer).toBe(swingBuffer);
+    expect(context.createdSources[0]?.start).toHaveBeenCalledWith(0, 0, 2);
+
+    player.stop();
+  });
+
+  it("keeps normal mode on the continuous source path", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 2 } as AudioBuffer);
+    player.play();
+
+    expect(context.createdSources).toHaveLength(1);
+    expect(context.createdSources[0]?.start).toHaveBeenCalledWith(0, 0, 2);
+  });
+
   it("starts panning loop for eight_d mode and resets on mode change", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);

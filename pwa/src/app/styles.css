@@ -958,6 +958,21 @@ textarea:focus-visible {
   font-size: 13px;
 }
 
+.progress-bar {
+  height: 8px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border-control);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 120ms ease;
+}
+
 .progress__list {
   margin: 14px 0 0;
   padding: 0;
@@ -1219,10 +1234,26 @@ label {
 }
 
 .audio-mode-group .label-line {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .audio-mode-options {
+  display: grid;
+  gap: 12px;
+}
+
+.audio-mode-section {
+  display: grid;
+  gap: 8px;
+}
+
+.audio-mode-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.audio-mode-section-options {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -1231,8 +1262,16 @@ label {
 .audio-mode-option {
   padding-bottom: 0;
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
+  justify-self: start;
   gap: 6px;
+  width: fit-content;
+  border: 1px solid var(--border-control);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: var(--surface);
+  white-space: nowrap;
 }
 
 .audio-mode-option input[type="radio"] {

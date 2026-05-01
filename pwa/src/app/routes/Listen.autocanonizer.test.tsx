@@ -91,12 +91,22 @@ vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
     }
     async loadBuffer(_buffer: AudioBuffer) {}
     getContext() {
-      return {} as AudioContext;
+      return {
+        destination: {},
+        createGain: () => ({
+          gain: { value: 1 },
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        }),
+      } as unknown as AudioContext;
     }
     setOnEnded(handler: (() => void) | null) {
       this.onEnded = handler;
     }
     getBuffer() {
+      return {} as AudioBuffer;
+    }
+    getSourceBuffer() {
       return {} as AudioBuffer;
     }
     stop() {}
@@ -116,6 +126,7 @@ vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
     getJukeboxAudioMode() {
       return this.audioMode;
     }
+    setRenderedJukeboxAudioBuffer(_mode: string, _buffer: AudioBuffer) {}
     getPlaybackRate() {
       return 1;
     }
@@ -180,6 +191,9 @@ vi.mock("@/shared/jukebox/engine", () => ({
         beats: this.analysis?.beats ?? [],
         edges: [],
       };
+    }
+    getSectionStartBeatIndices() {
+      return [];
     }
   },
 }));
@@ -799,6 +813,14 @@ describe("Listen autocanonizer behavior", () => {
       "#audio-mode-eight-d"
     );
     const lofiInput = getRequired<HTMLInputElement>(rendered.container, "#audio-mode-lofi");
+    const cowbellInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-cowbell"
+    );
+    const swingInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-swing"
+    );
 
     expect(offInput.title).toBe("");
     expect(nightcoreInput.title).toBe("Fast & Bright");
@@ -806,6 +828,8 @@ describe("Listen autocanonizer behavior", () => {
     expect(vaporwaveInput.title).toBe("Muffled & Slow");
     expect(eightDInput.title).toBe("Spinning/Spatial");
     expect(lofiInput.title).toBe("Radio Filter");
+    expect(cowbellInput.title).toBe("More Cowbell");
+    expect(swingInput.title).toBe("Adds a loping swung feel to each beat");
     rendered.unmount();
   });
 });

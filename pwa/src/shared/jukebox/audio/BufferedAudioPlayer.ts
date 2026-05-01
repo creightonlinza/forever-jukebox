@@ -4,7 +4,9 @@ export type JukeboxAudioMode =
   | "daycore"
   | "vaporwave"
   | "eight_d"
-  | "lofi";
+  | "lofi"
+  | "cowbell"
+  | "swing";
 
 type AudioModeSettings = {
   rate: number;
@@ -64,6 +66,22 @@ const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = {
     reverbMix: 0.1,
     pan: false,
   },
+  cowbell: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: null,
+    useBandPass: false,
+    reverbMix: 0,
+    pan: false,
+  },
+  swing: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: null,
+    useBandPass: false,
+    reverbMix: 0,
+    pan: false,
+  },
 };
 
 const REVERB_SECONDS = 2.5;
@@ -72,6 +90,7 @@ const MAX_LATE_JUMP_FRAMES = 8;
 
 export class BufferedAudioPlayer {
   private context: AudioContext;
+  private originalBuffer: AudioBuffer | null = null;
   private buffer: AudioBuffer | null = null;
   private source: AudioBufferSourceNode | null = null;
   private pendingSource: AudioBufferSourceNode | null = null;
@@ -93,6 +112,8 @@ export class BufferedAudioPlayer {
   private playbackRate = AUDIO_MODE_SETTINGS.off.rate;
   private panAngle = 0;
   private panFrameId: number | null = null;
+  private renderedModeBuffers: Partial<Record<JukeboxAudioMode, AudioBuffer>> =
+    {};
 
   constructor(context?: AudioContext) {
     this.context = context ?? new AudioContext();
@@ -113,7 +134,9 @@ export class BufferedAudioPlayer {
 
   async loadBuffer(buffer: AudioBuffer) {
     this.stop();
+    this.originalBuffer = buffer;
     this.buffer = buffer;
+    this.renderedModeBuffers = {};
     this.offset = 0;
   }
 
@@ -124,6 +147,10 @@ export class BufferedAudioPlayer {
 
   getBuffer(): AudioBuffer | null {
     return this.buffer;
+  }
+
+  getSourceBuffer(): AudioBuffer | null {
+    return this.originalBuffer;
   }
 
   getContext(): AudioContext {
@@ -237,6 +264,7 @@ export class BufferedAudioPlayer {
     const resumeOffset = shouldResume ? this.getCurrentTime() : this.offset;
     this.audioMode = mode;
     this.playbackRate = AUDIO_MODE_SETTINGS[mode].rate;
+    this.buffer = this.getActiveBuffer();
     this.rebuildSourceChain();
     this.syncPanMotion();
     if (!this.buffer) {
@@ -249,6 +277,33 @@ export class BufferedAudioPlayer {
     const now = this.context.currentTime;
     this.stopSource();
     this.startSourceAt(this.offset, now);
+  }
+
+  setRenderedJukeboxAudioBuffer(
+    mode: Extract<JukeboxAudioMode, "swing">,
+    buffer: AudioBuffer,
+  ) {
+    this.renderedModeBuffers[mode] = buffer;
+    if (this.audioMode !== mode) {
+      return;
+    }
+    const shouldResume = this.playing;
+    const resumeOffset = shouldResume ? this.getCurrentTime() : this.offset;
+    this.buffer = this.getActiveBuffer();
+    if (!this.buffer) {
+      return;
+    }
+    this.offset = Math.max(0, Math.min(this.buffer.duration, resumeOffset));
+    if (!shouldResume) {
+      return;
+    }
+    const now = this.context.currentTime;
+    this.stopSource();
+    this.startSourceAt(this.offset, now);
+  }
+
+  private getActiveBuffer(): AudioBuffer | null {
+    return this.renderedModeBuffers[this.audioMode] ?? this.originalBuffer;
   }
 
   getJukeboxAudioMode(): JukeboxAudioMode {
