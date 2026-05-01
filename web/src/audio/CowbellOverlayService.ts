@@ -27,18 +27,18 @@ const DEFAULT_COWBELL_SAMPLE_URLS = getSoundUrls("cowbell");
 const DEFAULT_WALKEN_SAMPLE_URLS = getSoundUrls("walken");
 const DEFAULT_TRILL_SAMPLE_URLS = getSoundUrls("trill");
 
-const BASE_COWBELL_GAIN = 0.25;
-const ACCENT_GAIN_MIN = 0.82;
-const ACCENT_GAIN_MAX = 1.12;
-const SUBDIVISION_GAIN_MIN = 0.54;
-const SUBDIVISION_GAIN_MAX = 0.78;
+const BASE_COWBELL_GAIN = 0.50;
+const ACCENT_GAIN_MIN = 0.85;
+const ACCENT_GAIN_MAX = 1.15;
+const SUBDIVISION_GAIN_MIN = 0.55;
+const SUBDIVISION_GAIN_MAX = 0.80;
 const WALKEN_GAIN = 2.5;
-const TRILL_GAIN = 1.32;
-const WALKEN_EFFECT_PROBABILITY = 0.72;
-const PAN_RANGE = 0.24;
-const SUBDIVISION_BURST_PROBABILITY = 0.06;
+const TRILL_GAIN = 1.35;
+const WALKEN_EFFECT_PROBABILITY = 0.75;
+const PAN_RANGE = 0.25;
+const SUBDIVISION_BURST_PROBABILITY = 0.05;
 const SUBDIVISION_BURST_TIMINGS = [0.25, 0.5, 0.75];
-const MIN_SUBDIVISION_BEAT_SECONDS = 0.28;
+const MIN_SUBDIVISION_BEAT_SECONDS = 0.30;
 const STOP_FUTURE_EPSILON_SECONDS = 0.015;
 
 type FetchLike = (url: string) => Promise<Pick<Response, "arrayBuffer" | "ok">>;
@@ -76,6 +76,7 @@ export class CowbellOverlayService {
   private loadFailed = false;
   private scheduledSources: ScheduledCowbellSource[] = [];
   private sectionStartBeatIndices = new Set<number>();
+  private volume = 1;
 
   constructor(context: AudioContext, options: CowbellOverlayOptions = {}) {
     this.context = context;
@@ -87,7 +88,7 @@ export class CowbellOverlayService {
     this.random = options.random ?? Math.random;
     this.getPlaybackRate = options.getPlaybackRate ?? (() => 1);
     this.masterGain = this.context.createGain();
-    this.masterGain.gain.value = BASE_COWBELL_GAIN;
+    this.updateMasterGain();
     this.masterGain.connect(options.destination ?? this.context.destination);
   }
 
@@ -106,6 +107,11 @@ export class CowbellOverlayService {
 
   isEnabled() {
     return this.enabled;
+  }
+
+  setVolume(value: number) {
+    this.volume = Math.max(0, Math.min(1, value));
+    this.updateMasterGain();
   }
 
   setSectionStartBeatIndices(indices: number[]) {
@@ -335,5 +341,9 @@ export class CowbellOverlayService {
     } catch {
       // no-op
     }
+  }
+
+  private updateMasterGain() {
+    this.masterGain.gain.value = BASE_COWBELL_GAIN * this.volume;
   }
 }

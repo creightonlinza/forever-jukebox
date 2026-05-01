@@ -76,6 +76,20 @@ const beat = {
 };
 
 describe("CowbellOverlayService", () => {
+  it("scales overlay output by the shared playback volume", () => {
+    const context = new MockAudioContext();
+    const service = new CowbellOverlayService(context as unknown as AudioContext, {
+      fetch: createFetch(),
+      sampleUrls: ["/cowbell.wav"],
+      walkenSampleUrls: [],
+      trillSampleUrls: [],
+    });
+
+    service.setVolume(0.4);
+
+    expect(context.createdGains[0]?.gain.value).toBe(0.2);
+  });
+
   it("does not schedule cowbells while disabled", async () => {
     const context = new MockAudioContext();
     const service = new CowbellOverlayService(context as unknown as AudioContext, {

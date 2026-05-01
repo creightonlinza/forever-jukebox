@@ -93,6 +93,7 @@ export function createTuningHandlers(deps: TuningDeps) {
     const volume = Number(elements.volumeInput.value) / 100;
     player.setVolume(volume);
     autocanonizer.setVolume(volume);
+    context.cowbellOverlay.setVolume(volume);
   }
 
   function handleOpenTuning() {

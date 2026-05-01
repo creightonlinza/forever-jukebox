@@ -659,7 +659,8 @@ export function applyTuningChanges(context: AppContext) {
 }
 
 export function resetTuningDefaults(context: AppContext) {
-  const { autocanonizer, engine, jukebox, state, player } = context;
+  const { autocanonizer, cowbellOverlay, engine, jukebox, state, player } =
+    context;
   engine.clearDeletedEdges();
   engine.updateConfig(context.defaultConfig);
   engine.rebuildGraph();
@@ -677,6 +678,7 @@ export function resetTuningDefaults(context: AppContext) {
   writeTuningParamsToUrl(null, true);
   player.setVolume(DEFAULT_VOLUME);
   autocanonizer.setVolume(DEFAULT_VOLUME);
+  cowbellOverlay.setVolume(DEFAULT_VOLUME);
   syncTuningUI(context);
   updateTrackInfo(context);
 }

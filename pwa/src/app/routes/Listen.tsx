@@ -457,6 +457,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const cowbellOverlay = new CowbellOverlayService(player.getContext(), {
       getPlaybackRate: () => player.getPlaybackRate(),
     });
+    cowbellOverlay.setVolume(player.getVolume());
     playerRef.current = player;
     cowbellOverlayRef.current = cowbellOverlay;
     if (jukeboxAudioMode === "cowbell") {
@@ -1353,6 +1354,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const volume = tuneForm.volume / 100;
     player.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
+    cowbellOverlayRef.current?.setVolume(volume);
     syncTuneFormFromEngine(tuneForm.highlightAnchorBranch);
     setIsTuningOpen(false);
   };
@@ -1369,6 +1371,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     clearSelectedBranch();
     player.setVolume(DEFAULT_PLAYBACK_VOLUME);
     autocanonizerRef.current?.setVolume(DEFAULT_PLAYBACK_VOLUME);
+    cowbellOverlayRef.current?.setVolume(DEFAULT_PLAYBACK_VOLUME);
     syncTuneFormFromEngine();
     setIsTuningOpen(false);
   };
@@ -1476,6 +1479,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const volume = value / 100;
     playerRef.current?.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
+    cowbellOverlayRef.current?.setVolume(volume);
   };
 
   const onExportJukeboxAudio = async () => {

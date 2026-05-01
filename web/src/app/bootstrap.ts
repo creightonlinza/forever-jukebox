@@ -115,6 +115,7 @@ export function bootstrap() {
   const cowbellOverlay = new CowbellOverlayService(player.getContext(), {
     getPlaybackRate: () => player.getPlaybackRate(),
   });
+  cowbellOverlay.setVolume(player.getVolume());
   const engine = new JukeboxEngine(player, { randomMode: "random" });
   const autocanonizer = new AutocanonizerController(elements.canonizerLayer);
   const jukebox = new JukeboxController(elements.vizLayer);

@@ -13,6 +13,7 @@ function createDeps(activeTab: "tuning" | "extras" = "tuning") {
       playMode: "jukebox",
       jukeboxAudioMode: "off",
     },
+    cowbellOverlay: { setVolume: vi.fn() },
   } as unknown as AppContext;
   const elements = {
     thresholdInput: { value: "0" },
@@ -83,6 +84,9 @@ function createDeps(activeTab: "tuning" | "extras" = "tuning") {
   return {
     handlers,
     context,
+    elements,
+    player,
+    autocanonizer,
     applyTuningChanges,
     resetTuningDefaults,
     applyExtrasChanges,
@@ -108,6 +112,15 @@ describe("tuning wire handlers", () => {
     expect(applyTuningChanges).toHaveBeenCalledWith(context);
     expect(applyExtrasChanges).not.toHaveBeenCalled();
     expect(closeTuning).not.toHaveBeenCalled();
+  });
+
+  it("applies volume changes to player, autocanonizer, and cowbell overlay", () => {
+    const { handlers, context, elements, player, autocanonizer } = createDeps();
+    elements.volumeInput.value = "35";
+    handlers.handleVolumeInput();
+    expect(player.setVolume).toHaveBeenCalledWith(0.35);
+    expect(autocanonizer.setVolume).toHaveBeenCalledWith(0.35);
+    expect(context.cowbellOverlay.setVolume).toHaveBeenCalledWith(0.35);
   });
 
   it("routes apply to extras changes when extras tab is active", () => {

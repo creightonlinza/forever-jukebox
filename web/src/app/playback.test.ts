@@ -302,6 +302,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     handleBeatEnter: vi.fn(),
     cancelScheduledHits: vi.fn(),
     setSectionStartBeatIndices: vi.fn(),
+    setVolume: vi.fn(),
     dispose: vi.fn(),
   };
   return {
