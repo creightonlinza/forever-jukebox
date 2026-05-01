@@ -313,6 +313,7 @@ function prepareSwingMode(context: AppContext) {
   if (!sourceBuffer || !beats || beats.length === 0) {
     return;
   }
+  const resumeAfterPrepare = context.state.isRunning;
   if (context.state.isRunning) {
     pausePlayback(context);
   }
@@ -358,6 +359,14 @@ function prepareSwingMode(context: AppContext) {
         context.engine.syncToPlaybackPosition();
       }
       updatePlayButton(context);
+      if (
+        resumeAfterPrepare &&
+        context.state.playMode === "jukebox" &&
+        context.state.jukeboxAudioMode === "swing" &&
+        !context.state.isRunning
+      ) {
+        startJukeboxPlayback(context, false);
+      }
     })
     .catch((err: unknown) => {
       if (context.state.swingRenderToken !== renderToken) {

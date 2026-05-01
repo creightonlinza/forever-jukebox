@@ -3,6 +3,8 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { Listen } from "./Listen";
+import { getOrCreateSwingBuffer } from "@/shared/jukebox/audio/swingBufferCache";
+import { renderSwingBuffer } from "@/shared/jukebox/audio/swingRenderer";
 
 const mockAppState = {
   file: null as File | null,
@@ -23,6 +25,13 @@ type MockJukeboxControllerInstance = {
   emitEdgeSelect: (edge: unknown) => void;
 };
 const jukeboxControllerInstances: MockJukeboxControllerInstance[] = [];
+type MockEngineInstance = {
+  pauseJukebox: ReturnType<typeof vi.fn>;
+  syncToPlaybackPosition: ReturnType<typeof vi.fn>;
+  startJukebox: ReturnType<typeof vi.fn>;
+  play: ReturnType<typeof vi.fn>;
+};
+const engineInstances: MockEngineInstance[] = [];
 
 const mockAnalysis = {
   sections: [{ start: 0, duration: 4, confidence: 1 }],
@@ -140,6 +149,20 @@ vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
   },
 }));
 
+vi.mock("@/shared/jukebox/audio/swingBufferCache", () => ({
+  getOrCreateSwingBuffer: vi.fn(
+    (
+      _sourceBuffer: AudioBuffer,
+      _sourceIdentity: string | null,
+      render: () => Promise<AudioBuffer>,
+    ) => render(),
+  ),
+}));
+
+vi.mock("@/shared/jukebox/audio/swingRenderer", () => ({
+  renderSwingBuffer: vi.fn(async () => ({ duration: 4 }) as AudioBuffer),
+}));
+
 vi.mock("@/shared/jukebox/engine", () => ({
   JukeboxEngine: class JukeboxEngine {
     private config = {
@@ -155,23 +178,25 @@ vi.mock("@/shared/jukebox/engine", () => ({
       minLongBranch: 0,
     };
     private analysis: typeof mockAnalysis | null = null;
-    constructor(_player: unknown) {}
+    pauseJukebox = vi.fn();
+    syncToPlaybackPosition = vi.fn();
+    stopJukebox = vi.fn();
+    resetStats = vi.fn();
+    startJukebox = vi.fn();
+    play = vi.fn();
+    seekToBeat = vi.fn();
+    setForceBranch = vi.fn();
+    setBringItHomeMode = vi.fn();
+    deleteEdge = vi.fn();
+    rebuildGraph = vi.fn();
+    clearDeletedEdges = vi.fn();
+    constructor(_player: unknown) {
+      engineInstances.push(this);
+    }
     loadAnalysis(data: typeof mockAnalysis) {
       this.analysis = data;
     }
     onUpdate(_listener: (state: any) => void) {}
-    pauseJukebox() {}
-    syncToPlaybackPosition() {}
-    stopJukebox() {}
-    resetStats() {}
-    startJukebox(_reset = true) {}
-    play() {}
-    seekToBeat(_index: number) {}
-    setForceBranch(_enabled: boolean) {}
-    setBringItHomeMode(_enabled: boolean) {}
-    deleteEdge(_edge: unknown) {}
-    rebuildGraph() {}
-    clearDeletedEdges() {}
     updateConfig(partial: Partial<typeof this.config>) {
       this.config = { ...this.config, ...partial };
     }
@@ -369,13 +394,14 @@ async function switchToExtrasTab(container: ParentNode) {
   await click(tabToggle);
 }
 
-describe("Listen autocanonizer behavior", () => {
+describe("Listen route behavior", () => {
   beforeEach(() => {
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
     autocanonizerInstances.length = 0;
     playerInstances.length = 0;
     jukeboxControllerInstances.length = 0;
+    engineInstances.length = 0;
     mockAppState.file = new File([new Uint8Array([1, 2, 3])], "song.wav", {
       lastModified: 1234,
     });
@@ -389,6 +415,14 @@ describe("Listen autocanonizer behavior", () => {
     vi.spyOn(window, "clearInterval").mockImplementation(
       ((_id: ReturnType<typeof window.setInterval>) => {}) as typeof window.clearInterval
     );
+    vi.mocked(getOrCreateSwingBuffer).mockImplementation(
+      (
+        _sourceBuffer: AudioBuffer,
+        _sourceIdentity: string | null,
+        render: () => Promise<AudioBuffer>,
+      ) => render(),
+    );
+    vi.mocked(renderSwingBuffer).mockResolvedValue({ duration: 4 } as AudioBuffer);
   });
 
   afterEach(() => {
@@ -573,6 +607,35 @@ describe("Listen autocanonizer behavior", () => {
     expect(playTitle.textContent).toContain("(daycore)");
     expect(rendered.container.textContent).toContain("Bringing it on home");
     expect(window.location.search).toContain("am=daycore");
+    rendered.unmount();
+  });
+
+  it("resumes jukebox playback after preparing swing while already running", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    const playButton = getRequired<HTMLButtonElement>(rendered.container, "#viz-play");
+    await click(playButton);
+    expect(playButton.getAttribute("aria-label")).toBe("Pause");
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-swing"));
+    const footerButtons = Array.from(
+      rendered.container.querySelectorAll<HTMLButtonElement>(".tuning-footer .tab-btn")
+    );
+    await click(footerButtons[1] as HTMLButtonElement);
+    await settleEffects();
+
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+    expect(engine.pauseJukebox).toHaveBeenCalledTimes(1);
+    expect(engine.startJukebox).toHaveBeenLastCalledWith(false);
+    expect(engine.play).toHaveBeenCalledTimes(2);
+    expect(playButton.getAttribute("aria-label")).toBe("Pause");
+    expect(window.location.search).toContain("am=swing");
     rendered.unmount();
   });
 

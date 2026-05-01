@@ -20,6 +20,22 @@ import {
   updateListenTimeDisplay,
 } from "./playback";
 import { setWindowUrl } from "./__tests__/test-utils";
+import { getOrCreateSwingBuffer } from "../audio/swingBufferCache";
+import { renderSwingBuffer } from "../audio/swingRenderer";
+
+vi.mock("../audio/swingBufferCache", () => ({
+  getOrCreateSwingBuffer: vi.fn(
+    (
+      _sourceBuffer: AudioBuffer,
+      _sourceIdentity: string | null,
+      render: () => Promise<AudioBuffer>,
+    ) => render(),
+  ),
+}));
+
+vi.mock("../audio/swingRenderer", () => ({
+  renderSwingBuffer: vi.fn(async () => ({ duration: 120 }) as AudioBuffer),
+}));
 
 function createClassList() {
   return {
@@ -82,6 +98,14 @@ beforeEach(() => {
     vi.fn(async () => ({ ok: true }) as Response),
   );
   setLocalStorage();
+  vi.mocked(getOrCreateSwingBuffer).mockImplementation(
+    (
+      _sourceBuffer: AudioBuffer,
+      _sourceIdentity: string | null,
+      render: () => Promise<AudioBuffer>,
+    ) => render(),
+  );
+  vi.mocked(renderSwingBuffer).mockResolvedValue({ duration: 120 } as AudioBuffer);
 });
 
 afterEach(() => {
@@ -91,6 +115,12 @@ afterEach(() => {
 
 function createInput(initial = "") {
   return { value: initial, checked: false } as HTMLInputElement;
+}
+
+async function flushMicrotasks(count = 5) {
+  for (let index = 0; index < count; index += 1) {
+    await Promise.resolve();
+  }
 }
 
 function createSpan() {
@@ -441,6 +471,46 @@ describe("playback tuning", () => {
     expect(context.cowbellOverlay.enable).toHaveBeenCalledTimes(1);
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cowbell");
     expect(window.location.search).toContain("am=cowbell");
+  });
+
+  it("resumes jukebox playback after preparing swing while already running", async () => {
+    (globalThis.window as unknown as { setInterval: typeof setInterval }).setInterval =
+      setInterval;
+    (globalThis.window as unknown as { clearInterval: typeof clearInterval }).clearInterval =
+      clearInterval;
+    (globalThis.window as unknown as { setTimeout: typeof setTimeout }).setTimeout =
+      setTimeout;
+    (globalThis.window as unknown as { clearTimeout: typeof clearTimeout }).clearTimeout =
+      clearTimeout;
+    vi.stubGlobal("document", { fullscreenElement: null });
+    const context = createContext();
+    const sourceBuffer = { duration: 120 } as AudioBuffer;
+    const swingBuffer = { duration: 120 } as AudioBuffer;
+    context.state.playMode = "jukebox";
+    context.state.isRunning = true;
+    context.state.audioLoaded = true;
+    context.state.analysisLoaded = true;
+    context.state.vizData = {
+      beats: [{ start: 0, duration: 1 }],
+      edges: [],
+    } as unknown as AppContext["state"]["vizData"];
+    context.elements.audioModeSwingInput.checked = true;
+    vi.mocked(context.player.getDuration).mockReturnValue(120);
+    vi.mocked(context.player.getSourceBuffer).mockReturnValue(sourceBuffer);
+    vi.mocked(renderSwingBuffer).mockResolvedValue(swingBuffer);
+
+    applyExtrasChanges(context);
+    await flushMicrotasks();
+
+    expect(context.engine.pauseJukebox).toHaveBeenCalledTimes(1);
+    expect(context.player.setRenderedJukeboxAudioBuffer).toHaveBeenCalledWith(
+      "swing",
+      swingBuffer,
+    );
+    expect(context.engine.startJukebox).toHaveBeenLastCalledWith(false);
+    expect(context.engine.play).toHaveBeenCalledTimes(1);
+    expect(context.state.isRunning).toBe(true);
+    expect(context.state.isPaused).toBe(false);
   });
 
   it("applies bring it home mode from extras controls", () => {

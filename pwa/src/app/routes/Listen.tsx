@@ -403,6 +403,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const lastBeatRef = React.useRef<number | null>(null);
   const lastCowbellBeatsPlayedRef = React.useRef<number | null>(null);
   const swingRenderTokenRef = React.useRef(0);
+  const swingPreparingRef = React.useRef(false);
   const playTimerMsRef = React.useRef(0);
   const lastPlayStampRef = React.useRef<number | null>(null);
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
@@ -414,6 +415,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const showShortcutToast = React.useCallback((message: string) => {
     setShortcutToast(message);
   }, []);
+
+  function setSwingPreparingState(preparing: boolean) {
+    swingPreparingRef.current = preparing;
+    setSwingPreparing(preparing);
+  }
 
   function resetPlaybackSessionMetrics() {
     playTimerMsRef.current = 0;
@@ -592,7 +598,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       cowbellOverlayRef.current?.disable();
       cowbellOverlayRef.current?.setSectionStartBeatIndices([]);
       swingRenderTokenRef.current += 1;
-      setSwingPreparing(false);
+      setSwingPreparingState(false);
       setSwingProgress(0);
       playerRef.current.setJukeboxAudioMode("off");
       setJukeboxAudioMode("off");
@@ -872,6 +878,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     setIsRunning(false);
     setIsPaused(false);
+    isRunningRef.current = false;
+    isPausedRef.current = false;
   }
 
   React.useEffect(() => {
@@ -1031,7 +1039,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     return (
       playModeRef.current === "jukebox" &&
       jukeboxAudioMode === "swing" &&
-      swingPreparing
+      swingPreparingRef.current
     );
   }
 
@@ -1054,12 +1062,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     ) {
       return;
     }
+    const resumeAfterPrepare = isRunningRef.current;
     if (isRunningRef.current) {
       pausePlayback();
     }
     const renderToken = swingRenderTokenRef.current + 1;
     swingRenderTokenRef.current = renderToken;
-    setSwingPreparing(true);
+    setSwingPreparingState(true);
     setSwingProgress(0);
 
     void getOrCreateSwingBuffer(sourceBuffer, getCurrentSwingSourceIdentity(), () =>
@@ -1082,7 +1091,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         ) {
           return;
         }
-        setSwingPreparing(false);
+        setSwingPreparingState(false);
         setSwingProgress(100);
         player.setRenderedJukeboxAudioBuffer("swing", buffer);
         player.setJukeboxAudioMode("swing");
@@ -1092,13 +1101,21 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         ) {
           engineRef.current?.syncToPlaybackPosition();
         }
+        if (
+          resumeAfterPrepare &&
+          playModeRef.current === "jukebox" &&
+          playerRef.current?.getJukeboxAudioMode() === "swing" &&
+          !isRunningRef.current
+        ) {
+          startJukeboxPlayback(false);
+        }
       })
       .catch((err: unknown) => {
         if (swingRenderTokenRef.current !== renderToken) {
           return;
         }
         console.warn(`Swing render failed: ${String(err)}`);
-        setSwingPreparing(false);
+        setSwingPreparingState(false);
         setSwingProgress(0);
         setJukeboxAudioMode("off");
         setExtrasForm((prev) => ({ ...prev, audioMode: "off" }));
@@ -1136,6 +1153,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       playTimerMsRef.current += performance.now() - lastPlayStampRef.current;
       lastPlayStampRef.current = null;
     }
+    isRunningRef.current = false;
+    isPausedRef.current = true;
     setIsRunning(false);
     setIsPaused(true);
   };
@@ -1167,6 +1186,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engine.play();
     engine.startJukebox(resetSession);
     lastPlayStampRef.current = performance.now();
+    isRunningRef.current = true;
+    isPausedRef.current = false;
     setIsRunning(true);
     setIsPaused(false);
     if (document.fullscreenElement === vizPanelRef.current) {
@@ -1221,6 +1242,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       engine.play();
       engine.startJukebox(false);
       lastPlayStampRef.current = performance.now();
+      isRunningRef.current = true;
+      isPausedRef.current = false;
       setIsRunning(true);
       setIsPaused(false);
       if (document.fullscreenElement === vizPanelRef.current) {
@@ -1253,6 +1276,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     autocanonizer.startAtIndex(index);
     lastPlayStampRef.current = performance.now();
+    isRunningRef.current = true;
+    isPausedRef.current = false;
     setIsRunning(true);
     setIsPaused(false);
     if (document.fullscreenElement === vizPanelRef.current) {
@@ -1380,7 +1405,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       }
     } else {
       swingRenderTokenRef.current += 1;
-      setSwingPreparing(false);
+      setSwingPreparingState(false);
       setSwingProgress(0);
       player.setJukeboxAudioMode(nextAudioMode);
     }
@@ -1412,7 +1437,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engineRef.current?.setBringItHomeMode(false);
     cowbellOverlayRef.current?.disable();
     swingRenderTokenRef.current += 1;
-    setSwingPreparing(false);
+    setSwingPreparingState(false);
     setSwingProgress(0);
     setExtrasForm(defaultState);
     setBranchStatsEnabled(false);
