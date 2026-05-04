@@ -87,7 +87,7 @@ describe("CowbellOverlayService", () => {
 
     service.setVolume(0.4);
 
-    expect(context.createdGains[0]?.gain.value).toBe(0.1);
+    expect(context.createdGains[0]?.gain.value).toBe(0.2);
   });
 
   it("does not schedule cowbells while disabled", async () => {

@@ -320,6 +320,23 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.stop).not.toHaveBeenCalled();
   });
 
+  it("keeps an existing pending jump when a stale replacement is skipped", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+    player.scheduleJump(2, 2);
+    const pending = context.createdSources[1];
+
+    context.currentTime = 0.5;
+    player.scheduleJump(3, 0);
+
+    expect(context.createdSources).toHaveLength(2);
+    expect(pending?.stop).not.toHaveBeenCalled();
+    expect(pending?.disconnect).not.toHaveBeenCalled();
+  });
+
   it("cancels a pending scheduled jump", async () => {
     const context = new MockAudioContext();
     context.currentTime = 1;
@@ -333,5 +350,44 @@ describe("BufferedAudioPlayer", () => {
 
     expect(pending?.stop).toHaveBeenCalled();
     expect(pending?.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a live source when canceling a future scheduled jump", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 10 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+    player.scheduleJump(2, 1);
+    const original = context.createdSources[0];
+    const pending = context.createdSources[1];
+
+    player.cancelScheduledJump();
+
+    const replacement = context.createdSources[2];
+    expect(pending?.stop).toHaveBeenCalled();
+    expect(pending?.disconnect).toHaveBeenCalledTimes(1);
+    expect(original?.stop).toHaveBeenCalledWith(0);
+    expect(original?.disconnect).toHaveBeenCalledTimes(1);
+    expect(replacement?.start).toHaveBeenCalledWith(0.25, 0.25, 9.75);
+    expect(player.isPlaying()).toBe(true);
+  });
+
+  it("promotes an already-started pending jump instead of canceling audible audio", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 10 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.5;
+    player.scheduleJump(2, 1);
+    const pending = context.createdSources[1];
+
+    context.currentTime = 1.01;
+    player.cancelScheduledJump();
+
+    expect(pending?.stop).not.toHaveBeenCalled();
+    expect(pending?.disconnect).not.toHaveBeenCalled();
+    expect(player.getCurrentTime()).toBeCloseTo(2.01, 5);
+    expect(player.isPlaying()).toBe(true);
   });
 });

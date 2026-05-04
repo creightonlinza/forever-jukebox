@@ -319,12 +319,12 @@ export class BufferedAudioPlayer {
       return;
     }
     const currentSourceTime = this.getCurrentTime();
-    this.clearPendingSwap();
     const lateBy = currentSourceTime - sourceStartTime;
     const maxLateSeconds = MAX_LATE_JUMP_FRAMES / this.context.sampleRate;
     if (lateBy > maxLateSeconds) {
       return;
     }
+    this.clearPendingSwap();
     const sourceLead = Math.max(0, sourceStartTime - currentSourceTime);
     const startTime = this.context.currentTime + sourceLead / this.playbackRate;
     const source = this.context.createBufferSource();
@@ -358,7 +358,8 @@ export class BufferedAudioPlayer {
   }
 
   cancelScheduledJump() {
-    this.clearPendingSwap();
+    this.maybePromotePending();
+    this.clearPendingSwap({ restartCurrentSource: true });
   }
 
   private stopSource() {
@@ -375,7 +376,17 @@ export class BufferedAudioPlayer {
     }
   }
 
-  private clearPendingSwap() {
+  private clearPendingSwap(options: { restartCurrentSource?: boolean } = {}) {
+    const shouldRestartCurrentSource =
+      options.restartCurrentSource === true &&
+      this.playing &&
+      this.buffer !== null &&
+      this.source !== null &&
+      this.pendingSwapAt !== null &&
+      this.context.currentTime < this.pendingSwapAt;
+    const restartOffset = shouldRestartCurrentSource
+      ? this.getCurrentTime()
+      : null;
     this.pendingSwapAt = null;
     if (!this.pendingSource) {
       return;
@@ -388,6 +399,9 @@ export class BufferedAudioPlayer {
     }
     this.pendingSource.disconnect();
     this.pendingSource = null;
+    if (restartOffset !== null) {
+      this.replaceCurrentSourceAt(restartOffset, this.context.currentTime);
+    }
   }
 
   private maybePromotePending() {
@@ -432,6 +446,20 @@ export class BufferedAudioPlayer {
     };
     const duration = this.buffer.duration - offset;
     source.start(startTime, offset, Math.max(0, duration));
+  }
+
+  private replaceCurrentSourceAt(offset: number, startTime: number) {
+    if (this.source) {
+      this.source.onended = null;
+      try {
+        this.source.stop(0);
+      } catch {
+        // no-op
+      }
+      this.source.disconnect();
+      this.source = null;
+    }
+    this.startSourceAt(offset, startTime);
   }
 
   private rebuildSourceChain() {
