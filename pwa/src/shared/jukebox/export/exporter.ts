@@ -4,12 +4,21 @@ import {
   encodeAudioBufferWithFfmpeg,
   type EncodedAudioFormat,
 } from "@/core/infrastructure/audio/ffmpegAudio";
+import {
+  AUDIO_MODE_SETTINGS,
+  type JukeboxAudioMode,
+} from "@/shared/jukebox/audio/audioModes";
 import type { JukeboxConfig, RandomMode } from "@/shared/jukebox/engine";
 import {
   planJukeboxPath,
   type DeletedEdgeRef,
   type PlannedJukeboxSegment,
 } from "./plan";
+import {
+  loadCowbellExportSamples,
+  planCowbellExportEvents,
+  projectCowbellEventsIntoWindow,
+} from "./cowbellExport";
 import { renderJukeboxAudio } from "./render";
 
 export interface JukeboxExportProgress {
@@ -27,6 +36,9 @@ export interface ExportJukeboxAudioOptions {
   format: EncodedAudioFormat;
   bitrateKbps?: number;
   gain?: number;
+  audioMode: JukeboxAudioMode;
+  sectionStartBeatIndices?: number[];
+  swingBuffer?: AudioBuffer;
   randomMode?: RandomMode;
   seed?: number;
   onProgress?: (progress: JukeboxExportProgress) => void;
@@ -61,21 +73,40 @@ export async function exportJukeboxAudio(
   options: ExportJukeboxAudioOptions,
 ): Promise<ExportJukeboxAudioResult> {
   report(options.onProgress, "planning", "Planning branch path", 2);
+  const sourceBuffer =
+    options.audioMode === "swing" && options.swingBuffer
+      ? options.swingBuffer
+      : options.sourceBuffer;
+  const audioModeSettings = AUDIO_MODE_SETTINGS[options.audioMode];
+  const playbackRate = audioModeSettings.rate;
+  const requestedSourceTimelineSeconds = options.durationSeconds * playbackRate;
 
   const plan = planJukeboxPath({
     analysis: options.analysis,
-    bufferDurationSeconds: options.sourceBuffer.duration,
-    durationSeconds: options.durationSeconds,
+    bufferDurationSeconds: sourceBuffer.duration,
+    durationSeconds: requestedSourceTimelineSeconds,
     config: options.config,
     deletedEdges: options.deletedEdges,
     randomMode: options.randomMode,
     seed: options.seed,
   });
+  const renderedDurationSeconds = plan.renderDurationSeconds / playbackRate;
+  const cowbellEvents =
+    options.audioMode === "cowbell"
+      ? planCowbellExportEvents({
+          analysis: options.analysis,
+          segments: plan.segments,
+          samples: await loadCowbellExportSamples(sourceBuffer.sampleRate),
+          sectionStartBeatIndices: options.sectionStartBeatIndices,
+          volume: options.gain ?? 1,
+          seed: options.seed,
+        })
+      : [];
 
   let encoded;
 
   if (options.format === "mp3") {
-    const totalDuration = Math.max(0.001, plan.renderDurationSeconds);
+    const totalDuration = Math.max(0.001, renderedDurationSeconds);
     const chunkCount = Math.max(1, Math.ceil(totalDuration / MP3_RENDER_CHUNK_SECONDS));
     const encodedChunks: Uint8Array[] = [];
 
@@ -87,8 +118,13 @@ export async function exportJukeboxAudio(
       );
       const chunkSegments = projectSegmentsIntoWindow(
         plan.segments,
-        chunkStart,
-        chunkDuration,
+        chunkStart * playbackRate,
+        chunkDuration * playbackRate,
+      );
+      const chunkCowbellEvents = projectCowbellEventsIntoWindow(
+        cowbellEvents,
+        chunkStart * playbackRate,
+        chunkDuration * playbackRate,
       );
 
       report(
@@ -98,10 +134,12 @@ export async function exportJukeboxAudio(
         8 + (chunkIndex / chunkCount) * 72,
       );
       const renderedChunk = await renderJukeboxAudio({
-        sourceBuffer: options.sourceBuffer,
+        sourceBuffer,
         segments: chunkSegments,
         durationSeconds: chunkDuration,
         gain: options.gain ?? 1,
+        audioMode: options.audioMode,
+        cowbellEvents: chunkCowbellEvents,
         onProgress: (progress) => {
           const completed = chunkIndex + progress;
           const percent = 8 + (completed / chunkCount) * 72;
@@ -141,9 +179,9 @@ export async function exportJukeboxAudio(
     encoded = await concatMp3ChunksWithFfmpeg(encodedChunks);
   } else {
     const estimatedBytes =
-      plan.renderDurationSeconds *
-      options.sourceBuffer.sampleRate *
-      options.sourceBuffer.numberOfChannels *
+      renderedDurationSeconds *
+      sourceBuffer.sampleRate *
+      sourceBuffer.numberOfChannels *
       4;
     if (estimatedBytes > MAX_WAV_FLOAT32_RENDER_BYTES) {
       throw new Error(
@@ -154,10 +192,12 @@ export async function exportJukeboxAudio(
     report(options.onProgress, "rendering", "Rendering offline audio", 8);
 
     const rendered = await renderJukeboxAudio({
-      sourceBuffer: options.sourceBuffer,
+      sourceBuffer,
       segments: plan.segments,
-      durationSeconds: plan.renderDurationSeconds,
+      durationSeconds: renderedDurationSeconds,
       gain: options.gain ?? 1,
+      audioMode: options.audioMode,
+      cowbellEvents,
       onProgress: (progress) => {
         const percent = 8 + progress * 72;
         report(options.onProgress, "rendering", "Rendering offline audio", percent);
@@ -185,7 +225,7 @@ export async function exportJukeboxAudio(
 
   return {
     ...encoded,
-    renderedDurationSeconds: plan.renderDurationSeconds,
+    renderedDurationSeconds,
     beatsPlanned: plan.segments.length,
     segments: plan.segments,
   };

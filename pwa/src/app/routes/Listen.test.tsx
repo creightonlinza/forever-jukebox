@@ -6,6 +6,12 @@ import { Listen } from "./Listen";
 import { getOrCreateSwingBuffer } from "@/shared/jukebox/audio/swingBufferCache";
 import { renderSwingBuffer } from "@/shared/jukebox/audio/swingRenderer";
 
+const exportMocks = vi.hoisted(() => ({
+  exportJukeboxAudio: vi.fn(),
+  pickBinaryExportFile: vi.fn(),
+  saveExportBinary: vi.fn(),
+}));
+
 const mockAppState = {
   file: null as File | null,
   setIsListenLoading: vi.fn<(loading: boolean) => void>(),
@@ -136,6 +142,9 @@ vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
       return this.audioMode;
     }
     setRenderedJukeboxAudioBuffer(_mode: string, _buffer: AudioBuffer) {}
+    getRenderedJukeboxAudioBuffer(_mode: string) {
+      return null;
+    }
     getPlaybackRate() {
       return 1;
     }
@@ -161,6 +170,15 @@ vi.mock("@/shared/jukebox/audio/swingBufferCache", () => ({
 
 vi.mock("@/shared/jukebox/audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(async () => ({ duration: 4 }) as AudioBuffer),
+}));
+
+vi.mock("@/shared/jukebox/export", () => ({
+  exportJukeboxAudio: exportMocks.exportJukeboxAudio,
+}));
+
+vi.mock("@/shared/utils/exportJson", () => ({
+  pickBinaryExportFile: exportMocks.pickBinaryExportFile,
+  saveExportBinary: exportMocks.saveExportBinary,
 }));
 
 vi.mock("@/shared/jukebox/engine", () => ({
@@ -406,6 +424,19 @@ describe("Listen route behavior", () => {
       lastModified: 1234,
     });
     mockAppState.setIsListenLoading.mockReset();
+    exportMocks.exportJukeboxAudio.mockReset();
+    exportMocks.exportJukeboxAudio.mockResolvedValue({
+      bytes: new Uint8Array([1, 2, 3]),
+      extension: "mp3",
+      mimeType: "audio/mpeg",
+      renderedDurationSeconds: 60,
+      beatsPlanned: 2,
+      segments: [],
+    });
+    exportMocks.pickBinaryExportFile.mockReset();
+    exportMocks.pickBinaryExportFile.mockResolvedValue(null);
+    exportMocks.saveExportBinary.mockReset();
+    exportMocks.saveExportBinary.mockResolvedValue(undefined);
     window.history.replaceState({}, "", "/");
     window.localStorage.clear();
     vi.spyOn(window, "setInterval").mockImplementation(
@@ -414,6 +445,13 @@ describe("Listen route behavior", () => {
     );
     vi.spyOn(window, "clearInterval").mockImplementation(
       ((_id: ReturnType<typeof window.setInterval>) => {}) as typeof window.clearInterval
+    );
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        callback(0);
+        return 1;
+      }),
     );
     vi.mocked(getOrCreateSwingBuffer).mockImplementation(
       (
@@ -562,6 +600,37 @@ describe("Listen route behavior", () => {
       "Match Current Playback Exactly"
     );
 
+    rendered.unmount();
+  });
+
+  it("passes the active extras audio mode to jukebox export", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-daycore"));
+    await click(
+      getRequired<HTMLButtonElement>(
+        rendered.container,
+        ".tuning-footer .tab-btn:last-child",
+      ),
+    );
+
+    await click(getRequired<HTMLButtonElement>(rendered.container, "#track-audio-export"));
+    await click(
+      getRequired<HTMLButtonElement>(
+        rendered.container,
+        ".modal-footer .tab-btn:last-child",
+      ),
+    );
+    await settleEffects();
+
+    expect(exportMocks.exportJukeboxAudio).toHaveBeenCalledTimes(1);
+    expect(exportMocks.exportJukeboxAudio.mock.calls[0]?.[0]).toMatchObject({
+      audioMode: "daycore",
+      sectionStartBeatIndices: [],
+    });
     rendered.unmount();
   });
 

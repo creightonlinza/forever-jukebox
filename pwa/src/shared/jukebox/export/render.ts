@@ -1,10 +1,25 @@
+import {
+  AUDIO_MODE_SETTINGS,
+  PAN_STEP,
+  REVERB_SECONDS,
+  type JukeboxAudioMode,
+} from "@/shared/jukebox/audio/audioModes";
 import type { PlannedJukeboxSegment } from "./plan";
+
+export type CowbellRenderEvent = {
+  outputStart: number;
+  buffer: AudioBuffer;
+  gain: number;
+  pan: number;
+};
 
 export interface RenderJukeboxAudioOptions {
   sourceBuffer: AudioBuffer;
   segments: PlannedJukeboxSegment[];
   durationSeconds: number;
   gain: number;
+  audioMode?: JukeboxAudioMode;
+  cowbellEvents?: CowbellRenderEvent[];
   onProgress?: (progress: number) => void;
 }
 
@@ -98,13 +113,19 @@ function copySegment(
 export async function renderJukeboxAudio(
   options: RenderJukeboxAudioOptions,
 ): Promise<AudioBuffer> {
+  const audioMode = options.audioMode ?? "off";
+  const settings = AUDIO_MODE_SETTINGS[audioMode];
   const channels = options.sourceBuffer.numberOfChannels;
   const sampleRate = options.sourceBuffer.sampleRate;
-  const frameLength = options.durationSeconds * sampleRate;
-  const output = createOutputBuffer(channels, frameLength, sampleRate);
-  const gain = clampGain(options.gain);
+  const rate = settings.rate;
+  const sourceTimelineSeconds = options.durationSeconds * rate;
+  const sourceFrameLength = sourceTimelineSeconds * sampleRate;
+  const mainGain = clampGain(options.gain);
+  const hasCowbell = (options.cowbellEvents?.length ?? 0) > 0;
+  const needsOfflineGraph = audioMode !== "off" || hasCowbell;
+  const assembled = createOutputBuffer(channels, sourceFrameLength, sampleRate);
 
-  const targetSeconds = Math.max(0.001, options.durationSeconds);
+  const targetSeconds = Math.max(0.001, sourceTimelineSeconds);
   let renderedSeconds = 0;
   let lastReportedPercent = -1;
 
@@ -112,7 +133,12 @@ export async function renderJukeboxAudio(
 
   for (let i = 0; i < options.segments.length; i += 1) {
     const segment = options.segments[i];
-    const frames = copySegment(options.sourceBuffer, output, segment, gain);
+    const frames = copySegment(
+      options.sourceBuffer,
+      assembled,
+      segment,
+      needsOfflineGraph ? 1 : mainGain,
+    );
     renderedSeconds += frames / sampleRate;
 
     const progress = Math.min(1, renderedSeconds / targetSeconds);
@@ -128,5 +154,166 @@ export async function renderJukeboxAudio(
   }
 
   options.onProgress?.(1);
-  return output;
+
+  if (!needsOfflineGraph) {
+    return assembled;
+  }
+
+  return renderModeGraph({
+    assembled,
+    audioMode,
+    durationSeconds: options.durationSeconds,
+    gain: mainGain,
+    cowbellEvents: options.cowbellEvents ?? [],
+  });
+}
+
+async function renderModeGraph(options: {
+  assembled: AudioBuffer;
+  audioMode: JukeboxAudioMode;
+  durationSeconds: number;
+  gain: number;
+  cowbellEvents: CowbellRenderEvent[];
+}): Promise<AudioBuffer> {
+  const channels = options.assembled.numberOfChannels;
+  const sampleRate = options.assembled.sampleRate;
+  const outputFrameLength = options.durationSeconds * sampleRate;
+  const context = createOfflineContext(channels, outputFrameLength, sampleRate);
+  const settings = AUDIO_MODE_SETTINGS[options.audioMode];
+  const source = context.createBufferSource();
+  source.buffer = options.assembled;
+  source.playbackRate.value = settings.rate;
+
+  const modeOutput = connectAudioModeChain(context, source, options.audioMode);
+  const mainGain = context.createGain();
+  mainGain.gain.value = options.gain;
+  modeOutput.connect(mainGain);
+  mainGain.connect(context.destination);
+
+  schedulePanAutomation(context, modeOutput, options.audioMode);
+  scheduleCowbellEvents(context, options.cowbellEvents);
+
+  source.start(0, 0, Math.max(0, options.durationSeconds * settings.rate));
+  return await context.startRendering();
+}
+
+function connectAudioModeChain(
+  context: OfflineAudioContext,
+  source: AudioBufferSourceNode,
+  audioMode: JukeboxAudioMode,
+): AudioNode {
+  const settings = AUDIO_MODE_SETTINGS[audioMode];
+  const chainOutput = context.createGain();
+  let lastNode: AudioNode = source;
+
+  if (settings.highPassFrequency !== null) {
+    const highPass = context.createBiquadFilter();
+    highPass.type = "highpass";
+    highPass.frequency.value = settings.highPassFrequency;
+    lastNode.connect(highPass);
+    lastNode = highPass;
+  }
+
+  if (settings.lowPassFrequency !== null) {
+    const lowPass = context.createBiquadFilter();
+    lowPass.type = settings.useBandPass ? "bandpass" : "lowpass";
+    lowPass.frequency.value = settings.lowPassFrequency;
+    lastNode.connect(lowPass);
+    lastNode = lowPass;
+  }
+
+  if (settings.reverbMix > 0) {
+    const dryGain = context.createGain();
+    const wetGain = context.createGain();
+    const reverb = context.createConvolver();
+    wetGain.gain.value = settings.reverbMix;
+    reverb.buffer = createReverbImpulseBuffer(context);
+    lastNode.connect(dryGain);
+    dryGain.connect(chainOutput);
+    lastNode.connect(reverb);
+    reverb.connect(wetGain);
+    wetGain.connect(chainOutput);
+  } else {
+    lastNode.connect(chainOutput);
+  }
+
+  if (!settings.pan || typeof context.createStereoPanner !== "function") {
+    return chainOutput;
+  }
+
+  const panner = context.createStereoPanner();
+  chainOutput.connect(panner);
+  return panner;
+}
+
+function schedulePanAutomation(
+  context: OfflineAudioContext,
+  modeOutput: AudioNode,
+  audioMode: JukeboxAudioMode,
+) {
+  const settings = AUDIO_MODE_SETTINGS[audioMode];
+  if (!settings.pan || !("pan" in modeOutput)) {
+    return;
+  }
+  const panParam = (modeOutput as StereoPannerNode).pan;
+  if (typeof panParam.setValueAtTime !== "function") {
+    panParam.value = 0;
+    return;
+  }
+  let angle = 0;
+  const frameSeconds = 1 / 60;
+  for (let time = 0; time <= context.length / context.sampleRate; time += frameSeconds) {
+    panParam.setValueAtTime(Math.sin(angle), time);
+    angle += PAN_STEP;
+  }
+}
+
+function scheduleCowbellEvents(
+  context: OfflineAudioContext,
+  events: CowbellRenderEvent[],
+) {
+  for (const event of events) {
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    source.buffer = event.buffer;
+    gain.gain.value = Math.max(0, event.gain);
+    source.connect(gain);
+
+    let output: AudioNode = gain;
+    if (typeof context.createStereoPanner === "function") {
+      const panner = context.createStereoPanner();
+      panner.pan.value = event.pan;
+      gain.connect(panner);
+      output = panner;
+    }
+    output.connect(context.destination);
+
+    const offset = Math.max(0, -event.outputStart);
+    const startTime = Math.max(0, event.outputStart);
+    const duration = Math.max(0, event.buffer.duration - offset);
+    if (duration > 0) {
+      source.start(startTime, offset, duration);
+    }
+  }
+}
+
+function createReverbImpulseBuffer(context: OfflineAudioContext) {
+  const length = Math.floor(context.sampleRate * REVERB_SECONDS);
+  const impulse = context.createBuffer(2, length, context.sampleRate);
+  let seed = 123456789;
+  const random = () => {
+    seed += 0x6d2b79f5;
+    let x = seed;
+    x = Math.imul(x ^ (x >>> 15), x | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let channelIndex = 0; channelIndex < 2; channelIndex += 1) {
+    const channel = impulse.getChannelData(channelIndex);
+    for (let sampleIndex = 0; sampleIndex < length; sampleIndex += 1) {
+      channel[sampleIndex] =
+        (random() * 2 - 1) * Math.pow(1 - sampleIndex / length, 2);
+    }
+  }
+  return impulse;
 }

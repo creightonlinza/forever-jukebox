@@ -1490,7 +1490,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return;
     }
 
-    const sourceBuffer = player.getBuffer();
+    const sourceBuffer = player.getSourceBuffer() ?? player.getBuffer();
     if (!sourceBuffer) {
       setExportError("Playback buffer is not ready yet.");
       return;
@@ -1541,6 +1541,37 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     await waitForNextPaint();
 
     try {
+      let swingBuffer: AudioBuffer | undefined;
+      if (jukeboxAudioMode === "swing") {
+        const existingSwingBuffer = player.getRenderedJukeboxAudioBuffer("swing");
+        if (existingSwingBuffer) {
+          swingBuffer = existingSwingBuffer;
+        } else if (activeAnalysis.beats.length > 0) {
+          setExportProgress({
+            stage: "rendering",
+            message: "Preparing Swing mode",
+            percent: 2,
+          });
+          swingBuffer = await getOrCreateSwingBuffer(
+            sourceBuffer,
+            getCurrentSwingSourceIdentity(),
+            () =>
+              renderSwingBuffer(sourceBuffer, activeAnalysis.beats, {
+                onProgress: (progress) => {
+                  setExportProgress({
+                    stage: "rendering",
+                    message: "Preparing Swing mode",
+                    percent: 2 + Math.max(0, Math.min(1, progress)) * 6,
+                  });
+                },
+              }),
+          );
+          player.setRenderedJukeboxAudioBuffer("swing", swingBuffer);
+        } else {
+          throw new Error("Swing export requires beat analysis.");
+        }
+      }
+
       const deletedEdges =
         engine
           .getGraphState()
@@ -1556,6 +1587,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         format: exportForm.format,
         bitrateKbps: exportForm.format === "mp3" ? exportForm.bitrateKbps : undefined,
         gain: player.getVolume(),
+        audioMode: jukeboxAudioMode,
+        sectionStartBeatIndices: engine.getSectionStartBeatIndices(),
+        swingBuffer,
         randomMode: "seeded",
         seed: createSessionSeed(),
         onProgress: (progress) => setExportProgress(progress),
