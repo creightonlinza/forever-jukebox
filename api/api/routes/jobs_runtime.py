@@ -35,11 +35,14 @@ ERROR_YOUTUBE_UNAVAILABLE = "ERROR: This video is not available on YouTube."
 ERROR_DOWNLOAD_UNAVAILABLE = "ERROR: Unable to download video data."
 ERROR_YOUTUBE_AGE_RESTRICTED = "ERROR: YouTube fetch failed due to age restriction block."
 ERROR_YOUTUBE_UNREACHABLE = "ERROR: Unable to reach YouTube"
+ERROR_YOUTUBE_LIVE = "ERROR: Live YouTube videos are not supported."
 ERROR_TRACK_TOO_LONG = "ERROR: This track exceeds the server length limit."
 ERROR_GENERIC = "ERROR: Something went wrong. Please try again or report an issue on GitHub."
 ERROR_CODE_ANALYSIS_MISSING = "analysis_missing"
 ERROR_CODE_NO_BEATS_DETECTED = "no_beats_detected"
+ERROR_CODE_YOUTUBE_LIVE = "youtube_live"
 ANALYSIS_MISSING_MESSAGE = "Analysis missing"
+STATUS_DOWNLOAD_RETRYABLE = "download_retryable"
 NTFY_TOPIC_ENV = "NTFY_TOPIC_KEY"
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -139,6 +142,13 @@ def _source_id_for_provider(provider: str, raw_id: str) -> str:
     return raw_id
 
 
+def source_info_is_live(info: dict) -> bool:
+    live_status = info.get("live_status")
+    if isinstance(live_status, str) and live_status.lower() == "is_live":
+        return True
+    return info.get("is_live") is True
+
+
 def resolve_source_info(source_url: str) -> SourceInfo:
     try:
         from yt_dlp import YoutubeDL
@@ -163,6 +173,8 @@ def resolve_source_info(source_url: str) -> SourceInfo:
     provider = _provider_from_info(info, canonical_url)
     if provider is None:
         raise ValueError("Unsupported URL")
+    if provider == "youtube" and source_info_is_live(info):
+        raise ValueError(ERROR_YOUTUBE_LIVE)
     raw_id = info.get("id")
     if not isinstance(raw_id, str) or not raw_id.strip():
         raise ValueError("Unable to resolve source id")
@@ -196,7 +208,12 @@ def normalize_job_error(raw: str | None) -> str:
         return ERROR_ENGINE
     if "video unavailable" in lowered or "this video is not available" in lowered:
         return ERROR_YOUTUBE_UNAVAILABLE
-    if "http error 403" in lowered or "[download]" in lowered or "unable to download video data" in lowered:
+    if (
+        "http error 403" in lowered
+        or "[download]" in lowered
+        or "unable to download video data" in lowered
+        or "premieres in" in lowered
+    ):
         return ERROR_DOWNLOAD_UNAVAILABLE
     if (
         "sign in to confirm your age" in lowered
@@ -207,6 +224,8 @@ def normalize_job_error(raw: str | None) -> str:
         return ERROR_YOUTUBE_AGE_RESTRICTED
     if "sign in to confirm" in lowered or "not a bot" in lowered:
         return ERROR_YOUTUBE_UNREACHABLE
+    if "live youtube videos are not supported" in lowered:
+        return ERROR_YOUTUBE_LIVE
     if "max_track_length" in lowered or "track exceeds max track length" in lowered:
         return ERROR_TRACK_TOO_LONG
     if "max track length for this server is" in lowered:
@@ -221,7 +240,10 @@ def error_code_for(raw: str | None) -> str | None:
         return ERROR_CODE_ANALYSIS_MISSING
     if normalize_job_error(raw) == ERROR_NO_BEATS_DETECTED:
         return ERROR_CODE_NO_BEATS_DETECTED
-    return None
+    code = failure_code_for(raw)
+    if code == "generic_error":
+        return None
+    return code
 
 
 def failure_code_for(raw: str | None) -> str:
@@ -238,9 +260,18 @@ def failure_code_for(raw: str | None) -> str:
         return "youtube_age_restricted"
     if normalized == ERROR_YOUTUBE_UNREACHABLE:
         return "youtube_unreachable"
+    if normalized == ERROR_YOUTUBE_LIVE:
+        return ERROR_CODE_YOUTUBE_LIVE
     if normalized == ERROR_TRACK_TOO_LONG:
         return "track_too_long"
     return "generic_error"
+
+
+def download_failure_status(raw: str | None) -> str:
+    normalized = normalize_job_error(raw)
+    if normalized in {ERROR_YOUTUBE_AGE_RESTRICTED, ERROR_YOUTUBE_LIVE, ERROR_TRACK_TOO_LONG}:
+        return "failed"
+    return STATUS_DOWNLOAD_RETRYABLE
 
 
 def sanitize_title(filename: str | None) -> str:
@@ -458,15 +489,16 @@ def cleanup_failure(
     result_path = STORAGE_ROOT / "analysis" / f"{job_id}.json"
     if result_path.is_file():
         result_path.unlink()
-    set_job_status(DB_PATH, job_id, "failed", message)
+    status = download_failure_status(message)
+    set_job_status(DB_PATH, job_id, status, message)
     log_event(
-        "job_failed",
+        "job_failed" if status == "failed" else "job_download_retryable",
         job_id=job_id,
         source=source_provider or "unknown",
         error_code=failure_code_for(message),
         stage="download",
     )
-    logger.info("Job %s failed: %s", job_id, message)
+    logger.info("Job %s download ended as %s: %s", job_id, status, message)
 
 
 def delete_job_artifacts(job_id: str, job) -> None:
@@ -534,20 +566,22 @@ def download_source_audio(
         "extractaudio": True,
         "audioformat": "m4a",
     }
-    if max_track_length_s is not None:
 
-        def match_filter(info_dict: dict, *, incomplete: bool) -> str | None:
-            if incomplete:
-                return None
+    def match_filter(info_dict: dict, *, incomplete: bool) -> str | None:
+        if incomplete:
+            return None
+        if source_provider == "youtube" and source_info_is_live(info_dict):
+            return ERROR_YOUTUBE_LIVE
+        if max_track_length_s is not None:
             duration = info_dict.get("duration")
             if isinstance(duration, (int, float)) and duration > max_track_length_s:
                 return (
                     f"Track exceeds MAX_TRACK_LENGTH "
                     f"({max_track_length_min:g} minutes)"
                 )
-            return None
+        return None
 
-        ydl_opts["match_filter"] = match_filter
+    ydl_opts["match_filter"] = match_filter
     apply_ejs_config(ydl_opts)
     try:
         with YoutubeDL(ydl_opts) as ydl:

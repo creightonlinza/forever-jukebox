@@ -20,7 +20,7 @@ class JobProgress(JobBase):
 
 
 class JobError(JobBase):
-    status: Literal["failed"]
+    status: Literal["failed", "download_retryable"]
     error: str | None = None
     error_code: str | None = None
 

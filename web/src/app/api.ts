@@ -33,7 +33,7 @@ export type AnalysisComplete = AnalysisBase & {
 };
 
 export type AnalysisFailed = AnalysisBase & {
-  status: "failed";
+  status: "failed" | "download_retryable";
   id?: string;
   error?: string;
   error_code?: string;
@@ -158,7 +158,7 @@ function parseAnalysisResponse(data: unknown): AnalysisResponse | null {
       created_at: createdAt,
     };
   }
-  if (status === "failed") {
+  if (status === "failed" || status === "download_retryable") {
     return {
       status,
       id,

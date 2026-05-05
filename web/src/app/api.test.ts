@@ -241,6 +241,22 @@ describe("api", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("parses retryable download errors as stopped failures", async () => {
+    (fetch as any).mockResolvedValue(
+      createResponse(200, {
+        status: "download_retryable",
+        id: "job-retry",
+        error: "ERROR: Unable to download video data.",
+        error_code: "download_unavailable",
+      }),
+    );
+    const result = await fetchAnalysis("job-retry");
+    expect(result?.status).toBe("download_retryable");
+    if (result?.status === "download_retryable") {
+      expect(result.error_code).toBe("download_unavailable");
+    }
+  });
+
   it("parses queued lookup response from by-source", async () => {
     (fetch as any).mockResolvedValue(
       createResponse(202, {

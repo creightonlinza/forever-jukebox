@@ -7,6 +7,7 @@ import { JukeboxEngine } from "../engine";
 import type { JukeboxConfig } from "../engine/types";
 import { JukeboxViz } from "../jukebox/JukeboxViz";
 import { fetchAnalysis, fetchAudio, recordPlay } from "../app/api";
+import { isAnalysisFailed, isAnalysisInProgress } from "../app/analysisStatus";
 import { formatDuration } from "../app/format";
 import { applyCastTuningToEngine, parseCastTuningParams } from "./tuning";
 
@@ -293,11 +294,14 @@ async function pollAnalysis(
     if (!response) {
       throw new Error("Analysis not found");
     }
-    if (response.status === "failed") {
+    if (isAnalysisFailed(response)) {
       throw new Error(response.error || "Analysis failed");
     }
     if (response.status === "complete") {
       return response;
+    }
+    if (!isAnalysisInProgress(response)) {
+      throw new Error("Analysis lookup failed");
     }
     const progress =
       typeof response.progress === "number"
