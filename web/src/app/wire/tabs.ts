@@ -35,6 +35,7 @@ export function createTabsHandlers(deps: TabsDeps) {
     elements.topSongsList.classList.toggle("hidden", tabId !== "top");
     elements.trendingSongsList.classList.toggle("hidden", tabId !== "trending");
     elements.recentSongsList.classList.toggle("hidden", tabId !== "recent");
+    elements.favoritesFilter.classList.toggle("hidden", tabId !== "favorites");
     elements.favoritesList.classList.toggle("hidden", tabId !== "favorites");
     elements.topListTitle.textContent =
       tabId === "top"
