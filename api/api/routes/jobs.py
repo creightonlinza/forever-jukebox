@@ -7,6 +7,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import APIRouter, BackgroundTasks, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
@@ -45,6 +46,7 @@ from ..utils import abs_storage_path
 from .jobs_runtime import (
     ALLOWED_UPLOAD_EXTS,
     ANALYSIS_MISSING_MESSAGE,
+    ERROR_GENERIC,
     MAX_UPLOAD_BYTES,
     delete_job_artifacts,
     download_source_audio,
@@ -61,6 +63,7 @@ from .jobs_runtime import (
     sanitize_title,
     source_url_from_source_id,
     should_recycle_job,
+    is_retryable_download_error,
     track_too_long_detail,
 )
 
@@ -93,6 +96,72 @@ def _require_admin_key(provided_key: str | None) -> None:
         raise HTTPException(status_code=403, detail="Invalid admin key")
 
 
+def _source_url_for_job(job) -> str | None:
+    return (
+        job.source_url
+        or source_url_from_source_id(job.source_provider, job.source_id)
+        or fallback_source_url_for_source_id(job.source_id)
+    )
+
+
+def _source_identity_from_url(source_url: str) -> tuple[str | None, str | None]:
+    parsed = urlsplit(source_url)
+    host = (parsed.hostname or "").lower()
+    if host == "youtu.be" or host.endswith(".youtu.be"):
+        source_id = parsed.path.strip("/").split("/", 1)[0].strip()
+        return "youtube", source_id or None
+    if host == "youtube.com" or host.endswith(".youtube.com"):
+        query_id = parse_qs(parsed.query).get("v", [None])[0]
+        if query_id:
+            return "youtube", query_id.strip() or None
+        path_parts = [part for part in parsed.path.split("/") if part]
+        if len(path_parts) >= 2 and path_parts[0] in {"shorts", "embed", "live"}:
+            return "youtube", path_parts[1].strip() or None
+        return "youtube", None
+    if host == "soundcloud.com" or host.endswith(".soundcloud.com"):
+        return "soundcloud", None
+    if host == "bandcamp.com" or host.endswith(".bandcamp.com"):
+        return "bandcamp", None
+    return None, None
+
+
+def _find_existing_source_job(source_provider: str | None, source_id: str | None, source_url: str):
+    if source_provider == "youtube" and source_id:
+        existing = get_job_by_source(DB_PATH, source_provider, source_id)
+        if existing:
+            return existing
+    return get_job_by_source_url(DB_PATH, source_url)
+
+
+def _resolution_failure_detail(error: Exception) -> dict[str, str]:
+    raw = str(error)
+    message = normalize_job_error(raw)
+    if message == ERROR_GENERIC:
+        message = ERROR_GENERIC
+    detail = {"message": message}
+    code = error_code_for(raw)
+    if code:
+        detail["error_code"] = code
+    return detail
+
+
+def _is_retryable_failed_job(job) -> bool:
+    return job.status == "failed" and is_retryable_download_error(job.error)
+
+
+def _skip_retryable_failed_job(job, *, match: str) -> bool:
+    if job.status != "failed" or not is_retryable_download_error(job.error):
+        return False
+    log_event(
+        "job_retry_new_job",
+        job_id=job.id,
+        source=job.source_provider or "unknown",
+        match=match,
+        error_code=error_code_for(job.error),
+    )
+    return True
+
+
 def _create_source_job(
     background_tasks: BackgroundTasks,
     *,
@@ -112,6 +181,8 @@ def _create_source_job(
         if existing_by_track and should_recycle_job(existing_by_track):
             recycle_job(existing_by_track)
             existing_by_track = None
+        if existing_by_track and _skip_retryable_failed_job(existing_by_track, match="by_track"):
+            existing_by_track = None
         if existing_by_track:
             log_event(
                 "job_reused",
@@ -128,6 +199,8 @@ def _create_source_job(
         existing = get_job_by_source_url(DB_PATH, source_url)
     if existing and should_recycle_job(existing):
         recycle_job(existing)
+        existing = None
+    if existing and _skip_retryable_failed_job(existing, match="by_source"):
         existing = None
     if existing:
         log_event(
@@ -245,11 +318,7 @@ def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
             result="queued",
         )
     elif audio_missing and job.source_id:
-        source_url = (
-            job.source_url
-            or source_url_from_source_id(job.source_provider, job.source_id)
-            or fallback_source_url_for_source_id(job.source_id)
-        )
+        source_url = _source_url_for_job(job)
         if not source_url:
             log_event(
                 "auto_repair",
@@ -404,14 +473,45 @@ def create_analysis_url(
     normalized_url = normalize_user_source_url(raw_url)
     if not normalized_url:
         raise HTTPException(status_code=400, detail="Invalid or unsupported URL")
+    preflight_provider, preflight_source_id = _source_identity_from_url(normalized_url)
+    existing = _find_existing_source_job(preflight_provider, preflight_source_id, normalized_url)
+    retryable_existing_skipped = False
+    if existing and should_recycle_job(existing):
+        recycle_job(existing)
+        existing = None
+    if existing:
+        if _skip_retryable_failed_job(existing, match="by_url_preflight"):
+            existing = None
+            retryable_existing_skipped = True
+    if existing:
+        log_event(
+            "job_reused",
+            job_id=existing.id,
+            source=existing.source_provider or "unknown",
+            match="by_url_preflight",
+        )
+        return _job_response(existing)
+    if retryable_existing_skipped and preflight_provider in SUPPORTED_USER_SOURCE_PROVIDERS:
+        return _create_source_job(
+            background_tasks,
+            source_id=preflight_source_id or "",
+            source_url=normalized_url,
+            source_provider=preflight_provider,
+            track_title=payload.title,
+            track_artist=payload.artist,
+            require_user_url_enabled=True,
+        )
     try:
         source_info = resolve_source_info(normalized_url)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except ValueError as exc:
+        detail = _resolution_failure_detail(exc)
+        if detail["message"] != ERROR_GENERIC:
+            raise HTTPException(status_code=400, detail=detail) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Unable to process URL: {exc}") from exc
+        raise HTTPException(status_code=400, detail=_resolution_failure_detail(exc)) from exc
 
     if source_info.provider not in SUPPORTED_USER_SOURCE_PROVIDERS:
         raise HTTPException(status_code=400, detail="Unsupported URL provider")
@@ -582,6 +682,15 @@ def get_job_by_source_route(
     if should_recycle_job(job):
         recycle_job(job)
         raise HTTPException(status_code=404, detail="Job not found")
+    if _is_retryable_failed_job(job):
+        log_event(
+            "job_retry_lookup_miss",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            match="by_source_lookup",
+            error_code=error_code_for(job.error),
+        )
+        raise HTTPException(status_code=404, detail="Job not found")
     return _response_with_auto_repair(job, background_tasks)
 
 
@@ -597,6 +706,15 @@ def get_job_by_track_match(
         raise HTTPException(status_code=404, detail="Job not found")
     if should_recycle_job(job):
         recycle_job(job)
+        raise HTTPException(status_code=404, detail="Job not found")
+    if _is_retryable_failed_job(job):
+        log_event(
+            "job_retry_lookup_miss",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            match="by_track_lookup",
+            error_code=error_code_for(job.error),
+        )
         raise HTTPException(status_code=404, detail="Job not found")
     log_event(
         "job_reused",

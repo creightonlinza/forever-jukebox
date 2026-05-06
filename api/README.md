@@ -87,7 +87,7 @@ Responses:
 
 - `202` for `downloading`, `queued`, or `processing` (includes `progress`)
 - `200` with `complete` + `result` JSON
-- `200` with `failed` + `error` (failed jobs are retained with logs for inspection/repair)
+- `200` with `failed` + `error` (failed jobs are retained with logs for inspection/repair; retryable download failures are replaced by a new job on the next source request)
 
 Search Spotify:
 
