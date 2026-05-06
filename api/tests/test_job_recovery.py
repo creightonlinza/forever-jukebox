@@ -15,7 +15,7 @@ from api.db import create_job, get_job, init_db, recover_stalled_processing_jobs
 from api.models import AnalysisUrlRequest
 from api.routes import jobs
 from api.routes.jobs import _create_source_job, _should_attempt_auto_repair
-from api.routes.jobs_runtime import ANALYSIS_MISSING_MESSAGE, ERROR_YOUTUBE_LIVE, STATUS_DOWNLOAD_RETRYABLE
+from api.routes.jobs_runtime import ANALYSIS_MISSING_MESSAGE, ERROR_YOUTUBE_LIVE
 
 
 class JobRecoveryTests(unittest.TestCase):
@@ -47,7 +47,7 @@ class JobRecoveryTests(unittest.TestCase):
         self.assertFalse(_should_attempt_auto_repair(job))
 
     def test_retryable_download_jobs_do_not_auto_repair_on_poll(self) -> None:
-        job = SimpleNamespace(status=STATUS_DOWNLOAD_RETRYABLE, error="Premieres in 3 hours")
+        job = SimpleNamespace(status="failed", error="ERROR: [youtube] abc123def45: Premieres in 3 hours")
 
         self.assertFalse(_should_attempt_auto_repair(job))
 
@@ -140,7 +140,7 @@ class JobRecoveryTests(unittest.TestCase):
             finally:
                 jobs.DB_PATH = original_db_path
 
-    def test_create_source_job_restarts_retryable_job_by_source(self) -> None:
+    def test_create_source_job_replaces_retryable_failed_job_by_source(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
@@ -162,7 +162,7 @@ class JobRecoveryTests(unittest.TestCase):
                 set_job_status(
                     db_path,
                     "retryable-source-job",
-                    STATUS_DOWNLOAD_RETRYABLE,
+                    "failed",
                     "ERROR: [youtube] yt-retry: Premieres in 3 hours",
                 )
 
@@ -178,19 +178,18 @@ class JobRecoveryTests(unittest.TestCase):
 
                 self.assertEqual(response.status_code, 202)
                 payload = json.loads(response.body)
-                self.assertEqual(payload["id"], "retryable-source-job")
+                self.assertNotEqual(payload["id"], "retryable-source-job")
                 self.assertEqual(payload["status"], "downloading")
                 self.assertEqual(len(background_tasks.tasks), 1)
-                restarted = get_job(db_path, "retryable-source-job")
-                self.assertEqual(restarted.status, "downloading")
-                self.assertIsNone(restarted.error)
+                original = get_job(db_path, "retryable-source-job")
+                self.assertEqual(original.status, "failed")
                 with sqlite3.connect(db_path) as conn:
                     row = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
-                self.assertEqual(row[0], 1)
+                self.assertEqual(row[0], 2)
             finally:
                 jobs.DB_PATH = original_db_path
 
-    def test_create_source_job_restarts_retryable_job_by_track(self) -> None:
+    def test_create_source_job_replaces_retryable_failed_job_by_track(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
@@ -212,7 +211,7 @@ class JobRecoveryTests(unittest.TestCase):
                 set_job_status(
                     db_path,
                     "retryable-track-job",
-                    STATUS_DOWNLOAD_RETRYABLE,
+                    "failed",
                     "ERROR: \r[download] Got error: partial read",
                 )
 
@@ -228,19 +227,18 @@ class JobRecoveryTests(unittest.TestCase):
 
                 self.assertEqual(response.status_code, 202)
                 payload = json.loads(response.body)
-                self.assertEqual(payload["id"], "retryable-track-job")
+                self.assertNotEqual(payload["id"], "retryable-track-job")
                 self.assertEqual(payload["status"], "downloading")
                 self.assertEqual(len(background_tasks.tasks), 1)
-                restarted = get_job(db_path, "retryable-track-job")
-                self.assertEqual(restarted.status, "downloading")
-                self.assertIsNone(restarted.error)
+                original = get_job(db_path, "retryable-track-job")
+                self.assertEqual(original.status, "failed")
                 with sqlite3.connect(db_path) as conn:
                     row = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
-                self.assertEqual(row[0], 1)
+                self.assertEqual(row[0], 2)
             finally:
                 jobs.DB_PATH = original_db_path
 
-    def test_by_source_lookup_restarts_retryable_job(self) -> None:
+    def test_by_source_lookup_treats_retryable_failed_job_as_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
@@ -260,22 +258,20 @@ class JobRecoveryTests(unittest.TestCase):
                 set_job_status(
                     db_path,
                     "retryable-lookup-job",
-                    STATUS_DOWNLOAD_RETRYABLE,
+                    "failed",
                     "ERROR: Unable to download video data.",
                 )
 
                 background_tasks = BackgroundTasks()
-                response = jobs.get_job_by_source_route("youtube", "yt-lookup", background_tasks)
+                with self.assertRaises(jobs.HTTPException) as raised:
+                    jobs.get_job_by_source_route("youtube", "yt-lookup", background_tasks)
 
-                self.assertEqual(response.status_code, 202)
-                payload = json.loads(response.body)
-                self.assertEqual(payload["id"], "retryable-lookup-job")
-                self.assertEqual(payload["status"], "downloading")
-                self.assertEqual(len(background_tasks.tasks), 1)
+                self.assertEqual(raised.exception.status_code, 404)
+                self.assertEqual(len(background_tasks.tasks), 0)
             finally:
                 jobs.DB_PATH = original_db_path
 
-    def test_by_track_lookup_restarts_retryable_job(self) -> None:
+    def test_by_track_lookup_treats_retryable_failed_job_as_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
@@ -297,22 +293,20 @@ class JobRecoveryTests(unittest.TestCase):
                 set_job_status(
                     db_path,
                     "retryable-track-lookup-job",
-                    STATUS_DOWNLOAD_RETRYABLE,
+                    "failed",
                     "ERROR: Sign in to confirm you're not a bot",
                 )
 
                 background_tasks = BackgroundTasks()
-                response = jobs.get_job_by_track_match(background_tasks, title="Song", artist="Artist")
+                with self.assertRaises(jobs.HTTPException) as raised:
+                    jobs.get_job_by_track_match(background_tasks, title="Song", artist="Artist")
 
-                self.assertEqual(response.status_code, 202)
-                payload = json.loads(response.body)
-                self.assertEqual(payload["id"], "retryable-track-lookup-job")
-                self.assertEqual(payload["status"], "downloading")
-                self.assertEqual(len(background_tasks.tasks), 1)
+                self.assertEqual(raised.exception.status_code, 404)
+                self.assertEqual(len(background_tasks.tasks), 0)
             finally:
                 jobs.DB_PATH = original_db_path
 
-    def test_url_start_restarts_retryable_youtube_job_without_metadata_probe(self) -> None:
+    def test_url_start_replaces_retryable_failed_youtube_job_without_metadata_probe(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
@@ -332,7 +326,7 @@ class JobRecoveryTests(unittest.TestCase):
                 set_job_status(
                     db_path,
                     "retryable-url-job",
-                    STATUS_DOWNLOAD_RETRYABLE,
+                    "failed",
                     "ERROR: [youtube] jfKfPfyJRdk: Premieres in 3 hours",
                 )
 
@@ -348,12 +342,14 @@ class JobRecoveryTests(unittest.TestCase):
 
                 self.assertEqual(response.status_code, 202)
                 payload = json.loads(response.body)
-                self.assertEqual(payload["id"], "retryable-url-job")
+                self.assertNotEqual(payload["id"], "retryable-url-job")
                 self.assertEqual(payload["status"], "downloading")
                 self.assertEqual(len(background_tasks.tasks), 1)
-                restarted = get_job(db_path, "retryable-url-job")
-                self.assertEqual(restarted.status, "downloading")
-                self.assertIsNone(restarted.error)
+                original = get_job(db_path, "retryable-url-job")
+                self.assertEqual(original.status, "failed")
+                with sqlite3.connect(db_path) as conn:
+                    row = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
+                self.assertEqual(row[0], 2)
             finally:
                 jobs.DB_PATH = original_db_path
 

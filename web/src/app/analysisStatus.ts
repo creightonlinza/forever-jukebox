@@ -14,7 +14,7 @@ export function isAnalysisComplete(
 export function isAnalysisFailed(
   response: AnalysisResponse | null,
 ): response is AnalysisFailed {
-  return response?.status === "failed" || response?.status === "download_retryable";
+  return response?.status === "failed";
 }
 
 export function isAnalysisInProgress(

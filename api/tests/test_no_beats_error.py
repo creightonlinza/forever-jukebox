@@ -7,10 +7,9 @@ from api.routes.jobs_runtime import (
     ERROR_CODE_YOUTUBE_LIVE,
     ERROR_NO_BEATS_DETECTED,
     ERROR_YOUTUBE_LIVE,
-    STATUS_DOWNLOAD_RETRYABLE,
-    download_failure_status,
     error_code_for,
     failure_code_for,
+    is_retryable_download_error,
     normalize_job_error,
     source_info_is_live,
 )
@@ -42,11 +41,11 @@ class NoBeatsErrorTests(unittest.TestCase):
     def test_age_restricted_download_failure_is_permanent(self) -> None:
         raw = "ERROR: [youtube] abc123def45: Sign in to confirm your age."
 
-        self.assertEqual(download_failure_status(raw), "failed")
+        self.assertFalse(is_retryable_download_error(raw))
         self.assertEqual(failure_code_for(raw), "youtube_age_restricted")
         self.assertEqual(error_code_for(raw), "youtube_age_restricted")
 
-    def test_retryable_download_failures_use_retryable_status(self) -> None:
+    def test_retryable_download_failures_are_identified_by_error(self) -> None:
         samples = [
             "ERROR: [youtube] Y8TcF-r7TaE: Premieres in 3 hours",
             "ERROR: \r[download] Got error: 2097136 bytes read, 2165663 more expected",
@@ -57,13 +56,13 @@ class NoBeatsErrorTests(unittest.TestCase):
 
         for raw in samples:
             with self.subTest(raw=raw):
-                self.assertEqual(download_failure_status(raw), STATUS_DOWNLOAD_RETRYABLE)
+                self.assertTrue(is_retryable_download_error(raw))
 
     def test_live_youtube_error_is_permanent(self) -> None:
         self.assertEqual(normalize_job_error(ERROR_YOUTUBE_LIVE), ERROR_YOUTUBE_LIVE)
         self.assertEqual(error_code_for(ERROR_YOUTUBE_LIVE), ERROR_CODE_YOUTUBE_LIVE)
         self.assertEqual(failure_code_for(ERROR_YOUTUBE_LIVE), ERROR_CODE_YOUTUBE_LIVE)
-        self.assertEqual(download_failure_status(ERROR_YOUTUBE_LIVE), "failed")
+        self.assertFalse(is_retryable_download_error(ERROR_YOUTUBE_LIVE))
 
     def test_live_status_metadata_detection(self) -> None:
         self.assertTrue(source_info_is_live({"live_status": "is_live"}))

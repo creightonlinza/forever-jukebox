@@ -42,7 +42,6 @@ ERROR_CODE_ANALYSIS_MISSING = "analysis_missing"
 ERROR_CODE_NO_BEATS_DETECTED = "no_beats_detected"
 ERROR_CODE_YOUTUBE_LIVE = "youtube_live"
 ANALYSIS_MISSING_MESSAGE = "Analysis missing"
-STATUS_DOWNLOAD_RETRYABLE = "download_retryable"
 NTFY_TOPIC_ENV = "NTFY_TOPIC_KEY"
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -267,11 +266,14 @@ def failure_code_for(raw: str | None) -> str:
     return "generic_error"
 
 
-def download_failure_status(raw: str | None) -> str:
+def is_retryable_download_error(raw: str | None) -> bool:
     normalized = normalize_job_error(raw)
-    if normalized in {ERROR_YOUTUBE_AGE_RESTRICTED, ERROR_YOUTUBE_LIVE, ERROR_TRACK_TOO_LONG}:
-        return "failed"
-    return STATUS_DOWNLOAD_RETRYABLE
+    return normalized in {
+        ERROR_DOWNLOAD_UNAVAILABLE,
+        ERROR_YOUTUBE_UNAVAILABLE,
+        ERROR_YOUTUBE_UNREACHABLE,
+        ERROR_GENERIC,
+    }
 
 
 def sanitize_title(filename: str | None) -> str:
@@ -489,16 +491,15 @@ def cleanup_failure(
     result_path = STORAGE_ROOT / "analysis" / f"{job_id}.json"
     if result_path.is_file():
         result_path.unlink()
-    status = download_failure_status(message)
-    set_job_status(DB_PATH, job_id, status, message)
+    set_job_status(DB_PATH, job_id, "failed", message)
     log_event(
-        "job_failed" if status == "failed" else "job_download_retryable",
+        "job_failed",
         job_id=job_id,
         source=source_provider or "unknown",
         error_code=failure_code_for(message),
         stage="download",
     )
-    logger.info("Job %s download ended as %s: %s", job_id, status, message)
+    logger.info("Job %s failed: %s", job_id, message)
 
 
 def delete_job_artifacts(job_id: str, job) -> None:

@@ -62,8 +62,8 @@ from .jobs_runtime import (
     resolve_source_info,
     sanitize_title,
     source_url_from_source_id,
-    STATUS_DOWNLOAD_RETRYABLE,
     should_recycle_job,
+    is_retryable_download_error,
     track_too_long_detail,
 )
 
@@ -102,35 +102,6 @@ def _source_url_for_job(job) -> str | None:
         or source_url_from_source_id(job.source_provider, job.source_id)
         or fallback_source_url_for_source_id(job.source_id)
     )
-
-
-def _restart_retryable_download(job, background_tasks: BackgroundTasks):
-    if job.status != STATUS_DOWNLOAD_RETRYABLE:
-        return job
-    source_url = _source_url_for_job(job)
-    if not source_url:
-        log_event(
-            "job_retry_skipped",
-            job_id=job.id,
-            source=job.source_provider or "unknown",
-            reason="missing_source_url",
-        )
-        return job
-    set_job_progress(DB_PATH, job.id, 0)
-    set_job_status(DB_PATH, job.id, "downloading", None)
-    background_tasks.add_task(
-        download_source_audio,
-        job.id,
-        source_url,
-        job.source_id,
-        job.source_provider,
-    )
-    log_event(
-        "job_retry_started",
-        job_id=job.id,
-        source=job.source_provider or "unknown",
-    )
-    return get_job(DB_PATH, job.id) or job
 
 
 def _source_identity_from_url(source_url: str) -> tuple[str | None, str | None]:
@@ -174,6 +145,23 @@ def _resolution_failure_detail(error: Exception) -> dict[str, str]:
     return detail
 
 
+def _is_retryable_failed_job(job) -> bool:
+    return job.status == "failed" and is_retryable_download_error(job.error)
+
+
+def _skip_retryable_failed_job(job, *, match: str) -> bool:
+    if job.status != "failed" or not is_retryable_download_error(job.error):
+        return False
+    log_event(
+        "job_retry_new_job",
+        job_id=job.id,
+        source=job.source_provider or "unknown",
+        match=match,
+        error_code=error_code_for(job.error),
+    )
+    return True
+
+
 def _create_source_job(
     background_tasks: BackgroundTasks,
     *,
@@ -193,8 +181,8 @@ def _create_source_job(
         if existing_by_track and should_recycle_job(existing_by_track):
             recycle_job(existing_by_track)
             existing_by_track = None
-        if existing_by_track and existing_by_track.status == STATUS_DOWNLOAD_RETRYABLE:
-            existing_by_track = _restart_retryable_download(existing_by_track, background_tasks)
+        if existing_by_track and _skip_retryable_failed_job(existing_by_track, match="by_track"):
+            existing_by_track = None
         if existing_by_track:
             log_event(
                 "job_reused",
@@ -212,8 +200,8 @@ def _create_source_job(
     if existing and should_recycle_job(existing):
         recycle_job(existing)
         existing = None
-    if existing and existing.status == STATUS_DOWNLOAD_RETRYABLE:
-        existing = _restart_retryable_download(existing, background_tasks)
+    if existing and _skip_retryable_failed_job(existing, match="by_source"):
+        existing = None
     if existing:
         log_event(
             "job_reused",
@@ -300,7 +288,7 @@ def _ensure_audio_path(job) -> Path | None:
 def _should_attempt_auto_repair(job) -> bool:
     if job.status in {"downloading", "queued", "processing"}:
         return False
-    if job.status in {"failed", STATUS_DOWNLOAD_RETRYABLE}:
+    if job.status == "failed":
         return False
     result_path = abs_storage_path(STORAGE_ROOT, job.output_path)
     if not result_path.exists():
@@ -399,9 +387,9 @@ def _job_response(job) -> JSONResponse:
         )
         return JSONResponse(payload.model_dump(), status_code=202)
 
-    if job.status in {"failed", STATUS_DOWNLOAD_RETRYABLE}:
+    if job.status == "failed":
         payload = JobError(
-            status=job.status,
+            status="failed",
             error=normalize_job_error(job.error),
             error_code=error_code_for(job.error),
             **base_payload,
@@ -487,12 +475,15 @@ def create_analysis_url(
         raise HTTPException(status_code=400, detail="Invalid or unsupported URL")
     preflight_provider, preflight_source_id = _source_identity_from_url(normalized_url)
     existing = _find_existing_source_job(preflight_provider, preflight_source_id, normalized_url)
+    retryable_existing_skipped = False
     if existing and should_recycle_job(existing):
         recycle_job(existing)
         existing = None
     if existing:
-        if existing.status == STATUS_DOWNLOAD_RETRYABLE:
-            existing = _restart_retryable_download(existing, background_tasks)
+        if _skip_retryable_failed_job(existing, match="by_url_preflight"):
+            existing = None
+            retryable_existing_skipped = True
+    if existing:
         log_event(
             "job_reused",
             job_id=existing.id,
@@ -500,6 +491,16 @@ def create_analysis_url(
             match="by_url_preflight",
         )
         return _job_response(existing)
+    if retryable_existing_skipped and preflight_provider in SUPPORTED_USER_SOURCE_PROVIDERS:
+        return _create_source_job(
+            background_tasks,
+            source_id=preflight_source_id or "",
+            source_url=normalized_url,
+            source_provider=preflight_provider,
+            track_title=payload.title,
+            track_artist=payload.artist,
+            require_user_url_enabled=True,
+        )
     try:
         source_info = resolve_source_info(normalized_url)
     except RuntimeError as exc:
@@ -681,8 +682,15 @@ def get_job_by_source_route(
     if should_recycle_job(job):
         recycle_job(job)
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status == STATUS_DOWNLOAD_RETRYABLE:
-        job = _restart_retryable_download(job, background_tasks)
+    if _is_retryable_failed_job(job):
+        log_event(
+            "job_retry_lookup_miss",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            match="by_source_lookup",
+            error_code=error_code_for(job.error),
+        )
+        raise HTTPException(status_code=404, detail="Job not found")
     return _response_with_auto_repair(job, background_tasks)
 
 
@@ -699,8 +707,15 @@ def get_job_by_track_match(
     if should_recycle_job(job):
         recycle_job(job)
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status == STATUS_DOWNLOAD_RETRYABLE:
-        job = _restart_retryable_download(job, background_tasks)
+    if _is_retryable_failed_job(job):
+        log_event(
+            "job_retry_lookup_miss",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            match="by_track_lookup",
+            error_code=error_code_for(job.error),
+        )
+        raise HTTPException(status_code=404, detail="Job not found")
     log_event(
         "job_reused",
         job_id=job.id,
