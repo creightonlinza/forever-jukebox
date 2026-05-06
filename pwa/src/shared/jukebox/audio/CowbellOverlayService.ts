@@ -23,22 +23,22 @@ function getSoundUrls(prefix: string) {
     .map(([, url]) => url);
 }
 
-const DEFAULT_COWBELL_SAMPLE_URLS = getSoundUrls("cowbell");
-const DEFAULT_WALKEN_SAMPLE_URLS = getSoundUrls("walken");
-const DEFAULT_TRILL_SAMPLE_URLS = getSoundUrls("trill");
+export const DEFAULT_COWBELL_SAMPLE_URLS = getSoundUrls("cowbell");
+export const DEFAULT_WALKEN_SAMPLE_URLS = getSoundUrls("walken");
+export const DEFAULT_TRILL_SAMPLE_URLS = getSoundUrls("trill");
 
-const BASE_COWBELL_GAIN = 0.50;
-const ACCENT_GAIN_MIN = 0.85;
-const ACCENT_GAIN_MAX = 1.15;
-const SUBDIVISION_GAIN_MIN = 0.55;
-const SUBDIVISION_GAIN_MAX = 0.80;
-const WALKEN_GAIN = 2.5;
-const TRILL_GAIN = 1.35;
-const WALKEN_EFFECT_PROBABILITY = 0.75;
-const PAN_RANGE = 0.25;
-const SUBDIVISION_BURST_PROBABILITY = 0.05;
-const SUBDIVISION_BURST_TIMINGS = [0.25, 0.5, 0.75];
-const MIN_SUBDIVISION_BEAT_SECONDS = 0.30;
+export const BASE_COWBELL_GAIN = 0.50;
+export const ACCENT_GAIN_MIN = 0.85;
+export const ACCENT_GAIN_MAX = 1.15;
+export const SUBDIVISION_GAIN_MIN = 0.55;
+export const SUBDIVISION_GAIN_MAX = 0.80;
+export const WALKEN_GAIN = 2.5;
+export const TRILL_GAIN = 1.35;
+export const WALKEN_EFFECT_PROBABILITY = 0.75;
+export const PAN_RANGE = 0.25;
+export const SUBDIVISION_BURST_PROBABILITY = 0.05;
+export const SUBDIVISION_BURST_TIMINGS = [0.25, 0.5, 0.75];
+export const MIN_SUBDIVISION_BEAT_SECONDS = 0.30;
 const STOP_FUTURE_EPSILON_SECONDS = 0.015;
 
 type FetchLike = (url: string) => Promise<Pick<Response, "arrayBuffer" | "ok">>;

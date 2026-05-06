@@ -105,6 +105,7 @@ describe("exportJukeboxAudio progress", () => {
       config: mockConfig,
       durationSeconds: 4,
       format: "mp3",
+      audioMode: "off",
       onProgress: (event) => {
         events.push({ stage: event.stage, percent: event.percent });
       },
@@ -144,9 +145,104 @@ describe("exportJukeboxAudio progress", () => {
         config: mockConfig,
         durationSeconds: 6000,
         format: "wav",
+        audioMode: "off",
       }),
     ).rejects.toThrow(
       "WAV export is too large for browser memory at this duration. Use MP3 for long exports.",
+    );
+  });
+
+  it("plans rate-adjusted source time and renders the active audio mode", async () => {
+    vi.mocked(planJukeboxPath).mockReturnValue({
+      segments: [
+        {
+          outputStart: 0,
+          sourceStart: 0,
+          duration: 12,
+          beatIndex: 0,
+          jumped: false,
+          jumpFromIndex: null,
+        },
+      ],
+      renderDurationSeconds: 12,
+    });
+
+    vi.mocked(renderJukeboxAudio).mockResolvedValue({} as AudioBuffer);
+    vi.mocked(encodeAudioBufferWithFfmpeg).mockResolvedValue({
+      bytes: new Uint8Array([10, 11]),
+      extension: "wav",
+      mimeType: "audio/wav",
+    });
+
+    await exportJukeboxAudio({
+      analysis: mockAnalysis,
+      sourceBuffer: {
+        duration: 20,
+        sampleRate: 10,
+        numberOfChannels: 2,
+      } as AudioBuffer,
+      config: mockConfig,
+      durationSeconds: 10,
+      format: "wav",
+      audioMode: "nightcore",
+    });
+
+    expect(vi.mocked(planJukeboxPath).mock.calls[0]?.[0]).toMatchObject({
+      durationSeconds: 12,
+    });
+    expect(vi.mocked(renderJukeboxAudio).mock.calls[0]?.[0]).toMatchObject({
+      durationSeconds: 10,
+      audioMode: "nightcore",
+    });
+  });
+
+  it("uses the prepared swing buffer when exporting swing mode", async () => {
+    vi.mocked(planJukeboxPath).mockReturnValue({
+      segments: [
+        {
+          outputStart: 0,
+          sourceStart: 0,
+          duration: 4,
+          beatIndex: 0,
+          jumped: false,
+          jumpFromIndex: null,
+        },
+      ],
+      renderDurationSeconds: 4,
+    });
+    vi.mocked(renderJukeboxAudio).mockResolvedValue({} as AudioBuffer);
+    vi.mocked(encodeAudioBufferWithFfmpeg).mockResolvedValue({
+      bytes: new Uint8Array([10, 11]),
+      extension: "wav",
+      mimeType: "audio/wav",
+    });
+
+    const sourceBuffer = {
+      duration: 8,
+      sampleRate: 10,
+      numberOfChannels: 2,
+    } as AudioBuffer;
+    const swingBuffer = {
+      duration: 4,
+      sampleRate: 10,
+      numberOfChannels: 2,
+    } as AudioBuffer;
+
+    await exportJukeboxAudio({
+      analysis: mockAnalysis,
+      sourceBuffer,
+      swingBuffer,
+      config: mockConfig,
+      durationSeconds: 4,
+      format: "wav",
+      audioMode: "swing",
+    });
+
+    expect(vi.mocked(planJukeboxPath).mock.calls[0]?.[0]).toMatchObject({
+      bufferDurationSeconds: 4,
+    });
+    expect(vi.mocked(renderJukeboxAudio).mock.calls[0]?.[0]?.sourceBuffer).toBe(
+      swingBuffer,
     );
   });
 });
