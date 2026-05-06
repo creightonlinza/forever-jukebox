@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
   addFavorite,
+  filterFavorites,
   isFavorite,
   loadFavorites,
   loadFavoritesSyncCode,
@@ -90,6 +91,46 @@ describe("favorites", () => {
     ];
     const next = removeFavorite(items, "1");
     expect(next.length).toBe(0);
+  });
+
+  it("filters favorites by title, artist, id, and source", () => {
+    const items = [
+      {
+        uniqueSongId: "yt-123",
+        title: "Midnight City",
+        artist: "M83",
+        duration: 1,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "bandcamp:abc",
+        title: "Roads",
+        artist: "Portishead",
+        duration: 2,
+        sourceType: "bandcamp" as const,
+      },
+      {
+        uniqueSongId: "upload-job",
+        title: "Local Mix",
+        artist: "Unknown",
+        duration: null,
+        sourceType: "upload" as const,
+      },
+    ];
+
+    expect(filterFavorites(items, "city").map((item) => item.uniqueSongId)).toEqual([
+      "yt-123",
+    ]);
+    expect(filterFavorites(items, "PORTIS").map((item) => item.uniqueSongId)).toEqual([
+      "bandcamp:abc",
+    ]);
+    expect(filterFavorites(items, "  yt-123  ").map((item) => item.uniqueSongId)).toEqual([
+      "yt-123",
+    ]);
+    expect(filterFavorites(items, "upload").map((item) => item.uniqueSongId)).toEqual([
+      "upload-job",
+    ]);
+    expect(filterFavorites(items, "")).toBe(items);
   });
 
   it("checks favorite presence", () => {

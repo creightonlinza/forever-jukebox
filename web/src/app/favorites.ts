@@ -56,6 +56,18 @@ export function removeFavorite(items: FavoriteTrack[], uniqueSongId: string) {
   return sortFavorites(next);
 }
 
+export function filterFavorites(items: FavoriteTrack[], query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return items;
+  }
+  return items.filter((item) =>
+    [item.title, item.artist, item.uniqueSongId, item.sourceType].some((value) =>
+      (value ?? "").toLowerCase().includes(normalizedQuery),
+    ),
+  );
+}
+
 export function sortFavorites(items: FavoriteTrack[]) {
   const seen = new Set<string>();
   const deduped = items.filter((item) => {
