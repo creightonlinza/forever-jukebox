@@ -148,7 +148,7 @@ describe("AutocanonizerViz", () => {
       inner.layoutMetrics.topPad +
       inner.layoutMetrics.tileHeight -
       inner.layoutMetrics.vPad;
-    const branchCursorY = sectionY + 10;
+    const branchCursorY = sectionY + 16 - 8 / 2;
     const maxBeatBottom = Math.max(
       ...inner.layouts.map((layout) => layout.y + layout.height),
     );

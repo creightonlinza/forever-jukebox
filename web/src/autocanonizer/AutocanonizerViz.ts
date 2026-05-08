@@ -55,7 +55,6 @@ export class AutocanonizerViz {
     path: ConnectionPath;
     start: number;
     duration: number;
-    startOverrideX?: number;
   } | null = null;
   private forcedOtherIndex: number | null = null;
   private lastOtherCursor: { x: number; y: number } | null = null;
@@ -440,11 +439,7 @@ export class AutocanonizerViz {
         );
         this.lastOtherCursor = { x: otherCursor.x, y: otherCursor.y };
       } else if (this.lastOtherCursor) {
-        const holdMs = 120;
-        if (
-          this.otherAnimEndedAt !== null &&
-          performance.now() - this.otherAnimEndedAt <= holdMs
-        ) {
+        if (this.otherAnimEndedAt !== null) {
           this.overlayCtx.fillStyle = "#10DF00";
           this.drawCenteredCursor(
             this.lastOtherCursor.x,
@@ -516,9 +511,8 @@ export class AutocanonizerViz {
     }
     const t = elapsed / this.otherAnim.duration;
     const { path } = this.otherAnim;
-    const fromX = this.otherAnim.startOverrideX ?? path.fromX;
     const progress = path.totalLength * t;
-    const point = pointAtLength(path, progress, fromX);
+    const point = pointAtLength(path, progress);
     const x = point.x;
     const y = point.y;
     this.requestAnimation();
@@ -538,17 +532,17 @@ export class AutocanonizerViz {
   setCurrentIndex(index: number, animate: boolean) {
     this.currentIndex = index;
     this.forcedOtherIndex = null;
+    this.otherAnim = null;
+    this.otherAnimEndedAt = null;
     if (animate) {
       const path = this.connections[index];
       if (path) {
         const beat = this.beats[index];
         const duration = Math.max(0, beat.other.duration * 0.75) * 1000;
-        const last = this.lastOtherCursor;
         this.otherAnim = {
           path,
           start: performance.now(),
           duration,
-          startOverrideX: last?.x,
         };
         this.requestAnimation();
       }
@@ -567,6 +561,7 @@ export class AutocanonizerViz {
     }
     this.forcedOtherIndex = index;
     this.otherAnim = null;
+    this.otherAnimEndedAt = null;
     this.applyTileOverride(index, "#10DF00");
     this.drawOverlay();
   }
@@ -649,11 +644,7 @@ function sampleQuadraticPath(
   return samples;
 }
 
-function pointAtLength(
-  path: ConnectionPath,
-  length: number,
-  fromXOverride?: number,
-) {
+function pointAtLength(path: ConnectionPath, length: number) {
   if (!path.samples.length) {
     return { x: path.fromX, y: path.startY };
   }
@@ -664,7 +655,7 @@ function pointAtLength(
     idx += 1;
   }
   if (idx === 0) {
-    return { x: fromXOverride ?? samples[0].x, y: samples[0].y };
+    return { x: samples[0].x, y: samples[0].y };
   }
   const prev = samples[idx - 1];
   const cur = samples[Math.min(idx, samples.length - 1)];
@@ -672,8 +663,5 @@ function pointAtLength(
   const t = span === 0 ? 0 : (clamped - prev.len) / span;
   const x = prev.x + (cur.x - prev.x) * t;
   const y = prev.y + (cur.y - prev.y) * t;
-  if (fromXOverride !== undefined && clamped === 0) {
-    return { x: fromXOverride, y };
-  }
   return { x, y };
 }
