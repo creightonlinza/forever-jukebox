@@ -31,6 +31,11 @@ type ConnectionPath = {
   totalLength: number;
 };
 
+const SECTION_HEIGHT = 16;
+const CURSOR_SIZE = 8;
+const OTHER_CURSOR_CENTER_OFFSET = SECTION_HEIGHT - CURSOR_SIZE / 2;
+const CONNECTION_LINE_WIDTH = 3;
+
 export class AutocanonizerViz {
   private container: HTMLElement;
   private baseCanvas: HTMLCanvasElement;
@@ -236,11 +241,12 @@ export class AutocanonizerViz {
   }
 
   private computeConnections() {
-    const { width, tileHeight, connectionHeight, hPad, topPad } =
+    const { width, tileHeight, connectionHeight, hPad, topPad, vPad } =
       this.layoutMetrics;
     const spanWidth = Math.max(1, width - hPad * 2);
     const maxDelta = this.maxDelta || 1;
-    const startY = topPad + tileHeight - 20 + 10;
+    const sectionY = topPad + tileHeight - vPad;
+    const startY = sectionY + OTHER_CURSOR_CENTER_OFFSET;
     return this.beats.map((beat, i) => {
       const next = this.beats[i + 1];
       if (!beat?.other || !next?.other) {
@@ -279,8 +285,15 @@ export class AutocanonizerViz {
     if (!this.visible) {
       return;
     }
-    const { width, fullHeight, tileHeight, connectionHeight, hPad, topPad } =
-      this.layoutMetrics;
+    const {
+      width,
+      fullHeight,
+      tileHeight,
+      connectionHeight,
+      hPad,
+      topPad,
+      vPad,
+    } = this.layoutMetrics;
     this.baseCtx.clearRect(0, 0, width, fullHeight);
     if (!this.beats.length || !this.trackDuration) {
       return;
@@ -312,7 +325,7 @@ export class AutocanonizerViz {
     }
     this.baseCtx.restore();
     if (this.sections.length) {
-      const sectionY = topPad + tileHeight - 16;
+      const sectionY = topPad + tileHeight - vPad;
       this.baseCtx.save();
       for (let i = 0; i < this.sections.length; i += 1) {
         const section = this.sections[i];
@@ -321,7 +334,7 @@ export class AutocanonizerViz {
         const sectionWidth =
           (spanWidth * section.duration) / this.trackDuration;
         this.baseCtx.fillStyle = sectionColor(i);
-        this.baseCtx.fillRect(sectionX, sectionY, sectionWidth, 16);
+        this.baseCtx.fillRect(sectionX, sectionY, sectionWidth, SECTION_HEIGHT);
       }
       this.baseCtx.restore();
     }
@@ -329,21 +342,22 @@ export class AutocanonizerViz {
       this.baseCtx.save();
       this.baseCtx.strokeStyle = "rgba(255, 255, 255, 0.08)";
       this.baseCtx.beginPath();
-      this.baseCtx.moveTo(hPad, topPad + tileHeight + 4);
-      this.baseCtx.lineTo(width - hPad, topPad + tileHeight + 4);
+      this.baseCtx.moveTo(hPad, topPad + tileHeight - vPad + SECTION_HEIGHT);
+      this.baseCtx.lineTo(
+        width - hPad,
+        topPad + tileHeight - vPad + SECTION_HEIGHT,
+      );
       this.baseCtx.stroke();
       this.baseCtx.restore();
     }
   }
 
   private drawConnections() {
-    const { tileHeight, topPad } = this.layoutMetrics;
     if (!this.layouts.length) {
       return;
     }
-    const baseY = topPad + tileHeight - 4;
     this.baseCtx.save();
-    this.baseCtx.lineWidth = 3;
+    this.baseCtx.lineWidth = CONNECTION_LINE_WIDTH;
     for (let i = 0; i < this.beats.length - 1; i += 1) {
       const beat = this.beats[i];
       const path = this.connections[i];
@@ -352,8 +366,8 @@ export class AutocanonizerViz {
       }
       this.baseCtx.strokeStyle = withAlpha(beat.other.color, 0.6);
       this.baseCtx.beginPath();
-      this.baseCtx.moveTo(path.fromX, baseY);
-      this.baseCtx.quadraticCurveTo(path.cx, path.cy, path.toX, baseY);
+      this.baseCtx.moveTo(path.fromX, path.startY);
+      this.baseCtx.quadraticCurveTo(path.cx, path.cy, path.toX, path.startY);
       this.baseCtx.stroke();
     }
     this.baseCtx.restore();
@@ -363,7 +377,7 @@ export class AutocanonizerViz {
     if (!this.visible) {
       return;
     }
-    const { width, fullHeight, tileHeight, topPad } = this.layoutMetrics;
+    const { width, fullHeight, tileHeight, topPad, vPad } = this.layoutMetrics;
     this.overlayCtx.clearRect(0, 0, width, fullHeight);
     if (!this.layouts.length || this.currentIndex < 0) {
       return;
@@ -375,9 +389,10 @@ export class AutocanonizerViz {
     }
     const otherIndex = this.forcedOtherIndex ?? beat.other.which;
     const otherLayout = this.layouts[otherIndex];
-    const cursorWidth = 8;
-    const cursorHeight = 8;
-    const sectionY = topPad + tileHeight - 16;
+    const cursorWidth = CURSOR_SIZE;
+    const cursorHeight = CURSOR_SIZE;
+    const sectionY = topPad + tileHeight - vPad;
+    const otherCursorCenterY = sectionY + OTHER_CURSOR_CENTER_OFFSET;
     this.overlayCtx.save();
     this.overlayCtx.fillStyle = "rgba(79, 143, 255, 0.65)";
     this.overlayCtx.fillRect(
@@ -404,75 +419,87 @@ export class AutocanonizerViz {
     );
     if (this.forcedOtherIndex !== null && otherLayout) {
       this.overlayCtx.fillStyle = "#10DF00";
-      this.overlayCtx.fillRect(
-        otherLayout.x - cursorWidth / 2,
-        sectionY + 8,
+      this.drawCenteredCursor(
+        otherLayout.x,
+        otherCursorCenterY,
         cursorWidth,
         cursorHeight,
       );
-      this.lastOtherCursor = { x: otherLayout.x, y: sectionY + 8 };
+      this.lastOtherCursor = {
+        x: otherLayout.x,
+        y: otherCursorCenterY,
+      };
     } else {
       const otherCursor = this.getAnimatedOtherCursor();
       if (otherCursor) {
         this.overlayCtx.fillStyle = "#10DF00";
-        this.overlayCtx.fillRect(
-          otherCursor.x - cursorWidth / 2,
+        this.drawCenteredCursor(
+          otherCursor.x,
           otherCursor.y,
           cursorWidth,
           cursorHeight,
         );
         this.lastOtherCursor = { x: otherCursor.x, y: otherCursor.y };
       } else if (this.lastOtherCursor) {
-      const holdMs = 120;
-      if (
-        this.otherAnimEndedAt !== null &&
-        performance.now() - this.otherAnimEndedAt <= holdMs
-      ) {
-        this.overlayCtx.fillStyle = "#10DF00";
-        this.overlayCtx.fillRect(
-          this.lastOtherCursor.x - cursorWidth / 2,
-          this.lastOtherCursor.y - 2,
-          cursorWidth,
-          cursorHeight,
-        );
-        this.overlayCtx.restore();
-        return;
-      }
-      if (otherLayout) {
-        const follow = { x: otherLayout.x, y: sectionY + 8 };
-        this.overlayCtx.fillStyle = "#10DF00";
-        this.overlayCtx.fillRect(
-          follow.x - cursorWidth / 2,
-          follow.y,
-          cursorWidth,
-          cursorHeight,
-        );
-        this.lastOtherCursor = follow;
-      } else {
-        this.overlayCtx.fillStyle = "#10DF00";
-        this.overlayCtx.fillRect(
-          this.lastOtherCursor.x - cursorWidth / 2,
-          this.lastOtherCursor.y,
-          cursorWidth,
-          cursorHeight,
-        );
-      }
+        const holdMs = 120;
+        if (
+          this.otherAnimEndedAt !== null &&
+          performance.now() - this.otherAnimEndedAt <= holdMs
+        ) {
+          this.overlayCtx.fillStyle = "#10DF00";
+          this.drawCenteredCursor(
+            this.lastOtherCursor.x,
+            this.lastOtherCursor.y,
+            cursorWidth,
+            cursorHeight,
+          );
+          this.overlayCtx.restore();
+          return;
+        }
+        if (otherLayout) {
+          const follow = { x: otherLayout.x, y: otherCursorCenterY };
+          this.overlayCtx.fillStyle = "#10DF00";
+          this.drawCenteredCursor(follow.x, follow.y, cursorWidth, cursorHeight);
+          this.lastOtherCursor = follow;
+        } else {
+          this.overlayCtx.fillStyle = "#10DF00";
+          this.drawCenteredCursor(
+            this.lastOtherCursor.x,
+            this.lastOtherCursor.y,
+            cursorWidth,
+            cursorHeight,
+          );
+        }
       } else if (otherLayout) {
-      this.overlayCtx.fillStyle = "#10DF00";
-      const fallback = {
-        x: otherLayout.x,
-        y: sectionY + 8,
-      };
-      this.overlayCtx.fillRect(
-        fallback.x - cursorWidth / 2,
-        fallback.y,
-        cursorWidth,
-        cursorHeight,
-      );
-      this.lastOtherCursor = fallback;
+        this.overlayCtx.fillStyle = "#10DF00";
+        const fallback = {
+          x: otherLayout.x,
+          y: otherCursorCenterY,
+        };
+        this.drawCenteredCursor(
+          fallback.x,
+          fallback.y,
+          cursorWidth,
+          cursorHeight,
+        );
+        this.lastOtherCursor = fallback;
       }
     }
     this.overlayCtx.restore();
+  }
+
+  private drawCenteredCursor(
+    centerX: number,
+    centerY: number,
+    width: number,
+    height: number,
+  ) {
+    this.overlayCtx.fillRect(
+      centerX - width / 2,
+      centerY - height / 2,
+      width,
+      height,
+    );
   }
 
   private getAnimatedOtherCursor() {
@@ -587,7 +614,7 @@ function withAlpha(color: string, alpha: number) {
 
 function sectionColor(index: number) {
   const hue = (index * 47) % 360;
-  return `hsla(${hue}, 80%, 55%, 0.75)`;
+  return `hsl(${hue}, 80%, 55%)`;
 }
 
 function quadraticPoint(p0: number, p1: number, p2: number, t: number) {
