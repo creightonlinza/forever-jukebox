@@ -9,6 +9,7 @@ function createMockCtx() {
     save: vi.fn(),
     restore: vi.fn(),
     beginPath: vi.fn(),
+    closePath: vi.fn(),
     arc: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
@@ -113,6 +114,49 @@ describe("AutocanonizerViz", () => {
     );
     const inner = viz as unknown as { beats: unknown[] };
     expect(inner.beats.length).toBe(2);
+  });
+
+  it("keeps section strips below beats while branches track the cursor line", () => {
+    const container = createContainer();
+    const viz = new AutocanonizerViz(container);
+    viz.setVisible(true);
+    const beats = Array.from({ length: 4 }, (_, which) => ({
+      which,
+      start: which,
+      duration: 1,
+      volume: 1,
+      median_volume: 1,
+      color: "rgb(255, 255, 255)",
+      section: which,
+      otherGain: 1,
+    })) as any[];
+    beats[0].other = beats[0];
+    beats[1].other = beats[3];
+    beats[2].other = beats[1];
+    beats[3].other = beats[2];
+    viz.setData(
+      beats,
+      4,
+      beats.map((beat) => ({ start: beat.start, duration: beat.duration })),
+    );
+    const inner = viz as unknown as {
+      layoutMetrics: { topPad: number; tileHeight: number; vPad: number };
+      layouts: Array<{ y: number; height: number }>;
+      connections: Array<{ startY: number } | null>;
+      baseCtx: CanvasRenderingContext2D;
+    };
+    const sectionY =
+      inner.layoutMetrics.topPad +
+      inner.layoutMetrics.tileHeight -
+      inner.layoutMetrics.vPad;
+    const branchCursorY = sectionY + 16 - 8 / 2;
+    const maxBeatBottom = Math.max(
+      ...inner.layouts.map((layout) => layout.y + layout.height),
+    );
+    const branch = inner.connections.find(Boolean);
+    expect(maxBeatBottom).toBeCloseTo(sectionY, 5);
+    expect(branch?.startY).toBeCloseTo(branchCursorY, 5);
+    expect(inner.baseCtx.fillStyle).toBe("hsl(141, 80%, 55%)");
   });
 
   it("tracks current index updates", () => {
