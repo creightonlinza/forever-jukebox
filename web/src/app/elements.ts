@@ -459,10 +459,6 @@ export function getElements() {
     document.querySelector<HTMLInputElement>("#favorites-search-input"),
     "#favorites-search-input"
   );
-  const favoritesSearchClear = requireElement(
-    document.querySelector<HTMLButtonElement>("#favorites-search-clear"),
-    "#favorites-search-clear"
-  );
   const favoritesList = requireElement(
     document.querySelector<HTMLOListElement>("#favorites-list"),
     "#favorites-list"
@@ -659,7 +655,6 @@ export function getElements() {
     recentSongsList,
     favoritesFilter,
     favoritesSearchInput,
-    favoritesSearchClear,
     favoritesList,
     topSongsTabs,
     topListTitle,

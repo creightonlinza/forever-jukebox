@@ -67,10 +67,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "input",
     favoritesHandlers.handleFavoritesSearchInput,
   );
-  elements.favoritesSearchClear.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoritesSearchClear,
-  );
   elements.favoritesSyncEnterClose.addEventListener(
     "click",
     favoritesHandlers.handleFavoritesSyncEnterClose,

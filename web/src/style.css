@@ -929,44 +929,11 @@ button.is-loading::after {
 }
 
 .favorites-filter {
-  position: relative;
   margin: 0 0 10px;
 }
 
 .favorites-filter .search-input {
   width: 100%;
-  padding-right: 40px;
-}
-
-.favorites-filter-clear {
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  transform: translateY(-50%);
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 8px;
-  padding: 0;
-  background: transparent;
-  color: var(--muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.favorites-filter-clear.hidden {
-  display: none;
-}
-
-.favorites-filter-clear:hover {
-  background: var(--surface-control);
-  color: var(--text);
-}
-
-.favorites-filter-clear-icon {
-  font-size: 17px;
-  line-height: 1;
 }
 
 .favorite-row {

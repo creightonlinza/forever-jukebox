@@ -557,7 +557,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   function renderFavoritesList() {
     elements.favoritesList.innerHTML = "";
     const query = elements.favoritesSearchInput.value.trim();
-    elements.favoritesSearchClear.classList.toggle("hidden", query === "");
     if (state.favorites.length === 0) {
       elements.favoritesList.textContent = "No favorites yet.";
       return;
@@ -770,12 +769,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     renderFavoritesList();
   }
 
-  function handleFavoritesSearchClear() {
-    elements.favoritesSearchInput.value = "";
-    renderFavoritesList();
-    elements.favoritesSearchInput.focus();
-  }
-
   function showFavoriteToast(message: string) {
     if (state.favoritesSyncCode) {
       showToast(context, message, { icon: "cloud_done" });
@@ -800,7 +793,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     hydrateFavoritesFromSync,
     renderFavoritesList,
     handleFavoritesSearchInput,
-    handleFavoritesSearchClear,
     syncFavoriteButton,
     maybeAutoFavoriteUserSupplied,
     handleFavoriteClick,
