@@ -3,10 +3,7 @@ import type { Elements } from "../elements";
 import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
 import type { BufferedAudioPlayer } from "../../audio/BufferedAudioPlayer";
 import { setAutoMarqueeText } from "../marquee";
-
-function formatAudioModeLabel(mode: AppContext["state"]["jukeboxAudioMode"]) {
-  return mode === "cowbell" ? "more cowbell" : mode;
-}
+import { formatPlaybackTitle } from "../format";
 
 type TuningDeps = {
   context: AppContext;
@@ -61,12 +58,11 @@ export function createTuningHandlers(deps: TuningDeps) {
       return;
     }
     const baseTitle = state.trackTitle ?? "Unknown";
-    const title =
-      state.playMode === "autocanonizer"
-        ? `${baseTitle} (autocanonized)`
-        : state.jukeboxAudioMode !== "off"
-          ? `${baseTitle} (${formatAudioModeLabel(state.jukeboxAudioMode)})`
-          : baseTitle;
+    const title = formatPlaybackTitle(
+      baseTitle,
+      state.playMode,
+      state.jukeboxAudioMode,
+    );
     const displayTitle = state.trackArtist ? `${title} — ${state.trackArtist}` : title;
     setAutoMarqueeText(elements.playTitle, displayTitle);
     setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);

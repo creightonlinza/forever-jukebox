@@ -1,3 +1,6 @@
+import type { JukeboxAudioMode } from "../audio/BufferedAudioPlayer";
+import type { AppState } from "./context";
+
 export function formatDuration(seconds: number) {
   const totalSeconds = Math.floor(seconds);
   const hours = Math.floor(totalSeconds / 3600);
@@ -14,4 +17,25 @@ export function formatTrackDuration(seconds: unknown) {
     return "-";
   }
   return formatDuration(seconds);
+}
+
+export function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
+  if (audioMode === "cowbell") {
+    return "more cowbell";
+  }
+  return audioMode;
+}
+
+export function formatPlaybackTitle(
+  baseTitle: string,
+  playMode: AppState["playMode"],
+  audioMode: JukeboxAudioMode,
+) {
+  if (playMode === "autocanonizer") {
+    return `${baseTitle} (autocanonized)`;
+  }
+  if (audioMode !== "off") {
+    return `${baseTitle} (${formatAudioModeLabel(audioMode)})`;
+  }
+  return baseTitle;
 }

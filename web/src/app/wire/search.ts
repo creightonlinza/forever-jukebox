@@ -70,10 +70,6 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
     button.setAttribute("aria-busy", busy ? "true" : "false");
   }
 
-  function setButtonBusySpinnerOnly(button: HTMLButtonElement, busy: boolean) {
-    setButtonBusy(button, busy);
-  }
-
   async function triggerSearch() {
     if (searchInFlight) {
       return;
@@ -201,7 +197,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       }
     }
     uploadFileInFlight = true;
-    setButtonBusySpinnerOnly(elements.uploadFileButton, true);
+    setButtonBusy(elements.uploadFileButton, true);
     try {
       const response = await uploadAudio(file);
       if (!response || !response.id) {
@@ -245,7 +241,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       }
       showToast(context, `Upload failed: ${String(err)}`);
     } finally {
-      setButtonBusySpinnerOnly(elements.uploadFileButton, false);
+      setButtonBusy(elements.uploadFileButton, false);
       uploadFileInFlight = false;
     }
   }
@@ -271,7 +267,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       return;
     }
     uploadYoutubeInFlight = true;
-    setButtonBusySpinnerOnly(elements.uploadYoutubeButton, true);
+    setButtonBusy(elements.uploadYoutubeButton, true);
     try {
       const response = await startUrlAnalysis({
         url: sourceUrl,
@@ -324,7 +320,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       }
       showToast(context, `Upload failed: ${String(err)}`);
     } finally {
-      setButtonBusySpinnerOnly(elements.uploadYoutubeButton, false);
+      setButtonBusy(elements.uploadYoutubeButton, false);
       uploadYoutubeInFlight = false;
     }
   }

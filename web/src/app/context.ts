@@ -46,9 +46,6 @@ export type AppState = {
   swingRenderToken: number;
   selectedEdge: Edge | null;
   topSongsRefreshTimer: number | null;
-  topSongsLoaded: boolean;
-  trendingSongsLoaded: boolean;
-  recentSongsLoaded: boolean;
   trackDurationSec: number | null;
   trackTitle: string | null;
   trackArtist: string | null;

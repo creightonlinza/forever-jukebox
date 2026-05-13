@@ -153,9 +153,6 @@ export function bootstrap() {
     swingRenderToken: 0,
     selectedEdge: null,
     topSongsRefreshTimer: null,
-    topSongsLoaded: false,
-    trendingSongsLoaded: false,
-    recentSongsLoaded: false,
     trackDurationSec: null,
     trackTitle: null,
     trackArtist: null,
@@ -298,28 +295,18 @@ export function bootstrap() {
       loadTrackByJobId(context, playbackDeps, jobId),
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
   });
+  type LazyTopSongsTab = "top" | "trending" | "recent";
+  const loadedTopSongTabs = new Set<LazyTopSongsTab>();
   const topSongsTabLoaders = {
     top: {
-      loaded: () => state.topSongsLoaded,
-      markLoaded: () => {
-        state.topSongsLoaded = true;
-      },
       fetch: () => topSongsHandlers.fetchTopSongsList(),
       errorLabel: "Top songs",
     },
     trending: {
-      loaded: () => state.trendingSongsLoaded,
-      markLoaded: () => {
-        state.trendingSongsLoaded = true;
-      },
       fetch: () => topSongsHandlers.fetchTrendingSongsList(),
       errorLabel: "Trending songs",
     },
     recent: {
-      loaded: () => state.recentSongsLoaded,
-      markLoaded: () => {
-        state.recentSongsLoaded = true;
-      },
       fetch: () => topSongsHandlers.fetchRecentSongsList(),
       errorLabel: "Recent songs",
     },
@@ -338,13 +325,19 @@ export function bootstrap() {
       if (!(tabId in topSongsTabLoaders)) {
         return;
       }
-      const loader = topSongsTabLoaders[tabId as keyof typeof topSongsTabLoaders];
-      if (loader.loaded()) {
+      const lazyTabId = tabId as LazyTopSongsTab;
+      const loader = topSongsTabLoaders[lazyTabId];
+      if (loadedTopSongTabs.has(lazyTabId)) {
         return;
       }
-      loader.fetch().then(loader.markLoaded).catch((err) => {
-        console.warn(`${loader.errorLabel} load failed: ${String(err)}`);
-      });
+      loader
+        .fetch()
+        .then(() => {
+          loadedTopSongTabs.add(lazyTabId);
+        })
+        .catch((err) => {
+          console.warn(`${loader.errorLabel} load failed: ${String(err)}`);
+        });
     },
     onFaqOpen: refreshCacheSafely,
   });

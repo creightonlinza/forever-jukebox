@@ -6,7 +6,7 @@ import {
   ANALYSIS_POLL_INTERVAL_MS,
   LISTEN_TIMER_INTERVAL_MS,
 } from "./constants";
-import { formatDuration } from "./format";
+import { formatDuration, formatPlaybackTitle } from "./format";
 import {
   fetchAnalysis,
   fetchAudio,
@@ -38,27 +38,6 @@ const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const GENERIC_LOAD_ERROR_MESSAGE =
   "ERROR: Something went wrong. Please try again or report an issue on GitHub.";
-
-function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
-  if (audioMode === "cowbell") {
-    return "more cowbell";
-  }
-  return audioMode === "swing" ? "swing" : audioMode;
-}
-
-function formatTrackTitle(
-  baseTitle: string,
-  playMode: AppContext["state"]["playMode"],
-  audioMode: JukeboxAudioMode,
-) {
-  if (playMode === "autocanonizer") {
-    return `${baseTitle} (autocanonized)`;
-  }
-  if (audioMode !== "off") {
-    return `${baseTitle} (${formatAudioModeLabel(audioMode)})`;
-  }
-  return baseTitle;
-}
 
 function getDeletedEdgeIdsFromGraph(
   graph: ReturnType<AppContext["engine"]["getGraphState"]>,
@@ -1114,7 +1093,7 @@ export function applyAnalysisResult(
       : null;
   if (title || artist) {
     const baseTitle = title ?? "Unknown";
-    const withSuffix = formatTrackTitle(
+    const withSuffix = formatPlaybackTitle(
       baseTitle,
       state.playMode,
       state.jukeboxAudioMode,

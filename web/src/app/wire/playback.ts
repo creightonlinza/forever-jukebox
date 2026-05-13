@@ -7,7 +7,7 @@ import type { JukeboxController } from "../../jukebox/JukeboxController";
 import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
 import type { ToastOptions } from "../ui";
 import { VISUALIZATION_LABELS } from "../constants";
-import { formatDuration } from "../format";
+import { formatDuration, formatPlaybackTitle } from "../format";
 import { setAutoMarqueeText } from "../marquee";
 
 type PlaybackUiDeps = {
@@ -81,27 +81,6 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
   }
   const normalized = 1 - distance / maxDistance;
   return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
-}
-
-function formatAudioModeLabel(audioMode: AppState["jukeboxAudioMode"]) {
-  if (audioMode === "cowbell") {
-    return "more cowbell";
-  }
-  return audioMode === "swing" ? "swing" : audioMode;
-}
-
-function formatTrackTitle(
-  baseTitle: string,
-  playMode: AppState["playMode"],
-  audioMode: AppState["jukeboxAudioMode"],
-) {
-  if (playMode === "autocanonizer") {
-    return `${baseTitle} (autocanonized)`;
-  }
-  if (audioMode !== "off") {
-    return `${baseTitle} (${formatAudioModeLabel(audioMode)})`;
-  }
-  return baseTitle;
 }
 
 export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
@@ -566,7 +545,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     syncTuningTabsUI(context);
     if (state.trackTitle || state.trackArtist) {
       const baseTitle = state.trackTitle ?? "Unknown";
-      const withSuffix = formatTrackTitle(
+      const withSuffix = formatPlaybackTitle(
         baseTitle,
         mode,
         state.jukeboxAudioMode,
