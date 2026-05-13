@@ -5,6 +5,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -16,6 +17,7 @@ from api.models import AnalysisUrlRequest
 from api.routes import jobs
 from api.routes.jobs import _create_source_job, _should_attempt_auto_repair
 from api.routes.jobs_runtime import ANALYSIS_MISSING_MESSAGE, ERROR_YOUTUBE_LIVE
+from worker import worker as worker_module
 
 
 class JobRecoveryTests(unittest.TestCase):
@@ -50,6 +52,16 @@ class JobRecoveryTests(unittest.TestCase):
         job = SimpleNamespace(status="failed", error="ERROR: [youtube] abc123def45: Premieres in 3 hours")
 
         self.assertFalse(_should_attempt_auto_repair(job))
+
+    def test_completion_elapsed_prefers_claim_timestamp(self) -> None:
+        old_created_at = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        fresh_updated_at = (datetime.now(timezone.utc) - timedelta(seconds=2)).isoformat()
+        job = SimpleNamespace(created_at=old_created_at, updated_at=fresh_updated_at)
+
+        elapsed_ms = worker_module._completion_elapsed_ms(job)
+
+        self.assertIsNotNone(elapsed_ms)
+        self.assertLess(elapsed_ms, 10000)
 
     def test_create_source_job_reuses_failed_job_until_deleted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

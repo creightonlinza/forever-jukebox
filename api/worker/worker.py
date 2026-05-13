@@ -158,6 +158,18 @@ def _parse_timestamp(value: str | None) -> datetime | None:
     return parsed
 
 
+def _completion_elapsed_ms(job) -> int | None:
+    started_at = _parse_timestamp(job.updated_at)
+    if started_at is None:
+        started_at = _parse_timestamp(job.created_at)
+    if started_at is None:
+        return None
+    return max(
+        0,
+        int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000),
+    )
+
+
 def _extract_track_duration_seconds(output_path: str) -> float | None:
     result_path = abs_storage_path(STORAGE_ROOT, output_path)
     if not result_path.exists():
@@ -231,19 +243,12 @@ def run_worker_loop() -> None:
             cleanup_failed_job(job, exc)
             continue
         set_job_status(DB_PATH, job.id, "complete", None)
-        created_at = _parse_timestamp(job.created_at)
-        elapsed_ms: int | None = None
-        if created_at is not None:
-            elapsed_ms = max(
-                0,
-                int((datetime.now(timezone.utc) - created_at).total_seconds() * 1000),
-            )
         log_event(
             "job_completed",
             job_id=job.id,
             source=job.source_provider or "unknown",
             duration_s=_extract_track_duration_seconds(job.output_path),
-            elapsed_ms=elapsed_ms,
+            elapsed_ms=_completion_elapsed_ms(job),
         )
 
 def main() -> None:
