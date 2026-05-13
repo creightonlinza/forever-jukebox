@@ -11,11 +11,11 @@ type TopSongsDeps = {
   fetchRecentSongs: (limit: number) => Promise<
     Array<{ id?: string; title?: string; artist?: string; source_id?: string; source_provider?: string }>
   >;
-  loadTrackBySourceId: (sourceId: string, sourceProvider?: string) => void;
+  loadTrackById: (trackId: string) => void;
   loadTrackByJobId: (jobId: string) => void;
   navigateToTabWithState: (
     tabId: TabId,
-    options?: { replace?: boolean; youtubeId?: string | null },
+    options?: { replace?: boolean; trackId?: string | null },
   ) => void;
   limit: number;
 };
@@ -28,7 +28,7 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     fetchTopSongs,
     fetchTrendingSongs,
     fetchRecentSongs,
-    loadTrackBySourceId,
+    loadTrackById,
     loadTrackByJobId,
     navigateToTabWithState,
     limit,
@@ -67,16 +67,13 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
         const listenId =
           sourceProvider === "youtube" && sourceId
             ? sourceId
-            : (jobId || sourceId);
+            : jobId;
         const li = document.createElement("li");
         if (listenId) {
           const link = document.createElement("a");
           link.href = `/listen/${encodeURIComponent(listenId)}`;
           link.textContent = artist ? `${title} — ${artist}` : title;
           link.dataset.trackId = listenId;
-          if (sourceProvider) {
-            link.dataset.sourceProvider = sourceProvider;
-          }
           link.addEventListener("click", handleTopSongClick);
           li.appendChild(link);
         } else {
@@ -124,16 +121,15 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     event.preventDefault();
     const target = event.currentTarget as HTMLAnchorElement | null;
     const trackId = target?.dataset.trackId;
-    const sourceProvider = target?.dataset.sourceProvider;
     if (!trackId) {
       return;
     }
-    navigateToTabWithState("play", { youtubeId: trackId });
+    navigateToTabWithState("play", { trackId });
     if (isLikelyJobId(trackId)) {
       loadTrackByJobId(trackId);
       return;
     }
-    loadTrackBySourceId(trackId, sourceProvider);
+    loadTrackById(trackId);
   }
 
   return { fetchTopSongsList, fetchTrendingSongsList, fetchRecentSongsList };

@@ -13,7 +13,7 @@ type DeleteJobDeps = {
   resetForNewTrack: (context: AppContext) => void;
   navigateToTabWithState: (
     tabId: TabId,
-    options?: { replace?: boolean; youtubeId?: string | null },
+    options?: { replace?: boolean; trackId?: string | null },
   ) => void;
   showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
   isFavorite: (items: AppState["favorites"], id: string) => boolean;
@@ -49,7 +49,7 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
       return;
     }
     const jobId = state.lastJobId;
-    const youtubeId = state.lastYouTubeId;
+    const trackId = state.lastTrackId;
     if (!jobId) {
       return;
     }
@@ -57,7 +57,7 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
     setDeleteButtonBusy(true);
     deleteJob(jobId)
       .then(() => {
-        const favoriteId = youtubeId ?? jobId;
+        const favoriteId = trackId ?? jobId;
         if (favoriteId) {
           deleteCachedTrack(favoriteId).catch((err) => {
             console.warn(`Cache delete failed: ${String(err)}`);

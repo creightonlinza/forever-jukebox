@@ -32,7 +32,7 @@ function createContext(): AppContext {
     defaultConfig: {} as unknown as AppContext["defaultConfig"],
     state: {
       playMode: "jukebox",
-      lastYouTubeId: null,
+      lastTrackId: null,
       lastJobId: null,
       audioLoaded: false,
       analysisLoaded: false,

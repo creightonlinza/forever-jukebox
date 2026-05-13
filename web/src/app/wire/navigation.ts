@@ -13,12 +13,12 @@ export function createNavigationHandlers(deps: NavigationDeps) {
   const { context, state } = deps;
 
   function getCurrentTrackId() {
-    return state.lastYouTubeId ?? state.lastJobId;
+    return state.lastTrackId ?? state.lastJobId;
   }
 
   function navigateToTabWithState(
     tabId: TabId,
-    options?: { replace?: boolean; youtubeId?: string | null },
+    options?: { replace?: boolean; trackId?: string | null },
   ) {
     setActiveTabWithRefresh(tabId);
     const tuningParams = state.tuningParams ?? getTuningParamsStringFromUrl();

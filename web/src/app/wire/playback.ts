@@ -36,15 +36,15 @@ type PlaybackUiDeps = {
   startJukeboxFromBeat: (context: AppContext, index: number) => void;
   startAutocanonizerPlayback: (context: AppContext, index: number) => void;
   updateTrackUrl: (
-    youtubeId: string,
+    trackId: string,
     replace?: boolean,
     tuningParams?: string | null,
     playMode?: "jukebox" | "autocanonizer",
   ) => void;
   navigateToTab: (
     tabId: TabId,
-    options?: { replace?: boolean; youtubeId?: string | null },
-    lastYouTubeId?: string | null,
+    options?: { replace?: boolean; trackId?: string | null },
+    lastTrackId?: string | null,
     tuningParams?: string | null,
     playMode?: "jukebox" | "autocanonizer",
   ) => void;
@@ -453,7 +453,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   }
 
   async function copyShortUrl() {
-    const trackId = state.lastYouTubeId ?? state.lastJobId;
+    const trackId = state.lastTrackId ?? state.lastJobId;
     if (!trackId) {
       setAnalysisStatus(
         context,

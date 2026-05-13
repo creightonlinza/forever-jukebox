@@ -37,7 +37,7 @@ describe("tabs", () => {
   it("navigates to play and preserves tuning params", () => {
     navigateToTab(
       "play",
-      { replace: true, youtubeId: "abc123" },
+      { replace: true, trackId: "abc123" },
       null,
       "jb=1&thresh=20",
       "jukebox",
@@ -54,13 +54,13 @@ describe("tabs", () => {
 
   it("builds full track URLs with tuning params", () => {
     const href = urlForTrack(
-      "soundcloud:track/with space",
+      "a3f3c0dc73c6476c9db95c227f9206f2",
       "https://example.test/current?old=1",
       "jb=1&d=2,8&am=nightcore",
       "jukebox",
     );
     expect(href).toBe(
-      "https://example.test/listen/soundcloud%3Atrack%2Fwith%20space?jb=1&d=2,8&am=nightcore",
+      "https://example.test/listen/a3f3c0dc73c6476c9db95c227f9206f2?jb=1&d=2,8&am=nightcore",
     );
   });
 

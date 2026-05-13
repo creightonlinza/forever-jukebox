@@ -37,13 +37,13 @@ function openTrackCacheDb(): Promise<IDBDatabase> {
 }
 
 export async function readCachedTrack(
-  youtubeId: string
+  trackId: string
 ): Promise<CachedTrack | null> {
   const db = await openTrackCacheDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(trackCacheStore, "readonly");
     const store = tx.objectStore(trackCacheStore);
-    const request = store.get(youtubeId);
+    const request = store.get(trackId);
     request.onsuccess = () => {
       resolve((request.result as CachedTrack | undefined) ?? null);
     };
@@ -53,12 +53,12 @@ export async function readCachedTrack(
 }
 
 export async function updateCachedTrack(
-  youtubeId: string,
+  trackId: string,
   patch: Partial<CachedTrack>
 ) {
-  const existing = await readCachedTrack(youtubeId);
+  const existing = await readCachedTrack(trackId);
   const next: CachedTrack = {
-    youtubeId,
+    youtubeId: trackId,
     audio: existing?.audio,
     jobId: existing?.jobId,
     updatedAt: Date.now(),
@@ -75,12 +75,12 @@ export async function updateCachedTrack(
   });
 }
 
-export async function deleteCachedTrack(youtubeId: string) {
+export async function deleteCachedTrack(trackId: string) {
   const db = await openTrackCacheDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(trackCacheStore, "readwrite");
     const store = tx.objectStore(trackCacheStore);
-    const request = store.delete(youtubeId);
+    const request = store.delete(trackId);
     request.onsuccess = () => resolve();
     request.onerror = () =>
       reject(request.error ?? new Error("IndexedDB delete failed"));
