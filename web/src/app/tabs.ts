@@ -20,6 +20,17 @@ export function pathForTab(tabId: TabId, youtubeId?: string | null) {
   return "/";
 }
 
+export function urlForTrack(
+  youtubeId: string,
+  baseUrl: string,
+  tuningParams?: string | null,
+  playMode?: "jukebox" | "autocanonizer",
+) {
+  const url = new URL(pathForTab("play", youtubeId), baseUrl);
+  url.search = buildSearchParams(tuningParams, playMode);
+  return url.toString();
+}
+
 export function pathForFaqSubtab(subtabId: FaqSubtabId) {
   return subtabId === "whats-new" ? "/whats-new" : "/faq";
 }
@@ -99,9 +110,9 @@ export function updateTrackUrl(
   tuningParams?: string | null,
   playMode?: "jukebox" | "autocanonizer"
 ) {
-  const url = new URL(window.location.href);
-  url.pathname = pathForTab("play", youtubeId);
-  url.search = buildSearchParams(tuningParams, playMode);
+  const url = new URL(
+    urlForTrack(youtubeId, window.location.href, tuningParams, playMode),
+  );
   if (replace) {
     window.history.replaceState({}, "", url.toString());
   } else {

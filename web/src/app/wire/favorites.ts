@@ -3,6 +3,7 @@ import type { Elements } from "../elements";
 import { filterFavorites, type FavoriteTrack } from "../favorites";
 import type { AnalysisComplete } from "../api";
 import type { ToastOptions } from "../ui";
+import { urlForTrack } from "../tabs";
 
 type FavoritesDeps = {
   context: AppContext;
@@ -574,7 +575,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         item.sourceType ??
         (item.uniqueSongId ? inferSourceTypeFromId(item.uniqueSongId) : "youtube");
       const link = document.createElement("a");
-      link.href = `/listen/${encodeURIComponent(item.uniqueSongId)}`;
+      link.href = urlForTrack(
+        item.uniqueSongId,
+        window.location.href,
+        item.tuningParams,
+        "jukebox",
+      );
       const titleText = item.title || "Untitled";
       const artist = (item.artist || "").trim();
       const showArtist = artist !== "" && artist !== "Unknown";
