@@ -41,6 +41,7 @@ data under storage pressure.
 - Shift (hold): force branches while the jukebox is playing.
 - H: toggle Bring It Home mode.
 - Left/Right: cycle selected branch.
+- A: set/reset the selected backward branch as the anchor branch.
 - Delete: remove a selected branch (click a branch in the visualization first).
 
 ## Analysis format (inferred)

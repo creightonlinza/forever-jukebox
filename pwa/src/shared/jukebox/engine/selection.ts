@@ -5,6 +5,11 @@ export interface BranchState {
   lastDestBySource?: Map<number, number> | null;
 }
 
+export interface UserAnchorSelection {
+  edgeId: number;
+  sourceIndex: number;
+}
+
 const REFERENCE_BEAT_DURATION_SECONDS = 0.5;
 
 function collectTimeline(seed: QuantumBase): QuantumBase[] {
@@ -194,9 +199,10 @@ export function shouldRandomBranch(
   graph: JukeboxGraphState,
   config: JukeboxConfig,
   rng: () => number,
-  state: BranchState
+  state: BranchState,
+  suppressDefaultAnchor = false
 ): boolean {
-  if (q.which === graph.lastBranchPoint) {
+  if (!suppressDefaultAnchor && q.which === graph.lastBranchPoint) {
     return true;
   }
   // Gradually increase branch chance by elapsed musical time (not raw beat
@@ -225,21 +231,62 @@ export function selectNextBeatIndex(
   config: JukeboxConfig,
   rng: () => number,
   state: BranchState,
-  forceBranch = false
+  forceBranch = false,
+  userAnchor: UserAnchorSelection | null = null
 ): { index: number; jumped: boolean } {
   if (seed.neighbors.length === 0) {
     return { index: seed.which, jumped: false };
   }
-  if (!forceBranch && !shouldRandomBranch(seed, graph, config, rng, state)) {
+  const userAnchorIndex =
+    userAnchor === null
+      ? -1
+      : seed.neighbors.findIndex((edge) => edge.id === userAnchor.edgeId);
+  const candidateIndexes =
+    userAnchor !== null && seed.which < userAnchor.sourceIndex
+      ? seed.neighbors
+          .map((edge, index) =>
+            edge.dest.which < userAnchor.sourceIndex ? index : -1,
+          )
+          .filter((index) => index >= 0)
+      : undefined;
+  if (
+    userAnchorIndex < 0 &&
+    candidateIndexes?.length === 0
+  ) {
+    return { index: seed.which, jumped: false };
+  }
+  if (
+    userAnchorIndex < 0 &&
+    !forceBranch &&
+    !shouldRandomBranch(
+      seed,
+      graph,
+      config,
+      rng,
+      state,
+      userAnchor !== null,
+    )
+  ) {
     return { index: seed.which, jumped: false };
   }
   let nextEdge;
-  if (seed.which === graph.lastBranchPoint) {
+  if (userAnchorIndex >= 0) {
+    const selected = seed.neighbors.splice(userAnchorIndex, 1);
+    nextEdge = selected[0];
+  } else if (userAnchor === null && seed.which === graph.lastBranchPoint) {
     const bestIndex = getBestLastBranchNeighborIndex(seed);
     const selected = seed.neighbors.splice(bestIndex, 1);
     nextEdge = selected[0];
   } else {
-    const selectedIndex = selectWeightedNeighborIndex(seed, rng, state);
+    const selectedIndex = selectWeightedNeighborIndex(
+      seed,
+      rng,
+      state,
+      candidateIndexes,
+    );
+    if (selectedIndex < 0) {
+      return { index: seed.which, jumped: false };
+    }
     const selected = seed.neighbors.splice(selectedIndex, 1);
     nextEdge = selected[0];
   }
@@ -259,12 +306,16 @@ function selectWeightedNeighborIndex(
   seed: QuantumBase,
   rng: () => number,
   state: BranchState,
+  candidateIndexes?: number[],
 ): number {
-  if (seed.neighbors.length <= 1) {
-    return 0;
+  const indexes =
+    candidateIndexes ?? seed.neighbors.map((_edge, index) => index);
+  if (indexes.length <= 1) {
+    return indexes[0] ?? -1;
   }
   const lastDest = state.lastDestBySource?.get(seed.which);
-  const weights = seed.neighbors.map((edge) => {
+  const weights = indexes.map((index) => {
+    const edge = seed.neighbors[index];
     const distanceWeight = 1 / (1 + Math.max(0, edge.distance));
     const repeatPenalty =
       lastDest !== undefined && edge.dest.which === lastDest ? 0.35 : 1;
@@ -279,8 +330,8 @@ function selectWeightedNeighborIndex(
   for (let i = 0; i < weights.length; i += 1) {
     target -= weights[i];
     if (target <= 0) {
-      return i;
+      return indexes[i];
     }
   }
-  return weights.length - 1;
+  return indexes[indexes.length - 1] ?? -1;
 }

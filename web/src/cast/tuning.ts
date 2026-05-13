@@ -4,7 +4,17 @@ import type { JukeboxAudioMode } from "../audio/BufferedAudioPlayer";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
-const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "ah", "am"];
+const TUNING_PARAM_KEYS = [
+  "jb",
+  "lg",
+  "sq",
+  "thresh",
+  "bp",
+  "d",
+  "ah",
+  "am",
+  "ab",
+];
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -25,6 +35,11 @@ function parseDeletedEdgeIds(raw: string | null): number[] {
     .filter((value) => Number.isFinite(value) && value >= 0);
 }
 
+function parseAnchorBranchId(raw: string | null): number | null {
+  const value = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
 function parseAudioMode(raw: string | null): JukeboxAudioMode | null {
   if (
     raw === "off" ||
@@ -42,6 +57,7 @@ function parseAudioMode(raw: string | null): JukeboxAudioMode | null {
 export type CastParsedTuning = {
   config: JukeboxConfig;
   deletedEdgeIds: number[];
+  anchorBranchId: number | null;
   highlightAnchorBranch: boolean;
   audioMode: JukeboxAudioMode | null;
   hasAudioModeParam: boolean;
@@ -73,7 +89,7 @@ export function parseCastTuningParams(
     }
     return null;
   };
-  const hasGraphTuning = ["jb", "lg", "sq", "thresh", "bp", "d"].some((key) =>
+  const hasGraphTuning = ["jb", "lg", "sq", "thresh", "bp", "d", "ab"].some((key) =>
     params.has(key),
   );
   const nextConfig: JukeboxConfig = { ...defaults };
@@ -121,12 +137,14 @@ export function parseCastTuningParams(
     }
   }
   const deletedEdgeIds = parseDeletedEdgeIds(params.get("d"));
+  const anchorBranchId = parseAnchorBranchId(params.get("ab"));
   const highlightAnchorBranch = parseBool(params.get("ah")) ?? false;
   const hasAudioModeParam = params.has("am");
   const audioMode = parseAudioMode(params.get("am"));
   return {
     config: nextConfig,
     deletedEdgeIds,
+    anchorBranchId,
     highlightAnchorBranch,
     audioMode,
     hasAudioModeParam,
@@ -142,7 +160,12 @@ export type CastTuningApplyResult = {
 
 export type CastTuningEngine = Pick<
   JukeboxEngine,
-  "updateConfig" | "clearDeletedEdges" | "rebuildGraph" | "getGraphState" | "deleteEdge"
+  | "updateConfig"
+  | "clearDeletedEdges"
+  | "rebuildGraph"
+  | "getGraphState"
+  | "deleteEdge"
+  | "setUserAnchorEdge"
 >;
 
 export function applyCastTuningToEngine(
@@ -169,6 +192,15 @@ export function applyCastTuningToEngine(
         }
       }
       engine.rebuildGraph();
+    }
+  }
+  if (parsed?.anchorBranchId !== null && parsed?.anchorBranchId !== undefined) {
+    const graph = engine.getGraphState();
+    const edge = graph?.allEdges.find(
+      (candidate) => candidate.id === parsed.anchorBranchId,
+    );
+    if (edge && !edge.deleted && edge.dest.which < edge.src.which) {
+      engine.setUserAnchorEdge(edge);
     }
   }
   return { parsed, highlightOnly: false, highlightAnchorBranch };

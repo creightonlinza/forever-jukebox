@@ -19,6 +19,7 @@ import { readCachedTrack, updateCachedTrack } from "./cache";
 import {
   applyTuningParamsFromUrl,
   clearTuningParamsFromUrl,
+  getAnchorBranchIdFromUrl,
   getDeletedEdgeIdsFromUrl,
   syncTuningParamsState,
   writeTuningParamsToUrl,
@@ -81,6 +82,19 @@ function applyDeletedEdgesFromUrl(context: AppContext) {
       context.jukebox.setData(context.state.vizData);
     }
   }
+}
+
+function applyAnchorBranchFromUrl(context: AppContext) {
+  const anchorBranchId = getAnchorBranchIdFromUrl();
+  if (anchorBranchId === null) {
+    return;
+  }
+  const graph = context.engine.getGraphState();
+  const edge = graph?.allEdges.find((candidate) => candidate.id === anchorBranchId);
+  if (!edge || edge.deleted || edge.dest.which >= edge.src.which) {
+    return;
+  }
+  context.engine.setUserAnchorEdge(edge);
 }
 
 export function syncDeletedEdgeState(context: AppContext) {
@@ -1065,6 +1079,7 @@ export function applyAnalysisResult(
   engine.loadAnalysis(response.result);
   cowbellOverlay.setSectionStartBeatIndices(engine.getSectionStartBeatIndices());
   applyDeletedEdgesFromUrl(context);
+  applyAnchorBranchFromUrl(context);
   autocanonizer.setAnalysis(response.result, response.result.track?.duration);
   const graph = engine.getGraphState();
   state.autoComputedThreshold =

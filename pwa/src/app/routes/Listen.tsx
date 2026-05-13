@@ -772,6 +772,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       }
       if (
         playMode === "jukebox" &&
+        (event.key === "a" || event.key === "A") &&
+        !event.repeat
+      ) {
+        if (toggleSelectedAnchorBranch()) {
+          event.preventDefault();
+        }
+        return;
+      }
+      if (
+        playMode === "jukebox" &&
         event.key === "Shift" &&
         isRunning &&
         !bringItHomeModeRef.current
@@ -1320,6 +1330,20 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const nextEdge = edges[nextIndex];
     setSelectedEdge(nextEdge);
     vizControllerRef.current?.setSelectedEdgeActive(nextEdge);
+  };
+
+  const toggleSelectedAnchorBranch = () => {
+    const engine = engineRef.current;
+    const edge = selectedEdge;
+    if (!engine || !edge || edge.deleted || edge.dest.which >= edge.src.which) {
+      return false;
+    }
+    const nextAnchor = engine.getUserAnchorEdgeId() === edge.id ? null : edge;
+    engine.setUserAnchorEdge(nextAnchor);
+    syncVizDataFromEngine();
+    vizControllerRef.current?.setSelectedEdgeActive(edge);
+    showShortcutToast(nextAnchor ? "Anchor branch set" : "Anchor branch reset");
+    return true;
   };
 
   const onApplyTuning = () => {
@@ -2363,6 +2387,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="info-row">
                 <span className="info-label">Left/Right:</span>
                 <span>Cycle selected branch</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">A:</span>
+                <span>Set/reset selected anchor branch</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Delete:</span>

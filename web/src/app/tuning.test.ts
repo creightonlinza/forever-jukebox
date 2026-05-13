@@ -4,6 +4,7 @@ import type { JukeboxConfig } from "../engine/types";
 import {
   applyTuningParamsToEngine,
   clearTuningParamsFromUrl,
+  getAnchorBranchIdFromUrl,
   getDeletedEdgeIdsFromUrl,
   getTuningParamsFromEngine,
   syncTuningParamsState,
@@ -39,6 +40,7 @@ function createContext(
       config = { ...config, ...partial };
     },
     getGraphState: () => null,
+    getUserAnchorEdgeId: () => null,
   };
   return {
     defaultConfig,
@@ -149,9 +151,22 @@ describe("tuning params", () => {
     expect(params.get("d")).toBe("1,5");
   });
 
+  it("serializes user anchor branch id when present", () => {
+    const context = createContext();
+    (context.engine as { getUserAnchorEdgeId: () => number | null }).getUserAnchorEdgeId =
+      () => 7;
+    const params = getTuningParamsFromEngine(context);
+    expect(params.get("ab")).toBe("7");
+  });
+
   it("parses deleted edge ids from url", () => {
     setWindowUrl("http://localhost/listen/abc?d=3,5,notanumber,7");
     expect(getDeletedEdgeIdsFromUrl()).toEqual([3, 5, 7]);
+  });
+
+  it("parses anchor branch id from url", () => {
+    setWindowUrl("http://localhost/listen/abc?ab=12");
+    expect(getAnchorBranchIdFromUrl()).toBe(12);
   });
 
   it("syncs tuning params state from engine config", () => {

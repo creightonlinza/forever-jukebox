@@ -29,6 +29,8 @@ type MockPlayerInstance = {
 const playerInstances: MockPlayerInstance[] = [];
 type MockJukeboxControllerInstance = {
   emitEdgeSelect: (edge: unknown) => void;
+  setData: ReturnType<typeof vi.fn>;
+  setSelectedEdgeActive: ReturnType<typeof vi.fn>;
 };
 const jukeboxControllerInstances: MockJukeboxControllerInstance[] = [];
 type MockEngineInstance = {
@@ -36,6 +38,8 @@ type MockEngineInstance = {
   syncToPlaybackPosition: ReturnType<typeof vi.fn>;
   startJukebox: ReturnType<typeof vi.fn>;
   play: ReturnType<typeof vi.fn>;
+  setUserAnchorEdge: ReturnType<typeof vi.fn>;
+  getUserAnchorEdgeId: ReturnType<typeof vi.fn>;
 };
 const engineInstances: MockEngineInstance[] = [];
 
@@ -205,6 +209,8 @@ vi.mock("@/shared/jukebox/engine", () => ({
     seekToBeat = vi.fn();
     setForceBranch = vi.fn();
     setBringItHomeMode = vi.fn();
+    setUserAnchorEdge = vi.fn();
+    getUserAnchorEdgeId = vi.fn(() => null);
     deleteEdge = vi.fn();
     rebuildGraph = vi.fn();
     clearDeletedEdges = vi.fn();
@@ -252,13 +258,13 @@ vi.mock("@/shared/jukebox/viz/JukeboxController", () => ({
     setAnchorHighlightEnabled(_enabled: boolean) {}
     resizeActive() {}
     reset() {}
-    setData(_data: unknown) {}
+    setData = vi.fn((_data: unknown) => {});
     setOnSelect(_handler: (index: number) => void) {}
     setOnEdgeSelect(handler: (edge: unknown) => void) {
       this.onEdgeSelect = handler;
     }
     setSelectedEdge(_edge: unknown) {}
-    setSelectedEdgeActive(_edge: unknown) {}
+    setSelectedEdgeActive = vi.fn((_edge: unknown) => {});
     update(_index: number, _animate: boolean, _jumpFrom: number | null) {}
     destroy() {}
     getCount() {
@@ -729,6 +735,68 @@ describe("Listen route behavior", () => {
     );
     expect(tuningPanel.classList.contains("hidden")).toBe(true);
     expect(extrasPanel.classList.contains("hidden")).toBe(false);
+    rendered.unmount();
+  });
+
+  it("sets and clears the selected backward branch as the user anchor with A", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
+    const edge = {
+      id: 7,
+      deleted: false,
+      src: { start: 12, which: 12 },
+      dest: { start: 4, which: 4 },
+      distance: 8,
+    };
+    controller.setData.mockClear();
+    controller.setSelectedEdgeActive.mockClear();
+    await act(async () => {
+      controller.emitEdgeSelect(edge);
+    });
+
+    await keydown("A", "KeyA");
+
+    expect(engine.setUserAnchorEdge).toHaveBeenCalledWith(edge);
+    expect(controller.setData).toHaveBeenCalled();
+    expect(controller.setSelectedEdgeActive).toHaveBeenCalledWith(edge);
+    expect(rendered.container.textContent).toContain("Anchor branch set");
+
+    engine.getUserAnchorEdgeId.mockReturnValue(edge.id);
+    await keydown("a", "KeyA");
+
+    expect(engine.setUserAnchorEdge).toHaveBeenLastCalledWith(null);
+    expect(rendered.container.textContent).toContain("Anchor branch reset");
+    rendered.unmount();
+  });
+
+  it("ignores A for a selected forward branch", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
+    await act(async () => {
+      controller.emitEdgeSelect({
+        id: 8,
+        deleted: false,
+        src: { start: 4, which: 4 },
+        dest: { start: 12, which: 12 },
+        distance: 8,
+      });
+    });
+
+    await keydown("A", "KeyA");
+
+    expect(engine.setUserAnchorEdge).not.toHaveBeenCalled();
     rendered.unmount();
   });
 

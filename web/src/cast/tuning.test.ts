@@ -28,9 +28,18 @@ function makeEngine(): CastTuningEngine {
     dest: { which: 1 },
     deleted: false,
   } as any;
+  const edgeB = {
+    id: 2,
+    src: { which: 1 },
+    dest: { which: 5 },
+    deleted: false,
+  } as any;
   return {
     updateConfig: vi.fn(),
-    clearDeletedEdges: vi.fn(),
+    clearDeletedEdges: vi.fn(() => {
+      edgeA.deleted = false;
+      edgeB.deleted = false;
+    }),
     rebuildGraph: vi.fn(),
     getGraphState: vi.fn(() => ({
       computedThreshold: 20,
@@ -38,16 +47,19 @@ function makeEngine(): CastTuningEngine {
       lastBranchPoint: 4,
       totalBeats: 10,
       longestReach: 0,
-      allEdges: [edgeA],
+      allEdges: [edgeA, edgeB],
     })),
-    deleteEdge: vi.fn(),
+    deleteEdge: vi.fn((edge: { deleted: boolean }) => {
+      edge.deleted = true;
+    }),
+    setUserAnchorEdge: vi.fn(),
   };
 }
 
 describe("cast tuning", () => {
   it("parses supported fields including booleans, highlight, and audio mode", () => {
     const parsed = parseCastTuningParams(
-      "jb=1&lg=0&sq=0&thresh=31&bp=10,20,30&d=1,3&ah=1&am=eight_d",
+      "jb=1&lg=0&sq=0&thresh=31&bp=10,20,30&d=1,3&ah=1&am=eight_d&ab=7",
       makeDefaults(),
     );
     expect(parsed).not.toBeNull();
@@ -57,6 +69,7 @@ describe("cast tuning", () => {
     expect(parsed?.config.currentThreshold).toBe(31);
     expect(parsed?.config.randomBranchChanceDelta).toBeCloseTo(0.06, 6);
     expect(parsed?.deletedEdgeIds).toEqual([1, 3]);
+    expect(parsed?.anchorBranchId).toBe(7);
     expect(parsed?.highlightAnchorBranch).toBe(true);
     expect(parsed?.audioMode).toBe("eight_d");
     expect(parsed?.hasAudioModeParam).toBe(true);
@@ -102,6 +115,12 @@ describe("cast tuning", () => {
   it("filters invalid deleted edge ids", () => {
     const parsed = parseCastTuningParams("d=4,-1,foo,6", makeDefaults());
     expect(parsed?.deletedEdgeIds).toEqual([4, 6]);
+  });
+
+  it("parses valid anchor branch ids", () => {
+    const parsed = parseCastTuningParams("ab=4", makeDefaults());
+    expect(parsed?.anchorBranchId).toBe(4);
+    expect(parsed?.hasGraphTuning).toBe(true);
   });
 
   it("returns null when no tuning keys are present", () => {
@@ -187,6 +206,26 @@ describe("cast tuning", () => {
     expect(engine.clearDeletedEdges).toHaveBeenCalledTimes(1);
     expect(engine.rebuildGraph).toHaveBeenCalledTimes(2);
     expect(engine.deleteEdge).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies backward anchor branch ids after graph tuning", () => {
+    const engine = makeEngine();
+    const result = applyCastTuningToEngine(engine, makeDefaults(), "ab=1");
+    expect(result.parsed?.anchorBranchId).toBe(1);
+    expect(engine.setUserAnchorEdge).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1 }),
+    );
+  });
+
+  it("ignores forward or deleted anchor branch ids", () => {
+    const forwardEngine = makeEngine();
+    applyCastTuningToEngine(forwardEngine, makeDefaults(), "ab=2");
+    expect(forwardEngine.setUserAnchorEdge).not.toHaveBeenCalled();
+
+    const deletedEngine = makeEngine();
+    applyCastTuningToEngine(deletedEngine, makeDefaults(), "d=1&ab=1");
+    expect(deletedEngine.deleteEdge).toHaveBeenCalledTimes(1);
+    expect(deletedEngine.setUserAnchorEdge).not.toHaveBeenCalled();
   });
 
   it("resets to defaults when no cast tuning params are provided", () => {

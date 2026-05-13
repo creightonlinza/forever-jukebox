@@ -9,8 +9,10 @@ import {
   BranchState,
   getBestLastBranchNeighborIndex,
   selectNextBeatIndex,
+  UserAnchorSelection,
 } from "./selection";
 import {
+  Edge,
   JukeboxConfig,
   JukeboxGraphState,
   JukeboxState,
@@ -83,6 +85,7 @@ export class JukeboxEngine {
   private bringItHomeMode = false;
   private pendingAdvance: PendingAdvance | null = null;
   private deletedEdgeKeys = new Set<string>();
+  private userAnchorEdgeId: number | null = null;
   private rng: () => number;
   private listener: UpdateListener | null = null;
   private branchState: BranchState = {
@@ -122,6 +125,7 @@ export class JukeboxEngine {
 
   loadAnalysis(data: unknown) {
     this.deletedEdgeKeys.clear();
+    this.userAnchorEdgeId = null;
     this.analysis = normalizeAnalysis(data);
     this.config.minLongBranch = Math.floor(this.analysis.beats.length / 5);
     this.graph = buildJumpGraph(this.analysis, this.config);
@@ -140,6 +144,15 @@ export class JukeboxEngine {
 
   updateConfig(partial: Partial<JukeboxConfig>) {
     this.config = { ...this.config, ...partial };
+  }
+
+  setUserAnchorEdge(edge: Edge | null) {
+    this.userAnchorEdgeId = edge ? edge.id : null;
+    this.clearPendingAdvance(true);
+  }
+
+  getUserAnchorEdgeId(): number | null {
+    return this.getUserAnchorEdge()?.id ?? null;
   }
 
   rebuildGraph() {
@@ -171,15 +184,7 @@ export class JukeboxEngine {
         }
       }
     }
-    let anchorEdgeId: number | null = null;
-    const anchorSource = this.beats[this.graph.lastBranchPoint];
-    if (anchorSource && anchorSource.neighbors.length > 0) {
-      const bestIndex = getBestLastBranchNeighborIndex(anchorSource);
-      const bestEdge = anchorSource.neighbors[bestIndex];
-      if (bestEdge && !bestEdge.deleted) {
-        anchorEdgeId = bestEdge.id;
-      }
-    }
+    const anchorEdgeId = this.getActiveAnchorEdge()?.id ?? null;
     return {
       beats: this.beats,
       edges: Array.from(edgeMap.values()),
@@ -264,6 +269,7 @@ export class JukeboxEngine {
 
   clearDeletedEdges() {
     this.deletedEdgeKeys.clear();
+    this.userAnchorEdgeId = null;
     this.clearPendingAdvance(true);
     this.clearEdgeDeletionFlags();
   }
@@ -311,6 +317,43 @@ export class JukeboxEngine {
       beat.neighbors = beat.neighbors.filter((edge) => !edge.deleted);
     }
     this.ensureAnchorSourceHasNeighbors();
+  }
+
+  private getActiveUserAnchorSelection(): UserAnchorSelection | null {
+    const edge = this.getUserAnchorEdge();
+    return edge ? { edgeId: edge.id, sourceIndex: edge.src.which } : null;
+  }
+
+  private getUserAnchorEdge(): Edge | null {
+    if (!this.graph || this.userAnchorEdgeId === null) {
+      return null;
+    }
+    const edge = this.graph.allEdges.find(
+      (candidate) => candidate.id === this.userAnchorEdgeId,
+    );
+    if (!edge || edge.deleted) {
+      return null;
+    }
+    return edge.src.neighbors.some((candidate) => candidate.id === edge.id)
+      ? edge
+      : null;
+  }
+
+  private getDefaultAnchorEdge(): Edge | null {
+    if (!this.graph) {
+      return null;
+    }
+    const anchorSource = this.beats[this.graph.lastBranchPoint];
+    if (!anchorSource || anchorSource.neighbors.length === 0) {
+      return null;
+    }
+    const bestIndex = getBestLastBranchNeighborIndex(anchorSource);
+    const bestEdge = anchorSource.neighbors[bestIndex];
+    return bestEdge && !bestEdge.deleted ? bestEdge : null;
+  }
+
+  private getActiveAnchorEdge(): Edge | null {
+    return this.getUserAnchorEdge() ?? this.getDefaultAnchorEdge();
   }
 
   private ensureAnchorSourceHasNeighbors() {
@@ -512,6 +555,7 @@ export class JukeboxEngine {
           this.rng,
           this.branchState,
           this.forceBranch,
+          this.getActiveUserAnchorSelection(),
         );
         this.curRandomBranchChance = this.branchState.curRandomBranchChance;
         shouldJump = selection.jumped;
