@@ -257,7 +257,7 @@
           <div class="upload-section hidden" id="upload-youtube-section">
             <div class="upload-title">Upload by URL</div>
             <div class="upload-hint">Supported: YouTube, SoundCloud, Bandcamp</div>
-            <div class="search-bar">
+            <form class="search-bar" id="upload-youtube-form" novalidate>
               <input
                 id="upload-youtube-input"
                 class="search-input"
@@ -265,8 +265,8 @@
                 placeholder="https://www.youtube.com/watch?v=... or https://soundcloud.com/... or https://artist.bandcamp.com/track/..."
                 autocomplete="off"
               />
-              <button id="upload-youtube-button">Load</button>
-            </div>
+              <button id="upload-youtube-button" type="submit">Load</button>
+            </form>
           </div>
         </div>
       </section>

@@ -423,6 +423,10 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#upload-youtube-section"),
     "#upload-youtube-section"
   );
+  const uploadYoutubeForm = requireElement(
+    document.querySelector<HTMLFormElement>("#upload-youtube-form"),
+    "#upload-youtube-form"
+  );
   const uploadYoutubeInput = requireElement(
     document.querySelector<HTMLInputElement>("#upload-youtube-input"),
     "#upload-youtube-input"
@@ -646,6 +650,7 @@ export function getElements() {
     uploadFileInput,
     uploadFileButton,
     uploadYoutubeSection,
+    uploadYoutubeForm,
     uploadYoutubeInput,
     uploadYoutubeButton,
     searchResults,

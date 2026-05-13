@@ -325,10 +325,16 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
     }
   }
 
+  function handleUploadYoutubeSubmit(event: SubmitEvent) {
+    event.preventDefault();
+    void handleUploadYoutubeClick();
+  }
+
   return {
     handleSearchClick,
     handleSearchKeydown,
     handleUploadFileClick,
     handleUploadYoutubeClick,
+    handleUploadYoutubeSubmit,
   };
 }
