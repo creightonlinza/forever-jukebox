@@ -5,6 +5,7 @@ import {
   pathForFaqSubtab,
   pathForTab,
   updateTrackUrl,
+  urlForTrack,
 } from "./tabs";
 import { setWindowUrl } from "./__tests__/test-utils";
 
@@ -49,6 +50,24 @@ describe("tabs", () => {
     updateTrackUrl("xyz", true, "lg=1", "jukebox");
     expect(window.location.pathname).toBe("/listen/xyz");
     expect(window.location.search).toBe("?lg=1");
+  });
+
+  it("builds full track URLs with tuning params", () => {
+    const href = urlForTrack(
+      "soundcloud:track/with space",
+      "https://example.test/current?old=1",
+      "jb=1&d=2,8&am=nightcore",
+      "jukebox",
+    );
+    expect(href).toBe(
+      "https://example.test/listen/soundcloud%3Atrack%2Fwith%20space?jb=1&d=2,8&am=nightcore",
+    );
+  });
+
+  it("builds full track URLs without search when tuning is absent", () => {
+    expect(urlForTrack("abc123", "https://example.test/top", null, "jukebox")).toBe(
+      "https://example.test/listen/abc123",
+    );
   });
 
   it("updates track URL with audio mode tuning param", () => {

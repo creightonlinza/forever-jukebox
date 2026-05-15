@@ -60,6 +60,7 @@ type CastTuningStatus = {
     deltaPercent: number;
   };
   deletedEdgeIds: number[];
+  anchorBranchId: number | null;
   highlightAnchorBranch: boolean;
   audioMode: JukeboxAudioMode;
 };
@@ -463,6 +464,7 @@ async function bootstrap() {
         ),
       },
       deletedEdgeIds,
+      anchorBranchId: engine.getUserAnchorEdgeId(),
       highlightAnchorBranch: anchorHighlightEnabled,
       audioMode: state.audioMode,
     };

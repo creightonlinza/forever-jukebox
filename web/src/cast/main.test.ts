@@ -50,6 +50,8 @@ const doubles = vi.hoisted(() => {
       clearDeletedEdges: vi.fn(),
       rebuildGraph: vi.fn(),
       deleteEdge: vi.fn(),
+      setUserAnchorEdge: vi.fn(),
+      getUserAnchorEdgeId: vi.fn(() => null),
       getGraphState: vi.fn(() => ({
         computedThreshold: 18,
         currentThreshold: 20,

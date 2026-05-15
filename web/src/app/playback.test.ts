@@ -19,6 +19,7 @@ import {
   updateVizVisibility,
   updateListenTimeDisplay,
 } from "./playback";
+import { createPlaybackUiHandlers } from "./wire/playback";
 import { setWindowUrl } from "./__tests__/test-utils";
 import { getOrCreateSwingBuffer } from "../audio/swingBufferCache";
 import { renderSwingBuffer } from "../audio/swingRenderer";
@@ -242,6 +243,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     justLongBranches: false,
     removeSequentialBranches: false,
   };
+  let userAnchorEdgeId: number | null = null;
   const engine = {
     getConfig: vi.fn(() => ({ ...engineConfig })),
     updateConfig: vi.fn((partial: Record<string, unknown>) => {
@@ -260,6 +262,10 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     seekToBeat: vi.fn(),
     setForceBranch: vi.fn(),
     setBringItHomeMode: vi.fn(),
+    setUserAnchorEdge: vi.fn((edge: { id: number } | null) => {
+      userAnchorEdgeId = edge ? edge.id : null;
+    }),
+    getUserAnchorEdgeId: vi.fn(() => userAnchorEdgeId),
     getSectionStartBeatIndices: vi.fn(() => []),
   };
   const player = {
@@ -291,6 +297,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     setData: vi.fn(),
     setAnchorHighlightEnabled: vi.fn(),
     setSelectedEdge: vi.fn(),
+    setSelectedEdgeActive: vi.fn(),
     resizeActive: vi.fn(),
     reset: vi.fn(),
     update: vi.fn(),
@@ -627,6 +634,100 @@ describe("playback tuning", () => {
     expect(graph.allEdges[0].deleted).toBe(true);
     expect(graph.allEdges[2].deleted).toBe(true);
     expect(context.state.deletedEdgeIds).toEqual([1, 3]);
+  });
+
+  it("applies anchor branch from url when analysis loads", () => {
+    setWindowUrl("http://localhost/listen/abc?ab=3");
+    const anchorEdge = {
+      id: 3,
+      deleted: false,
+      src: { which: 8 },
+      dest: { which: 2 },
+    };
+    const context = createContext({
+      engine: {
+        getConfig: vi.fn(() => ({
+          currentThreshold: 0,
+          minRandomBranchChance: 0.18,
+          maxRandomBranchChance: 0.5,
+          randomBranchChanceDelta: 0.02,
+          justBackwards: false,
+          justLongBranches: false,
+          removeSequentialBranches: false,
+        })),
+        updateConfig: vi.fn(),
+        loadAnalysis: vi.fn(),
+        getSectionStartBeatIndices: vi.fn(() => []),
+        getGraphState: vi.fn(() => ({
+          currentThreshold: 45,
+          allEdges: [anchorEdge],
+          totalBeats: 0,
+        })),
+        getVisualizationData: vi.fn(() => ({ beats: [], edges: [] })),
+        deleteEdge: vi.fn(),
+        rebuildGraph: vi.fn(),
+        setUserAnchorEdge: vi.fn(),
+        getUserAnchorEdgeId: vi.fn(() => 3),
+      } as unknown as AppContext["engine"],
+    });
+
+    const response: AnalysisComplete = {
+      status: "complete",
+      id: "job123",
+      result: { beats: [], track: {} },
+    };
+
+    const applied = applyAnalysisResult(context, response);
+
+    expect(applied).toBe(true);
+    expect(context.engine.setUserAnchorEdge).toHaveBeenCalledWith(anchorEdge);
+    expect(context.state.tuningParams).toContain("ab=3");
+  });
+
+  it("ignores forward anchor branch ids from url", () => {
+    setWindowUrl("http://localhost/listen/abc?ab=4");
+    const forwardEdge = {
+      id: 4,
+      deleted: false,
+      src: { which: 2 },
+      dest: { which: 8 },
+    };
+    const context = createContext({
+      engine: {
+        getConfig: vi.fn(() => ({
+          currentThreshold: 0,
+          minRandomBranchChance: 0.18,
+          maxRandomBranchChance: 0.5,
+          randomBranchChanceDelta: 0.02,
+          justBackwards: false,
+          justLongBranches: false,
+          removeSequentialBranches: false,
+        })),
+        updateConfig: vi.fn(),
+        loadAnalysis: vi.fn(),
+        getSectionStartBeatIndices: vi.fn(() => []),
+        getGraphState: vi.fn(() => ({
+          currentThreshold: 45,
+          allEdges: [forwardEdge],
+          totalBeats: 0,
+        })),
+        getVisualizationData: vi.fn(() => ({ beats: [], edges: [] })),
+        deleteEdge: vi.fn(),
+        rebuildGraph: vi.fn(),
+        setUserAnchorEdge: vi.fn(),
+        getUserAnchorEdgeId: vi.fn(() => null),
+      } as unknown as AppContext["engine"],
+    });
+
+    const response: AnalysisComplete = {
+      status: "complete",
+      id: "job123",
+      result: { beats: [], track: {} },
+    };
+
+    applyAnalysisResult(context, response);
+
+    expect(context.engine.setUserAnchorEdge).not.toHaveBeenCalled();
   });
 
   it("adds nightcore suffix to displayed title in jukebox mode", () => {
@@ -986,6 +1087,128 @@ describe("playback controls", () => {
     expect(context.engine.seekToBeat).toHaveBeenCalledWith(0);
     expect(context.engine.play).not.toHaveBeenCalled();
     expect(context.engine.startJukebox).not.toHaveBeenCalled();
+  });
+});
+
+describe("playback branch shortcuts", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    setWindowUrl("http://localhost/listen/abc");
+  });
+
+  function makeHandlers(context: AppContext, showToast = vi.fn()) {
+    const writeTuningParamsToUrl = vi.fn();
+    return {
+      handlers: createPlaybackUiHandlers({
+        context,
+        elements: context.elements,
+        state: context.state,
+        player: context.player,
+        engine: context.engine,
+        jukebox: context.jukebox,
+        autocanonizer: context.autocanonizer,
+        vizStorageKey: "viz",
+        canonizerFinishKey: "finish",
+        setAnalysisStatus: vi.fn(),
+        showToast,
+        stopPlayback: vi.fn(),
+        togglePlayback: vi.fn(),
+        startJukeboxFromBeat: vi.fn(),
+        startAutocanonizerPlayback: vi.fn(),
+        updateTrackUrl: vi.fn(),
+        navigateToTab: vi.fn(),
+        updateVizVisibility: vi.fn(),
+        openExtras: vi.fn(),
+        syncTuningTabsUI: vi.fn(),
+        getTuningParamsFromEngine: vi.fn(() => {
+          const params = new URLSearchParams();
+          const anchorId = context.engine.getUserAnchorEdgeId();
+          if (anchorId !== null) {
+            params.set("ab", `${anchorId}`);
+          }
+          return params;
+        }),
+        writeTuningParamsToUrl,
+        syncDeletedEdgeState: vi.fn(),
+        updateTrackInfo: vi.fn(),
+        isEditableTarget: vi.fn(() => false),
+        getCurrentTrackId: vi.fn(() => null),
+      }),
+      showToast,
+      writeTuningParamsToUrl,
+    };
+  }
+
+  function keyEvent(key: string) {
+    return {
+      key,
+      repeat: false,
+      target: null,
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent;
+  }
+
+  it("sets and clears the selected backward branch as the user anchor", () => {
+    const context = createContext();
+    const edge = {
+      id: 7,
+      src: { which: 8 },
+      dest: { which: 2 },
+      deleted: false,
+    };
+    context.state.selectedEdge = edge as AppContext["state"]["selectedEdge"];
+    context.state.vizData = {
+      beats: [],
+      edges: [edge],
+      lastBranchPoint: 1,
+      anchorEdgeId: null,
+    } as unknown as AppContext["state"]["vizData"];
+    const nextVizData = {
+      beats: [],
+      edges: [edge],
+      lastBranchPoint: 1,
+      anchorEdgeId: 7,
+    };
+    (
+      context.engine.getVisualizationData as ReturnType<typeof vi.fn>
+    ).mockReturnValue(nextVizData);
+    const { handlers, showToast, writeTuningParamsToUrl } = makeHandlers(context);
+    const setEvent = keyEvent("A");
+
+    handlers.handleKeydown(setEvent);
+
+    expect(setEvent.preventDefault).toHaveBeenCalledTimes(1);
+    expect(context.engine.setUserAnchorEdge).toHaveBeenCalledWith(edge);
+    expect(context.jukebox.setData).toHaveBeenCalledWith(nextVizData);
+    expect(context.jukebox.setSelectedEdgeActive).toHaveBeenCalledWith(edge);
+    expect(showToast).toHaveBeenCalledWith(context, "Anchor branch set");
+    expect(writeTuningParamsToUrl).toHaveBeenCalledWith("ab=7", true);
+
+    const resetEvent = keyEvent("a");
+    handlers.handleKeydown(resetEvent);
+
+    expect(resetEvent.preventDefault).toHaveBeenCalledTimes(1);
+    expect(context.engine.setUserAnchorEdge).toHaveBeenLastCalledWith(null);
+    expect(showToast).toHaveBeenLastCalledWith(context, "Anchor branch reset");
+    expect(writeTuningParamsToUrl).toHaveBeenLastCalledWith(null, true);
+  });
+
+  it("ignores A for a selected forward branch", () => {
+    const context = createContext();
+    const edge = {
+      id: 8,
+      src: { which: 2 },
+      dest: { which: 5 },
+      deleted: false,
+    };
+    context.state.selectedEdge = edge as AppContext["state"]["selectedEdge"];
+    const { handlers } = makeHandlers(context);
+    const event = keyEvent("A");
+
+    handlers.handleKeydown(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(context.engine.setUserAnchorEdge).not.toHaveBeenCalled();
   });
 });
 

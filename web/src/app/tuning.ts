@@ -2,7 +2,7 @@ import type { AppContext } from "./context";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
-const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "am"];
+const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "am", "ab"];
 
 function parseAudioMode(raw: string | null) {
   if (
@@ -72,6 +72,12 @@ export function getDeletedEdgeIdsFromUrl(): number[] {
     .split(",")
     .map((value) => Number.parseInt(value, 10))
     .filter((value) => Number.isFinite(value) && value >= 0);
+}
+
+export function getAnchorBranchIdFromUrl(): number | null {
+  const params = new URLSearchParams(window.location.search);
+  const raw = Number.parseInt(params.get("ab") ?? "", 10);
+  return Number.isFinite(raw) && raw >= 0 ? raw : null;
 }
 
 export function getTuningParamsStringFromUrl(): string | null {
@@ -199,6 +205,10 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
     : context.state.deletedEdgeIds;
   if (deletedIds.length > 0) {
     params.set("d", deletedIds.join(","));
+  }
+  const anchorBranchId = context.engine.getUserAnchorEdgeId?.() ?? null;
+  if (anchorBranchId !== null) {
+    params.set("ab", `${anchorBranchId}`);
   }
   if (context.state.jukeboxAudioMode !== "off") {
     params.set("am", context.state.jukeboxAudioMode);

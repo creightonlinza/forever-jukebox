@@ -9,6 +9,7 @@ import type { ToastOptions } from "../ui";
 import { VISUALIZATION_LABELS } from "../constants";
 import { formatDuration, formatPlaybackTitle } from "../format";
 import { setAutoMarqueeText } from "../marquee";
+import { serializeParams } from "../tuning";
 
 type PlaybackUiDeps = {
   context: AppContext;
@@ -319,6 +320,30 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     syncExtrasPopup(nextEdge);
   }
 
+  function toggleSelectedAnchorBranch() {
+    const edge = state.selectedEdge;
+    if (!edge || edge.deleted || edge.dest.which >= edge.src.which) {
+      return false;
+    }
+    const nextAnchor = engine.getUserAnchorEdgeId() === edge.id ? null : edge;
+    engine.setUserAnchorEdge(nextAnchor);
+    state.vizData = engine.getVisualizationData();
+    const data = state.vizData;
+    if (data) {
+      jukebox.setData(data);
+    }
+    jukebox.setSelectedEdgeActive(edge);
+    const tuningParams = getTuningParamsFromEngine(context);
+    const result = serializeParams(tuningParams);
+    state.tuningParams = result.length > 0 ? result : null;
+    writeTuningParamsToUrl(state.tuningParams, true);
+    showToast(
+      context,
+      nextAnchor ? "Anchor branch set" : "Anchor branch reset",
+    );
+    return true;
+  }
+
   function handleKeydown(event: KeyboardEvent) {
     if (state.activeTabId !== "play") {
       return;
@@ -351,6 +376,12 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
         context,
         `Bring It Home ${enabled ? "enabled" : "disabled"}`,
       );
+      return;
+    }
+    if ((event.key === "a" || event.key === "A") && !event.repeat) {
+      if (toggleSelectedAnchorBranch()) {
+        event.preventDefault();
+      }
       return;
     }
     if (
