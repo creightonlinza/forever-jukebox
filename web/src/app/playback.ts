@@ -1034,6 +1034,7 @@ export function resetForNewTrack(
     edges: [],
     lastBranchPoint: -1,
     anchorEdgeId: null,
+    userAnchorEdgeId: null,
   };
   jukebox.setData(emptyVizData);
   jukebox.reset();

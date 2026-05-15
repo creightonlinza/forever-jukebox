@@ -705,6 +705,7 @@ describe("JukeboxEngine graph maintenance", () => {
 
     expect(engine.getUserAnchorEdgeId()).toBe(userEdge.id);
     expect(engine.getVisualizationData()?.anchorEdgeId).toBe(userEdge.id);
+    expect(engine.getVisualizationData()?.userAnchorEdgeId).toBe(userEdge.id);
 
     engineAny.currentBeatIndex = 0;
     engineAny.nextAudioTime = 1;
@@ -723,6 +724,7 @@ describe("JukeboxEngine graph maintenance", () => {
     engine.setUserAnchorEdge(null);
     expect(engine.getUserAnchorEdgeId()).toBeNull();
     expect(engine.getVisualizationData()?.anchorEdgeId).toBe(defaultEdge.id);
+    expect(engine.getVisualizationData()?.userAnchorEdgeId).toBeNull();
   });
 
   it("falls back to the default anchor when the user anchor is deleted", () => {
@@ -770,6 +772,7 @@ describe("JukeboxEngine graph maintenance", () => {
 
     expect(engine.getUserAnchorEdgeId()).toBeNull();
     expect(engine.getVisualizationData()?.anchorEdgeId).toBe(defaultEdge.id);
+    expect(engine.getVisualizationData()?.userAnchorEdgeId).toBeNull();
   });
 
   it("does not take forward branches that skip past a user-selected anchor", () => {

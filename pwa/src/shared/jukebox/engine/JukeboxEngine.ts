@@ -184,12 +184,19 @@ export class JukeboxEngine {
         }
       }
     }
-    const anchorEdgeId = this.getActiveAnchorEdge()?.id ?? null;
+    const userAnchorEdge = this.getUserAnchorEdge();
+    const defaultAnchorEdge = this.getDefaultAnchorEdge();
+    const anchorEdgeId = userAnchorEdge?.id ?? defaultAnchorEdge?.id ?? null;
+    const userAnchorEdgeId =
+      userAnchorEdge && userAnchorEdge.id !== defaultAnchorEdge?.id
+        ? userAnchorEdge.id
+        : null;
     return {
       beats: this.beats,
       edges: Array.from(edgeMap.values()),
       lastBranchPoint: this.graph.lastBranchPoint,
       anchorEdgeId,
+      userAnchorEdgeId,
     };
   }
 
@@ -350,10 +357,6 @@ export class JukeboxEngine {
     const bestIndex = getBestLastBranchNeighborIndex(anchorSource);
     const bestEdge = anchorSource.neighbors[bestIndex];
     return bestEdge && !bestEdge.deleted ? bestEdge : null;
-  }
-
-  private getActiveAnchorEdge(): Edge | null {
-    return this.getUserAnchorEdge() ?? this.getDefaultAnchorEdge();
   }
 
   private ensureAnchorSourceHasNeighbors() {

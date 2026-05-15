@@ -21,6 +21,7 @@ interface VisualizationData {
   edges: Edge[];
   lastBranchPoint: number;
   anchorEdgeId: number | null;
+  userAnchorEdgeId: number | null;
 }
 
 const ANCHOR_HIGHLIGHT_COLOR = "#ff2d2d";
@@ -362,9 +363,12 @@ class CanvasViz {
       }
     }
 
-    if (this.anchorHighlightEnabled && this.data.anchorEdgeId !== null) {
+    const highlightedAnchorEdgeId =
+      this.data.userAnchorEdgeId ??
+      (this.anchorHighlightEnabled ? this.data.anchorEdgeId : null);
+    if (highlightedAnchorEdgeId !== null) {
       for (const edge of edges) {
-        if (edge.deleted || edge.id !== this.data.anchorEdgeId) {
+        if (edge.deleted || edge.id !== highlightedAnchorEdgeId) {
           continue;
         }
         this.drawEdge(this.baseCtx, edge, ANCHOR_HIGHLIGHT_COLOR, 1.8);
