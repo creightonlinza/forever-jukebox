@@ -8,6 +8,7 @@ import {
   resetExtrasDefaults,
   applyTuningChanges,
   loadAudioFromJob,
+  loadTrackById,
   openExtras,
   resetForNewTrack,
   setActiveTuningTab,
@@ -331,7 +332,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
       audioLoadInFlight: false,
       activeTabId: "play",
       activeVizIndex: 0,
-      lastYouTubeId: null,
+      lastTrackId: null,
       lastJobId: null,
       isRunning: false,
       isPaused: false,
@@ -384,6 +385,18 @@ describe("playback tuning", () => {
     expect(context.elements.volumeVal.textContent).toBe("50");
     expect(context.elements.highlightAnchorBranchInput.checked).toBe(true);
     expect(context.elements.computedThresholdEl.textContent).toBe("45");
+  });
+
+  it("preserves selected tuning while resetting for a new track", () => {
+    setWindowUrl("http://localhost/listen/favorite?jb=1&d=2,8");
+    const context = createContext();
+    context.state.lastTrackId = "old-track";
+    context.state.tuningParams = "jb=1&d=2,8";
+
+    resetForNewTrack(context, { clearTuning: false });
+
+    expect(context.state.tuningParams).toBe("jb=1&d=2,8");
+    expect(window.location.search).toBe("?jb=1&d=2,8");
   });
 
   it("applies tuning changes and normalizes min/max", () => {
@@ -1213,6 +1226,49 @@ describe("playback branch shortcuts", () => {
 });
 
 describe("playback loading", () => {
+  function createLoadDeps() {
+    return {
+      setActiveTab: vi.fn(),
+      navigateToTab: vi.fn(),
+      updateTrackUrl: vi.fn(),
+      setAnalysisStatus: vi.fn(),
+      setLoadingProgress: vi.fn(),
+      onTrackChange: vi.fn(),
+    };
+  }
+
+  it("loads bare track ids as YouTube sources", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const context = createContext();
+    const deps = createLoadDeps();
+
+    await loadTrackById(context, deps, "abc123def45");
+
+    expect(context.state.lastTrackId).toBe("abc123def45");
+    expect(context.state.lastSourceProvider).toBe("youtube");
+    expect(deps.onTrackChange).toHaveBeenCalledWith("abc123def45");
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
+      "/api/jobs/by-source/youtube/abc123def45",
+    );
+  });
+
+  it("loads 32-character hex track ids as jobs", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const context = createContext();
+    const deps = createLoadDeps();
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+
+    await loadTrackById(context, deps, jobId);
+
+    expect(context.state.lastTrackId).toBe(jobId);
+    expect(context.state.lastJobId).toBe(jobId);
+    expect(context.state.lastSourceProvider).toBe("upload");
+    expect(deps.onTrackChange).toHaveBeenCalledWith(jobId);
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
+      `/api/analysis/${jobId}`,
+    );
+  });
+
   it("returns false on missing audio without calling repair endpoint", async () => {
     const context = createContext();
     context.state.audioLoadInFlight = true;

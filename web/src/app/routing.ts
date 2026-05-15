@@ -1,26 +1,7 @@
 import type { AppContext } from "./context";
 import type { PlaybackDeps } from "./playback";
-import { loadTrackByJobId, loadTrackByYouTubeId } from "./playback";
+import { loadTrackById } from "./playback";
 import { hasTuningParamsInUrl } from "./tuning";
-
-function isLikelyJobId(value: string) {
-  return /^[a-f0-9]{32}$/.test(value);
-}
-
-function parseSourceRouteId(trackId: string): { provider: string; sourceId: string } {
-  const marker = trackId.indexOf(":");
-  if (marker > 0) {
-    const provider = trackId.slice(0, marker).toLowerCase();
-    const sourceId = trackId.slice(marker + 1);
-    if (
-      sourceId &&
-      (provider === "youtube" || provider === "soundcloud" || provider === "bandcamp")
-    ) {
-      return { provider, sourceId };
-    }
-  }
-  return { provider: "youtube", sourceId: trackId };
-}
 
 export async function handleRouteChange(
   context: AppContext,
@@ -30,7 +11,7 @@ export async function handleRouteChange(
   const legacyTrack = new URLSearchParams(window.location.search).get("track");
   if (legacyTrack) {
     deps.updateTrackUrl(legacyTrack, true);
-    await loadTrackByYouTubeId(context, deps, legacyTrack);
+    await loadTrackById(context, deps, legacyTrack);
     return;
   }
   if (pathname.startsWith("/search")) {
@@ -55,27 +36,18 @@ export async function handleRouteChange(
     if (trackId) {
       const { state } = context;
       const preserveUrlTuning = hasTuningParamsInUrl();
-      if (isLikelyJobId(trackId)) {
-        deps.navigateToTab("play", { replace: true, youtubeId: trackId });
-        await loadTrackByJobId(context, deps, trackId, { preserveUrlTuning });
-        return;
-      }
       if (
-        trackId === state.lastYouTubeId &&
+        trackId === state.lastTrackId &&
         (state.audioLoaded ||
           state.analysisLoaded ||
           state.audioLoadInFlight ||
           state.isRunning)
       ) {
-        deps.navigateToTab("play", { replace: true, youtubeId: trackId });
+        deps.navigateToTab("play", { replace: true, trackId });
         return;
       }
-      deps.navigateToTab("play", { replace: true, youtubeId: trackId });
-      const parsedSource = parseSourceRouteId(trackId);
-      await loadTrackByYouTubeId(context, deps, parsedSource.sourceId, {
-        preserveUrlTuning,
-        sourceProvider: parsedSource.provider,
-      });
+      deps.navigateToTab("play", { replace: true, trackId });
+      await loadTrackById(context, deps, trackId, { preserveUrlTuning });
       return;
     }
     deps.navigateToTab("top", { replace: true });

@@ -10,7 +10,7 @@ type TabsDeps = {
   favoritesHandlers: FavoritesHandlers;
   navigateToTabWithState: (
     tabId: TabId,
-    options?: { replace?: boolean; youtubeId?: string | null },
+    options?: { replace?: boolean; trackId?: string | null },
   ) => void;
   onTopSongsTabChange?: (tabId: "top" | "trending" | "recent" | "favorites") => void;
   onFaqOpen?: () => void;

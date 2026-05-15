@@ -34,7 +34,7 @@ export type AppState = {
   audioLoadInFlight: boolean;
   autoComputedThreshold: number | null;
   lastJobId: string | null;
-  lastYouTubeId: string | null;
+  lastTrackId: string | null;
   lastSourceProvider: string | null;
   pendingAutoFavoriteId: string | null;
   lastPlayCountedJobId: string | null;

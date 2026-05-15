@@ -21,6 +21,7 @@ import {
   clearTuningParamsFromUrl,
   getAnchorBranchIdFromUrl,
   getDeletedEdgeIdsFromUrl,
+  getTuningParamsStringFromUrl,
   syncTuningParamsState,
   writeTuningParamsToUrl,
 } from "./tuning";
@@ -107,15 +108,15 @@ export type PlaybackDeps = {
   setActiveTab: (tabId: TabId) => void;
   navigateToTab: (
     tabId: TabId,
-    options?: { replace?: boolean; youtubeId?: string | null },
+    options?: { replace?: boolean; trackId?: string | null },
   ) => void;
-  updateTrackUrl: (youtubeId: string, replace?: boolean) => void;
+  updateTrackUrl: (trackId: string, replace?: boolean) => void;
   setAnalysisStatus: (message: string, spinning: boolean) => void;
   setLoadingProgress: (
     progress: number | null,
     message?: string | null,
   ) => void;
-  onTrackChange?: (youtubeId: string | null) => void;
+  onTrackChange?: (trackId: string | null) => void;
   onAnalysisLoaded?: (response: AnalysisComplete) => void;
 };
 
@@ -274,7 +275,7 @@ function getSelectedAudioMode(context: AppContext): JukeboxAudioMode {
 
 function getCurrentSwingSourceIdentity(context: AppContext): string | null {
   const { state } = context;
-  return state.lastJobId ?? state.lastYouTubeId ?? null;
+  return state.lastTrackId ?? state.lastJobId ?? null;
 }
 
 function canPrepareSwingMode(context: AppContext) {
@@ -955,11 +956,15 @@ export function resetForNewTrack(
     defaultConfig,
   } = context;
   const shouldClearTuning = options?.clearTuning ?? false;
+  const shouldPreserveTuning = options?.clearTuning === false;
+  const preservedTuningParams = shouldPreserveTuning
+    ? (state.tuningParams ?? getTuningParamsStringFromUrl())
+    : null;
   const hadTrackLoaded =
     state.audioLoaded ||
     state.analysisLoaded ||
     state.lastJobId !== null ||
-    state.lastYouTubeId !== null ||
+    state.lastTrackId !== null ||
     state.trackTitle !== null;
   if (hadTrackLoaded) {
     state.jukeboxAudioMode = "off";
@@ -985,7 +990,7 @@ export function resetForNewTrack(
   state.analysisLoaded = false;
   state.audioLoadInFlight = false;
   state.lastJobId = null;
-  state.lastYouTubeId = null;
+  state.lastTrackId = null;
   state.lastSourceProvider = null;
   state.lastPlayCountedJobId = null;
   updateVizVisibility(context);
@@ -1024,7 +1029,11 @@ export function resetForNewTrack(
   state.deleteEligibilityJobId = null;
   elements.deleteButton.classList.add("hidden");
   state.vizData = null;
-  syncTuningParamsState(context);
+  if (shouldPreserveTuning) {
+    state.tuningParams = preservedTuningParams;
+  } else {
+    syncTuningParamsState(context);
+  }
   if (hadTrackLoaded && !shouldClearTuning) {
     writeTuningParamsToUrl(state.tuningParams, true);
   }
@@ -1051,7 +1060,7 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     updateVizVisibility(context);
     updateTrackInfo(context);
     maybePrepareSwingMode(context);
-    const cacheId = state.lastYouTubeId ?? state.lastJobId;
+    const cacheId = state.lastTrackId ?? state.lastJobId;
     if (cacheId) {
       updateCachedTrack(cacheId, { audio: buffer, jobId }).catch((err) => {
         console.warn(`Cache save failed: ${String(err)}`);
@@ -1229,11 +1238,15 @@ async function continueTrackLoadWithResponse(
     typeof response.source_id === "string" &&
     response.source_id
   ) {
-    context.state.lastYouTubeId = response.source_id;
+    context.state.lastTrackId = response.source_id;
     deps.onTrackChange?.(response.source_id);
-  } else if (response.source_provider && response.source_provider !== "youtube") {
-    context.state.lastYouTubeId = null;
-    deps.onTrackChange?.(null);
+  } else if (
+    response.source_provider &&
+    response.source_provider !== "youtube" &&
+    response.id
+  ) {
+    context.state.lastTrackId = response.id;
+    deps.onTrackChange?.(response.id);
   }
   if (isAnalysisInProgress(response)) {
     await pollAnalysis(context, deps, response.id);
@@ -1258,7 +1271,7 @@ async function loadTrack(
   context: AppContext,
   deps: PlaybackDeps,
   source:
-    | { type: "source"; id: string; provider: string }
+    | { type: "source"; id: string; provider: string; trackId: string }
     | { type: "job"; id: string },
   options?: { preserveUrlTuning?: boolean },
 ) {
@@ -1268,18 +1281,13 @@ async function loadTrack(
   deps.setLoadingProgress(null, "Fetching audio");
   if (source.type === "source") {
     context.state.lastSourceProvider = source.provider;
-    if (source.provider === "youtube") {
-      context.state.lastYouTubeId = source.id;
-      deps.onTrackChange?.(source.id);
-    } else {
-      context.state.lastYouTubeId = null;
-      deps.onTrackChange?.(null);
-    }
+    context.state.lastTrackId = source.trackId;
+    deps.onTrackChange?.(source.trackId);
   } else {
     context.state.lastJobId = source.id;
-    context.state.lastYouTubeId = null;
+    context.state.lastTrackId = source.id;
     context.state.lastSourceProvider = "upload";
-    deps.onTrackChange?.(null);
+    deps.onTrackChange?.(source.id);
   }
   const cacheKey =
     source.type === "source" && source.provider !== "youtube"
@@ -1297,14 +1305,28 @@ async function loadTrack(
   }
 }
 
-export async function loadTrackByYouTubeId(
+export async function loadTrackById(
   context: AppContext,
   deps: PlaybackDeps,
-  youtubeId: string,
-  options?: { preserveUrlTuning?: boolean; sourceProvider?: string },
+  trackId: string,
+  options?: { preserveUrlTuning?: boolean },
 ) {
-  const provider = options?.sourceProvider ?? "youtube";
-  await loadTrack(context, deps, { type: "source", id: youtubeId, provider }, options);
+  const parsed = parseTrackId(trackId);
+  if (parsed.type === "job") {
+    await loadTrack(context, deps, { type: "job", id: parsed.jobId }, options);
+    return;
+  }
+  await loadTrack(
+    context,
+    deps,
+    {
+      type: "source",
+      id: parsed.sourceId,
+      provider: parsed.provider,
+      trackId: parsed.trackId,
+    },
+    options,
+  );
 }
 
 export async function loadTrackByJobId(
@@ -1314,6 +1336,24 @@ export async function loadTrackByJobId(
   options?: { preserveUrlTuning?: boolean },
 ) {
   await loadTrack(context, deps, { type: "job", id: jobId }, options);
+}
+
+function isLikelyJobId(value: string) {
+  return /^[a-f0-9]{32}$/.test(value);
+}
+
+function parseTrackId(trackId: string):
+  | { type: "job"; jobId: string }
+  | { type: "source"; provider: string; sourceId: string; trackId: string } {
+  if (isLikelyJobId(trackId)) {
+    return { type: "job", jobId: trackId };
+  }
+  return {
+    type: "source",
+    provider: "youtube",
+    sourceId: trackId,
+    trackId,
+  };
 }
 
 export function requestWakeLock(context: AppContext) {
@@ -1381,11 +1421,11 @@ export function delay(ms: number, signal?: AbortSignal) {
 
 export async function tryLoadCachedAudio(
   context: AppContext,
-  youtubeId: string,
+  trackId: string,
 ) {
   const { autocanonizer, player, state } = context;
   try {
-    const cached = await readCachedTrack(youtubeId);
+    const cached = await readCachedTrack(trackId);
     if (!cached?.audio) {
       return false;
     }

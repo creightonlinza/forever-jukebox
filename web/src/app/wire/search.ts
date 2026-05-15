@@ -22,7 +22,7 @@ type SearchHandlersDeps = {
     message?: string | null,
   ) => void;
   updateTrackUrl: (
-    youtubeId: string,
+    trackId: string,
     replace?: boolean,
     tuningParams?: string | null,
     playMode?: "jukebox" | "autocanonizer",
@@ -206,7 +206,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       resetForNewTrack(context);
       state.lastJobId = response.id;
       state.pendingAutoFavoriteId = response.id;
-      state.lastYouTubeId = null;
+      state.lastTrackId = response.id;
       state.lastSourceProvider = "upload";
       state.audioLoaded = false;
       state.analysisLoaded = false;
@@ -285,7 +285,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
           ? (sourceId as string)
           : response.id;
       resetForNewTrack(context);
-      state.lastYouTubeId = sourceProvider === "youtube" ? (sourceId as string) : null;
+      state.lastTrackId = listenId;
       state.lastJobId = response.id;
       state.lastSourceProvider = sourceProvider;
       state.pendingAutoFavoriteId = listenId;
@@ -325,10 +325,16 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
     }
   }
 
+  function handleUploadYoutubeSubmit(event: SubmitEvent) {
+    event.preventDefault();
+    void handleUploadYoutubeClick();
+  }
+
   return {
     handleSearchClick,
     handleSearchKeydown,
     handleUploadFileClick,
     handleUploadYoutubeClick,
+    handleUploadYoutubeSubmit,
   };
 }

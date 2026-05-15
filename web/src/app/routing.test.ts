@@ -5,7 +5,7 @@ import { handleRouteChange } from "./routing";
 import { setWindowUrl } from "./__tests__/test-utils";
 
 vi.mock("./playback", () => ({
-  loadTrackByYouTubeId: vi.fn(),
+  loadTrackById: vi.fn(),
   loadTrackByJobId: vi.fn(),
 }));
 
@@ -24,7 +24,7 @@ function createContext(): AppContext {
     defaultConfig: {} as unknown as AppContext["defaultConfig"],
     state: {
       playMode: "jukebox",
-      lastYouTubeId: null,
+      lastTrackId: null,
       lastJobId: null,
       audioLoaded: false,
       analysisLoaded: false,
@@ -57,7 +57,7 @@ describe("routing", () => {
     const deps = createDeps();
     await handleRouteChange(context, deps, "/");
     expect(deps.updateTrackUrl).toHaveBeenCalledWith("abc123", true);
-    expect(playbackModule.loadTrackByYouTubeId).toHaveBeenCalled();
+    expect(playbackModule.loadTrackById).toHaveBeenCalled();
   });
 
   it("loads youtube id from /listen and preserves tuning params", async () => {
@@ -67,13 +67,13 @@ describe("routing", () => {
     await handleRouteChange(context, deps, "/listen/abc123def45");
     expect(deps.navigateToTab).toHaveBeenCalledWith("play", {
       replace: true,
-      youtubeId: "abc123def45",
+      trackId: "abc123def45",
     });
-    expect(playbackModule.loadTrackByYouTubeId).toHaveBeenCalledWith(
+    expect(playbackModule.loadTrackById).toHaveBeenCalledWith(
       context,
       deps,
       "abc123def45",
-      { preserveUrlTuning: true, sourceProvider: "youtube" },
+      { preserveUrlTuning: true },
     );
   });
 
@@ -83,24 +83,11 @@ describe("routing", () => {
     const context = createContext();
     const deps = createDeps();
     await handleRouteChange(context, deps, `/listen/${jobId}`);
-    expect(playbackModule.loadTrackByJobId).toHaveBeenCalledWith(
+    expect(playbackModule.loadTrackById).toHaveBeenCalledWith(
       context,
       deps,
       jobId,
       { preserveUrlTuning: false },
-    );
-  });
-
-  it("loads source id from /listen for non-job identifiers", async () => {
-    setWindowUrl("http://localhost/listen/soundcloud%3A123456");
-    const context = createContext();
-    const deps = createDeps();
-    await handleRouteChange(context, deps, "/listen/soundcloud%3A123456");
-    expect(playbackModule.loadTrackByYouTubeId).toHaveBeenCalledWith(
-      context,
-      deps,
-      "123456",
-      { preserveUrlTuning: false, sourceProvider: "soundcloud" },
     );
   });
 

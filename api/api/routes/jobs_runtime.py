@@ -289,6 +289,14 @@ def sanitize_title(filename: str | None) -> str:
     return cleaned[:200]
 
 
+def strip_artist_from_bandcamp_title(title: str, artist: str) -> str:
+    for separator in (" - ", " – ", " — "):
+        prefix = f"{artist}{separator}"
+        if title.casefold().startswith(prefix.casefold()):
+            return title[len(prefix) :].strip() or title
+    return title
+
+
 def _sanitize_log_text(value: str | None, max_len: int = 200) -> str | None:
     if value is None:
         return None
@@ -598,6 +606,8 @@ def download_source_audio(
             info_artist = info.get("artist") or info.get("uploader") or info.get("creator")
             if isinstance(info_title, str) and info_title.strip():
                 _artist = info_artist if isinstance(info_artist, str) else ""
+                if job.source_provider == "bandcamp" and _artist:
+                    info_title = strip_artist_from_bandcamp_title(info_title, _artist)
                 update_job_track_metadata(DB_PATH, job_id, sanitize_title(info_title), _artist.strip())
 
     input_path = None

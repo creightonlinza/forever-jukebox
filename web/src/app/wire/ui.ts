@@ -91,9 +91,9 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     searchHandlers.handleUploadFileClick,
   );
-  elements.uploadYoutubeButton.addEventListener(
-    "click",
-    searchHandlers.handleUploadYoutubeClick,
+  elements.uploadYoutubeForm.addEventListener(
+    "submit",
+    searchHandlers.handleUploadYoutubeSubmit,
   );
   elements.thresholdInput.addEventListener(
     "input",

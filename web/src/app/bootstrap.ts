@@ -40,7 +40,7 @@ import {
   resetTuningDefaults,
   loadAudioFromJob,
   loadTrackByJobId,
-  loadTrackByYouTubeId,
+  loadTrackById,
   openExtras,
   openInfo,
   openTuning,
@@ -141,7 +141,7 @@ export function bootstrap() {
     audioLoadInFlight: false,
     autoComputedThreshold: null,
     lastJobId: null,
-    lastYouTubeId: null,
+    lastTrackId: null,
     lastSourceProvider: null,
     pendingAutoFavoriteId: null,
     lastPlayCountedJobId: null,
@@ -212,10 +212,10 @@ export function bootstrap() {
     setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
     navigateToTab: (
       tabId: TabId,
-      options?: { replace?: boolean; youtubeId?: string | null },
+      options?: { replace?: boolean; trackId?: string | null },
     ) => navigationHandlers.navigateToTabWithState(tabId, options),
-    updateTrackUrl: (youtubeId: string, replace?: boolean) =>
-      updateTrackUrl(youtubeId, replace, state.tuningParams, state.playMode),
+    updateTrackUrl: (trackId: string, replace?: boolean) =>
+      updateTrackUrl(trackId, replace, state.tuningParams, state.playMode),
     setAnalysisStatus: (message: string, spinning: boolean) =>
       setAnalysisStatus(context, message, spinning),
     setLoadingProgress: (progress: number | null, message?: string | null) =>
@@ -242,10 +242,9 @@ export function bootstrap() {
     createFavoritesSync,
     updateFavoritesSync,
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
-    loadTrackByYouTubeId: (youtubeId, sourceProvider) =>
-      loadTrackByYouTubeId(context, playbackDeps, youtubeId, {
+    loadTrackById: (trackId) =>
+      loadTrackById(context, playbackDeps, trackId, {
         preserveUrlTuning: true,
-        sourceProvider,
       }),
     loadTrackByJobId: (jobId) =>
       loadTrackByJobId(context, playbackDeps, jobId, {
@@ -262,10 +261,10 @@ export function bootstrap() {
     setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
     navigateToTab: (
       tabId: TabId,
-      options?: { replace?: boolean; youtubeId?: string | null },
+      options?: { replace?: boolean; trackId?: string | null },
     ) => navigationHandlers.navigateToTabWithState(tabId, options),
-    updateTrackUrl: (youtubeId: string, replace?: boolean) =>
-      updateTrackUrl(youtubeId, replace, state.tuningParams, state.playMode),
+    updateTrackUrl: (trackId: string, replace?: boolean) =>
+      updateTrackUrl(trackId, replace, state.tuningParams, state.playMode),
     setAnalysisStatus: (message: string, spinning: boolean) =>
       setAnalysisStatus(context, message, spinning),
     showToast: (message, options) => showToast(context, message, options),
@@ -289,8 +288,8 @@ export function bootstrap() {
     fetchTrendingSongs,
     fetchRecentSongs,
     limit: TOP_SONGS_LIMIT,
-    loadTrackBySourceId: (sourceId: string, sourceProvider?: string) =>
-      loadTrackByYouTubeId(context, playbackDeps, sourceId, { sourceProvider }),
+    loadTrackById: (trackId: string) =>
+      loadTrackById(context, playbackDeps, trackId),
     loadTrackByJobId: (jobId: string) =>
       loadTrackByJobId(context, playbackDeps, jobId),
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,

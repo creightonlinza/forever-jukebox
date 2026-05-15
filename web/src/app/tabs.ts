@@ -4,13 +4,13 @@ import { serializeParams } from "./tuning";
 
 export type FaqSubtabId = "faq" | "whats-new";
 
-export function pathForTab(tabId: TabId, youtubeId?: string | null) {
+export function pathForTab(tabId: TabId, trackId?: string | null) {
   if (tabId === "search") {
     return "/search";
   }
   if (tabId === "play") {
-    if (youtubeId) {
-      return `/listen/${encodeURIComponent(youtubeId)}`;
+    if (trackId) {
+      return `/listen/${encodeURIComponent(trackId)}`;
     }
     return "/listen";
   }
@@ -21,12 +21,12 @@ export function pathForTab(tabId: TabId, youtubeId?: string | null) {
 }
 
 export function urlForTrack(
-  youtubeId: string,
+  trackId: string,
   baseUrl: string,
   tuningParams?: string | null,
   playMode?: "jukebox" | "autocanonizer",
 ) {
-  const url = new URL(pathForTab("play", youtubeId), baseUrl);
+  const url = new URL(pathForTab("play", trackId), baseUrl);
   url.search = buildSearchParams(tuningParams, playMode);
   return url.toString();
 }
@@ -74,12 +74,15 @@ export function setActiveTab(
 
 export function navigateToTab(
   tabId: TabId,
-  options?: { replace?: boolean; youtubeId?: string | null },
-  lastYouTubeId?: string | null,
+  options?: { replace?: boolean; trackId?: string | null },
+  lastTrackId?: string | null,
   tuningParams?: string | null,
   playMode?: "jukebox" | "autocanonizer"
 ) {
-  const path = pathForTab(tabId, options?.youtubeId ?? lastYouTubeId);
+  const path = pathForTab(
+    tabId,
+    options && "trackId" in options ? options.trackId : lastTrackId,
+  );
   const url = new URL(window.location.href);
   url.pathname = path;
   url.search = tabId === "play" ? buildSearchParams(tuningParams, playMode) : "";
@@ -105,13 +108,13 @@ export function navigateToFaqSubtab(
 }
 
 export function updateTrackUrl(
-  youtubeId: string,
+  trackId: string,
   replace = false,
   tuningParams?: string | null,
   playMode?: "jukebox" | "autocanonizer"
 ) {
   const url = new URL(
-    urlForTrack(youtubeId, window.location.href, tuningParams, playMode),
+    urlForTrack(trackId, window.location.href, tuningParams, playMode),
   );
   if (replace) {
     window.history.replaceState({}, "", url.toString());

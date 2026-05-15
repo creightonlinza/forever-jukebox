@@ -21,9 +21,9 @@ export type SearchDeps = {
   setActiveTab: (tabId: TabId) => void;
   navigateToTab: (
     tabId: TabId,
-    options?: { replace?: boolean; youtubeId?: string | null }
+    options?: { replace?: boolean; trackId?: string | null }
   ) => void;
-  updateTrackUrl: (youtubeId: string, replace?: boolean) => void;
+  updateTrackUrl: (trackId: string, replace?: boolean) => void;
   setAnalysisStatus: (message: string, spinning: boolean) => void;
   showToast: (message: string, options?: ToastOptions) => void;
   setLoadingProgress: (progress: number | null, message?: string | null) => void;
@@ -32,7 +32,7 @@ export type SearchDeps = {
   loadAudioFromJob: (jobId: string) => Promise<boolean>;
   resetForNewTrack: (options?: { clearTuning?: boolean }) => void;
   updateVizVisibility: () => void;
-  onTrackChange?: (youtubeId: string | null) => void;
+  onTrackChange?: (trackId: string | null) => void;
 };
 
 function formatMinutes(value: number): string {
@@ -168,7 +168,7 @@ export async function startYoutubeAnalysisFlow(
   deps.updateVizVisibility();
   deps.setActiveTab("play");
   deps.setLoadingProgress(null, "Fetching audio");
-  context.state.lastYouTubeId = youtubeId;
+  context.state.lastTrackId = youtubeId;
   context.state.lastSourceProvider = "youtube";
   deps.onTrackChange?.(youtubeId);
   deps.updateTrackUrl(youtubeId);
@@ -234,11 +234,14 @@ export async function tryLoadExistingTrackByName(
       return false;
     }
     const jobId = response.id;
-    const youtubeId = response.source_id ?? state.lastYouTubeId;
+    const trackId =
+      response.source_id && response.source_provider && response.source_provider !== "youtube"
+        ? `${response.source_provider}:${response.source_id}`
+        : (response.source_id ?? jobId);
     if (typeof response.source_provider === "string") {
       state.lastSourceProvider = response.source_provider;
     }
-    if (!youtubeId) {
+    if (!trackId) {
       return false;
     }
     deps.resetForNewTrack({ clearTuning: true });
@@ -248,14 +251,9 @@ export async function tryLoadExistingTrackByName(
     deps.updateVizVisibility();
     deps.setActiveTab("play");
     deps.setLoadingProgress(null, "Fetching audio");
-    if (response.source_provider && response.source_provider !== "youtube") {
-      state.lastYouTubeId = null;
-      deps.onTrackChange?.(null);
-    } else {
-      state.lastYouTubeId = youtubeId;
-      deps.onTrackChange?.(youtubeId);
-    }
-    deps.updateTrackUrl(youtubeId);
+    state.lastTrackId = trackId;
+    deps.onTrackChange?.(trackId);
+    deps.updateTrackUrl(trackId);
     state.lastJobId = jobId;
     if (isAnalysisInProgress(response)) {
       await deps.pollAnalysis(jobId);
