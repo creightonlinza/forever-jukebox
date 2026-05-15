@@ -7,6 +7,7 @@ import { JukeboxEngine } from "../engine";
 import type { JukeboxConfig } from "../engine/types";
 import { JukeboxViz } from "../jukebox/JukeboxViz";
 import { fetchAnalysis, fetchAudio, recordPlay } from "../app/api";
+import { formatErrorForDisplay } from "../app/errorDisplay";
 import { formatDuration } from "../app/format";
 import { applyCastTuningToEngine, parseCastTuningParams } from "./tuning";
 
@@ -295,7 +296,16 @@ async function pollAnalysis(
       throw new Error("Analysis not found");
     }
     if (response.status === "failed") {
-      throw new Error(response.error || "Analysis failed");
+      throw Object.assign(
+        new Error(
+          formatErrorForDisplay(response.error, {
+            sourceProvider: response.source_provider,
+            errorCode: response.error_code,
+            fallback: "Analysis failed.",
+          }),
+        ),
+        { code: response.error_code },
+      );
     }
     if (response.status === "complete") {
       return response;
@@ -923,7 +933,9 @@ async function bootstrap() {
       if (token !== state.loadToken) {
         return;
       }
-      const errorMessage = err instanceof Error ? err.message : "Load failed";
+      const errorMessage = formatErrorForDisplay(err, {
+        fallback: "Load failed.",
+      });
       const errorCode =
         err &&
         typeof err === "object" &&

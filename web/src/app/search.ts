@@ -16,6 +16,7 @@ import {
   isAnalysisFailed,
   isAnalysisInProgress,
 } from "./analysisStatus";
+import { formatErrorForDisplay } from "./errorDisplay";
 
 export type SearchDeps = {
   setActiveTab: (tabId: TabId) => void;
@@ -63,7 +64,7 @@ function isTrackLengthAllowed(
     duration > maxTrackLengthMinutes * 60
   ) {
     deps.showToast(
-      `Error: The maximum track length for this server is ${formatMinutes(maxTrackLengthMinutes)} minutes.`,
+      `The maximum track length for this server is ${formatMinutes(maxTrackLengthMinutes)} minutes.`,
       { icon: "error", tone: "error" },
     );
     return false;
@@ -211,7 +212,8 @@ export async function showYoutubeMatches(
     );
     renderSearchList(elements.searchResults, rows);
   } catch (err) {
-    elements.searchResults.textContent = `YouTube search failed: ${String(err)}`;
+    elements.searchResults.textContent =
+      `YouTube search failed: ${formatErrorForDisplay(err)}`;
     elements.searchHint.textContent = "Step 1: Find a Spotify track.";
   }
 }
@@ -260,7 +262,14 @@ export async function tryLoadExistingTrackByName(
       return true;
     }
     if (isAnalysisFailed(response)) {
-      deps.setAnalysisStatus(response.error || "Loading failed.", false);
+      deps.setAnalysisStatus(
+        formatErrorForDisplay(response.error, {
+          sourceProvider: response.source_provider,
+          errorCode: response.error_code,
+          fallback: "Loading failed.",
+        }),
+        false,
+      );
       return true;
     }
     if (isAnalysisComplete(response)) {
@@ -277,7 +286,8 @@ export async function tryLoadExistingTrackByName(
     await deps.pollAnalysis(jobId);
     return true;
   } catch (err) {
-    elements.searchResults.textContent = `Lookup failed: ${String(err)}`;
+    elements.searchResults.textContent =
+      `Lookup failed: ${formatErrorForDisplay(err)}`;
     return false;
   }
 }
@@ -304,7 +314,8 @@ export async function runSearch(context: AppContext, deps: SearchDeps) {
     const rows = items.map((item) => buildSpotifyMatchItem(context, deps, item));
     renderSearchList(elements.searchResults, rows);
   } catch (err) {
-    elements.searchResults.textContent = `Search failed: ${String(err)}`;
+    elements.searchResults.textContent =
+      `Search failed: ${formatErrorForDisplay(err)}`;
   } finally {
     elements.searchButton.disabled = false;
   }
@@ -335,7 +346,10 @@ function handleYoutubeMatchClick(
     return;
   }
   startYoutubeAnalysisFlow(context, deps, youtubeId, name, artist).catch((err) => {
-    deps.setAnalysisStatus(`YouTube analysis failed: ${String(err)}`, false);
+    deps.setAnalysisStatus(
+      `YouTube analysis failed: ${formatErrorForDisplay(err, { sourceProvider: "youtube" })}`,
+      false,
+    );
   });
 }
 

@@ -2,6 +2,10 @@ import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
 import type { SearchDeps } from "../search";
 import type { ToastOptions } from "../ui";
+import {
+  formatErrorForDisplay,
+  inferSourceProviderFromUrl,
+} from "../errorDisplay";
 
 type SearchHandlersDeps = {
   context: AppContext;
@@ -13,7 +17,14 @@ type SearchHandlersDeps = {
   uploadAudio: (file: File) => Promise<{ id?: string } | null>;
   startUrlAnalysis: (payload: {
     url: string;
-  }) => Promise<{ id?: string; source_id?: string; source_provider?: string } | null>;
+  }) => Promise<{
+    id?: string;
+    source_id?: string;
+    source_provider?: string;
+    status?: string;
+    error?: string;
+    error_code?: string;
+  } | null>;
   resetForNewTrack: (context: AppContext) => void;
   setActiveTabWithRefresh: (tabId: TabId) => void;
   setLoadingProgress: (
@@ -61,7 +72,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
   }
 
   function maxTrackLengthMessage(minutes: number): string {
-    return `Error: The maximum track length for this server is ${formatMinutes(minutes)} minutes.`;
+    return `The maximum track length for this server is ${formatMinutes(minutes)} minutes.`;
   }
 
   function setButtonBusy(button: HTMLButtonElement, busy: boolean) {
@@ -228,10 +239,10 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
             : null;
         showToast(
           context,
-          (err as Error).message ||
+          formatErrorForDisplay(err) ||
             (fallbackLimit !== null
               ? maxTrackLengthMessage(fallbackLimit)
-              : "Error: This track exceeds the server max track length."),
+              : "This track exceeds the server max track length."),
           {
             icon: "error",
             tone: "error",
@@ -239,7 +250,10 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
         );
         return;
       }
-      showToast(context, `Upload failed: ${String(err)}`);
+      showToast(context, `Upload failed: ${formatErrorForDisplay(err)}`, {
+        icon: "error",
+        tone: "error",
+      });
     } finally {
       setButtonBusy(elements.uploadFileButton, false);
       uploadFileInFlight = false;
@@ -266,6 +280,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       showToast(context, "Invalid or unsupported URL.");
       return;
     }
+    const requestedSourceProvider = inferSourceProviderFromUrl(sourceUrl);
     uploadYoutubeInFlight = true;
     setButtonBusy(elements.uploadYoutubeButton, true);
     try {
@@ -274,6 +289,18 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       });
       const sourceId = response?.source_id;
       const sourceProvider = response?.source_provider;
+      if (response?.status === "failed") {
+        showToast(
+          context,
+          formatErrorForDisplay(response.error, {
+            sourceProvider: sourceProvider ?? requestedSourceProvider,
+            errorCode: response.error_code,
+            fallback: "Upload failed.",
+          }),
+          { icon: "error", tone: "error" },
+        );
+        return;
+      }
       if (!response || !response.id || !sourceProvider) {
         throw new Error("Upload failed");
       }
@@ -307,10 +334,12 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
             : null;
         showToast(
           context,
-          (err as Error).message ||
+          formatErrorForDisplay(err, {
+            sourceProvider: requestedSourceProvider,
+          }) ||
             (fallbackLimit !== null
               ? maxTrackLengthMessage(fallbackLimit)
-              : "Error: This track exceeds the server max track length."),
+              : "This track exceeds the server max track length."),
           {
             icon: "error",
             tone: "error",
@@ -318,7 +347,14 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
         );
         return;
       }
-      showToast(context, `Upload failed: ${String(err)}`);
+      showToast(
+        context,
+        formatErrorForDisplay(err, {
+          sourceProvider: requestedSourceProvider,
+          fallback: "Upload failed.",
+        }),
+        { icon: "error", tone: "error" },
+      );
     } finally {
       setButtonBusy(elements.uploadYoutubeButton, false);
       uploadYoutubeInFlight = false;

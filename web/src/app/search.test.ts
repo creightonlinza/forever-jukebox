@@ -94,6 +94,8 @@ describe("search flows", () => {
       id: "job-f",
       source_id: "yt-f",
       error: "ERROR: [download] This video is not available.",
+      error_code: "download_unavailable",
+      source_provider: "youtube",
     });
     const result = await tryLoadExistingTrackByName(
       context,
@@ -103,7 +105,7 @@ describe("search flows", () => {
     );
     expect(result).toBe(true);
     expect(deps.setAnalysisStatus).toHaveBeenCalledWith(
-      "ERROR: [download] This video is not available.",
+      "YouTube fetch failed.",
       false,
     );
     expect(deps.pollAnalysis).not.toHaveBeenCalled();

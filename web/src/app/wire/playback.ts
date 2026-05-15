@@ -6,6 +6,7 @@ import type { JukeboxEngine } from "../../engine";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
 import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
 import type { ToastOptions } from "../ui";
+import { formatErrorForDisplay } from "../errorDisplay";
 import { VISUALIZATION_LABELS } from "../constants";
 import { formatDuration, formatPlaybackTitle } from "../format";
 import { setAutoMarqueeText } from "../marquee";
@@ -479,7 +480,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       await navigator.clipboard.writeText(shortUrl);
       showToast(context, "Link copied to clipboard");
     } catch (err) {
-      setAnalysisStatus(context, `Copy failed: ${String(err)}`, false);
+      setAnalysisStatus(context, `Copy failed: ${formatErrorForDisplay(err)}`, false);
     }
   }
 

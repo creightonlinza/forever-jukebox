@@ -34,12 +34,13 @@ import {
   isAnalysisFailed,
   isAnalysisInProgress,
 } from "./analysisStatus";
+import { formatErrorForDisplay } from "./errorDisplay";
 
 const DEFAULT_VOLUME = 0.5;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const GENERIC_LOAD_ERROR_MESSAGE =
-  "ERROR: Something went wrong. Please try again or report an issue on GitHub.";
+  "Something went wrong. Please try again or report an issue on GitHub.";
 
 function getDeletedEdgeIdsFromGraph(
   graph: ReturnType<AppContext["engine"]["getGraphState"]>,
@@ -1191,7 +1192,14 @@ export async function pollAnalysis(
           await loadAudioFromJob(context, jobId);
         }
       } else if (isAnalysisFailed(response)) {
-        deps.setAnalysisStatus(response.error || "Loading failed.", false);
+        deps.setAnalysisStatus(
+          formatErrorForDisplay(response.error, {
+            sourceProvider: response.source_provider,
+            errorCode: response.error_code,
+            fallback: "Loading failed.",
+          }),
+          false,
+        );
         return;
       } else if (isAnalysisComplete(response)) {
         if (!state.audioLoaded) {
@@ -1301,7 +1309,7 @@ async function loadTrack(
         : await fetchAnalysis(source.id);
     await continueTrackLoadWithResponse(context, deps, response);
   } catch (err) {
-    deps.setAnalysisStatus(`Load failed: ${String(err)}`, false);
+    deps.setAnalysisStatus(`Load failed: ${formatErrorForDisplay(err)}`, false);
   }
 }
 
