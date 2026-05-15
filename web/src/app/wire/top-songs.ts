@@ -1,5 +1,6 @@
 import type { Elements } from "../elements";
 import type { TabId } from "../context";
+import { formatErrorForDisplay } from "../errorDisplay";
 type TopSongsDeps = {
   elements: Elements;
   fetchTopSongs: (limit: number) => Promise<
@@ -82,7 +83,8 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
         listEl.appendChild(li);
       }
     } catch (err) {
-      listEl.textContent = `${errorPrefix} unavailable: ${String(err)}`;
+      listEl.textContent =
+        `${errorPrefix} unavailable: ${formatErrorForDisplay(err)}`;
     }
   }
 
