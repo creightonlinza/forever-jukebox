@@ -698,6 +698,10 @@ button.is-loading::after {
   gap: 8px;
 }
 
+#tuning-title.is-extras-active {
+  order: 2;
+}
+
 .modal-tabs {
   display: flex;
   align-items: center;
@@ -709,22 +713,18 @@ button.is-loading::after {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
-  border-radius: 999px;
+  padding: 6px 12px;
+  border-radius: 8px;
   border: 1px solid var(--border-control);
-  background: transparent;
-  color: var(--muted);
+  background: var(--surface-panel);
+  color: var(--text);
   font-size: 12px;
   letter-spacing: 0.02em;
-}
-
-#tuning-tab-toggle {
-  border-color: var(--beat-fill);
-  color: var(--beat-fill);
+  cursor: pointer;
 }
 
 #tuning-tab-toggle:hover {
-  background: color-mix(in srgb, var(--beat-fill) 14%, var(--surface-control));
+  background: var(--surface-control);
 }
 
 #tuning-tab-toggle:focus-visible {
@@ -735,25 +735,9 @@ button.is-loading::after {
   display: none;
 }
 
-.beta-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--beat-fill);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--beat-fill);
-  background: color-mix(in srgb, var(--beat-fill) 14%, transparent);
-}
-
-.beta-tag.hidden {
-  display: none;
-}
-
 .modal-tab-icon {
-  font-size: 16px;
+  font-size: 15px;
+  line-height: 1;
 }
 
 .modal-tab.is-active {

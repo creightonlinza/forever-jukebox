@@ -153,10 +153,6 @@ export function getElements() {
     document.querySelector<HTMLSpanElement>("#tuning-title-text"),
     "#tuning-title-text"
   );
-  const tuningBetaTag = requireElement(
-    document.querySelector<HTMLSpanElement>("#tuning-beta-tag"),
-    "#tuning-beta-tag"
-  );
   const tuningTabToggle = requireElement(
     document.querySelector<HTMLButtonElement>("#tuning-tab-toggle"),
     "#tuning-tab-toggle"
@@ -611,7 +607,6 @@ export function getElements() {
     tuningClose,
     tuningTitle,
     tuningTitleText,
-    tuningBetaTag,
     tuningTabToggle,
     tuningTabToggleIcon,
     tuningTabToggleLabel,

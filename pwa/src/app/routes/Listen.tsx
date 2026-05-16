@@ -2285,27 +2285,33 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           <div className="modal-panel">
             <div className="modal-header">
               <div className="modal-header-main">
-                <h2 id="tuning-title">
+                <h2
+                  id="tuning-title"
+                  className={tuningActiveTab === "extras" ? "is-extras-active" : ""}
+                >
                   <span id="tuning-title-text">
                     {tuningActiveTab === "tuning" ? "Tuning" : "Extras"}
-                  </span>
-                  <span
-                    id="tuning-beta-tag"
-                    className={`beta-tag ${tuningActiveTab === "extras" ? "" : "hidden"}`}
-                  >
-                    Beta
                   </span>
                 </h2>
                 <div className="modal-tabs" aria-label="Tune sections">
                   <button
                     id="tuning-tab-toggle"
-                    className={`modal-tab ${playMode !== "jukebox" || tuningActiveTab !== "tuning" ? "hidden" : ""}`}
+                    className={`modal-tab ${playMode !== "jukebox" ? "hidden" : ""}`}
                     type="button"
-                    onClick={() => setTuningActiveTab("extras")}
-                    aria-label="Switch to Extras"
+                    onClick={() =>
+                      setTuningActiveTab(tuningActiveTab === "tuning" ? "extras" : "tuning")
+                    }
+                    aria-label={
+                      tuningActiveTab === "tuning" ? "Switch to Extras" : "Switch to Tuning"
+                    }
                   >
-                    <SymbolIcon className="modal-tab-icon" name="science" />
-                    <span id="tuning-tab-toggle-label">Extras</span>
+                    <SymbolIcon
+                      className="modal-tab-icon"
+                      name={tuningActiveTab === "tuning" ? "science" : "tune"}
+                    />
+                    <span id="tuning-tab-toggle-label">
+                      {tuningActiveTab === "tuning" ? "Extras" : "Tuning"}
+                    </span>
                   </button>
                 </div>
               </div>

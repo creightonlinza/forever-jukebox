@@ -571,8 +571,8 @@ export function setActiveTuningTab(context: AppContext, tab: TuningModalTab) {
   const nextTab = tab === "extras" && hasExtrasTab ? "extras" : "tuning";
   const tuningActive = nextTab === "tuning";
   elements.tuningTitleText.textContent = tuningActive ? "Tuning" : "Extras";
-  elements.tuningBetaTag.classList.toggle("hidden", tuningActive);
-  elements.tuningTabToggle.classList.toggle("hidden", !hasExtrasTab || !tuningActive);
+  elements.tuningTitle.classList.toggle("is-extras-active", !tuningActive);
+  elements.tuningTabToggle.classList.toggle("hidden", !hasExtrasTab);
   elements.tuningTabToggleIcon.textContent = tuningActive ? "science" : "tune";
   elements.tuningTabToggleLabel.textContent = tuningActive ? "Extras" : "Tuning";
   elements.tuningTabToggle.setAttribute(

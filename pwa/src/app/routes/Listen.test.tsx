@@ -763,12 +763,31 @@ describe("Listen route behavior", () => {
       rendered.container,
       "#tuning-title-text"
     );
+    const tuningTitle = getRequired<HTMLHeadingElement>(
+      rendered.container,
+      "#tuning-title"
+    );
+    const tabToggle = getRequired<HTMLButtonElement>(
+      rendered.container,
+      "#tuning-tab-toggle"
+    );
+    const tabToggleLabel = getRequired<HTMLSpanElement>(
+      rendered.container,
+      "#tuning-tab-toggle-label"
+    );
     expect(titleText.textContent).toBe("Tuning");
+    expect(tuningTitle.classList.contains("is-extras-active")).toBe(false);
+    expect(tabToggle.classList.contains("hidden")).toBe(false);
+    expect(tabToggleLabel.textContent).toBe("Extras");
+    expect(tabToggle.getAttribute("aria-label")).toBe("Switch to Extras");
 
     await switchToExtrasTab(rendered.container);
     expect(titleText.textContent).toBe("Extras");
-    const betaTag = getRequired<HTMLSpanElement>(rendered.container, "#tuning-beta-tag");
-    expect(betaTag.classList.contains("hidden")).toBe(false);
+    expect(tuningTitle.classList.contains("is-extras-active")).toBe(true);
+    expect(tabToggle.classList.contains("hidden")).toBe(false);
+    expect(tabToggleLabel.textContent).toBe("Tuning");
+    expect(tabToggle.getAttribute("aria-label")).toBe("Switch to Tuning");
+    expect(rendered.container.querySelector("#tuning-beta-tag")).toBeNull();
 
     const branchStatsInput = getRequired<HTMLInputElement>(
       rendered.container,
@@ -839,6 +858,21 @@ describe("Listen route behavior", () => {
       "#tuning-title-text"
     );
     expect(titleText.textContent).toBe("Extras");
+    const tuningTitle = getRequired<HTMLHeadingElement>(
+      rendered.container,
+      "#tuning-title"
+    );
+    expect(tuningTitle.classList.contains("is-extras-active")).toBe(true);
+    const tabToggle = getRequired<HTMLButtonElement>(
+      rendered.container,
+      "#tuning-tab-toggle"
+    );
+    const tabToggleLabel = getRequired<HTMLSpanElement>(
+      rendered.container,
+      "#tuning-tab-toggle-label"
+    );
+    expect(tabToggle.classList.contains("hidden")).toBe(false);
+    expect(tabToggleLabel.textContent).toBe("Tuning");
     const tuningPanel = getRequired<HTMLDivElement>(
       rendered.container,
       "#tuning-panel-tuning"
@@ -849,6 +883,12 @@ describe("Listen route behavior", () => {
     );
     expect(tuningPanel.classList.contains("hidden")).toBe(true);
     expect(extrasPanel.classList.contains("hidden")).toBe(false);
+    await click(tabToggle);
+    expect(titleText.textContent).toBe("Tuning");
+    expect(tuningTitle.classList.contains("is-extras-active")).toBe(false);
+    expect(tabToggleLabel.textContent).toBe("Extras");
+    expect(tuningPanel.classList.contains("hidden")).toBe(false);
+    expect(extrasPanel.classList.contains("hidden")).toBe(true);
     rendered.unmount();
   });
 
