@@ -685,6 +685,12 @@ button.is-loading::after {
   flex-wrap: wrap;
 }
 
+.modal-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .modal-header h2 {
   margin: 0;
   display: inline-flex;
@@ -755,6 +761,38 @@ button.is-loading::after {
   color: var(--text);
 }
 
+.modal-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.modal-icon-button:hover {
+  background: var(--surface-control);
+  color: var(--text);
+}
+
+.modal-icon-button:focus-visible {
+  outline: 2px solid var(--beat-fill);
+}
+
+.modal-icon-button-icon {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 24;
+  font-size: 24px;
+  line-height: 1;
+}
+
 .modal-body {
   display: flex;
   flex-direction: column;
@@ -802,6 +840,40 @@ button.is-loading::after {
 
 .tuning-footer {
   justify-content: space-between;
+}
+
+.sleep-timer-panel {
+  width: min(420px, 90vw);
+}
+
+.sleep-timer-body {
+  gap: 14px;
+}
+
+.sleep-timer-current {
+  padding: 10px 12px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--surface-control);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.sleep-timer-select-group {
+  display: grid;
+  gap: 6px;
+}
+
+.sleep-timer-select-wrap {
+  width: 100%;
+}
+
+.sleep-timer-select {
+  width: 100%;
+}
+
+.sleep-timer-footer {
+  gap: 8px;
 }
 
 .favorites-sync-code {

@@ -11,6 +11,7 @@ import {
   loadTrackById,
   openExtras,
   resetForNewTrack,
+  setSleepTimer,
   setActiveTuningTab,
   startJukeboxFromBeat,
   stopPlayback,
@@ -187,6 +188,25 @@ function createElements() {
     },
     tuningTabToggleIcon: createSpan(),
     tuningTabToggleLabel: createSpan(),
+    sleepTimerOpen: {
+      classList: createMutableClassList(),
+      setAttribute: vi.fn(),
+    },
+    sleepTimerModal: { classList: createMutableClassList() },
+    sleepTimerClose: {
+      classList: createMutableClassList(),
+      setAttribute: vi.fn(),
+    },
+    sleepTimerCancel: {
+      classList: createMutableClassList(),
+      setAttribute: vi.fn(),
+    },
+    sleepTimerSet: {
+      classList: createMutableClassList(),
+      setAttribute: vi.fn(),
+    },
+    sleepTimerSelect: { value: "off" },
+    sleepTimerCurrent: createSpan(),
     tuningPanelTuning: { classList: createMutableClassList() },
     tuningPanelExtras: { classList: createMutableClassList(["hidden"]) },
     tuningModal: { classList: createClassList() },
@@ -350,6 +370,12 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
       swingPreparing: false,
       swingRenderToken: 0,
       listenTimerId: null,
+      sleepTimer: {
+        configuredDurationMs: null,
+        endTimeMs: null,
+        remainingMs: 0,
+      },
+      sleepTimerTimeoutId: null,
       pollController: null,
       wakeLock: null,
       favorites: [],
@@ -920,6 +946,26 @@ describe("playback tuning", () => {
 });
 
 describe("playback timers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function setupSleepTimerClock(initialNowMs = 1000) {
+    let nowMs = initialNowMs;
+    vi.useFakeTimers();
+    vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+    (globalThis.window as unknown as { setTimeout: typeof setTimeout }).setTimeout =
+      setTimeout;
+    (globalThis.window as unknown as { clearTimeout: typeof clearTimeout }).clearTimeout =
+      clearTimeout;
+    vi.stubGlobal("document", { fullscreenElement: null });
+    return {
+      setNow(nextNowMs: number) {
+        nowMs = nextNowMs;
+      },
+    };
+  }
+
   it("updates listen time display", () => {
     const context = createContext();
     context.state.playTimerMs = 1000;
@@ -927,6 +973,102 @@ describe("playback timers", () => {
     vi.spyOn(performance, "now").mockReturnValue(1000);
     updateListenTimeDisplay(context);
     expect(context.elements.listenTimeEl.textContent).toBe("00:00:02");
+  });
+
+  it("maps null, zero, negative, and unknown sleep timer durations to off", () => {
+    setupSleepTimerClock();
+    const context = createContext();
+
+    for (const durationMs of [null, 0, -1, Number.NaN]) {
+      setSleepTimer(context, 30 * 60 * 1000);
+      setSleepTimer(context, durationMs);
+
+      expect(context.state.sleepTimer).toEqual({
+        configuredDurationMs: null,
+        endTimeMs: null,
+        remainingMs: 0,
+      });
+      expect(context.state.sleepTimerTimeoutId).toBe(null);
+    }
+  });
+
+  it("sets sleep timer state from monotonic time", () => {
+    setupSleepTimerClock(5000);
+    const context = createContext();
+
+    setSleepTimer(context, 15 * 60 * 1000);
+
+    expect(context.state.sleepTimer).toEqual({
+      configuredDurationMs: 15 * 60 * 1000,
+      endTimeMs: 905000,
+      remainingMs: 15 * 60 * 1000,
+    });
+    expect(context.state.sleepTimerTimeoutId).not.toBe(null);
+  });
+
+  it("replacing a sleep timer cancels the old expiry", () => {
+    const clock = setupSleepTimerClock(1000);
+    const context = createContext();
+    context.state.isRunning = true;
+
+    setSleepTimer(context, 1000);
+    setSleepTimer(context, 5000);
+    clock.setNow(2000);
+    vi.advanceTimersByTime(1000);
+
+    expect(context.engine.stopJukebox).not.toHaveBeenCalled();
+    expect(context.state.sleepTimer.configuredDurationMs).toBe(5000);
+    expect(context.state.sleepTimer.remainingMs).toBe(4000);
+  });
+
+  it("expires by clearing timer state, stopping playback, and exiting fullscreen", () => {
+    const clock = setupSleepTimerClock(1000);
+    const exitFullscreen = vi.fn(async () => undefined);
+    vi.stubGlobal("document", {
+      fullscreenElement: {},
+      exitFullscreen,
+    });
+    const context = createContext();
+    context.state.isRunning = true;
+    context.state.isPaused = false;
+    context.state.playTimerMs = 1234;
+    context.elements.beatsPlayedEl.textContent = "8";
+
+    setSleepTimer(context, 1000);
+    clock.setNow(2000);
+    vi.advanceTimersByTime(1000);
+
+    expect(context.state.sleepTimer).toEqual({
+      configuredDurationMs: null,
+      endTimeMs: null,
+      remainingMs: 0,
+    });
+    expect(context.state.isRunning).toBe(false);
+    expect(context.state.isPaused).toBe(false);
+    expect(context.engine.stopJukebox).toHaveBeenCalled();
+    expect(context.elements.beatsPlayedEl.textContent).toBe("0");
+    expect(exitFullscreen).toHaveBeenCalledTimes(1);
+  });
+
+  it("schedules the final partial second without waiting a full extra tick", () => {
+    const clock = setupSleepTimerClock(1000);
+    const context = createContext();
+    context.state.isRunning = true;
+
+    setSleepTimer(context, 1500);
+    clock.setNow(2000);
+    vi.advanceTimersByTime(1000);
+
+    expect(context.state.sleepTimer.remainingMs).toBe(500);
+    expect(context.engine.stopJukebox).not.toHaveBeenCalled();
+
+    clock.setNow(2499);
+    vi.advanceTimersByTime(499);
+    expect(context.engine.stopJukebox).not.toHaveBeenCalled();
+
+    clock.setNow(2500);
+    vi.advanceTimersByTime(1);
+    expect(context.engine.stopJukebox).toHaveBeenCalled();
   });
 });
 

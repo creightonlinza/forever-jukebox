@@ -55,10 +55,18 @@ export type AppState = {
   appConfig: AppConfig | null;
   pollController: AbortController | null;
   listenTimerId: number | null;
+  sleepTimer: SleepTimerState;
+  sleepTimerTimeoutId: number | null;
   wakeLock: WakeLockSentinel | null;
   tuningParams: string | null;
   deletedEdgeIds: number[];
   highlightAnchorBranch: boolean;
+};
+
+export type SleepTimerState = {
+  configuredDurationMs: number | null;
+  endTimeMs: number | null;
+  remainingMs: number;
 };
 
 export type AppContext = {

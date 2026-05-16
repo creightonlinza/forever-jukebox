@@ -113,6 +113,30 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     tuningHandlers.handleVolumeInput,
   );
   elements.tuningButton.addEventListener("click", tuningHandlers.handleOpenTuning);
+  elements.sleepTimerOpen.addEventListener(
+    "click",
+    tuningHandlers.handleOpenSleepTimer,
+  );
+  elements.sleepTimerClose.addEventListener(
+    "click",
+    tuningHandlers.handleCloseSleepTimer,
+  );
+  elements.sleepTimerCancel.addEventListener(
+    "click",
+    tuningHandlers.handleCloseSleepTimer,
+  );
+  elements.sleepTimerSet.addEventListener(
+    "click",
+    tuningHandlers.handleSleepTimerSet,
+  );
+  elements.sleepTimerSelect.addEventListener(
+    "change",
+    tuningHandlers.handleSleepTimerSelectChange,
+  );
+  elements.sleepTimerModal.addEventListener(
+    "click",
+    tuningHandlers.handleSleepTimerModalClick,
+  );
   elements.tuningTabToggle.addEventListener("click", tuningHandlers.handleTuningTabToggle);
   elements.infoButton.addEventListener("click", tuningHandlers.handleOpenInfo);
   elements.favoriteButton.addEventListener(

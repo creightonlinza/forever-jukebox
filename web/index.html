@@ -722,13 +722,28 @@
                 </button>
               </div>
             </div>
-            <button id="tuning-close" class="modal-close" aria-label="Close">
-              <span
-                class="material-symbols-outlined modal-close-icon"
-                aria-hidden="true"
-                >close</span
+            <div class="modal-header-actions">
+              <button
+                id="sleep-timer-open"
+                class="modal-icon-button"
+                type="button"
+                aria-label="Sleep Timer"
+                title="Sleep Timer"
               >
-            </button>
+                <span
+                  class="material-symbols-outlined modal-icon-button-icon"
+                  aria-hidden="true"
+                  >timer</span
+                >
+              </button>
+              <button id="tuning-close" class="modal-close" aria-label="Close">
+                <span
+                  class="material-symbols-outlined modal-close-icon"
+                  aria-hidden="true"
+                  >close</span
+                >
+              </button>
+            </div>
           </div>
           <div class="modal-body">
             <div id="tuning-panel-tuning">
@@ -929,6 +944,52 @@
           <div class="modal-footer tuning-footer">
             <button id="tuning-reset">Reset</button>
             <button id="tuning-apply">Apply</button>
+          </div>
+        </div>
+      </div>
+      <div id="sleep-timer-modal" class="modal">
+        <div class="modal-panel sleep-timer-panel">
+          <div class="modal-header">
+            <h2>Sleep Timer</h2>
+            <button
+              id="sleep-timer-close"
+              class="modal-close"
+              aria-label="Close"
+            >
+              <span
+                class="material-symbols-outlined modal-close-icon"
+                aria-hidden="true"
+                >close</span
+              >
+            </button>
+          </div>
+          <div class="modal-body sleep-timer-body">
+            <div id="sleep-timer-current" class="sleep-timer-current">Off</div>
+            <label class="sleep-timer-select-group" for="sleep-timer-select">
+              <span class="label-line">Timer</span>
+              <span class="viz-select-wrap sleep-timer-select-wrap">
+                <select
+                  id="sleep-timer-select"
+                  class="viz-select sleep-timer-select"
+                >
+                  <option value="off">Off</option>
+                  <option value="900000">15 minutes</option>
+                  <option value="1800000">30 minutes</option>
+                  <option value="2700000">45 minutes</option>
+                  <option value="3600000">1 hour</option>
+                  <option value="7200000">2 hours</option>
+                </select>
+                <span
+                  class="material-symbols-outlined viz-select-arrow"
+                  aria-hidden="true"
+                  >arrow_drop_down</span
+                >
+              </span>
+            </label>
+          </div>
+          <div class="modal-footer sleep-timer-footer">
+            <button id="sleep-timer-cancel" type="button">Close</button>
+            <button id="sleep-timer-set" type="button">Set</button>
           </div>
         </div>
       </div>

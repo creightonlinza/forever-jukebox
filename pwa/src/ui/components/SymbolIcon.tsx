@@ -12,7 +12,8 @@ type SymbolName =
   | "fullscreen_exit"
   | "close"
   | "science"
-  | "hourglass_top";
+  | "hourglass_top"
+  | "timer";
 
 type SymbolIconProps = {
   name: SymbolName;
@@ -118,6 +119,13 @@ export function SymbolIcon({ name, className }: SymbolIconProps) {
           <path d="M8 4v5a4 4 0 0 0 2 3.5A4 4 0 0 0 8 16v4" />
           <path d="M16 4v5a4 4 0 0 1-2 3.5A4 4 0 0 1 16 16v4" />
           <path d="M9 8h6" />
+        </>
+      ) : null}
+      {name === "timer" ? (
+        <>
+          <circle cx="12" cy="13" r="7" />
+          <path d="M9 3h6" />
+          <path d="M12 6v7l3 2" />
         </>
       ) : null}
     </svg>

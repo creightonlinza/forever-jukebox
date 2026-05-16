@@ -27,6 +27,10 @@ import {
   VISUALIZATION_LABELS,
 } from "@/shared/jukebox/constants/visualization";
 import {
+  backgroundClearTimeout,
+  backgroundSetTimeout,
+} from "@/shared/jukebox/background/backgroundTimer";
+import {
   exportJukeboxAudio,
   type JukeboxExportProgress,
 } from "@/shared/jukebox/export";
@@ -72,6 +76,51 @@ const DEFAULT_PLAYBACK_VOLUME = 0.5;
 type PlayMode = "jukebox" | "autocanonizer";
 type TuningModalTab = "tuning" | "extras";
 type AudioExportFormat = "mp3" | "wav";
+
+type SleepTimerOption = {
+  label: string;
+  durationMs: number | null;
+};
+
+type SleepTimerState = {
+  configuredDurationMs: number | null;
+  endTimeMs: number | null;
+  remainingMs: number;
+};
+
+const SLEEP_TIMER_OPTIONS: SleepTimerOption[] = [
+  { label: "Off", durationMs: null },
+  { label: "15 minutes", durationMs: 15 * 60 * 1000 },
+  { label: "30 minutes", durationMs: 30 * 60 * 1000 },
+  { label: "45 minutes", durationMs: 45 * 60 * 1000 },
+  { label: "1 hour", durationMs: 60 * 60 * 1000 },
+  { label: "2 hours", durationMs: 2 * 60 * 60 * 1000 },
+];
+
+function getSleepTimerOptionValue(durationMs: number | null) {
+  return durationMs === null ? "off" : String(durationMs);
+}
+
+function getSleepTimerDurationFromValue(value: string) {
+  if (value === "off") {
+    return null;
+  }
+  const durationMs = Number(value);
+  const matchedOption = SLEEP_TIMER_OPTIONS.find(
+    (option) => option.durationMs === durationMs,
+  );
+  return matchedOption ? matchedOption.durationMs : null;
+}
+
+function resolveSleepTimerDuration(durationMs: number | null) {
+  return SLEEP_TIMER_OPTIONS.some((option) => option.durationMs === durationMs)
+    ? durationMs
+    : null;
+}
+
+function formatSleepTimerRemaining(remainingMs: number) {
+  return formatDuration(Math.ceil(Math.max(0, remainingMs) / 1000));
+}
 
 type ExtrasFormState = {
   branchStatsEnabled: boolean;
@@ -326,9 +375,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [listenSeconds, setListenSeconds] = React.useState(0);
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
+  const [isSleepTimerOpen, setIsSleepTimerOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
   const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [sleepTimer, setSleepTimerState] = React.useState<SleepTimerState>({
+    configuredDurationMs: null,
+    endTimeMs: null,
+    remainingMs: 0,
+  });
+  const [pendingSleepTimerDurationMs, setPendingSleepTimerDurationMs] =
+    React.useState<number | null>(null);
   const [bringItHomeMode, setBringItHomeMode] = React.useState(false);
   const [branchStatsEnabled, setBranchStatsEnabled] = React.useState<boolean>(
     () => resolveStoredBranchStatsEnabled(),
@@ -406,6 +463,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const swingPreparingRef = React.useRef(false);
   const playTimerMsRef = React.useRef(0);
   const lastPlayStampRef = React.useRef<number | null>(null);
+  const sleepTimerTimeoutRef = React.useRef<number | null>(null);
+  const sleepTimerEndTimeRef = React.useRef<number | null>(null);
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
   const previousFileKeyRef = React.useRef<string | null>(null);
   const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -433,6 +492,96 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   function clearSelectedBranch() {
     setSelectedEdge(null);
     vizControllerRef.current?.setSelectedEdge(null);
+  }
+
+  function clearSleepTimerTimeout() {
+    if (sleepTimerTimeoutRef.current === null) {
+      return;
+    }
+    backgroundClearTimeout(sleepTimerTimeoutRef.current);
+    sleepTimerTimeoutRef.current = null;
+  }
+
+  function publishInactiveSleepTimer() {
+    sleepTimerEndTimeRef.current = null;
+    setSleepTimerState({
+      configuredDurationMs: null,
+      endTimeMs: null,
+      remainingMs: 0,
+    });
+  }
+
+  function expireSleepTimer(expectedEndTimeMs: number) {
+    if (sleepTimerEndTimeRef.current !== expectedEndTimeMs) {
+      return;
+    }
+    sleepTimerEndTimeRef.current = null;
+    setSleepTimerState({
+      configuredDurationMs: null,
+      endTimeMs: null,
+      remainingMs: 0,
+    });
+    clearSleepTimerTimeout();
+    stopPlayback();
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {
+        console.warn("Failed to exit fullscreen");
+      });
+    }
+  }
+
+  function scheduleSleepTimerTick(expectedEndTimeMs: number) {
+    clearSleepTimerTimeout();
+    const remainingMs = Math.max(0, expectedEndTimeMs - performance.now());
+    const nextDelayMs = remainingMs > 1000 ? 1000 : remainingMs;
+    sleepTimerTimeoutRef.current = backgroundSetTimeout(() => {
+      if (sleepTimerEndTimeRef.current !== expectedEndTimeMs) {
+        return;
+      }
+      const nextRemainingMs = Math.max(0, expectedEndTimeMs - performance.now());
+      setSleepTimerState((current) => {
+        if (current.endTimeMs !== expectedEndTimeMs) {
+          return current;
+        }
+        return {
+          configuredDurationMs: current.configuredDurationMs,
+          endTimeMs: expectedEndTimeMs,
+          remainingMs: nextRemainingMs,
+        };
+      });
+      if (nextRemainingMs <= 0) {
+        expireSleepTimer(expectedEndTimeMs);
+        return;
+      }
+      scheduleSleepTimerTick(expectedEndTimeMs);
+    }, nextDelayMs);
+  }
+
+  function setSleepTimer(durationMs: number | null) {
+    clearSleepTimerTimeout();
+    if (
+      durationMs === null ||
+      !Number.isFinite(durationMs) ||
+      durationMs <= 0
+    ) {
+      publishInactiveSleepTimer();
+      return;
+    }
+    const endTimeMs = performance.now() + durationMs;
+    sleepTimerEndTimeRef.current = endTimeMs;
+    setSleepTimerState({
+      configuredDurationMs: durationMs,
+      endTimeMs,
+      remainingMs: durationMs,
+    });
+    scheduleSleepTimerTick(endTimeMs);
+  }
+
+  function openSleepTimer() {
+    setPendingSleepTimerDurationMs(
+      resolveSleepTimerDuration(sleepTimer.configuredDurationMs),
+    );
+    setIsSleepTimerOpen(true);
   }
 
   function syncVizDataFromEngine() {
@@ -567,6 +716,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     safeLocalStorageSet(CANONIZER_FINISH_STORAGE_KEY, String(finishOutSong));
     autocanonizerRef.current?.setFinishOutSong(finishOutSong);
   }, [finishOutSong]);
+
+  React.useEffect(() => {
+    setPendingSleepTimerDurationMs(
+      resolveSleepTimerDuration(sleepTimer.configuredDurationMs),
+    );
+  }, [sleepTimer.configuredDurationMs]);
+
+  React.useEffect(() => {
+    return () => {
+      clearSleepTimerTimeout();
+    };
+  }, []);
 
   React.useEffect(() => {
     setIsListenLoading(isAnalyzing);
@@ -2148,9 +2309,21 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   </button>
                 </div>
               </div>
-              <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label="Close">
-                <SymbolIcon className="modal-close-icon" name="close" />
-              </button>
+              <div className="modal-header-actions">
+                <button
+                  id="sleep-timer-open"
+                  className="modal-icon-button"
+                  type="button"
+                  onClick={openSleepTimer}
+                  aria-label="Sleep Timer"
+                  title="Sleep Timer"
+                >
+                  <SymbolIcon className="modal-icon-button-icon" name="timer" />
+                </button>
+                <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label="Close">
+                  <SymbolIcon className="modal-close-icon" name="close" />
+                </button>
+              </div>
             </div>
             <div className="modal-body">
               <div id="tuning-panel-tuning" className={tuningActiveTab === "tuning" ? "" : "hidden"}>
@@ -2344,6 +2517,86 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             <div className="modal-footer tuning-footer">
               <button className="tab-btn" type="button" onClick={onResetTuningModal}>Reset</button>
               <button className="tab-btn" type="button" onClick={onApplyTuningModal}>Apply</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isSleepTimerOpen ? (
+        <div
+          id="sleep-timer-modal"
+          className="modal open"
+          onClick={(event) =>
+            event.target === event.currentTarget && setIsSleepTimerOpen(false)
+          }
+        >
+          <div className="modal-panel sleep-timer-panel">
+            <div className="modal-header">
+              <h2>Sleep Timer</h2>
+              <button
+                id="sleep-timer-close"
+                className="modal-close"
+                type="button"
+                onClick={() => setIsSleepTimerOpen(false)}
+                aria-label="Close"
+              >
+                <SymbolIcon className="modal-close-icon" name="close" />
+              </button>
+            </div>
+            <div className="modal-body sleep-timer-body">
+              <div id="sleep-timer-current" className="sleep-timer-current">
+                {sleepTimer.remainingMs > 0
+                  ? `Current countdown: ${formatSleepTimerRemaining(
+                      sleepTimer.remainingMs,
+                    )}`
+                  : "Off"}
+              </div>
+              <label className="sleep-timer-select-group" htmlFor="sleep-timer-select">
+                <span className="label-line">Timer</span>
+                <span className="viz-select-wrap sleep-timer-select-wrap">
+                  <select
+                    id="sleep-timer-select"
+                    className="viz-select sleep-timer-select"
+                    value={getSleepTimerOptionValue(pendingSleepTimerDurationMs)}
+                    onChange={(event) =>
+                      setPendingSleepTimerDurationMs(
+                        getSleepTimerDurationFromValue(event.target.value),
+                      )
+                    }
+                  >
+                    {SLEEP_TIMER_OPTIONS.map((option) => (
+                      <option
+                        key={getSleepTimerOptionValue(option.durationMs)}
+                        value={getSleepTimerOptionValue(option.durationMs)}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
+                </span>
+              </label>
+            </div>
+            <div className="modal-footer sleep-timer-footer">
+              <button
+                id="sleep-timer-cancel"
+                className="tab-btn"
+                type="button"
+                onClick={() => setIsSleepTimerOpen(false)}
+              >
+                Close
+              </button>
+              <button
+                id="sleep-timer-set"
+                className="tab-btn"
+                type="button"
+                onClick={() => {
+                  setSleepTimer(pendingSleepTimerDurationMs);
+                  setIsSleepTimerOpen(false);
+                }}
+              >
+                Set
+              </button>
             </div>
           </div>
         </div>

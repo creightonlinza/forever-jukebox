@@ -36,6 +36,7 @@ const jukeboxControllerInstances: MockJukeboxControllerInstance[] = [];
 type MockEngineInstance = {
   pauseJukebox: ReturnType<typeof vi.fn>;
   syncToPlaybackPosition: ReturnType<typeof vi.fn>;
+  stopJukebox: ReturnType<typeof vi.fn>;
   startJukebox: ReturnType<typeof vi.fn>;
   play: ReturnType<typeof vi.fn>;
   setUserAnchorEdge: ReturnType<typeof vi.fn>;
@@ -470,6 +471,7 @@ describe("Listen route behavior", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
     vi.restoreAllMocks();
@@ -535,6 +537,118 @@ describe("Listen route behavior", () => {
 
     expect(window.localStorage.getItem("fj-canonizer-finish")).toBe("false");
     expect(instance.setFinishOutSong).toHaveBeenLastCalledWith(false);
+    rendered.unmount();
+  });
+
+  it("opens sleep timer from the tuning header and applies only when set", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    const headerActions = getRequired<HTMLDivElement>(
+      rendered.container,
+      ".modal-header-actions",
+    );
+    const sleepTimerButton = getRequired<HTMLButtonElement>(
+      headerActions,
+      "#sleep-timer-open",
+    );
+    const closeButton = getRequired<HTMLButtonElement>(
+      headerActions,
+      ".modal-close",
+    );
+    expect(Array.from(headerActions.children)).toEqual([
+      sleepTimerButton,
+      closeButton,
+    ]);
+
+    await click(sleepTimerButton);
+    const sleepTimerModal = getRequired<HTMLDivElement>(
+      rendered.container,
+      "#sleep-timer-modal",
+    );
+    const sleepTimerCurrent = getRequired<HTMLDivElement>(
+      sleepTimerModal,
+      "#sleep-timer-current",
+    );
+    const sleepTimerSelect = getRequired<HTMLSelectElement>(
+      sleepTimerModal,
+      "#sleep-timer-select",
+    );
+    expect(sleepTimerCurrent.textContent).toBe("Off");
+
+    await changeSelect(sleepTimerSelect, "900000");
+    await click(getRequired<HTMLButtonElement>(sleepTimerModal, "#sleep-timer-cancel"));
+    expect(rendered.container.querySelector("#sleep-timer-modal")).toBe(null);
+
+    await click(sleepTimerButton);
+    const reopenedModal = getRequired<HTMLDivElement>(
+      rendered.container,
+      "#sleep-timer-modal",
+    );
+    const reopenedSelect = getRequired<HTMLSelectElement>(
+      reopenedModal,
+      "#sleep-timer-select",
+    );
+    expect(reopenedSelect.value).toBe("off");
+
+    await changeSelect(reopenedSelect, "900000");
+    await click(getRequired<HTMLButtonElement>(reopenedModal, "#sleep-timer-set"));
+    expect(rendered.container.querySelector("#sleep-timer-modal")).toBe(null);
+
+    await click(sleepTimerButton);
+    const appliedModal = getRequired<HTMLDivElement>(
+      rendered.container,
+      "#sleep-timer-modal",
+    );
+    expect(
+      getRequired<HTMLSelectElement>(appliedModal, "#sleep-timer-select").value,
+    ).toBe("900000");
+    expect(
+      getRequired<HTMLDivElement>(appliedModal, "#sleep-timer-current").textContent,
+    ).toBe("Current countdown: 00:15:00");
+    rendered.unmount();
+  });
+
+  it("expires the sleep timer through the playback stop path", async () => {
+    vi.useFakeTimers();
+    let nowMs = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await click(getRequired<HTMLButtonElement>(rendered.container, "#sleep-timer-open"));
+    const sleepTimerModal = getRequired<HTMLDivElement>(
+      rendered.container,
+      "#sleep-timer-modal",
+    );
+    await changeSelect(
+      getRequired<HTMLSelectElement>(sleepTimerModal, "#sleep-timer-select"),
+      "900000",
+    );
+    await click(getRequired<HTMLButtonElement>(sleepTimerModal, "#sleep-timer-set"));
+
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+    engine.stopJukebox.mockClear();
+
+    await act(async () => {
+      nowMs = 900000;
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(engine.stopJukebox).toHaveBeenCalledTimes(1);
+    await click(getRequired<HTMLButtonElement>(rendered.container, "#sleep-timer-open"));
+    const expiredModal = getRequired<HTMLDivElement>(
+      rendered.container,
+      "#sleep-timer-modal",
+    );
+    expect(
+      getRequired<HTMLDivElement>(expiredModal, "#sleep-timer-current").textContent,
+    ).toBe("Off");
     rendered.unmount();
   });
 

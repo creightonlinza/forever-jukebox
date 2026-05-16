@@ -3,7 +3,8 @@ import type { Elements } from "../elements";
 import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
 import type { BufferedAudioPlayer } from "../../audio/BufferedAudioPlayer";
 import { setAutoMarqueeText } from "../marquee";
-import { formatPlaybackTitle } from "../format";
+import { formatDuration, formatPlaybackTitle } from "../format";
+import { SLEEP_TIMER_OPTIONS } from "../playback";
 
 type TuningDeps = {
   context: AppContext;
@@ -28,6 +29,11 @@ type TuningDeps = {
   syncTuningTabsUI: (context: AppContext) => void;
   setActiveTuningTab: (context: AppContext, tab: "tuning" | "extras") => void;
   getActiveTuningTab: (context: AppContext) => "tuning" | "extras";
+  setSleepTimer: (context: AppContext, durationMs: number | null) => void;
+  addSleepTimerListener: (
+    context: AppContext,
+    listener: () => void,
+  ) => () => void;
 };
 
 export type TuningHandlers = ReturnType<typeof createTuningHandlers>;
@@ -50,7 +56,56 @@ export function createTuningHandlers(deps: TuningDeps) {
     syncTuningTabsUI,
     setActiveTuningTab,
     getActiveTuningTab,
+    setSleepTimer,
+    addSleepTimerListener,
   } = deps;
+  let appliedSleepTimerDurationMs: number | null = null;
+  let pendingSleepTimerDurationMs: number | null = null;
+
+  function getSleepTimerValue(durationMs: number | null) {
+    return durationMs === null ? "off" : String(durationMs);
+  }
+
+  function getSleepTimerDurationFromValue(value: string) {
+    if (value === "off") {
+      return null;
+    }
+    const durationMs = Number(value);
+    const matchedOption = SLEEP_TIMER_OPTIONS.find(
+      (option) => option.durationMs === durationMs,
+    );
+    return matchedOption ? matchedOption.durationMs : null;
+  }
+
+  function resolveConfiguredSleepTimerDuration() {
+    const configuredDurationMs = context.state.sleepTimer.configuredDurationMs;
+    return SLEEP_TIMER_OPTIONS.some(
+      (option) => option.durationMs === configuredDurationMs,
+    )
+      ? configuredDurationMs
+      : null;
+  }
+
+  function formatSleepTimerRemaining(remainingMs: number) {
+    return formatDuration(Math.ceil(Math.max(0, remainingMs) / 1000));
+  }
+
+  function syncSleepTimerUi() {
+    const nextAppliedDurationMs = resolveConfiguredSleepTimerDuration();
+    if (nextAppliedDurationMs !== appliedSleepTimerDurationMs) {
+      appliedSleepTimerDurationMs = nextAppliedDurationMs;
+      pendingSleepTimerDurationMs = nextAppliedDurationMs;
+      elements.sleepTimerSelect.value = getSleepTimerValue(nextAppliedDurationMs);
+    }
+    elements.sleepTimerCurrent.textContent =
+      context.state.sleepTimer.remainingMs > 0
+        ? `Current countdown: ${formatSleepTimerRemaining(
+            context.state.sleepTimer.remainingMs,
+          )}`
+        : "Off";
+  }
+
+  addSleepTimerListener(context, syncSleepTimerUi);
 
   function syncTrackTitle() {
     const { state } = context;
@@ -102,6 +157,39 @@ export function createTuningHandlers(deps: TuningDeps) {
 
   function handleCloseTuning() {
     closeTuning(context);
+  }
+
+  function handleOpenSleepTimer() {
+    appliedSleepTimerDurationMs = resolveConfiguredSleepTimerDuration();
+    pendingSleepTimerDurationMs = appliedSleepTimerDurationMs;
+    elements.sleepTimerSelect.value = getSleepTimerValue(appliedSleepTimerDurationMs);
+    syncSleepTimerUi();
+    elements.sleepTimerModal.classList.add("open");
+  }
+
+  function closeSleepTimer() {
+    elements.sleepTimerModal.classList.remove("open");
+  }
+
+  function handleCloseSleepTimer() {
+    closeSleepTimer();
+  }
+
+  function handleSleepTimerModalClick(event: MouseEvent) {
+    if (event.target === elements.sleepTimerModal) {
+      closeSleepTimer();
+    }
+  }
+
+  function handleSleepTimerSelectChange() {
+    pendingSleepTimerDurationMs = getSleepTimerDurationFromValue(
+      elements.sleepTimerSelect.value,
+    );
+  }
+
+  function handleSleepTimerSet() {
+    setSleepTimer(context, pendingSleepTimerDurationMs);
+    closeSleepTimer();
   }
 
   function handleCloseInfo() {
@@ -200,6 +288,12 @@ export function createTuningHandlers(deps: TuningDeps) {
     handleOpenInfo,
     handleCloseTuning,
     handleCloseInfo,
+    handleOpenSleepTimer,
+    handleCloseSleepTimer,
+    handleSleepTimerModalClick,
+    handleSleepTimerSelectChange,
+    handleSleepTimerSet,
+    syncSleepTimerUi,
     handleTuningTabToggle,
     syncInfoButton,
     syncTuneButton,
