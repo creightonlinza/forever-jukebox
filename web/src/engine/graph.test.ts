@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { normalizeAnalysis } from "./analysis";
 import { buildJumpGraph } from "./graph";
 import { Edge, JukeboxConfig, QuantumBase } from "./types";
+import {
+  happyPathAnalysis,
+  longBranchDensityAnalysis,
+} from "./__fixtures__/analysisFixtures";
 
 function makeAnalysis() {
   return {
@@ -438,6 +442,30 @@ function collectEdgeKeys(analysis: ReturnType<typeof normalizeAnalysis>): string
   return keys.sort();
 }
 
+function defaultConfig(overrides: Partial<JukeboxConfig> = {}): JukeboxConfig {
+  return {
+    maxBranches: 4,
+    maxBranchThreshold: 80,
+    currentThreshold: 20,
+    justBackwards: false,
+    justLongBranches: false,
+    removeSequentialBranches: false,
+    minRandomBranchChance: 0.18,
+    maxRandomBranchChance: 0.5,
+    randomBranchChanceDelta: 0.018,
+    minLongBranch: 1,
+    ...overrides,
+  };
+}
+
+function activeEdgeTuples(analysis: ReturnType<typeof normalizeAnalysis>) {
+  return analysis.beats
+    .flatMap((beat) =>
+      beat.neighbors.map((edge) => [edge.src.which, edge.dest.which, edge.distance]),
+    )
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+}
+
 describe("buildJumpGraph", () => {
   it("builds neighbors and a last branch point", () => {
     const analysis = normalizeAnalysis(makeAnalysis());
@@ -573,6 +601,54 @@ describe("buildJumpGraph", () => {
 
     const second = buildJumpGraph(analysis, config);
     expect(second.allEdges.length).toBe(firstCount);
+  });
+
+  it("caps all-neighbor generation by maxBranches on parsed analysis", () => {
+    const analysis = normalizeAnalysis(longBranchDensityAnalysis(96));
+    const graph = buildJumpGraph(
+      analysis,
+      defaultConfig({
+        maxBranches: 2,
+        currentThreshold: 80,
+      }),
+    );
+
+    expect(graph.allEdges.length).toBe(192);
+    expect(Math.max(...analysis.beats.map((beat) => beat.allNeighbors.length))).toBe(2);
+    expect(Math.max(...analysis.beats.map((beat) => beat.neighbors.length))).toBe(2);
+  });
+
+  it("locks combined backwards, long-branch, and sequential filters", () => {
+    const analysis = normalizeAnalysis(happyPathAnalysis());
+    const graph = buildJumpGraph(
+      analysis,
+      defaultConfig({
+        currentThreshold: 10,
+        justBackwards: true,
+        justLongBranches: true,
+        removeSequentialBranches: true,
+        minLongBranch: 4,
+      }),
+    );
+
+    expect(graph.lastBranchPoint).toBe(11);
+    expect(activeEdgeTuples(analysis)).toEqual([
+      [4, 0, 0],
+      [8, 0, 0],
+      [11, 3, 0],
+      [11, 7, 0],
+    ]);
+  });
+
+  it("keeps edge ids and order stable when rebuilding from parsed analysis", () => {
+    const firstAnalysis = normalizeAnalysis(happyPathAnalysis());
+    const secondAnalysis = normalizeAnalysis(happyPathAnalysis());
+    const first = buildJumpGraph(firstAnalysis, defaultConfig({ currentThreshold: 10 }));
+    const second = buildJumpGraph(secondAnalysis, defaultConfig({ currentThreshold: 10 }));
+
+    expect(
+      second.allEdges.map((edge) => [edge.id, edge.src.which, edge.dest.which]),
+    ).toEqual(first.allEdges.map((edge) => [edge.id, edge.src.which, edge.dest.which]));
   });
 
   it("skips insertion when an existing end branch already reaches early target", () => {

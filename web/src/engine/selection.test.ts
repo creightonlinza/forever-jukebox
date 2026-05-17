@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createRng } from "./random";
 import { selectNextBeatIndex, shouldRandomBranch } from "./selection";
 import { JukeboxConfig, JukeboxGraphState, QuantumBase } from "./types";
 
@@ -435,6 +436,107 @@ describe("selectNextBeatIndex", () => {
     expect(first.index).toBe(1);
     expect(second.index).toBe(2);
   });
+
+  it("produces the same branch path for the same seeded rng sequence", () => {
+    function runPath() {
+      const beats = Array.from({ length: 6 }, (_item, idx) => makeBeat(idx));
+      linkBeats(beats);
+      beats[1].neighbors.push(
+        { id: 1, src: beats[1], dest: beats[4], distance: 4, deleted: false },
+        { id: 2, src: beats[1], dest: beats[0], distance: 7, deleted: false },
+      );
+      beats[2].neighbors.push(
+        { id: 3, src: beats[2], dest: beats[5], distance: 3, deleted: false },
+        { id: 4, src: beats[2], dest: beats[0], distance: 12, deleted: false },
+      );
+      beats[3].neighbors.push(
+        { id: 5, src: beats[3], dest: beats[0], distance: 2, deleted: false },
+        { id: 6, src: beats[3], dest: beats[1], distance: 9, deleted: false },
+      );
+      const config: JukeboxConfig = {
+        maxBranches: 4,
+        maxBranchThreshold: 80,
+        currentThreshold: 60,
+        justBackwards: false,
+        justLongBranches: false,
+        removeSequentialBranches: false,
+        minRandomBranchChance: 1,
+        maxRandomBranchChance: 1,
+        randomBranchChanceDelta: 0,
+        minLongBranch: 1,
+      };
+      const graph: JukeboxGraphState = {
+        computedThreshold: 60,
+        currentThreshold: 60,
+        lastBranchPoint: 99,
+        totalBeats: beats.length,
+        longestReach: 0,
+        allEdges: [],
+      };
+      const rng = createRng("seeded", 1337);
+      const state = { curRandomBranchChance: 1 };
+      return [beats[1], beats[2], beats[3]].map((beat) =>
+        selectNextBeatIndex(beat, graph, config, rng, state),
+      );
+    }
+
+    expect(runPath()).toEqual(runPath());
+  });
+
+  it("suppresses the default anchor branch before a selected user anchor", () => {
+    const beats = Array.from({ length: 6 }, (_item, idx) => makeBeat(idx));
+    linkBeats(beats);
+    const seed = beats[1];
+    const userAnchorSource = beats[4];
+    const earlyEdge = {
+      id: 1,
+      src: seed,
+      dest: beats[0],
+      distance: 1,
+      deleted: false,
+    };
+    const userAnchorEdge = {
+      id: 9,
+      src: userAnchorSource,
+      dest: beats[0],
+      distance: 1,
+      deleted: false,
+    };
+    seed.neighbors.push(earlyEdge);
+    userAnchorSource.neighbors.push(userAnchorEdge);
+    const config: JukeboxConfig = {
+      maxBranches: 4,
+      maxBranchThreshold: 80,
+      currentThreshold: 60,
+      justBackwards: false,
+      justLongBranches: false,
+      removeSequentialBranches: false,
+      minRandomBranchChance: 0.18,
+      maxRandomBranchChance: 0.5,
+      randomBranchChanceDelta: 0,
+      minLongBranch: 1,
+    };
+    const graph: JukeboxGraphState = {
+      computedThreshold: 60,
+      currentThreshold: 60,
+      lastBranchPoint: seed.which,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [earlyEdge, userAnchorEdge],
+    };
+
+    const selection = selectNextBeatIndex(
+      seed,
+      graph,
+      config,
+      () => 0.99,
+      { curRandomBranchChance: 0.18 },
+      false,
+      { edgeId: userAnchorEdge.id, sourceIndex: userAnchorSource.which },
+    );
+
+    expect(selection).toEqual({ index: seed.which, jumped: false });
+  });
 });
 
 describe("shouldRandomBranch", () => {
@@ -488,5 +590,17 @@ describe("shouldRandomBranch", () => {
 
     expect(shortState.curRandomBranchChance).toBeCloseTo(0.125, 6);
     expect(longState.curRandomBranchChance).toBeCloseTo(0.2, 6);
+  });
+
+  it("uses reference beat duration for non-positive or non-finite durations", () => {
+    for (const duration of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const beat = makeBeat(0);
+      beat.duration = duration;
+      const state = { curRandomBranchChance: 0.1 };
+
+      shouldRandomBranch(beat, graph, config, () => 0.99, state);
+
+      expect(state.curRandomBranchChance).toBeCloseTo(0.15, 6);
+    }
   });
 });
