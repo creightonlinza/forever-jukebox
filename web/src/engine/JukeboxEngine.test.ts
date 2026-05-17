@@ -421,6 +421,87 @@ describe("JukeboxEngine playback loop", () => {
     expect(engineAny.currentBeatIndex).toBe(2);
     expect(engineAny.nextAudioTime).toBeCloseTo(25.75, 5);
   });
+
+  it("syncing after pause clears a pending scheduled jump", () => {
+    let audioNow = 10;
+    let trackNow = 1.25;
+    const player = makePlayer();
+    player.getAudioTime = () => audioNow;
+    player.getCurrentTime = () => trackNow;
+    const engine = new JukeboxEngine(player);
+    engine.loadAnalysis(makeAnalysisPayload(4));
+    (player.cancelScheduledJump as ReturnType<typeof vi.fn>).mockClear();
+    const engineAny = engine as unknown as {
+      pendingAdvance: {
+        boundaryAudioTime: number;
+        chosenIndex: number;
+        shouldJump: boolean;
+        targetTime: number | null;
+        jumpFromIndex: number | null;
+        sourceBoundaryTime: number | null;
+      } | null;
+    };
+    engineAny.pendingAdvance = {
+      boundaryAudioTime: 11,
+      chosenIndex: 0,
+      shouldJump: true,
+      targetTime: 0,
+      jumpFromIndex: 3,
+      sourceBoundaryTime: 4,
+    };
+
+    audioNow = 20;
+    trackNow = 2.1;
+    engine.syncToPlaybackPosition();
+
+    expect(player.cancelScheduledJump).toHaveBeenCalledTimes(1);
+    expect(engineAny.pendingAdvance).toBeNull();
+  });
+
+  it("seeking to a beat clears pending jump state and repeat history", () => {
+    const player = makePlayer();
+    const engine = new JukeboxEngine(player);
+    engine.loadAnalysis(makeAnalysisPayload(4));
+    (player.cancelScheduledJump as ReturnType<typeof vi.fn>).mockClear();
+    const engineAny = engine as unknown as {
+      pendingAdvance: {
+        boundaryAudioTime: number;
+        chosenIndex: number;
+        shouldJump: boolean;
+        targetTime: number | null;
+        jumpFromIndex: number | null;
+        sourceBoundaryTime: number | null;
+      } | null;
+      branchState: { lastDestBySource: Map<number, number> | null };
+      currentBeatIndex: number;
+    };
+    engineAny.pendingAdvance = {
+      boundaryAudioTime: 11,
+      chosenIndex: 0,
+      shouldJump: true,
+      targetTime: 0,
+      jumpFromIndex: 3,
+      sourceBoundaryTime: 4,
+    };
+    engineAny.branchState.lastDestBySource = new Map([[2, 0]]);
+
+    engine.seekToBeat(2);
+
+    expect(engineAny.currentBeatIndex).toBe(2);
+    expect(player.cancelScheduledJump).toHaveBeenCalledTimes(1);
+    expect(engineAny.pendingAdvance).toBeNull();
+    expect(engineAny.branchState.lastDestBySource).toBeNull();
+  });
+
+  it("clamps beat lookup at track boundaries", () => {
+    const engine = new JukeboxEngine(makePlayer());
+    engine.loadAnalysis(makeAnalysisPayload(4));
+
+    expect(engine.getBeatAtTime(-10)?.which).toBe(0);
+    expect(engine.getBeatAtTime(0)?.which).toBe(0);
+    expect(engine.getBeatAtTime(3.99)?.which).toBe(3);
+    expect(engine.getBeatAtTime(99)?.which).toBe(3);
+  });
 });
 
 describe("JukeboxEngine branching controls", () => {
@@ -941,6 +1022,49 @@ describe("JukeboxEngine jump timing", () => {
 
     expect(engineAny.currentBeatIndex).toBe(1);
     expect(engineAny.nextAudioTime).toBeCloseTo(5 + 1 / 1.2, 6);
+  });
+
+  it("falls back to normal speed for invalid playback rates", () => {
+    for (const playbackRate of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const player = makePlayer();
+      player.getPlaybackRate = () => playbackRate;
+      const engine = new JukeboxEngine(player, {
+        config: {
+          minRandomBranchChance: 0,
+          maxRandomBranchChance: 0,
+          randomBranchChanceDelta: 0,
+        },
+      });
+      const beats = [0, 1].map(makeBeat);
+      linkBeats(beats);
+      const graph: JukeboxGraphState = {
+        computedThreshold: 0,
+        currentThreshold: 0,
+        lastBranchPoint: -1,
+        totalBeats: beats.length,
+        longestReach: 0,
+        allEdges: [],
+      };
+      const engineAny = engine as unknown as {
+        analysis: TrackAnalysis;
+        graph: JukeboxGraphState;
+        beats: QuantumBase[];
+        currentBeatIndex: number;
+        nextAudioTime: number;
+        curRandomBranchChance: number;
+        advanceBeat: (audioTime: number) => void;
+      };
+      engineAny.analysis = makeAnalysis(beats);
+      engineAny.graph = graph;
+      engineAny.beats = beats;
+      engineAny.currentBeatIndex = 0;
+      engineAny.nextAudioTime = 5;
+      engineAny.curRandomBranchChance = 0;
+
+      engineAny.advanceBeat(5);
+
+      expect(engineAny.nextAudioTime).toBe(6);
+    }
   });
 
   it("advances once per beat when audio time crosses boundaries", () => {

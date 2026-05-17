@@ -86,6 +86,51 @@ describe("search flows", () => {
     expect(deps.applyAnalysisResult).toHaveBeenCalled();
   });
 
+  it("returns false for missing existing analysis so caller can continue to YouTube matching", async () => {
+    const context = createContext();
+    const deps = createDeps();
+    (api.fetchJobByTrack as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const result = await tryLoadExistingTrackByName(
+      context,
+      deps,
+      "Song",
+      "Artist",
+    );
+
+    expect(result).toBe(false);
+    expect(context.elements.searchResults.textContent).toBe(
+      "Checking existing analysis...",
+    );
+    expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
+    expect(deps.pollAnalysis).not.toHaveBeenCalled();
+  });
+
+  it("polls instead of applying stale state when existing lookup is still processing", async () => {
+    const context = createContext();
+    const deps = createDeps();
+    (api.fetchJobByTrack as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "processing",
+      id: "job-processing",
+      source_id: "yt-processing",
+      source_provider: "youtube",
+      progress: 40,
+      message: "Working",
+    });
+
+    const result = await tryLoadExistingTrackByName(
+      context,
+      deps,
+      "Song",
+      "Artist",
+    );
+
+    expect(result).toBe(true);
+    expect(deps.setLoadingProgress).toHaveBeenCalledWith(null, "Fetching audio");
+    expect(deps.pollAnalysis).toHaveBeenCalledWith("job-processing");
+    expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
+  });
+
   it("treats failed existing lookup as a terminal cached result", async () => {
     const context = createContext();
     const deps = createDeps();

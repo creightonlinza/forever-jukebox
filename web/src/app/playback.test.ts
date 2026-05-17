@@ -10,6 +10,7 @@ import {
   loadAudioFromJob,
   loadTrackById,
   openExtras,
+  pollAnalysis,
   resetForNewTrack,
   setSleepTimer,
   setActiveTuningTab,
@@ -247,6 +248,7 @@ function createElements() {
     branchStatsDeltaEl: createSpan(),
     branchStatsDirectionEl: createSpan(),
     branchStatsSimilarityEl: createSpan(),
+    branchStatsDeleteButton: { disabled: false },
     deleteButton: { classList: createClassList() },
     vizStats: {
       classList: createClassList(),
@@ -258,6 +260,8 @@ function createElements() {
 function createContext(overrides?: Partial<AppContext>): AppContext {
   const elements = createElements();
   const engineConfig = {
+    maxBranches: 4,
+    maxBranchThreshold: 80,
     currentThreshold: 0,
     minRandomBranchChance: 0.18,
     maxRandomBranchChance: 0.5,
@@ -265,6 +269,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     justBackwards: false,
     justLongBranches: false,
     removeSequentialBranches: false,
+    minLongBranch: 0,
   };
   let userAnchorEdgeId: number | null = null;
   const engine = {
@@ -273,6 +278,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
       Object.assign(engineConfig, partial);
     }),
     rebuildGraph: vi.fn(),
+    loadAnalysis: vi.fn(),
     getGraphState: vi.fn(() => ({ currentThreshold: 45, allEdges: [], totalBeats: 0 })),
     getVisualizationData: vi.fn(() => ({ beats: [], edges: [] })),
     pauseJukebox: vi.fn(),
@@ -1373,6 +1379,54 @@ describe("playback branch shortcuts", () => {
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(context.engine.setUserAnchorEdge).not.toHaveBeenCalled();
   });
+
+  it("shows branch stats and enables delete for a selected active branch", () => {
+    const context = createContext();
+    context.state.branchStatsEnabled = true;
+    const edge = {
+      id: 12,
+      src: { which: 8, start: 32 },
+      dest: { which: 2, start: 8 },
+      distance: 20,
+      deleted: false,
+    };
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleEdgeSelect(edge as AppContext["state"]["selectedEdge"]);
+
+    expect(context.state.selectedEdge).toBe(edge);
+    expect(context.jukebox.setSelectedEdgeActive).toHaveBeenCalledWith(edge);
+    expect(context.elements.branchStatsTitleEl.textContent).toBe("Branch #12 stats");
+    expect(context.elements.branchStatsStartEl.textContent).toBe("00:00:32");
+    expect(context.elements.branchStatsEndEl.textContent).toBe("00:00:08");
+    expect(context.elements.branchStatsDeltaEl.textContent).toBe("-00:00:24");
+    expect(context.elements.branchStatsDirectionEl.textContent).toBe("Backward");
+    expect(context.elements.branchStatsSimilarityEl.textContent).toBe("75%");
+    expect(context.elements.branchStatsDeleteButton.disabled).toBe(false);
+    expect(context.elements.branchStatsPopup.classList.remove).toHaveBeenCalledWith(
+      "hidden",
+    );
+  });
+
+  it("hides branch stats and disables delete for a deleted selected branch", () => {
+    const context = createContext();
+    context.state.branchStatsEnabled = true;
+    const edge = {
+      id: 13,
+      src: { which: 8, start: 32 },
+      dest: { which: 2, start: 8 },
+      distance: 20,
+      deleted: true,
+    };
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleEdgeSelect(edge as AppContext["state"]["selectedEdge"]);
+
+    expect(context.elements.branchStatsDeleteButton.disabled).toBe(true);
+    expect(context.elements.branchStatsPopup.classList.remove).toHaveBeenCalledWith(
+      "hidden",
+    );
+  });
 });
 
 describe("playback loading", () => {
@@ -1436,5 +1490,105 @@ describe("playback loading", () => {
     expect(calls.some((call) => String(call[0]).includes("/api/repair/"))).toBe(
       false,
     );
+  });
+
+  it("loads audio before applying a complete polled analysis", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    const audioBuffer = new ArrayBuffer(4);
+    const decodedBuffer = { duration: 12 } as AudioBuffer;
+    context.player = {
+      ...context.player,
+      decode: vi.fn(async () => undefined),
+      getBuffer: vi.fn(() => decodedBuffer),
+      getContext: vi.fn(() => ({} as BaseAudioContext)),
+    } as unknown as AppContext["player"];
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "complete",
+          id: "job-complete",
+          result: {
+            sections: [],
+            bars: [],
+            beats: [],
+            tatums: [],
+            segments: [],
+            track: { title: "Loaded", duration: 12 },
+          },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => audioBuffer,
+      } as Response)
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response);
+
+    await pollAnalysis(context, deps, "job-complete");
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
+      "/api/analysis/job-complete",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(fetch).toHaveBeenNthCalledWith(2, "/api/audio/job-complete", {
+      signal: undefined,
+    });
+    expect(context.player.decode).toHaveBeenCalledWith(audioBuffer);
+    expect(context.engine.loadAnalysis).toHaveBeenCalled();
+    expect(context.state.audioLoaded).toBe(true);
+    expect(context.state.analysisLoaded).toBe(true);
+    expect(deps.setLoadingProgress).toHaveBeenCalledWith(100, "Calculating pathways");
+    expect(deps.setActiveTab).toHaveBeenCalledWith("play");
+  });
+
+  it("shows a generic load error when polling returns missing analysis", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    } as Response);
+
+    await pollAnalysis(context, deps, "missing-job");
+
+    expect(deps.setAnalysisStatus).toHaveBeenCalledWith(
+      "Something went wrong. Please try again or report an issue on GitHub.",
+      false,
+    );
+    expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
+  });
+
+  it("surfaces failed analysis status without applying stale analysis", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: "failed",
+        id: "job-failed",
+        source_provider: "youtube",
+        error_code: "download_unavailable",
+        error: "ERROR: [download] This video is not available.",
+      }),
+    } as Response);
+
+    await pollAnalysis(context, deps, "job-failed");
+
+    expect(deps.setAnalysisStatus).toHaveBeenCalledWith(
+      "YouTube fetch failed.",
+      false,
+    );
+    expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
+    expect(context.state.analysisLoaded).toBe(false);
   });
 });
