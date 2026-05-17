@@ -10,8 +10,14 @@ const callbacks = new Map<number, PendingTimer>();
 let nextId = 1;
 let isDocumentHidden = typeof document !== "undefined" && document.hidden;
 
-const nativeSetTimeout = window.setTimeout.bind(window);
-const nativeClearTimeout = window.clearTimeout.bind(window);
+const nativeSetTimeout = (
+  callback: TimerCallback,
+  delay = 0,
+  ...args: unknown[]
+) => globalThis.setTimeout(callback, delay, ...args) as unknown as number;
+const nativeClearTimeout = (id: number) => {
+  globalThis.clearTimeout(id as unknown as ReturnType<typeof setTimeout>);
+};
 
 export function initBackgroundTimer(): void {
   if (worker) {

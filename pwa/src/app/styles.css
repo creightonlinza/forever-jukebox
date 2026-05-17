@@ -1073,11 +1073,21 @@ textarea:focus-visible {
   flex-wrap: wrap;
 }
 
+.modal-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .modal-header h2 {
   margin: 0;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+#tuning-title.is-extras-active {
+  order: 2;
 }
 
 .modal-tabs {
@@ -1091,22 +1101,18 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
-  border-radius: 999px;
+  padding: 6px 12px;
+  border-radius: 8px;
   border: 1px solid var(--border-control);
-  background: transparent;
-  color: var(--muted);
+  background: var(--surface-panel);
+  color: var(--text);
   font-size: 12px;
   letter-spacing: 0.02em;
-}
-
-#tuning-tab-toggle {
-  border-color: var(--beat-fill);
-  color: var(--beat-fill);
+  cursor: pointer;
 }
 
 #tuning-tab-toggle:hover {
-  background: color-mix(in srgb, var(--beat-fill) 14%, var(--surface-control));
+  background: var(--surface-control);
 }
 
 #tuning-tab-toggle:focus-visible {
@@ -1117,26 +1123,39 @@ textarea:focus-visible {
   display: none;
 }
 
-.beta-tag {
+.modal-tab-icon {
+  width: 15px;
+  height: 15px;
+  line-height: 1;
+  stroke-width: 1.9;
+}
+
+.modal-icon-button {
   display: inline-flex;
   align-items: center;
-  padding: 1px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--beat-fill);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--beat-fill);
-  background: color-mix(in srgb, var(--beat-fill) 14%, transparent);
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
 }
 
-.beta-tag.hidden {
-  display: none;
+.modal-icon-button:hover {
+  background: var(--surface-control);
+  color: var(--text);
 }
 
-.modal-tab-icon {
-  width: 16px;
-  height: 16px;
+.modal-icon-button:focus-visible {
+  outline: 2px solid var(--beat-fill);
+}
+
+.modal-icon-button-icon {
+  width: 24px;
+  height: 24px;
   stroke-width: 1.9;
 }
 
@@ -1285,6 +1304,40 @@ label {
 
 .tuning-footer {
   justify-content: space-between;
+}
+
+.sleep-timer-panel {
+  width: min(420px, 90vw);
+}
+
+.sleep-timer-body {
+  gap: 14px;
+}
+
+.sleep-timer-current {
+  padding: 10px 12px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--surface-control);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.sleep-timer-select-group {
+  display: grid;
+  gap: 6px;
+}
+
+.sleep-timer-select-wrap {
+  width: 100%;
+}
+
+.sleep-timer-select {
+  width: 100%;
+}
+
+.sleep-timer-footer {
+  gap: 8px;
 }
 
 .info-body {

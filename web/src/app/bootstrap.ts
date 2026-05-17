@@ -48,9 +48,11 @@ import {
   releaseWakeLock,
   requestWakeLock,
   resetForNewTrack,
+  addSleepTimerListener,
   syncDeletedEdgeState,
   startAutocanonizerPlayback,
   startJukeboxFromBeat,
+  setSleepTimer,
   stopPlayback,
   syncExtrasUI,
   syncTuningTabsUI,
@@ -163,6 +165,12 @@ export function bootstrap() {
     appConfig: null,
     pollController: null,
     listenTimerId: null,
+    sleepTimer: {
+      configuredDurationMs: null,
+      endTimeMs: null,
+      remainingMs: 0,
+    },
+    sleepTimerTimeoutId: null,
     wakeLock: null,
     tuningParams: null,
     deletedEdgeIds: [],
@@ -396,6 +404,8 @@ export function bootstrap() {
     syncTuningTabsUI,
     setActiveTuningTab,
     getActiveTuningTab,
+    setSleepTimer,
+    addSleepTimerListener,
   });
   const fullscreenHandlers = createFullscreenHandlers({
     context,
