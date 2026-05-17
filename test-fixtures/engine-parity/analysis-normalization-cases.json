@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "valid_cases": [
+    {
+      "id": "root-metadata-and-links",
+      "input": {
+        "sections": [
+          { "start": 0, "duration": 4, "confidence": 1 }
+        ],
+        "bars": [
+          { "start": 0, "duration": 2, "confidence": 0.8 },
+          { "start": 2, "duration": 2, "confidence": 0.7 }
+        ],
+        "beats": [
+          { "start": 0, "duration": 1 },
+          { "start": 1, "duration": 1, "confidence": 0.6 },
+          { "start": 2, "duration": 1, "confidence": 0.5 },
+          { "start": 3, "duration": 1, "confidence": 0.4 }
+        ],
+        "tatums": [
+          { "start": 0, "duration": 0.5, "confidence": 0.5 },
+          { "start": 0.5, "duration": 0.5, "confidence": 0.5 },
+          { "start": 1, "duration": 0.5, "confidence": 0.5 },
+          { "start": 1.5, "duration": 0.5, "confidence": 0.5 }
+        ],
+        "segments": [
+          {
+            "start": 0,
+            "duration": 1,
+            "confidence": 0.4,
+            "loudness_start": -20,
+            "loudness_max": -5,
+            "loudness_max_time": 0.2,
+            "pitches": [0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21],
+            "timbre": [1, 1.01, 1.02, 1.03, 1.04, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.11]
+          },
+          {
+            "start": 1,
+            "duration": 1,
+            "confidence": 0.5,
+            "loudness_start": -19,
+            "loudness_max": -4,
+            "loudness_max_time": 0.2,
+            "pitches": [0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.3, 0.31],
+            "timbre": [1.1, 1.11, 1.12, 1.13, 1.14, 1.15, 1.16, 1.17, 1.18, 1.19, 1.2, 1.21]
+          },
+          {
+            "start": 2,
+            "duration": 1,
+            "confidence": 0.6,
+            "loudness_start": -18,
+            "loudness_max": -3,
+            "loudness_max_time": 0.2,
+            "pitches": [0.3, 0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.4, 0.41],
+            "timbre": [1.2, 1.21, 1.22, 1.23, 1.24, 1.25, 1.26, 1.27, 1.28, 1.29, 1.3, 1.31]
+          }
+        ],
+        "track": {
+          "duration": 4,
+          "tempo": 120,
+          "time_signature": 4,
+          "title": "Fixture Song",
+          "artist": "Fixture Artist"
+        }
+      },
+      "expected": {
+        "track": {
+          "duration": 4,
+          "tempo": 120,
+          "time_signature": 4,
+          "title": "Fixture Song",
+          "artist": "Fixture Artist"
+        },
+        "beat_starts": [0, 1, 2, 3],
+        "beat_durations": [1, 1, 1, 1],
+        "beat_confidences": [null, 0.6, 0.5, 0.4],
+        "beat_prev": [null, 0, 1, 2],
+        "beat_next": [1, 2, 3, null],
+        "beat_parents": [0, 0, 1, 1],
+        "beat_index_in_parent": [0, 1, 0, 1],
+        "bar_children": [[0, 1], [2, 3]],
+        "beat_oseg": [0, 1, 2, null],
+        "beat_overlaps": [[0, 1], [1, 2], [2], [2]]
+      }
+    },
+    {
+      "id": "nested-stringified-track-metadata",
+      "input": {
+        "analysis": {
+          "sections": [{ "start": 0, "duration": 2, "confidence": 1 }],
+          "bars": [{ "start": 0, "duration": 2, "confidence": 0.8 }],
+          "beats": [
+            { "start": 0, "duration": 1, "confidence": 0.7 },
+            { "start": 1, "duration": 1, "confidence": 0.6 }
+          ],
+          "tatums": [],
+          "segments": []
+        },
+        "track": {
+          "duration": 2,
+          "tempo": 90,
+          "time_signature": 3,
+          "title": 1234,
+          "artist": true
+        }
+      },
+      "expected": {
+        "track": {
+          "duration": 2,
+          "tempo": 90,
+          "time_signature": 3,
+          "title": "1234",
+          "artist": "true"
+        },
+        "beat_starts": [0, 1],
+        "beat_durations": [1, 1],
+        "beat_confidences": [0.7, 0.6],
+        "beat_prev": [null, 0],
+        "beat_next": [1, null],
+        "beat_parents": [0, 0],
+        "beat_index_in_parent": [0, 1],
+        "bar_children": [[0, 1]],
+        "beat_oseg": [null, null],
+        "beat_overlaps": [[], []]
+      }
+    },
+    {
+      "id": "odd-timing-preserved",
+      "input": {
+        "sections": [{ "start": 0, "duration": 4, "confidence": 1 }],
+        "bars": [{ "start": 0, "duration": 4, "confidence": 0.8 }],
+        "beats": [
+          { "start": 0, "duration": 1, "confidence": 0.7 },
+          { "start": 1, "duration": 0, "confidence": 0.6 },
+          { "start": 1, "duration": -0.25, "confidence": 0.5 },
+          { "start": 0.75, "duration": 1, "confidence": 0.4 }
+        ],
+        "tatums": [],
+        "segments": [],
+        "track": { "duration": 4, "tempo": 120, "time_signature": 4 }
+      },
+      "expected": {
+        "track": {
+          "duration": 4,
+          "tempo": 120,
+          "time_signature": 4
+        },
+        "beat_starts": [0, 1, 1, 0.75],
+        "beat_durations": [1, 0, -0.25, 1],
+        "beat_confidences": [0.7, 0.6, 0.5, 0.4],
+        "beat_prev": [null, 0, 1, 2],
+        "beat_next": [1, 2, 3, null],
+        "beat_parents": [0, 0, 0, 0],
+        "beat_index_in_parent": [0, 1, 2, 3],
+        "bar_children": [[0, 1, 2, 3]],
+        "beat_oseg": [null, null, null, null],
+        "beat_overlaps": [[], [], [], []]
+      }
+    },
+    {
+      "id": "overlap-boundaries-inclusive",
+      "input": {
+        "sections": [{ "start": 0, "duration": 3, "confidence": 1 }],
+        "bars": [{ "start": 0, "duration": 3, "confidence": 1 }],
+        "beats": [
+          { "start": 0, "duration": 1, "confidence": 1 },
+          { "start": 1, "duration": 1, "confidence": 1 }
+        ],
+        "tatums": [],
+        "segments": [
+          {
+            "start": 0.5,
+            "duration": 0.5,
+            "confidence": 1,
+            "loudness_start": -10,
+            "loudness_max": -3,
+            "loudness_max_time": 0.1,
+            "pitches": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "timbre": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+          },
+          {
+            "start": 2,
+            "duration": 0.25,
+            "confidence": 1,
+            "loudness_start": -10,
+            "loudness_max": -3,
+            "loudness_max_time": 0.1,
+            "pitches": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            "timbre": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+          }
+        ],
+        "track": { "duration": 3 }
+      },
+      "expected": {
+        "track": { "duration": 3 },
+        "beat_starts": [0, 1],
+        "beat_durations": [1, 1],
+        "beat_confidences": [1, 1],
+        "beat_prev": [null, 0],
+        "beat_next": [1, null],
+        "beat_parents": [0, 0],
+        "beat_index_in_parent": [0, 1],
+        "bar_children": [[0, 1]],
+        "beat_oseg": [0, 1],
+        "beat_overlaps": [[0], [0, 1]]
+      }
+    }
+  ],
+  "invalid_cases": [
+    {
+      "id": "missing-beats",
+      "input": {
+        "sections": [],
+        "bars": [],
+        "tatums": [],
+        "segments": []
+      },
+      "expected_error": "Expected array at beats"
+    },
+    {
+      "id": "segment-confidence-required",
+      "input": {
+        "sections": [],
+        "bars": [],
+        "beats": [],
+        "tatums": [],
+        "segments": [
+          {
+            "start": 0,
+            "duration": 1,
+            "loudness_start": -10,
+            "loudness_max": -3,
+            "loudness_max_time": 0.1,
+            "pitches": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "timbre": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+          }
+        ]
+      },
+      "expected_error": "Expected number at segments[0].confidence"
+    },
+    {
+      "id": "short-pitch-vector",
+      "input": {
+        "sections": [],
+        "bars": [],
+        "beats": [],
+        "tatums": [],
+        "segments": [
+          {
+            "start": 0,
+            "duration": 1,
+            "confidence": 1,
+            "loudness_start": -10,
+            "loudness_max": -3,
+            "loudness_max_time": 0.1,
+            "pitches": [0, 0, 0],
+            "timbre": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+          }
+        ]
+      },
+      "expected_error": "Expected 12+ numbers at segments[0].pitches"
+    }
+  ]
+}
