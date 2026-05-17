@@ -21,6 +21,8 @@ describe("parseAnalysis", () => {
       duration: 12,
       tempo: 120,
       time_signature: 4,
+      title: "Fixture Song",
+      artist: "Fixture Artist",
     });
     expect(parsed.beats[0]).toEqual(
       expect.objectContaining({
@@ -45,6 +47,19 @@ describe("parseAnalysis", () => {
     expect(parsed.track?.duration).toBe(12);
     expect(parsed.track?.tempo).toBe(120);
     expect(parsed.track?.time_signature).toBe(4);
+    expect(parsed.track?.title).toBe("Fixture Song");
+    expect(parsed.track?.artist).toBe("Fixture Artist");
+  });
+
+  it("stringifies track title and artist metadata to match PWA normalization", () => {
+    const payload = clone(happyPathAnalysis());
+    (payload.track as { title: unknown; artist: unknown }).title = 1234;
+    (payload.track as { title: unknown; artist: unknown }).artist = true;
+
+    const parsed = parseAnalysis(payload);
+
+    expect(parsed.track?.title).toBe("1234");
+    expect(parsed.track?.artist).toBe("true");
   });
 
   it("allows missing quantum confidence while requiring segment confidence", () => {

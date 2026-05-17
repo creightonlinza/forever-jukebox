@@ -107,6 +107,12 @@ function parseTrackMeta(value: unknown): TrackMeta | undefined {
       "track.time_signature"
     );
   }
+  if (value.title !== undefined) {
+    meta.title = String(value.title);
+  }
+  if (value.artist !== undefined) {
+    meta.artist = String(value.artist);
+  }
   return meta;
 }
 
