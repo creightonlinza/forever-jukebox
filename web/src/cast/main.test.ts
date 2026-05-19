@@ -523,6 +523,10 @@ describe("cast receiver main", () => {
     await flushMicrotasks();
     await vi.advanceTimersByTimeAsync(2100);
     await flushMicrotasks();
+    const viz = doubles.vizInstances[0];
+    const engine = doubles.engineInstances[0];
+    viz?.setData.mockClear();
+    engine?.syncToPlaybackPosition.mockClear();
 
     doubles.applyCastTuningToEngineMock.mockReturnValue({
       parsed: {
@@ -533,12 +537,25 @@ describe("cast receiver main", () => {
       highlightOnly: false,
       highlightAnchorBranch: false,
     });
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: "lofi",
+      hasAudioModeParam: true,
+      hasGraphTuning: false,
+      highlightAnchorBranch: false,
+    });
     harness.getMessageListener()?.({
       data: { type: "setTuning", tuningParams: "am=lofi" },
     });
     await flushMicrotasks();
 
     expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("lofi");
+    expect(engine?.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
+    expect(doubles.applyCastTuningToEngineMock).not.toHaveBeenCalledWith(
+      engine,
+      expect.any(Object),
+      "am=lofi",
+    );
+    expect(viz?.setData).not.toHaveBeenCalled();
     const statusCall =
       harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
     const status = statusCall?.[2] as
@@ -552,6 +569,127 @@ describe("cast receiver main", () => {
         audioMode: "lofi",
       },
     });
+  });
+
+  it("updates anchor highlighting from a setTuning command without refreshing viz data", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+    const viz = doubles.vizInstances[0];
+    const engine = doubles.engineInstances[0];
+    viz?.setData.mockClear();
+    engine?.syncToPlaybackPosition.mockClear();
+
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: {
+        audioMode: null,
+        hasAudioModeParam: false,
+        hasGraphTuning: false,
+      },
+      highlightOnly: true,
+      highlightAnchorBranch: true,
+    });
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: null,
+      hasAudioModeParam: false,
+      hasGraphTuning: false,
+      highlightAnchorBranch: true,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "ah=1" },
+    });
+    await flushMicrotasks();
+
+    expect(doubles.applyCastTuningToEngineMock).not.toHaveBeenCalledWith(
+      engine,
+      expect.any(Object),
+      "ah=1",
+    );
+    expect(viz?.setAnchorHighlightEnabled).toHaveBeenCalledWith(true);
+    expect(viz?.setData).not.toHaveBeenCalled();
+    expect(engine?.syncToPlaybackPosition).not.toHaveBeenCalled();
+  });
+
+  it("patches live graph tuning against current receiver state", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+    const viz = doubles.vizInstances[0];
+    const engine = doubles.engineInstances[0];
+    viz?.setData.mockClear();
+    engine?.syncToPlaybackPosition.mockClear();
+    engine.getUserAnchorEdgeId.mockReturnValue(22);
+    engine.getGraphState.mockReturnValue({
+      computedThreshold: 18,
+      currentThreshold: 20,
+      totalBeats: 0,
+      allEdges: [
+        { id: 4, deleted: true },
+        { id: 9, deleted: false },
+      ],
+    });
+
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: {
+        audioMode: null,
+        hasAudioModeParam: false,
+        hasGraphTuning: true,
+      },
+      highlightOnly: false,
+      highlightAnchorBranch: false,
+    });
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: null,
+      hasAudioModeParam: false,
+      hasGraphTuning: true,
+      highlightAnchorBranch: false,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "thresh=35" },
+    });
+    await flushMicrotasks();
+
+    const applyCall =
+      doubles.applyCastTuningToEngineMock.mock.calls[
+        doubles.applyCastTuningToEngineMock.mock.calls.length - 1
+      ];
+    const appliedParams = new URLSearchParams(applyCall?.[2] as string);
+    expect(applyCall?.[0]).toBe(engine);
+    expect(applyCall?.[1]).toEqual(engine.getConfig());
+    expect(appliedParams.get("thresh")).toBe("35");
+    expect(appliedParams.get("d")).toBe("4");
+    expect(appliedParams.get("ab")).toBe("22");
+    expect(appliedParams.get("ah")).toBe("0");
+    expect(engine?.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
+    expect(viz?.setData).toHaveBeenCalledTimes(1);
   });
 
   it("returns the current tuning state on getStatus after reconnect", async () => {
@@ -572,6 +710,10 @@ describe("cast receiver main", () => {
     await flushMicrotasks();
     await vi.advanceTimersByTimeAsync(2100);
     await flushMicrotasks();
+    const viz = doubles.vizInstances[0];
+    const engine = doubles.engineInstances[0];
+    viz?.setData.mockClear();
+    engine?.syncToPlaybackPosition.mockClear();
 
     doubles.applyCastTuningToEngineMock.mockReturnValue({
       parsed: {
@@ -582,10 +724,23 @@ describe("cast receiver main", () => {
       highlightOnly: false,
       highlightAnchorBranch: true,
     });
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: "daycore",
+      hasAudioModeParam: true,
+      hasGraphTuning: true,
+      highlightAnchorBranch: true,
+    });
     harness.getMessageListener()?.({
       data: { type: "setTuning", tuningParams: "jb=1&ah=1&am=daycore" },
     });
     await flushMicrotasks();
+    expect(doubles.applyCastTuningToEngineMock).toHaveBeenLastCalledWith(
+      engine,
+      expect.any(Object),
+      "jb=1&ah=1&am=daycore",
+    );
+    expect(engine?.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
+    expect(viz?.setData).toHaveBeenCalledTimes(1);
     harness.sendCustomMessage.mockClear();
 
     harness.getMessageListener()?.({ data: { type: "getStatus" } });
