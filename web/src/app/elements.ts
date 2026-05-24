@@ -499,6 +499,10 @@ export function getElements() {
     document.querySelector<HTMLSpanElement>("#top-list-title"),
     "#top-list-title"
   );
+  const topListRefreshButton = requireElement(
+    document.querySelector<HTMLButtonElement>("#top-list-refresh"),
+    "#top-list-refresh"
+  );
   const favoritesSyncButton = requireElement(
     document.querySelector<HTMLButtonElement>("#favorites-sync-button"),
     "#favorites-sync-button"
@@ -693,6 +697,7 @@ export function getElements() {
     favoritesList,
     topSongsTabs,
     topListTitle,
+    topListRefreshButton,
     favoritesSyncButton,
     favoritesSyncIcon,
     favoritesSyncMenu,

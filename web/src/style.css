@@ -256,7 +256,7 @@ button,
   margin: 0 auto;
   text-align: center;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 0.8rem;
   margin-top: auto;
 }
 
@@ -337,6 +337,29 @@ a:focus-visible {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.top-list-refresh-button {
+  background: transparent;
+  border: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.top-list-refresh-icon {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 20;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
 }
 
 .favorites-sync-icon {

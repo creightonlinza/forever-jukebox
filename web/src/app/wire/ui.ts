@@ -45,6 +45,10 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   elements.topSongsTabs.forEach((button) => {
     button.addEventListener("click", tabsHandlers.handleTopSongsTabClick);
   });
+  elements.topListRefreshButton.addEventListener(
+    "click",
+    tabsHandlers.handleTopSongsRefreshClick,
+  );
   elements.searchButton.addEventListener("click", searchHandlers.handleSearchClick);
   elements.searchInput.addEventListener(
     "keydown",

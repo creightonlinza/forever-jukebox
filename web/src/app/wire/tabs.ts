@@ -4,6 +4,8 @@ import type { Elements } from "../elements";
 import { navigateToFaqSubtab, type FaqSubtabId } from "../tabs";
 import type { FavoritesHandlers } from "./favorites";
 
+type TopSongsTabId = "top" | "trending" | "recent" | "favorites";
+
 type TabsDeps = {
   elements: Elements;
   state: AppState;
@@ -12,7 +14,8 @@ type TabsDeps = {
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
   ) => void;
-  onTopSongsTabChange?: (tabId: "top" | "trending" | "recent" | "favorites") => void;
+  onTopSongsTabChange?: (tabId: TopSongsTabId) => void;
+  onTopSongsRefresh?: (tabId: TopSongsTabId) => void;
   onFaqOpen?: () => void;
 };
 
@@ -27,7 +30,7 @@ export function createTabsHandlers(deps: TabsDeps) {
     onFaqOpen,
   } = deps;
 
-  function setTopSongsTab(tabId: "top" | "trending" | "recent" | "favorites") {
+  function setTopSongsTab(tabId: TopSongsTabId) {
     state.topSongsTab = tabId;
     elements.topSongsTabs.forEach((button) => {
       button.classList.toggle("active", button.dataset.topSubtab === tabId);
@@ -45,6 +48,14 @@ export function createTabsHandlers(deps: TabsDeps) {
         : tabId === "recent"
           ? `Last ${TOP_SONGS_LIMIT} Played`
           : "Favorites";
+    elements.topListRefreshButton.classList.toggle(
+      "hidden",
+      tabId === "favorites",
+    );
+    elements.topListRefreshButton.setAttribute(
+      "aria-label",
+      `Refresh ${elements.topListTitle.textContent ?? "list"}`,
+    );
     favoritesHandlers.closeFavoritesSyncMenu();
     favoritesHandlers.updateFavoritesSyncControls();
     deps.onTopSongsTabChange?.(tabId);
@@ -82,6 +93,10 @@ export function createTabsHandlers(deps: TabsDeps) {
       return;
     }
     setTopSongsTab(tabId);
+  }
+
+  function handleTopSongsRefreshClick() {
+    deps.onTopSongsRefresh?.(state.topSongsTab);
   }
 
   function handleSearchSubtabClick(event: Event) {
@@ -131,6 +146,7 @@ export function createTabsHandlers(deps: TabsDeps) {
   return {
     setTopSongsTab,
     handleTopSongsTabClick,
+    handleTopSongsRefreshClick,
     setSearchTab,
     handleSearchSubtabClick,
     setFaqTab,

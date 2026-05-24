@@ -318,6 +318,20 @@ export function bootstrap() {
       errorLabel: "Recent songs",
     },
   } as const;
+  const loadTopSongsTab = (tabId: LazyTopSongsTab, options?: { force?: boolean }) => {
+    const loader = topSongsTabLoaders[tabId];
+    if (!options?.force && loadedTopSongTabs.has(tabId)) {
+      return;
+    }
+    loader
+      .fetch()
+      .then(() => {
+        loadedTopSongTabs.add(tabId);
+      })
+      .catch((err) => {
+        console.warn(`${loader.errorLabel} load failed: ${String(err)}`);
+      });
+  };
   const refreshCacheSafely = () => {
     cacheHandlers.refreshCacheButton().catch((err) => {
       console.warn(`Cache size failed: ${String(err)}`);
@@ -332,19 +346,13 @@ export function bootstrap() {
       if (!(tabId in topSongsTabLoaders)) {
         return;
       }
-      const lazyTabId = tabId as LazyTopSongsTab;
-      const loader = topSongsTabLoaders[lazyTabId];
-      if (loadedTopSongTabs.has(lazyTabId)) {
+      loadTopSongsTab(tabId as LazyTopSongsTab);
+    },
+    onTopSongsRefresh: (tabId) => {
+      if (!(tabId in topSongsTabLoaders)) {
         return;
       }
-      loader
-        .fetch()
-        .then(() => {
-          loadedTopSongTabs.add(lazyTabId);
-        })
-        .catch((err) => {
-          console.warn(`${loader.errorLabel} load failed: ${String(err)}`);
-        });
+      loadTopSongsTab(tabId as LazyTopSongsTab, { force: true });
     },
     onFaqOpen: refreshCacheSafely,
   });
