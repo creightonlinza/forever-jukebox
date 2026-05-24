@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 from ..env import env_flag
+from ..favorites_config import max_favorites
 from ..favorites_db import (
     create_unique_code,
     load_favorites,
@@ -19,9 +20,6 @@ from ..utils import get_logger
 router = APIRouter()
 logger = get_logger()
 
-MAX_FAVORITES = 100
-
-
 def _ensure_sync_enabled() -> None:
     if not env_flag("ALLOW_FAVORITES_SYNC"):
         raise HTTPException(status_code=403, detail="Favorites sync disabled.")
@@ -31,10 +29,11 @@ def _ensure_sync_enabled() -> None:
 def create_favorites_sync(payload: FavoritesSyncRequest) -> JSONResponse:
     _ensure_sync_enabled()
     favorites = [item.model_dump() for item in payload.favorites]
-    if len(favorites) > MAX_FAVORITES:
+    max_count = max_favorites()
+    if len(favorites) > max_count:
         raise HTTPException(
             status_code=400,
-            detail=f"Too many favorites (max {MAX_FAVORITES}).",
+            detail=f"Too many favorites (max {max_count}).",
         )
     try:
         code = create_unique_code(FAVORITES_DB_PATH)
@@ -68,10 +67,11 @@ def update_favorites_sync(code: str, payload: FavoritesSyncRequest) -> JSONRespo
     if not normalized:
         raise HTTPException(status_code=400, detail="Sync code is required.")
     favorites = [item.model_dump() for item in payload.favorites]
-    if len(favorites) > MAX_FAVORITES:
+    max_count = max_favorites()
+    if len(favorites) > max_count:
         raise HTTPException(
             status_code=400,
-            detail=f"Too many favorites (max {MAX_FAVORITES}).",
+            detail=f"Too many favorites (max {max_count}).",
         )
     updated = update_favorites(FAVORITES_DB_PATH, normalized, favorites)
     if not updated:

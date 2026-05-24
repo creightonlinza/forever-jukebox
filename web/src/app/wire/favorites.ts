@@ -392,14 +392,15 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     options?: { sync?: boolean },
   ) {
     const prevFavorites = state.favorites;
-    state.favorites = nextFavorites;
-    saveFavorites(nextFavorites);
+    const cappedFavorites = sortFavorites(nextFavorites).slice(0, maxFavorites());
+    state.favorites = cappedFavorites;
+    saveFavorites(cappedFavorites);
     renderFavoritesList();
     syncFavoriteButton();
     if (options?.sync === false) {
       return;
     }
-    const delta = computeFavoritesDelta(prevFavorites, nextFavorites);
+    const delta = computeFavoritesDelta(prevFavorites, cappedFavorites);
     scheduleFavoritesSync(delta);
   }
 

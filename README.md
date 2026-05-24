@@ -53,6 +53,7 @@ Optional:
 - `NTFY_TOPIC_KEY`: optional; enables ntfy alerts for YouTube download errors.
 - `WORKER_COUNT`: optional; defaults to `1` and controls worker concurrency.
 - `MAX_TRACK_LENGTH`: optional; when set to a positive number (minutes), rejects jobs over that duration.
+- `MAX_FAVORITES`: optional; defaults to `150` and controls the maximum favorites sync payload size.
 - `ALLOW_USER_UPLOAD`: optional; defaults to `false`. Set `true` to enable `/api/upload`.
 - `ALLOW_USER_URL`: optional; defaults to `false`. Set `true` to allow user-supplied URL jobs (YouTube, SoundCloud, Bandcamp).
 - `ALLOW_FAVORITES_SYNC`: optional; defaults to `false`. Set `true` to enable favorites sync endpoints.
@@ -70,6 +71,7 @@ ADMIN_KEY=
 NTFY_TOPIC_KEY=
 WORKER_COUNT=1
 MAX_TRACK_LENGTH=12
+MAX_FAVORITES=
 ALLOW_USER_UPLOAD=false
 ALLOW_USER_URL=false
 ALLOW_FAVORITES_SYNC=false

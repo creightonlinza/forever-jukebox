@@ -106,6 +106,7 @@ class AppConfigResponse(BaseModel):
     max_upload_size: int | None = None
     allowed_upload_exts: list[str] | None = None
     max_track_length: float | None = None
+    max_favorites: int
     hosted_by_name: str | None = None
     hosted_by_url: str | None = None
 

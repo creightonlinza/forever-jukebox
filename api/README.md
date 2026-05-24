@@ -33,6 +33,7 @@ Optional:
 - `NTFY_TOPIC_KEY`
 - `WORKER_COUNT`
 - `MAX_TRACK_LENGTH`
+- `MAX_FAVORITES`
 - `ALLOW_USER_UPLOAD`
 - `ALLOW_USER_URL`
 - `ALLOW_FAVORITES_SYNC`
@@ -53,6 +54,7 @@ export ENGINE_REPO=../engine
 # export NTFY_TOPIC_KEY=
 export WORKER_COUNT=1
 # export MAX_TRACK_LENGTH=12
+# export MAX_FAVORITES=150
 # export ALLOW_USER_UPLOAD=true
 # export ALLOW_USER_URL=true
 # export ALLOW_FAVORITES_SYNC=true
@@ -129,7 +131,7 @@ Get app configuration flags:
 curl "/api/app-config"
 ```
 
-Response fields include `allow_user_upload`, `allow_user_url`, `max_upload_size` (bytes, only when uploads enabled), `allowed_upload_exts` (only when uploads enabled), optional `max_track_length` (minutes), and optional `hosted_by_name` / `hosted_by_url` footer credit fields.
+Response fields include `allow_user_upload`, `allow_user_url`, `max_upload_size` (bytes, only when uploads enabled), `allowed_upload_exts` (only when uploads enabled), optional `max_track_length` (minutes), `max_favorites`, and optional `hosted_by_name` / `hosted_by_url` footer credit fields.
 
 Fetch audio for a job:
 
@@ -188,6 +190,8 @@ Create a favorites sync code:
 ```bash
 curl -X POST "/api/favorites/sync" -H "Content-Type: application/json" -d '{"favorites":[{"uniqueSongId":"youtube:dQw4w9WgXcQ","title":"Never Gonna Give You Up","artist":"Rick Astley","duration":213,"sourceType":"youtube"}]}'
 ```
+
+Favorites sync payloads may include up to the configured `max_favorites` app-config value, which defaults to 150.
 
 Update favorites for an existing sync code:
 

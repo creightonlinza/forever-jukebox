@@ -6,6 +6,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from ..env import env_flag, env_positive_float, env_string
+from ..favorites_config import max_favorites
 from ..models import AppConfigResponse
 from .jobs_runtime import ALLOWED_UPLOAD_EXTS, MAX_UPLOAD_BYTES
 
@@ -25,6 +26,7 @@ def get_app_config() -> JSONResponse:
         max_upload_size=max_upload_size,
         allowed_upload_exts=allowed_upload_exts,
         max_track_length=env_positive_float("MAX_TRACK_LENGTH"),
+        max_favorites=max_favorites(),
         hosted_by_name=env_string("HOSTED_BY_NAME"),
         hosted_by_url=env_string("HOSTED_BY_URL"),
     )

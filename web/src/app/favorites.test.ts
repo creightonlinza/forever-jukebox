@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
   addFavorite,
+  configureMaxFavorites,
   filterFavorites,
   isFavorite,
   loadFavorites,
@@ -31,6 +32,11 @@ function setLocalStorage() {
 describe("favorites", () => {
   beforeEach(() => {
     setLocalStorage();
+    configureMaxFavorites(null);
+  });
+
+  it("defaults max favorites to 150", () => {
+    expect(maxFavorites()).toBe(150);
   });
 
   it("loads and saves favorites with sorting", () => {
@@ -77,6 +83,45 @@ describe("favorites", () => {
     };
     const limited = addFavorite(base, extra);
     expect(limited.status).toBe("limit");
+  });
+
+  it("applies a configured favorite limit", () => {
+    configureMaxFavorites(2);
+    const items = [
+      {
+        uniqueSongId: "1",
+        title: "A",
+        artist: "Artist",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "2",
+        title: "B",
+        artist: "Artist",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "3",
+        title: "C",
+        artist: "Artist",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+    ];
+
+    saveFavorites(items);
+    expect(loadFavorites()).toHaveLength(2);
+    expect(
+      addFavorite(loadFavorites(), {
+        uniqueSongId: "4",
+        title: "D",
+        artist: "Artist",
+        duration: null,
+        sourceType: "youtube",
+      }).status,
+    ).toBe("limit");
   });
 
   it("removes favorites", () => {
