@@ -27,3 +27,11 @@ def env_positive_float(env_key: str) -> float | None:
     if parsed <= 0:
         return None
     return parsed
+
+
+def env_string(env_key: str) -> str | None:
+    value = os.environ.get(env_key)
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None

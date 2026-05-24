@@ -56,6 +56,8 @@ Optional:
 - `ALLOW_USER_UPLOAD`: optional; defaults to `false`. Set `true` to enable `/api/upload`.
 - `ALLOW_USER_URL`: optional; defaults to `false`. Set `true` to allow user-supplied URL jobs (YouTube, SoundCloud, Bandcamp).
 - `ALLOW_FAVORITES_SYNC`: optional; defaults to `false`. Set `true` to enable favorites sync endpoints.
+- `HOSTED_BY_NAME`: optional; shows an instance host credit in the web footer.
+- `HOSTED_BY_URL`: optional; links the host credit when `HOSTED_BY_NAME` is set.
 - `PORT`: optional; defaults to `8000`.
 
 Example `.env`:
@@ -71,6 +73,8 @@ MAX_TRACK_LENGTH=12
 ALLOW_USER_UPLOAD=false
 ALLOW_USER_URL=false
 ALLOW_FAVORITES_SYNC=false
+HOSTED_BY_NAME=
+HOSTED_BY_URL=
 PORT=8000
 ```
 

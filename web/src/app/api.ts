@@ -74,6 +74,8 @@ export type AppConfig = {
   max_upload_size?: number | null;
   allowed_upload_exts?: string[] | null;
   max_track_length?: number | null;
+  hosted_by_name?: string | null;
+  hosted_by_url?: string | null;
 };
 
 export type FavoritesSyncResponse = {

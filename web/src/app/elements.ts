@@ -527,6 +527,10 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#toast"),
     "#toast"
   );
+  const footerCredit = requireElement(
+    document.querySelector<HTMLParagraphElement>("#site-footer-credit"),
+    "#site-footer-credit"
+  );
   const branchStatsPopup = requireElement(
     document.querySelector<HTMLDivElement>("#branch-stats-popup"),
     "#branch-stats-popup"
@@ -703,6 +707,7 @@ export function getElements() {
     favoritesSyncMenu,
     favoritesSyncItems,
     toast,
+    footerCredit,
     branchStatsPopup,
     branchStatsTitleEl,
     branchStatsDeleteButton,

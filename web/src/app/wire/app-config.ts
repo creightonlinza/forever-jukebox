@@ -18,6 +18,7 @@ export function createAppConfigHandlers(deps: AppConfigDeps) {
 
   function applyAppConfig(config: AppConfig) {
     state.appConfig = config;
+    renderFooterCredit(config);
     const allowUpload = Boolean(config.allow_user_upload);
     const allowUrl = Boolean(config.allow_user_url);
     const showUpload = allowUpload || allowUrl;
@@ -42,6 +43,43 @@ export function createAppConfigHandlers(deps: AppConfigDeps) {
     if (config.allow_favorites_sync) {
       favoritesHandlers.hydrateFavoritesFromSync();
     }
+  }
+
+  function createFooterLink(text: string, href: string) {
+    const link = elements.footerCredit.ownerDocument.createElement("a");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = text;
+    return link;
+  }
+
+  function renderFooterCredit(config: AppConfig) {
+    const doc = elements.footerCredit.ownerDocument;
+    const hostedByName = config.hosted_by_name?.trim();
+    const hostedByUrl = config.hosted_by_url?.trim();
+
+    elements.footerCredit.textContent = "";
+    elements.footerCredit.appendChild(
+      doc.createTextNode("The Forever Jukebox & Analysis Engine by "),
+    );
+    elements.footerCredit.appendChild(
+      createFooterLink("Creighton", "https://creighton.dev"),
+    );
+
+    if (!hostedByName) {
+      return;
+    }
+
+    elements.footerCredit.appendChild(
+      doc.createTextNode(". This instance is hosted by "),
+    );
+    if (hostedByUrl) {
+      elements.footerCredit.appendChild(createFooterLink(hostedByName, hostedByUrl));
+    } else {
+      elements.footerCredit.appendChild(doc.createTextNode(hostedByName));
+    }
+    elements.footerCredit.appendChild(doc.createTextNode("."));
   }
 
   return { applyAppConfig };
