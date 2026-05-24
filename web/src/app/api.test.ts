@@ -19,6 +19,7 @@ import {
   startUrlAnalysis,
   uploadAudio,
 } from "./api";
+import { configureMaxFavorites } from "./favorites";
 
 function createResponse(
   status: number,
@@ -32,9 +33,20 @@ function createResponse(
   } as Response;
 }
 
+function createFavorite(index: number) {
+  return {
+    uniqueSongId: `youtube:${index}`,
+    title: `Track ${index}`,
+    artist: "Artist",
+    duration: 123,
+    sourceType: "youtube" as const,
+  };
+}
+
 describe("api", () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn();
+    configureMaxFavorites(null);
   });
 
   it("returns null on 404 analysis", async () => {
@@ -145,6 +157,44 @@ describe("api", () => {
         }),
       }),
     );
+  });
+
+  it("trims favorites sync create payloads to 150 items", async () => {
+    (fetch as any).mockResolvedValue(createResponse(200, { code: "sync123" }));
+
+    await createFavoritesSync(
+      Array.from({ length: 151 }, (_, index) => createFavorite(index)),
+    );
+
+    const [, options] = (fetch as any).mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.favorites).toHaveLength(150);
+  });
+
+  it("trims favorites sync update payloads to 150 items", async () => {
+    (fetch as any).mockResolvedValue(createResponse(200, { count: 150 }));
+
+    await updateFavoritesSync(
+      "sync123",
+      Array.from({ length: 151 }, (_, index) => createFavorite(index)),
+    );
+
+    const [, options] = (fetch as any).mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.favorites).toHaveLength(150);
+  });
+
+  it("trims favorites sync payloads to the configured max", async () => {
+    configureMaxFavorites(2);
+    (fetch as any).mockResolvedValue(createResponse(200, { code: "sync123" }));
+
+    await createFavoritesSync(
+      Array.from({ length: 3 }, (_, index) => createFavorite(index)),
+    );
+
+    const [, options] = (fetch as any).mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.favorites).toHaveLength(2);
   });
 
   it("returns empty favorites sync when payload missing", async () => {

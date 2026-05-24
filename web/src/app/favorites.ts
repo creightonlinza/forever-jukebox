@@ -9,7 +9,15 @@ export type FavoriteTrack = {
 
 const FAVORITES_KEY = "fj-favorites";
 const FAVORITES_SYNC_KEY = "fj-favorites-sync";
-const MAX_FAVORITES = 100;
+const DEFAULT_MAX_FAVORITES = 150;
+let activeMaxFavorites = DEFAULT_MAX_FAVORITES;
+
+export function configureMaxFavorites(value: number | null | undefined) {
+  activeMaxFavorites =
+    typeof value === "number" && Number.isInteger(value) && value > 0
+      ? value
+      : DEFAULT_MAX_FAVORITES;
+}
 
 export function loadFavorites(): FavoriteTrack[] {
   const raw = localStorage.getItem(FAVORITES_KEY);
@@ -21,14 +29,14 @@ export function loadFavorites(): FavoriteTrack[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return sortFavorites(parsed).slice(0, MAX_FAVORITES);
+    return sortFavorites(parsed).slice(0, maxFavorites());
   } catch {
     return [];
   }
 }
 
 export function saveFavorites(items: FavoriteTrack[]) {
-  const payload = JSON.stringify(items.slice(0, MAX_FAVORITES));
+  const payload = JSON.stringify(items.slice(0, maxFavorites()));
   localStorage.setItem(FAVORITES_KEY, payload);
 }
 
@@ -44,10 +52,10 @@ export function addFavorite(
   if (isFavorite(items, normalizedTrack.uniqueSongId)) {
     return { favorites: items, status: "duplicate" };
   }
-  if (items.length >= MAX_FAVORITES) {
+  if (items.length >= maxFavorites()) {
     return { favorites: items, status: "limit" };
   }
-  const next = sortFavorites([...items, normalizedTrack]).slice(0, MAX_FAVORITES);
+  const next = sortFavorites([...items, normalizedTrack]).slice(0, maxFavorites());
   return { favorites: next, status: "added" };
 }
 
@@ -88,7 +96,7 @@ export function sortFavorites(items: FavoriteTrack[]) {
 }
 
 export function maxFavorites() {
-  return MAX_FAVORITES;
+  return activeMaxFavorites;
 }
 
 export function loadFavoritesSyncCode(): string | null {

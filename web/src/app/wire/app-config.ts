@@ -1,6 +1,7 @@
 import type { AppConfig } from "../api";
 import type { AppState } from "../context";
 import type { Elements } from "../elements";
+import { configureMaxFavorites, maxFavorites } from "../favorites";
 import type { FavoritesHandlers } from "./favorites";
 import type { TabsHandlers } from "./tabs";
 
@@ -18,6 +19,10 @@ export function createAppConfigHandlers(deps: AppConfigDeps) {
 
   function applyAppConfig(config: AppConfig) {
     state.appConfig = config;
+    configureMaxFavorites(config.max_favorites);
+    if (state.favorites.length > maxFavorites()) {
+      favoritesHandlers.updateFavorites(state.favorites, { sync: false });
+    }
     renderFooterCredit(config);
     const allowUpload = Boolean(config.allow_user_upload);
     const allowUrl = Boolean(config.allow_user_url);

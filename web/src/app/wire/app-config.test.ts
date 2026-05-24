@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState } from "../context";
 import type { Elements } from "../elements";
+import { configureMaxFavorites, maxFavorites } from "../favorites";
 import { createAppConfigHandlers } from "./app-config";
 
 function createClassList() {
@@ -57,10 +58,12 @@ function createHarness() {
   const state = {
     searchTab: "search",
     appConfig: null,
+    favorites: [],
   } as unknown as AppState;
   const favoritesHandlers = {
     updateFavoritesSyncControls: vi.fn(),
     hydrateFavoritesFromSync: vi.fn(),
+    updateFavorites: vi.fn(),
   };
   const tabsHandlers = {
     setSearchTab: vi.fn(),
@@ -74,12 +77,52 @@ function createHarness() {
       >[0]["favoritesHandlers"],
     tabsHandlers,
   });
-  return { footerCredit, handlers };
+  return { favoritesHandlers, footerCredit, handlers, state };
 }
 
 describe("createAppConfigHandlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    configureMaxFavorites(null);
+  });
+
+  it("applies configured max favorites and trims local state", () => {
+    const { favoritesHandlers, handlers, state } = createHarness();
+    state.favorites = [
+      {
+        uniqueSongId: "1",
+        title: "A",
+        artist: "Artist",
+        duration: null,
+        sourceType: "youtube",
+      },
+      {
+        uniqueSongId: "2",
+        title: "B",
+        artist: "Artist",
+        duration: null,
+        sourceType: "youtube",
+      },
+      {
+        uniqueSongId: "3",
+        title: "C",
+        artist: "Artist",
+        duration: null,
+        sourceType: "youtube",
+      },
+    ];
+
+    handlers.applyAppConfig({
+      allow_user_upload: false,
+      allow_user_url: false,
+      max_favorites: 2,
+    });
+
+    expect(maxFavorites()).toBe(2);
+    expect(favoritesHandlers.updateFavorites).toHaveBeenCalledWith(
+      state.favorites,
+      { sync: false },
+    );
   });
 
   it("renders host credit as a footer link when name and URL are configured", () => {
