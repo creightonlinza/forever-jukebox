@@ -36,6 +36,8 @@ Optional:
 - `ALLOW_USER_UPLOAD`
 - `ALLOW_USER_URL`
 - `ALLOW_FAVORITES_SYNC`
+- `HOSTED_BY_NAME`
+- `HOSTED_BY_URL`
 
 For defaults and behavior details, see the canonical Docker env reference in the root README: [`../README.md#docker-production`](../README.md#docker-production).
 
@@ -54,6 +56,8 @@ export WORKER_COUNT=1
 # export ALLOW_USER_UPLOAD=true
 # export ALLOW_USER_URL=true
 # export ALLOW_FAVORITES_SYNC=true
+# export HOSTED_BY_NAME="Example Host"
+# export HOSTED_BY_URL="https://example.com"
 ```
 
 ## yt-dlp EJS runtime
@@ -125,7 +129,7 @@ Get app configuration flags:
 curl "/api/app-config"
 ```
 
-Response fields include `allow_user_upload`, `allow_user_url`, `max_upload_size` (bytes, only when uploads enabled), `allowed_upload_exts` (only when uploads enabled), and optional `max_track_length` (minutes).
+Response fields include `allow_user_upload`, `allow_user_url`, `max_upload_size` (bytes, only when uploads enabled), `allowed_upload_exts` (only when uploads enabled), optional `max_track_length` (minutes), and optional `hosted_by_name` / `hosted_by_url` footer credit fields.
 
 Fetch audio for a job:
 

@@ -20,6 +20,8 @@ services:
       ALLOW_USER_UPLOAD: "${ALLOW_USER_UPLOAD:-}"
       ALLOW_USER_URL: "${ALLOW_USER_URL:-}"
       ALLOW_FAVORITES_SYNC: "${ALLOW_FAVORITES_SYNC:-}"
+      HOSTED_BY_NAME: "${HOSTED_BY_NAME:-}"
+      HOSTED_BY_URL: "${HOSTED_BY_URL:-}"
     restart: unless-stopped
 
 volumes:
