@@ -279,10 +279,10 @@ describe("BufferedAudioPlayer", () => {
     await player.loadBuffer({ duration: 10 } as AudioBuffer);
     player.play();
     expect(context.createdSources).toHaveLength(1);
-    player.scheduleJump(2, 1);
+    expect(player.scheduleJump(2, 1)).toBe(true);
     const firstPending = context.createdSources[1];
     expect(firstPending).toBeDefined();
-    player.scheduleJump(3, 1);
+    expect(player.scheduleJump(3, 1)).toBe(true);
     expect(firstPending?.stop).toHaveBeenCalled();
     expect(firstPending?.disconnect).toHaveBeenCalledTimes(1);
   });
@@ -295,7 +295,7 @@ describe("BufferedAudioPlayer", () => {
     player.play();
     context.currentTime = 10.25;
 
-    player.scheduleJump(2, 1);
+    expect(player.scheduleJump(2, 1)).toBe(true);
 
     expect(context.createdSources).toHaveLength(2);
     expect(context.createdSources[1]?.start).toHaveBeenCalledWith(11, 2, 18);
@@ -310,7 +310,7 @@ describe("BufferedAudioPlayer", () => {
     player.play();
     context.currentTime = 1.01;
 
-    player.scheduleJump(2, 0);
+    expect(player.scheduleJump(2, 0)).toBe(false);
 
     expect(context.createdSources).toHaveLength(1);
     expect(context.createdSources[0]?.stop).not.toHaveBeenCalled();
@@ -322,11 +322,11 @@ describe("BufferedAudioPlayer", () => {
     await player.loadBuffer({ duration: 20 } as AudioBuffer);
     player.play();
     context.currentTime = 0.25;
-    player.scheduleJump(2, 2);
+    expect(player.scheduleJump(2, 2)).toBe(true);
     const pending = context.createdSources[1];
 
     context.currentTime = 0.5;
-    player.scheduleJump(3, 0);
+    expect(player.scheduleJump(3, 0)).toBe(false);
 
     expect(context.createdSources).toHaveLength(2);
     expect(pending?.stop).not.toHaveBeenCalled();
@@ -339,7 +339,7 @@ describe("BufferedAudioPlayer", () => {
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
     await player.loadBuffer({ duration: 20 } as AudioBuffer);
     player.play();
-    player.scheduleJump(2, 1);
+    expect(player.scheduleJump(2, 1)).toBe(true);
     const pending = context.createdSources[1];
 
     player.cancelScheduledJump();
@@ -354,7 +354,7 @@ describe("BufferedAudioPlayer", () => {
     await player.loadBuffer({ duration: 10 } as AudioBuffer);
     player.play();
     context.currentTime = 0.25;
-    player.scheduleJump(2, 1);
+    expect(player.scheduleJump(2, 1)).toBe(true);
     const original = context.createdSources[0];
     const pending = context.createdSources[1];
 
@@ -375,7 +375,7 @@ describe("BufferedAudioPlayer", () => {
     await player.loadBuffer({ duration: 10 } as AudioBuffer);
     player.play();
     context.currentTime = 0.5;
-    player.scheduleJump(2, 1);
+    expect(player.scheduleJump(2, 1)).toBe(true);
     const pending = context.createdSources[1];
 
     context.currentTime = 1.01;

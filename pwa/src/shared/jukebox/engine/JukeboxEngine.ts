@@ -35,6 +35,7 @@ const DEFAULT_CONFIG: JukeboxConfig = {
 
 const TICK_INTERVAL_MS = 50;
 const MIN_JUMP_SCHEDULE_LEAD_SECONDS = 0.08;
+const PLAYBACK_SYNC_TOLERANCE_SECONDS = 0.25;
 
 type UpdateListener = (state: JukeboxState) => void;
 
@@ -58,7 +59,7 @@ export interface JukeboxPlayer {
   pause: () => void;
   stop: () => void;
   seek: (time: number) => void;
-  scheduleJump: (targetTime: number, sourceStartTime: number) => void;
+  scheduleJump: (targetTime: number, sourceStartTime: number) => boolean;
   cancelScheduledJump: () => void;
   getCurrentTime: () => number;
   getAudioTime: () => number;
@@ -458,6 +459,7 @@ export class JukeboxEngine {
     if (!this.ticking) {
       return;
     }
+    this.ensureSyncedToPlaybackPosition(audioTime);
 
     this.emitState(this.lastJumped);
     this.lastJumped = false;
@@ -527,10 +529,12 @@ export class JukeboxEngine {
     let shouldJump = false;
     let jumpFromIndex: number | null = null;
     let sourceBoundaryTime: number | null = null;
+    let sequentialIndex = 0;
 
     if (currentIndex >= 0) {
       const nextIndex = currentIndex + 1;
       const wrappedIndex = nextIndex >= beatsCount ? 0 : nextIndex;
+      sequentialIndex = wrappedIndex;
       if (this.bringItHomeMode) {
         chosenIndex = wrappedIndex;
       } else {
@@ -580,7 +584,21 @@ export class JukeboxEngine {
     }
     const targetTime = shouldJump ? targetBeat.start : null;
     if (scheduleJump && targetTime !== null && sourceBoundaryTime !== null) {
-      this.player.scheduleJump(targetTime, sourceBoundaryTime);
+      const scheduled = this.player.scheduleJump(targetTime, sourceBoundaryTime);
+      if (!scheduled) {
+        const sequentialBeat = this.beats[sequentialIndex];
+        if (!sequentialBeat) {
+          return null;
+        }
+        return {
+          boundaryAudioTime,
+          chosenIndex: sequentialIndex,
+          shouldJump: false,
+          targetTime: null,
+          jumpFromIndex: null,
+          sourceBoundaryTime: null,
+        };
+      }
     }
     return {
       boundaryAudioTime,
@@ -627,6 +645,39 @@ export class JukeboxEngine {
     this.currentBeatIndex = beatIndex;
     this.beatsPlayed = Math.max(this.beatsPlayed, beatIndex + 1);
     this.nextAudioTime = audioTime + remainingInBeat / this.getPlaybackRate();
+  }
+
+  private ensureSyncedToPlaybackPosition(audioTime: number) {
+    if (this.currentBeatIndex < 0) {
+      return;
+    }
+    const trackTime = this.player.getCurrentTime();
+    const beatIndex = this.findBeatIndexByTime(trackTime);
+    if (beatIndex < 0 || beatIndex >= this.beats.length) {
+      return;
+    }
+    const beat = this.beats[beatIndex];
+    const elapsedInBeat = Math.max(
+      0,
+      Math.min(beat.duration, trackTime - beat.start),
+    );
+    const remainingInBeat = Math.max(0, beat.duration - elapsedInBeat);
+    const expectedNextAudioTime =
+      audioTime + remainingInBeat / this.getPlaybackRate();
+    const beatMismatch = beatIndex !== this.currentBeatIndex;
+    const boundaryMismatch =
+      Math.abs(this.nextAudioTime - expectedNextAudioTime) >
+      PLAYBACK_SYNC_TOLERANCE_SECONDS;
+    if (!beatMismatch && !boundaryMismatch) {
+      return;
+    }
+    this.currentBeatIndex = beatIndex;
+    this.nextAudioTime = expectedNextAudioTime;
+    this.lastJumped = false;
+    this.lastJumpTime = null;
+    this.lastJumpFromIndex = null;
+    this.branchState.lastDestBySource = null;
+    this.clearPendingAdvance(true);
   }
 
   private clearPendingAdvance(cancelScheduledJump: boolean) {

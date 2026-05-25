@@ -790,8 +790,11 @@ export function resetTuningDefaults(context: AppContext) {
   state.autoComputedThreshold = graph
     ? Math.round(graph.currentThreshold)
     : null;
-  state.tuningParams = null;
-  writeTuningParamsToUrl(null, true);
+  state.tuningParams =
+    state.jukeboxAudioMode === "off"
+      ? null
+      : new URLSearchParams({ am: state.jukeboxAudioMode }).toString();
+  writeTuningParamsToUrl(state.tuningParams, true);
   player.setVolume(DEFAULT_VOLUME);
   autocanonizer.setVolume(DEFAULT_VOLUME);
   cowbellOverlay.setVolume(DEFAULT_VOLUME);

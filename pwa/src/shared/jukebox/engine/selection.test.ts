@@ -59,7 +59,9 @@ describe("PWA branch ramp parity", () => {
       pause() {},
       stop() {},
       seek(_time: number) {},
-      scheduleJump(_targetTime: number, _audioStart: number) {},
+      scheduleJump(_targetTime: number, _audioStart: number) {
+        return true;
+      },
       cancelScheduledJump() {},
       getCurrentTime() {
         return 0;
@@ -135,7 +137,9 @@ describe("PWA branch ramp parity", () => {
       pause() {},
       stop() {},
       seek(_time: number) {},
-      scheduleJump(_targetTime: number, _audioStart: number) {},
+      scheduleJump(_targetTime: number, _audioStart: number) {
+        return true;
+      },
       cancelScheduledJump() {},
       getCurrentTime() {
         return 0;
