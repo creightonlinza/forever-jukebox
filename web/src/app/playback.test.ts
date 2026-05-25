@@ -6,6 +6,7 @@ import {
   applyAnalysisResult,
   getActiveTuningTab,
   resetExtrasDefaults,
+  resetTuningDefaults,
   applyTuningChanges,
   loadAudioFromJob,
   loadTrackById,
@@ -300,6 +301,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
   const player = {
     getVolume: vi.fn(() => 0.5),
     getDuration: vi.fn(() => null),
+    setVolume: vi.fn(),
     play: vi.fn(),
     isPlaying: vi.fn(() => true),
     pause: vi.fn(),
@@ -617,6 +619,22 @@ describe("playback tuning", () => {
     expect(context.state.jukeboxAudioMode).toBe("off");
     expect(context.cowbellOverlay.disable).toHaveBeenCalledTimes(1);
     expect(context.elements.branchStatsPopup.classList.add).toHaveBeenCalledWith("hidden");
+  });
+
+  it("preserves audio mode URL param when tuning reset clears other tuning params", () => {
+    setWindowUrl("http://localhost/listen/abc?jb=1&thresh=30&ab=7&am=daycore");
+    const context = createContext();
+    context.state.tuningParams = "jb=1&thresh=30&ab=7&am=daycore";
+    context.state.jukeboxAudioMode = "daycore";
+    context.engine.setUserAnchorEdge(
+      { id: 7 } as Parameters<AppContext["engine"]["setUserAnchorEdge"]>[0],
+    );
+
+    resetTuningDefaults(context);
+
+    expect(context.state.tuningParams).toBe("am=daycore");
+    expect(window.location.search).toBe("?am=daycore");
+    expect(context.state.jukeboxAudioMode).toBe("daycore");
   });
 
   it("resets audio mode on track change", () => {

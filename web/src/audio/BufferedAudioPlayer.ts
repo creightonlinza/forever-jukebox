@@ -316,13 +316,13 @@ export class BufferedAudioPlayer {
 
   scheduleJump(targetTime: number, sourceStartTime: number) {
     if (!this.buffer || !this.playing) {
-      return;
+      return false;
     }
     const currentSourceTime = this.getCurrentTime();
     const lateBy = currentSourceTime - sourceStartTime;
     const maxLateSeconds = MAX_LATE_JUMP_FRAMES / this.context.sampleRate;
     if (lateBy > maxLateSeconds) {
-      return;
+      return false;
     }
     this.clearPendingSwap();
     const sourceLead = Math.max(0, sourceStartTime - currentSourceTime);
@@ -343,7 +343,12 @@ export class BufferedAudioPlayer {
       }
     };
     const duration = this.buffer.duration - targetTime;
-    source.start(startTime, targetTime, Math.max(0, duration));
+    try {
+      source.start(startTime, targetTime, Math.max(0, duration));
+    } catch {
+      source.disconnect();
+      return false;
+    }
     if (this.source) {
       this.source.onended = null;
       try {
@@ -355,6 +360,7 @@ export class BufferedAudioPlayer {
     this.pendingSource = source;
     this.pendingStartAt = startTime - targetTime / this.playbackRate;
     this.pendingSwapAt = startTime;
+    return true;
   }
 
   cancelScheduledJump() {

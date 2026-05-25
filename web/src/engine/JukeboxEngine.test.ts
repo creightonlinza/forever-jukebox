@@ -83,7 +83,7 @@ function makePlayer(): JukeboxPlayer {
     pause: vi.fn(),
     stop: vi.fn(),
     seek: vi.fn(),
-    scheduleJump: vi.fn(),
+    scheduleJump: vi.fn(() => true),
     cancelScheduledJump: vi.fn(),
     getCurrentTime: () => 0,
     getAudioTime: () => 0,
@@ -216,6 +216,54 @@ describe("JukeboxEngine branching", () => {
     expect(player.scheduleJump).toHaveBeenCalledTimes(1);
     expect(player.scheduleJump).toHaveBeenCalledWith(0, 1);
     expect(engineAny.lastJumpFromIndex).toBe(1);
+  });
+
+  it("keeps the graph sequential when the audio jump cannot be scheduled", () => {
+    const player = makePlayer();
+    (player.scheduleJump as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    const engine = new JukeboxEngine(player, { randomMode: "seeded", seed: 1 });
+    const beats = [0, 1, 2].map(makeBeat);
+    linkBeats(beats);
+    const edge: Edge = {
+      id: 0,
+      src: beats[1],
+      dest: beats[0],
+      distance: 10,
+      deleted: false,
+    };
+    beats[1].neighbors = [edge];
+    beats[1].allNeighbors = [edge];
+    const graph: JukeboxGraphState = {
+      computedThreshold: 0,
+      currentThreshold: 0,
+      lastBranchPoint: 1,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [edge],
+    };
+
+    const engineAny = engine as unknown as {
+      analysis: TrackAnalysis;
+      graph: JukeboxGraphState;
+      beats: QuantumBase[];
+      currentBeatIndex: number;
+      nextAudioTime: number;
+      curRandomBranchChance: number;
+      lastJumpFromIndex: number | null;
+      advanceBeat: (audioTime: number) => void;
+    };
+    engineAny.analysis = makeAnalysis(beats);
+    engineAny.graph = graph;
+    engineAny.beats = beats;
+    engineAny.currentBeatIndex = 0;
+    engineAny.nextAudioTime = 1;
+    engineAny.curRandomBranchChance = engine.getConfig().minRandomBranchChance;
+
+    engineAny.advanceBeat(engineAny.nextAudioTime);
+
+    expect(player.scheduleJump).toHaveBeenCalledWith(0, 1);
+    expect(engineAny.currentBeatIndex).toBe(1);
+    expect(engineAny.lastJumpFromIndex).toBe(null);
   });
 
   it("schedules a jump when wrapping past the last beat", () => {
@@ -368,6 +416,7 @@ describe("JukeboxEngine playback loop", () => {
     let audioNow = 0;
     const player = makePlayer();
     player.getAudioTime = () => audioNow;
+    player.getCurrentTime = () => audioNow;
     const engine = new JukeboxEngine(player, {
       config: {
         minRandomBranchChance: 0,
@@ -395,6 +444,70 @@ describe("JukeboxEngine playback loop", () => {
     audioNow = 2.4;
     engineAny.tick();
     expect(engineAny.currentBeatIndex).toBe(2);
+    engine.stopJukebox();
+  });
+
+  it("resyncs to the actual audio beat after a delayed tick replays stale branch state", () => {
+    vi.useFakeTimers();
+    if ("window" in globalThis) {
+      const win = globalThis.window as { setTimeout: typeof setTimeout; clearTimeout: typeof clearTimeout };
+      win.setTimeout = globalThis.setTimeout;
+      win.clearTimeout = globalThis.clearTimeout;
+    }
+    let audioNow = 0.5;
+    let trackNow = 0.5;
+    const player = makePlayer();
+    player.getAudioTime = () => audioNow;
+    player.getCurrentTime = () => trackNow;
+    const engine = new JukeboxEngine(player, { randomMode: "seeded", seed: 1 });
+    const beats = [0, 1, 2].map(makeBeat);
+    linkBeats(beats);
+    const edge: Edge = {
+      id: 0,
+      src: beats[1],
+      dest: beats[0],
+      distance: 10,
+      deleted: false,
+    };
+    beats[1].neighbors = [edge];
+    beats[1].allNeighbors = [edge];
+    const graph: JukeboxGraphState = {
+      computedThreshold: 0,
+      currentThreshold: 0,
+      lastBranchPoint: 1,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [edge],
+    };
+    const engineAny = engine as unknown as {
+      analysis: TrackAnalysis;
+      graph: JukeboxGraphState;
+      beats: QuantumBase[];
+      currentBeatIndex: number;
+      nextAudioTime: number;
+      curRandomBranchChance: number;
+      lastJumpFromIndex: number | null;
+      ticking: boolean;
+      preparePendingAdvance: (audioTime: number) => void;
+      tick: () => void;
+    };
+    engineAny.analysis = makeAnalysis(beats);
+    engineAny.graph = graph;
+    engineAny.beats = beats;
+    engineAny.currentBeatIndex = 0;
+    engineAny.nextAudioTime = 1;
+    engineAny.curRandomBranchChance = engine.getConfig().minRandomBranchChance;
+    engineAny.ticking = true;
+    engineAny.preparePendingAdvance(engineAny.nextAudioTime);
+
+    audioNow = 1.2;
+    trackNow = 1.2;
+    engineAny.tick();
+
+    expect(player.scheduleJump).toHaveBeenCalledWith(0, 1);
+    expect(engineAny.currentBeatIndex).toBe(1);
+    expect(engineAny.nextAudioTime).toBeCloseTo(2, 5);
+    expect(engineAny.lastJumpFromIndex).toBe(null);
     engine.stopJukebox();
   });
 
@@ -1072,6 +1185,7 @@ describe("JukeboxEngine jump timing", () => {
     let audioNow = 0.94;
     const player = makePlayer();
     player.getAudioTime = () => audioNow;
+    player.getCurrentTime = () => audioNow;
     const engine = new JukeboxEngine(player, {
       config: {
         minRandomBranchChance: 0,

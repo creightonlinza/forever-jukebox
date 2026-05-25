@@ -44,7 +44,7 @@ function makePlayer(overrides: Partial<JukeboxPlayer> = {}): JukeboxPlayer {
     pause: vi.fn(),
     stop: vi.fn(),
     seek: vi.fn(),
-    scheduleJump: vi.fn(),
+    scheduleJump: vi.fn(() => true),
     cancelScheduledJump: vi.fn(),
     getCurrentTime: () => 0,
     getAudioTime: () => 0,
@@ -92,6 +92,7 @@ function installEngineState(
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -122,6 +123,81 @@ describe("PWA JukeboxEngine jump scheduling parity", () => {
 
     expect(player.scheduleJump).toHaveBeenCalledTimes(1);
     expect(player.scheduleJump).toHaveBeenCalledWith(0, 1);
+  });
+
+  it("keeps the graph sequential when the audio jump cannot be scheduled", () => {
+    const player = makePlayer({
+      scheduleJump: vi.fn(() => false),
+    });
+    const engine = new JukeboxEngine(player, { randomMode: "seeded", seed: 1 });
+    const beats = [0, 1, 2].map(makeBeat);
+    linkBeats(beats);
+    const edge: Edge = {
+      id: 0,
+      src: beats[1],
+      dest: beats[0],
+      distance: 10,
+      deleted: false,
+    };
+    beats[1].neighbors = [edge];
+    beats[1].allNeighbors = [edge];
+    const engineAny = installEngineState(
+      engine,
+      beats,
+      makeGraph(beats, edge),
+      0,
+      10.75,
+    );
+
+    engineAny.advanceBeat(engineAny.nextAudioTime);
+
+    expect(player.scheduleJump).toHaveBeenCalledWith(0, 1);
+    expect(engineAny.currentBeatIndex).toBe(1);
+  });
+
+  it("resyncs to the actual audio beat after a delayed tick replays stale branch state", () => {
+    vi.useFakeTimers();
+    let audioNow = 0.5;
+    let trackNow = 0.5;
+    const player = makePlayer({
+      getAudioTime: () => audioNow,
+      getCurrentTime: () => trackNow,
+    });
+    const engine = new JukeboxEngine(player, { randomMode: "seeded", seed: 1 });
+    const beats = [0, 1, 2].map(makeBeat);
+    linkBeats(beats);
+    const edge: Edge = {
+      id: 0,
+      src: beats[1],
+      dest: beats[0],
+      distance: 10,
+      deleted: false,
+    };
+    beats[1].neighbors = [edge];
+    beats[1].allNeighbors = [edge];
+    const engineAny = installEngineState(
+      engine,
+      beats,
+      makeGraph(beats, edge),
+      0,
+      1,
+    ) as ReturnType<typeof installEngineState> & {
+      lastJumpFromIndex: number | null;
+      ticking: boolean;
+      tick: () => void;
+    };
+    engineAny.ticking = true;
+    engineAny.preparePendingAdvance(engineAny.nextAudioTime);
+
+    audioNow = 1.2;
+    trackNow = 1.2;
+    engineAny.tick();
+
+    expect(player.scheduleJump).toHaveBeenCalledWith(0, 1);
+    expect(engineAny.currentBeatIndex).toBe(1);
+    expect(engineAny.nextAudioTime).toBeCloseTo(2, 5);
+    expect(engineAny.lastJumpFromIndex).toBe(null);
+    engine.stopJukebox();
   });
 
   it("uses the final beat end as the source boundary when wrapping", () => {
