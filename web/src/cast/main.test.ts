@@ -149,6 +149,8 @@ type CastHarness = {
   getLoadInterceptor: () => ((loadRequestData: unknown) => unknown) | null;
   getMessageListener: () => ((event: { data?: unknown; senderId?: string }) => void) | null;
   sendCustomMessage: ReturnType<typeof vi.fn>;
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
   replaceState: ReturnType<typeof vi.fn>;
 };
 
@@ -270,6 +272,8 @@ function setupCastHarness(pathname = "/"): CastHarness {
     getLoadInterceptor: () => loadInterceptor,
     getMessageListener: () => messageListener,
     sendCustomMessage,
+    start: context.start,
+    stop: context.stop,
     replaceState,
   };
 }
@@ -316,6 +320,13 @@ describe("cast receiver main", () => {
     await bootstrapReceiver();
     const interceptor = harness.getLoadInterceptor();
     expect(interceptor).not.toBeNull();
+    expect(harness.start).toHaveBeenCalledWith({
+      disableIdleTimeout: true,
+      maxInactivity: 600,
+      customNamespaces: {
+        "urn:x-cast:com.foreverjukebox.app": "json",
+      },
+    });
 
     interceptor?.({ customData: { jobId: "not-a-job-id" } });
     await flushMicrotasks();
@@ -809,5 +820,39 @@ describe("cast receiver main", () => {
       createdAt: null,
       playbackState: "idle",
     });
+  });
+
+  it("stops the receiver after the splash screen stays idle", async () => {
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+
+    await vi.advanceTimersByTimeAsync(600_000);
+
+    expect(harness.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the receiver alive while an active job is stopped for sender reconnect", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+
+    harness.getMessageListener()?.({ data: { type: "stop" } });
+    await vi.advanceTimersByTimeAsync(600_000);
+
+    expect(harness.stop).not.toHaveBeenCalled();
   });
 });

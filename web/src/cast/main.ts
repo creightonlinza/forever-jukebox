@@ -105,6 +105,7 @@ declare global {
             ): void;
             start(options?: {
               disableIdleTimeout?: boolean;
+              maxInactivity?: number;
               customNamespaces?: Record<string, unknown>;
             }): void;
             stop?(): void;
@@ -358,7 +359,8 @@ async function loadAudio(
 async function bootstrap() {
   const elements = getElements();
   const POST_LOAD_PLAY_DELAY_MS = 2000;
-  const IDLE_TIMEOUT_MS = 300_000;
+  const IDLE_TIMEOUT_SECONDS = 600;
+  const IDLE_TIMEOUT_MS = IDLE_TIMEOUT_SECONDS * 1000;
   const IDLE_KEEPALIVE_MS = 25_000;
   let player: BufferedAudioPlayer | null = null;
   let engine: JukeboxEngine | null = null;
@@ -583,7 +585,7 @@ async function bootstrap() {
   function scheduleIdleStop() {
     clearIdleStopTimer();
     idleStopTimer = window.setTimeout(() => {
-      if (player && player.isPlaying()) {
+      if (state.currentJobId || (player && player.isPlaying())) {
         return;
       }
       castContext?.stop?.();
@@ -1216,8 +1218,13 @@ async function bootstrap() {
         return;
       }
     });
-    const startOptions: { disableIdleTimeout: boolean; customNamespaces?: Record<string, unknown> } = {
+    const startOptions: {
+      disableIdleTimeout: boolean;
+      maxInactivity: number;
+      customNamespaces?: Record<string, unknown>;
+    } = {
       disableIdleTimeout: true,
+      maxInactivity: IDLE_TIMEOUT_SECONDS,
     };
     const messageTypeJson = framework.system?.MessageType?.JSON;
     if (messageTypeJson) {
