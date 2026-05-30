@@ -466,7 +466,9 @@ export function bootstrap() {
   loadAppConfig()
     .then((config) => {
       if (config) {
-        appConfigHandlers.applyAppConfig(config as AppConfig);
+        appConfigHandlers.applyAppConfig(config as AppConfig, {
+          hydrateFavorites: false,
+        });
       }
     })
     .catch((err) => {

@@ -160,4 +160,32 @@ describe("createAppConfigHandlers", () => {
       expect.objectContaining({ href: "https://creighton.dev" }),
     ]);
   });
+
+  it("hydrates favorites when fresh config allows sync", () => {
+    const { favoritesHandlers, handlers } = createHarness();
+
+    handlers.applyAppConfig({
+      allow_user_upload: false,
+      allow_user_url: false,
+      allow_favorites_sync: true,
+    });
+
+    expect(favoritesHandlers.hydrateFavoritesFromSync).toHaveBeenCalledOnce();
+  });
+
+  it("skips favorites hydration when applying cached config", () => {
+    const { favoritesHandlers, handlers } = createHarness();
+
+    handlers.applyAppConfig(
+      {
+        allow_user_upload: false,
+        allow_user_url: false,
+        allow_favorites_sync: true,
+      },
+      { hydrateFavorites: false },
+    );
+
+    expect(favoritesHandlers.hydrateFavoritesFromSync).not.toHaveBeenCalled();
+    expect(favoritesHandlers.updateFavoritesSyncControls).toHaveBeenCalledOnce();
+  });
 });

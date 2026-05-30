@@ -12,12 +12,19 @@ type AppConfigDeps = {
   tabsHandlers: Pick<TabsHandlers, "setSearchTab">;
 };
 
+type ApplyAppConfigOptions = {
+  hydrateFavorites?: boolean;
+};
+
 export type AppConfigHandlers = ReturnType<typeof createAppConfigHandlers>;
 
 export function createAppConfigHandlers(deps: AppConfigDeps) {
   const { elements, state, favoritesHandlers, tabsHandlers } = deps;
 
-  function applyAppConfig(config: AppConfig) {
+  function applyAppConfig(
+    config: AppConfig,
+    options: ApplyAppConfigOptions = {},
+  ) {
     state.appConfig = config;
     configureMaxFavorites(config.max_favorites);
     if (state.favorites.length > maxFavorites()) {
@@ -45,7 +52,7 @@ export function createAppConfigHandlers(deps: AppConfigDeps) {
     }
     tabsHandlers.setSearchTab(state.searchTab);
     favoritesHandlers.updateFavoritesSyncControls();
-    if (config.allow_favorites_sync) {
+    if (options.hydrateFavorites !== false && config.allow_favorites_sync) {
       favoritesHandlers.hydrateFavoritesFromSync();
     }
   }
