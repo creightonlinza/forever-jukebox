@@ -151,6 +151,8 @@ const AUDIO_MODE_SECTIONS: AudioModeSection[] = [
       { value: "eight_d", label: "8D Audio", tooltip: "Spinning/Spatial" },
       { value: "eight_bit", label: "8-Bit", tooltip: "Bitcrushed & Filtered" },
       { value: "lofi", label: "Lofi", tooltip: "Radio Filter" },
+      { value: "underwater", label: "Underwater", tooltip: "Heavy Low-Pass" },
+      { value: "cathedral", label: "Cathedral", tooltip: "Cathedral Reverb" },
     ],
   },
   {
@@ -257,6 +259,8 @@ function parseAudioMode(value: string | null): JukeboxAudioMode | null {
     value === "eight_d" ||
     value === "eight_bit" ||
     value === "lofi" ||
+    value === "underwater" ||
+    value === "cathedral" ||
     value === "cowbell" ||
     value === "swing"
   ) {

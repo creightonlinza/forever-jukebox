@@ -1142,6 +1142,24 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it("loads cathedral audio mode from url params", async () => {
+    window.history.replaceState({}, "", "/?am=cathedral");
+    const rendered = renderListen();
+    await settleEffects();
+
+    const playTitle = getRequired<HTMLDivElement>(rendered.container, ".play-title");
+    expect(playTitle.textContent).toContain("(cathedral)");
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    const cathedralInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-cathedral"
+    );
+    expect(cathedralInput.checked).toBe(true);
+    rendered.unmount();
+  });
+
   it("maps audio mode hover text correctly", async () => {
     const rendered = renderListen();
     await settleEffects();
@@ -1171,6 +1189,14 @@ describe("Listen route behavior", () => {
       "#audio-mode-eight-bit"
     );
     const lofiInput = getRequired<HTMLInputElement>(rendered.container, "#audio-mode-lofi");
+    const underwaterInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-underwater"
+    );
+    const cathedralInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-cathedral"
+    );
     const cowbellInput = getRequired<HTMLInputElement>(
       rendered.container,
       "#audio-mode-cowbell"
@@ -1187,6 +1213,8 @@ describe("Listen route behavior", () => {
     expect(eightDInput.title).toBe("Spinning/Spatial");
     expect(eightBitInput.title).toBe("Bitcrushed & Filtered");
     expect(lofiInput.title).toBe("Radio Filter");
+    expect(underwaterInput.title).toBe("Heavy Low-Pass");
+    expect(cathedralInput.title).toBe("Cathedral Reverb");
     expect(cowbellInput.title).toBe("More Cowbell");
     expect(swingInput.title).toBe("Adds a loping swung feel to each beat");
     rendered.unmount();

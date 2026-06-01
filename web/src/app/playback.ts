@@ -389,6 +389,12 @@ function getSelectedAudioMode(context: AppContext): JukeboxAudioMode {
   if (elements.audioModeLofiInput.checked) {
     return "lofi";
   }
+  if (elements.audioModeUnderwaterInput.checked) {
+    return "underwater";
+  }
+  if (elements.audioModeCathedralInput.checked) {
+    return "cathedral";
+  }
   if (elements.audioModeCowbellInput.checked) {
     return "cowbell";
   }
@@ -543,6 +549,8 @@ export function syncExtrasUI(context: AppContext) {
   elements.audioModeEightDInput.checked = audioMode === "eight_d";
   elements.audioModeEightBitInput.checked = audioMode === "eight_bit";
   elements.audioModeLofiInput.checked = audioMode === "lofi";
+  elements.audioModeUnderwaterInput.checked = audioMode === "underwater";
+  elements.audioModeCathedralInput.checked = audioMode === "cathedral";
   elements.audioModeCowbellInput.checked = audioMode === "cowbell";
   elements.audioModeSwingInput.checked = audioMode === "swing";
   elements.audioModeOffInput.disabled = !inJukeboxMode;
@@ -552,6 +560,8 @@ export function syncExtrasUI(context: AppContext) {
   elements.audioModeEightDInput.disabled = !inJukeboxMode;
   elements.audioModeEightBitInput.disabled = !inJukeboxMode;
   elements.audioModeLofiInput.disabled = !inJukeboxMode;
+  elements.audioModeUnderwaterInput.disabled = !inJukeboxMode;
+  elements.audioModeCathedralInput.disabled = !inJukeboxMode;
   elements.audioModeCowbellInput.disabled = !inJukeboxMode;
   elements.audioModeSwingInput.disabled = !inJukeboxMode;
 }
