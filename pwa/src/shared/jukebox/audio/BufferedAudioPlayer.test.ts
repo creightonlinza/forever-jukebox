@@ -37,6 +37,13 @@ class MockStereoPannerNode {
   disconnect = vi.fn();
 }
 
+class MockWaveShaperNode {
+  curve: Float32Array | null = null;
+  oversample: OverSampleType = "none";
+  connect = vi.fn();
+  disconnect = vi.fn();
+}
+
 class MockAudioContext {
   currentTime = 0;
   destination = {};
@@ -46,6 +53,7 @@ class MockAudioContext {
   createdBiquads: MockBiquadNode[] = [];
   createdConvolvers: MockConvolverNode[] = [];
   createdPanners: MockStereoPannerNode[] = [];
+  createdWaveShapers: MockWaveShaperNode[] = [];
   createGain() {
     const gain = new MockGainNode();
     this.createdGains.push(gain);
@@ -66,10 +74,16 @@ class MockAudioContext {
     this.createdPanners.push(panner);
     return panner;
   }
+  createWaveShaper() {
+    const shaper = new MockWaveShaperNode();
+    this.createdWaveShapers.push(shaper);
+    return shaper;
+  }
   createBuffer(channels: number, length: number, sampleRate: number) {
     const data = Array.from({ length: channels }, () => new Float32Array(length));
     return {
       length,
+      duration: length / sampleRate,
       sampleRate,
       numberOfChannels: channels,
       getChannelData(channel: number) {
@@ -196,6 +210,31 @@ describe("BufferedAudioPlayer", () => {
     const bandPass = context.createdBiquads.find((node) => node.type === "bandpass");
     expect(bandPass).toBeDefined();
     expect(bandPass?.frequency.value).toBe(2000);
+    expect(context.createdSources[0]?.playbackRate.value).toBe(1);
+  });
+
+  it("builds eight-bit chain with bitcrusher and lowpass filter", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    const sourceBuffer = context.createBuffer(1, 8, 48_000) as AudioBuffer;
+    sourceBuffer.getChannelData(0).set([-1, -0.5, 0, 0.5, 1, 0.25, -0.25, 0.75]);
+    await player.loadBuffer(sourceBuffer);
+    player.setJukeboxAudioMode("eight_bit");
+    player.play();
+
+    const shaper = context.createdWaveShapers[0];
+    const curve = shaper?.curve;
+    const lowPass = context.createdBiquads.find((node) => node.type === "lowpass");
+    const rendered = context.createdSources[0]?.buffer;
+    expect(curve).toBeInstanceOf(Float32Array);
+    expect(curve?.[0]).toBe(-1);
+    expect(curve?.[curve.length - 1]).toBe(1);
+    expect(new Set(Array.from(curve ?? [])).size).toBeLessThanOrEqual(256);
+    expect(rendered).not.toBe(sourceBuffer);
+    expect(
+      new Set(Array.from(rendered?.getChannelData(0).slice(0, 6) ?? [])).size,
+    ).toBe(1);
+    expect(lowPass).toBeUndefined();
     expect(context.createdSources[0]?.playbackRate.value).toBe(1);
   });
 

@@ -1125,20 +1125,20 @@ describe("Listen route behavior", () => {
   });
 
   it("loads audio mode from url params into title and extras radios", async () => {
-    window.history.replaceState({}, "", "/?am=vaporwave");
+    window.history.replaceState({}, "", "/?am=eight_bit");
     const rendered = renderListen();
     await settleEffects();
 
     const playTitle = getRequired<HTMLDivElement>(rendered.container, ".play-title");
-    expect(playTitle.textContent).toContain("(vaporwave)");
+    expect(playTitle.textContent).toContain("(eight_bit)");
 
     await openTuningModal(rendered.container);
     await switchToExtrasTab(rendered.container);
-    const vaporwaveInput = getRequired<HTMLInputElement>(
+    const eightBitInput = getRequired<HTMLInputElement>(
       rendered.container,
-      "#audio-mode-vaporwave"
+      "#audio-mode-eight-bit"
     );
-    expect(vaporwaveInput.checked).toBe(true);
+    expect(eightBitInput.checked).toBe(true);
     rendered.unmount();
   });
 
@@ -1166,6 +1166,10 @@ describe("Listen route behavior", () => {
       rendered.container,
       "#audio-mode-eight-d"
     );
+    const eightBitInput = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-mode-eight-bit"
+    );
     const lofiInput = getRequired<HTMLInputElement>(rendered.container, "#audio-mode-lofi");
     const cowbellInput = getRequired<HTMLInputElement>(
       rendered.container,
@@ -1181,6 +1185,7 @@ describe("Listen route behavior", () => {
     expect(daycoreInput.title).toBe("Slow & Deep");
     expect(vaporwaveInput.title).toBe("Muffled & Slow");
     expect(eightDInput.title).toBe("Spinning/Spatial");
+    expect(eightBitInput.title).toBe("Bitcrushed & Filtered");
     expect(lofiInput.title).toBe("Radio Filter");
     expect(cowbellInput.title).toBe("More Cowbell");
     expect(swingInput.title).toBe("Adds a loping swung feel to each beat");

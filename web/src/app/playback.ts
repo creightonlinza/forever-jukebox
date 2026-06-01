@@ -383,6 +383,9 @@ function getSelectedAudioMode(context: AppContext): JukeboxAudioMode {
   if (elements.audioModeEightDInput.checked) {
     return "eight_d";
   }
+  if (elements.audioModeEightBitInput.checked) {
+    return "eight_bit";
+  }
   if (elements.audioModeLofiInput.checked) {
     return "lofi";
   }
@@ -538,6 +541,7 @@ export function syncExtrasUI(context: AppContext) {
   elements.audioModeDaycoreInput.checked = audioMode === "daycore";
   elements.audioModeVaporwaveInput.checked = audioMode === "vaporwave";
   elements.audioModeEightDInput.checked = audioMode === "eight_d";
+  elements.audioModeEightBitInput.checked = audioMode === "eight_bit";
   elements.audioModeLofiInput.checked = audioMode === "lofi";
   elements.audioModeCowbellInput.checked = audioMode === "cowbell";
   elements.audioModeSwingInput.checked = audioMode === "swing";
@@ -546,6 +550,7 @@ export function syncExtrasUI(context: AppContext) {
   elements.audioModeDaycoreInput.disabled = !inJukeboxMode;
   elements.audioModeVaporwaveInput.disabled = !inJukeboxMode;
   elements.audioModeEightDInput.disabled = !inJukeboxMode;
+  elements.audioModeEightBitInput.disabled = !inJukeboxMode;
   elements.audioModeLofiInput.disabled = !inJukeboxMode;
   elements.audioModeCowbellInput.disabled = !inJukeboxMode;
   elements.audioModeSwingInput.disabled = !inJukeboxMode;

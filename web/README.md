@@ -21,13 +21,14 @@ Audio results are cached locally in IndexedDB when available; browsers may evict
 data under storage pressure.
 
 ## Extras audio modes
-- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `lofi`, `cowbell`, `swing`.
+- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `eight_bit`, `lofi`, `cowbell`, `swing`.
 - UI labels/tooltips:
   - Normal
   - Nightcore (Fast & Bright)
   - Daycore (Slow & Deep)
   - Vaporwave (Muffled & Slow)
   - 8D Audio (Spinning/Spatial)
+  - 8-Bit (Bitcrushed & Filtered)
   - Lofi (Radio Filter)
   - More Cowbell
   - Swing (pre-renders a pitch-preserved swung buffer with Rubber Band WASM)

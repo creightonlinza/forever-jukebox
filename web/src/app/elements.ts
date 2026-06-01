@@ -367,6 +367,10 @@ export function getElements() {
     document.querySelector<HTMLInputElement>("#audio-mode-eight-d"),
     "#audio-mode-eight-d"
   );
+  const audioModeEightBitInput = requireElement(
+    document.querySelector<HTMLInputElement>("#audio-mode-eight-bit"),
+    "#audio-mode-eight-bit"
+  );
   const audioModeLofiInput = requireElement(
     document.querySelector<HTMLInputElement>("#audio-mode-lofi"),
     "#audio-mode-lofi"
@@ -668,6 +672,7 @@ export function getElements() {
     audioModeDaycoreInput,
     audioModeVaporwaveInput,
     audioModeEightDInput,
+    audioModeEightBitInput,
     audioModeLofiInput,
     audioModeCowbellInput,
     audioModeSwingInput,

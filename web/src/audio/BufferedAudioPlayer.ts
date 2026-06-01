@@ -4,6 +4,7 @@ export type JukeboxAudioMode =
   | "daycore"
   | "vaporwave"
   | "eight_d"
+  | "eight_bit"
   | "lofi"
   | "cowbell"
   | "swing";
@@ -13,6 +14,8 @@ type AudioModeSettings = {
   highPassFrequency: number | null;
   lowPassFrequency: number | null;
   useBandPass: boolean;
+  crushBitDepth?: number;
+  crushSampleRate?: number;
   reverbMix: number;
   pan: boolean;
 };
@@ -58,6 +61,16 @@ const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = {
     reverbMix: 0.5,
     pan: true,
   },
+  eight_bit: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: null,
+    useBandPass: false,
+    crushBitDepth: 8,
+    crushSampleRate: 8000,
+    reverbMix: 0,
+    pan: false,
+  },
   lofi: {
     rate: 1,
     highPassFrequency: null,
@@ -87,6 +100,54 @@ const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = {
 const REVERB_SECONDS = 2.5;
 const PAN_STEP = 0.007;
 const MAX_LATE_JUMP_FRAMES = 8;
+const BITCRUSHER_CURVE_SAMPLES = 2048;
+
+function quantizeSample(value: number, levels: number): number {
+  const clamped = Math.max(-1, Math.min(1, value));
+  const normalized = (clamped + 1) / 2;
+  return (Math.round(normalized * (levels - 1)) / (levels - 1)) * 2 - 1;
+}
+
+function createBitcrusherCurve(bitDepth: number): Float32Array<ArrayBuffer> {
+  const levels = Math.max(2, Math.round(2 ** bitDepth));
+  const curve = new Float32Array(
+    BITCRUSHER_CURVE_SAMPLES,
+  ) as Float32Array<ArrayBuffer>;
+  for (let index = 0; index < curve.length; index += 1) {
+    const input = (index / (curve.length - 1)) * 2 - 1;
+    curve[index] = quantizeSample(input, levels);
+  }
+  return curve;
+}
+
+function renderBitcrushedBuffer(
+  context: BaseAudioContext,
+  sourceBuffer: AudioBuffer,
+  bitDepth: number,
+  crushSampleRate: number,
+): AudioBuffer {
+  const output = context.createBuffer(
+    sourceBuffer.numberOfChannels,
+    sourceBuffer.length,
+    sourceBuffer.sampleRate,
+  );
+  const levels = Math.max(2, Math.round(2 ** bitDepth));
+  const holdFrames = Math.max(1, Math.round(sourceBuffer.sampleRate / crushSampleRate));
+
+  for (let channelIndex = 0; channelIndex < sourceBuffer.numberOfChannels; channelIndex += 1) {
+    const source = sourceBuffer.getChannelData(channelIndex);
+    const target = output.getChannelData(channelIndex);
+    for (let frame = 0; frame < source.length; frame += holdFrames) {
+      const quantized = quantizeSample(source[frame] ?? 0, levels);
+      const end = Math.min(source.length, frame + holdFrames);
+      for (let heldFrame = frame; heldFrame < end; heldFrame += 1) {
+        target[heldFrame] = quantized;
+      }
+    }
+  }
+
+  return output;
+}
 
 export class BufferedAudioPlayer {
   private context: AudioContext;
@@ -135,8 +196,9 @@ export class BufferedAudioPlayer {
   async loadBuffer(buffer: AudioBuffer) {
     this.stop();
     this.originalBuffer = buffer;
-    this.buffer = buffer;
     this.renderedModeBuffers = {};
+    this.renderEightBitBuffer();
+    this.buffer = this.getActiveBuffer();
     this.offset = 0;
   }
 
@@ -280,7 +342,7 @@ export class BufferedAudioPlayer {
   }
 
   setRenderedJukeboxAudioBuffer(
-    mode: Extract<JukeboxAudioMode, "swing">,
+    mode: Extract<JukeboxAudioMode, "eight_bit" | "swing">,
     buffer: AudioBuffer,
   ) {
     this.renderedModeBuffers[mode] = buffer;
@@ -304,6 +366,30 @@ export class BufferedAudioPlayer {
 
   private getActiveBuffer(): AudioBuffer | null {
     return this.renderedModeBuffers[this.audioMode] ?? this.originalBuffer;
+  }
+
+  private renderEightBitBuffer() {
+    const settings = AUDIO_MODE_SETTINGS.eight_bit;
+    if (
+      !this.originalBuffer ||
+      !Number.isFinite(this.originalBuffer.length) ||
+      this.originalBuffer.length <= 0 ||
+      !Number.isFinite(this.originalBuffer.sampleRate) ||
+      this.originalBuffer.sampleRate <= 0 ||
+      !Number.isInteger(this.originalBuffer.numberOfChannels) ||
+      this.originalBuffer.numberOfChannels <= 0 ||
+      typeof this.originalBuffer.getChannelData !== "function" ||
+      settings.crushBitDepth === undefined ||
+      settings.crushSampleRate === undefined
+    ) {
+      return;
+    }
+    this.renderedModeBuffers.eight_bit = renderBitcrushedBuffer(
+      this.context,
+      this.originalBuffer,
+      settings.crushBitDepth,
+      settings.crushSampleRate,
+    );
   }
 
   getJukeboxAudioMode(): JukeboxAudioMode {
@@ -480,6 +566,15 @@ export class BufferedAudioPlayer {
       this.chainNodes.push(highPass);
       lastNode.connect(highPass);
       lastNode = highPass;
+    }
+
+    if (settings.crushBitDepth !== undefined) {
+      const bitcrusher = this.context.createWaveShaper();
+      bitcrusher.curve = createBitcrusherCurve(settings.crushBitDepth);
+      bitcrusher.oversample = "none";
+      this.chainNodes.push(bitcrusher);
+      lastNode.connect(bitcrusher);
+      lastNode = bitcrusher;
     }
 
     if (settings.lowPassFrequency !== null) {

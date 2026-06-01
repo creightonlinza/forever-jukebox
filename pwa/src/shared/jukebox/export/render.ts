@@ -2,6 +2,8 @@ import {
   AUDIO_MODE_SETTINGS,
   PAN_STEP,
   REVERB_SECONDS,
+  createBitcrusherCurve,
+  renderBitcrushedBuffer,
   type JukeboxAudioMode,
 } from "@/shared/jukebox/audio/audioModes";
 import type { PlannedJukeboxSegment } from "./plan";
@@ -180,8 +182,17 @@ async function renderModeGraph(options: {
   const outputFrameLength = options.durationSeconds * sampleRate;
   const context = createOfflineContext(channels, outputFrameLength, sampleRate);
   const settings = AUDIO_MODE_SETTINGS[options.audioMode];
+  const graphInput =
+    settings.crushBitDepth !== undefined && settings.crushSampleRate !== undefined
+      ? renderBitcrushedBuffer(
+          context,
+          options.assembled,
+          settings.crushBitDepth,
+          settings.crushSampleRate,
+        )
+      : options.assembled;
   const source = context.createBufferSource();
-  source.buffer = options.assembled;
+  source.buffer = graphInput;
   source.playbackRate.value = settings.rate;
 
   const modeOutput = connectAudioModeChain(context, source, options.audioMode);
@@ -212,6 +223,14 @@ function connectAudioModeChain(
     highPass.frequency.value = settings.highPassFrequency;
     lastNode.connect(highPass);
     lastNode = highPass;
+  }
+
+  if (settings.crushBitDepth !== undefined) {
+    const bitcrusher = context.createWaveShaper();
+    bitcrusher.curve = createBitcrusherCurve(settings.crushBitDepth);
+    bitcrusher.oversample = "none";
+    lastNode.connect(bitcrusher);
+    lastNode = bitcrusher;
   }
 
   if (settings.lowPassFrequency !== null) {

@@ -175,6 +175,7 @@ function createElements() {
     audioModeDaycoreInput: createInput(),
     audioModeVaporwaveInput: createInput(),
     audioModeEightDInput: createInput(),
+    audioModeEightBitInput: createInput(),
     audioModeLofiInput: createInput(),
     audioModeCowbellInput: createInput(),
     audioModeSwingInput: createInput(),
@@ -528,6 +529,20 @@ describe("playback tuning", () => {
     expect(context.cowbellOverlay.enable).toHaveBeenCalledTimes(1);
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cowbell");
     expect(window.location.search).toContain("am=cowbell");
+  });
+
+  it("applies eight-bit as an audio mode from extras controls", () => {
+    const context = createContext();
+    context.state.analysisLoaded = true;
+    context.state.audioLoaded = true;
+    context.elements.audioModeEightBitInput.checked = true;
+
+    const result = applyExtrasChanges(context);
+
+    expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
+    expect(context.state.jukeboxAudioMode).toBe("eight_bit");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_bit");
+    expect(window.location.search).toContain("am=eight_bit");
   });
 
   it("resumes jukebox playback after preparing swing while already running", async () => {
