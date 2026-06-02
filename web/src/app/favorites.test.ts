@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import {
   addFavorite,
   configureMaxFavorites,
+  favoriteDisplayArtist,
   filterFavorites,
   isFavorite,
   loadFavorites,
@@ -10,6 +11,7 @@ import {
   removeFavorite,
   saveFavorites,
   saveFavoritesSyncCode,
+  sortFavoritesForDisplay,
 } from "./favorites";
 
 function setLocalStorage() {
@@ -176,6 +178,158 @@ describe("favorites", () => {
       "upload-job",
     ]);
     expect(filterFavorites(items, "")).toBe(items);
+  });
+
+  it("sorts favorites for display by title", () => {
+    const items = [
+      {
+        uniqueSongId: "2",
+        title: "Beta",
+        artist: "A",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "1",
+        title: "Alpha",
+        artist: "Z",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+    ];
+
+    expect(
+      sortFavoritesForDisplay(items, { key: "title", direction: "asc" }).map(
+        (item) => item.uniqueSongId,
+      ),
+    ).toEqual(["1", "2"]);
+    expect(
+      sortFavoritesForDisplay(items, { key: "title", direction: "desc" }).map(
+        (item) => item.uniqueSongId,
+      ),
+    ).toEqual(["2", "1"]);
+  });
+
+  it("sorts favorites for display by artist", () => {
+    const items = [
+      {
+        uniqueSongId: "1",
+        title: "Track A",
+        artist: "Zed",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "2",
+        title: "Track B",
+        artist: "Alpha",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+    ];
+
+    expect(
+      sortFavoritesForDisplay(items, { key: "artist", direction: "asc" }).map(
+        (item) => item.uniqueSongId,
+      ),
+    ).toEqual(["2", "1"]);
+    expect(
+      sortFavoritesForDisplay(items, { key: "artist", direction: "desc" }).map(
+        (item) => item.uniqueSongId,
+      ),
+    ).toEqual(["1", "2"]);
+  });
+
+  it("treats missing and unknown artists as blank for display sorting", () => {
+    const items = [
+      {
+        uniqueSongId: "known",
+        title: "Known",
+        artist: "M83",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "unknown",
+        title: "Beta",
+        artist: "Unknown",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "missing",
+        title: "Alpha",
+        artist: "",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+    ];
+
+    expect(items.map((item) => favoriteDisplayArtist(item))).toEqual(["M83", "", ""]);
+    expect(
+      sortFavoritesForDisplay(items, { key: "artist", direction: "asc" }).map(
+        (item) => item.uniqueSongId,
+      ),
+    ).toEqual(["missing", "unknown", "known"]);
+  });
+
+  it("uses deterministic fallback sorting for matching display values", () => {
+    const items = [
+      {
+        uniqueSongId: "b",
+        title: "Same",
+        artist: "Same",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "a",
+        title: "Same",
+        artist: "Same",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+    ];
+
+    expect(
+      sortFavoritesForDisplay(items, { key: "title", direction: "asc" }).map(
+        (item) => item.uniqueSongId,
+      ),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("filters before applying display sort", () => {
+    const items = [
+      {
+        uniqueSongId: "1",
+        title: "Midnight City",
+        artist: "M83",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "2",
+        title: "City Lights",
+        artist: "Portishead",
+        duration: null,
+        sourceType: "youtube" as const,
+      },
+      {
+        uniqueSongId: "3",
+        title: "Roads",
+        artist: "Portishead",
+        duration: null,
+        sourceType: "bandcamp" as const,
+      },
+    ];
+
+    const visible = filterFavorites(items, "city");
+
+    expect(
+      sortFavoritesForDisplay(visible, { key: "artist", direction: "desc" }).map(
+        (item) => item.uniqueSongId,
+      ),
+    ).toEqual(["2", "1"]);
   });
 
   it("checks favorite presence", () => {

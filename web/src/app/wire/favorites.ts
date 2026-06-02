@@ -1,6 +1,12 @@
 import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
-import { filterFavorites, type FavoriteTrack } from "../favorites";
+import {
+  favoriteDisplayArtist,
+  filterFavorites,
+  sortFavoritesForDisplay,
+  type FavoriteTrack,
+  type FavoritesDisplaySort,
+} from "../favorites";
 import type { AnalysisComplete } from "../api";
 import type { ToastOptions } from "../ui";
 import { urlForTrack } from "../tabs";
@@ -73,6 +79,10 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   let syncUpdateInFlight = false;
   let pendingSyncDelta: FavoritesDelta | null = null;
   let syncIdleWaiters: Array<() => void> = [];
+  let favoritesDisplaySort: FavoritesDisplaySort = {
+    key: "title",
+    direction: "asc",
+  };
 
   function handleFavoritesSyncToggle(event: Event) {
     event.stopPropagation();
@@ -555,11 +565,33 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       elements.favoritesList.textContent = `No favorites match "${query}".`;
       return;
     }
-    for (const item of visibleFavorites) {
-      const li = document.createElement("li");
-      const row = document.createElement("div");
+
+    const table = document.createElement("table");
+    table.className = "favorites-table";
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    headerRow.append(
+      createFavoritesSortHeader("title", "Title"),
+      createFavoritesSortHeader("artist", "Artist"),
+      createFavoritesRemoveHeader(),
+    );
+    thead.append(headerRow);
+
+    const tbody = document.createElement("tbody");
+    for (const item of sortFavoritesForDisplay(
+      visibleFavorites,
+      favoritesDisplaySort,
+    )) {
+      const row = document.createElement("tr");
       row.className = "favorite-row";
       const sourceType = item.sourceType ?? "youtube";
+      row.tabIndex = 0;
+      row.dataset.favoriteId = item.uniqueSongId;
+      row.dataset.sourceType = sourceType;
+      row.addEventListener("click", handleFavoriteRowClick);
+      row.addEventListener("keydown", handleFavoriteRowKeydown);
+      const titleCell = document.createElement("td");
+      titleCell.className = "favorite-title-cell";
       const link = document.createElement("a");
       link.href = urlForTrack(
         item.uniqueSongId,
@@ -568,10 +600,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         "jukebox",
       );
       const titleText = item.title || "Untitled";
-      const artist = (item.artist || "").trim();
-      const showArtist = artist !== "" && artist !== "Unknown";
-      const artistText = showArtist ? ` — ${artist}` : "";
-      link.textContent = `${titleText}${artistText}`;
+      link.textContent = titleText;
       if (item.tuningParams) {
         const tuneIcon = document.createElement("span");
         tuneIcon.className = "material-symbols-outlined favorite-tune-icon";
@@ -583,17 +612,84 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       link.dataset.favoriteId = item.uniqueSongId;
       link.dataset.sourceType = sourceType;
       link.addEventListener("click", handleFavoriteClick);
+      titleCell.append(link);
+
+      const artistCell = document.createElement("td");
+      artistCell.className = "favorite-artist-cell";
+      artistCell.textContent = favoriteDisplayArtist(item);
+
+      const removeCell = document.createElement("td");
+      removeCell.className = "favorite-remove-cell";
       const removeButton = document.createElement("button");
       removeButton.type = "button";
       removeButton.className = "favorite-remove";
+      removeButton.setAttribute("aria-label", `Remove ${titleText} from Favorites`);
       removeButton.innerHTML =
         '<span class="material-symbols-outlined favorite-remove-icon" aria-hidden="true">close</span>';
       removeButton.dataset.favoriteId = item.uniqueSongId;
       removeButton.addEventListener("click", handleFavoriteRemove);
-      row.append(link, removeButton);
-      li.append(row);
-      elements.favoritesList.appendChild(li);
+      removeCell.append(removeButton);
+
+      row.append(titleCell, artistCell, removeCell);
+      tbody.append(row);
     }
+    table.append(thead, tbody);
+    elements.favoritesList.append(table);
+  }
+
+  function createFavoritesSortHeader(
+    key: FavoritesDisplaySort["key"],
+    label: string,
+  ) {
+    const th = document.createElement("th");
+    th.scope = "col";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "favorites-sort-button";
+    button.dataset.favoritesSort = key;
+    const active = favoritesDisplaySort.key === key;
+    th.setAttribute(
+      "aria-sort",
+      active ? (favoritesDisplaySort.direction === "asc" ? "ascending" : "descending") : "none",
+    );
+    button.textContent = label;
+    if (active) {
+      const icon = document.createElement("span");
+      icon.className = "material-symbols-outlined favorites-sort-icon";
+      icon.textContent =
+        favoritesDisplaySort.direction === "asc" ? "arrow_upward" : "arrow_downward";
+      icon.setAttribute("aria-hidden", "true");
+      button.append(" ", icon);
+    }
+    button.addEventListener("click", handleFavoritesSortClick);
+    th.append(button);
+    return th;
+  }
+
+  function createFavoritesRemoveHeader() {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.className = "favorite-remove-heading";
+    th.setAttribute("aria-label", "Remove favorite");
+    return th;
+  }
+
+  function handleFavoritesSortClick(event: Event) {
+    const button = event.currentTarget as HTMLButtonElement | null;
+    const key = button?.dataset.favoritesSort as
+      | FavoritesDisplaySort["key"]
+      | undefined;
+    if (!key) {
+      return;
+    }
+    favoritesDisplaySort =
+      favoritesDisplaySort.key === key
+        ? {
+            key,
+            direction: favoritesDisplaySort.direction === "asc" ? "desc" : "asc",
+          }
+        : { key, direction: "asc" };
+    renderFavoritesList();
   }
 
   function syncFavoriteButton() {
@@ -648,7 +744,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
 
   function handleFavoriteClick(event: Event) {
     event.preventDefault();
-    const target = event.currentTarget as HTMLAnchorElement | null;
+    const target = event.currentTarget as HTMLElement | null;
     const favoriteId = target?.dataset.favoriteId;
     if (!favoriteId) {
       return;
@@ -679,6 +775,22 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       return;
     }
     loadTrackById(favoriteId);
+  }
+
+  function handleFavoriteRowClick(event: Event) {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("a, button")) {
+      return;
+    }
+    handleFavoriteClick(event);
+  }
+
+  function handleFavoriteRowKeydown(event: KeyboardEvent) {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    handleFavoriteClick(event);
   }
 
   function handleFavoriteRemove(event: Event) {

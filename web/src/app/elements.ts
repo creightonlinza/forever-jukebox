@@ -500,7 +500,7 @@ export function getElements() {
     "#favorites-search-input"
   );
   const favoritesList = requireElement(
-    document.querySelector<HTMLOListElement>("#favorites-list"),
+    document.querySelector<HTMLDivElement>("#favorites-list"),
     "#favorites-list"
   );
   const topSongsTabs = requireNonEmpty(
