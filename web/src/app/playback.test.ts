@@ -251,7 +251,11 @@ function createElements() {
     branchStatsDirectionEl: createSpan(),
     branchStatsSimilarityEl: createSpan(),
     branchStatsDeleteButton: { disabled: false },
-    deleteButton: { classList: createClassList() },
+    deleteButton: {
+      classList: createClassList(),
+      title: "",
+      setAttribute: vi.fn(),
+    },
     deleteConfirmModal: { classList: createMutableClassList() },
     vizStats: {
       classList: createClassList(),
@@ -717,10 +721,42 @@ describe("playback tuning", () => {
     const applied = applyAnalysisResult(context, response);
 
     expect(applied).toBe(true);
-    expect(context.state.deleteEligible).toBe(true);
+    expect(context.state.deleteEligible).toBe(false);
     expect(context.state.deleteEligibilityJobId).toBe("job123");
-    expect(context.elements.deleteButton.classList.remove).toHaveBeenCalledWith(
+    expect(context.elements.deleteButton.classList.toggle).toHaveBeenCalledWith(
       "hidden",
+      false,
+    );
+    expect(context.elements.deleteButton.title).toBe("Delete track");
+    expect(context.elements.deleteButton.setAttribute).toHaveBeenCalledWith(
+      "aria-label",
+      "Delete track",
+    );
+  });
+
+  it("retains grace-window delete eligibility and label outside admin mode", () => {
+    const context = createContext();
+    const response: AnalysisComplete = {
+      status: "complete",
+      id: "job123",
+      created_at: new Date().toISOString(),
+      result: { beats: [], track: {} },
+    };
+
+    const applied = applyAnalysisResult(context, response);
+
+    expect(applied).toBe(true);
+    expect(context.state.deleteEligible).toBe(true);
+    expect(context.elements.deleteButton.classList.toggle).toHaveBeenCalledWith(
+      "hidden",
+      false,
+    );
+    expect(context.elements.deleteButton.title).toBe(
+      "Delete within 30 minutes of creation",
+    );
+    expect(context.elements.deleteButton.setAttribute).toHaveBeenCalledWith(
+      "aria-label",
+      "Delete within 30 minutes of creation",
     );
   });
 

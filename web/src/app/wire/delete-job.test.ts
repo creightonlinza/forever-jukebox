@@ -245,6 +245,7 @@ describe("delete job wire handlers", () => {
   it("keeps delete available when an admin delete request fails", async () => {
     localStorage.setItem(ADMIN_KEY_STORAGE_KEY, "secret");
     const { handlers, context, state, elements, deleteJob, showToast } = createDeps();
+    state.deleteEligible = false;
     deleteJob.mockRejectedValue(new Error("invalid admin key"));
 
     handlers.handleDeleteJobClick();
@@ -252,7 +253,7 @@ describe("delete job wire handlers", () => {
     await flushPromises();
 
     expect(deleteJob).toHaveBeenCalledWith("job-1", "secret");
-    expect(state.deleteEligible).toBe(true);
+    expect(state.deleteEligible).toBe(false);
     expect(elements.deleteButton.classList.remove).toHaveBeenCalledWith("hidden");
     expect(showToast).toHaveBeenCalledWith(context, "Unable to delete track");
   });

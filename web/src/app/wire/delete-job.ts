@@ -121,7 +121,6 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
       .catch(() => {
         state.deleteEligibilityJobId = jobId;
         if (adminKey) {
-          state.deleteEligible = true;
           elements.deleteButton.classList.remove("hidden");
           showToast(context, "Unable to delete track");
         } else {

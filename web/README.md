@@ -76,7 +76,9 @@ See `schema.json` at the repo root for the full analysis schema reference.
 
 Set the API `ADMIN_KEY` value in browser local storage under `fj-admin-key` to keep
 track deletion available outside the normal 30-minute grace window. Admin delete
-requests send the value in the `X-Admin-Key` header.
+requests send the value in the `X-Admin-Key` header. Reload the page or load another
+track after changing the value. Because the key is stored in browser local storage,
+use admin mode only on trusted instances and devices.
 
 ## Jump logic (high level)
 - Beats are the main playback unit.

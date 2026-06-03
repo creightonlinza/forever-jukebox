@@ -262,13 +262,13 @@ function maybeUpdateDeleteEligibility(
   }
   const { state, elements } = context;
   const jobId = jobIdOverride ?? ("id" in response ? response.id : undefined);
+  const adminMode = isAdminMode();
+  const deleteLabel = adminMode
+    ? "Delete track"
+    : "Delete within 30 minutes of creation";
+  elements.deleteButton.title = deleteLabel;
+  elements.deleteButton.setAttribute("aria-label", deleteLabel);
   if (!jobId || state.deleteEligibilityJobId === jobId) {
-    return;
-  }
-  if (isAdminMode()) {
-    state.deleteEligibilityJobId = jobId;
-    state.deleteEligible = true;
-    elements.deleteButton.classList.remove("hidden");
     return;
   }
   let eligible = false;
@@ -281,13 +281,13 @@ function maybeUpdateDeleteEligibility(
     }
   } else {
     state.deleteEligible = false;
-    elements.deleteButton.classList.add("hidden");
+    elements.deleteButton.classList.toggle("hidden", !adminMode);
     state.deleteEligibilityJobId = null;
     return;
   }
   state.deleteEligibilityJobId = jobId;
   state.deleteEligible = eligible;
-  elements.deleteButton.classList.toggle("hidden", !eligible);
+  elements.deleteButton.classList.toggle("hidden", !(eligible || adminMode));
 }
 
 export function updateTrackInfo(context: AppContext) {
