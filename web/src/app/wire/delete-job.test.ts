@@ -193,7 +193,7 @@ describe("delete job wire handlers", () => {
     expect(favoritesHandlers.updateFavorites).toHaveBeenCalledWith([]);
     expect(resetForNewTrack).toHaveBeenCalledWith(context);
     expect(navigateToTabWithState).toHaveBeenCalledWith("top", { replace: true });
-    expect(showToast).toHaveBeenCalledWith(context, "Deleted song");
+    expect(showToast).toHaveBeenCalledWith(context, "Deleted track");
     expect(elements.deleteConfirmModal.classList.remove).toHaveBeenCalledWith("open");
   });
 

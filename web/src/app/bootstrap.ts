@@ -307,15 +307,15 @@ export function bootstrap() {
   const topSongsTabLoaders = {
     top: {
       fetch: () => topSongsHandlers.fetchTopSongsList(),
-      errorLabel: "Top songs",
+      errorLabel: "Top tracks",
     },
     trending: {
       fetch: () => topSongsHandlers.fetchTrendingSongsList(),
-      errorLabel: "Trending songs",
+      errorLabel: "Trending tracks",
     },
     recent: {
       fetch: () => topSongsHandlers.fetchRecentSongsList(),
-      errorLabel: "Recent songs",
+      errorLabel: "Recent tracks",
     },
   } as const;
   const loadTopSongsTab = (tabId: LazyTopSongsTab, options?: { force?: boolean }) => {

@@ -116,7 +116,7 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
         }
         resetForNewTrack(context);
         navigateToTabWithState("top", { replace: true });
-        showToast(context, "Deleted song");
+        showToast(context, "Deleted track");
       })
       .catch(() => {
         state.deleteEligibilityJobId = jobId;

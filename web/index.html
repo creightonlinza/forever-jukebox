@@ -89,7 +89,7 @@
             class="hero-title"
             type="button"
             tabindex="1"
-            aria-label="Go to Top Songs"
+            aria-label="Go to Top Tracks"
           >
             <h1 class="hero-title-neon">
               THE FOREVER <span class="hero-title-jukebox">JUKEBOX</span>
@@ -97,7 +97,7 @@
           </button>
           <nav class="tabs" aria-label="Primary">
             <button class="tab-btn active" data-tab-button="top">
-              <span class="tab-label-top-full">Top Songs</span>
+              <span class="tab-label-top-full">Top Tracks</span>
               <span class="tab-label-top-short">Top</span>
             </button>
             <button class="tab-btn" data-tab-button="search">Search</button>
@@ -138,7 +138,7 @@
           </button>
         </div>
         <div class="panel-title panel-title-row">
-          <span id="top-list-title">Top Songs</span>
+          <span id="top-list-title">Top Tracks</span>
           <button
             id="top-list-refresh"
             class="top-list-refresh-button"
@@ -197,10 +197,10 @@
           </div>
         </div>
         <ol class="top-list" id="top-songs">
-          Loading top songs…
+          Loading top tracks…
         </ol>
         <ol class="top-list hidden" id="trending-songs">
-          Loading trending songs…
+          Loading trending tracks…
         </ol>
         <ol class="top-list hidden" id="recent-songs">
           Loading recent plays…
@@ -293,7 +293,7 @@
             ></div>
             <div class="status-progress" id="analysis-progress"></div>
             <div class="status-text" id="analysis-status">
-              No song selected.
+              No track selected.
             </div>
           </div>
         </div>
@@ -435,7 +435,7 @@
               </div>
               <div class="canonizer-finish">
                 <input type="checkbox" id="canonizer-finish" />
-                <span>Finish out the song</span>
+                <span>Finish out the track</span>
               </div>
             </div>
             <div id="viz-layer" class="viz-layer"></div>
@@ -612,13 +612,13 @@
           <h4>How do Favorites work?</h4>
           <ul>
             <li>
-              Favorites are saved/unsaved by clicking the star icon on a song.
+              Favorites are saved/unsaved by clicking the star icon on a track.
               They are stored locally in your browser and can optionally be
               synced across devices using a sync code obtained from the
               Favorites sync menu.
             </li>
             <li>
-              When you favorite a song, its tuning and deleted branches are
+              When you favorite a track, its tuning and deleted branches are
               saved too, so future loads restore your chosen parameters.
             </li>
             <li>
@@ -679,7 +679,7 @@
             </li>
             <li>
               <strong>Bring It Home mode</strong> (press H on your keyboard to toggle) was added for a more linear
-              playback option that finishes the song cleanly.
+              playback option that finishes the track cleanly.
             </li>
             <li>
               The backend moved to <strong>madmom-beats-lite</strong>,
@@ -1022,7 +1022,7 @@
           </div>
           <div class="modal-body info-body">
             <div class="info-row">
-              <span class="info-label">Song length:</span>
+              <span class="info-label">Track length:</span>
               <span id="info-duration">00:00:00</span>
             </div>
             <div class="info-row">
