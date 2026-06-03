@@ -2,13 +2,14 @@ import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
 import type { ToastOptions } from "../ui";
 import type { FavoritesHandlers } from "./favorites";
+import { getAdminKey } from "../admin";
 
 type DeleteJobDeps = {
   context: AppContext;
   elements: Elements;
   state: AppState;
   favoritesHandlers: FavoritesHandlers;
-  deleteJob: (jobId: string) => Promise<void>;
+  deleteJob: (jobId: string, adminKey?: string | null) => Promise<void>;
   deleteCachedTrack: (trackId: string) => Promise<void>;
   resetForNewTrack: (context: AppContext) => void;
   navigateToTabWithState: (
@@ -37,11 +38,26 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
     removeFavorite,
   } = deps;
   let deleteInFlight = false;
+  let pendingDelete: {
+    jobId: string;
+    trackId: string | null;
+    adminKey: string | null;
+  } | null = null;
 
-  function setDeleteButtonBusy(busy: boolean) {
-    elements.deleteButton.disabled = busy;
-    elements.deleteButton.classList.toggle("is-loading", busy);
-    elements.deleteButton.setAttribute("aria-busy", busy ? "true" : "false");
+  function setDeleteConfirmBusy(busy: boolean) {
+    elements.deleteConfirmCancel.disabled = busy;
+    elements.deleteConfirmDelete.disabled = busy;
+    elements.deleteConfirmDelete.classList.toggle("is-loading", busy);
+    elements.deleteConfirmDelete.setAttribute("aria-busy", busy ? "true" : "false");
+  }
+
+  function closeDeleteConfirmModal() {
+    if (deleteInFlight) {
+      return;
+    }
+    elements.deleteConfirmModal.classList.remove("open");
+    pendingDelete = null;
+    elements.deleteButton.focus();
   }
 
   function handleDeleteJobClick() {
@@ -53,9 +69,39 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
     if (!jobId) {
       return;
     }
+    pendingDelete = { jobId, trackId, adminKey: getAdminKey() };
+    elements.deleteConfirmModal.classList.add("open");
+    elements.deleteConfirmCancel.focus();
+  }
+
+  function handleDeleteConfirmCancel() {
+    closeDeleteConfirmModal();
+  }
+
+  function handleDeleteConfirmModalClick(event: MouseEvent) {
+    if (event.target === elements.deleteConfirmModal) {
+      closeDeleteConfirmModal();
+    }
+  }
+
+  function handleDeleteConfirmKeydown(event: KeyboardEvent) {
+    if (
+      event.key === "Escape" &&
+      elements.deleteConfirmModal.classList.contains("open")
+    ) {
+      event.preventDefault();
+      closeDeleteConfirmModal();
+    }
+  }
+
+  function handleDeleteConfirmDelete() {
+    if (deleteInFlight || !pendingDelete) {
+      return;
+    }
+    const { jobId, trackId, adminKey } = pendingDelete;
     deleteInFlight = true;
-    setDeleteButtonBusy(true);
-    deleteJob(jobId)
+    setDeleteConfirmBusy(true);
+    deleteJob(jobId, adminKey)
       .then(() => {
         const favoriteId = trackId ?? jobId;
         if (favoriteId) {
@@ -70,19 +116,32 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
         }
         resetForNewTrack(context);
         navigateToTabWithState("top", { replace: true });
-        showToast(context, "Deleted song");
+        showToast(context, "Deleted track");
       })
       .catch(() => {
-        state.deleteEligible = false;
         state.deleteEligibilityJobId = jobId;
-        elements.deleteButton.classList.add("hidden");
-        showToast(context, "Song can no longer be deleted");
+        if (adminKey) {
+          elements.deleteButton.classList.remove("hidden");
+          showToast(context, "Unable to delete track");
+        } else {
+          state.deleteEligible = false;
+          elements.deleteButton.classList.add("hidden");
+          showToast(context, "Track can no longer be deleted");
+        }
       })
       .finally(() => {
-        setDeleteButtonBusy(false);
+        setDeleteConfirmBusy(false);
         deleteInFlight = false;
+        elements.deleteConfirmModal.classList.remove("open");
+        pendingDelete = null;
       });
   }
 
-  return { handleDeleteJobClick };
+  return {
+    handleDeleteJobClick,
+    handleDeleteConfirmCancel,
+    handleDeleteConfirmModalClick,
+    handleDeleteConfirmKeydown,
+    handleDeleteConfirmDelete,
+  };
 }

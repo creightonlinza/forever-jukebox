@@ -387,6 +387,20 @@ describe("api", () => {
     });
   });
 
+  it("sends the admin key when deleting a job", async () => {
+    (fetch as any).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+    });
+
+    await expect(deleteJob("job1", "secret")).resolves.toBeUndefined();
+
+    expect(fetch).toHaveBeenCalledWith("/api/jobs/job1", {
+      method: "DELETE",
+      headers: { "X-Admin-Key": "secret" },
+    });
+  });
+
   it("uploads audio file", async () => {
     (fetch as any).mockResolvedValue(
       createResponse(202, {

@@ -16,6 +16,7 @@ body {
 body {
   display: flex;
   flex-direction: column;
+  min-width: 425px;
   min-height: 100vh;
 }
 
@@ -848,6 +849,23 @@ button.is-loading::after {
 
 .tuning-footer {
   justify-content: space-between;
+}
+
+.delete-confirm-panel {
+  width: min(360px, 90vw);
+}
+
+.delete-confirm-panel .modal-footer {
+  gap: 8px;
+}
+
+.danger-button {
+  border-color: #e35a5a;
+  color: #e35a5a;
+}
+
+.danger-button:hover {
+  background: color-mix(in srgb, #e35a5a 14%, var(--surface-panel));
 }
 
 .sleep-timer-panel {
@@ -2010,21 +2028,17 @@ button.is-loading::after {
 }
 
 @media (max-width: 1024px) {
-  #app {
-    width: min(100%, calc(100% - 20px));
-    margin-top: 10px;
-  }
-
-  .panel {
-    padding: 16px;
-  }
-
   .menu-bar {
     flex-wrap: wrap;
   }
 }
 
 @media (max-width: 600px) {
+  #app {
+    margin: 8px auto;
+    padding: 0 8px;
+  }
+
   .tab-label-top-full,
   .tab-label-offline-full {
     display: none;

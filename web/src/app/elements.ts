@@ -121,6 +121,18 @@ export function getElements() {
     document.querySelector<HTMLButtonElement>("#delete-job"),
     "#delete-job"
   );
+  const deleteConfirmModal = requireElement(
+    document.querySelector<HTMLDivElement>("#delete-confirm-modal"),
+    "#delete-confirm-modal"
+  );
+  const deleteConfirmCancel = requireElement(
+    document.querySelector<HTMLButtonElement>("#delete-confirm-cancel"),
+    "#delete-confirm-cancel"
+  );
+  const deleteConfirmDelete = requireElement(
+    document.querySelector<HTMLButtonElement>("#delete-confirm-delete"),
+    "#delete-confirm-delete"
+  );
   const playTitle = requireElement(
     document.querySelector<HTMLDivElement>("#play-title"),
     "#play-title"
@@ -619,6 +631,9 @@ export function getElements() {
     infoButton,
     favoriteButton,
     deleteButton,
+    deleteConfirmModal,
+    deleteConfirmCancel,
+    deleteConfirmDelete,
     playTitle,
     themeLinks,
     fullscreenButton,

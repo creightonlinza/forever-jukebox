@@ -2090,7 +2090,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 checked={finishOutSong}
                 onChange={(event) => setFinishOutSong(event.target.checked)}
               />
-              <span>Finish out the song</span>
+              <span>Finish out the track</span>
             </div>
           </div>
           <div id="viz-layer" className="viz-layer" ref={vizLayerRef} />
@@ -2625,7 +2625,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             </div>
             <div className="modal-body info-body">
               <div className="info-row">
-                <span className="info-label">Song length:</span>
+                <span className="info-label">Track length:</span>
                 <span>{formatDuration(analysis?.track?.duration ?? 0)}</span>
               </div>
               <div className="info-row">

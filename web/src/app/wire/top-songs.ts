@@ -92,9 +92,9 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     return renderSongList({
       listEl: elements.topSongsList,
       fetchItems: () => fetchTopSongs(limit),
-      loadingText: "Loading top songs…",
+      loadingText: "Loading top tracks…",
       emptyText: "No plays recorded yet.",
-      errorPrefix: "Top songs",
+      errorPrefix: "Top tracks",
     });
   }
 
@@ -112,9 +112,9 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     return renderSongList({
       listEl: elements.trendingSongsList,
       fetchItems: () => fetchTrendingSongs(),
-      loadingText: "Loading trending songs…",
-      emptyText: "No trending songs yet.",
-      errorPrefix: "Trending songs",
+      loadingText: "Loading trending tracks…",
+      emptyText: "No trending tracks yet.",
+      errorPrefix: "Trending tracks",
     });
   }
 

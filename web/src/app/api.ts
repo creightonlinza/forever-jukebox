@@ -306,10 +306,12 @@ export async function recordPlay(jobId: string) {
   }
 }
 
-export async function deleteJob(jobId: string) {
-  const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, {
-    method: "DELETE",
-  });
+export async function deleteJob(jobId: string, adminKey?: string | null) {
+  const options: RequestInit = { method: "DELETE" };
+  if (adminKey) {
+    options.headers = { "X-Admin-Key": adminKey };
+  }
+  const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, options);
   if (!response.ok) {
     const error = new Error(`Delete failed (${response.status})`);
     (error as Error & { status?: number }).status = response.status;
