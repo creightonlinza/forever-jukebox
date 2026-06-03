@@ -321,6 +321,7 @@ a:focus-visible {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .favorites-sync {
@@ -978,55 +979,116 @@ button.is-loading::after {
 }
 
 .top-list > li,
-.favorites-list > li,
 .search-item {
   border-radius: 8px;
   transition: background-color 0.16s ease;
 }
 
-.top-list > li,
-.favorites-list > li {
+.top-list > li {
   padding: 2px 8px;
 }
 
 .top-list > li:hover,
 .top-list > li:focus-within,
-.favorites-list > li:hover,
-.favorites-list > li:focus-within,
 .search-item:hover,
 .search-item:focus-within {
   background: color-mix(in srgb, var(--surface-control-hover) 82%, transparent);
 }
 
-.top-list.hidden {
+.top-list.hidden,
+.favorites-list.hidden {
   display: none;
 }
 
 .favorites-list {
-  padding-left: 0;
-  list-style: none;
+  font-size: 14px;
+  color: var(--text);
 }
 
 .favorites-filter {
-  margin: 0 0 10px;
+  flex: 1 1 180px;
+  max-width: 280px;
+  margin: 0;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .favorites-filter .search-input {
   width: 100%;
 }
 
-.favorite-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.favorites-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.favorites-table th,
+.favorites-table td {
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.favorites-table th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-control);
+}
+
+.favorites-table tbody tr {
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.favorites-table tbody tr:hover,
+.favorites-table tbody tr:focus-within {
+  background: color-mix(in srgb, var(--surface-control-hover) 82%, transparent);
+}
+
+.favorites-sort-button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+}
+
+.favorites-sort-button:hover {
+  color: var(--accent);
+}
+
+.favorites-sort-icon {
+  font-size: 14px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.favorites-table .favorite-title-cell {
+  width: 50%;
+}
+
+.favorites-table .favorite-artist-cell {
+  color: var(--muted);
+  width: 38%;
+}
+
+.favorites-table .favorite-remove-heading,
+.favorites-table .favorite-remove-cell {
+  text-align: right;
+  width: 42px;
 }
 
 .favorite-row a {
   color: var(--accent);
   text-decoration: none;
   font-weight: 600;
-  flex: 1;
 }
 
 .favorite-row a:hover {
@@ -1053,8 +1115,8 @@ button.is-loading::after {
   transition: opacity 0.14s ease;
 }
 
-.favorites-list > li:hover .favorite-remove,
-.favorites-list > li:focus-within .favorite-remove {
+.favorite-row:hover .favorite-remove,
+.favorite-row:focus-within .favorite-remove {
   opacity: 1;
   pointer-events: auto;
 }

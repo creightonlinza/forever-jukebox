@@ -195,6 +195,16 @@
               </button>
             </div>
           </div>
+          <div class="favorites-filter hidden" id="favorites-filter">
+            <input
+              id="favorites-search-input"
+              class="search-input"
+              type="search"
+              placeholder="Search favorites"
+              autocomplete="off"
+              aria-label="Search favorites"
+            />
+          </div>
         </div>
         <ol class="top-list" id="top-songs">
           Loading top songs…
@@ -205,19 +215,9 @@
         <ol class="top-list hidden" id="recent-songs">
           Loading recent plays…
         </ol>
-        <div class="favorites-filter hidden" id="favorites-filter">
-          <input
-            id="favorites-search-input"
-            class="search-input"
-            type="search"
-            placeholder="Search favorites"
-            autocomplete="off"
-            aria-label="Search favorites"
-          />
-        </div>
-        <ol class="top-list favorites-list hidden" id="favorites-list">
+        <div class="favorites-list hidden" id="favorites-list">
           No favorites yet.
-        </ol>
+        </div>
       </section>
       <section class="panel tab-panel hidden" data-tab-panel="search">
         <div class="subtabs hidden" id="search-subtabs">

@@ -7,6 +7,11 @@ export type FavoriteTrack = {
   tuningParams?: string | null;
 };
 
+export type FavoritesDisplaySort = {
+  key: "title" | "artist";
+  direction: "asc" | "desc";
+};
+
 const FAVORITES_KEY = "fj-favorites";
 const FAVORITES_SYNC_KEY = "fj-favorites-sync";
 const DEFAULT_MAX_FAVORITES = 150;
@@ -76,6 +81,30 @@ export function filterFavorites(items: FavoriteTrack[], query: string) {
   );
 }
 
+export function favoriteDisplayArtist(item: FavoriteTrack) {
+  const artist = (item.artist || "").trim();
+  return artist !== "" && artist.toLowerCase() !== "unknown" ? artist : "";
+}
+
+export function sortFavoritesForDisplay(
+  items: FavoriteTrack[],
+  sort: FavoritesDisplaySort,
+) {
+  const direction = sort.direction === "asc" ? 1 : -1;
+  return [...items].sort((a, b) => {
+    const primary = compareFavoriteDisplayValue(a, b, sort.key);
+    if (primary !== 0) {
+      return primary * direction;
+    }
+    const secondaryKey = sort.key === "title" ? "artist" : "title";
+    const secondary = compareFavoriteDisplayValue(a, b, secondaryKey);
+    if (secondary !== 0) {
+      return secondary;
+    }
+    return a.uniqueSongId.localeCompare(b.uniqueSongId);
+  });
+}
+
 export function sortFavorites(items: FavoriteTrack[]) {
   const seen = new Set<string>();
   const deduped = items.filter((item) => {
@@ -93,6 +122,18 @@ export function sortFavorites(items: FavoriteTrack[]) {
     }
     return a.artist.toLowerCase().localeCompare(b.artist.toLowerCase());
   });
+}
+
+function compareFavoriteDisplayValue(
+  a: FavoriteTrack,
+  b: FavoriteTrack,
+  key: FavoritesDisplaySort["key"],
+) {
+  const valueA =
+    key === "title" ? (a.title || "Untitled").trim() : favoriteDisplayArtist(a);
+  const valueB =
+    key === "title" ? (b.title || "Untitled").trim() : favoriteDisplayArtist(b);
+  return valueA.toLowerCase().localeCompare(valueB.toLowerCase());
 }
 
 export function maxFavorites() {
