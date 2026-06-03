@@ -461,7 +461,7 @@ export function bootstrap() {
   playbackHandlers.initializePlayback();
 
   navigationHandlers.setActiveTabWithRefresh("top");
-  setAnalysisStatus(context, "No song selected.", false);
+  setAnalysisStatus(context, "No track selected.", false);
   applyTheme(context, initialTheme);
   loadAppConfig()
     .then((config) => {

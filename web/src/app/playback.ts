@@ -29,6 +29,7 @@ import { storeAnchorHighlight } from "./anchorHighlight";
 import { storeBranchStatsEnabled } from "./extrasMode";
 import { setAutoMarqueeText } from "./marquee";
 import { showToast } from "./ui";
+import { isAdminMode } from "./admin";
 import {
   isAnalysisComplete,
   isAnalysisFailed,
@@ -262,6 +263,12 @@ function maybeUpdateDeleteEligibility(
   const { state, elements } = context;
   const jobId = jobIdOverride ?? ("id" in response ? response.id : undefined);
   if (!jobId || state.deleteEligibilityJobId === jobId) {
+    return;
+  }
+  if (isAdminMode()) {
+    state.deleteEligibilityJobId = jobId;
+    state.deleteEligible = true;
+    elements.deleteButton.classList.remove("hidden");
     return;
   }
   let eligible = false;
@@ -1144,7 +1151,7 @@ export function resetForNewTrack(
   engine.updateConfig({ ...defaultConfig });
   syncTuningUI(context);
   setAutoMarqueeText(elements.playTitle, "");
-  elements.analysisStatus.textContent = "No song selected.";
+  elements.analysisStatus.textContent = "No track selected.";
   elements.analysisSpinner.classList.add("hidden");
   elements.analysisProgress.textContent = "";
   state.trackDurationSec = null;

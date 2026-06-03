@@ -151,6 +151,18 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     deleteJobHandlers.handleDeleteJobClick,
   );
+  elements.deleteConfirmCancel.addEventListener(
+    "click",
+    deleteJobHandlers.handleDeleteConfirmCancel,
+  );
+  elements.deleteConfirmDelete.addEventListener(
+    "click",
+    deleteJobHandlers.handleDeleteConfirmDelete,
+  );
+  elements.deleteConfirmModal.addEventListener(
+    "click",
+    deleteJobHandlers.handleDeleteConfirmModalClick,
+  );
   elements.branchStatsDeleteButton.addEventListener(
     "click",
     playbackHandlers.handleBranchStatsDeleteClick,
@@ -224,6 +236,7 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     favoritesHandlers.handleFavoritesSyncDocumentClick,
   );
   document.addEventListener("click", tuningHandlers.handleVolumeDocumentClick);
+  window.addEventListener("keydown", deleteJobHandlers.handleDeleteConfirmKeydown);
   window.addEventListener("keydown", playbackHandlers.handleKeydown);
   window.addEventListener("keyup", playbackHandlers.handleKeyup);
 

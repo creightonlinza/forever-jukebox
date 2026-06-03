@@ -349,6 +349,9 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if (state.activeTabId !== "play") {
       return;
     }
+    if (elements.deleteConfirmModal.classList.contains("open")) {
+      return;
+    }
     if (isEditableTarget(event.target)) {
       return;
     }

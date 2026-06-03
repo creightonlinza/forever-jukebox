@@ -72,6 +72,12 @@ If the analysis file nests these arrays under `analysis`, that is also supported
 This UI calls the API via the `/api` prefix (proxied by Vite).
 See `schema.json` at the repo root for the full analysis schema reference.
 
+## Admin mode
+
+Set the API `ADMIN_KEY` value in browser local storage under `fj-admin-key` to keep
+track deletion available outside the normal 30-minute grace window. Admin delete
+requests send the value in the `X-Admin-Key` header.
+
 ## Jump logic (high level)
 - Beats are the main playback unit.
 - Each beat builds a list of candidate "neighbors" by comparing overlapping segments.

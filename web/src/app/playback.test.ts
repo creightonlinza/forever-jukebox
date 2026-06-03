@@ -27,6 +27,7 @@ import { createPlaybackUiHandlers } from "./wire/playback";
 import { setWindowUrl } from "./__tests__/test-utils";
 import { getOrCreateSwingBuffer } from "../audio/swingBufferCache";
 import { renderSwingBuffer } from "../audio/swingRenderer";
+import { ADMIN_KEY_STORAGE_KEY } from "./admin";
 
 vi.mock("../audio/swingBufferCache", () => ({
   getOrCreateSwingBuffer: vi.fn(
@@ -251,6 +252,7 @@ function createElements() {
     branchStatsSimilarityEl: createSpan(),
     branchStatsDeleteButton: { disabled: false },
     deleteButton: { classList: createClassList() },
+    deleteConfirmModal: { classList: createMutableClassList() },
     vizStats: {
       classList: createClassList(),
       offsetWidth: 0,
@@ -289,6 +291,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     stopJukebox: vi.fn(),
     resetStats: vi.fn(),
     clearDeletedEdges: vi.fn(),
+    deleteEdge: vi.fn(),
     seekToBeat: vi.fn(),
     setForceBranch: vi.fn(),
     setBringItHomeMode: vi.fn(),
@@ -699,6 +702,26 @@ describe("playback tuning", () => {
     expect(graph.allEdges[0].deleted).toBe(true);
     expect(graph.allEdges[2].deleted).toBe(true);
     expect(context.state.deletedEdgeIds).toEqual([1, 3]);
+  });
+
+  it("keeps track deletion visible for admin mode regardless of track age", () => {
+    localStorage.setItem(ADMIN_KEY_STORAGE_KEY, "secret");
+    const context = createContext();
+    const response: AnalysisComplete = {
+      status: "complete",
+      id: "job123",
+      created_at: "2020-01-01T00:00:00Z",
+      result: { beats: [], track: {} },
+    };
+
+    const applied = applyAnalysisResult(context, response);
+
+    expect(applied).toBe(true);
+    expect(context.state.deleteEligible).toBe(true);
+    expect(context.state.deleteEligibilityJobId).toBe("job123");
+    expect(context.elements.deleteButton.classList.remove).toHaveBeenCalledWith(
+      "hidden",
+    );
   });
 
   it("applies anchor branch from url when analysis loads", () => {
@@ -1396,6 +1419,24 @@ describe("playback branch shortcuts", () => {
 
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(context.engine.setUserAnchorEdge).not.toHaveBeenCalled();
+  });
+
+  it("ignores playback shortcuts while track delete confirmation is open", () => {
+    const context = createContext();
+    context.elements.deleteConfirmModal.classList.add("open");
+    context.state.selectedEdge = {
+      id: 9,
+      src: { which: 8 },
+      dest: { which: 2 },
+      deleted: false,
+    } as AppContext["state"]["selectedEdge"];
+    const { handlers } = makeHandlers(context);
+    const event = keyEvent("Delete");
+
+    handlers.handleKeydown(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(context.engine.deleteEdge).not.toHaveBeenCalled();
   });
 
   it("shows branch stats and enables delete for a selected active branch", () => {
