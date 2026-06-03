@@ -149,6 +149,7 @@ const AUDIO_MODE_SECTIONS: AudioModeSection[] = [
       { value: "daycore", label: "Daycore", tooltip: "Slow & Deep" },
       { value: "vaporwave", label: "Vaporwave", tooltip: "Muffled & Slow" },
       { value: "eight_d", label: "8D Audio", tooltip: "Spinning/Spatial" },
+      { value: "eight_bit", label: "8-Bit", tooltip: "Bitcrushed & Filtered" },
       { value: "lofi", label: "Lofi", tooltip: "Radio Filter" },
     ],
   },
@@ -254,6 +255,7 @@ function parseAudioMode(value: string | null): JukeboxAudioMode | null {
     value === "daycore" ||
     value === "vaporwave" ||
     value === "eight_d" ||
+    value === "eight_bit" ||
     value === "lofi" ||
     value === "cowbell" ||
     value === "swing"

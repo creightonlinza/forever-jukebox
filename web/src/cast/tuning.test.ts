@@ -128,9 +128,9 @@ describe("cast tuning", () => {
   });
 
   it("parses audio-only payloads without graph tuning", () => {
-    const parsed = parseCastTuningParams("am=lofi", makeDefaults());
+    const parsed = parseCastTuningParams("am=eight_bit", makeDefaults());
     expect(parsed).not.toBeNull();
-    expect(parsed?.audioMode).toBe("lofi");
+    expect(parsed?.audioMode).toBe("eight_bit");
     expect(parsed?.hasAudioModeParam).toBe(true);
     expect(parsed?.hasGraphTuning).toBe(false);
   });

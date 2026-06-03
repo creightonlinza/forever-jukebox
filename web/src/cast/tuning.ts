@@ -47,6 +47,7 @@ function parseAudioMode(raw: string | null): JukeboxAudioMode | null {
     raw === "daycore" ||
     raw === "vaporwave" ||
     raw === "eight_d" ||
+    raw === "eight_bit" ||
     raw === "lofi"
   ) {
     return raw;

@@ -2,6 +2,8 @@ import {
   AUDIO_MODE_SETTINGS,
   PAN_STEP,
   REVERB_SECONDS,
+  createBitcrusherCurve,
+  renderBitcrushedBuffer,
   type JukeboxAudioMode,
 } from "./audioModes";
 
@@ -56,8 +58,9 @@ export class BufferedAudioPlayer {
   async loadBuffer(buffer: AudioBuffer) {
     this.stop();
     this.originalBuffer = buffer;
-    this.buffer = buffer;
     this.renderedModeBuffers = {};
+    this.renderEightBitBuffer();
+    this.buffer = this.getActiveBuffer();
     this.offset = 0;
   }
 
@@ -201,7 +204,7 @@ export class BufferedAudioPlayer {
   }
 
   setRenderedJukeboxAudioBuffer(
-    mode: Extract<JukeboxAudioMode, "swing">,
+    mode: Extract<JukeboxAudioMode, "eight_bit" | "swing">,
     buffer: AudioBuffer,
   ) {
     this.renderedModeBuffers[mode] = buffer;
@@ -224,13 +227,37 @@ export class BufferedAudioPlayer {
   }
 
   getRenderedJukeboxAudioBuffer(
-    mode: Extract<JukeboxAudioMode, "swing">,
+    mode: Extract<JukeboxAudioMode, "eight_bit" | "swing">,
   ): AudioBuffer | null {
     return this.renderedModeBuffers[mode] ?? null;
   }
 
   private getActiveBuffer(): AudioBuffer | null {
     return this.renderedModeBuffers[this.audioMode] ?? this.originalBuffer;
+  }
+
+  private renderEightBitBuffer() {
+    const settings = AUDIO_MODE_SETTINGS.eight_bit;
+    if (
+      !this.originalBuffer ||
+      !Number.isFinite(this.originalBuffer.length) ||
+      this.originalBuffer.length <= 0 ||
+      !Number.isFinite(this.originalBuffer.sampleRate) ||
+      this.originalBuffer.sampleRate <= 0 ||
+      !Number.isInteger(this.originalBuffer.numberOfChannels) ||
+      this.originalBuffer.numberOfChannels <= 0 ||
+      typeof this.originalBuffer.getChannelData !== "function" ||
+      settings.crushBitDepth === undefined ||
+      settings.crushSampleRate === undefined
+    ) {
+      return;
+    }
+    this.renderedModeBuffers.eight_bit = renderBitcrushedBuffer(
+      this.context,
+      this.originalBuffer,
+      settings.crushBitDepth,
+      settings.crushSampleRate,
+    );
   }
 
   getJukeboxAudioMode(): JukeboxAudioMode {
@@ -407,6 +434,15 @@ export class BufferedAudioPlayer {
       this.chainNodes.push(highPass);
       lastNode.connect(highPass);
       lastNode = highPass;
+    }
+
+    if (settings.crushBitDepth !== undefined) {
+      const bitcrusher = this.context.createWaveShaper();
+      bitcrusher.curve = createBitcrusherCurve(settings.crushBitDepth);
+      bitcrusher.oversample = "none";
+      this.chainNodes.push(bitcrusher);
+      lastNode.connect(bitcrusher);
+      lastNode = bitcrusher;
     }
 
     if (settings.lowPassFrequency !== null) {

@@ -99,13 +99,13 @@ describe("tuning params", () => {
     expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
   });
 
-  it("applies newly supported audio modes from params", () => {
+  it("applies eight-bit audio mode from params", () => {
     const context = createContext();
-    const params = new URLSearchParams("am=swing");
+    const params = new URLSearchParams("am=eight_bit");
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
-    expect(context.state.jukeboxAudioMode).toBe("swing");
-    expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
+    expect(context.state.jukeboxAudioMode).toBe("eight_bit");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_bit");
   });
 
   it("applies cowbell audio mode from params", () => {

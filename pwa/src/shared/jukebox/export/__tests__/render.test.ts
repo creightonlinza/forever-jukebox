@@ -67,6 +67,11 @@ class MockStereoPannerNode extends MockNode {
   pan = new MockAudioParam();
 }
 
+class MockWaveShaperNode extends MockNode {
+  curve: Float32Array | null = null;
+  oversample: OverSampleType = "none";
+}
+
 class MockOfflineAudioContext {
   static last: MockOfflineAudioContext | null = null;
   readonly numberOfChannels: number;
@@ -77,6 +82,7 @@ class MockOfflineAudioContext {
   biquads: MockBiquadNode[] = [];
   convolvers: MockConvolverNode[] = [];
   panners: MockStereoPannerNode[] = [];
+  waveShapers: MockWaveShaperNode[] = [];
 
   constructor(
     channelsOrOptions: number | {
@@ -133,6 +139,12 @@ class MockOfflineAudioContext {
     const panner = new MockStereoPannerNode();
     this.panners.push(panner);
     return panner as unknown as StereoPannerNode;
+  }
+
+  createWaveShaper() {
+    const shaper = new MockWaveShaperNode();
+    this.waveShapers.push(shaper);
+    return shaper as unknown as WaveShaperNode;
   }
 
   async startRendering() {
@@ -255,6 +267,32 @@ describe("renderJukeboxAudio", () => {
 
     const panner = MockOfflineAudioContext.last?.panners[0];
     expect(panner?.pan.setValueAtTime).toHaveBeenCalled();
+  });
+
+  it("builds bitcrusher and lowpass nodes for eight-bit mode", async () => {
+    await renderJukeboxAudio({
+      sourceBuffer: makeSourceBuffer(new Array(20).fill(1), 10),
+      segments: [
+        {
+          outputStart: 0,
+          sourceStart: 0,
+          duration: 1,
+          beatIndex: 0,
+          jumped: false,
+          jumpFromIndex: null,
+        },
+      ],
+      durationSeconds: 1,
+      gain: 1,
+      audioMode: "eight_bit",
+    });
+
+    const context = MockOfflineAudioContext.last;
+    const shaper = context?.waveShapers[0];
+    const curve = shaper?.curve;
+    expect(curve).toBeInstanceOf(Float32Array);
+    expect(new Set(Array.from(curve ?? [])).size).toBeLessThanOrEqual(256);
+    expect(context?.biquads).toHaveLength(0);
   });
 
   it("schedules cowbell overlay events deterministically into the offline graph", async () => {
