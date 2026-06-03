@@ -213,6 +213,41 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.playbackRate.value).toBe(1);
   });
 
+  it("builds underwater chain with heavy lowpass filter", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("underwater");
+    player.play();
+
+    const lowPass = context.createdBiquads.find((node) => node.type === "lowpass");
+    expect(lowPass).toBeDefined();
+    expect(lowPass?.frequency.value).toBe(400);
+    expect(context.createdSources[0]?.playbackRate.value).toBe(1);
+    expect(context.createdConvolvers.length).toBe(0);
+  });
+
+  it("builds cathedral chain with filtered cathedral-style reverb", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("cathedral");
+    player.play();
+
+    const highPass = context.createdBiquads.find((node) => node.type === "highpass");
+    const lowPass = context.createdBiquads.find((node) => node.type === "lowpass");
+    const reverb = context.createdConvolvers[0];
+    const dryGain = context.createdGains[context.createdGains.length - 2];
+    const wetGain = context.createdGains[context.createdGains.length - 1];
+    expect(highPass?.frequency.value).toBe(150);
+    expect(lowPass?.frequency.value).toBe(5500);
+    expect(reverb).toBeDefined();
+    expect(reverb?.buffer?.duration).toBe(4.75);
+    expect(dryGain?.gain.value).toBe(0.7);
+    expect(wetGain?.gain.value).toBe(0.9);
+    expect(context.createdSources[0]?.playbackRate.value).toBe(1);
+  });
+
   it("builds eight-bit chain with bitcrusher and lowpass filter", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);

@@ -108,6 +108,24 @@ describe("tuning params", () => {
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_bit");
   });
 
+  it("applies underwater audio mode from params", () => {
+    const context = createContext();
+    const params = new URLSearchParams("am=underwater");
+    const applied = applyTuningParamsToEngine(context, params);
+    expect(applied).toBe(true);
+    expect(context.state.jukeboxAudioMode).toBe("underwater");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("underwater");
+  });
+
+  it("applies cathedral audio mode from params", () => {
+    const context = createContext();
+    const params = new URLSearchParams("am=cathedral");
+    const applied = applyTuningParamsToEngine(context, params);
+    expect(applied).toBe(true);
+    expect(context.state.jukeboxAudioMode).toBe("cathedral");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cathedral");
+  });
+
   it("applies cowbell audio mode from params", () => {
     const context = createContext();
     const params = new URLSearchParams("am=cowbell");

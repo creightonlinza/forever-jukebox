@@ -177,6 +177,8 @@ function createElements() {
     audioModeEightDInput: createInput(),
     audioModeEightBitInput: createInput(),
     audioModeLofiInput: createInput(),
+    audioModeUnderwaterInput: createInput(),
+    audioModeCathedralInput: createInput(),
     audioModeCowbellInput: createInput(),
     audioModeSwingInput: createInput(),
     extrasEnabledInput: createInput(),
@@ -543,6 +545,30 @@ describe("playback tuning", () => {
     expect(context.state.jukeboxAudioMode).toBe("eight_bit");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_bit");
     expect(window.location.search).toContain("am=eight_bit");
+  });
+
+  it("applies underwater as an audio mode from extras controls", () => {
+    const context = createContext();
+    context.elements.audioModeUnderwaterInput.checked = true;
+
+    const result = applyExtrasChanges(context);
+
+    expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
+    expect(context.state.jukeboxAudioMode).toBe("underwater");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("underwater");
+    expect(window.location.search).toContain("am=underwater");
+  });
+
+  it("applies cathedral as an audio mode from extras controls", () => {
+    const context = createContext();
+    context.elements.audioModeCathedralInput.checked = true;
+
+    const result = applyExtrasChanges(context);
+
+    expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
+    expect(context.state.jukeboxAudioMode).toBe("cathedral");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cathedral");
+    expect(window.location.search).toContain("am=cathedral");
   });
 
   it("resumes jukebox playback after preparing swing while already running", async () => {

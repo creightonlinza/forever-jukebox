@@ -6,6 +6,8 @@ export type JukeboxAudioMode =
   | "eight_d"
   | "eight_bit"
   | "lofi"
+  | "underwater"
+  | "cathedral"
   | "cowbell"
   | "swing";
 
@@ -16,7 +18,10 @@ type AudioModeSettings = {
   useBandPass: boolean;
   crushBitDepth?: number;
   crushSampleRate?: number;
+  dryMix?: number;
   reverbMix: number;
+  reverbSeconds?: number;
+  reverbDecay?: number;
   pan: boolean;
 };
 
@@ -77,6 +82,25 @@ const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = {
     lowPassFrequency: 2000,
     useBandPass: true,
     reverbMix: 0.1,
+    pan: false,
+  },
+  underwater: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: 400,
+    useBandPass: false,
+    reverbMix: 0,
+    pan: false,
+  },
+  cathedral: {
+    rate: 1,
+    highPassFrequency: 150,
+    lowPassFrequency: 5500,
+    useBandPass: false,
+    dryMix: 0.70,
+    reverbMix: 0.90,
+    reverbSeconds: 4.75,
+    reverbDecay: 2.5,
     pan: false,
   },
   cowbell: {
@@ -162,7 +186,7 @@ export class BufferedAudioPlayer {
   private sourceChainOutput: GainNode;
   private stereoPanner: StereoPannerNode | null = null;
   private chainNodes: AudioNode[] = [];
-  private reverbImpulseBuffer: AudioBuffer | null = null;
+  private reverbImpulseBuffers = new Map<string, AudioBuffer>();
   private volume = 0.5;
   private startAt = 0;
   private offset = 0;
@@ -590,8 +614,12 @@ export class BufferedAudioPlayer {
       const dryGain = this.context.createGain();
       const wetGain = this.context.createGain();
       const reverb = this.context.createConvolver();
+      dryGain.gain.value = settings.dryMix ?? 1;
       wetGain.gain.value = settings.reverbMix;
-      reverb.buffer = this.getReverbImpulseBuffer();
+      reverb.buffer = this.getReverbImpulseBuffer(
+        settings.reverbSeconds ?? REVERB_SECONDS,
+        settings.reverbDecay ?? 2,
+      );
       this.chainNodes.push(dryGain, wetGain, reverb);
       lastNode.connect(dryGain);
       dryGain.connect(this.sourceChainOutput);
@@ -659,20 +687,22 @@ export class BufferedAudioPlayer {
     }
   }
 
-  private getReverbImpulseBuffer() {
-    if (this.reverbImpulseBuffer) {
-      return this.reverbImpulseBuffer;
+  private getReverbImpulseBuffer(seconds: number, decay: number) {
+    const cacheKey = `${seconds}:${decay}`;
+    const cached = this.reverbImpulseBuffers.get(cacheKey);
+    if (cached) {
+      return cached;
     }
-    const length = Math.floor(this.context.sampleRate * REVERB_SECONDS);
+    const length = Math.floor(this.context.sampleRate * seconds);
     const impulse = this.context.createBuffer(2, length, this.context.sampleRate);
     for (let channelIndex = 0; channelIndex < 2; channelIndex += 1) {
       const channel = impulse.getChannelData(channelIndex);
       for (let sampleIndex = 0; sampleIndex < length; sampleIndex += 1) {
         channel[sampleIndex] =
-          (Math.random() * 2 - 1) * Math.pow(1 - sampleIndex / length, 2);
+          (Math.random() * 2 - 1) * Math.pow(1 - sampleIndex / length, decay);
       }
     }
-    this.reverbImpulseBuffer = impulse;
+    this.reverbImpulseBuffers.set(cacheKey, impulse);
     return impulse;
   }
 

@@ -6,6 +6,8 @@ export type JukeboxAudioMode =
   | "eight_d"
   | "eight_bit"
   | "lofi"
+  | "underwater"
+  | "cathedral"
   | "cowbell"
   | "swing";
 
@@ -16,7 +18,10 @@ export type AudioModeSettings = {
   useBandPass: boolean;
   crushBitDepth?: number;
   crushSampleRate?: number;
+  dryMix?: number;
   reverbMix: number;
+  reverbSeconds?: number;
+  reverbDecay?: number;
   pan: boolean;
 };
 
@@ -77,6 +82,25 @@ export const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = 
     lowPassFrequency: 2000,
     useBandPass: true,
     reverbMix: 0.1,
+    pan: false,
+  },
+  underwater: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: 400,
+    useBandPass: false,
+    reverbMix: 0,
+    pan: false,
+  },
+  cathedral: {
+    rate: 1,
+    highPassFrequency: 150,
+    lowPassFrequency: 5500,
+    useBandPass: false,
+    dryMix: 0.7,
+    reverbMix: 0.9,
+    reverbSeconds: 4.75,
+    reverbDecay: 2.5,
     pan: false,
   },
   cowbell: {

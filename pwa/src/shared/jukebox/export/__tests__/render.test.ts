@@ -79,6 +79,7 @@ class MockOfflineAudioContext {
   readonly sampleRate: number;
   destination = new MockNode();
   sources: MockSourceNode[] = [];
+  gains: MockGainNode[] = [];
   biquads: MockBiquadNode[] = [];
   convolvers: MockConvolverNode[] = [];
   panners: MockStereoPannerNode[] = [];
@@ -120,7 +121,9 @@ class MockOfflineAudioContext {
   }
 
   createGain() {
-    return new MockGainNode() as unknown as GainNode;
+    const gain = new MockGainNode();
+    this.gains.push(gain);
+    return gain as unknown as GainNode;
   }
 
   createBiquadFilter() {
@@ -245,6 +248,60 @@ describe("renderJukeboxAudio", () => {
     expect(context?.biquads[0]?.type).toBe("lowpass");
     expect(context?.biquads[0]?.frequency.value).toBe(1000);
     expect(context?.convolvers.length).toBeGreaterThan(0);
+  });
+
+  it("builds underwater lowpass nodes", async () => {
+    await renderJukeboxAudio({
+      sourceBuffer: makeSourceBuffer(new Array(20).fill(1), 10),
+      segments: [
+        {
+          outputStart: 0,
+          sourceStart: 0,
+          duration: 1,
+          beatIndex: 0,
+          jumped: false,
+          jumpFromIndex: null,
+        },
+      ],
+      durationSeconds: 1,
+      gain: 1,
+      audioMode: "underwater",
+    });
+
+    const context = MockOfflineAudioContext.last;
+    expect(context?.biquads[0]?.type).toBe("lowpass");
+    expect(context?.biquads[0]?.frequency.value).toBe(400);
+    expect(context?.convolvers).toHaveLength(0);
+  });
+
+  it("builds cathedral filter and reverb nodes", async () => {
+    await renderJukeboxAudio({
+      sourceBuffer: makeSourceBuffer(new Array(20).fill(1), 10),
+      segments: [
+        {
+          outputStart: 0,
+          sourceStart: 0,
+          duration: 1,
+          beatIndex: 0,
+          jumped: false,
+          jumpFromIndex: null,
+        },
+      ],
+      durationSeconds: 1,
+      gain: 1,
+      audioMode: "cathedral",
+    });
+
+    const context = MockOfflineAudioContext.last;
+    const dryGain = context?.gains[context.gains.length - 3];
+    const wetGain = context?.gains[context.gains.length - 2];
+    expect(context?.biquads[0]?.type).toBe("highpass");
+    expect(context?.biquads[0]?.frequency.value).toBe(150);
+    expect(context?.biquads[1]?.type).toBe("lowpass");
+    expect(context?.biquads[1]?.frequency.value).toBe(5500);
+    expect(context?.convolvers[0]?.buffer?.duration).toBe(4.75);
+    expect(dryGain?.gain.value).toBe(0.7);
+    expect(wetGain?.gain.value).toBe(0.9);
   });
 
   it("automates panning for 8D mode", async () => {

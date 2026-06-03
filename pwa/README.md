@@ -67,7 +67,7 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
 
 ## Extras audio modes
 
-- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `eight_bit`, `lofi`, `cowbell`, `swing`.
+- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `eight_bit`, `lofi`, `underwater`, `cathedral`, `cowbell`, `swing`.
 - UI labels/tooltips:
   - Nightcore (Fast & Bright)
   - Daycore (Slow & Deep)
@@ -75,6 +75,8 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
   - 8D Audio (Spinning/Spatial)
   - 8-Bit (Bitcrushed & Filtered)
   - Lofi (Radio Filter)
+  - Underwater (Heavy Low-Pass)
+  - Cathedral (Cathedral Reverb)
   - More Cowbell
   - Swing (pre-renders a pitch-preserved swung buffer with Rubber Band WASM)
 - URL param support: `am=<mode>` (example: `?am=nightcore`).

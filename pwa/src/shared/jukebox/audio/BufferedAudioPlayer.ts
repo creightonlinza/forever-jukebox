@@ -24,7 +24,7 @@ export class BufferedAudioPlayer {
   private sourceChainOutput: GainNode;
   private stereoPanner: StereoPannerNode | null = null;
   private chainNodes: AudioNode[] = [];
-  private reverbImpulseBuffer: AudioBuffer | null = null;
+  private reverbImpulseBuffers = new Map<string, AudioBuffer>();
   private volume = 0.5;
   private startAt = 0;
   private offset = 0;
@@ -458,8 +458,12 @@ export class BufferedAudioPlayer {
       const dryGain = this.context.createGain();
       const wetGain = this.context.createGain();
       const reverb = this.context.createConvolver();
+      dryGain.gain.value = settings.dryMix ?? 1;
       wetGain.gain.value = settings.reverbMix;
-      reverb.buffer = this.getReverbImpulseBuffer();
+      reverb.buffer = this.getReverbImpulseBuffer(
+        settings.reverbSeconds ?? REVERB_SECONDS,
+        settings.reverbDecay ?? 2,
+      );
       this.chainNodes.push(dryGain, wetGain, reverb);
       lastNode.connect(dryGain);
       dryGain.connect(this.sourceChainOutput);
@@ -527,20 +531,22 @@ export class BufferedAudioPlayer {
     }
   }
 
-  private getReverbImpulseBuffer() {
-    if (this.reverbImpulseBuffer) {
-      return this.reverbImpulseBuffer;
+  private getReverbImpulseBuffer(seconds: number, decay: number) {
+    const cacheKey = `${seconds}:${decay}`;
+    const cached = this.reverbImpulseBuffers.get(cacheKey);
+    if (cached) {
+      return cached;
     }
-    const length = Math.floor(this.context.sampleRate * REVERB_SECONDS);
+    const length = Math.floor(this.context.sampleRate * seconds);
     const impulse = this.context.createBuffer(2, length, this.context.sampleRate);
     for (let channelIndex = 0; channelIndex < 2; channelIndex += 1) {
       const channel = impulse.getChannelData(channelIndex);
       for (let sampleIndex = 0; sampleIndex < length; sampleIndex += 1) {
         channel[sampleIndex] =
-          (Math.random() * 2 - 1) * Math.pow(1 - sampleIndex / length, 2);
+          (Math.random() * 2 - 1) * Math.pow(1 - sampleIndex / length, decay);
       }
     }
-    this.reverbImpulseBuffer = impulse;
+    this.reverbImpulseBuffers.set(cacheKey, impulse);
     return impulse;
   }
 

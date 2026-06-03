@@ -21,7 +21,7 @@ Audio results are cached locally in IndexedDB when available; browsers may evict
 data under storage pressure.
 
 ## Extras audio modes
-- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `eight_bit`, `lofi`, `cowbell`, `swing`.
+- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `eight_bit`, `lofi`, `underwater`, `cathedral`, `cowbell`, `swing`.
 - UI labels/tooltips:
   - Normal
   - Nightcore (Fast & Bright)
@@ -30,6 +30,8 @@ data under storage pressure.
   - 8D Audio (Spinning/Spatial)
   - 8-Bit (Bitcrushed & Filtered)
   - Lofi (Radio Filter)
+  - Underwater (Heavy Low-Pass)
+  - Cathedral (Cathedral Reverb)
   - More Cowbell
   - Swing (pre-renders a pitch-preserved swung buffer with Rubber Band WASM)
 - More Cowbell and Swing are beat-aware remix toys inspired by Echo Nest Remix:

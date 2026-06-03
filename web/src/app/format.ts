@@ -23,6 +23,9 @@ export function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
   if (audioMode === "cowbell") {
     return "more cowbell";
   }
+  if (audioMode === "underwater" || audioMode === "cathedral") {
+    return audioMode;
+  }
   return audioMode;
 }
 
