@@ -582,6 +582,59 @@ describe("cast receiver main", () => {
     });
   });
 
+  it("ignores unsupported audio mode values from a setTuning command", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+
+    doubles.parseCastTuningParamsMock.mockImplementation((tuningParams: string | null) => ({
+      audioMode: tuningParams === "am=lofi" ? "lofi" : null,
+      hasAudioModeParam: true,
+      hasGraphTuning: false,
+      highlightAnchorBranch: false,
+    }));
+
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "am=lofi" },
+    });
+    await flushMicrotasks();
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("lofi");
+    doubles.playerInstances[0]?.setJukeboxAudioMode.mockClear();
+    harness.sendCustomMessage.mockClear();
+
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "am=chipmunk" },
+    });
+    await flushMicrotasks();
+
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).not.toHaveBeenCalled();
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
+    const status = statusCall?.[2] as
+      | Record<string, unknown>
+      | undefined;
+    expect(status).toMatchObject({
+      type: "status",
+      tuning: {
+        audioMode: "lofi",
+      },
+    });
+  });
+
   it("updates anchor highlighting from a setTuning command without refreshing viz data", async () => {
     const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
     doubles.fetchAnalysisMock.mockResolvedValue({

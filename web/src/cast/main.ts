@@ -960,12 +960,13 @@ async function bootstrap() {
       return { parsed: null, highlightOnly: false };
     }
     const result = applyCastTuningToEngine(engine, defaultConfig, tuningParams);
-    if (result.parsed?.hasAudioModeParam) {
-      setAudioMode(result.parsed.audioMode ?? "off");
+    if (result.parsed?.audioMode) {
+      setAudioMode(result.parsed.audioMode);
     } else if (
-      tuningParams === null ||
-      options.resetAudioModeWhenMissing ||
-      !!result.parsed
+      !result.parsed?.hasAudioModeParam &&
+      (tuningParams === null ||
+        options.resetAudioModeWhenMissing ||
+        !!result.parsed)
     ) {
       setAudioMode("off");
     }
@@ -1010,8 +1011,8 @@ async function bootstrap() {
     try {
       const parsed = parseCastTuningParams(tuningParams, defaultConfig);
       if (parsed && !parsed.hasGraphTuning) {
-        if (parsed.hasAudioModeParam) {
-          setAudioMode(parsed.audioMode ?? "off");
+        if (parsed.audioMode) {
+          setAudioMode(parsed.audioMode);
           if (engine.isRunning() && player?.isPlaying()) {
             engine.syncToPlaybackPosition();
           }
@@ -1033,8 +1034,8 @@ async function bootstrap() {
           engine.getConfig(),
           liveTuningParams,
         );
-        if (result.parsed?.hasAudioModeParam) {
-          setAudioMode(result.parsed.audioMode ?? "off");
+        if (result.parsed?.audioMode) {
+          setAudioMode(result.parsed.audioMode);
         }
         anchorHighlightEnabled = result.highlightAnchorBranch;
         state.tuningParams = liveTuningParams;

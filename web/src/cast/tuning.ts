@@ -41,18 +41,21 @@ function parseAnchorBranchId(raw: string | null): number | null {
 }
 
 function parseAudioMode(raw: string | null): JukeboxAudioMode | null {
-  if (
-    raw === "off" ||
-    raw === "nightcore" ||
-    raw === "daycore" ||
-    raw === "vaporwave" ||
-    raw === "eight_d" ||
-    raw === "eight_bit" ||
-    raw === "lofi"
-  ) {
-    return raw;
+  const normalized = raw?.trim().toLowerCase();
+  switch (normalized) {
+    case "off":
+    case "nightcore":
+    case "daycore":
+    case "vaporwave":
+    case "eight_d":
+    case "eight_bit":
+    case "lofi":
+    case "underwater":
+    case "cathedral":
+      return normalized;
+    default:
+      return null;
   }
-  return null;
 }
 
 export type CastParsedTuning = {

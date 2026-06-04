@@ -135,6 +135,19 @@ describe("cast tuning", () => {
     expect(parsed?.hasGraphTuning).toBe(false);
   });
 
+  it("parses cast-supported extras audio modes", () => {
+    expect(parseCastTuningParams("am=underwater", makeDefaults())?.audioMode).toBe(
+      "underwater",
+    );
+    expect(parseCastTuningParams("am=cathedral", makeDefaults())?.audioMode).toBe(
+      "cathedral",
+    );
+  });
+
+  it("parses off case-insensitively for sender payload tolerance", () => {
+    expect(parseCastTuningParams("am=Off", makeDefaults())?.audioMode).toBe("off");
+  });
+
   it("ignores unsupported audio mode values", () => {
     const parsed = parseCastTuningParams("am=chipmunk", makeDefaults());
     expect(parsed).not.toBeNull();
