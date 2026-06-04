@@ -221,7 +221,7 @@ export class BufferedAudioPlayer {
     this.stop();
     this.originalBuffer = buffer;
     this.renderedModeBuffers = {};
-    this.renderEightBitBuffer();
+    this.reverbImpulseBuffers.clear();
     this.buffer = this.getActiveBuffer();
     this.offset = 0;
   }
@@ -350,6 +350,11 @@ export class BufferedAudioPlayer {
     const resumeOffset = shouldResume ? this.getCurrentTime() : this.offset;
     this.audioMode = mode;
     this.playbackRate = AUDIO_MODE_SETTINGS[mode].rate;
+    if (mode === "eight_bit") {
+      this.renderEightBitBuffer();
+    }
+    this.releaseInactiveRenderedModeBuffers(mode);
+    this.reverbImpulseBuffers.clear();
     this.buffer = this.getActiveBuffer();
     this.rebuildSourceChain();
     this.syncPanMotion();
@@ -363,6 +368,15 @@ export class BufferedAudioPlayer {
     const now = this.context.currentTime;
     this.stopSource();
     this.startSourceAt(this.offset, now);
+  }
+
+  private releaseInactiveRenderedModeBuffers(activeMode: JukeboxAudioMode) {
+    if (activeMode !== "eight_bit") {
+      delete this.renderedModeBuffers.eight_bit;
+    }
+    if (activeMode !== "swing") {
+      delete this.renderedModeBuffers.swing;
+    }
   }
 
   setRenderedJukeboxAudioBuffer(
@@ -708,7 +722,10 @@ export class BufferedAudioPlayer {
 
   async dispose() {
     this.stop();
+    this.originalBuffer = null;
     this.buffer = null;
+    this.renderedModeBuffers = {};
+    this.reverbImpulseBuffers.clear();
     this.onEnded = null;
     this.stopPanMotion();
     this.clearSourceChain();
