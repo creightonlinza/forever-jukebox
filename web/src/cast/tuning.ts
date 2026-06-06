@@ -48,7 +48,6 @@ function parseAudioMode(raw: string | null): JukeboxAudioMode | null {
     case "daycore":
     case "vaporwave":
     case "eight_d":
-    case "eight_bit":
     case "lofi":
     case "underwater":
     case "cathedral":

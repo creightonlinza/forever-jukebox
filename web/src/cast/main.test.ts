@@ -582,6 +582,57 @@ describe("cast receiver main", () => {
     });
   });
 
+  it("does not support eight-bit mode from a setTuning command", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+    const viz = doubles.vizInstances[0];
+    const engine = doubles.engineInstances[0];
+    viz?.setData.mockClear();
+    engine?.syncToPlaybackPosition.mockClear();
+    doubles.playerInstances[0]?.setJukeboxAudioMode.mockClear();
+
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: null,
+      hasAudioModeParam: true,
+      hasGraphTuning: false,
+      highlightAnchorBranch: false,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "am=eight_bit" },
+    });
+    await flushMicrotasks();
+
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).not.toHaveBeenCalled();
+    expect(engine?.syncToPlaybackPosition).not.toHaveBeenCalled();
+    expect(viz?.setData).not.toHaveBeenCalled();
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
+    const status = statusCall?.[2] as
+      | Record<string, unknown>
+      | undefined;
+    expect(status).toMatchObject({
+      type: "status",
+      tuning: {
+        audioMode: "off",
+      },
+    });
+  });
+
   it("ignores unsupported audio mode values from a setTuning command", async () => {
     const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
     doubles.fetchAnalysisMock.mockResolvedValue({

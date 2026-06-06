@@ -128,9 +128,9 @@ describe("cast tuning", () => {
   });
 
   it("parses audio-only payloads without graph tuning", () => {
-    const parsed = parseCastTuningParams("am=eight_bit", makeDefaults());
+    const parsed = parseCastTuningParams("am=vaporwave", makeDefaults());
     expect(parsed).not.toBeNull();
-    expect(parsed?.audioMode).toBe("eight_bit");
+    expect(parsed?.audioMode).toBe("vaporwave");
     expect(parsed?.hasAudioModeParam).toBe(true);
     expect(parsed?.hasGraphTuning).toBe(false);
   });
@@ -150,6 +150,14 @@ describe("cast tuning", () => {
 
   it("ignores unsupported audio mode values", () => {
     const parsed = parseCastTuningParams("am=chipmunk", makeDefaults());
+    expect(parsed).not.toBeNull();
+    expect(parsed?.audioMode).toBeNull();
+    expect(parsed?.hasAudioModeParam).toBe(true);
+    expect(parsed?.hasGraphTuning).toBe(false);
+  });
+
+  it("does not support eight-bit on cast", () => {
+    const parsed = parseCastTuningParams("am=eight_bit", makeDefaults());
     expect(parsed).not.toBeNull();
     expect(parsed?.audioMode).toBeNull();
     expect(parsed?.hasAudioModeParam).toBe(true);
