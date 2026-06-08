@@ -51,6 +51,7 @@ function parseAudioMode(raw: string | null): JukeboxAudioMode | null {
     case "lofi":
     case "underwater":
     case "cathedral":
+    case "cowbell":
       return normalized;
     default:
       return null;

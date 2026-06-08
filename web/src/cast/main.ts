@@ -3,6 +3,7 @@ import {
   BufferedAudioPlayer,
   type JukeboxAudioMode,
 } from "../audio/BufferedAudioPlayer";
+import { CowbellOverlayService } from "../audio/CowbellOverlayService";
 import { JukeboxEngine } from "../engine";
 import type { JukeboxConfig } from "../engine/types";
 import { JukeboxViz } from "../jukebox/JukeboxViz";
@@ -363,6 +364,7 @@ async function bootstrap() {
   const IDLE_TIMEOUT_MS = IDLE_TIMEOUT_SECONDS * 1000;
   const IDLE_KEEPALIVE_MS = 25_000;
   let player: BufferedAudioPlayer | null = null;
+  let cowbellOverlay: CowbellOverlayService | null = null;
   let engine: JukeboxEngine | null = null;
   let defaultConfig: JukeboxConfig | null = null;
   let castContext: ReturnType<CastReceiverContextType["getInstance"]> | null =
@@ -431,6 +433,11 @@ async function bootstrap() {
 
   function setAudioMode(mode: JukeboxAudioMode) {
     state.audioMode = mode;
+    if (mode === "cowbell") {
+      cowbellOverlay?.enable();
+    } else {
+      cowbellOverlay?.disable();
+    }
     player?.setJukeboxAudioMode(mode);
     updateDisplayedTitle();
   }
@@ -621,6 +628,16 @@ async function bootstrap() {
       if (!beatChanged && !engineState.lastJumped) {
         return;
       }
+      if (beatChanged && state.audioMode === "cowbell") {
+        const beat = state.vizData?.beats[engineState.currentBeatIndex];
+        if (beat) {
+          cowbellOverlay?.handleBeatEnter(
+            engineState.currentBeatIndex,
+            beat,
+            state.vizData?.beats[engineState.currentBeatIndex + 1],
+          );
+        }
+      }
       const jumpFrom =
         engineState.lastJumped && engineState.lastJumpFromIndex !== null
           ? engineState.lastJumpFromIndex
@@ -634,8 +651,21 @@ async function bootstrap() {
     });
   };
 
+  const disposeCowbellOverlaySafely = () => {
+    if (!cowbellOverlay) {
+      return;
+    }
+    try {
+      cowbellOverlay.dispose();
+    } catch (err) {
+      console.warn("Failed to dispose cast cowbell overlay cleanly", err);
+    }
+    cowbellOverlay = null;
+  };
+
   const disposePlayerSafely = async (options?: { stop?: boolean }) => {
     const currentPlayer = player;
+    disposeCowbellOverlaySafely();
     // Clear shared reference first so concurrent teardown paths cannot double-dispose.
     player = null;
     if (!currentPlayer) {
@@ -663,10 +693,14 @@ async function bootstrap() {
     await disposePlayerSafely();
     destroyViz();
     player = new BufferedAudioPlayer();
+    cowbellOverlay = new CowbellOverlayService(player.getContext(), {
+      getPlaybackRate: () => player?.getPlaybackRate() ?? 1,
+    });
     player.setOnEnded(() => {
       if (engine) {
         engine.stopJukebox();
       }
+      cowbellOverlay?.cancelScheduledHits();
       isTrackPaused = false;
       playStartAtMs = null;
       setIdleState(elements);
@@ -756,6 +790,7 @@ async function bootstrap() {
 
   function beginTrackLoad(jobId: string) {
     setLogoVisible(elements, false);
+    cowbellOverlay?.disable();
     if (viz) {
       viz.setVisible(false);
       viz.reset();
@@ -920,6 +955,9 @@ async function bootstrap() {
         return;
       }
       engine.loadAnalysis(analysis.result);
+      cowbellOverlay?.setSectionStartBeatIndices(
+        engine.getSectionStartBeatIndices(),
+      );
       if (defaultConfig) {
         applyTuningToEngine(tuningParams, {
           resetAudioModeWhenMissing: true,
@@ -1132,6 +1170,7 @@ async function bootstrap() {
         return;
       }
       engine.pauseJukebox();
+      cowbellOverlay?.cancelScheduledHits();
       if (playStartAtMs !== null) {
         listenAccumulatedMs += Math.max(0, performance.now() - playStartAtMs);
         playStartAtMs = null;
@@ -1143,6 +1182,7 @@ async function bootstrap() {
     if (command.type === "stop") {
       engine.stopJukebox();
       player.stop();
+      cowbellOverlay?.cancelScheduledHits();
       isTrackPaused = false;
       playStartAtMs = null;
       listenAccumulatedMs = 0;

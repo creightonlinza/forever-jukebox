@@ -142,6 +142,9 @@ describe("cast tuning", () => {
     expect(parseCastTuningParams("am=cathedral", makeDefaults())?.audioMode).toBe(
       "cathedral",
     );
+    expect(parseCastTuningParams("am=cowbell", makeDefaults())?.audioMode).toBe(
+      "cowbell",
+    );
   });
 
   it("parses off case-insensitively for sender payload tolerance", () => {
