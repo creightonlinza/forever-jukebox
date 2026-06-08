@@ -53,5 +53,11 @@ docker run \
 Notes:
 
 - The API serves the web UI at `/`, the offline PWA at `/offline/`, and JSON at `/api/*`.
-- Persist `api/storage/` with a volume (EBS/EFS on AWS); container storage is ephemeral.
+- Persist `api/storage/` with a local or block-backed volume; container storage is ephemeral.
+- `WORKER_COUNT` can be raised for one app instance on a local/container volume; `6`
+  is a reasonable modest-concurrency target. Use a real queue/database instead of
+  SQLite for multiple app containers sharing job state, NFS-style shared filesystems,
+  or high write concurrency.
+- Do not delete `jobs.db-journal`, `jobs.db-wal`, or `jobs.db-shm` while the app is
+  running. Stop the API and workers first so SQLite can finish recovery/checkpointing.
 - Dependency updates (`yt-dlp`, `madmom-beats-lite`, `deno`) happen during image build/deploy; container startup performs no network updates.

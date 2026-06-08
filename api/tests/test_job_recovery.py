@@ -5,6 +5,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,7 +13,8 @@ from unittest.mock import patch
 
 from fastapi import BackgroundTasks
 
-from api.db import create_job, get_job, init_db, recover_stalled_processing_jobs, set_job_status
+from api import db as db_module
+from api.db import claim_next_job, create_job, get_job, init_db, recover_stalled_processing_jobs, set_job_status
 from api.models import AnalysisUrlRequest
 from api.routes import jobs
 from api.routes.jobs import _create_source_job, _should_attempt_auto_repair
@@ -21,6 +23,146 @@ from worker import worker as worker_module
 
 
 class JobRecoveryTests(unittest.TestCase):
+    def test_init_db_enables_wal_busy_timeout_and_foreign_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+
+            init_db(db_path)
+
+            with db_module._connect(db_path) as conn:
+                journal_mode = conn.execute("PRAGMA journal_mode").fetchone()
+                busy_timeout = conn.execute("PRAGMA busy_timeout").fetchone()
+                foreign_keys = conn.execute("PRAGMA foreign_keys").fetchone()
+                with self.assertRaises(sqlite3.IntegrityError):
+                    conn.execute(
+                        """
+                        INSERT INTO jobs (
+                            id, source_ref, status, input_path, output_path,
+                            error, progress, created_at, updated_at
+                        )
+                        VALUES ('orphan', 'missing-source', 'queued', '', '', NULL, 0, 'now', 'now')
+                        """
+                    )
+
+            self.assertEqual(journal_mode[0].lower(), "wal")
+            self.assertGreaterEqual(int(busy_timeout[0]), db_module.SQLITE_BUSY_TIMEOUT_MS)
+            self.assertEqual(int(foreign_keys[0]), 1)
+
+    def test_concurrent_claims_are_unique_with_six_workers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            init_db(db_path)
+            for index in range(6):
+                create_job(
+                    db_path,
+                    f"job-{index}",
+                    f"audio/job-{index}.mp3",
+                    f"analysis/job-{index}.json",
+                    "queued",
+                )
+
+            def claim_id() -> str | None:
+                job = claim_next_job(db_path)
+                return job.id if job else None
+
+            with ThreadPoolExecutor(max_workers=6) as executor:
+                claimed_ids = list(executor.map(lambda _: claim_id(), range(6)))
+
+            self.assertEqual(len(set(claimed_ids)), 6)
+            self.assertNotIn(None, claimed_ids)
+            for job_id in claimed_ids:
+                self.assertEqual(get_job(db_path, str(job_id)).status, "processing")
+
+    def test_claim_next_job_returns_none_when_database_stays_locked(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            init_db(db_path)
+            create_job(db_path, "locked-job", "audio/locked.mp3", "analysis/locked.json", "queued")
+            lock_conn = sqlite3.connect(db_path, timeout=0.01)
+            lock_conn.isolation_level = None
+            lock_conn.execute("BEGIN IMMEDIATE")
+            try:
+                with (
+                    patch.object(db_module, "CLAIM_BUSY_TIMEOUT_MS", 10),
+                    patch.object(db_module, "CLAIM_RETRY_DELAYS_S", (0.01,)),
+                    patch.object(db_module.time, "sleep"),
+                ):
+                    self.assertIsNone(claim_next_job(db_path))
+            finally:
+                lock_conn.execute("ROLLBACK")
+                lock_conn.close()
+
+            self.assertEqual(get_job(db_path, "locked-job").status, "queued")
+
+    def test_claim_next_job_rolls_back_after_mid_transaction_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            init_db(db_path)
+            create_job(db_path, "rollback-job", "audio/rollback.mp3", "analysis/rollback.json", "queued")
+
+            with patch.object(db_module, "_utc_now", side_effect=RuntimeError("forced failure")):
+                with self.assertRaisesRegex(RuntimeError, "forced failure"):
+                    claim_next_job(db_path)
+
+            claimed = claim_next_job(db_path)
+
+            self.assertIsNotNone(claimed)
+            self.assertEqual(claimed.id, "rollback-job")
+            self.assertEqual(get_job(db_path, "rollback-job").status, "processing")
+
+    def test_create_job_recovers_when_source_is_inserted_between_lookup_and_insert(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            init_db(db_path)
+            create_job(
+                db_path,
+                "existing-job",
+                "audio/existing.mp3",
+                "analysis/existing.json",
+                "queued",
+                track_title="Original Title",
+                track_artist="Original Artist",
+                source_id="yt-race",
+                source_provider="youtube",
+                source_url="https://www.youtube.com/watch?v=yt-race",
+            )
+            original_lookup = db_module._lookup_source_for_job
+            lookup_calls = 0
+
+            def simulate_stale_first_lookup(conn, *, provider, source_id, source_url):
+                nonlocal lookup_calls
+                lookup_calls += 1
+                if lookup_calls == 1:
+                    return None
+                return original_lookup(
+                    conn,
+                    provider=provider,
+                    source_id=source_id,
+                    source_url=source_url,
+                )
+
+            with patch.object(db_module, "_lookup_source_for_job", side_effect=simulate_stale_first_lookup):
+                create_job(
+                    db_path,
+                    "new-job",
+                    "audio/new.mp3",
+                    "analysis/new.json",
+                    "queued",
+                    track_title="New Title",
+                    track_artist="New Artist",
+                    source_id="yt-race",
+                    source_provider="youtube",
+                    source_url="https://www.youtube.com/watch?v=yt-race",
+                )
+
+            self.assertGreaterEqual(lookup_calls, 2)
+            with db_module._connect(db_path) as conn:
+                source_count = conn.execute("SELECT COUNT(*) FROM sources").fetchone()
+                job_count = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
+
+            self.assertEqual(source_count[0], 1)
+            self.assertEqual(job_count[0], 2)
+
     def test_recover_stalled_processing_jobs_leaves_failed_and_errored_jobs_alone(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
