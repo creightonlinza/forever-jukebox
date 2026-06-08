@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { JukeboxConfig } from "../engine/types";
 import {
+  CAST_AUDIO_MODE_CAPABILITIES,
   applyCastTuningToEngine,
   parseCastTuningParams,
   type CastTuningEngine,
@@ -145,6 +146,17 @@ describe("cast tuning", () => {
     expect(parseCastTuningParams("am=cowbell", makeDefaults())?.audioMode).toBe(
       "cowbell",
     );
+  });
+
+  it("parses every advertised cast audio mode", () => {
+    for (const mode of CAST_AUDIO_MODE_CAPABILITIES) {
+      expect(parseCastTuningParams(`am=${mode.wireValue}`, makeDefaults())?.audioMode)
+        .toBe(mode.wireValue);
+    }
+    expect(CAST_AUDIO_MODE_CAPABILITIES).toContainEqual({
+      wireValue: "cowbell",
+      label: "More Cowbell",
+    });
   });
 
   it("parses off case-insensitively for sender payload tolerance", () => {

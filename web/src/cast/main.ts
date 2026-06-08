@@ -10,7 +10,12 @@ import { JukeboxViz } from "../jukebox/JukeboxViz";
 import { fetchAnalysis, fetchAudio, recordPlay } from "../app/api";
 import { formatErrorForDisplay } from "../app/errorDisplay";
 import { formatDuration } from "../app/format";
-import { applyCastTuningToEngine, parseCastTuningParams } from "./tuning";
+import {
+  CAST_AUDIO_MODE_CAPABILITIES,
+  applyCastTuningToEngine,
+  parseCastTuningParams,
+  type CastAudioModeCapability,
+} from "./tuning";
 
 type CastCustomData = {
   baseUrl?: string;
@@ -44,6 +49,7 @@ type CastStatus = {
   isPlaying: boolean;
   isLoading: boolean;
   activeVizIndex: number;
+  supportedAudioModes: readonly CastAudioModeCapability[];
   tuning: CastTuningStatus | null;
   error?: string | null;
   errorCode?: string | null;
@@ -569,6 +575,7 @@ async function bootstrap() {
       isPlaying,
       isLoading,
       activeVizIndex: state.activeVizIndex,
+      supportedAudioModes: CAST_AUDIO_MODE_CAPABILITIES,
       tuning,
       error: error ?? null,
       errorCode: errorCode ?? null,

@@ -6,6 +6,17 @@ const doubles = vi.hoisted(() => {
   const recordPlayMock = vi.fn();
   const parseCastTuningParamsMock = vi.fn();
   const applyCastTuningToEngineMock = vi.fn();
+  const castAudioModeCapabilities = [
+    { wireValue: "off", label: "Off" },
+    { wireValue: "nightcore", label: "Nightcore" },
+    { wireValue: "daycore", label: "Daycore" },
+    { wireValue: "vaporwave", label: "Vaporwave" },
+    { wireValue: "eight_d", label: "8D Audio" },
+    { wireValue: "lofi", label: "LoFi" },
+    { wireValue: "underwater", label: "Underwater" },
+    { wireValue: "cathedral", label: "Cathedral" },
+    { wireValue: "cowbell", label: "More Cowbell" },
+  ];
   const playerInstances: any[] = [];
   const engineInstances: any[] = [];
   const vizInstances: any[] = [];
@@ -118,6 +129,7 @@ const doubles = vi.hoisted(() => {
     recordPlayMock,
     parseCastTuningParamsMock,
     applyCastTuningToEngineMock,
+    castAudioModeCapabilities,
     playerInstances,
     engineInstances,
     vizInstances,
@@ -175,6 +187,7 @@ vi.mock("../app/format", () => ({
 }));
 
 vi.mock("./tuning", () => ({
+  CAST_AUDIO_MODE_CAPABILITIES: doubles.castAudioModeCapabilities,
   parseCastTuningParams: doubles.parseCastTuningParamsMock,
   applyCastTuningToEngine: doubles.applyCastTuningToEngineMock,
 }));
@@ -417,6 +430,7 @@ describe("cast receiver main", () => {
       type: "status",
       jobId,
       createdAt,
+      supportedAudioModes: doubles.castAudioModeCapabilities,
       tuning: {
         justBackwards: false,
         justLongBranches: false,
@@ -552,6 +566,7 @@ describe("cast receiver main", () => {
       isLoading: true,
       tuning: null,
       playbackState: "loading",
+      supportedAudioModes: doubles.castAudioModeCapabilities,
     });
     await flushMicrotasks();
     await vi.advanceTimersByTimeAsync(2100);
@@ -1125,6 +1140,7 @@ describe("cast receiver main", () => {
       jobId: null,
       createdAt: null,
       playbackState: "idle",
+      supportedAudioModes: doubles.castAudioModeCapabilities,
     });
   });
 
