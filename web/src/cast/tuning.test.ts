@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { JukeboxConfig } from "../engine/types";
 import {
+  CAST_AUDIO_MODE_CAPABILITIES,
   applyCastTuningToEngine,
   parseCastTuningParams,
   type CastTuningEngine,
@@ -128,9 +129,9 @@ describe("cast tuning", () => {
   });
 
   it("parses audio-only payloads without graph tuning", () => {
-    const parsed = parseCastTuningParams("am=eight_bit", makeDefaults());
+    const parsed = parseCastTuningParams("am=vaporwave", makeDefaults());
     expect(parsed).not.toBeNull();
-    expect(parsed?.audioMode).toBe("eight_bit");
+    expect(parsed?.audioMode).toBe("vaporwave");
     expect(parsed?.hasAudioModeParam).toBe(true);
     expect(parsed?.hasGraphTuning).toBe(false);
   });
@@ -142,6 +143,20 @@ describe("cast tuning", () => {
     expect(parseCastTuningParams("am=cathedral", makeDefaults())?.audioMode).toBe(
       "cathedral",
     );
+    expect(parseCastTuningParams("am=cowbell", makeDefaults())?.audioMode).toBe(
+      "cowbell",
+    );
+  });
+
+  it("parses every advertised cast audio mode", () => {
+    for (const mode of CAST_AUDIO_MODE_CAPABILITIES) {
+      expect(parseCastTuningParams(`am=${mode.wireValue}`, makeDefaults())?.audioMode)
+        .toBe(mode.wireValue);
+    }
+    expect(CAST_AUDIO_MODE_CAPABILITIES).toContainEqual({
+      wireValue: "cowbell",
+      label: "More Cowbell",
+    });
   });
 
   it("parses off case-insensitively for sender payload tolerance", () => {
@@ -150,6 +165,14 @@ describe("cast tuning", () => {
 
   it("ignores unsupported audio mode values", () => {
     const parsed = parseCastTuningParams("am=chipmunk", makeDefaults());
+    expect(parsed).not.toBeNull();
+    expect(parsed?.audioMode).toBeNull();
+    expect(parsed?.hasAudioModeParam).toBe(true);
+    expect(parsed?.hasGraphTuning).toBe(false);
+  });
+
+  it("does not support eight-bit on cast", () => {
+    const parsed = parseCastTuningParams("am=eight_bit", makeDefaults());
     expect(parsed).not.toBeNull();
     expect(parsed?.audioMode).toBeNull();
     expect(parsed?.hasAudioModeParam).toBe(true);
