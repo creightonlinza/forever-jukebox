@@ -226,3 +226,9 @@ Jobs and analysis outputs are stored under `storage/` in this repo:
 - `storage/logs/` - failure logs (engine output or download errors)
 - `storage/jobs.db`
 - `storage/favorites.db`
+
+SQLite queueing is intended for one API/worker instance using a local or container
+volume. Modest worker concurrency such as `WORKER_COUNT=6` is supported, but do not
+share one `jobs.db` across multiple running app containers or NFS-style filesystems.
+Do not delete SQLite sidecar files such as `jobs.db-journal`, `jobs.db-wal`, or
+`jobs.db-shm` while the app is running.

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import logging
+import random
 import sqlite3
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -11,6 +14,15 @@ from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
 
 from .db_migrations import run_migrations
+
+logger = logging.getLogger("foreverjukebox.api.db")
+
+SQLITE_CONNECT_TIMEOUT_S = 30.0
+SQLITE_BUSY_TIMEOUT_MS = 30_000
+CLAIM_LOCK_BUSY_TIMEOUT_MS = 250
+CLAIM_LOCK_RETRY_COUNT = 5
+CLAIM_LOCK_RETRY_BASE_S = 0.05
+CLAIM_LOCK_RETRY_MAX_S = 0.75
 
 
 @dataclass
@@ -92,6 +104,30 @@ def _safe_int(value: object, default: int = 0) -> int:
 
 def _clamp_progress(value: object) -> int:
     return max(0, min(100, _safe_int(value, 0)))
+
+
+def _connect(
+    db_path: Path,
+    *,
+    timeout_s: float = SQLITE_CONNECT_TIMEOUT_S,
+    busy_timeout_ms: int = SQLITE_BUSY_TIMEOUT_MS,
+) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path, timeout=timeout_s)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute(f"PRAGMA busy_timeout = {int(busy_timeout_ms)}")
+    return conn
+
+
+def _is_sqlite_lock_error(exc: BaseException) -> bool:
+    if not isinstance(exc, sqlite3.OperationalError):
+        return False
+    message = str(exc).lower()
+    return "database is locked" in message or "database table is locked" in message
+
+
+def _sleep_for_claim_retry(attempt: int) -> None:
+    delay = min(CLAIM_LOCK_RETRY_MAX_S, CLAIM_LOCK_RETRY_BASE_S * (2**attempt))
+    time.sleep(delay + random.uniform(0.0, CLAIM_LOCK_RETRY_BASE_S))
 
 
 def _provider_for_url(source_url: str | None) -> str | None:
@@ -189,7 +225,12 @@ def _source_ref_for(
 
 def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+        except sqlite3.OperationalError as exc:
+            logger.warning("SQLite WAL setup failed for %s; continuing with default journal mode: %s", db_path, exc)
         run_migrations(conn)
         conn.commit()
 
@@ -225,13 +266,8 @@ def _upsert_source_for_job(
     source_fallback: str,
 ) -> str:
     now = _utc_now()
-    existing = _lookup_source_for_job(
-        conn,
-        provider=provider,
-        source_id=source_id,
-        source_url=source_url,
-    )
-    if existing:
+
+    def update_existing(existing: tuple[str, str | None, str | None, str | None]) -> str:
         source_ref = str(existing[0])
         existing_url = _clean_text(existing[1])
         existing_title = _clean_text(existing[2])
@@ -249,6 +285,15 @@ def _upsert_source_for_job(
         )
         return source_ref
 
+    existing = _lookup_source_for_job(
+        conn,
+        provider=provider,
+        source_id=source_id,
+        source_url=source_url,
+    )
+    if existing:
+        return update_existing(existing)
+
     base_ref = _source_ref_for(provider, source_id, source_url, source_fallback)
     source_ref = base_ref
     suffix = 2
@@ -256,26 +301,37 @@ def _upsert_source_for_job(
         source_ref = f"{base_ref}_{suffix}"
         suffix += 1
 
-    conn.execute(
-        """
-        INSERT INTO sources (
-            id, provider, source_id, source_url,
-            track_title, track_artist, play_count,
-            created_at, updated_at
+    try:
+        conn.execute(
+            """
+            INSERT INTO sources (
+                id, provider, source_id, source_url,
+                track_title, track_artist, play_count,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+            """,
+            (
+                source_ref,
+                provider,
+                source_id,
+                source_url,
+                track_title,
+                track_artist if track_artist is not None else "",
+                now,
+                now,
+            ),
         )
-        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
-        """,
-        (
-            source_ref,
-            provider,
-            source_id,
-            source_url,
-            track_title,
-            track_artist if track_artist is not None else "",
-            now,
-            now,
-        ),
-    )
+    except sqlite3.IntegrityError:
+        existing = _lookup_source_for_job(
+            conn,
+            provider=provider,
+            source_id=source_id,
+            source_url=source_url,
+        )
+        if not existing:
+            raise
+        return update_existing(existing)
     return source_ref
 
 
@@ -300,7 +356,7 @@ def create_job(
         source_url=source_url,
         input_path=input_path,
     )
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         source_ref = _upsert_source_for_job(
             conn,
             provider=provider,
@@ -343,7 +399,7 @@ def create_job(
 
 
 def get_job(db_path: Path, job_id: str) -> Optional[Job]:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute(
             f"SELECT {JOB_SELECT_COLUMNS} FROM jobs j JOIN sources s ON s.id = j.source_ref WHERE j.id = ?",
             (job_id,),
@@ -353,7 +409,7 @@ def get_job(db_path: Path, job_id: str) -> Optional[Job]:
 
 def set_job_status(db_path: Path, job_id: str, status: str, error: Optional[str] = None) -> None:
     now = _utc_now()
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         conn.execute(
             "UPDATE jobs SET status = ?, error = ?, updated_at = ? WHERE id = ?",
             (status, error, now, job_id),
@@ -363,7 +419,7 @@ def set_job_status(db_path: Path, job_id: str, status: str, error: Optional[str]
 
 def recover_stalled_processing_jobs(db_path: Path) -> int:
     now = _utc_now()
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         cur = conn.execute(
             "UPDATE jobs SET status = 'queued', progress = 0, error = NULL, updated_at = ? "
             "WHERE status = 'processing' AND error IS NULL",
@@ -374,7 +430,7 @@ def recover_stalled_processing_jobs(db_path: Path) -> int:
 
 
 def delete_job(db_path: Path, job_id: str) -> None:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute("SELECT source_ref FROM jobs WHERE id = ?", (job_id,)).fetchone()
         source_ref = row[0] if row else None
         conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
@@ -389,32 +445,62 @@ def delete_job(db_path: Path, job_id: str) -> None:
         conn.commit()
 
 
-def claim_next_job(db_path: Path) -> Optional[Job]:
-    with sqlite3.connect(db_path) as conn:
+def _claim_next_job_once(db_path: Path) -> Optional[Job]:
+    with _connect(
+        db_path,
+        timeout_s=CLAIM_LOCK_BUSY_TIMEOUT_MS / 1000,
+        busy_timeout_ms=CLAIM_LOCK_BUSY_TIMEOUT_MS,
+    ) as conn:
         conn.isolation_level = None
-        conn.execute("BEGIN IMMEDIATE")
-        row = conn.execute(
-            "SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at, id LIMIT 1"
-        ).fetchone()
-        if not row:
+        transaction_started = False
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            transaction_started = True
+            row = conn.execute(
+                "SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at, id LIMIT 1"
+            ).fetchone()
+            if not row:
+                conn.execute("COMMIT")
+                transaction_started = False
+                return None
+            job_id = str(row[0])
+            now = _utc_now()
+            conn.execute(
+                "UPDATE jobs SET status = 'processing', progress = 0, updated_at = ? WHERE id = ?",
+                (now, job_id),
+            )
+            job_row = conn.execute(
+                f"SELECT {JOB_SELECT_COLUMNS} FROM jobs j JOIN sources s ON s.id = j.source_ref WHERE j.id = ?",
+                (job_id,),
+            ).fetchone()
             conn.execute("COMMIT")
-            return None
-        job_id = str(row[0])
-        now = _utc_now()
-        conn.execute(
-            "UPDATE jobs SET status = 'processing', progress = 0, updated_at = ? WHERE id = ?",
-            (now, job_id),
-        )
-        job_row = conn.execute(
-            f"SELECT {JOB_SELECT_COLUMNS} FROM jobs j JOIN sources s ON s.id = j.source_ref WHERE j.id = ?",
-            (job_id,),
-        ).fetchone()
-        conn.execute("COMMIT")
+            transaction_started = False
+        except Exception:
+            if transaction_started:
+                try:
+                    conn.execute("ROLLBACK")
+                except sqlite3.Error:
+                    pass
+            raise
     return _job_from_row(job_row)
 
 
+def claim_next_job(db_path: Path) -> Optional[Job]:
+    for attempt in range(CLAIM_LOCK_RETRY_COUNT):
+        try:
+            return _claim_next_job_once(db_path)
+        except sqlite3.OperationalError as exc:
+            if not _is_sqlite_lock_error(exc):
+                raise
+            if attempt >= CLAIM_LOCK_RETRY_COUNT - 1:
+                logger.warning("Could not claim a queued job because SQLite remained locked: %s", exc)
+                return None
+            _sleep_for_claim_retry(attempt)
+    return None
+
+
 def count_queued_jobs_ahead(db_path: Path, job_id: str, created_at: str) -> int:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute(
             """
             SELECT COUNT(*)
@@ -433,7 +519,7 @@ def count_queued_jobs_ahead(db_path: Path, job_id: str, created_at: str) -> int:
 
 
 def get_job_by_source(db_path: Path, source_provider: str, source_id: str) -> Optional[Job]:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute(
             f"SELECT {JOB_SELECT_COLUMNS} FROM jobs j "
             "JOIN sources s ON s.id = j.source_ref "
@@ -445,7 +531,7 @@ def get_job_by_source(db_path: Path, source_provider: str, source_id: str) -> Op
 
 
 def get_job_by_source_url(db_path: Path, source_url: str) -> Optional[Job]:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute(
             f"SELECT {JOB_SELECT_COLUMNS} FROM jobs j "
             "JOIN sources s ON s.id = j.source_ref "
@@ -457,7 +543,7 @@ def get_job_by_source_url(db_path: Path, source_url: str) -> Optional[Job]:
 
 
 def get_job_by_track(db_path: Path, title: str, artist: str) -> Optional[Job]:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute(
             f"SELECT {JOB_SELECT_COLUMNS} FROM jobs j "
             "JOIN sources s ON s.id = j.source_ref "
@@ -470,10 +556,9 @@ def get_job_by_track(db_path: Path, title: str, artist: str) -> Optional[Job]:
 
 def increment_job_plays(db_path: Path, job_id: str) -> Optional[int]:
     now = _utc_now()
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute("SELECT source_ref FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if not row:
-            conn.commit()
             return None
         source_ref = row[0]
         conn.execute(
@@ -498,10 +583,9 @@ def increment_job_plays(db_path: Path, job_id: str) -> Optional[int]:
 def set_job_play_count(db_path: Path, job_id: str, play_count: int) -> Optional[int]:
     now = _utc_now()
     clamped = max(0, int(play_count))
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute("SELECT source_ref FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if not row:
-            conn.commit()
             return None
         source_ref = row[0]
         conn.execute(
@@ -525,7 +609,7 @@ def set_job_play_count(db_path: Path, job_id: str, play_count: int) -> Optional[
 
 def set_job_progress(db_path: Path, job_id: str, progress: int) -> None:
     clamped = _clamp_progress(progress)
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         conn.execute(
             "UPDATE jobs SET progress = ?, updated_at = ? WHERE id = ?",
             (clamped, _utc_now(), job_id),
@@ -534,7 +618,7 @@ def set_job_progress(db_path: Path, job_id: str, progress: int) -> None:
 
 
 def update_job_input_path(db_path: Path, job_id: str, input_path: str) -> None:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         conn.execute(
             "UPDATE jobs SET input_path = ?, updated_at = ? WHERE id = ?",
             (input_path, _utc_now(), job_id),
@@ -545,10 +629,9 @@ def update_job_input_path(db_path: Path, job_id: str, input_path: str) -> None:
 def update_job_track_metadata(
     db_path: Path, job_id: str, track_title: Optional[str], track_artist: Optional[str]
 ) -> None:
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         row = conn.execute("SELECT source_ref FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if not row:
-            conn.commit()
             return
         source_ref = row[0]
         conn.execute(
@@ -586,7 +669,7 @@ def get_top_tracks(
     if touched_within_days is not None:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=touched_within_days)).isoformat()
 
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         excluded_refs: list[str] = []
         if exclude_top_n is not None and exclude_top_n > 0:
             excluded_refs = _exclude_top_source_refs(conn, exclude_top_n)
@@ -662,7 +745,7 @@ def get_top_tracks(
 
 def get_recent_tracks(db_path: Path, limit: int = 10) -> list[dict]:
     activity_expr = "COALESCE(s.updated_at, s.created_at)"
-    with sqlite3.connect(db_path) as conn:
+    with _connect(db_path) as conn:
         rows = conn.execute(
             """
             SELECT
