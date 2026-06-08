@@ -83,9 +83,9 @@ class JobRecoveryTests(unittest.TestCase):
             lock_conn.execute("BEGIN IMMEDIATE")
             try:
                 with (
-                    patch.object(db_module, "CLAIM_LOCK_BUSY_TIMEOUT_MS", 10),
-                    patch.object(db_module, "CLAIM_LOCK_RETRY_COUNT", 2),
-                    patch.object(db_module, "_sleep_for_claim_retry"),
+                    patch.object(db_module, "CLAIM_BUSY_TIMEOUT_MS", 10),
+                    patch.object(db_module, "CLAIM_RETRY_DELAYS_S", (0.01,)),
+                    patch.object(db_module.time, "sleep"),
                 ):
                     self.assertIsNone(claim_next_job(db_path))
             finally:

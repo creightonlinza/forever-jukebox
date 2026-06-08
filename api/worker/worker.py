@@ -251,7 +251,6 @@ def run_worker_loop() -> None:
             elapsed_ms=_completion_elapsed_ms(job),
         )
 
-
 def main() -> None:
     init_db(DB_PATH)
     STORAGE_ROOT.mkdir(parents=True, exist_ok=True)

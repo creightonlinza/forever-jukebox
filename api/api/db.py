@@ -19,10 +19,8 @@ logger = logging.getLogger("foreverjukebox.api.db")
 
 SQLITE_CONNECT_TIMEOUT_S = 30.0
 SQLITE_BUSY_TIMEOUT_MS = 30_000
-CLAIM_LOCK_BUSY_TIMEOUT_MS = 250
-CLAIM_LOCK_RETRY_COUNT = 5
-CLAIM_LOCK_RETRY_BASE_S = 0.05
-CLAIM_LOCK_RETRY_MAX_S = 0.75
+CLAIM_BUSY_TIMEOUT_MS = 250
+CLAIM_RETRY_DELAYS_S = (0.05, 0.1, 0.2, 0.4)
 
 
 @dataclass
@@ -123,11 +121,6 @@ def _is_sqlite_lock_error(exc: BaseException) -> bool:
         return False
     message = str(exc).lower()
     return "database is locked" in message or "database table is locked" in message
-
-
-def _sleep_for_claim_retry(attempt: int) -> None:
-    delay = min(CLAIM_LOCK_RETRY_MAX_S, CLAIM_LOCK_RETRY_BASE_S * (2**attempt))
-    time.sleep(delay + random.uniform(0.0, CLAIM_LOCK_RETRY_BASE_S))
 
 
 def _provider_for_url(source_url: str | None) -> str | None:
@@ -448,8 +441,8 @@ def delete_job(db_path: Path, job_id: str) -> None:
 def _claim_next_job_once(db_path: Path) -> Optional[Job]:
     with _connect(
         db_path,
-        timeout_s=CLAIM_LOCK_BUSY_TIMEOUT_MS / 1000,
-        busy_timeout_ms=CLAIM_LOCK_BUSY_TIMEOUT_MS,
+        timeout_s=CLAIM_BUSY_TIMEOUT_MS / 1000,
+        busy_timeout_ms=CLAIM_BUSY_TIMEOUT_MS,
     ) as conn:
         conn.isolation_level = None
         transaction_started = False
@@ -486,16 +479,17 @@ def _claim_next_job_once(db_path: Path) -> Optional[Job]:
 
 
 def claim_next_job(db_path: Path) -> Optional[Job]:
-    for attempt in range(CLAIM_LOCK_RETRY_COUNT):
+    retry_delays = (*CLAIM_RETRY_DELAYS_S, None)
+    for delay in retry_delays:
         try:
             return _claim_next_job_once(db_path)
         except sqlite3.OperationalError as exc:
             if not _is_sqlite_lock_error(exc):
                 raise
-            if attempt >= CLAIM_LOCK_RETRY_COUNT - 1:
+            if delay is None:
                 logger.warning("Could not claim a queued job because SQLite remained locked: %s", exc)
                 return None
-            _sleep_for_claim_retry(attempt)
+            time.sleep(delay + random.uniform(0.0, delay))
     return None
 
 
