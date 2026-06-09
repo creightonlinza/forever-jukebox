@@ -11,6 +11,11 @@ export type { JukeboxAudioMode } from "./audioModes";
 
 const MAX_LATE_JUMP_FRAMES = 8;
 
+type AnchorJump = {
+  targetTime: number;
+  sourceStartTime: number;
+};
+
 export class BufferedAudioPlayer {
   private context: AudioContext;
   private originalBuffer: AudioBuffer | null = null;
@@ -19,6 +24,11 @@ export class BufferedAudioPlayer {
   private pendingSource: AudioBufferSourceNode | null = null;
   private pendingSwapAt: number | null = null;
   private pendingStartAt = 0;
+  private anchorPendingSource: AudioBufferSourceNode | null = null;
+  private anchorPendingSwapAt: number | null = null;
+  private anchorPendingStartAt = 0;
+  private anchorStopSource: AudioBufferSourceNode | null = null;
+  private anchorJump: AnchorJump | null = null;
   private masterGain: GainNode;
   private sourceChainInput: GainNode;
   private sourceChainOutput: GainNode;
@@ -57,6 +67,7 @@ export class BufferedAudioPlayer {
 
   async loadBuffer(buffer: AudioBuffer) {
     this.stop();
+    this.clearAnchorJump();
     this.originalBuffer = buffer;
     this.renderedModeBuffers = {};
     this.reverbImpulseBuffers.clear();
@@ -126,6 +137,7 @@ export class BufferedAudioPlayer {
     this.stopSource();
     this.playing = false;
     this.offset = 0;
+    this.clearAnchorJump();
     this.stopPanMotion();
   }
 
@@ -150,8 +162,7 @@ export class BufferedAudioPlayer {
     if (!this.playing) {
       return this.offset;
     }
-    const elapsed = (this.context.currentTime - this.startAt) * this.playbackRate;
-    return Math.max(0, Math.min(this.buffer.duration, elapsed));
+    return this.getCurrentTimeFromClock();
   }
 
   getAudioTime(): number {
@@ -286,12 +297,14 @@ export class BufferedAudioPlayer {
     if (!this.buffer || !this.playing) {
       return false;
     }
+    this.maybePromotePending();
     const currentSourceTime = this.getCurrentTime();
     const lateBy = currentSourceTime - sourceStartTime;
     const maxLateSeconds = MAX_LATE_JUMP_FRAMES / this.context.sampleRate;
     if (lateBy > maxLateSeconds) {
       return false;
     }
+    this.clearAnchorPendingSwap();
     this.clearPendingSwap();
     const sourceLead = Math.max(0, sourceStartTime - currentSourceTime);
     const startTime = this.context.currentTime + sourceLead / this.playbackRate;
@@ -301,6 +314,9 @@ export class BufferedAudioPlayer {
     source.connect(this.sourceChainInput);
     source.onended = () => {
       if (this.source !== source) {
+        return;
+      }
+      if (this.isSourceStoppingForPendingAnchor(source)) {
         return;
       }
       if (this.playing) {
@@ -328,15 +344,42 @@ export class BufferedAudioPlayer {
     this.pendingSource = source;
     this.pendingStartAt = startTime - targetTime / this.playbackRate;
     this.pendingSwapAt = startTime;
+    this.armAnchorPendingSwap(targetTime, startTime, source);
     return true;
   }
 
   cancelScheduledJump() {
     this.maybePromotePending();
+    this.clearAnchorPendingSwap();
     this.clearPendingSwap({ restartCurrentSource: true });
+    this.syncAnchorPendingSwap();
+  }
+
+  setAnchorJump(targetTime: number, sourceStartTime: number) {
+    if (
+      !this.buffer ||
+      !Number.isFinite(targetTime) ||
+      !Number.isFinite(sourceStartTime) ||
+      targetTime < 0 ||
+      targetTime >= this.buffer.duration ||
+      sourceStartTime < 0 ||
+      sourceStartTime > this.buffer.duration
+    ) {
+      this.clearAnchorJump();
+      return false;
+    }
+    this.anchorJump = { targetTime, sourceStartTime };
+    this.syncAnchorPendingSwap();
+    return true;
+  }
+
+  clearAnchorJump() {
+    this.anchorJump = null;
+    this.clearAnchorPendingSwap({ restartCurrentSource: true });
   }
 
   private stopSource() {
+    this.clearAnchorPendingSwap();
     this.clearPendingSwap();
     if (this.source) {
       this.source.onended = null;
@@ -380,6 +423,7 @@ export class BufferedAudioPlayer {
 
   private maybePromotePending() {
     if (!this.pendingSource || this.pendingSwapAt === null) {
+      this.maybePromoteAnchorPending();
       return;
     }
     if (this.context.currentTime < this.pendingSwapAt) {
@@ -393,9 +437,32 @@ export class BufferedAudioPlayer {
     this.startAt = this.pendingStartAt;
     this.pendingSource = null;
     this.pendingSwapAt = null;
+    this.maybePromoteAnchorPending();
   }
 
-  private startSourceAt(offset: number, startTime: number) {
+  private maybePromoteAnchorPending() {
+    if (!this.anchorPendingSource || this.anchorPendingSwapAt === null) {
+      return;
+    }
+    if (this.context.currentTime < this.anchorPendingSwapAt) {
+      return;
+    }
+    const source = this.anchorPendingSource;
+    if (this.source) {
+      this.source.disconnect();
+    }
+    this.source = source;
+    this.startAt = this.anchorPendingStartAt;
+    this.anchorPendingSource = null;
+    this.anchorPendingSwapAt = null;
+    this.syncAnchorPendingSwap();
+  }
+
+  private startSourceAt(
+    offset: number,
+    startTime: number,
+    options: { syncAnchor?: boolean } = {},
+  ) {
     if (!this.buffer) {
       return;
     }
@@ -411,6 +478,9 @@ export class BufferedAudioPlayer {
       if (this.source !== source) {
         return;
       }
+      if (this.isSourceStoppingForPendingAnchor(source)) {
+        return;
+      }
       if (this.playing) {
         this.playing = false;
         this.offset = this.buffer ? this.buffer.duration : 0;
@@ -420,9 +490,16 @@ export class BufferedAudioPlayer {
     };
     const duration = this.buffer.duration - offset;
     source.start(startTime, offset, Math.max(0, duration));
+    if (options.syncAnchor !== false) {
+      this.syncAnchorPendingSwap();
+    }
   }
 
-  private replaceCurrentSourceAt(offset: number, startTime: number) {
+  private replaceCurrentSourceAt(
+    offset: number,
+    startTime: number,
+    options: { syncAnchor?: boolean } = {},
+  ) {
     if (this.source) {
       this.source.onended = null;
       try {
@@ -433,7 +510,124 @@ export class BufferedAudioPlayer {
       this.source.disconnect();
       this.source = null;
     }
-    this.startSourceAt(offset, startTime);
+    this.startSourceAt(offset, startTime, options);
+  }
+
+  private getCurrentTimeFromClock(): number {
+    if (!this.buffer) {
+      return 0;
+    }
+    const elapsed = (this.context.currentTime - this.startAt) * this.playbackRate;
+    return Math.max(0, Math.min(this.buffer.duration, elapsed));
+  }
+
+  private syncAnchorPendingSwap() {
+    this.clearAnchorPendingSwap({ restartCurrentSource: true });
+    if (!this.source || !this.playing) {
+      return;
+    }
+    this.armAnchorPendingSwap(
+      this.getCurrentTimeFromClock(),
+      this.context.currentTime,
+      this.source,
+    );
+  }
+
+  private armAnchorPendingSwap(
+    sourceOffset: number,
+    contextStartTime: number,
+    sourceToStop: AudioBufferSourceNode,
+  ) {
+    if (!this.buffer || !this.anchorJump) {
+      return false;
+    }
+    const { targetTime, sourceStartTime } = this.anchorJump;
+    const lateBy = sourceOffset - sourceStartTime;
+    const maxLateSeconds = MAX_LATE_JUMP_FRAMES / this.context.sampleRate;
+    if (lateBy > maxLateSeconds) {
+      return false;
+    }
+    const sourceLead = Math.max(0, sourceStartTime - sourceOffset);
+    const startTime = contextStartTime + sourceLead / this.playbackRate;
+    const source = this.context.createBufferSource();
+    source.buffer = this.buffer;
+    source.playbackRate.value = this.playbackRate;
+    source.connect(this.sourceChainInput);
+    source.onended = () => {
+      if (this.source !== source) {
+        return;
+      }
+      if (this.isSourceStoppingForPendingAnchor(source)) {
+        return;
+      }
+      if (this.playing) {
+        this.playing = false;
+        this.offset = this.buffer ? this.buffer.duration : 0;
+        this.stopPanMotion();
+        this.onEnded?.();
+      }
+    };
+    const duration = this.buffer.duration - targetTime;
+    try {
+      source.start(startTime, targetTime, Math.max(0, duration));
+      sourceToStop.stop(startTime);
+    } catch {
+      source.disconnect();
+      return false;
+    }
+    this.anchorPendingSource = source;
+    this.anchorPendingStartAt = startTime - targetTime / this.playbackRate;
+    this.anchorPendingSwapAt = startTime;
+    this.anchorStopSource = sourceToStop;
+    return true;
+  }
+
+  private isSourceStoppingForPendingAnchor(source: AudioBufferSourceNode) {
+    return (
+      this.anchorStopSource === source &&
+      this.anchorPendingSource !== null &&
+      this.anchorPendingSwapAt !== null &&
+      this.context.currentTime + Number.EPSILON >= this.anchorPendingSwapAt
+    );
+  }
+
+  private clearAnchorPendingSwap(
+    options: { restartCurrentSource?: boolean } = {},
+  ) {
+    const shouldRestartCurrentSource =
+      options.restartCurrentSource === true &&
+      this.playing &&
+      this.buffer !== null &&
+      this.source !== null &&
+      this.anchorStopSource === this.source &&
+      this.anchorPendingSwapAt !== null &&
+      this.context.currentTime < this.anchorPendingSwapAt;
+    const restartOffset = shouldRestartCurrentSource
+      ? this.getCurrentTimeFromClock()
+      : null;
+    this.anchorPendingSwapAt = null;
+    this.anchorStopSource = null;
+    if (!this.anchorPendingSource) {
+      if (restartOffset !== null) {
+        this.replaceCurrentSourceAt(restartOffset, this.context.currentTime, {
+          syncAnchor: false,
+        });
+      }
+      return;
+    }
+    this.anchorPendingSource.onended = null;
+    try {
+      this.anchorPendingSource.stop(0);
+    } catch {
+      // no-op
+    }
+    this.anchorPendingSource.disconnect();
+    this.anchorPendingSource = null;
+    if (restartOffset !== null) {
+      this.replaceCurrentSourceAt(restartOffset, this.context.currentTime, {
+        syncAnchor: false,
+      });
+    }
   }
 
   private rebuildSourceChain() {

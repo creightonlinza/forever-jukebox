@@ -422,6 +422,42 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.stop).toHaveBeenCalledWith(11);
   });
 
+  it("pre-schedules an anchor fallback jump on the audio clock", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+
+    expect(player.setAnchorJump(2, 5)).toBe(true);
+
+    expect(context.createdSources).toHaveLength(2);
+    expect(context.createdSources[1]?.start).toHaveBeenCalledWith(5, 2, 18);
+    expect(context.createdSources[0]?.stop).toHaveBeenCalledWith(5);
+
+    context.currentTime = 5.25;
+    expect(player.getCurrentTime()).toBeCloseTo(2.25, 5);
+  });
+
+  it("lets explicit jumps override and chain the stored anchor fallback", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    expect(player.setAnchorJump(2, 5)).toBe(true);
+    const firstAnchor = context.createdSources[1];
+
+    expect(player.scheduleJump(3, 1)).toBe(true);
+
+    const explicit = context.createdSources[2];
+    const chainedAnchor = context.createdSources[3];
+    expect(firstAnchor?.stop).toHaveBeenCalledWith(0);
+    expect(firstAnchor?.disconnect).toHaveBeenCalledTimes(1);
+    expect(explicit?.start).toHaveBeenCalledWith(1, 3, 17);
+    expect(context.createdSources[0]?.stop).toHaveBeenCalledWith(1);
+    expect(chainedAnchor?.start).toHaveBeenCalledWith(3, 2, 18);
+    expect(explicit?.stop).toHaveBeenCalledWith(3);
+  });
+
   it("skips stale jumps that are already past the source boundary", async () => {
     const context = new MockAudioContext();
     context.currentTime = 1;
