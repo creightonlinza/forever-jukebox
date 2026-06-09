@@ -19,12 +19,14 @@ from .paths import DB_PATH, FAVORITES_DB_PATH, STORAGE_ROOT, WEB_DIST
 load_dotenv()
 
 from .routes.config import router as config_router
+from .routes.admin import router as admin_router
 from .routes.favorites import router as favorites_router
 from .routes.jobs import router as jobs_router
 from .routes.media import router as media_router
 from .routes.search import router as search_router
 
 app = FastAPI(title="The Forever Jukebox Analysis API")
+app.include_router(admin_router)
 app.include_router(config_router)
 app.include_router(favorites_router)
 app.include_router(jobs_router)
