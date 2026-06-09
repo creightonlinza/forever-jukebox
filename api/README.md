@@ -217,26 +217,6 @@ Within 30 minutes of creation/completion, the admin header is not required:
 curl -X DELETE "/api/jobs/<id>"
 ```
 
-Preview manual storage cleanup for cold, low-play tracks (admin):
-
-```bash
-curl -X POST "/api/admin/storage-cleanup" \
-  -H "Content-Type: application/json" \
-  -H "X-Admin-Key: $ADMIN_KEY" \
-  -d '{}'
-```
-
-The cleanup defaults to completed jobs with `play_count < 3` and source activity
-older than 90 days. Dry-run is the default. To execute the cleanup, set `dry_run`
-to `false` and include the explicit confirmation:
-
-```bash
-curl -X POST "/api/admin/storage-cleanup" \
-  -H "Content-Type: application/json" \
-  -H "X-Admin-Key: $ADMIN_KEY" \
-  -d '{"dry_run":false,"confirm":"delete"}'
-```
-
 ## Storage
 
 Jobs and analysis outputs are stored under `storage/` in this repo:
