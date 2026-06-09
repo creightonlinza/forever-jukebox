@@ -510,20 +510,20 @@ def cleanup_failure(
     logger.info("Job %s failed: %s", job_id, message)
 
 
-def delete_job_artifacts(job_id: str, job) -> None:
+def delete_job_artifacts(job_id: str, job, storage_root: Path = STORAGE_ROOT) -> None:
     paths: list[Path] = []
     if job and job.input_path:
-        paths.append(abs_storage_path(STORAGE_ROOT, job.input_path))
+        paths.append(abs_storage_path(storage_root, job.input_path))
     if job and job.output_path:
-        paths.append(abs_storage_path(STORAGE_ROOT, job.output_path))
-    paths.append(STORAGE_ROOT / "logs" / f"{job_id}.log")
+        paths.append(abs_storage_path(storage_root, job.output_path))
+    paths.append(storage_root / "logs" / f"{job_id}.log")
     for path in paths:
         if path.is_file():
             path.unlink()
-    for candidate in (STORAGE_ROOT / "audio").glob(f"{job_id}.*"):
+    for candidate in (storage_root / "audio").glob(f"{job_id}.*"):
         if candidate.is_file():
             candidate.unlink()
-    for candidate in (STORAGE_ROOT / "analysis").glob(f"{job_id}.*"):
+    for candidate in (storage_root / "analysis").glob(f"{job_id}.*"):
         if candidate.is_file():
             candidate.unlink()
 
