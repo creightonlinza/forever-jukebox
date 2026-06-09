@@ -78,6 +78,43 @@ class PlayCountUpdate(BaseModel):
     play_count: int
 
 
+class StorageCleanupRequest(BaseModel):
+    days: int = Field(default=90, ge=1)
+    play_count_below: int = Field(default=3, ge=1)
+    dry_run: bool = True
+    confirm: str | None = None
+
+
+class StorageCleanupSampleItem(BaseModel):
+    job_id: str
+    provider: str
+    source_id: str | None = None
+    source_url: str | None = None
+    title: str | None = None
+    artist: str | None = None
+    play_count: int
+    updated_at: str
+    bytes: int
+
+
+class StorageCleanupError(BaseModel):
+    job_id: str
+    error: str
+
+
+class StorageCleanupResponse(BaseModel):
+    dry_run: bool
+    days: int
+    play_count_below: int
+    candidate_jobs: int
+    candidate_bytes: int
+    sample: list[StorageCleanupSampleItem]
+    deleted_jobs: int
+    deleted_bytes: int
+    failed_jobs: int
+    errors: list[StorageCleanupError]
+
+
 class AnalysisStartResponse(BaseModel):
     id: str
     status: Literal["queued", "downloading"]

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 from fastapi import APIRouter, BackgroundTasks, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
+from ..admin_auth import ADMIN_KEY_HEADER, admin_key_matches, require_admin_key
 from ..db import (
     count_queued_jobs_ahead,
     create_job,
@@ -69,7 +69,6 @@ from .jobs_runtime import (
 
 router = APIRouter()
 
-ADMIN_KEY_HEADER = "X-Admin-Key"
 TRENDING_DEFAULT_DAYS = 5
 TRENDING_DEFAULT_EXCLUDE_TOP_N = 25
 TRENDING_DEFAULT_LIMIT = 25
@@ -81,19 +80,6 @@ SUPPORTED_SOURCE_PROVIDERS = {"youtube", "soundcloud", "bandcamp", "upload"}
 
 def _allow_user_url() -> bool:
     return env_flag("ALLOW_USER_URL")
-
-
-def _admin_key_matches(provided_key: str | None) -> bool:
-    expected_key = os.environ.get("ADMIN_KEY")
-    return bool(expected_key and provided_key == expected_key)
-
-
-def _require_admin_key(provided_key: str | None) -> None:
-    expected_key = os.environ.get("ADMIN_KEY")
-    if not expected_key:
-        raise HTTPException(status_code=403, detail="ADMIN_KEY is not configured")
-    if not provided_key or provided_key != expected_key:
-        raise HTTPException(status_code=403, detail="Invalid admin key")
 
 
 def _source_url_for_job(job) -> str | None:
@@ -622,7 +608,7 @@ def set_play_count(
     payload: PlayCountUpdate,
     admin_key: str | None = Header(None, alias=ADMIN_KEY_HEADER),
 ) -> JSONResponse:
-    _require_admin_key(admin_key)
+    require_admin_key(admin_key)
     play_count = set_job_play_count(DB_PATH, job_id, payload.play_count)
     if play_count is None:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -734,7 +720,7 @@ def delete_job_by_id(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    is_admin_delete = _admin_key_matches(admin_key)
+    is_admin_delete = admin_key_matches(admin_key)
     if not is_admin_delete:
         created_at = parse_timestamp(job.created_at)
         completion_time = None
