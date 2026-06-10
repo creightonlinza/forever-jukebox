@@ -438,6 +438,22 @@ describe("BufferedAudioPlayer", () => {
     expect(player.getCurrentTime()).toBeCloseTo(2.25, 5);
   });
 
+  it("does not stop a due anchor fallback while clearing anchor state", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    expect(player.setAnchorJump(2, 5)).toBe(true);
+    const anchorSource = context.createdSources[1];
+
+    context.currentTime = 5.25;
+    player.clearAnchorJump();
+
+    expect(anchorSource?.stop).not.toHaveBeenCalledWith(0);
+    expect(player.getCurrentTime()).toBeCloseTo(2.25, 5);
+    expect(player.isPlaying()).toBe(true);
+  });
+
   it("lets explicit jumps override and chain the stored anchor fallback", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);

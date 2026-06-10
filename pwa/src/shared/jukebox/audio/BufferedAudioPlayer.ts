@@ -440,7 +440,7 @@ export class BufferedAudioPlayer {
     this.maybePromoteAnchorPending();
   }
 
-  private maybePromoteAnchorPending() {
+  private maybePromoteAnchorPending(options: { syncAnchor?: boolean } = {}) {
     if (!this.anchorPendingSource || this.anchorPendingSwapAt === null) {
       return;
     }
@@ -455,7 +455,10 @@ export class BufferedAudioPlayer {
     this.startAt = this.anchorPendingStartAt;
     this.anchorPendingSource = null;
     this.anchorPendingSwapAt = null;
-    this.syncAnchorPendingSwap();
+    this.anchorStopSource = null;
+    if (options.syncAnchor !== false) {
+      this.syncAnchorPendingSwap();
+    }
   }
 
   private startSourceAt(
@@ -594,6 +597,14 @@ export class BufferedAudioPlayer {
   private clearAnchorPendingSwap(
     options: { restartCurrentSource?: boolean } = {},
   ) {
+    if (
+      this.anchorPendingSource &&
+      this.anchorPendingSwapAt !== null &&
+      this.context.currentTime >= this.anchorPendingSwapAt
+    ) {
+      this.maybePromoteAnchorPending({ syncAnchor: false });
+      return;
+    }
     const shouldRestartCurrentSource =
       options.restartCurrentSource === true &&
       this.playing &&
