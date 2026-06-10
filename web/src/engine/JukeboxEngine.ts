@@ -61,6 +61,8 @@ export interface JukeboxPlayer {
   seek: (time: number) => void;
   scheduleJump: (targetTime: number, sourceStartTime: number) => boolean;
   cancelScheduledJump: () => void;
+  setAnchorJump?: (targetTime: number, sourceStartTime: number) => boolean;
+  clearAnchorJump?: () => void;
   getCurrentTime: () => number;
   getAudioTime: () => number;
   getPlaybackRate: () => number;
@@ -133,6 +135,7 @@ export class JukeboxEngine {
     this.applyDeletedEdges();
     this.beats = this.analysis.beats;
     this.resetState();
+    this.syncAnchorJump();
   }
 
   getGraphState(): JukeboxGraphState | null {
@@ -150,6 +153,7 @@ export class JukeboxEngine {
   setUserAnchorEdge(edge: Edge | null) {
     this.userAnchorEdgeId = edge ? edge.id : null;
     this.clearPendingAdvance(true);
+    this.syncAnchorJump();
   }
 
   getUserAnchorEdgeId(): number | null {
@@ -167,6 +171,11 @@ export class JukeboxEngine {
     this.curRandomBranchChance = this.config.minRandomBranchChance;
     this.branchState.curRandomBranchChance = this.curRandomBranchChance;
     this.applyDeletedEdges();
+    this.syncAnchorJump();
+  }
+
+  refreshAnchorJump() {
+    this.syncAnchorJump();
   }
 
   getVisualizationData() {
@@ -280,6 +289,7 @@ export class JukeboxEngine {
     this.userAnchorEdgeId = null;
     this.clearPendingAdvance(true);
     this.clearEdgeDeletionFlags();
+    this.syncAnchorJump();
   }
 
   deleteEdge(edge: { src: QuantumBase; dest: QuantumBase; deleted: boolean }) {
@@ -288,6 +298,7 @@ export class JukeboxEngine {
     this.deletedEdgeKeys.add(this.edgeKey(srcIndex, destIndex));
     this.clearPendingAdvance(true);
     this.applyDeletedEdges();
+    this.syncAnchorJump();
   }
 
   setForceBranch(enabled: boolean) {
@@ -358,6 +369,27 @@ export class JukeboxEngine {
     const bestIndex = getBestLastBranchNeighborIndex(anchorSource);
     const bestEdge = anchorSource.neighbors[bestIndex];
     return bestEdge && !bestEdge.deleted ? bestEdge : null;
+  }
+
+  private getActiveAnchorEdge(): Edge | null {
+    return this.getUserAnchorEdge() ?? this.getDefaultAnchorEdge();
+  }
+
+  private syncAnchorJump() {
+    const edge = this.getActiveAnchorEdge();
+    if (!edge) {
+      this.player.clearAnchorJump?.();
+      return;
+    }
+    const targetTime = edge.dest.start;
+    const sourceStartTime = edge.src.start;
+    if (!Number.isFinite(targetTime) || !Number.isFinite(sourceStartTime)) {
+      this.player.clearAnchorJump?.();
+      return;
+    }
+    if (!this.player.setAnchorJump?.(targetTime, sourceStartTime)) {
+      this.player.clearAnchorJump?.();
+    }
   }
 
   private ensureAnchorSourceHasNeighbors() {

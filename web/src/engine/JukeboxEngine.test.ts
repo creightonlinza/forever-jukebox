@@ -921,6 +921,121 @@ describe("JukeboxEngine graph maintenance", () => {
     expect(engine.getVisualizationData()?.userAnchorEdgeId).toBeNull();
   });
 
+  it("arms the player anchor fallback from the active visualization anchor", () => {
+    const player = {
+      ...makePlayer(),
+      setAnchorJump: vi.fn(() => true),
+      clearAnchorJump: vi.fn(),
+    };
+    const engine = new JukeboxEngine(player);
+
+    engine.loadAnalysis(makeAnalysisPayload(8));
+
+    const data = engine.getVisualizationData();
+    const anchorEdge = data?.edges.find((edge) => edge.id === data.anchorEdgeId);
+    expect(anchorEdge).toBeDefined();
+    expect(player.setAnchorJump).toHaveBeenCalledWith(
+      anchorEdge?.dest.start,
+      anchorEdge?.src.start,
+    );
+    expect(player.clearAnchorJump).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the player anchor fallback for user anchors and deletion fallback", () => {
+    const player = {
+      ...makePlayer(),
+      setAnchorJump: vi.fn(() => true),
+      clearAnchorJump: vi.fn(),
+    };
+    const engine = new JukeboxEngine(player);
+    const beats = [0, 1, 2, 3].map(makeBeat);
+    linkBeats(beats);
+    const defaultEdge: Edge = {
+      id: 1,
+      src: beats[2],
+      dest: beats[0],
+      distance: 10,
+      deleted: false,
+    };
+    const userEdge: Edge = {
+      id: 3,
+      src: beats[3],
+      dest: beats[0],
+      distance: 5,
+      deleted: false,
+    };
+    beats[2].neighbors = [defaultEdge];
+    beats[2].allNeighbors = [defaultEdge];
+    beats[3].neighbors = [userEdge];
+    beats[3].allNeighbors = [userEdge];
+    const graph: JukeboxGraphState = {
+      computedThreshold: 0,
+      currentThreshold: 0,
+      lastBranchPoint: 2,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [defaultEdge, userEdge],
+    };
+    const engineAny = engine as unknown as {
+      analysis: TrackAnalysis;
+      graph: JukeboxGraphState;
+      beats: QuantumBase[];
+    };
+    engineAny.analysis = makeAnalysis(beats);
+    engineAny.graph = graph;
+    engineAny.beats = beats;
+
+    engine.refreshAnchorJump();
+    expect(player.setAnchorJump).toHaveBeenLastCalledWith(0, 2);
+
+    engine.setUserAnchorEdge(userEdge);
+    expect(player.setAnchorJump).toHaveBeenLastCalledWith(0, 3);
+
+    engine.deleteEdge(userEdge);
+    expect(player.setAnchorJump).toHaveBeenLastCalledWith(0, 2);
+  });
+
+  it("clears the player anchor fallback when no valid anchor remains", () => {
+    const player = {
+      ...makePlayer(),
+      setAnchorJump: vi.fn(() => true),
+      clearAnchorJump: vi.fn(),
+    };
+    const engine = new JukeboxEngine(player);
+    const beats = [0, 1, 2].map(makeBeat);
+    linkBeats(beats);
+    const edge: Edge = {
+      id: 1,
+      src: beats[1],
+      dest: beats[0],
+      distance: 10,
+      deleted: false,
+    };
+    beats[1].neighbors = [edge];
+    beats[1].allNeighbors = [edge];
+    const graph: JukeboxGraphState = {
+      computedThreshold: 0,
+      currentThreshold: 0,
+      lastBranchPoint: 1,
+      totalBeats: beats.length,
+      longestReach: 0,
+      allEdges: [edge],
+    };
+    const engineAny = engine as unknown as {
+      analysis: TrackAnalysis;
+      graph: JukeboxGraphState;
+      beats: QuantumBase[];
+    };
+    engineAny.analysis = makeAnalysis(beats);
+    engineAny.graph = graph;
+    engineAny.beats = beats;
+
+    engine.refreshAnchorJump();
+    engine.deleteEdge(edge);
+
+    expect(player.clearAnchorJump).toHaveBeenCalled();
+  });
+
   it("falls back to the default anchor when the user anchor is deleted", () => {
     const player = makePlayer();
     const engine = new JukeboxEngine(player);
