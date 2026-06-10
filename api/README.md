@@ -226,8 +226,8 @@ curl -X POST "/api/admin/storage-cleanup" \
   -d '{}'
 ```
 
-The cleanup policy is server-side: completed jobs with `play_count < 3` and
-source activity older than 90 days. Dry-run is the default. To execute the
+The cleanup policy is server-side: completed jobs with `play_count < 2` and
+source activity older than 180 days. Dry-run is the default. To execute the
 cleanup, set `dry_run` to `false` and include the explicit confirmation:
 
 ```bash

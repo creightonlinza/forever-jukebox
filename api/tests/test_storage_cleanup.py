@@ -118,8 +118,8 @@ class StorageCleanupTests(unittest.TestCase):
             response = build_cleanup_preview(db_path, storage_root)
 
             self.assertTrue(response.dry_run)
-            self.assertEqual(response.days, 90)
-            self.assertEqual(response.play_count_below, 3)
+            self.assertEqual(response.days, 180)
+            self.assertEqual(response.play_count_below, 2)
             self.assertEqual(response.candidate_jobs, 1)
             self.assertEqual(response.candidate_bytes, 15)
             self.assertEqual(_job_count(db_path), 1)

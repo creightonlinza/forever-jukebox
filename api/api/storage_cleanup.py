@@ -11,8 +11,8 @@ from .routes.jobs_runtime import delete_job_artifacts
 from .utils import abs_storage_path
 
 
-CLEANUP_POLICY_DAYS = 90
-CLEANUP_POLICY_PLAY_COUNT_BELOW = 3
+CLEANUP_POLICY_DAYS = 180
+CLEANUP_POLICY_PLAY_COUNT_BELOW = 2
 SAMPLE_SIZE = 10
 
 
