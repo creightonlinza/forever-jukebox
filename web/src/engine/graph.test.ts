@@ -439,7 +439,7 @@ function collectEdgeKeys(analysis: ReturnType<typeof normalizeAnalysis>): string
       keys.push(`${edge.src.which}->${edge.dest.which}`);
     }
   }
-  return keys.sort();
+  return keys.sort((left, right) => left.localeCompare(right));
 }
 
 function defaultConfig(overrides: Partial<JukeboxConfig> = {}): JukeboxConfig {

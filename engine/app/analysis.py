@@ -205,7 +205,7 @@ def analyze_audio(
         start = boundaries[i]
         end = boundaries[i + 1]
         times = frame_features["frame_times"]
-        idx = np.where((times >= start) & (times < end))[0]
+        idx = np.nonzero((times >= start) & (times < end))[0]
         if len(idx) == 0:
             if times.size == 0:
                 hpcp_dim = frame_features["hpcp"].shape[1] if frame_features["hpcp"].ndim == 2 else 12
