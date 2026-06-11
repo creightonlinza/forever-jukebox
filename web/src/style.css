@@ -969,7 +969,6 @@ button.is-loading::after {
 }
 
 .audio-mode-option {
-  padding-bottom: 0;
   display: inline-flex;
   flex-direction: row;
   align-items: center;

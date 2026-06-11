@@ -49,8 +49,8 @@ function makeAnalysisPayload(count = 2) {
     loudness_start: 0,
     loudness_max: 0,
     loudness_max_time: 0,
-    pitches: Array(12).fill(0),
-    timbre: Array(12).fill(0),
+    pitches: new Array(12).fill(0),
+    timbre: new Array(12).fill(0),
   }));
   return {
     sections: beats,

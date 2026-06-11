@@ -64,7 +64,7 @@ export function Home() {
       <DropZone onFile={handleFile} accept="audio/*" />
       <div className="cached-tracks">
         <h2 className="cached-tracks__title">
-          Cached analysis
+          <span>Cached analysis</span>
           <span className="cached-tracks__title-hint">
             Pick the original audio file to load its cached analysis instantly.
           </span>
