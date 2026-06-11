@@ -3,7 +3,8 @@ const trackCacheStore = "tracks";
 const appConfigStore = "app-config";
 
 export type CachedTrack = {
-  youtubeId: string;
+  trackId: string;
+  youtubeId?: string;
   audio?: ArrayBuffer;
   jobId?: string;
   updatedAt: number;
@@ -45,7 +46,15 @@ export async function readCachedTrack(
     const store = tx.objectStore(trackCacheStore);
     const request = store.get(trackId);
     request.onsuccess = () => {
-      resolve((request.result as CachedTrack | undefined) ?? null);
+      const result = request.result as (CachedTrack & { youtubeId?: string }) | undefined;
+      if (!result) {
+        resolve(null);
+        return;
+      }
+      resolve({
+        ...result,
+        trackId: result.trackId ?? result.youtubeId ?? trackId,
+      });
     };
     request.onerror = () =>
       reject(request.error ?? new Error("IndexedDB read failed"));
@@ -58,6 +67,7 @@ export async function updateCachedTrack(
 ) {
   const existing = await readCachedTrack(trackId);
   const next: CachedTrack = {
+    trackId,
     youtubeId: trackId,
     audio: existing?.audio,
     jobId: existing?.jobId,

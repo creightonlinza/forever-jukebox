@@ -132,7 +132,8 @@ describe("search flows", () => {
       "Artist",
     );
     expect(result).toBe(true);
-    expect(deps.updateTrackUrl).toHaveBeenCalledWith("yt1");
+    expect(context.state.lastTrackId).toBe("job1");
+    expect(deps.updateTrackUrl).toHaveBeenCalledWith("job1");
     expect(deps.applyAnalysisResult).toHaveBeenCalled();
   });
 
@@ -217,7 +218,8 @@ describe("search flows", () => {
       title: "Song",
       artist: "Artist",
     });
-    expect(deps.updateTrackUrl).toHaveBeenCalledWith("yt2");
+    expect(context.state.lastTrackId).toBe("job2");
+    expect(deps.updateTrackUrl).toHaveBeenCalledWith("job2");
     expect(deps.pollAnalysis).toHaveBeenCalledWith("job2");
   });
 

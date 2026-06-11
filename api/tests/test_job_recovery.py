@@ -14,7 +14,16 @@ from unittest.mock import patch
 from fastapi import BackgroundTasks
 
 from api import db as db_module
-from api.db import claim_next_job, create_job, get_job, init_db, recover_stalled_processing_jobs, set_job_status
+from api.db import (
+    claim_next_job,
+    create_job,
+    get_job,
+    get_recent_tracks,
+    get_top_tracks,
+    init_db,
+    recover_stalled_processing_jobs,
+    set_job_status,
+)
 from api.models import AnalysisUrlRequest
 from api.routes import jobs
 from api.routes.jobs import _create_source_job, _should_attempt_auto_repair
@@ -424,6 +433,64 @@ class JobRecoveryTests(unittest.TestCase):
                 self.assertEqual(len(background_tasks.tasks), 0)
             finally:
                 jobs.DB_PATH = original_db_path
+
+    def test_by_source_lookup_returns_job_id_with_source_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            init_db(db_path)
+            original_db_path = jobs.DB_PATH
+            jobs.DB_PATH = db_path
+            try:
+                create_job(
+                    db_path,
+                    "lookup-job-id",
+                    "",
+                    "analysis/lookup-job-id.json",
+                    status="queued",
+                    source_id="yt-lookup-id",
+                    source_provider="youtube",
+                    source_url="https://www.youtube.com/watch?v=yt-lookup-id",
+                )
+
+                response = jobs.get_job_by_source_route(
+                    "youtube",
+                    "yt-lookup-id",
+                    BackgroundTasks(),
+                )
+
+                self.assertEqual(response.status_code, 202)
+                payload = json.loads(response.body)
+                self.assertEqual(payload["id"], "lookup-job-id")
+                self.assertEqual(payload["source_id"], "yt-lookup-id")
+                self.assertEqual(payload["source_provider"], "youtube")
+            finally:
+                jobs.DB_PATH = original_db_path
+
+    def test_track_lists_use_job_id_and_keep_youtube_source_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            init_db(db_path)
+            create_job(
+                db_path,
+                "top-job-id",
+                "",
+                "analysis/top-job-id.json",
+                status="queued",
+                track_title="Song",
+                track_artist="Artist",
+                source_id="yt-top-id",
+                source_provider="youtube",
+                source_url="https://www.youtube.com/watch?v=yt-top-id",
+                play_count=3,
+            )
+
+            top_item = get_top_tracks(db_path, limit=1)[0]
+            recent_item = get_recent_tracks(db_path, limit=1)[0]
+
+            for item in (top_item, recent_item):
+                self.assertEqual(item["id"], "top-job-id")
+                self.assertEqual(item["source_id"], "yt-top-id")
+                self.assertEqual(item["source_provider"], "youtube")
 
     def test_by_track_lookup_treats_retryable_failed_job_as_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

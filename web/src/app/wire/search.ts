@@ -318,25 +318,15 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       if (sourceProvider === "youtube" && !sourceId) {
         throw new Error("Upload failed");
       }
-      const listenId =
-        sourceProvider === "youtube"
-          ? (sourceId as string)
-          : response.id;
+      const listenId = response.id;
       const playlistSourceType =
         sourceProvider === "soundcloud" || sourceProvider === "bandcamp"
           ? sourceProvider
           : sourceProvider === "youtube"
             ? "youtube"
             : "upload";
-      const playlistId =
-        sourceId &&
-        (playlistSourceType === "soundcloud" ||
-          playlistSourceType === "bandcamp" ||
-          playlistSourceType === "youtube")
-          ? sourceId
-          : listenId;
       onNormalTrackSelected?.({
-        id: playlistId,
+        id: listenId,
         sourceType: playlistSourceType,
         title: "Untitled",
         artist: "",

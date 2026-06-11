@@ -362,6 +362,9 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
   }
 
   function getPlaylistListenId(track: PlaylistTrack) {
+    if (isLikelyJobId(track.id)) {
+      return track.id;
+    }
     if (track.sourceType === "youtube" || track.sourceType === "upload") {
       return track.id;
     }
@@ -369,6 +372,9 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
   }
 
   function getPlaylistLoadId(track: PlaylistTrack) {
+    if (isLikelyJobId(track.id)) {
+      return track.id;
+    }
     if (track.sourceType === "youtube") {
       return track.id;
     }

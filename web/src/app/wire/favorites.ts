@@ -728,8 +728,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       response.source_provider === "bandcamp"
         ? response.source_provider
         : null;
-    const favoriteId =
-      provider === "youtube" && response.source_id ? response.source_id : response.id;
+    const favoriteId = response.id;
     if (!favoriteId || state.pendingAutoFavoriteId !== favoriteId) {
       return;
     }
@@ -739,14 +738,13 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
     const title = state.trackTitle || "Untitled";
     const artist = state.trackArtist || "";
-    const inferredSourceType = response.source_id ? "youtube" : "upload";
+    const inferredSourceType = provider ?? "upload";
     const track: FavoriteTrack = {
       uniqueSongId: favoriteId,
       title,
       artist,
       duration: state.trackDurationSec,
-      sourceType:
-        provider ?? inferredSourceType,
+      sourceType: inferredSourceType,
       tuningParams: getFavoriteTuningParams(),
     };
     const result = addFavorite(state.favorites, track);

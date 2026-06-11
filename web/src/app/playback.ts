@@ -1346,6 +1346,7 @@ export async function pollAnalysis(
         deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
         return;
       }
+      normalizeTrackIdentityFromResponse(context, deps, response);
       maybeUpdateDeleteEligibility(context, response, jobId);
       if (isAnalysisInProgress(response)) {
         const progress =
@@ -1404,26 +1405,8 @@ async function continueTrackLoadWithResponse(
     deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
     return;
   }
+  normalizeTrackIdentityFromResponse(context, deps, response);
   maybeUpdateDeleteEligibility(context, response, response.id);
-  context.state.lastJobId = response.id;
-  if (typeof response.source_provider === "string") {
-    context.state.lastSourceProvider = response.source_provider;
-  }
-  if (
-    response.source_provider === "youtube" &&
-    typeof response.source_id === "string" &&
-    response.source_id
-  ) {
-    context.state.lastTrackId = response.source_id;
-    deps.onTrackChange?.(response.source_id);
-  } else if (
-    response.source_provider &&
-    response.source_provider !== "youtube" &&
-    response.id
-  ) {
-    context.state.lastTrackId = response.id;
-    deps.onTrackChange?.(response.id);
-  }
   if (isAnalysisInProgress(response)) {
     await pollAnalysis(context, deps, response.id);
     return;
@@ -1441,6 +1424,27 @@ async function continueTrackLoadWithResponse(
     return;
   }
   await pollAnalysis(context, deps, response.id);
+}
+
+function normalizeTrackIdentityFromResponse(
+  context: AppContext,
+  deps: PlaybackDeps,
+  response: AnalysisResponse,
+) {
+  if (!response.id) {
+    return;
+  }
+  const { state } = context;
+  const previousTrackId = state.lastTrackId;
+  state.lastJobId = response.id;
+  state.lastTrackId = response.id;
+  if (typeof response.source_provider === "string") {
+    state.lastSourceProvider = response.source_provider;
+  }
+  if (previousTrackId !== response.id) {
+    deps.onTrackChange?.(response.id);
+    deps.updateTrackUrl(response.id, true);
+  }
 }
 
 async function loadTrack(
@@ -1675,6 +1679,8 @@ function syncActivePlaylistTrackFromLoaded(context: AppContext) {
   }
   state.playlist = replaceActivePlaylistTrack(state.playlist, {
     ...track,
+    id: state.lastTrackId ?? track.id,
+    sourceType: playlistSourceTypeFromProvider(state.lastSourceProvider ?? track.sourceType),
     title: state.trackTitle || track.title || "Untitled",
     artist: state.trackArtist || track.artist || "",
     duration: state.trackDurationSec,

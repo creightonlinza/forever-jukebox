@@ -70,16 +70,11 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
       for (const item of items.slice(0, limit)) {
         const title = typeof item.title === "string" ? item.title : "Untitled";
         const artist = typeof item.artist === "string" ? item.artist : "";
-        const sourceId =
-          typeof item.source_id === "string" ? item.source_id : "";
         const jobId = typeof item.id === "string" ? item.id : "";
         const sourceProvider =
           typeof item.source_provider === "string" ? item.source_provider : "";
         const sourceType = normalizePlaylistSourceType(sourceProvider);
-        const listenId =
-          sourceProvider === "youtube" && sourceId
-            ? sourceId
-            : jobId;
+        const listenId = jobId;
         const li = document.createElement("li");
         if (listenId) {
           li.className = "top-list-item";
@@ -88,8 +83,6 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
           link.textContent = artist ? `${title} — ${artist}` : title;
           link.dataset.trackId = listenId;
           link.dataset.playlistId = getPlaylistTrackId(
-            sourceType,
-            sourceId,
             jobId,
             listenId,
           );
@@ -208,18 +201,7 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     return "youtube";
   }
 
-  function getPlaylistTrackId(
-    sourceType: PlaylistTrack["sourceType"],
-    sourceId: string,
-    jobId: string,
-    listenId: string,
-  ) {
-    if (sourceType === "youtube") {
-      return sourceId || listenId;
-    }
-    if (sourceType === "soundcloud" || sourceType === "bandcamp") {
-      return sourceId || jobId || listenId;
-    }
+  function getPlaylistTrackId(jobId: string, listenId: string) {
     return jobId || listenId;
   }
 

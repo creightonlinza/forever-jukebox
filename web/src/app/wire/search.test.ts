@@ -33,6 +33,9 @@ function createHarness() {
   } as unknown as AppState;
   const showToast = vi.fn();
   const startUrlAnalysis = vi.fn();
+  const updateTrackUrl = vi.fn();
+  const pollAnalysisJob = vi.fn();
+  const onNormalTrackSelected = vi.fn();
   const handlers = createSearchHandlers({
     context,
     elements,
@@ -45,10 +48,20 @@ function createHarness() {
     resetForNewTrack: vi.fn(),
     setActiveTabWithRefresh: vi.fn(),
     setLoadingProgress: vi.fn(),
-    updateTrackUrl: vi.fn(),
-    pollAnalysisJob: vi.fn(),
+    updateTrackUrl,
+    pollAnalysisJob,
+    onNormalTrackSelected,
   });
-  return { elements, handlers, showToast, startUrlAnalysis };
+  return {
+    elements,
+    handlers,
+    showToast,
+    startUrlAnalysis,
+    state,
+    updateTrackUrl,
+    pollAnalysisJob,
+    onNormalTrackSelected,
+  };
 }
 
 describe("createSearchHandlers", () => {
@@ -91,6 +104,39 @@ describe("createSearchHandlers", () => {
       expect.anything(),
       "Bandcamp fetch failed.",
       { icon: "error", tone: "error" },
+    );
+  });
+
+  it("uses job id as the listen id for successful YouTube URL uploads", async () => {
+    const {
+      elements,
+      handlers,
+      startUrlAnalysis,
+      state,
+      updateTrackUrl,
+      pollAnalysisJob,
+      onNormalTrackSelected,
+    } = createHarness();
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    elements.uploadYoutubeInput.value = "https://www.youtube.com/watch?v=abc123def45";
+    startUrlAnalysis.mockResolvedValue({
+      id: jobId,
+      status: "downloading",
+      source_id: "abc123def45",
+      source_provider: "youtube",
+    });
+
+    await handlers.handleUploadYoutubeClick();
+
+    expect(state.lastTrackId).toBe(jobId);
+    expect(state.pendingAutoFavoriteId).toBe(jobId);
+    expect(updateTrackUrl).toHaveBeenCalledWith(jobId, true, null, "jukebox");
+    expect(pollAnalysisJob).toHaveBeenCalledWith(jobId);
+    expect(onNormalTrackSelected).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: jobId,
+        sourceType: "youtube",
+      }),
     );
   });
 });
