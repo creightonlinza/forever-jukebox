@@ -51,15 +51,6 @@ describe("routing", () => {
     vi.clearAllMocks();
   });
 
-  it("handles legacy track param", async () => {
-    setWindowUrl("http://localhost/?track=abc123");
-    const context = createContext();
-    const deps = createDeps();
-    await handleRouteChange(context, deps, "/");
-    expect(deps.updateTrackUrl).toHaveBeenCalledWith("abc123", true);
-    expect(playbackModule.loadTrackById).toHaveBeenCalled();
-  });
-
   it("loads youtube id from /listen and preserves tuning params", async () => {
     setWindowUrl("http://localhost/listen/abc123def45?jb=1");
     const context = createContext();

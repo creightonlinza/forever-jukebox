@@ -8,12 +8,6 @@ export async function handleRouteChange(
   deps: PlaybackDeps,
   pathname: string
 ) {
-  const legacyTrack = new URLSearchParams(window.location.search).get("track");
-  if (legacyTrack) {
-    deps.updateTrackUrl(legacyTrack, true);
-    await loadTrackById(context, deps, legacyTrack);
-    return;
-  }
   if (pathname.startsWith("/search")) {
     deps.navigateToTab("search", { replace: true });
     return;
