@@ -1,6 +1,8 @@
 import type { Elements } from "../elements";
 import type { TabId } from "../context";
 import { formatErrorForDisplay } from "../errorDisplay";
+import type { PlaylistTrack } from "../playlist";
+import { blurMouseActivatedControl } from "../ui";
 type TopSongsDeps = {
   elements: Elements;
   fetchTopSongs: (limit: number) => Promise<
@@ -12,13 +14,20 @@ type TopSongsDeps = {
   fetchRecentSongs: (limit: number) => Promise<
     Array<{ id?: string; title?: string; artist?: string; source_id?: string; source_provider?: string }>
   >;
-  loadTrackById: (trackId: string) => void;
-  loadTrackByJobId: (jobId: string) => void;
+  loadTrackById: (
+    trackId: string,
+    options?: { selectedTrack?: PlaylistTrack | null },
+  ) => void;
+  loadTrackByJobId: (
+    jobId: string,
+    options?: { selectedTrack?: PlaylistTrack | null },
+  ) => void;
   navigateToTabWithState: (
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
   ) => void;
   limit: number;
+  onAddToPlaylist?: (track: PlaylistTrack) => void;
 };
 
 export type TopSongsHandlers = ReturnType<typeof createTopSongsHandlers>;
@@ -33,6 +42,7 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     loadTrackByJobId,
     navigateToTabWithState,
     limit,
+    onAddToPlaylist,
   } = deps;
 
   function isLikelyJobId(value: string) {
@@ -65,18 +75,39 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
         const jobId = typeof item.id === "string" ? item.id : "";
         const sourceProvider =
           typeof item.source_provider === "string" ? item.source_provider : "";
+        const sourceType = normalizePlaylistSourceType(sourceProvider);
         const listenId =
           sourceProvider === "youtube" && sourceId
             ? sourceId
             : jobId;
         const li = document.createElement("li");
         if (listenId) {
+          li.className = "top-list-item";
           const link = document.createElement("a");
           link.href = `/listen/${encodeURIComponent(listenId)}`;
           link.textContent = artist ? `${title} — ${artist}` : title;
           link.dataset.trackId = listenId;
+          link.dataset.playlistId = getPlaylistTrackId(
+            sourceType,
+            sourceId,
+            jobId,
+            listenId,
+          );
+          link.dataset.sourceType = sourceType;
+          link.dataset.trackTitle = title;
+          link.dataset.trackArtist = artist;
           link.addEventListener("click", handleTopSongClick);
+          const addButton = createPlaylistAddButton({
+            id: link.dataset.playlistId,
+            sourceType,
+            title,
+            artist,
+            duration: null,
+          });
           li.appendChild(link);
+          if (addButton) {
+            li.appendChild(addButton);
+          }
         } else {
           li.textContent = artist ? `${title} — ${artist}` : title;
         }
@@ -126,12 +157,70 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     if (!trackId) {
       return;
     }
+    const selectedTrack = getPlaylistTrackFromDataset(target);
     navigateToTabWithState("play", { trackId });
     if (isLikelyJobId(trackId)) {
-      loadTrackByJobId(trackId);
+      loadTrackByJobId(trackId, { selectedTrack });
       return;
     }
-    loadTrackById(trackId);
+    loadTrackById(trackId, { selectedTrack });
+  }
+
+  function getPlaylistTrackFromDataset(target: HTMLElement): PlaylistTrack | null {
+    const id = target.dataset.playlistId;
+    const sourceType = normalizePlaylistSourceType(target.dataset.sourceType ?? "");
+    if (!id) {
+      return null;
+    }
+    return {
+      id,
+      sourceType,
+      title: target.dataset.trackTitle || "Untitled",
+      artist: target.dataset.trackArtist || "",
+      duration: null,
+    };
+  }
+
+  function createPlaylistAddButton(track: PlaylistTrack) {
+    if (!onAddToPlaylist || !track.id) {
+      return null;
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "playlist-add-button";
+    button.title = "Add to playlist";
+    button.setAttribute("aria-label", `Add ${track.title || "track"} to playlist`);
+    button.innerHTML =
+      '<span class="material-symbols-outlined playlist-add-icon" aria-hidden="true">add_circle</span>';
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onAddToPlaylist(track);
+      blurMouseActivatedControl(event);
+    });
+    return button;
+  }
+
+  function normalizePlaylistSourceType(value: string): PlaylistTrack["sourceType"] {
+    if (value === "soundcloud" || value === "bandcamp" || value === "upload") {
+      return value;
+    }
+    return "youtube";
+  }
+
+  function getPlaylistTrackId(
+    sourceType: PlaylistTrack["sourceType"],
+    sourceId: string,
+    jobId: string,
+    listenId: string,
+  ) {
+    if (sourceType === "youtube") {
+      return sourceId || listenId;
+    }
+    if (sourceType === "soundcloud" || sourceType === "bandcamp") {
+      return sourceId || jobId || listenId;
+    }
+    return jobId || listenId;
   }
 
   return { fetchTopSongsList, fetchTrendingSongsList, fetchRecentSongsList };

@@ -317,6 +317,9 @@
             <div class="status-text" id="analysis-status">
               No track selected.
             </div>
+            <button id="saved-playlist" class="saved-playlist-button hidden" type="button">
+              Saved Playlist
+            </button>
           </div>
         </div>
         <div class="menu-bar hidden" id="play-menu">
@@ -464,36 +467,80 @@
             <div id="canonizer-layer" class="canonizer-layer"></div>
             <div class="viz-bottom" id="viz-stats">
               <div class="viz-bottom-left">
-                <button
-                  id="viz-play"
-                  class="play-toggle viz-play-toggle"
-                  aria-label="Play"
-                >
-                  <span
-                    class="material-symbols-outlined play-icon"
-                    aria-hidden="true"
-                    >play_arrow</span
+                <div class="viz-play-controls">
+                  <button
+                    id="playlist-previous"
+                    class="playlist-control is-hidden"
+                    type="button"
+                    aria-label="Previous playlist track"
+                    title="Previous playlist track"
                   >
-                </button>
+                    <span
+                      class="material-symbols-outlined playlist-control-icon"
+                      aria-hidden="true"
+                      >skip_previous</span
+                    >
+                  </button>
+                  <button
+                    id="viz-play"
+                    class="play-toggle viz-play-toggle"
+                    aria-label="Play"
+                  >
+                    <span
+                      class="material-symbols-outlined play-icon"
+                      aria-hidden="true"
+                      >play_arrow</span
+                    >
+                  </button>
+                  <button
+                    id="playlist-next"
+                    class="playlist-control is-hidden"
+                    type="button"
+                    aria-label="Next playlist track"
+                    title="Next playlist track"
+                  >
+                    <span
+                      class="material-symbols-outlined playlist-control-icon"
+                      aria-hidden="true"
+                      >skip_next</span
+                    >
+                  </button>
+                </div>
                 <div class="viz-info">
                   <div class="viz-title" id="viz-now-playing">
                     The Forever Jukebox
                   </div>
                   <div class="viz-meta">
-                    <span>Listen Time:</span>
-                    <span id="listen-time">00:00:00</span>
-                  <span id="viz-beats-divider" class="viz-divider">·</span>
-                  <span id="viz-beats-label">Total Beats:</span>
-                  <span id="beats-played">0</span>
-                  <span
-                    id="bring-home-fullscreen-label"
-                    class="bring-home-fullscreen-note is-hidden"
-                    >· Bringing it on home</span
-                  >
+                    <span class="viz-meta-stats">
+                      <span>Listen Time:</span>
+                      <span id="listen-time">00:00:00</span>
+                      <span id="viz-beats-divider" class="viz-divider">·</span>
+                      <span id="viz-beats-label">Total Beats:</span>
+                      <span id="beats-played">0</span>
+                    </span>
+                    <span
+                      id="bring-home-fullscreen-label"
+                      class="bring-home-fullscreen-note is-hidden"
+                      >· Bringing it on home</span
+                    >
+                  </div>
                 </div>
               </div>
-            </div>
-              <div>
+              <div class="viz-bottom-right">
+              <button
+                id="playlist-open"
+                class="playlist-control playlist-open-control is-hidden"
+                type="button"
+                aria-label="Playlist"
+                title="Playlist"
+              >
+                <span
+                  class="material-symbols-outlined playlist-control-icon"
+                  aria-hidden="true"
+                  >queue_music</span
+                >
+              </button>
+              <div class="volume-control-wrap">
                 <div class="volume-control-panel is-hidden" id="volume-control-panel">
                 <label>
                   <input
@@ -533,6 +580,7 @@
                   >fullscreen</span
                 >
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -651,6 +699,26 @@
             </li>
           </ul>
 
+          <h4>How do Playlists work?</h4>
+          <ul>
+            <li>
+              Load a track first, then use the add-circle button on Top,
+              Trending, Recently Played, or Favorites rows to build a playlist.
+            </li>
+            <li>
+              Use the playlist button on the Listen screen to open the playlist,
+              choose another track, remove non-current tracks, or clear the list.
+            </li>
+            <li>
+              Previous and next playlist buttons appear beside the play button
+              when an active playlist has another track available.
+            </li>
+            <li>
+              Playlists are saved only in this browser. They do not sync across
+              devices or accounts.
+            </li>
+          </ul>
+
           <h4>Installable Offline App</h4>
           <p>
             For local/offline analysis and playback, open the
@@ -669,6 +737,11 @@
             </li>
             <li>
               <strong>Favorites search & sorting</strong> added, maximum saved favorites bumped to 150 tracks.
+            </li>
+            <li>
+              Added local <strong>Playlists</strong>: queue up to 10
+              tracks from discovery lists or Favorites, then skip between them
+              from the Listen screen.
             </li>
           </ul>
 
@@ -1153,6 +1226,28 @@
             >
               Delete
             </button>
+          </div>
+        </div>
+      </div>
+      <div id="playlist-modal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-panel playlist-panel">
+          <div class="modal-header">
+            <h2>Playlist</h2>
+            <button id="playlist-close" class="modal-close" aria-label="Close">
+              <span
+                class="material-symbols-outlined modal-close-icon"
+                aria-hidden="true"
+                >close</span
+              >
+            </button>
+          </div>
+          <div class="modal-body">
+            <div id="playlist-list" class="playlist-list-wrap">
+              No playlist yet.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="playlist-clear" type="button">Clear Playlist</button>
           </div>
         </div>
       </div>

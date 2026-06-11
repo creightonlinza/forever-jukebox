@@ -10,6 +10,7 @@ import {
   type YoutubeSearchItem,
 } from "./api";
 import type { ToastOptions } from "./ui";
+import type { PlaylistTrack } from "./playlist";
 import { tryLoadCachedAudio } from "./playback";
 import {
   isAnalysisComplete,
@@ -34,6 +35,7 @@ export type SearchDeps = {
   resetForNewTrack: (options?: { clearTuning?: boolean }) => void;
   updateVizVisibility: () => void;
   onTrackChange?: (trackId: string | null) => void;
+  onNormalTrackSelected?: (track: PlaylistTrack) => void;
 };
 
 function formatMinutes(value: number): string {
@@ -162,6 +164,14 @@ export async function startYoutubeAnalysisFlow(
   title: string,
   artist: string
 ) {
+  deps.onNormalTrackSelected?.({
+    id: youtubeId,
+    sourceType: "youtube",
+    title,
+    artist,
+    duration: null,
+    tuningParams: null,
+  });
   deps.resetForNewTrack({ clearTuning: true });
   resetSearchUI(context);
   context.state.audioLoaded = false;
@@ -246,6 +256,22 @@ export async function tryLoadExistingTrackByName(
     if (!trackId) {
       return false;
     }
+    const sourceType =
+      response.source_provider === "soundcloud" ||
+      response.source_provider === "bandcamp" ||
+      response.source_provider === "upload"
+        ? response.source_provider
+        : "youtube";
+    const playlistId =
+      response.source_id && sourceType !== "upload" ? response.source_id : trackId;
+    deps.onNormalTrackSelected?.({
+      id: playlistId,
+      sourceType,
+      title,
+      artist,
+      duration: null,
+      tuningParams: state.playMode === "jukebox" ? state.tuningParams : null,
+    });
     deps.resetForNewTrack({ clearTuning: true });
     resetSearchUI(context);
     state.audioLoaded = false;

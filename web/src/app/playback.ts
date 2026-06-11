@@ -31,6 +31,18 @@ import { setAutoMarqueeText } from "./marquee";
 import { showToast } from "./ui";
 import { isAdminMode } from "./admin";
 import {
+  activatePlaylistTrack,
+  emptyPlaylist,
+  hasInactiveSavedPlaylist,
+  isPlaylistActive,
+  PLAYLIST_MAX_TRACKS,
+  playlistTrackKey,
+  replaceActivePlaylistTrack,
+  savePlaylist,
+  type PlaylistSourceType,
+  type PlaylistTrack,
+} from "./playlist";
+import {
   isAnalysisComplete,
   isAnalysisFailed,
   isAnalysisInProgress,
@@ -241,6 +253,14 @@ export type PlaybackDeps = {
   ) => void;
   onTrackChange?: (trackId: string | null) => void;
   onAnalysisLoaded?: (response: AnalysisComplete) => void;
+  onPlaylistChange?: () => void;
+};
+
+export type TrackLoadOptions = {
+  preserveUrlTuning?: boolean;
+  playlistLoad?: boolean;
+  preservePlaylist?: boolean;
+  selectedTrack?: PlaylistTrack | null;
 };
 
 export function updateListenTimeDisplay(context: AppContext) {
@@ -1278,6 +1298,8 @@ export function applyAnalysisResult(
     setAutoMarqueeText(elements.vizNowPlayingEl, "The Forever Jukebox");
   }
   updateTrackInfo(context);
+  syncActivePlaylistTrackFromLoaded(context);
+  savePlaylist(state.playlist);
   onAnalysisLoaded?.(response);
   if (state.playMode === "jukebox") {
     writeTuningParamsToUrl(state.tuningParams, true);
@@ -1427,9 +1449,10 @@ async function loadTrack(
   source:
     | { type: "source"; id: string; provider: string; trackId: string }
     | { type: "job"; id: string },
-  options?: { preserveUrlTuning?: boolean },
+  options?: TrackLoadOptions,
 ) {
   const shouldClear = !options?.preserveUrlTuning;
+  handlePlaylistForNormalTrackLoad(context, deps, source, options);
   resetForNewTrack(context, { clearTuning: shouldClear });
   deps.setActiveTab("play");
   deps.setLoadingProgress(null, "Fetching audio");
@@ -1463,7 +1486,7 @@ export async function loadTrackById(
   context: AppContext,
   deps: PlaybackDeps,
   trackId: string,
-  options?: { preserveUrlTuning?: boolean },
+  options?: TrackLoadOptions,
 ) {
   const parsed = parseTrackId(trackId);
   if (parsed.type === "job") {
@@ -1487,7 +1510,7 @@ export async function loadTrackByJobId(
   context: AppContext,
   deps: PlaybackDeps,
   jobId: string,
-  options?: { preserveUrlTuning?: boolean },
+  options?: TrackLoadOptions,
 ) {
   await loadTrack(context, deps, { type: "job", id: jobId }, options);
 }
@@ -1502,12 +1525,161 @@ function parseTrackId(trackId: string):
   if (isLikelyJobId(trackId)) {
     return { type: "job", jobId: trackId };
   }
+  const prefixed = /^([a-z]+):(.+)$/.exec(trackId);
+  if (
+    prefixed &&
+    (prefixed[1] === "youtube" ||
+      prefixed[1] === "soundcloud" ||
+      prefixed[1] === "bandcamp")
+  ) {
+    return {
+      type: "source",
+      provider: prefixed[1],
+      sourceId: prefixed[2],
+      trackId,
+    };
+  }
   return {
     type: "source",
     provider: "youtube",
     sourceId: trackId,
     trackId,
   };
+}
+
+function handlePlaylistForNormalTrackLoad(
+  context: AppContext,
+  deps: PlaybackDeps,
+  source:
+    | { type: "source"; id: string; provider: string; trackId: string }
+    | { type: "job"; id: string },
+  options?: TrackLoadOptions,
+) {
+  if (options?.playlistLoad) {
+    return;
+  }
+  if (options?.preservePlaylist) {
+    reconcilePreservedPlaylistTrack(context, deps, source);
+    return;
+  }
+  const { state } = context;
+  const playlist = state.playlist ?? emptyPlaylist();
+  state.playlist = playlist;
+  if (isPlaylistActive(playlist)) {
+    const track =
+      options?.selectedTrack ?? playlistTrackFromLoadSource(source, state.tuningParams);
+    state.playlist = replaceActivePlaylistTrack(playlist, track);
+    savePlaylist(state.playlist);
+    deps.onPlaylistChange?.();
+    return;
+  }
+  if (hasInactiveSavedPlaylist(playlist)) {
+    state.playlist = emptyPlaylist();
+    savePlaylist(state.playlist);
+    deps.onPlaylistChange?.();
+  }
+}
+
+function reconcilePreservedPlaylistTrack(
+  context: AppContext,
+  deps: PlaybackDeps,
+  source:
+    | { type: "source"; id: string; provider: string; trackId: string }
+    | { type: "job"; id: string },
+) {
+  const playlist = context.state.playlist ?? emptyPlaylist();
+  context.state.playlist = playlist;
+  if (playlist.tracks.length < 2) {
+    return;
+  }
+  const sourceKey = playlistTrackKey(playlistTrackIdentityFromLoadSource(source));
+  const matchingIndex = playlist.tracks.findIndex(
+    (track) => playlistTrackKey(track) === sourceKey,
+  );
+  if (matchingIndex >= 0) {
+    if (playlist.currentIndex === matchingIndex) {
+      return;
+    }
+    context.state.playlist = activatePlaylistTrack(playlist, matchingIndex);
+    deps.onPlaylistChange?.();
+    return;
+  }
+
+  const nextTracks = playlist.tracks.slice(0, PLAYLIST_MAX_TRACKS);
+  const nextTrack = playlistTrackFromLoadSource(source, context.state.tuningParams);
+  let nextCurrentIndex = nextTracks.length;
+  if (nextTracks.length >= PLAYLIST_MAX_TRACKS) {
+    nextCurrentIndex = PLAYLIST_MAX_TRACKS - 1;
+    nextTracks[nextCurrentIndex] = nextTrack;
+  } else {
+    nextTracks.push(nextTrack);
+  }
+  context.state.playlist = {
+    tracks: nextTracks,
+    currentIndex: nextCurrentIndex,
+  };
+  savePlaylist(context.state.playlist);
+  deps.onPlaylistChange?.();
+}
+
+function playlistTrackFromLoadSource(
+  source:
+    | { type: "source"; id: string; provider: string; trackId: string }
+    | { type: "job"; id: string },
+  tuningParams: string | null,
+): PlaylistTrack {
+  const identity = playlistTrackIdentityFromLoadSource(source);
+  return {
+    ...identity,
+    title: "Untitled",
+    artist: "",
+    duration: null,
+    tuningParams,
+  };
+}
+
+function playlistTrackIdentityFromLoadSource(
+  source:
+    | { type: "source"; id: string; provider: string; trackId: string }
+    | { type: "job"; id: string },
+): Pick<PlaylistTrack, "id" | "sourceType"> {
+  if (source.type === "job") {
+    return { id: source.id, sourceType: "upload" };
+  }
+  return {
+    id: source.id,
+    sourceType: playlistSourceTypeFromProvider(source.provider),
+  };
+}
+
+function playlistSourceTypeFromProvider(provider: string): PlaylistSourceType {
+  if (provider === "soundcloud" || provider === "bandcamp") {
+    return provider;
+  }
+  if (provider === "upload") {
+    return "upload";
+  }
+  return "youtube";
+}
+
+function syncActivePlaylistTrackFromLoaded(context: AppContext) {
+  const { state } = context;
+  const playlist = state.playlist ?? emptyPlaylist();
+  state.playlist = playlist;
+  if (!isPlaylistActive(playlist)) {
+    return;
+  }
+  const track = playlist.tracks[playlist.currentIndex];
+  if (!track) {
+    return;
+  }
+  state.playlist = replaceActivePlaylistTrack(state.playlist, {
+    ...track,
+    title: state.trackTitle || track.title || "Untitled",
+    artist: state.trackArtist || track.artist || "",
+    duration: state.trackDurationSec,
+    tuningParams: state.playMode === "jukebox" ? state.tuningParams : null,
+  });
 }
 
 export function requestWakeLock(context: AppContext) {

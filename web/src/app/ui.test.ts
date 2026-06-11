@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppContext } from "./context";
 import {
+  blurMouseActivatedControl,
   isEditableTarget,
   setAnalysisStatus,
   setLoadingProgress,
@@ -46,6 +47,7 @@ class MockElement {
     public tagName: string,
     public isContentEditable = false,
   ) {}
+  blur() {}
   addEventListener() {}
   dispatchEvent() {
     return true;
@@ -86,6 +88,28 @@ describe("ui helpers", () => {
     expect(isEditableTarget(new MockElement("DIV"))).toBe(false);
     expect(isEditableTarget(new MockElement("INPUT"))).toBe(true);
     expect(isEditableTarget(new MockElement("SPAN", true))).toBe(true);
+  });
+
+  it("blurs mouse-activated controls", () => {
+    const target = new MockElement("BUTTON");
+    target.blur = vi.fn();
+    blurMouseActivatedControl({
+      currentTarget: target,
+      detail: 1,
+    } as unknown as Event);
+
+    expect(target.blur).toHaveBeenCalledOnce();
+  });
+
+  it("keeps focus for keyboard-activated controls", () => {
+    const target = new MockElement("BUTTON");
+    target.blur = vi.fn();
+    blurMouseActivatedControl({
+      currentTarget: target,
+      detail: 0,
+    } as unknown as Event);
+
+    expect(target.blur).not.toHaveBeenCalled();
   });
 
   it("shows and hides toast", () => {

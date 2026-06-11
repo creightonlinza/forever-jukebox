@@ -2,6 +2,7 @@ import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
 import type { SearchDeps } from "../search";
 import type { ToastOptions } from "../ui";
+import type { PlaylistTrack } from "../playlist";
 import {
   formatErrorForDisplay,
   inferSourceProviderFromUrl,
@@ -39,6 +40,7 @@ type SearchHandlersDeps = {
     playMode?: "jukebox" | "autocanonizer",
   ) => void;
   pollAnalysisJob: (jobId: string) => Promise<void>;
+  onNormalTrackSelected?: (track: PlaylistTrack) => void;
 };
 
 export type SearchHandlers = ReturnType<typeof createSearchHandlers>;
@@ -58,6 +60,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
     setLoadingProgress,
     updateTrackUrl,
     pollAnalysisJob,
+    onNormalTrackSelected,
   } = deps;
   let searchInFlight = false;
   let uploadFileInFlight = false;
@@ -214,6 +217,14 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       if (!response || !response.id) {
         throw new Error("Upload failed");
       }
+      onNormalTrackSelected?.({
+        id: response.id,
+        sourceType: "upload",
+        title: file.name || "Untitled",
+        artist: "",
+        duration: null,
+        tuningParams: state.playMode === "jukebox" ? state.tuningParams : null,
+      });
       resetForNewTrack(context);
       state.lastJobId = response.id;
       state.pendingAutoFavoriteId = response.id;
@@ -311,6 +322,27 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
         sourceProvider === "youtube"
           ? (sourceId as string)
           : response.id;
+      const playlistSourceType =
+        sourceProvider === "soundcloud" || sourceProvider === "bandcamp"
+          ? sourceProvider
+          : sourceProvider === "youtube"
+            ? "youtube"
+            : "upload";
+      const playlistId =
+        sourceId &&
+        (playlistSourceType === "soundcloud" ||
+          playlistSourceType === "bandcamp" ||
+          playlistSourceType === "youtube")
+          ? sourceId
+          : listenId;
+      onNormalTrackSelected?.({
+        id: playlistId,
+        sourceType: playlistSourceType,
+        title: "Untitled",
+        artist: "",
+        duration: null,
+        tuningParams: state.playMode === "jukebox" ? state.tuningParams : null,
+      });
       resetForNewTrack(context);
       state.lastTrackId = listenId;
       state.lastJobId = response.id;

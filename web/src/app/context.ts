@@ -6,6 +6,7 @@ import type {
 import type { Edge } from "../engine/types";
 import type { getElements } from "./elements";
 import type { FavoriteTrack } from "./favorites";
+import type { PlaylistState } from "./playlist";
 import type { AppConfig } from "./api";
 import type { AutocanonizerController } from "../autocanonizer/AutocanonizerController";
 import type { JukeboxController } from "../jukebox/JukeboxController";
@@ -22,6 +23,7 @@ export type AppState = {
   topSongsTab: "top" | "trending" | "recent" | "favorites";
   searchTab: "search" | "upload";
   favorites: FavoriteTrack[];
+  playlist: PlaylistState;
   favoritesSyncCode: string | null;
   playTimerMs: number;
   lastPlayStamp: number | null;

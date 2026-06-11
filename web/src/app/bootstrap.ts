@@ -73,6 +73,7 @@ import { createSearchHandlers } from "./wire/search";
 import { createTuningHandlers } from "./wire/tuning";
 import { createFullscreenHandlers } from "./wire/fullscreen";
 import { createPlaybackUiHandlers } from "./wire/playback";
+import { createPlaylistHandlers, type PlaylistHandlers } from "./wire/playlist";
 import { createDeleteJobHandlers } from "./wire/delete-job";
 import { createTopSongsHandlers } from "./wire/top-songs";
 import { createThemeHandlers } from "./wire/theme";
@@ -96,6 +97,7 @@ import {
   saveFavorites,
   sortFavorites,
 } from "./favorites";
+import { loadPlaylist, type PlaylistTrack } from "./playlist";
 
 const vizStorageKey = "fj-viz";
 const canonizerFinishKey = "fj-canonizer-finish";
@@ -131,6 +133,7 @@ export function bootstrap() {
     playMode: "jukebox",
     topSongsTab: "top",
     favorites: loadFavorites(),
+    playlist: loadPlaylist(),
     favoritesSyncCode: loadFavoritesSyncCode(),
     playTimerMs: 0,
     lastPlayStamp: null,
@@ -186,6 +189,11 @@ export function bootstrap() {
     defaultConfig,
     state,
   };
+  let playlistHandlers: PlaylistHandlers | null = null;
+  const syncPlaylistUi = () => playlistHandlers?.syncPlaylistUi();
+  const handleNormalTrackSelected = (track: PlaylistTrack) => {
+    playlistHandlers?.handleNormalTrackSelected(track);
+  };
 
   const navigationHandlers = createNavigationHandlers({ context, state });
   const playbackHandlers = createPlaybackUiHandlers({
@@ -215,6 +223,8 @@ export function bootstrap() {
     updateTrackInfo,
     isEditableTarget,
     getCurrentTrackId: navigationHandlers.getCurrentTrackId,
+    advancePlaylistOnAutocanonizerEnded: () =>
+      playlistHandlers?.advanceAutocanonizerOnEnded() ?? Promise.resolve(false),
   });
   const playbackDeps: PlaybackDeps = {
     setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
@@ -250,21 +260,30 @@ export function bootstrap() {
     createFavoritesSync,
     updateFavoritesSync,
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
-    loadTrackById: (trackId) =>
+    loadTrackById: (trackId, options) =>
       loadTrackById(context, playbackDeps, trackId, {
         preserveUrlTuning: true,
+        ...options,
       }),
-    loadTrackByJobId: (jobId) =>
+    loadTrackByJobId: (jobId, options) =>
       loadTrackByJobId(context, playbackDeps, jobId, {
         preserveUrlTuning: true,
+        ...options,
       }),
     writeTuningParamsToUrl,
     syncTuningParamsState,
     setPlayMode: playbackHandlers.setPlayMode,
+    onAddToPlaylist: (track) => playlistHandlers?.handleAddToPlaylist(track),
   });
-  playbackDeps.onTrackChange = () => favoritesHandlers.syncFavoriteButton();
-  playbackDeps.onAnalysisLoaded = (response) =>
+  playbackDeps.onTrackChange = () => {
+    favoritesHandlers.syncFavoriteButton();
+    syncPlaylistUi();
+  };
+  playbackDeps.onAnalysisLoaded = (response) => {
     favoritesHandlers.maybeAutoFavoriteUserSupplied(response);
+    syncPlaylistUi();
+  };
+  playbackDeps.onPlaylistChange = syncPlaylistUi;
   const searchDeps: SearchDeps = {
     setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
     navigateToTab: (
@@ -283,24 +302,44 @@ export function bootstrap() {
       applyAnalysisResult(
         context,
         response,
-        favoritesHandlers.maybeAutoFavoriteUserSupplied,
+        (analysis) => {
+          favoritesHandlers.maybeAutoFavoriteUserSupplied(analysis);
+          syncPlaylistUi();
+        },
       ),
     loadAudioFromJob: (jobId: string) => loadAudioFromJob(context, jobId),
     resetForNewTrack: (options) => resetForNewTrack(context, options),
     updateVizVisibility: () => updateVizVisibility(context),
-    onTrackChange: () => favoritesHandlers.syncFavoriteButton(),
+    onTrackChange: () => {
+      favoritesHandlers.syncFavoriteButton();
+      syncPlaylistUi();
+    },
+    onNormalTrackSelected: handleNormalTrackSelected,
   };
+  playlistHandlers = createPlaylistHandlers({
+    context,
+    elements,
+    state,
+    showToast,
+    loadTrackById: (trackId, options) =>
+      loadTrackById(context, playbackDeps, trackId, options),
+    loadTrackByJobId: (jobId, options) =>
+      loadTrackByJobId(context, playbackDeps, jobId, options),
+    navigateToTabWithState: navigationHandlers.navigateToTabWithState,
+    togglePlayback,
+  });
   const topSongsHandlers = createTopSongsHandlers({
     elements,
     fetchTopSongs,
     fetchTrendingSongs,
     fetchRecentSongs,
     limit: TOP_SONGS_LIMIT,
-    loadTrackById: (trackId: string) =>
-      loadTrackById(context, playbackDeps, trackId),
-    loadTrackByJobId: (jobId: string) =>
-      loadTrackByJobId(context, playbackDeps, jobId),
+    loadTrackById: (trackId: string, options) =>
+      loadTrackById(context, playbackDeps, trackId, options),
+    loadTrackByJobId: (jobId: string, options) =>
+      loadTrackByJobId(context, playbackDeps, jobId, options),
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
+    onAddToPlaylist: (track) => playlistHandlers?.handleAddToPlaylist(track),
   });
   type LazyTopSongsTab = "top" | "trending" | "recent";
   const loadedTopSongTabs = new Set<LazyTopSongsTab>();
@@ -394,6 +433,7 @@ export function bootstrap() {
     updateTrackUrl,
     pollAnalysisJob: (jobId: string) =>
       pollAnalysis(context, playbackDeps, jobId),
+    onNormalTrackSelected: handleNormalTrackSelected,
   });
   const tuningHandlers = createTuningHandlers({
     context,
@@ -489,6 +529,7 @@ export function bootstrap() {
 
   resetForNewTrack(context);
   favoritesHandlers.syncFavoriteButton();
+  syncPlaylistUi();
 
   playbackHandlers.applyModeFromUrl();
   handleRouteChange(context, playbackDeps, window.location.pathname)
@@ -515,6 +556,7 @@ export function bootstrap() {
     deleteJobHandlers,
     themeHandlers,
     cacheHandlers,
+    playlistHandlers: playlistHandlers!,
   });
 
 }

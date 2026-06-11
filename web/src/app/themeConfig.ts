@@ -10,6 +10,13 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
     "--accent": "#4AC7FF",
     "--title-accent": "#F1C47A",
     "--title-glow": "rgba(241, 196, 122, 0.55)",
+    "--scrim": "rgba(10, 12, 16, 0.75)",
+    "--shadow-elevated": "rgba(0, 0, 0, 0.35)",
+    "--shadow-soft": "rgba(0, 0, 0, 0.24)",
+    "--danger": "#E35A5A",
+    "--danger-border": "#7F1D1D",
+    "--danger-surface": "#3B1212",
+    "--danger-text": "#FECACA",
 
     // Surfaces
     "--surface-panel": "#141922",
@@ -42,6 +49,13 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
     "--accent": "#2E8BFF",
     "--title-accent": "#B144FF",
     "--title-glow": "rgba(177, 68, 255, 0.34)",
+    "--scrim": "rgba(38, 26, 56, 0.42)",
+    "--shadow-elevated": "rgba(38, 26, 56, 0.22)",
+    "--shadow-soft": "rgba(38, 26, 56, 0.16)",
+    "--danger": "#B3261E",
+    "--danger-border": "rgba(179, 38, 30, 0.36)",
+    "--danger-surface": "#FCEEEE",
+    "--danger-text": "#7A1B16",
 
     // Surfaces
     "--surface-panel": "#FCFAFF",
