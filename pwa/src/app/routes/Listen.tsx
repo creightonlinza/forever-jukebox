@@ -176,7 +176,7 @@ function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
 }
 
 function getAudioModeInputId(mode: JukeboxAudioMode) {
-  return `audio-mode-${mode.replace(/_/g, "-")}`;
+  return `audio-mode-${mode.replaceAll("_", "-")}`;
 }
 
 function AudioModeRadio({
@@ -207,7 +207,7 @@ function AudioModeRadio({
         title={option.tooltip}
         disabled={disabled}
       />
-      {option.label}
+      <span>{option.label}</span>
     </label>
   );
 }
@@ -2144,6 +2144,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       onChange={(event) => onVolumeChange(Number(event.target.value))}
                     />
                     <div className="label-line">
+                      <span>Volume:</span>
                       <span className="volume-value">{tuneForm.volume}</span>
                     </div>
                   </label>
@@ -2176,12 +2177,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       </div>
 
       {isExportOpen ? (
-        <div
-          className="modal open"
-          onClick={(event) =>
-            event.target === event.currentTarget && !isExporting && setIsExportOpen(false)
-          }
-        >
+        <div className="modal open">
+          <button
+            className="modal-backdrop"
+            type="button"
+            onClick={() => setIsExportOpen(false)}
+            aria-label="Close export dialog"
+            disabled={isExporting}
+          />
           <div className="modal-panel">
             <div className="modal-header">
               <h2>Export Jukebox Audio</h2>
@@ -2201,7 +2204,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               </p>
               <label>
                 <div className="label-line">
-                  Export Duration:
+                  <span>Export Duration:</span>
                   <span>{formatDuration(exportForm.durationSeconds)}</span>
                 </div>
                 <input
@@ -2240,7 +2243,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               {exportForm.format === "mp3" ? (
                 <label>
                   <div className="label-line">
-                    MP3 Bitrate:
+                    <span>MP3 Bitrate:</span>
                     <span>{exportForm.bitrateKbps} kbps</span>
                   </div>
                   <input
@@ -2289,7 +2292,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       ) : null}
 
       {isTuningOpen ? (
-        <div className="modal open" onClick={(event) => event.target === event.currentTarget && setIsTuningOpen(false)}>
+        <div className="modal open">
+          <button
+            className="modal-backdrop"
+            type="button"
+            onClick={() => setIsTuningOpen(false)}
+            aria-label="Close tuning dialog"
+          />
           <div className="modal-panel">
             <div className="modal-header">
               <div className="modal-header-main">
@@ -2343,11 +2352,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div id="tuning-panel-tuning" className={tuningActiveTab === "tuning" ? "" : "hidden"}>
                 <label>
                   <div className="label-line">
-                    Branch Similarity Threshold:
+                    <span>Branch Similarity Threshold:</span>
                     <span>{tuneForm.threshold}</span>
                   </div>
                   <div className="hint">
-                    Computed default threshold:
+                    <span>Computed default threshold:</span>
                     <span>{tuneForm.computedThreshold}</span>
                   </div>
                   <input
@@ -2363,7 +2372,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </label>
                 <label>
                   <div className="label-line">
-                    Branch Probability Min:
+                    <span>Branch Probability Min:</span>
                     <span>{tuneForm.minProb}%</span>
                   </div>
                   <input
@@ -2379,7 +2388,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </label>
                 <label>
                   <div className="label-line">
-                    Branch Probability Max:
+                    <span>Branch Probability Max:</span>
                     <span>{tuneForm.maxProb}%</span>
                   </div>
                   <input
@@ -2395,7 +2404,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </label>
                 <label>
                   <div className="label-line">
-                    Branch Ramp Speed:
+                    <span>Branch Ramp Speed:</span>
                     <span>{tuneForm.ramp}%</span>
                   </div>
                   <input
@@ -2418,7 +2427,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         setTuneForm((prev) => ({ ...prev, justBackwards: event.target.checked }))
                       }
                     />
-                    Allow only reverse branches
+                    <span>Allow only reverse branches</span>
                   </label>
                   <label>
                     <input
@@ -2428,7 +2437,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         setTuneForm((prev) => ({ ...prev, justLongBranches: event.target.checked }))
                       }
                     />
-                    Allow only long branches
+                    <span>Allow only long branches</span>
                   </label>
                   <label>
                     <input
@@ -2438,7 +2447,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         setTuneForm((prev) => ({ ...prev, removeSequentialBranches: event.target.checked }))
                       }
                     />
-                    Remove sequential branches
+                    <span>Remove sequential branches</span>
                   </label>
                   <label>
                     <input
@@ -2451,7 +2460,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         }))
                       }
                     />
-                    Highlight forced anchor jump
+                    <span>Highlight forced anchor jump</span>
                   </label>
                 </div>
               </div>
@@ -2470,7 +2479,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       }
                       disabled={playMode !== "jukebox"}
                     />
-                    Show selected branch stats
+                    <span>Show selected branch stats</span>
                   </label>
                   <label>
                     <input
@@ -2485,7 +2494,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       }
                       disabled={playMode !== "jukebox"}
                     />
-                    Bring It Home mode
+                    <span>Bring It Home mode</span>
                   </label>
                 </div>
                 <div id="jukebox-audio-mode-group" className="audio-mode-group">
@@ -2540,10 +2549,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         <div
           id="sleep-timer-modal"
           className="modal open"
-          onClick={(event) =>
-            event.target === event.currentTarget && setIsSleepTimerOpen(false)
-          }
         >
+          <button
+            className="modal-backdrop"
+            type="button"
+            onClick={() => setIsSleepTimerOpen(false)}
+            aria-label="Close sleep timer dialog"
+          />
           <div className="modal-panel sleep-timer-panel">
             <div className="modal-header">
               <h2>Sleep Timer</h2>
@@ -2617,7 +2629,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       ) : null}
 
       {isInfoOpen ? (
-        <div className="modal open" onClick={(event) => event.target === event.currentTarget && setIsInfoOpen(false)}>
+        <div className="modal open">
+          <button
+            className="modal-backdrop"
+            type="button"
+            onClick={() => setIsInfoOpen(false)}
+            aria-label="Close track info dialog"
+          />
           <div className="modal-panel">
             <div className="modal-header">
               <h2>Track Info</h2>

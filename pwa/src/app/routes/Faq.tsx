@@ -74,8 +74,7 @@ export function Faq() {
           — rebuilt from the ground up by{" "}
           <a href="https://creighton.dev" target="_blank" rel="noreferrer">
             Creighton Linza
-          </a>
-          . It generates a forever-evolving version of any song.
+          </a>{"."} It generates a forever-evolving version of any song.
         </p>
 
         <h2>How does it work?</h2>

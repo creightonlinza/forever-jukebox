@@ -363,7 +363,7 @@ function handleYoutubeMatchClick(
   const youtubeId = target?.dataset.youtubeId;
   const name = target?.dataset.trackName ?? "";
   const artist = target?.dataset.trackArtist ?? "";
-  const duration = Number(target?.dataset.trackDuration ?? NaN);
+  const duration = Number(target?.dataset.trackDuration ?? Number.NaN);
   if (!youtubeId) {
     deps.setAnalysisStatus("No YouTube id available.", false);
     return;
@@ -387,7 +387,7 @@ function handleSpotifyMatchClick(
   const target = event.currentTarget as HTMLLIElement | null;
   const name = target?.dataset.trackName ?? "";
   const artist = target?.dataset.trackArtist ?? "";
-  const duration = Number(target?.dataset.trackDuration ?? NaN);
+  const duration = Number(target?.dataset.trackDuration ?? Number.NaN);
   if (!name) {
     return;
   }

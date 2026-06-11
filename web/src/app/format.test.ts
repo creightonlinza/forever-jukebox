@@ -10,7 +10,7 @@ describe("format", () => {
 
   it("formats track duration with fallback", () => {
     expect(formatTrackDuration("nope")).toBe("-");
-    expect(formatTrackDuration(NaN)).toBe("-");
+    expect(formatTrackDuration(Number.NaN)).toBe("-");
     expect(formatTrackDuration(1)).toBe("00:00:01");
   });
 });

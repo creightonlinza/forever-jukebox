@@ -1118,7 +1118,7 @@ describe("Listen route behavior", () => {
     await openTuningModal(rendered.container);
     const thresholdValue = getRequired<HTMLSpanElement>(
       rendered.container,
-      "#tuning-panel-tuning .label-line span"
+      "#tuning-panel-tuning label:first-child .label-line span:last-child"
     );
     expect(thresholdValue.textContent).toBe("20");
     rendered.unmount();

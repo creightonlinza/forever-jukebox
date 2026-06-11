@@ -532,10 +532,12 @@ function findBestTieredAnchorSource(
       if (candidates.length === 0) {
         continue;
       }
-      const bestQuality = candidates.reduce((best, candidate) =>
-        compareAnchorOutcomeQuality(candidate.outcome, best.outcome) < 0
-          ? candidate
-          : best,
+      const bestQuality = candidates.reduce(
+        (best, candidate) =>
+          compareAnchorOutcomeQuality(candidate.outcome, best.outcome) < 0
+            ? candidate
+            : best,
+        candidates[0],
       );
       const lateBiasCandidates = filterLateBiasAnchorCandidates(
         candidates,

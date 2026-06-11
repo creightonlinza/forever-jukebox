@@ -1058,7 +1058,22 @@ textarea:focus-visible {
   display: flex;
 }
 
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.modal-backdrop:disabled {
+  cursor: default;
+}
+
 .modal-panel {
+  position: relative;
+  z-index: 1;
   width: min(520px, 90vw);
   background: var(--surface-panel);
   border: 1px solid var(--border-panel);
@@ -1290,7 +1305,6 @@ label {
 }
 
 .audio-mode-option {
-  padding-bottom: 0;
   display: inline-flex;
   flex-direction: row;
   align-items: center;
