@@ -77,6 +77,15 @@ export function Modal({
       if (openModalStack[openModalStack.length - 1] !== root) {
         return;
       }
+      // An open modal can sit inside a tab panel the router has since
+      // hidden (e.g. browser Back); while invisible it must not consume
+      // Escape or trap Tab for the rest of the page.
+      if (
+        typeof root.checkVisibility === "function" &&
+        !root.checkVisibility()
+      ) {
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         onCloseRef.current();

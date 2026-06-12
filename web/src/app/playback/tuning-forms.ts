@@ -117,15 +117,19 @@ export function applyExtrasChanges(
   const { cowbellOverlay, engine, player } = context;
   const previousBranchStatsEnabled = useAppStore.getState().branchStatsEnabled;
   const previousAudioMode = useAppStore.getState().jukeboxAudioMode;
-  useAppStore.getState().bringItHomeMode =
-    useAppStore.getState().playMode === "jukebox" && values.bringItHomeMode;
+  useAppStore.setState({
+    bringItHomeMode:
+      useAppStore.getState().playMode === "jukebox" && values.bringItHomeMode,
+  });
   if (useAppStore.getState().bringItHomeMode && useAppStore.getState().shiftBranching) {
     useAppStore.setState({ shiftBranching: false });
     engine.setForceBranch(false);
   }
   engine.setBringItHomeMode(useAppStore.getState().bringItHomeMode);
-  useAppStore.getState().branchStatsEnabled =
-    useAppStore.getState().playMode === "jukebox" && values.branchStatsEnabled;
+  useAppStore.setState({
+    branchStatsEnabled:
+      useAppStore.getState().playMode === "jukebox" && values.branchStatsEnabled,
+  });
   if (!useAppStore.getState().branchStatsEnabled) {
     useAppStore.setState({ branchStats: null });
   }
@@ -325,10 +329,12 @@ export function resetTuningDefaults(context: AppContext) {
     ? Math.round(graph.currentThreshold)
     : null
   });
-  useAppStore.getState().tuningParams =
-    useAppStore.getState().jukeboxAudioMode === "off"
-      ? null
-      : new URLSearchParams({ am: useAppStore.getState().jukeboxAudioMode }).toString();
+  useAppStore.setState({
+    tuningParams:
+      useAppStore.getState().jukeboxAudioMode === "off"
+        ? null
+        : new URLSearchParams({ am: useAppStore.getState().jukeboxAudioMode }).toString(),
+  });
   writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   player.setVolume(DEFAULT_VOLUME);
   autocanonizer.setVolume(DEFAULT_VOLUME);

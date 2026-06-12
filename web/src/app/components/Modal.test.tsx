@@ -54,6 +54,25 @@ describe("Modal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("ignores Escape and Tab while the modal is open but not visible", async () => {
+    // e.g. a route change hid the tab panel containing an open modal
+    const onClose = vi.fn();
+    render(
+      <Modal id="m" open onClose={onClose}>
+        <button>inside</button>
+      </Modal>,
+    );
+    const root = document.getElementById("m") as HTMLElement & {
+      checkVisibility?: () => boolean;
+    };
+    root.checkVisibility = () => false;
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+    root.checkVisibility = () => true;
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("Escape only closes the topmost of stacked modals", async () => {
     const closeBottom = vi.fn();
     const closeTop = vi.fn();

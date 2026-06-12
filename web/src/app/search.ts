@@ -123,8 +123,10 @@ export async function startYoutubeAnalysisFlow(
   });
   useAppStore.setState({ lastTrackId: jobId });
   useAppStore.setState({ lastJobId: jobId });
-  useAppStore.getState().lastSourceId =
-    typeof response.source_id === "string" ? response.source_id : youtubeId;
+  useAppStore.setState({
+    lastSourceId:
+      typeof response.source_id === "string" ? response.source_id : youtubeId,
+  });
   useAppStore.setState({ lastSourceProvider: response.source_provider ?? "youtube" });
   deps.onTrackChange?.(jobId);
   deps.updateTrackUrl(jobId);
@@ -186,8 +188,10 @@ export async function tryLoadExistingTrackByName(
     if (typeof response.source_provider === "string") {
       useAppStore.setState({ lastSourceProvider: response.source_provider });
     }
-    useAppStore.getState().lastSourceId =
-      typeof response.source_id === "string" ? response.source_id : null;
+    useAppStore.setState({
+      lastSourceId:
+        typeof response.source_id === "string" ? response.source_id : null,
+    });
     const sourceType =
       response.source_provider === "soundcloud" ||
       response.source_provider === "bandcamp" ||

@@ -268,8 +268,10 @@ export async function uploadFromUrl(
     deps.resetForNewTrack(context);
     useAppStore.setState({ lastTrackId: listenId });
     useAppStore.setState({ lastJobId: response.id });
-    useAppStore.getState().lastSourceId =
-      typeof response.source_id === "string" ? response.source_id : null;
+    useAppStore.setState({
+      lastSourceId:
+        typeof response.source_id === "string" ? response.source_id : null,
+    });
     useAppStore.setState({ lastSourceProvider: sourceProvider });
     useAppStore.setState({ pendingAutoFavoriteId: listenId });
     onAccepted?.();

@@ -39,6 +39,17 @@ export default tseslint.config(
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
+      // Store state must change via setState; in-place mutation of the
+      // getState() snapshot skips subscriber notification.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "AssignmentExpression[left.object.callee.property.name='getState']",
+          message:
+            "Do not assign to useAppStore.getState() properties; use useAppStore.setState().",
+        },
+      ],
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",

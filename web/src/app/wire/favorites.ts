@@ -471,8 +471,10 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (desiredTuningParams && useAppStore.getState().playMode !== "jukebox") {
       setPlayMode("jukebox");
     }
-    useAppStore.getState().tuningParams =
-      useAppStore.getState().playMode === "jukebox" ? desiredTuningParams : null;
+    useAppStore.setState({
+      tuningParams:
+        useAppStore.getState().playMode === "jukebox" ? desiredTuningParams : null,
+    });
     if (useAppStore.getState().playMode === "jukebox") {
       writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
     }

@@ -254,8 +254,10 @@ export function applyAnalysisResult(
   applyAnchorBranchFromUrl(context);
   autocanonizer.setAnalysis(response.result, response.result.track?.duration);
   const graph = engine.getGraphState();
-  useAppStore.getState().autoComputedThreshold =
-    useAutoThreshold && graph ? Math.round(graph.currentThreshold) : null;
+  useAppStore.setState({
+    autoComputedThreshold:
+      useAutoThreshold && graph ? Math.round(graph.currentThreshold) : null,
+  });
   useAppStore.setState({ vizData: engine.getVisualizationData() });
   const data = useAppStore.getState().vizData;
   if (data) {
@@ -274,10 +276,12 @@ export function applyAnalysisResult(
   const artist = track?.artist;
   useAppStore.setState({ trackTitle: typeof title === "string" ? title : null });
   useAppStore.setState({ trackArtist: typeof artist === "string" ? artist : null });
-  useAppStore.getState().trackDurationSec =
-    typeof track?.duration === "number" && Number.isFinite(track.duration)
-      ? track.duration
-      : null;
+  useAppStore.setState({
+    trackDurationSec:
+      typeof track?.duration === "number" && Number.isFinite(track.duration)
+        ? track.duration
+        : null,
+  });
   updateTrackInfo(context);
   syncActivePlaylistTrackFromLoaded();
   savePlaylist(useAppStore.getState().playlist);
@@ -440,8 +444,10 @@ function normalizeTrackIdentityFromResponse(
   const previousTrackId = useAppStore.getState().lastTrackId;
   useAppStore.setState({ lastJobId: response.id });
   useAppStore.setState({ lastTrackId: response.id });
-  useAppStore.getState().lastSourceId =
-    typeof response.source_id === "string" ? response.source_id : null;
+  useAppStore.setState({
+    lastSourceId:
+      typeof response.source_id === "string" ? response.source_id : null,
+  });
   if (typeof response.source_provider === "string") {
     useAppStore.setState({ lastSourceProvider: response.source_provider });
   }
