@@ -268,6 +268,10 @@ export function FaqPanel() {
             discovery lists or Favorites, then skip between them from the
             Listen screen.
           </li>
+          <li>
+            <strong>Rewrote the app in React</strong> — please report any
+            issues.
+          </li>
         </ul>
 
         <h4>May 2026</h4>
