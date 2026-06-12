@@ -9,6 +9,7 @@ import type { FullscreenHandlers } from "./fullscreen";
 import type { DeleteJobHandlers } from "./delete-job";
 import type { ThemeHandlers } from "./theme";
 import type { CacheHandlers } from "./cache";
+import type { PlaylistHandlers } from "./playlist";
 
 type UiBindingsDeps = {
   elements: Elements;
@@ -22,6 +23,7 @@ type UiBindingsDeps = {
   deleteJobHandlers: DeleteJobHandlers;
   themeHandlers: ThemeHandlers;
   cacheHandlers: CacheHandlers;
+  playlistHandlers: PlaylistHandlers;
 };
 
 export function bindUiHandlers(deps: UiBindingsDeps) {
@@ -37,6 +39,7 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     deleteJobHandlers,
     themeHandlers,
     cacheHandlers,
+    playlistHandlers,
   } = deps;
 
   elements.tabButtons.forEach((button) => {
@@ -147,6 +150,34 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     favoritesHandlers.handleFavoriteToggle,
   );
+  elements.playlistButton.addEventListener(
+    "click",
+    playlistHandlers.handleOpenPlaylist,
+  );
+  elements.playlistPreviousButton.addEventListener(
+    "click",
+    playlistHandlers.handlePlaylistPrevious,
+  );
+  elements.playlistNextButton.addEventListener(
+    "click",
+    playlistHandlers.handlePlaylistNext,
+  );
+  elements.savedPlaylistButton.addEventListener(
+    "click",
+    playlistHandlers.handleSavedPlaylistClick,
+  );
+  elements.playlistClose.addEventListener(
+    "click",
+    playlistHandlers.handleClosePlaylist,
+  );
+  elements.playlistModal.addEventListener(
+    "click",
+    playlistHandlers.handlePlaylistModalClick,
+  );
+  elements.playlistClearButton.addEventListener(
+    "click",
+    playlistHandlers.handleClearPlaylist,
+  );
   elements.deleteButton.addEventListener(
     "click",
     deleteJobHandlers.handleDeleteJobClick,
@@ -237,6 +268,7 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   );
   document.addEventListener("click", tuningHandlers.handleVolumeDocumentClick);
   window.addEventListener("keydown", deleteJobHandlers.handleDeleteConfirmKeydown);
+  window.addEventListener("keydown", playlistHandlers.handlePlaylistModalKeydown);
   window.addEventListener("keydown", playbackHandlers.handleKeydown);
   window.addEventListener("keyup", playbackHandlers.handleKeyup);
 

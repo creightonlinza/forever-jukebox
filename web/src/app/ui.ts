@@ -50,6 +50,15 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
+export function blurMouseActivatedControl(event: Event) {
+  const detail =
+    "detail" in event && typeof event.detail === "number" ? event.detail : 0;
+  if (detail <= 0 || !(event.currentTarget instanceof HTMLElement)) {
+    return;
+  }
+  event.currentTarget.blur();
+}
+
 export function showToast(
   context: AppContext,
   message: string,

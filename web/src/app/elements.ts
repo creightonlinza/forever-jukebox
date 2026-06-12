@@ -117,6 +117,38 @@ export function getElements() {
     document.querySelector<HTMLButtonElement>("#favorite-toggle"),
     "#favorite-toggle"
   );
+  const playlistPreviousButton = requireElement(
+    document.querySelector<HTMLButtonElement>("#playlist-previous"),
+    "#playlist-previous"
+  );
+  const playlistNextButton = requireElement(
+    document.querySelector<HTMLButtonElement>("#playlist-next"),
+    "#playlist-next"
+  );
+  const playlistButton = requireElement(
+    document.querySelector<HTMLButtonElement>("#playlist-open"),
+    "#playlist-open"
+  );
+  const savedPlaylistButton = requireElement(
+    document.querySelector<HTMLButtonElement>("#saved-playlist"),
+    "#saved-playlist"
+  );
+  const playlistModal = requireElement(
+    document.querySelector<HTMLDivElement>("#playlist-modal"),
+    "#playlist-modal"
+  );
+  const playlistClose = requireElement(
+    document.querySelector<HTMLButtonElement>("#playlist-close"),
+    "#playlist-close"
+  );
+  const playlistList = requireElement(
+    document.querySelector<HTMLDivElement>("#playlist-list"),
+    "#playlist-list"
+  );
+  const playlistClearButton = requireElement(
+    document.querySelector<HTMLButtonElement>("#playlist-clear"),
+    "#playlist-clear"
+  );
   const deleteButton = requireElement(
     document.querySelector<HTMLButtonElement>("#delete-job"),
     "#delete-job"
@@ -630,6 +662,14 @@ export function getElements() {
     tuningButton,
     infoButton,
     favoriteButton,
+    playlistPreviousButton,
+    playlistNextButton,
+    playlistButton,
+    savedPlaylistButton,
+    playlistModal,
+    playlistClose,
+    playlistList,
+    playlistClearButton,
     deleteButton,
     deleteConfirmModal,
     deleteConfirmCancel,

@@ -29,6 +29,9 @@
   --edge-selected: #B48CFF;
   --beat-fill: #FFD46A;
   --beat-highlight: #FFD46A;
+  --scrim: rgba(10, 12, 16, 0.75);
+  --shadow-elevated: rgba(0, 0, 0, 0.35);
+  --danger: #E35A5A;
 }
 
 * {
@@ -241,7 +244,7 @@ textarea:focus-visible {
   }
   3% {
     opacity: 0.75;
-    border-color: color-mix(in srgb, var(--title-accent) 78%, black);
+    border-color: color-mix(in srgb, var(--title-accent) 78%, var(--bg));
     box-shadow:
       0 0 5px color-mix(in srgb, var(--title-glow) 78%, transparent),
       inset 0 0 3px color-mix(in srgb, var(--title-glow) 35%, transparent);
@@ -270,7 +273,7 @@ textarea:focus-visible {
   }
   44% {
     opacity: 0.7;
-    border-color: color-mix(in srgb, var(--title-accent) 74%, black);
+    border-color: color-mix(in srgb, var(--title-accent) 74%, var(--bg));
     box-shadow:
       0 0 4px color-mix(in srgb, var(--title-glow) 72%, transparent),
       inset 0 0 3px color-mix(in srgb, var(--title-glow) 30%, transparent);
@@ -705,12 +708,12 @@ textarea:focus-visible {
 }
 
 .branch-stats-delete {
-  color: #e35a5a;
+  color: var(--danger);
   pointer-events: auto;
 }
 
 .branch-stats-delete-icon {
-  color: #e35a5a;
+  color: var(--danger);
   width: 25px;
   height: 25px;
   line-height: 1;
@@ -913,6 +916,14 @@ textarea:focus-visible {
   color: var(--muted);
 }
 
+.viz-meta-stats {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  white-space: nowrap;
+}
+
 .viz-divider {
   color: var(--muted);
 }
@@ -1029,7 +1040,7 @@ textarea:focus-visible {
   background: var(--surface-panel);
   color: var(--text);
   font-size: 13px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 20px var(--shadow-elevated);
   z-index: 30;
 }
 
@@ -1039,7 +1050,7 @@ textarea:focus-visible {
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 12, 16, 0.75);
+  background: var(--scrim);
   z-index: 20;
 }
 
@@ -1394,6 +1405,12 @@ label {
   text-decoration: underline;
 }
 
+@media (max-width: 1024px) {
+  .menu-bar {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 960px) {
   .hero-main {
     margin-top: 0;
@@ -1410,5 +1427,43 @@ label {
   .viz-top {
     flex-wrap: wrap;
     gap: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .app {
+    margin: 0;
+    padding: 0;
+  }
+
+  .panel {
+    padding: 0;
+  }
+
+  .play-title {
+    padding-left: 6px;
+  }
+
+  #viz-stats {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  #viz-stats .viz-bottom-left {
+    display: contents;
+  }
+
+  #viz-stats .viz-play-toggle {
+    order: 1;
+  }
+
+  #viz-stats .viz-bottom-right {
+    order: 2;
+    margin-left: auto;
+  }
+
+  #viz-stats .viz-info {
+    order: 3;
+    flex: 0 0 100%;
   }
 }

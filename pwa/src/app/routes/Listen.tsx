@@ -2114,11 +2114,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="viz-info">
                 <div className="viz-title" id="viz-now-playing">{displayTitle}</div>
                 <div className="viz-meta">
-                  <span>Listen Time:</span>
-                  <span>{formatDuration(listenSeconds)}</span>
-                  <span className={`viz-divider ${playMode === "autocanonizer" ? "is-hidden" : ""}`}>·</span>
-                  <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>Total Beats:</span>
-                  <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsPlayed}</span>
+                  <span className="viz-meta-stats">
+                    <span>Listen Time:</span>
+                    <span>{formatDuration(listenSeconds)}</span>
+                    <span className={`viz-divider ${playMode === "autocanonizer" ? "is-hidden" : ""}`}>·</span>
+                    <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>Total Beats:</span>
+                    <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsPlayed}</span>
+                  </span>
                   {playMode === "jukebox" && bringItHomeMode ? (
                     <span className="bring-home-fullscreen-note">· Bringing it on home</span>
                   ) : null}

@@ -64,7 +64,7 @@ describe("routing", () => {
       context,
       deps,
       "abc123def45",
-      { preserveUrlTuning: true },
+      { preservePlaylist: true, preserveUrlTuning: true },
     );
   });
 
@@ -78,7 +78,7 @@ describe("routing", () => {
       context,
       deps,
       jobId,
-      { preserveUrlTuning: false },
+      { preservePlaylist: true, preserveUrlTuning: false },
     );
   });
 

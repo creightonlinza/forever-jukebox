@@ -8,8 +8,9 @@ import {
   type FavoritesDisplaySort,
 } from "../favorites";
 import type { AnalysisComplete } from "../api";
-import type { ToastOptions } from "../ui";
+import { blurMouseActivatedControl, type ToastOptions } from "../ui";
 import { urlForTrack } from "../tabs";
+import type { PlaylistTrack } from "../playlist";
 
 type FavoritesDeps = {
   context: AppContext;
@@ -38,11 +39,18 @@ type FavoritesDeps = {
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
   ) => void;
-  loadTrackById: (trackId: string) => void;
-  loadTrackByJobId: (jobId: string) => void;
+  loadTrackById: (
+    trackId: string,
+    options?: { selectedTrack?: PlaylistTrack | null },
+  ) => void;
+  loadTrackByJobId: (
+    jobId: string,
+    options?: { selectedTrack?: PlaylistTrack | null },
+  ) => void;
   writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
   syncTuningParamsState: (context: AppContext) => string | null;
   setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
+  onAddToPlaylist?: (track: PlaylistTrack) => void;
 };
 
 export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
@@ -69,6 +77,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     writeTuningParamsToUrl,
     syncTuningParamsState,
     setPlayMode,
+    onAddToPlaylist,
   } = deps;
 
   type FavoritesDelta = {
@@ -620,6 +629,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
 
       const removeCell = document.createElement("td");
       removeCell.className = "favorite-remove-cell";
+      const playlistButton = createFavoritePlaylistButton(item);
       const removeButton = document.createElement("button");
       removeButton.type = "button";
       removeButton.className = "favorite-remove";
@@ -628,6 +638,9 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         '<span class="material-symbols-outlined favorite-remove-icon" aria-hidden="true">close</span>';
       removeButton.dataset.favoriteId = item.uniqueSongId;
       removeButton.addEventListener("click", handleFavoriteRemove);
+      if (playlistButton) {
+        removeCell.append(playlistButton);
+      }
       removeCell.append(removeButton);
 
       row.append(titleCell, artistCell, removeCell);
@@ -770,11 +783,14 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         ? sourceTypeRaw
         : "youtube";
     navigateToTabWithState("play", { trackId: favoriteId });
+    const selectedTrack = favorite
+      ? favoriteToPlaylistTrack(favorite, sourceType)
+      : null;
     if (sourceType === "upload" || isLikelyJobId(favoriteId)) {
-      loadTrackByJobId(favoriteId);
+      loadTrackByJobId(favoriteId, { selectedTrack });
       return;
     }
-    loadTrackById(favoriteId);
+    loadTrackById(favoriteId, { selectedTrack });
   }
 
   function handleFavoriteRowClick(event: Event) {
@@ -803,6 +819,44 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
     updateFavorites(removeFavorite(state.favorites, favoriteId));
     showFavoriteToast("Removed from Favorites");
+  }
+
+  function createFavoritePlaylistButton(item: FavoriteTrack) {
+    if (!onAddToPlaylist) {
+      return null;
+    }
+    const sourceType = item.sourceType ?? "youtube";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "playlist-add-button";
+    button.title = "Add to playlist";
+    button.setAttribute(
+      "aria-label",
+      `Add ${item.title || "track"} to playlist`,
+    );
+    button.innerHTML =
+      '<span class="material-symbols-outlined playlist-add-icon" aria-hidden="true">add_circle</span>';
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onAddToPlaylist(favoriteToPlaylistTrack(item, sourceType));
+      blurMouseActivatedControl(event);
+    });
+    return button;
+  }
+
+  function favoriteToPlaylistTrack(
+    item: FavoriteTrack,
+    sourceType: FavoriteTrack["sourceType"],
+  ): PlaylistTrack {
+    return {
+      id: item.uniqueSongId,
+      sourceType,
+      title: item.title || "Untitled",
+      artist: item.artist || "",
+      duration: item.duration,
+      tuningParams: item.tuningParams ?? null,
+    };
   }
 
   async function handleFavoriteToggle() {

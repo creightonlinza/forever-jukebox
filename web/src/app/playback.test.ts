@@ -1574,6 +1574,7 @@ describe("playback loading", () => {
       setAnalysisStatus: vi.fn(),
       setLoadingProgress: vi.fn(),
       onTrackChange: vi.fn(),
+      onPlaylistChange: vi.fn(),
     };
   }
 
@@ -1607,6 +1608,175 @@ describe("playback loading", () => {
     expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
       `/api/analysis/${jobId}`,
     );
+  });
+
+  it("marks the matching saved playlist item current on preserved route loads", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const context = createContext();
+    context.state.playlist = {
+      tracks: [
+        {
+          id: "first",
+          sourceType: "youtube",
+          title: "First",
+          artist: "",
+          duration: null,
+        },
+        {
+          id: "sc-123",
+          sourceType: "soundcloud",
+          title: "SoundCloud Track",
+          artist: "",
+          duration: null,
+        },
+      ],
+      currentIndex: -1,
+    };
+    const deps = createLoadDeps();
+
+    await loadTrackById(context, deps, "soundcloud:sc-123", {
+      preservePlaylist: true,
+    });
+
+    expect(context.state.playlist.currentIndex).toBe(1);
+    expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
+  });
+
+  it("appends missing route-loaded tracks to saved playlists", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const context = createContext();
+    context.state.playlist = {
+      tracks: [
+        {
+          id: "saved-a",
+          sourceType: "youtube",
+          title: "Saved A",
+          artist: "",
+          duration: null,
+        },
+        {
+          id: "saved-b",
+          sourceType: "youtube",
+          title: "Saved B",
+          artist: "",
+          duration: null,
+        },
+      ],
+      currentIndex: -1,
+    };
+    const deps = createLoadDeps();
+
+    await loadTrackById(context, deps, "outside", {
+      preservePlaylist: true,
+    });
+
+    expect(context.state.playlist.currentIndex).toBe(2);
+    expect(context.state.playlist.tracks.map((track) => track.id)).toEqual([
+      "saved-a",
+      "saved-b",
+      "outside",
+    ]);
+    expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
+    expect(localStorage.getItem("fj-playlist")).toContain("outside");
+  });
+
+  it("replaces the final saved playlist slot for missing route-loaded tracks when full", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const context = createContext();
+    context.state.playlist = {
+      tracks: Array.from({ length: 10 }, (_, index) => ({
+        id: `saved-${index}`,
+        sourceType: "youtube" as const,
+        title: `Saved ${index}`,
+        artist: "",
+        duration: null,
+      })),
+      currentIndex: -1,
+    };
+    const deps = createLoadDeps();
+
+    await loadTrackById(context, deps, "outside", {
+      preservePlaylist: true,
+    });
+
+    expect(context.state.playlist.currentIndex).toBe(9);
+    expect(context.state.playlist.tracks).toHaveLength(10);
+    expect(context.state.playlist.tracks[9]?.id).toBe("outside");
+    expect(context.state.playlist.tracks[8]?.id).toBe("saved-8");
+    expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
+  });
+
+  it("replaces only the current active playlist item on normal track loads", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const context = createContext();
+    context.state.playlist = {
+      tracks: [
+        {
+          id: "current",
+          sourceType: "youtube",
+          title: "Current",
+          artist: "",
+          duration: null,
+        },
+        {
+          id: "next",
+          sourceType: "youtube",
+          title: "Next",
+          artist: "",
+          duration: null,
+        },
+      ],
+      currentIndex: 0,
+    };
+    const deps = createLoadDeps();
+
+    await loadTrackById(context, deps, "outside", {
+      selectedTrack: {
+        id: "outside",
+        sourceType: "youtube",
+        title: "Outside",
+        artist: "",
+        duration: null,
+      },
+    });
+
+    expect(context.state.playlist.currentIndex).toBe(0);
+    expect(context.state.playlist.tracks.map((track) => track.id)).toEqual([
+      "outside",
+      "next",
+    ]);
+    expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
+  });
+
+  it("clears inactive saved playlists on normal track loads", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const context = createContext();
+    context.state.playlist = {
+      tracks: [
+        {
+          id: "saved-a",
+          sourceType: "youtube",
+          title: "Saved A",
+          artist: "",
+          duration: null,
+        },
+        {
+          id: "saved-b",
+          sourceType: "youtube",
+          title: "Saved B",
+          artist: "",
+          duration: null,
+        },
+      ],
+      currentIndex: -1,
+    };
+    const deps = createLoadDeps();
+
+    await loadTrackById(context, deps, "outside");
+
+    expect(context.state.playlist.tracks).toEqual([]);
+    expect(context.state.playlist.currentIndex).toBe(-1);
+    expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
   });
 
   it("returns false on missing audio without calling repair endpoint", async () => {

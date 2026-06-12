@@ -58,6 +58,7 @@ type PlaybackUiDeps = {
   updateTrackInfo: (context: AppContext) => void;
   isEditableTarget: (target: EventTarget | null) => boolean;
   getCurrentTrackId: () => string | null;
+  advancePlaylistOnAutocanonizerEnded?: () => Promise<boolean>;
 };
 
 export type PlaybackUiHandlers = ReturnType<typeof createPlaybackUiHandlers>;
@@ -113,6 +114,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     updateTrackInfo,
     isEditableTarget,
     getCurrentTrackId,
+    advancePlaylistOnAutocanonizerEnded,
   } = deps;
   let lastCowbellBeatsPlayed = 0;
 
@@ -210,9 +212,25 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       state.lastBeatIndex = index;
     });
     autocanonizer.setOnEnded(() => {
-      if (state.isRunning) {
-        stopPlayback(context);
+      if (!state.isRunning) {
+        return;
       }
+      if (advancePlaylistOnAutocanonizerEnded) {
+        advancePlaylistOnAutocanonizerEnded()
+          .then((advanced) => {
+            if (!advanced && state.isRunning) {
+              stopPlayback(context);
+            }
+          })
+          .catch((err) => {
+            console.warn(`Playlist advance failed: ${String(err)}`);
+            if (state.isRunning) {
+              stopPlayback(context);
+            }
+          });
+        return;
+      }
+      stopPlayback(context);
     });
     autocanonizer.setOnSelect((index) => {
       if (state.playMode !== "autocanonizer") {

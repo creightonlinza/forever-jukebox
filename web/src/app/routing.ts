@@ -41,7 +41,10 @@ export async function handleRouteChange(
         return;
       }
       deps.navigateToTab("play", { replace: true, trackId });
-      await loadTrackById(context, deps, trackId, { preserveUrlTuning });
+      await loadTrackById(context, deps, trackId, {
+        preserveUrlTuning,
+        preservePlaylist: true,
+      });
       return;
     }
     deps.navigateToTab("top", { replace: true });

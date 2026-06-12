@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppContext } from "./context";
 import type { SearchDeps } from "./search";
-import { startYoutubeAnalysisFlow, tryLoadExistingTrackByName } from "./search";
+import {
+  showYoutubeMatches,
+  startYoutubeAnalysisFlow,
+  tryLoadExistingTrackByName,
+} from "./search";
 import { setWindowUrl } from "./__tests__/test-utils";
 
 vi.mock("./api", () => ({
   fetchJobByTrack: vi.fn(),
+  searchYoutube: vi.fn(),
   startYoutubeAnalysis: vi.fn(),
 }));
 
@@ -55,6 +60,51 @@ function createDeps(): SearchDeps {
     updateVizVisibility: vi.fn(),
     onTrackChange: vi.fn(),
   };
+}
+
+type FakeElement = {
+  tagName: string;
+  className: string;
+  textContent: string;
+  dataset: Record<string, string>;
+  children: FakeElement[];
+  append: (...children: FakeElement[]) => void;
+  appendChild: (child: FakeElement) => FakeElement;
+  replaceChildren: (...children: FakeElement[]) => void;
+  setAttribute: (name: string, value: string) => void;
+  addEventListener: (name: string, listener: EventListener) => void;
+};
+
+function createFakeElement(tagName: string): FakeElement {
+  return {
+    tagName,
+    className: "",
+    textContent: "",
+    dataset: {},
+    children: [],
+    append(...children: FakeElement[]) {
+      this.children.push(...children);
+    },
+    appendChild(child: FakeElement) {
+      this.children.push(child);
+      return child;
+    },
+    replaceChildren(...children: FakeElement[]) {
+      this.children = children;
+    },
+    setAttribute() {},
+    addEventListener() {},
+  };
+}
+
+function findByClass(element: FakeElement, className: string): FakeElement[] {
+  const matches = element.className.split(/\s+/).includes(className)
+    ? [element]
+    : [];
+  for (const child of element.children) {
+    matches.push(...findByClass(child, className));
+  }
+  return matches;
 }
 
 describe("search flows", () => {
@@ -159,9 +209,14 @@ describe("search flows", () => {
 
   it("starts youtube analysis flow", async () => {
     const context = createContext();
+    context.state.tuningParams = "jb=1";
     const deps = createDeps();
+    deps.onNormalTrackSelected = vi.fn();
     (api.startYoutubeAnalysis as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "job2", status: "queued" });
     await startYoutubeAnalysisFlow(context, deps, "yt2", "Song", "Artist");
+    expect(deps.onNormalTrackSelected).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "yt2", tuningParams: "jb=1" }),
+    );
     expect(api.startYoutubeAnalysis).toHaveBeenCalledWith({
       youtube_id: "yt2",
       title: "Song",
@@ -169,5 +224,26 @@ describe("search flows", () => {
     });
     expect(deps.updateTrackUrl).toHaveBeenCalledWith("yt2");
     expect(deps.pollAnalysis).toHaveBeenCalledWith("job2");
+  });
+
+  it("renders youtube matches without playlist add controls", async () => {
+    vi.stubGlobal("document", {
+      createElement: vi.fn((tagName: string) => createFakeElement(tagName)),
+    });
+    const context = createContext();
+    const searchResults = createFakeElement("div");
+    context.elements.searchResults =
+      searchResults as unknown as AppContext["elements"]["searchResults"];
+    context.elements.searchHint =
+      createFakeElement("div") as unknown as AppContext["elements"]["searchHint"];
+    const deps = createDeps();
+    (api.searchYoutube as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "yt-match", title: "Match", duration: 123 },
+    ]);
+
+    await showYoutubeMatches(context, deps, "Song", "Artist", 123);
+
+    expect(findByClass(searchResults, "playlist-add-button")).toEqual([]);
+    expect(findByClass(searchResults, "search-open")).toHaveLength(1);
   });
 });
