@@ -9,32 +9,31 @@ import {
 } from "./status-ui";
 import { requestWakeLock } from "./wake-lock";
 
-export function isPlaybackBlockedForSwing(context: AppContext) {
-  const { state } = context;
+export function isPlaybackBlockedForSwing() {
+  const { playMode, jukeboxAudioMode, swingPreparing } =
+    useAppStore.getState();
   return (
-    state.playMode === "jukebox" &&
-    state.jukeboxAudioMode === "swing" &&
-    state.swingPreparing
+    playMode === "jukebox" && jukeboxAudioMode === "swing" && swingPreparing
   );
 }
 
-export function startListenTimer(context: AppContext) {
-  const { state } = context;
-  if (state.listenTimerId !== null) {
+export function startListenTimer() {
+  if (useAppStore.getState().listenTimerId !== null) {
     return;
   }
-  state.listenTimerId = window.setInterval(() => {
+  const listenTimerId = window.setInterval(() => {
     updateListenTimeDisplay();
   }, LISTEN_TIMER_INTERVAL_MS);
+  useAppStore.setState({ listenTimerId });
 }
 
-export function stopListenTimer(context: AppContext) {
-  const { state } = context;
-  if (state.listenTimerId === null) {
+export function stopListenTimer() {
+  const { listenTimerId } = useAppStore.getState();
+  if (listenTimerId === null) {
     return;
   }
-  window.clearInterval(state.listenTimerId);
-  state.listenTimerId = null;
+  window.clearInterval(listenTimerId);
+  useAppStore.setState({ listenTimerId: null });
 }
 
 export function stopPlayback(context: AppContext) {
@@ -44,63 +43,65 @@ export function stopPlayback(context: AppContext) {
     engine,
     jukebox,
     player,
-    state,
   } = context;
   cowbellOverlay.cancelScheduledHits();
-  if (state.playMode === "autocanonizer") {
+  if (useAppStore.getState().playMode === "autocanonizer") {
     autocanonizer.stop();
     player.stop();
     autocanonizer.resetVisualization();
   }
   engine.stopJukebox();
   engine.resetStats();
-  state.playTimerMs = 0;
-  state.lastPlayStamp = null;
-  state.lastBeatIndex = null;
+  useAppStore.setState({ playTimerMs: 0 });
+  useAppStore.setState({ lastPlayStamp: null });
+  useAppStore.setState({ lastBeatIndex: null });
   useAppStore.setState({ beatsPlayedText: "0" });
   jukebox.reset();
-  state.isRunning = false;
-  state.isPaused = false;
-  state.shiftBranching = false;
+  useAppStore.setState({ isRunning: false });
+  useAppStore.setState({ isPaused: false });
+  useAppStore.setState({ shiftBranching: false });
   engine.setForceBranch(false);
-  if (state.bringItHomeMode) {
-    state.bringItHomeMode = false;
+  if (useAppStore.getState().bringItHomeMode) {
+    useAppStore.setState({ bringItHomeMode: false });
     engine.setBringItHomeMode(false);
   }
-  stopListenTimer(context);
+  stopListenTimer();
   updateListenTimeDisplay();
   updatePlayButton();
 }
 
 export function pausePlayback(context: AppContext) {
-  const { autocanonizer, cowbellOverlay, engine, player, state } = context;
-  if (!state.isRunning) {
+  const { autocanonizer, cowbellOverlay, engine, player } = context;
+  if (!useAppStore.getState().isRunning) {
     return;
   }
   cowbellOverlay.cancelScheduledHits();
-  if (state.playMode === "autocanonizer") {
+  if (useAppStore.getState().playMode === "autocanonizer") {
     autocanonizer.stop();
     player.stop();
   } else {
     engine.pauseJukebox();
     engine.syncToPlaybackPosition();
   }
-  if (state.lastPlayStamp !== null) {
-    state.playTimerMs += performance.now() - state.lastPlayStamp;
-    state.lastPlayStamp = null;
+  const { lastPlayStamp, playTimerMs } = useAppStore.getState();
+  if (lastPlayStamp !== null) {
+    useAppStore.setState({
+      playTimerMs: playTimerMs + (performance.now() - lastPlayStamp),
+      lastPlayStamp: null,
+    });
   }
-  state.isRunning = false;
-  state.isPaused = true;
-  state.shiftBranching = false;
+  useAppStore.setState({ isRunning: false });
+  useAppStore.setState({ isPaused: true });
+  useAppStore.setState({ shiftBranching: false });
   engine.setForceBranch(false);
-  stopListenTimer(context);
+  stopListenTimer();
   updateListenTimeDisplay();
   updatePlayButton();
 }
 
 export function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
-  const { cowbellOverlay, engine, jukebox, player, state } = context;
-  if (isPlaybackBlockedForSwing(context)) {
+  const { cowbellOverlay, engine, jukebox, player } = context;
+  if (isPlaybackBlockedForSwing()) {
     showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
     updatePlayButton();
     return;
@@ -116,11 +117,11 @@ export function startJukeboxPlayback(context: AppContext, resetSession: boolean)
     cowbellOverlay.cancelScheduledHits();
     engine.stopJukebox();
     engine.resetStats();
-    state.playTimerMs = 0;
-    state.lastPlayStamp = null;
+    useAppStore.setState({ playTimerMs: 0 });
+    useAppStore.setState({ lastPlayStamp: null });
     updateListenTimeDisplay();
     useAppStore.setState({ beatsPlayedText: "0" });
-    state.lastBeatIndex = null;
+    useAppStore.setState({ lastBeatIndex: null });
     jukebox.reset();
     pulseVizStats();
   } else {
@@ -128,10 +129,10 @@ export function startJukeboxPlayback(context: AppContext, resetSession: boolean)
   }
   engine.play();
   engine.startJukebox(resetSession);
-  state.lastPlayStamp = performance.now();
-  state.isRunning = true;
-  state.isPaused = false;
-  startListenTimer(context);
+  useAppStore.setState({ lastPlayStamp: performance.now() });
+  useAppStore.setState({ isRunning: true });
+  useAppStore.setState({ isPaused: false });
+  startListenTimer();
   updatePlayButton();
   if (document.fullscreenElement) {
     requestWakeLock();
@@ -139,20 +140,19 @@ export function startJukeboxPlayback(context: AppContext, resetSession: boolean)
 }
 
 export function togglePlayback(context: AppContext) {
-  const { state } = context;
-  if (state.isRunning) {
+  if (useAppStore.getState().isRunning) {
     pausePlayback(context);
     return;
   }
   try {
-    if (state.playMode === "autocanonizer") {
-      const startIndex = state.isPaused ? (state.lastBeatIndex ?? 0) : 0;
+    if (useAppStore.getState().playMode === "autocanonizer") {
+      const startIndex = useAppStore.getState().isPaused ? (useAppStore.getState().lastBeatIndex ?? 0) : 0;
       startAutocanonizerPlayback(context, startIndex, {
-        resetSession: !state.isPaused,
+        resetSession: !useAppStore.getState().isPaused,
       });
       return;
     }
-    if (state.isPaused) {
+    if (useAppStore.getState().isPaused) {
       startJukeboxPlayback(context, false);
       return;
     }
@@ -163,11 +163,11 @@ export function togglePlayback(context: AppContext) {
 }
 
 export function startJukeboxFromBeat(context: AppContext, index: number) {
-  const { cowbellOverlay, engine, player, state } = context;
-  if (state.playMode !== "jukebox") {
+  const { cowbellOverlay, engine, player } = context;
+  if (useAppStore.getState().playMode !== "jukebox") {
     return;
   }
-  if (isPlaybackBlockedForSwing(context)) {
+  if (isPlaybackBlockedForSwing()) {
     showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
     updatePlayButton();
     return;
@@ -176,7 +176,7 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
     console.warn("Audio not loaded");
     return;
   }
-  const beat = state.vizData?.beats[index];
+  const beat = useAppStore.getState().vizData?.beats[index];
   if (!beat) {
     return;
   }
@@ -184,14 +184,14 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
   cowbellOverlay.cancelScheduledHits();
   player.seek(beat.start);
   engine.seekToBeat(index);
-  state.lastBeatIndex = index;
-  if (!state.isRunning) {
+  useAppStore.setState({ lastBeatIndex: index });
+  if (!useAppStore.getState().isRunning) {
     engine.play();
     engine.startJukebox(false);
-    state.lastPlayStamp = performance.now();
-    state.isRunning = true;
-    state.isPaused = false;
-    startListenTimer(context);
+    useAppStore.setState({ lastPlayStamp: performance.now() });
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({ isPaused: false });
+    startListenTimer();
     updatePlayButton();
     if (document.fullscreenElement) {
       requestWakeLock();
@@ -208,7 +208,7 @@ export function startAutocanonizerPlayback(
   index: number,
   options?: { resetSession?: boolean },
 ) {
-  const { autocanonizer, cowbellOverlay, engine, player, state } = context;
+  const { autocanonizer, cowbellOverlay, engine, player } = context;
   if (!autocanonizer.isReady()) {
     console.warn("Autocanonizer not ready");
     return false;
@@ -218,19 +218,19 @@ export function startAutocanonizerPlayback(
   cowbellOverlay.cancelScheduledHits();
   engine.stopJukebox();
   if (resetSession) {
-    state.playTimerMs = 0;
-    state.lastPlayStamp = null;
+    useAppStore.setState({ playTimerMs: 0 });
+    useAppStore.setState({ lastPlayStamp: null });
     updateListenTimeDisplay();
     useAppStore.setState({ beatsPlayedText: "0" });
-    state.lastBeatIndex = null;
+    useAppStore.setState({ lastBeatIndex: null });
     pulseVizStats();
     autocanonizer.resetVisualization();
   }
   autocanonizer.startAtIndex(index);
-  state.lastPlayStamp = performance.now();
-  state.isRunning = true;
-  state.isPaused = false;
-  startListenTimer(context);
+  useAppStore.setState({ lastPlayStamp: performance.now() });
+  useAppStore.setState({ isRunning: true });
+  useAppStore.setState({ isPaused: false });
+  startListenTimer();
   updatePlayButton();
   if (document.fullscreenElement) {
     requestWakeLock();

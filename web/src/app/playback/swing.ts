@@ -7,38 +7,40 @@ import { showToast } from "../ui";
 import { updatePlayButton, updateVizVisibility } from "./status-ui";
 import { pausePlayback, startJukeboxPlayback } from "./transport";
 
-function getCurrentSwingSourceIdentity(context: AppContext): string | null {
-  const { state } = context;
-  return state.lastTrackId ?? state.lastJobId ?? null;
+function getCurrentSwingSourceIdentity(): string | null {
+  const { lastTrackId, lastJobId } = useAppStore.getState();
+  return lastTrackId ?? lastJobId ?? null;
 }
 
 export function canPrepareSwingMode(context: AppContext) {
+  const { playMode, audioLoaded, analysisLoaded, vizData } =
+    useAppStore.getState();
   return (
-    context.state.playMode === "jukebox" &&
-    context.state.audioLoaded &&
-    context.state.analysisLoaded &&
+    playMode === "jukebox" &&
+    audioLoaded &&
+    analysisLoaded &&
     context.player.getSourceBuffer() !== null &&
-    context.state.vizData !== null &&
-    context.state.vizData.beats.length > 0
+    vizData !== null &&
+    vizData.beats.length > 0
   );
 }
 
 export function prepareSwingMode(context: AppContext) {
-  if (context.state.jukeboxAudioMode !== "swing") {
+  if (useAppStore.getState().jukeboxAudioMode !== "swing") {
     return;
   }
   const sourceBuffer = context.player.getSourceBuffer();
-  const beats = context.state.vizData?.beats;
+  const beats = useAppStore.getState().vizData?.beats;
   if (!sourceBuffer || !beats || beats.length === 0) {
     return;
   }
-  const resumeAfterPrepare = context.state.isRunning;
-  if (context.state.isRunning) {
+  const resumeAfterPrepare = useAppStore.getState().isRunning;
+  if (useAppStore.getState().isRunning) {
     pausePlayback(context);
   }
-  const renderToken = context.state.swingRenderToken + 1;
-  context.state.swingRenderToken = renderToken;
-  context.state.swingPreparing = true;
+  const renderToken = useAppStore.getState().swingRenderToken + 1;
+  useAppStore.setState({ swingRenderToken: renderToken });
+  useAppStore.setState({ swingPreparing: true });
   useAppStore.setState({
     analysisStatusText: "Adding swing to the track...",
     analysisSpinning: true,
@@ -47,13 +49,13 @@ export function prepareSwingMode(context: AppContext) {
   updateVizVisibility();
   updatePlayButton();
 
-  const sourceIdentity = getCurrentSwingSourceIdentity(context);
+  const sourceIdentity = getCurrentSwingSourceIdentity();
   void getOrCreateSwingBuffer(sourceBuffer, sourceIdentity, () =>
     renderSwingBuffer(sourceBuffer, beats, {
       onProgress: (progress) => {
         if (
-          context.state.swingRenderToken !== renderToken ||
-          context.state.jukeboxAudioMode !== "swing"
+          useAppStore.getState().swingRenderToken !== renderToken ||
+          useAppStore.getState().jukeboxAudioMode !== "swing"
         ) {
           return;
         }
@@ -64,12 +66,12 @@ export function prepareSwingMode(context: AppContext) {
   )
     .then((buffer) => {
       if (
-        context.state.swingRenderToken !== renderToken ||
-        context.state.jukeboxAudioMode !== "swing"
+        useAppStore.getState().swingRenderToken !== renderToken ||
+        useAppStore.getState().jukeboxAudioMode !== "swing"
       ) {
         return;
       }
-      context.state.swingPreparing = false;
+      useAppStore.setState({ swingPreparing: false });
       context.player.setRenderedJukeboxAudioBuffer("swing", buffer);
       context.player.setJukeboxAudioMode("swing");
       useAppStore.setState({
@@ -78,26 +80,26 @@ export function prepareSwingMode(context: AppContext) {
         analysisProgressText: "",
       });
       updateVizVisibility();
-      if (context.state.isRunning || context.state.isPaused) {
+      if (useAppStore.getState().isRunning || useAppStore.getState().isPaused) {
         context.engine.syncToPlaybackPosition();
       }
       updatePlayButton();
       if (
         resumeAfterPrepare &&
-        context.state.playMode === "jukebox" &&
-        context.state.jukeboxAudioMode === "swing" &&
-        !context.state.isRunning
+        useAppStore.getState().playMode === "jukebox" &&
+        useAppStore.getState().jukeboxAudioMode === "swing" &&
+        !useAppStore.getState().isRunning
       ) {
         startJukeboxPlayback(context, false);
       }
     })
     .catch((err: unknown) => {
-      if (context.state.swingRenderToken !== renderToken) {
+      if (useAppStore.getState().swingRenderToken !== renderToken) {
         return;
       }
       console.warn(`Swing render failed: ${String(err)}`);
-      context.state.swingPreparing = false;
-      context.state.jukeboxAudioMode = "off";
+      useAppStore.setState({ swingPreparing: false });
+      useAppStore.setState({ jukeboxAudioMode: "off" });
       context.player.setJukeboxAudioMode("off");
       useAppStore.setState({
         analysisStatusText: "Swing mode failed.",
@@ -106,7 +108,7 @@ export function prepareSwingMode(context: AppContext) {
       });
       updateVizVisibility();
       syncTuningParamsState(context);
-      writeTuningParamsToUrl(context.state.tuningParams, true);
+      writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
       updatePlayButton();
       showToast(context, "Swing mode failed. Using Normal mode.", {
         icon: "error",
@@ -116,7 +118,7 @@ export function prepareSwingMode(context: AppContext) {
 }
 
 export function maybePrepareSwingMode(context: AppContext) {
-  if (context.state.jukeboxAudioMode !== "swing") {
+  if (useAppStore.getState().jukeboxAudioMode !== "swing") {
     return;
   }
   if (!canPrepareSwingMode(context)) {
