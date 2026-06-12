@@ -1203,7 +1203,17 @@ export async function pollAnalysis(
       if (controller.signal.aborted) {
         return;
       }
-      const response = await fetchAnalysis(jobId, controller.signal);
+      let response: Awaited<ReturnType<typeof fetchAnalysis>>;
+      try {
+        response = await fetchAnalysis(jobId, controller.signal);
+      } catch (err) {
+        // A newer load cancelled this poll while the request was in flight;
+        // exit silently instead of surfacing the abort as a load error.
+        if (controller.signal.aborted) {
+          return;
+        }
+        throw err;
+      }
       if (!response) {
         deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
         return;

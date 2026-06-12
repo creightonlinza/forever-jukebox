@@ -1660,6 +1660,24 @@ describe("playback loading", () => {
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
   });
 
+  it("exits silently when the poll is cancelled mid-request", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    (fetch as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => {
+      // a newer track load cancels this poll while its request is in flight
+      context.state.pollController?.abort();
+      const err = new Error("signal is aborted without reason");
+      err.name = "AbortError";
+      throw err;
+    });
+
+    await pollAnalysis(context, deps, "job-cancelled");
+
+    expect(deps.setAnalysisStatus).not.toHaveBeenCalled();
+    expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
+    expect(context.state.pollController).toBeNull();
+  });
+
   it("surfaces failed analysis status without applying stale analysis", async () => {
     const context = createContext();
     const deps = createLoadDeps();
