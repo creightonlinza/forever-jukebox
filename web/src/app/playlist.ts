@@ -18,8 +18,7 @@ export type PlaylistAddStatus =
   | "added"
   | "duplicate"
   | "full"
-  | "invalid"
-  | "no-current";
+  | "invalid";
 
 export const PLAYLIST_STORAGE_KEY = "fj-playlist";
 export const PLAYLIST_MAX_TRACKS = 10;
@@ -112,7 +111,9 @@ export function addPlaylistTrack(
   }
   if (existingTracks.length === 0) {
     if (!normalizedCurrent) {
-      return { playlist, status: "no-current" };
+      // Unreachable through the UI: add buttons only render once a track is
+      // loaded (body.playlist-add-enabled). Kept as a defensive guard.
+      return { playlist, status: "invalid" };
     }
     if (playlistTrackKey(normalizedCurrent) === playlistTrackKey(normalizedTrack)) {
       return { playlist, status: "duplicate" };

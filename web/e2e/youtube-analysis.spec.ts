@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { fetchAppConfig, waitForTrackLoaded } from "./helpers";
+import { expectToast, fetchAppConfig, waitForTrackLoaded } from "./helpers";
 
 // Full YouTube ingest → analysis → playback flow. This downloads real audio
 // and runs the analysis engine, so it is opt-in and intended ONLY for a
@@ -18,6 +18,19 @@ test.describe("full YouTube analysis flow", () => {
     "set E2E_BASE_URL and E2E_ALLOW_ANALYSIS=1 to run the full ingest flow",
   );
   test.setTimeout(8 * 60_000);
+
+  // If the test dies between ingest and the UI delete, still try to remove
+  // the track so reruns don't litter the shared environment.
+  let createdJobId: string | null = null;
+  test.afterEach(async ({ request, baseURL }) => {
+    if (!createdJobId) {
+      return;
+    }
+    await request
+      .delete(`${baseURL}/api/jobs/${createdJobId}`)
+      .catch(() => undefined);
+    createdJobId = null;
+  });
 
   test("upload-by-URL ingests, analyzes and plays a track", async ({
     page,
@@ -54,5 +67,24 @@ test.describe("full YouTube analysis flow", () => {
         { timeout: 20_000 },
       )
       .toBeGreaterThan(0);
+
+    // The freshly created job is inside its self-service delete window, so
+    // deleting it through the real UI doubles as the live delete-flow test
+    // and leaves the environment clean.
+    const jobId = new URL(page.url()).pathname.split("/").pop()!;
+    createdJobId = jobId;
+    const deleteButton = page.locator("#delete-job");
+    await expect(deleteButton).not.toHaveClass(/\bhidden\b/);
+    await deleteButton.click();
+    await expect(page.locator("#delete-confirm-modal")).toHaveClass(
+      /\bopen\b/,
+    );
+    await page.locator("#delete-confirm-delete").click();
+    await expectToast(page, "Deleted track");
+    // back on the top tab, and the job really is gone server-side
+    await expect(page.locator('[data-tab-panel="top"]')).toBeVisible();
+    const gone = await request.get(`${baseURL}/api/analysis/${jobId}`);
+    expect(gone.status()).toBe(404);
+    createdJobId = null;
   });
 });

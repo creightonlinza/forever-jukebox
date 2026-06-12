@@ -126,10 +126,6 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       getCurrentPlaylistTrack(),
       track,
     );
-    if (result.status === "no-current") {
-      showToast(context, "Load a track before starting a playlist.");
-      return;
-    }
     if (result.status === "duplicate") {
       showToast(context, "Already in playlist");
       return;

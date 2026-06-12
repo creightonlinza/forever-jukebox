@@ -55,10 +55,7 @@ function DeleteConfirmModal({
       id="delete-confirm-modal"
       open={open}
       onClose={close}
-      closeOnEscape
       panelClassName="delete-confirm-panel"
-      role="dialog"
-      ariaModal
     >
       <div className="modal-header">
         <h2 id="delete-confirm-title">Delete track?</h2>

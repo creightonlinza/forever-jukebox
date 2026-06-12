@@ -70,19 +70,64 @@ test.describe("tuning modal", () => {
     await expect(page).not.toHaveURL(/jb=1/);
   });
 
-  test("backdrop click closes; Escape does NOT (legacy parity)", async ({
+  test("backdrop click and Escape both close; focus returns to the opener", async ({
     page,
   }) => {
     await loadFirstTopTrack(page);
     await page.locator("#tuning").click();
     const modal = page.locator("#tuning-modal");
     await expect(modal).toHaveClass(/\bopen\b/);
-    // KNOWN BEHAVIOR: unlike the playlist/delete modals, the tuning modal
-    // has never closed on Escape. Pinned deliberately — see e2e notes.
     await page.keyboard.press("Escape");
+    await expect(modal).not.toHaveClass(/\bopen\b/);
+    await expect(page.locator("#tuning")).toBeFocused();
+
+    await page.locator("#tuning").click();
     await expect(modal).toHaveClass(/\bopen\b/);
     await modal.click({ position: { x: 5, y: 5 } });
     await expect(modal).not.toHaveClass(/\bopen\b/);
+  });
+
+  test("focus is trapped inside the open modal", async ({ page }) => {
+    await loadFirstTopTrack(page);
+    await page.locator("#tuning").click();
+    await expect(page.locator("#tuning-modal")).toHaveClass(/\bopen\b/);
+    const focusInsideModal = () =>
+      page.evaluate(() =>
+        Boolean(
+          document
+            .getElementById("tuning-modal")
+            ?.contains(document.activeElement),
+        ),
+      );
+    expect(await focusInsideModal()).toBe(true);
+    // more presses than the modal has focusable controls: Tab must wrap,
+    // never escape to the page behind
+    for (let i = 0; i < 25; i += 1) {
+      await page.keyboard.press("Tab");
+      expect(await focusInsideModal()).toBe(true);
+    }
+    await page.keyboard.press("Shift+Tab");
+    expect(await focusInsideModal()).toBe(true);
+  });
+
+  test("Escape closes only the topmost of stacked modals", async ({
+    page,
+  }) => {
+    await loadFirstTopTrack(page);
+    await page.locator("#tuning").click();
+    const tuningModal = page.locator("#tuning-modal");
+    await expect(tuningModal).toHaveClass(/\bopen\b/);
+    // the sleep timer opens on top of the tuning modal
+    await page.locator("#sleep-timer-open").click();
+    const sleepModal = page.locator("#sleep-timer-modal");
+    await expect(sleepModal).toHaveClass(/\bopen\b/);
+
+    await page.keyboard.press("Escape");
+    await expect(sleepModal).not.toHaveClass(/\bopen\b/);
+    await expect(tuningModal).toHaveClass(/\bopen\b/);
+
+    await page.keyboard.press("Escape");
+    await expect(tuningModal).not.toHaveClass(/\bopen\b/);
   });
 
   test("highlight-anchor checkbox persists to localStorage", async ({

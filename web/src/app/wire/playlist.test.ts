@@ -104,7 +104,7 @@ describe("playlist handlers", () => {
     );
   });
 
-  it("asks for a current track before starting a playlist", () => {
+  it("rejects an add with no current track without toasting success", () => {
     const deps = createDeps();
     const handlers = createPlaylistHandlers(deps);
 
@@ -112,7 +112,7 @@ describe("playlist handlers", () => {
 
     expect(deps.showToast).toHaveBeenCalledWith(
       deps.context,
-      "Load a track before starting a playlist.",
+      "Track cannot be added to playlist.",
     );
   });
 

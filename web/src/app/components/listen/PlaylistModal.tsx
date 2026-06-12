@@ -13,10 +13,7 @@ export function PlaylistModal({ bridge }: { bridge: AppBridge }) {
       id="playlist-modal"
       open={open}
       onClose={close}
-      closeOnEscape
       panelClassName="playlist-panel"
-      role="dialog"
-      ariaModal
     >
       <div className="modal-header">
         <h2>Playlist</h2>

@@ -49,10 +49,9 @@ E2E_BASE_URL=https://<deployed-env> E2E_ALLOW_ANALYSIS=1 \
 
 ## Behavior notes pinned by these tests
 
-- The **tuning modal does not close on Escape** (the playlist and
-  delete-confirm modals do). Legacy parity, pinned in `tuning.spec.ts`;
-  candidate UX fix.
-- Modals have **no focus trap** (legacy parity).
+- **All modals close on Escape**, trap Tab focus while open, and restore
+  focus to the opener on close. With stacked modals (sleep timer over
+  tuning) Escape closes only the topmost.
 - `bp` (branch probability) serializes as unencoded commas (`bp=10,80,10`)
   and min/max swap-normalize on apply.
 - Tuning **Reset preserves the `am` audio-mode param** while clearing the
