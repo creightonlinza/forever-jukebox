@@ -1,8 +1,10 @@
 import "./polyfills";
 import "./style.css";
 import { bootstrap } from "./app/bootstrap";
+import { mountReactRoot } from "./app/react-root";
 
 bootstrap();
+mountReactRoot();
 
 const fontReady =
   "fonts" in document && typeof document.fonts?.ready?.then === "function"
