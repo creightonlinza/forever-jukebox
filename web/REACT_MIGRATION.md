@@ -1,7 +1,9 @@
 # React Migration — `web/` ✅ COMPLETE
 
-**Status: done.** All 13 checkpoints landed on the `react-migration` branch
-(2026-06-12). The original plan this document started as is preserved at the
+**Status: done, including post-migration hardening.** All 13 checkpoints
+landed on the `react-migration` branch (2026-06-12), followed by the full-app
+Playwright suite (`ab964fb`) and a modal-behavior unification pass
+(`2ec65ae`). The original plan this document started as is preserved at the
 bottom for reference; this top section records what shipped, what deviated,
 and what to do next.
 
@@ -11,6 +13,7 @@ branch was smoke-tested against the real backend via `./dev.sh`: track load,
 playback, branching, tuning modal ↔ URL, extras/audio modes, sleep timer,
 favorites (+tuning restore), playlists, search → YouTube matching, volume,
 viz/mode switching, theme, deep links, back/forward, copy link, cast page.
+That manual checklist is now automated — see "Post-migration work" below.
 
 ## Checkpoints → commits
 
@@ -30,10 +33,47 @@ viz/mode switching, theme, deep links, back/forward, copy link, cast page.
 | 8e | Listen: VizContainer + controller ref handoff | `7533d93` |
 | 9 | Cleanup: dead modules deleted, passthrough removed, CSS audit | `04bacd2` |
 
-Tests: **435 → 494** (48 → 58 files). Bundle (gzip): `main.js` 77.3 →
+Tests: **435 → 494** (48 → 58 files) at migration end; **497 unit + 81 e2e**
+after the post-migration work below. Bundle (gzip): `main.js` 77.3 →
 149.0 kB (+71.7, of which ~45 kB is React 18 as forecast; rest is
 react-router-dom + zustand + converted markup); `index.html` 10.9 → 1.1 kB
 (1,344 → 35 lines). `cast` entries byte-stable. Net first load ≈ +62 kB gz.
+
+## Post-migration work (2026-06-12)
+
+**Full-app Playwright suite** (`ab964fb`) — `web/e2e/`, 13 spec files, 81
+tests locally (plus one opt-in deployed-env-only ingest test). Run with
+`npm run test:e2e` (boots `./dev.sh` if needed); see `web/e2e/README.md` for
+the deployed-env and YouTube-ingest variants. Fixtures are discovered at
+runtime from `/api/top`; destructive ops against shared backends are
+network-mocked (sync-code creation, job deletion) except where the test
+created the data itself.
+
+**Issues the suite found, and their resolutions:**
+
+- **Fixed (real bug):** `TopTracksPanel` fetched `/api/top` twice on mount
+  under StrictMode (double-invoked effect raced the loaded-tabs bookkeeping).
+  An in-flight ref now dedupes it while keeping retry-on-error.
+- **Fixed (`2ec65ae`):** modal behavior was inconsistent — playlist/delete
+  modals closed on Escape, tuning/info/sleep/sync did not, and nothing
+  trapped focus. The shared `Modal` primitive now gives every modal the same
+  contract: Escape closes (topmost-only when stacked, e.g. sleep timer over
+  tuning), Tab focus is trapped, focus moves into the modal on open and
+  returns to the opener on close.
+- **Removed (dead code):** the "Load a track before starting a playlist."
+  toast was unreachable — CSS hides playlist-add buttons until a track is
+  loaded. Toast and its `"no-current"` status deleted; the model returns
+  `"invalid"` defensively.
+- **Pinned (by design):** a playlist below 2 tracks dissolves entirely
+  (removing the second-to-last track empties it and clears `fj-playlist`).
+- **Known, won't fix:** the frontend delete-button eligibility only checks
+  the 30-min `created_at` window, while the backend also allows 30 min from
+  the completion file's mtime. Decided the gap is too small to matter.
+
+The opt-in YouTube ingest test doubles as the live delete-flow test: it
+deletes the track it created through the real UI and verifies the 404, with
+an API-delete `afterEach` fallback so failed runs don't litter the shared
+environment.
 
 ## What shipped (architecture as-built)
 
@@ -88,9 +128,10 @@ react-router-dom + zustand + converted markup); `index.html` 10.9 → 1.1 kB
 - Subtree conversions used portals into emptied legacy containers to keep
   flex layouts byte-identical; all portals collapsed into plain composition
   at 8e.
-- The Modal primitive has no focus trap because the legacy app had none —
-  only the Escape/backdrop/focus behaviors that actually existed were
-  ported.
+- The Modal primitive initially had no focus trap because the legacy app had
+  none — only the behaviors that existed were ported. (Superseded
+  post-migration: `2ec65ae` added Escape-everywhere + focus trap as a
+  deliberate product change, after the e2e suite pinned the inconsistency.)
 - `search.test.ts` was not pure-logic as planned (it asserted on element
   fakes); flow assertions survived verbatim, element assertions became store
   assertions. `wire/delete-job.ts` turned out to be Listen-panel code, not
@@ -117,20 +158,15 @@ react-router-dom + zustand + converted markup); `index.html` 10.9 → 1.1 kB
 
 ## Suggested next steps
 
-1. **Full-app Playwright test suite.** The manual smoke checklist that was
-   run by hand at the end of the migration should become a real e2e suite:
-   add `@playwright/test` to `web/`, spin the stack (or `./dev.sh`) in CI,
-   and cover at minimum: track load via top list and via deep link with
-   tuning params; play/pause/Space; shift-branch; tuning modal Apply ↔ URL;
-   extras audio mode → title suffix + `am=` param; sleep timer countdown;
-   favorites add → list → click restores saved tuning; playlist build,
-   modal select, prev/next; Spotify search → YouTube match step; volume
-   panel + click-away; viz selector + `fj-viz`; jukebox ⇄ autocanonizer
-   switching (URL `mode=` round-trip); theme toggle + `fj-theme`;
-   back/forward history incl. FAQ subtabs; copy link clipboard; `/cast`
-   loads; **viz-layer node identity survives tab switches** (the
-   panels-persist invariant). Seed the API with a pre-analyzed fixture
-   track so tests don't depend on YouTube/yt-dlp.
+1. ~~Full-app Playwright test suite~~ — **done** (`ab964fb`, see
+   "Post-migration work"). What remains around it:
+   - **Wire the e2e suite into CI.** It currently runs locally/manually.
+     CI needs a backend seeded with **≥3 analyzed tracks** (fixtures come
+     from `/api/top` at runtime) and Spotify search credentials; the
+     ingest spec stays excluded (deployed-env only). Until then the suite
+     only runs when someone remembers to run it.
+   - Chromium-only today; add firefox/webkit projects if cross-browser
+     coverage is ever wanted (the config is one block per browser).
 2. **Decompose `playback.ts`** (1,696 lines) into per-slice action modules,
    then dissolve `bootstrap.ts` into module-scope singletons and fold the
    remaining `wire/` controllers + the bridge into plain imports — React
