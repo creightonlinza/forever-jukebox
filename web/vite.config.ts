@@ -54,6 +54,7 @@ export default defineConfig(() => {
     test: {
       environment: "node",
       environmentMatchGlobs: [["**/*.test.tsx", "jsdom"] as [string, "jsdom"]],
+      exclude: ["e2e/**", "node_modules/**", "dist/**"],
     },
   };
 });

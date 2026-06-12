@@ -688,10 +688,17 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
     recent: { kind: "message", text: LIST_CONFIG.recent.loadingText },
   });
   const loadedTabsRef = useRef(new Set<LazyTabId>());
+  const inFlightTabsRef = useRef(new Set<LazyTabId>());
   const loadList = useCallback(async (tabId: LazyTabId, force = false) => {
     if (!force && loadedTabsRef.current.has(tabId)) {
       return;
     }
+    // Dedupes StrictMode's double-invoked mount effect (and rapid subtab
+    // flips) without giving up retry-on-error semantics.
+    if (inFlightTabsRef.current.has(tabId)) {
+      return;
+    }
+    inFlightTabsRef.current.add(tabId);
     const config = LIST_CONFIG[tabId];
     setLists((prev) => ({
       ...prev,
@@ -716,6 +723,8 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
         },
       }));
       console.warn(`${config.errorPrefix} load failed: ${String(err)}`);
+    } finally {
+      inFlightTabsRef.current.delete(tabId);
     }
   }, []);
 
