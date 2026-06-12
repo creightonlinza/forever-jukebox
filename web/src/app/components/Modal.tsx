@@ -141,6 +141,15 @@ export function Modal({
           onClose();
         }
       }}
+      // The real keyboard path is the window-level Escape listener above
+      // (it must coordinate stacked modals); this local handler mirrors it
+      // for direct backdrop focus and static analyzers. onClose is a
+      // setState(false) everywhere, so the duplicate call is idempotent.
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <div
         className={panelClassName ? `modal-panel ${panelClassName}` : "modal-panel"}

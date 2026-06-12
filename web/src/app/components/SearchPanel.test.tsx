@@ -84,6 +84,55 @@ describe("SearchPanel", () => {
     });
   });
 
+  it("selects results via keyboard (Enter on the focused item)", async () => {
+    const bridge = createBridge();
+    act(() => {
+      useAppStore.setState({
+        searchResults: {
+          kind: "spotify",
+          items: [{ name: "Song", artist: "Artist", duration: 200 }],
+        },
+      });
+    });
+    render(<SearchPanel bridge={bridge} />);
+    const item = document.querySelector(".search-item") as HTMLElement;
+    expect(item.getAttribute("tabindex")).toBe("0");
+    item.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(bridge.searchPanel.selectSpotify).toHaveBeenCalledWith({
+      name: "Song",
+      artist: "Artist",
+      duration: 200,
+    });
+  });
+
+  it("Enter on a result's open-on-YouTube link does not select it", async () => {
+    const bridge = createBridge();
+    act(() => {
+      useAppStore.setState({
+        searchResults: {
+          kind: "youtube",
+          items: [
+            {
+              item: { id: "yt-match", title: "Match", duration: 123 },
+              name: "Song",
+              artist: "Artist",
+            },
+          ],
+        },
+      });
+    });
+    render(<SearchPanel bridge={bridge} />);
+    const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
+    openLink.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(bridge.searchPanel.selectYoutube).not.toHaveBeenCalled();
+    const item = document.querySelector(".search-item") as HTMLElement;
+    item.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(bridge.searchPanel.selectYoutube).toHaveBeenCalledTimes(1);
+  });
+
   it("renders youtube results with open links that do not select", async () => {
     const bridge = createBridge();
     act(() => {

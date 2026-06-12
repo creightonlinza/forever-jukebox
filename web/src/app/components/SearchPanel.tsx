@@ -30,11 +30,19 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
               <li
                 key={index}
                 className="search-item"
+                role="button"
+                tabIndex={0}
                 data-track-name={name}
                 data-track-artist={artist}
                 onClick={() =>
                   bridge.searchPanel.selectSpotify({ name, artist, duration })
                 }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    bridge.searchPanel.selectSpotify({ name, artist, duration });
+                  }
+                }}
               >
                 <strong>{title}</strong>
                 <span>{formatTrackDuration(item.duration)}</span>
@@ -57,6 +65,8 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
             <li
               key={index}
               className="search-item"
+              role="button"
+              tabIndex={0}
               data-youtube-id={youtubeId}
               data-track-name={name}
               data-track-artist={artist}
@@ -68,6 +78,22 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
                   duration: ytDuration,
                 })
               }
+              onKeyDown={(event) => {
+                // Enter on the nested open-on-YouTube link must keep its
+                // native behavior, not select the result.
+                if (event.target !== event.currentTarget) {
+                  return;
+                }
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  bridge.searchPanel.selectYoutube({
+                    youtubeId,
+                    name,
+                    artist,
+                    duration: ytDuration,
+                  });
+                }
+              }}
             >
               <strong>{title}</strong>
               <span className="search-meta">
