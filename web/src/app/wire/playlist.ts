@@ -1,5 +1,6 @@
 import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
+import { isLikelyJobId } from "../identity";
 import {
   activatePlaylistTrack,
   addPlaylistTrack,
@@ -91,7 +92,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     ) {
       return provider;
     }
-    return isLikelyJobId(state.lastTrackId ?? "") ? "upload" : "youtube";
+    return "youtube";
   }
 
   function handleNormalTrackSelected(track: PlaylistTrack) {
@@ -379,10 +380,6 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       return track.id;
     }
     return `${track.sourceType}:${track.id}`;
-  }
-
-  function isLikelyJobId(value: string) {
-    return /^[a-f0-9]{32}$/.test(value);
   }
 
   return {

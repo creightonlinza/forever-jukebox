@@ -229,6 +229,7 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       state.lastJobId = response.id;
       state.pendingAutoFavoriteId = response.id;
       state.lastTrackId = response.id;
+      state.lastSourceId = null;
       state.lastSourceProvider = "upload";
       state.audioLoaded = false;
       state.analysisLoaded = false;
@@ -298,7 +299,6 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       const response = await startUrlAnalysis({
         url: sourceUrl,
       });
-      const sourceId = response?.source_id;
       const sourceProvider = response?.source_provider;
       if (response?.status === "failed") {
         showToast(
@@ -313,9 +313,6 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
         return;
       }
       if (!response || !response.id || !sourceProvider) {
-        throw new Error("Upload failed");
-      }
-      if (sourceProvider === "youtube" && !sourceId) {
         throw new Error("Upload failed");
       }
       const listenId = response.id;
@@ -336,6 +333,8 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       resetForNewTrack(context);
       state.lastTrackId = listenId;
       state.lastJobId = response.id;
+      state.lastSourceId =
+        typeof response.source_id === "string" ? response.source_id : null;
       state.lastSourceProvider = sourceProvider;
       state.pendingAutoFavoriteId = listenId;
       elements.uploadYoutubeInput.value = "";

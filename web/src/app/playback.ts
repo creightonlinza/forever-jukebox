@@ -15,7 +15,8 @@ import {
   type AnalysisComplete,
   type AnalysisResponse,
 } from "./api";
-import { readCachedTrack, updateCachedTrack } from "./cache";
+import { deleteCachedTrack, readCachedTrack, updateCachedTrack } from "./cache";
+import { isLikelyJobId } from "./identity";
 import {
   applyTuningParamsFromUrl,
   clearTuningParamsFromUrl,
@@ -1158,6 +1159,7 @@ export function resetForNewTrack(
   state.audioLoadInFlight = false;
   state.lastJobId = null;
   state.lastTrackId = null;
+  state.lastSourceId = null;
   state.lastSourceProvider = null;
   state.lastPlayCountedJobId = null;
   updateVizVisibility(context);
@@ -1346,7 +1348,8 @@ export async function pollAnalysis(
         deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
         return;
       }
-      normalizeTrackIdentityFromResponse(context, deps, response);
+      const previousTrackId = normalizeTrackIdentityFromResponse(context, deps, response);
+      await migrateCachedAudioForResponse(context, response, previousTrackId);
       maybeUpdateDeleteEligibility(context, response, jobId);
       if (isAnalysisInProgress(response)) {
         const progress =
@@ -1405,7 +1408,8 @@ async function continueTrackLoadWithResponse(
     deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
     return;
   }
-  normalizeTrackIdentityFromResponse(context, deps, response);
+  const previousTrackId = normalizeTrackIdentityFromResponse(context, deps, response);
+  await migrateCachedAudioForResponse(context, response, previousTrackId);
   maybeUpdateDeleteEligibility(context, response, response.id);
   if (isAnalysisInProgress(response)) {
     await pollAnalysis(context, deps, response.id);
@@ -1432,18 +1436,62 @@ function normalizeTrackIdentityFromResponse(
   response: AnalysisResponse,
 ) {
   if (!response.id) {
-    return;
+    return null;
   }
   const { state } = context;
   const previousTrackId = state.lastTrackId;
   state.lastJobId = response.id;
   state.lastTrackId = response.id;
+  state.lastSourceId =
+    typeof response.source_id === "string" ? response.source_id : null;
   if (typeof response.source_provider === "string") {
     state.lastSourceProvider = response.source_provider;
   }
   if (previousTrackId !== response.id) {
     deps.onTrackChange?.(response.id);
     deps.updateTrackUrl(response.id, true);
+  }
+  return previousTrackId;
+}
+
+async function migrateCachedAudioForResponse(
+  context: AppContext,
+  response: AnalysisResponse,
+  previousTrackId: string | null,
+) {
+  if (!response.id || context.state.audioLoaded) {
+    return;
+  }
+  if (await tryLoadCachedAudio(context, response.id)) {
+    return;
+  }
+  const legacyKeys = new Set<string>();
+  if (previousTrackId && previousTrackId !== response.id) {
+    legacyKeys.add(previousTrackId);
+  }
+  if (
+    (response.source_provider === "youtube" || !response.source_provider) &&
+    typeof response.source_id === "string" &&
+    response.source_id !== response.id
+  ) {
+    legacyKeys.add(response.source_id);
+  }
+  for (const legacyKey of legacyKeys) {
+    try {
+      const cached = await readCachedTrack(legacyKey);
+      if (!cached?.audio) {
+        continue;
+      }
+      await updateCachedTrack(response.id, {
+        audio: cached.audio,
+        jobId: cached.jobId ?? response.id,
+      });
+      await deleteCachedTrack(legacyKey);
+      await tryLoadCachedAudio(context, response.id);
+      return;
+    } catch (err) {
+      console.warn(`Cache migration failed: ${String(err)}`);
+    }
   }
 }
 
@@ -1462,12 +1510,14 @@ async function loadTrack(
   deps.setLoadingProgress(null, "Fetching audio");
   if (source.type === "source") {
     context.state.lastSourceProvider = source.provider;
+    context.state.lastSourceId = source.id;
     context.state.lastTrackId = source.trackId;
     deps.onTrackChange?.(source.trackId);
   } else {
     context.state.lastJobId = source.id;
     context.state.lastTrackId = source.id;
-    context.state.lastSourceProvider = "upload";
+    context.state.lastSourceId = null;
+    context.state.lastSourceProvider = options?.selectedTrack?.sourceType ?? null;
     deps.onTrackChange?.(source.id);
   }
   const cacheKey =
@@ -1517,10 +1567,6 @@ export async function loadTrackByJobId(
   options?: TrackLoadOptions,
 ) {
   await loadTrack(context, deps, { type: "job", id: jobId }, options);
-}
-
-function isLikelyJobId(value: string) {
-  return /^[a-f0-9]{32}$/.test(value);
 }
 
 function parseTrackId(trackId: string):

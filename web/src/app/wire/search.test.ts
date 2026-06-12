@@ -122,7 +122,6 @@ describe("createSearchHandlers", () => {
     startUrlAnalysis.mockResolvedValue({
       id: jobId,
       status: "downloading",
-      source_id: "abc123def45",
       source_provider: "youtube",
     });
 

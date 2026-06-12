@@ -171,7 +171,12 @@ export async function startYoutubeAnalysisFlow(
   deps.updateVizVisibility();
   deps.setActiveTab("play");
   deps.setLoadingProgress(null, "Fetching audio");
+  context.state.lastTrackId = youtubeId;
+  context.state.lastSourceId = youtubeId;
   context.state.lastSourceProvider = "youtube";
+  deps.onTrackChange?.(youtubeId);
+  deps.updateTrackUrl(youtubeId);
+  await tryLoadCachedAudio(context, youtubeId);
   const payload = { youtube_id: youtubeId, title, artist };
   const response = await startYoutubeAnalysis(payload);
   if (!response || !response.id) {
@@ -188,6 +193,8 @@ export async function startYoutubeAnalysisFlow(
   });
   context.state.lastTrackId = jobId;
   context.state.lastJobId = jobId;
+  context.state.lastSourceId =
+    typeof response.source_id === "string" ? response.source_id : youtubeId;
   context.state.lastSourceProvider = response.source_provider ?? "youtube";
   deps.onTrackChange?.(jobId);
   deps.updateTrackUrl(jobId);
@@ -251,6 +258,8 @@ export async function tryLoadExistingTrackByName(
     if (typeof response.source_provider === "string") {
       state.lastSourceProvider = response.source_provider;
     }
+    state.lastSourceId =
+      typeof response.source_id === "string" ? response.source_id : null;
     const sourceType =
       response.source_provider === "soundcloud" ||
       response.source_provider === "bandcamp" ||

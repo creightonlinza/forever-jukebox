@@ -1616,7 +1616,7 @@ describe("playback loading", () => {
 
     expect(context.state.lastTrackId).toBe(jobId);
     expect(context.state.lastJobId).toBe(jobId);
-    expect(context.state.lastSourceProvider).toBe("upload");
+    expect(context.state.lastSourceProvider).toBeNull();
     expect(deps.onTrackChange).toHaveBeenCalledWith(jobId);
     expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
       `/api/analysis/${jobId}`,

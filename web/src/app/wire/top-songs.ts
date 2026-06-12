@@ -1,6 +1,7 @@
 import type { Elements } from "../elements";
 import type { TabId } from "../context";
 import { formatErrorForDisplay } from "../errorDisplay";
+import { isLikelyJobId } from "../identity";
 import type { PlaylistTrack } from "../playlist";
 import { blurMouseActivatedControl } from "../ui";
 type TopSongsDeps = {
@@ -44,10 +45,6 @@ export function createTopSongsHandlers(deps: TopSongsDeps) {
     limit,
     onAddToPlaylist,
   } = deps;
-
-  function isLikelyJobId(value: string) {
-    return /^[a-f0-9]{32}$/.test(value);
-  }
 
   async function renderSongList(options: {
     listEl: HTMLOListElement;
