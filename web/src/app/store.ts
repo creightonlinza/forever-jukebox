@@ -89,7 +89,8 @@ export type AppStoreState = AppState & ShellSlice & Actions;
 
 type Slice<T> = StateCreator<AppStoreState, [], [], T>;
 
-// Slice layout follows the REACT_MIGRATION.md Phase 3 mapping. The store is
+// Slice layout follows the migration plan's ui/playback/track/tuning/library/
+// config mapping. The store is
 // flat (zustand slices pattern) so legacy field names survive unchanged.
 // Non-serializable handles (pollController, wakeLock, timer ids) are fine in
 // zustand; no devtools middleware is attached, so nothing serializes them.

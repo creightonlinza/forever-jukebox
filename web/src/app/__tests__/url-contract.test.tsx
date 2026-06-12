@@ -12,7 +12,8 @@ import {
   urlForTrack,
 } from "../tabs";
 
-// The frozen URL contract (REACT_MIGRATION.md Phase 2). These tests replace
+// The frozen URL contract (see e2e/README.md and git history of the
+// migration plan). These tests replace
 // tabs.test.ts and pin the exact paths/search strings the router receives.
 
 function spyRouter() {
