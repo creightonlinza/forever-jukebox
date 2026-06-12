@@ -22,7 +22,7 @@ import {
   updateListenTimeDisplay,
   type TuningFormValues,
 } from "./playback";
-import { useAppStore } from "./store";
+import { legacyAppState, useAppStore } from "./store";
 import { createPlaybackUiHandlers } from "./wire/playback";
 import { setWindowUrl } from "./__tests__/test-utils";
 import { getOrCreateSwingBuffer } from "../audio/swingBufferCache";
@@ -62,7 +62,10 @@ function setLocalStorage() {
   return store;
 }
 
+const initialStoreState = useAppStore.getState();
+
 beforeEach(() => {
+  useAppStore.setState(initialStoreState, true);
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => ({ ok: true }) as Response),
@@ -93,6 +96,8 @@ async function flushMicrotasks(count = 5) {
 
 
 function createContext(overrides?: Partial<AppContext>): AppContext {
+  // the old plain-object harness defaulted the active tab to "play"
+  useAppStore.setState({ activeTabId: "play" });
   const engineConfig = {
     maxBranches: 4,
     maxBranchThreshold: 80,
@@ -184,57 +189,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     jukebox: jukebox as unknown as AppContext["jukebox"],
     cowbellOverlay: cowbellOverlay as unknown as AppContext["cowbellOverlay"],
     defaultConfig: engineConfig as unknown as AppContext["defaultConfig"],
-    state: {
-      playMode: "jukebox",
-      autoComputedThreshold: null,
-      vizData: null,
-      playTimerMs: 0,
-      lastPlayStamp: null,
-      audioLoaded: false,
-      analysisLoaded: false,
-      audioLoadInFlight: false,
-      activeTabId: "play",
-      activeVizIndex: 0,
-      lastTrackId: null,
-      lastJobId: null,
-      isRunning: false,
-      isPaused: false,
-      trackDurationSec: null,
-      trackTitle: null,
-      trackArtist: null,
-      selectedEdge: null,
-      deleteEligible: false,
-      deleteEligibilityJobId: null,
-      shiftBranching: false,
-      bringItHomeMode: false,
-      lastBeatIndex: null,
-      branchStatsEnabled: false,
-      jukeboxAudioMode: "off",
-      swingPreparing: false,
-      swingRenderToken: 0,
-      listenTimerId: null,
-      sleepTimer: {
-        configuredDurationMs: null,
-        endTimeMs: null,
-        remainingMs: 0,
-      },
-      sleepTimerTimeoutId: null,
-      pollController: null,
-      wakeLock: null,
-      favorites: [],
-      favoritesSyncCode: null,
-      topSongsTab: "top",
-      searchTab: "search",
-      topSongsRefreshTimer: null,
-      toastTimer: null,
-      pendingAutoFavoriteId: null,
-      lastPlayCountedJobId: null,
-      appConfig: null,
-      tuningParams: null,
-      deletedEdgeIds: [],
-      highlightAnchorBranch: false,
-      beatsPlayed: 0,
-    } as unknown as AppContext["state"],
+    state: legacyAppState,
     ...overrides,
   };
 }
