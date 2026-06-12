@@ -8,8 +8,7 @@ import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerC
 import type { ToastOptions } from "../ui";
 import { formatErrorForDisplay } from "../errorDisplay";
 import { VISUALIZATION_LABELS } from "../constants";
-import { formatDuration, formatPlaybackTitle } from "../format";
-import { setAutoMarqueeText } from "../marquee";
+import { formatDuration } from "../format";
 import { useAppStore } from "../store";
 import { serializeParams } from "../tuning";
 
@@ -206,7 +205,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     });
 
     autocanonizer.setOnBeat((index) => {
-      elements.beatsPlayedEl.textContent = `${index + 1}`;
+      useAppStore.setState({ beatsPlayedText: `${index + 1}` });
       state.lastBeatIndex = index;
     });
     autocanonizer.setOnEnded(() => {
@@ -238,7 +237,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     });
 
     engine.onUpdate((engineState) => {
-      elements.beatsPlayedEl.textContent = `${engineState.beatsPlayed}`;
+      useAppStore.setState({ beatsPlayedText: `${engineState.beatsPlayed}` });
       if (engineState.currentBeatIndex >= 0) {
         if (engineState.beatsPlayed !== lastCowbellBeatsPlayed) {
           lastCowbellBeatsPlayed = engineState.beatsPlayed;
@@ -265,11 +264,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     });
   }
 
-  function syncBringItHomeLabel() {
-    const visible = state.playMode === "jukebox" && state.bringItHomeMode;
-    elements.bringHomeFullscreenLabel.classList.toggle("is-hidden", !visible);
-  }
-
   function setBringItHomeMode(enabled: boolean) {
     state.bringItHomeMode = enabled;
     engine.setBringItHomeMode(enabled);
@@ -277,7 +271,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       state.shiftBranching = false;
       engine.setForceBranch(false);
     }
-    syncBringItHomeLabel();
   }
 
   function handlePlayClick() {
@@ -557,7 +550,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   function setPlayMode(mode: "jukebox" | "autocanonizer") {
     if (state.playMode === mode) {
       elements.playModeSelect.value = mode;
-      syncBringItHomeLabel();
       return;
     }
     if (state.isRunning || state.isPaused) {
@@ -575,30 +567,9 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       // stored tab back to "tuning".
       useAppStore.setState({ tuningModalTab: "tuning" });
     }
-    elements.beatsLabel.classList.toggle("is-hidden", mode === "autocanonizer");
-    elements.beatsPlayedEl.classList.toggle(
-      "is-hidden",
-      mode === "autocanonizer",
-    );
-    elements.beatsDivider.classList.toggle(
-      "is-hidden",
-      mode === "autocanonizer",
-    );
     autocanonizer.setVisible(mode === "autocanonizer");
     jukebox.setVisible(mode === "jukebox");
     syncExtrasPopup(state.selectedEdge);
-    if (state.trackTitle || state.trackArtist) {
-      const baseTitle = state.trackTitle ?? "Unknown";
-      const withSuffix = formatPlaybackTitle(
-        baseTitle,
-        mode,
-        state.jukeboxAudioMode,
-      );
-      const displayTitle = state.trackArtist
-        ? `${withSuffix} — ${state.trackArtist}`
-        : withSuffix;
-      setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
-    }
     if (state.activeTabId === "play") {
       const currentId = getCurrentTrackId();
       if (currentId) {
@@ -614,7 +585,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       }
     }
     updateVizVisibility(context);
-    syncBringItHomeLabel();
   }
 
   return {

@@ -32,10 +32,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     playlistHandlers.handlePlaylistNext,
   );
-  elements.savedPlaylistButton.addEventListener(
-    "click",
-    playlistHandlers.handleSavedPlaylistClick,
-  );
   elements.branchStatsDeleteButton.addEventListener(
     "click",
     playbackHandlers.handleBranchStatsDeleteClick,

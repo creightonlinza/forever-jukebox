@@ -657,9 +657,6 @@ describe("playback tuning", () => {
     expect(context.state.shiftBranching).toBe(false);
     expect(context.engine.setForceBranch).toHaveBeenCalledWith(false);
     expect(context.engine.setBringItHomeMode).toHaveBeenCalledWith(true);
-    expect(
-      context.elements.bringHomeFullscreenLabel.classList.toggle,
-    ).toHaveBeenCalledWith("is-hidden", false);
   });
 
   it("hides branch stats popup when extras branch stats is disabled", () => {
@@ -933,7 +930,9 @@ describe("playback tuning", () => {
     const applied = applyAnalysisResult(context, response);
 
     expect(applied).toBe(true);
-    expect(context.elements.vizNowPlayingEl.textContent).toBe("Song (nightcore) — Artist");
+    expect(context.state.trackTitle).toBe("Song");
+    expect(context.state.trackArtist).toBe("Artist");
+    expect(context.state.jukeboxAudioMode).toBe("nightcore");
   });
 
   it("applies audio mode from URL params when loading analysis", () => {
@@ -974,7 +973,6 @@ describe("playback tuning", () => {
       4,
       12,
     ]);
-    expect(context.elements.vizNowPlayingEl.textContent).toBe("Song (daycore) — Artist");
     expect(context.state.tuningParams).toContain("am=daycore");
   });
 
@@ -1080,7 +1078,7 @@ describe("playback timers", () => {
     context.state.lastPlayStamp = 0;
     vi.spyOn(performance, "now").mockReturnValue(1000);
     updateListenTimeDisplay(context);
-    expect(context.elements.listenTimeEl.textContent).toBe("00:00:02");
+    expect(useAppStore.getState().listenTimeText).toBe("00:00:02");
   });
 
   it("maps null, zero, negative, and unknown sleep timer durations to off", () => {
@@ -1140,7 +1138,7 @@ describe("playback timers", () => {
     context.state.isRunning = true;
     context.state.isPaused = false;
     context.state.playTimerMs = 1234;
-    context.elements.beatsPlayedEl.textContent = "8";
+    useAppStore.setState({ beatsPlayedText: "8" });
 
     setSleepTimer(context, 1000);
     clock.setNow(2000);
@@ -1154,7 +1152,7 @@ describe("playback timers", () => {
     expect(context.state.isRunning).toBe(false);
     expect(context.state.isPaused).toBe(false);
     expect(context.engine.stopJukebox).toHaveBeenCalled();
-    expect(context.elements.beatsPlayedEl.textContent).toBe("0");
+    expect(useAppStore.getState().beatsPlayedText).toBe("0");
     expect(exitFullscreen).toHaveBeenCalledTimes(1);
   });
 
@@ -1257,9 +1255,6 @@ describe("playback controls", () => {
 
     updateVizVisibility(context);
 
-    expect(context.elements.playStatusPanel.classList.remove).toHaveBeenCalledWith(
-      "hidden",
-    );
     expect(context.elements.vizPanel.classList.add).toHaveBeenCalledWith("hidden");
     expect(context.elements.playButton.classList.add).toHaveBeenCalledWith("hidden");
     expect(context.elements.vizSelect.disabled).toBe(true);
@@ -1295,14 +1290,14 @@ describe("playback controls", () => {
     togglePlayback(context);
     context.state.playTimerMs = 12345;
     context.state.lastBeatIndex = 7;
-    context.elements.beatsPlayedEl.textContent = "7";
+    useAppStore.setState({ beatsPlayedText: "7" });
     stopPlayback(context);
 
     expect(context.state.isPaused).toBe(false);
     expect(context.state.isRunning).toBe(false);
     expect(context.state.playTimerMs).toBe(0);
     expect(context.state.lastBeatIndex).toBe(null);
-    expect(context.elements.beatsPlayedEl.textContent).toBe("0");
+    expect(useAppStore.getState().beatsPlayedText).toBe("0");
     expect(context.engine.stopJukebox).toHaveBeenCalled();
     expect(context.engine.resetStats).toHaveBeenCalled();
     expect(context.jukebox.reset).toHaveBeenCalled();

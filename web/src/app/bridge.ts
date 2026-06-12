@@ -58,7 +58,6 @@ export type ListenPanelBridge = {
   getExtrasForm: () => ExtrasFormValues;
   applyExtras: (values: ExtrasFormValues) => ExtrasApplyResult;
   resetExtras: () => ExtrasApplyResult;
-  syncTrackTitleAfterAudioModeChange: () => void;
   setSleepTimer: (durationMs: number | null) => void;
   setVolume: (volumePct: number) => void;
   toggleFullscreen: () => void;

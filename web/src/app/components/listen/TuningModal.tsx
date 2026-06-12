@@ -103,10 +103,7 @@ export function TuningModal({ bridge }: { bridge: AppBridge }) {
       if (!extras) {
         return;
       }
-      const result = bridge.listenPanel.applyExtras(extras);
-      if (result.audioModeChanged) {
-        bridge.listenPanel.syncTrackTitleAfterAudioModeChange();
-      }
+      bridge.listenPanel.applyExtras(extras);
       close();
       return;
     }
@@ -118,10 +115,7 @@ export function TuningModal({ bridge }: { bridge: AppBridge }) {
 
   const handleReset = () => {
     if (tab === "extras") {
-      const result = bridge.listenPanel.resetExtras();
-      if (result.audioModeChanged) {
-        bridge.listenPanel.syncTrackTitleAfterAudioModeChange();
-      }
+      bridge.listenPanel.resetExtras();
       close();
       return;
     }

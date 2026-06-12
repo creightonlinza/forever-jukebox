@@ -59,6 +59,11 @@ type ShellSlice = {
   favoriteToggleBusy: boolean;
   volumePct: number;
   isFullscreen: boolean;
+  analysisStatusText: string;
+  analysisSpinning: boolean;
+  analysisProgressText: string;
+  listenTimeText: string;
+  beatsPlayedText: string;
 };
 
 type Actions = {
@@ -103,6 +108,11 @@ const createUiSlice: Slice<
     | "favoriteToggleBusy"
     | "volumePct"
     | "isFullscreen"
+    | "analysisStatusText"
+    | "analysisSpinning"
+    | "analysisProgressText"
+    | "listenTimeText"
+    | "beatsPlayedText"
   > &
     Actions
 > = (set) => ({
@@ -134,6 +144,11 @@ const createUiSlice: Slice<
   favoriteToggleBusy: false,
   volumePct: 50,
   isFullscreen: false,
+  analysisStatusText: "No track selected.",
+  analysisSpinning: false,
+  analysisProgressText: "",
+  listenTimeText: "00:00:00",
+  beatsPlayedText: "0",
   setActiveTab: (activeTabId) => set({ activeTabId }),
   setTheme: (theme) => set({ theme }),
   setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),

@@ -16,8 +16,10 @@ import { InfoModal } from "./listen/InfoModal";
 import { PlayMenu } from "./listen/PlayMenu";
 import { PlaylistModal } from "./listen/PlaylistModal";
 import { SleepTimerModal } from "./listen/SleepTimerModal";
+import { StatusPanel } from "./listen/StatusPanel";
 import { TuningModal } from "./listen/TuningModal";
 import { VizBottomRight } from "./listen/VizBottomRight";
+import { VizInfo } from "./listen/VizInfo";
 
 // Derives activeTab from the URL on every location change and runs the
 // legacy route handler (mode-from-URL, track loading, FAQ subtab sync) on
@@ -102,6 +104,8 @@ export function AppRoot({
   legacyContent,
   playMenuRoot,
   vizBottomRightRoot,
+  playStatusRoot,
+  vizInfoRoot,
 }: {
   bridge: AppBridge;
   legacyContent: DocumentFragment;
@@ -109,6 +113,8 @@ export function AppRoot({
   // them via portal so the panel's DOM order/layout is preserved.
   playMenuRoot: Element | null;
   vizBottomRightRoot: Element | null;
+  playStatusRoot: Element | null;
+  vizInfoRoot: Element | null;
 }) {
   const panelsRef = useRef<HTMLDivElement | null>(null);
   useRouteSync(bridge);
@@ -141,6 +147,10 @@ export function AppRoot({
       {vizBottomRightRoot
         ? createPortal(<VizBottomRight bridge={bridge} />, vizBottomRightRoot)
         : null}
+      {playStatusRoot
+        ? createPortal(<StatusPanel container={playStatusRoot} />, playStatusRoot)
+        : null}
+      {vizInfoRoot ? createPortal(<VizInfo />, vizInfoRoot) : null}
       <TuningModal bridge={bridge} />
       <SleepTimerModal bridge={bridge} />
       <InfoModal />

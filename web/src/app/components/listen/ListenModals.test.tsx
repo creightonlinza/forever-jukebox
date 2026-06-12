@@ -50,7 +50,6 @@ function createBridge() {
         branchStatsChanged: false,
         audioModeChanged: false,
       })),
-      syncTrackTitleAfterAudioModeChange: vi.fn(),
       setSleepTimer: vi.fn(),
       playlist: {
         selectIndex: vi.fn(),
@@ -159,7 +158,7 @@ describe("TuningModal", () => {
     );
   });
 
-  it("applies extras and syncs the title when the audio mode changed", async () => {
+  it("applies extras and closes", async () => {
     const bridge = createBridge();
     render(<TuningModal bridge={bridge} />);
     act(() => {
@@ -170,9 +169,6 @@ describe("TuningModal", () => {
     expect(bridge.listenPanel.applyExtras).toHaveBeenCalledWith(
       expect.objectContaining({ audioMode: "nightcore" }),
     );
-    expect(
-      bridge.listenPanel.syncTrackTitleAfterAudioModeChange,
-    ).toHaveBeenCalled();
     expect(useAppStore.getState().tuningModalOpen).toBe(false);
   });
 

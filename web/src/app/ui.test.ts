@@ -60,23 +60,20 @@ describe("ui helpers", () => {
   it("sets analysis status and spinner", () => {
     const context = createContext();
     setAnalysisStatus(context, "Working", true);
-    expect(context.elements.analysisStatus.textContent).toBe("Working");
-    expect(
-      context.elements.analysisSpinner.classList.remove,
-    ).toHaveBeenCalledWith("hidden");
+    expect(useAppStore.getState().analysisStatusText).toBe("Working");
+    expect(useAppStore.getState().analysisSpinning).toBe(true);
     setAnalysisStatus(context, "Done", false);
-    expect(
-      context.elements.analysisSpinner.classList.add,
-    ).toHaveBeenCalledWith("hidden");
-    expect(context.elements.analysisProgress.textContent).toBe("");
+    expect(useAppStore.getState().analysisSpinning).toBe(false);
+    expect(useAppStore.getState().analysisProgressText).toBe("");
   });
 
   it("sets loading progress message and percentage", () => {
     const context = createContext();
     setLoadingProgress(context, 55.4, "Loading");
-    expect(context.elements.analysisProgress.textContent).toBe("55%");
+    expect(useAppStore.getState().analysisProgressText).toBe("55%");
+    expect(useAppStore.getState().analysisStatusText).toBe("Loading");
     setLoadingProgress(context, null, null);
-    expect(context.elements.analysisProgress.textContent).toBe("");
+    expect(useAppStore.getState().analysisProgressText).toBe("");
   });
 
   it("detects editable targets", () => {

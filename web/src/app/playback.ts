@@ -6,7 +6,7 @@ import {
   ANALYSIS_POLL_INTERVAL_MS,
   LISTEN_TIMER_INTERVAL_MS,
 } from "./constants";
-import { formatDuration, formatPlaybackTitle } from "./format";
+import { formatDuration } from "./format";
 import {
   fetchAnalysis,
   fetchAudio,
@@ -28,7 +28,6 @@ import {
 } from "./tuning";
 import { storeAnchorHighlight } from "./anchorHighlight";
 import { storeBranchStatsEnabled } from "./extrasMode";
-import { setAutoMarqueeText } from "./marquee";
 import { useAppStore } from "./store";
 import { showToast } from "./ui";
 import {
@@ -265,12 +264,12 @@ export type TrackLoadOptions = {
 };
 
 export function updateListenTimeDisplay(context: AppContext) {
-  const { elements, state } = context;
+  const { state } = context;
   const now = performance.now();
   const totalMs =
     state.playTimerMs +
     (state.lastPlayStamp !== null ? now - state.lastPlayStamp : 0);
-  elements.listenTimeEl.textContent = formatDuration(totalMs / 1000);
+  useAppStore.setState({ listenTimeText: formatDuration(totalMs / 1000) });
 }
 
 function maybeUpdateDeleteEligibility(
@@ -337,7 +336,6 @@ export function updateTrackInfo(context: AppContext) {
 export function updateVizVisibility(context: AppContext) {
   const { autocanonizer, elements, jukebox, state } = context;
   if (state.swingPreparing) {
-    elements.playStatusPanel.classList.remove("hidden");
     elements.vizPanel.classList.add("hidden");
     elements.playButton.classList.add("hidden");
     elements.vizSelect.disabled = true;
@@ -345,7 +343,6 @@ export function updateVizVisibility(context: AppContext) {
     return;
   }
   if (state.audioLoaded && state.analysisLoaded) {
-    elements.playStatusPanel.classList.add("hidden");
     elements.vizPanel.classList.remove("hidden");
     elements.playButton.classList.remove("hidden");
     updatePlayButton(context);
@@ -356,7 +353,6 @@ export function updateVizVisibility(context: AppContext) {
     }
     elements.vizSelect.disabled = state.playMode === "autocanonizer";
   } else {
-    elements.playStatusPanel.classList.remove("hidden");
     elements.vizPanel.classList.add("hidden");
     elements.playButton.classList.add("hidden");
     elements.vizSelect.disabled = true;
@@ -443,9 +439,11 @@ function prepareSwingMode(context: AppContext) {
   const renderToken = context.state.swingRenderToken + 1;
   context.state.swingRenderToken = renderToken;
   context.state.swingPreparing = true;
-  context.elements.analysisStatus.textContent = "Adding swing to the track...";
-  context.elements.analysisSpinner.classList.remove("hidden");
-  context.elements.analysisProgress.textContent = "0%";
+  useAppStore.setState({
+    analysisStatusText: "Adding swing to the track...",
+    analysisSpinning: true,
+    analysisProgressText: "0%",
+  });
   updateVizVisibility(context);
   updatePlayButton(context);
 
@@ -460,7 +458,7 @@ function prepareSwingMode(context: AppContext) {
           return;
         }
         const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
-        context.elements.analysisProgress.textContent = `${percent}%`;
+        useAppStore.setState({ analysisProgressText: `${percent}%` });
       },
     }),
   )
@@ -474,9 +472,11 @@ function prepareSwingMode(context: AppContext) {
       context.state.swingPreparing = false;
       context.player.setRenderedJukeboxAudioBuffer("swing", buffer);
       context.player.setJukeboxAudioMode("swing");
-      context.elements.analysisStatus.textContent = "Swing mode ready.";
-      context.elements.analysisSpinner.classList.add("hidden");
-      context.elements.analysisProgress.textContent = "";
+      useAppStore.setState({
+        analysisStatusText: "Swing mode ready.",
+        analysisSpinning: false,
+        analysisProgressText: "",
+      });
       updateVizVisibility(context);
       if (context.state.isRunning || context.state.isPaused) {
         context.engine.syncToPlaybackPosition();
@@ -499,9 +499,11 @@ function prepareSwingMode(context: AppContext) {
       context.state.swingPreparing = false;
       context.state.jukeboxAudioMode = "off";
       context.player.setJukeboxAudioMode("off");
-      context.elements.analysisStatus.textContent = "Swing mode failed.";
-      context.elements.analysisSpinner.classList.add("hidden");
-      context.elements.analysisProgress.textContent = "";
+      useAppStore.setState({
+        analysisStatusText: "Swing mode failed.",
+        analysisSpinning: false,
+        analysisProgressText: "",
+      });
       updateVizVisibility(context);
       syncTuningParamsState(context);
       writeTuningParamsToUrl(context.state.tuningParams, true);
@@ -523,30 +525,6 @@ function maybePrepareSwingMode(context: AppContext) {
   prepareSwingMode(context);
 }
 
-// Imperative marquee update for the (still legacy) viz-bottom title; the
-// React play-menu title derives reactively from the store.
-export function syncVizNowPlayingTitle(context: AppContext) {
-  const { elements, state } = context;
-  if (!state.trackTitle && !state.trackArtist) {
-    return;
-  }
-  const baseTitle = state.trackTitle ?? "Unknown";
-  const title = formatPlaybackTitle(
-    baseTitle,
-    state.playMode,
-    state.jukeboxAudioMode,
-  );
-  const displayTitle = state.trackArtist
-    ? `${title} — ${state.trackArtist}`
-    : title;
-  setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
-}
-
-function syncBringItHomeLabels(context: AppContext) {
-  const { elements, state } = context;
-  const visible = state.playMode === "jukebox" && state.bringItHomeMode;
-  elements.bringHomeFullscreenLabel.classList.toggle("is-hidden", !visible);
-}
 
 
 export type TuningModalTab = "tuning" | "extras";
@@ -586,7 +564,6 @@ export function applyExtrasChanges(
     engine.setForceBranch(false);
   }
   engine.setBringItHomeMode(state.bringItHomeMode);
-  syncBringItHomeLabels(context);
   state.branchStatsEnabled =
     state.playMode === "jukebox" && values.branchStatsEnabled;
   if (!state.branchStatsEnabled) {
@@ -636,7 +613,6 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   const previousAudioMode = state.jukeboxAudioMode;
   state.bringItHomeMode = false;
   engine.setBringItHomeMode(false);
-  syncBringItHomeLabels(context);
   state.branchStatsEnabled = false;
   elements.branchStatsPopup.classList.add("hidden");
   storeBranchStatsEnabled(false);
@@ -817,7 +793,6 @@ export function stopPlayback(context: AppContext) {
   const {
     autocanonizer,
     cowbellOverlay,
-    elements,
     engine,
     jukebox,
     player,
@@ -834,7 +809,7 @@ export function stopPlayback(context: AppContext) {
   state.playTimerMs = 0;
   state.lastPlayStamp = null;
   state.lastBeatIndex = null;
-  elements.beatsPlayedEl.textContent = "0";
+  useAppStore.setState({ beatsPlayedText: "0" });
   jukebox.reset();
   state.isRunning = false;
   state.isPaused = false;
@@ -843,7 +818,6 @@ export function stopPlayback(context: AppContext) {
   if (state.bringItHomeMode) {
     state.bringItHomeMode = false;
     engine.setBringItHomeMode(false);
-    elements.bringHomeFullscreenLabel.classList.add("is-hidden");
   }
   stopListenTimer(context);
   updateListenTimeDisplay(context);
@@ -897,7 +871,7 @@ function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
     state.playTimerMs = 0;
     state.lastPlayStamp = null;
     updateListenTimeDisplay(context);
-    elements.beatsPlayedEl.textContent = "0";
+    useAppStore.setState({ beatsPlayedText: "0" });
     state.lastBeatIndex = null;
     jukebox.reset();
     if (elements.vizStats) {
@@ -1004,7 +978,7 @@ export function startAutocanonizerPlayback(
     state.playTimerMs = 0;
     state.lastPlayStamp = null;
     updateListenTimeDisplay(context);
-    elements.beatsPlayedEl.textContent = "0";
+    useAppStore.setState({ beatsPlayedText: "0" });
     state.lastBeatIndex = null;
     if (elements.vizStats) {
       elements.vizStats.classList.remove("pulse");
@@ -1095,7 +1069,6 @@ export function resetForNewTrack(
   engine.setForceBranch(false);
   state.bringItHomeMode = false;
   engine.setBringItHomeMode(false);
-  elements.bringHomeFullscreenLabel.classList.add("is-hidden");
   state.selectedEdge = null;
   jukebox.setSelectedEdge(null);
   elements.branchStatsPopup.classList.add("hidden");
@@ -1114,8 +1087,7 @@ export function resetForNewTrack(
   state.lastPlayStamp = null;
   state.lastBeatIndex = null;
   updateListenTimeDisplay(context);
-  elements.beatsPlayedEl.textContent = "0";
-  setAutoMarqueeText(elements.vizNowPlayingEl, "The Forever Jukebox");
+  useAppStore.setState({ beatsPlayedText: "0" });
   closeTuning(context);
   closeInfo(context);
   if (state.isRunning || state.isPaused) {
@@ -1129,9 +1101,11 @@ export function resetForNewTrack(
   }
   engine.updateConfig({ ...defaultConfig });
   syncVolumeUI(context);
-  elements.analysisStatus.textContent = "No track selected.";
-  elements.analysisSpinner.classList.add("hidden");
-  elements.analysisProgress.textContent = "";
+  useAppStore.setState({
+    analysisStatusText: "No track selected.",
+    analysisSpinning: false,
+    analysisProgressText: "",
+  });
   state.trackDurationSec = null;
   state.trackTitle = null;
   state.trackArtist = null;
@@ -1225,18 +1199,6 @@ export function applyAnalysisResult(
     typeof track?.duration === "number" && Number.isFinite(track.duration)
       ? track.duration
       : null;
-  if (title || artist) {
-    const baseTitle = title ?? "Unknown";
-    const withSuffix = formatPlaybackTitle(
-      baseTitle,
-      state.playMode,
-      state.jukeboxAudioMode,
-    );
-    const displayTitle = artist ? `${withSuffix} — ${artist}` : withSuffix;
-    setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
-  } else {
-    setAutoMarqueeText(elements.vizNowPlayingEl, "The Forever Jukebox");
-  }
   updateTrackInfo(context);
   syncActivePlaylistTrackFromLoaded(context);
   savePlaylist(state.playlist);

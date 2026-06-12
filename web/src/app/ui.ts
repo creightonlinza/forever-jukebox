@@ -6,19 +6,22 @@ export type ToastOptions = {
   tone?: "default" | "error";
 };
 
+// The React status panel renders these store values.
 export function setAnalysisStatus(
   context: AppContext,
   message: string,
   spinning: boolean
 ) {
-  const { elements } = context;
-  elements.analysisStatus.textContent = message;
-  if (spinning) {
-    elements.analysisSpinner.classList.remove("hidden");
-  } else {
-    elements.analysisSpinner.classList.add("hidden");
-    elements.analysisProgress.textContent = "";
-  }
+  void context;
+  useAppStore.setState(
+    spinning
+      ? { analysisStatusText: message, analysisSpinning: true }
+      : {
+          analysisStatusText: message,
+          analysisSpinning: false,
+          analysisProgressText: "",
+        },
+  );
 }
 
 export function setLoadingProgress(
@@ -26,14 +29,13 @@ export function setLoadingProgress(
   progress: number | null,
   message?: string | null
 ) {
-  const { elements } = context;
-  elements.analysisStatus.textContent = message?.trim() || "Loading";
-  elements.analysisSpinner.classList.remove("hidden");
-  if (typeof progress === "number") {
-    elements.analysisProgress.textContent = `${Math.round(progress)}%`;
-  } else {
-    elements.analysisProgress.textContent = "";
-  }
+  void context;
+  useAppStore.setState({
+    analysisStatusText: message?.trim() || "Loading",
+    analysisSpinning: true,
+    analysisProgressText:
+      typeof progress === "number" ? `${Math.round(progress)}%` : "",
+  });
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {

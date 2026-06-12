@@ -3,26 +3,6 @@ import { requireElement } from "./dom";
 export type Elements = ReturnType<typeof getElements>;
 
 export function getElements() {
-  const listenTimeEl = requireElement(
-    document.querySelector<HTMLSpanElement>("#listen-time"),
-    "#listen-time"
-  );
-  const beatsPlayedEl = requireElement(
-    document.querySelector<HTMLSpanElement>("#beats-played"),
-    "#beats-played"
-  );
-  const beatsLabel = requireElement(
-    document.querySelector<HTMLSpanElement>("#viz-beats-label"),
-    "#viz-beats-label"
-  );
-  const beatsDivider = requireElement(
-    document.querySelector<HTMLSpanElement>("#viz-beats-divider"),
-    "#viz-beats-divider"
-  );
-  const vizNowPlayingEl = requireElement(
-    document.querySelector<HTMLDivElement>("#viz-now-playing"),
-    "#viz-now-playing"
-  );
   const vizPanel = requireElement(
     document.querySelector<HTMLElement>("#viz-panel"),
     "#viz-panel"
@@ -51,32 +31,12 @@ export function getElements() {
     document.querySelector<HTMLSelectElement>("#play-mode-select"),
     "#play-mode-select"
   );
-  const playStatusPanel = requireElement(
-    document.querySelector<HTMLDivElement>("#play-status"),
-    "#play-status"
-  );
-  const analysisStatus = requireElement(
-    document.querySelector<HTMLDivElement>("#analysis-status"),
-    "#analysis-status"
-  );
-  const analysisSpinner = requireElement(
-    document.querySelector<HTMLDivElement>("#analysis-spinner"),
-    "#analysis-spinner"
-  );
-  const analysisProgress = requireElement(
-    document.querySelector<HTMLDivElement>("#analysis-progress"),
-    "#analysis-progress"
-  );
   const playButton =
     document.querySelector<HTMLButtonElement>("#play") ??
     requireElement(
       document.querySelector<HTMLButtonElement>("#viz-play"),
       "#viz-play"
     );
-  const bringHomeFullscreenLabel = requireElement(
-    document.querySelector<HTMLSpanElement>("#bring-home-fullscreen-label"),
-    "#bring-home-fullscreen-label"
-  );
   const vizPlayButton = requireElement(
     document.querySelector<HTMLButtonElement>("#viz-play"),
     "#viz-play"
@@ -88,10 +48,6 @@ export function getElements() {
   const playlistNextButton = requireElement(
     document.querySelector<HTMLButtonElement>("#playlist-next"),
     "#playlist-next"
-  );
-  const savedPlaylistButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#saved-playlist"),
-    "#saved-playlist"
   );
   const branchStatsPopup = requireElement(
     document.querySelector<HTMLDivElement>("#branch-stats-popup"),
@@ -128,11 +84,6 @@ export function getElements() {
   const vizStats = document.querySelector<HTMLDivElement>("#viz-stats");
 
   return {
-    listenTimeEl,
-    beatsPlayedEl,
-    beatsLabel,
-    beatsDivider,
-    vizNowPlayingEl,
     vizPanel,
     vizLayer,
     canonizerLayer,
@@ -140,16 +91,10 @@ export function getElements() {
     jukeboxViz,
     vizSelect,
     playModeSelect,
-    playStatusPanel,
-    analysisStatus,
-    analysisSpinner,
-    analysisProgress,
     playButton,
-    bringHomeFullscreenLabel,
     vizPlayButton,
     playlistPreviousButton,
     playlistNextButton,
-    savedPlaylistButton,
     branchStatsPopup,
     branchStatsTitleEl,
     branchStatsDeleteButton,

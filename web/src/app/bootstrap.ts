@@ -45,7 +45,6 @@ import {
   requestWakeLock,
   resetForNewTrack,
   syncDeletedEdgeState,
-  syncVizNowPlayingTitle,
   startAutocanonizerPlayback,
   startJukeboxFromBeat,
   setSleepTimer,
@@ -412,9 +411,6 @@ export function bootstrap(): AppBridge {
     applyExtras: (values: ExtrasFormValues) =>
       applyExtrasChanges(context, values),
     resetExtras: () => resetExtrasDefaults(context),
-    syncTrackTitleAfterAudioModeChange: () => {
-      syncVizNowPlayingTitle(context);
-    },
     setSleepTimer: (durationMs: number | null) =>
       setSleepTimer(context, durationMs),
     setVolume: (volumePct: number) => {

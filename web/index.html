@@ -30,22 +30,7 @@
   <body>
     <div id="app">
       <section class="panel tab-panel hidden" data-tab-panel="play">
-        <div class="panel" id="play-status">
-          <div class="status-row">
-            <div
-              class="spinner hidden"
-              id="analysis-spinner"
-              aria-hidden="true"
-            ></div>
-            <div class="status-progress" id="analysis-progress"></div>
-            <div class="status-text" id="analysis-status">
-              No track selected.
-            </div>
-            <button id="saved-playlist" class="saved-playlist-button hidden" type="button">
-              Saved Playlist
-            </button>
-          </div>
-        </div>
+        <div class="panel" id="play-status"></div>
         <div id="play-menu-root"></div>
         <div id="viz-panel" class="hidden">
             <div id="jukebox-viz" class="viz">
@@ -177,25 +162,7 @@
                     >
                   </button>
                 </div>
-                <div class="viz-info">
-                  <div class="viz-title" id="viz-now-playing">
-                    The Forever Jukebox
-                  </div>
-                  <div class="viz-meta">
-                    <span class="viz-meta-stats">
-                      <span>Listen Time:</span>
-                      <span id="listen-time">00:00:00</span>
-                      <span id="viz-beats-divider" class="viz-divider">·</span>
-                      <span id="viz-beats-label">Total Beats:</span>
-                      <span id="beats-played">0</span>
-                    </span>
-                    <span
-                      id="bring-home-fullscreen-label"
-                      class="bring-home-fullscreen-note is-hidden"
-                      >· Bringing it on home</span
-                    >
-                  </div>
-                </div>
+                <div class="viz-info" id="viz-info-root"></div>
               </div>
               <div class="viz-bottom-right" id="viz-bottom-right-root"></div>
             </div>

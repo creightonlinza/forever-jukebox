@@ -151,12 +151,6 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     showToast(context, "Added to playlist", { icon: "playlist_add_check" });
   }
 
-  // The playlist modal renders in React from store.playlist; these only
-  // toggle the open flag.
-  function handleOpenPlaylist() {
-    useAppStore.setState({ playlistModalOpen: true });
-  }
-
   function handleClosePlaylist() {
     useAppStore.setState({ playlistModalOpen: false });
   }
@@ -164,10 +158,6 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
   function handleClearPlaylist() {
     updatePlaylist(emptyPlaylist());
     handleClosePlaylist();
-  }
-
-  function handleSavedPlaylistClick() {
-    handleOpenPlaylist();
   }
 
   function handlePlaylistPrevious() {
@@ -259,10 +249,6 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       busy || !canMovePlaylistPrevious(state.playlist);
     elements.playlistNextButton.disabled =
       busy || !canMovePlaylistNext(state.playlist);
-    elements.savedPlaylistButton.classList.toggle(
-      "hidden",
-      !shouldShowSavedPlaylistButton(),
-    );
   }
 
   function updatePlaylist(nextPlaylist: AppState["playlist"]) {
@@ -271,16 +257,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     syncPlaylistUi();
   }
 
-  function shouldShowSavedPlaylistButton() {
-    return (
-      hasInactiveSavedPlaylist(state.playlist) &&
-      !state.audioLoaded &&
-      !state.analysisLoaded &&
-      !state.audioLoadInFlight &&
-      !state.lastTrackId &&
-      !state.lastJobId
-    );
-  }
+
 
   function hasLoadedTrack() {
     return (
@@ -361,10 +338,8 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
   return {
     handleNormalTrackSelected,
     handleAddToPlaylist,
-    handleOpenPlaylist,
     handleClosePlaylist,
     handleClearPlaylist,
-    handleSavedPlaylistClick,
     handlePlaylistPrevious,
     handlePlaylistNext,
     advanceAutocanonizerOnEnded,
