@@ -31,6 +31,10 @@ Local dev startup installs missing dependencies by default and does not check fo
 
 Then open the web UI at `http://localhost:5173`.
 
+Tests: each component documents its own (see Standalone Setup below). The
+web UI has unit tests (`cd web && npm test`) and a full-app Playwright e2e
+suite (`cd web && npm run test:e2e`) — see [`web/e2e/README.md`](./web/e2e/README.md).
+
 ## Android App (standalone repo)
 
 - Source + releases: [creightonlinza/forever-jukebox-android](https://github.com/creightonlinza/forever-jukebox-android)

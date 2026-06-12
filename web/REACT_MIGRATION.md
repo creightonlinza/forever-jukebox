@@ -159,14 +159,11 @@ environment.
 ## Suggested next steps
 
 1. ~~Full-app Playwright test suite~~ — **done** (`ab964fb`, see
-   "Post-migration work"). What remains around it:
-   - **Wire the e2e suite into CI.** It currently runs locally/manually.
-     CI needs a backend seeded with **≥3 analyzed tracks** (fixtures come
-     from `/api/top` at runtime) and Spotify search credentials; the
-     ingest spec stays excluded (deployed-env only). Until then the suite
-     only runs when someone remembers to run it.
-   - Chromium-only today; add firefox/webkit projects if cross-browser
-     coverage is ever wanted (the config is one block per browser).
+   "Post-migration work"). The suite runs locally/manually by choice — it
+   will not be wired into CI. It needs a backend with **≥3 analyzed
+   tracks** (fixtures come from `/api/top` at runtime) and Spotify search
+   credentials. Chromium-only today; add firefox/webkit projects if
+   cross-browser coverage is ever wanted (one config block per browser).
 2. **Decompose `playback.ts`** (1,696 lines) into per-slice action modules,
    then dissolve `bootstrap.ts` into module-scope singletons and fold the
    remaining `wire/` controllers + the bridge into plain imports — React
