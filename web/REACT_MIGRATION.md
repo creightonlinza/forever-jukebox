@@ -88,8 +88,9 @@ environment.
 - **Store** (`src/app/store.ts`): one flat zustand store in the planned
   ui/playback/track/tuning/library/config slice layout, plus UI-only fields
   (theme, toast, modal flags, status/counter text, search results, …).
-  `context.state` is a Proxy over the store, so the untouched `state.x = y`
-  mutations in `playback.ts` and the controllers notify subscribers.
+  (Historical: `context.state` was a Proxy over the store during the
+  migration; post-migration refactoring converted all access to direct
+  `useAppStore` calls and deleted the proxy.)
 - **Bridge** (`src/app/bridge.ts`): the typed seam React uses to call legacy
   flows (track loading, tuning apply, delete, playlist ops, `attachViz`).
   Built by `bootstrap.ts`, which remains the composition root: it constructs
@@ -164,10 +165,19 @@ environment.
    tracks** (fixtures come from `/api/top` at runtime) and Spotify search
    credentials. Chromium-only today; add firefox/webkit projects if
    cross-browser coverage is ever wanted (one config block per browser).
-2. **Decompose `playback.ts`** (1,696 lines) into per-slice action modules,
-   then dissolve `bootstrap.ts` into module-scope singletons and fold the
-   remaining `wire/` controllers + the bridge into plain imports — React
-   components calling store actions directly, no `AppContext`.
+2. ~~Decompose `playback.ts` / retire the state proxy~~ — **done**
+   (2026-06-12, commits `b7660b2`…`95bb4b3`). `playback.ts` is now
+   `src/app/playback/` (status-ui, wake-lock, transport, swing,
+   tuning-forms, sleep-timer, track-load behind an index barrel); every
+   module — plus tuning/ui/search/upload/routing/wire/bootstrap — uses
+   `useAppStore.getState()/setState()` directly, and the
+   `legacyAppState` Proxy and `AppContext.state` are deleted
+   (`AppContext` is singletons only). `bootstrap.ts` stays as the slim
+   composition root by design. Remaining optional follow-up: the `wire/`
+   controllers still receive injected deps (showToast, playback/api
+   functions); folding those into direct imports is mechanical but means
+   rewriting their tests from spy-injection to `vi.mock` — do it
+   per-controller if/when each is next touched.
 3. **Route-level code splitting** — only after rethinking the
    panels-persist constraint (would need explicit viz mount/unmount
    lifecycle support).
