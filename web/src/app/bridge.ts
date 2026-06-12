@@ -61,6 +61,12 @@ export type ListenPanelBridge = {
   setSleepTimer: (durationMs: number | null) => void;
   setVolume: (volumePct: number) => void;
   toggleFullscreen: () => void;
+  togglePlayback: () => void;
+  setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
+  setActiveVisualization: (index: number) => void;
+  setCanonizerFinish: (checked: boolean) => void;
+  playlistPrevious: () => void;
+  playlistNext: () => void;
   playlist: {
     selectIndex: (index: number) => void;
     removeIndex: (index: number) => void;

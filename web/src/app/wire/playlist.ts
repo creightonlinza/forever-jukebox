@@ -1,5 +1,4 @@
 import type { AppContext, AppState, TabId } from "../context";
-import type { Elements } from "../elements";
 import { isLikelyJobId } from "../identity";
 import {
   activatePlaylistTrack,
@@ -7,9 +6,7 @@ import {
   canMovePlaylistNext,
   canMovePlaylistPrevious,
   emptyPlaylist,
-  hasActivePlaylistControls,
   hasInactiveSavedPlaylist,
-  hasPlaylistControls,
   isPlaylistActive,
   removePlaylistTrack,
   replaceActivePlaylistTrack,
@@ -22,7 +19,6 @@ import type { ToastOptions } from "../ui";
 
 type PlaylistDeps = {
   context: AppContext;
-  elements: Elements;
   state: AppState;
   showToast: (
     context: AppContext,
@@ -57,7 +53,6 @@ export type PlaylistHandlers = ReturnType<typeof createPlaylistHandlers>;
 export function createPlaylistHandlers(deps: PlaylistDeps) {
   const {
     context,
-    elements,
     state,
     showToast,
     loadTrackById,
@@ -193,7 +188,6 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
   ): Promise<boolean> {
     const track = state.playlist.tracks[index];
     if (index === state.playlist.currentIndex || !track || isPlaylistLoadBlocked()) {
-      syncPlaylistUi();
       return false;
     }
     if (options?.closeModal) {
@@ -201,6 +195,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     }
     const previousPlaylist = state.playlist;
     playlistLoadInFlight = true;
+    useAppStore.setState({ playlistLoadBusy: true });
     updatePlaylist(activatePlaylistTrack(state.playlist, index));
     applyTrackTuning(track);
     navigateToTabWithState("play", { trackId: getPlaylistListenId(track) });
@@ -223,49 +218,28 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       loadStarted = false;
     } finally {
       playlistLoadInFlight = false;
+      useAppStore.setState({ playlistLoadBusy: false });
     }
     if (!loadStarted) {
       updatePlaylist(previousPlaylist);
       return false;
     }
-    syncPlaylistUi();
     if (options?.playAfterLoad && !state.isRunning) {
       togglePlayback(context);
     }
     return true;
   }
 
-  function syncPlaylistUi() {
-    const hasTracks = hasPlaylistControls(state.playlist);
-    const active = hasActivePlaylistControls(state.playlist);
-    const busy = isPlaylistLoadBlocked();
-    if (typeof document !== "undefined") {
-      document.body.classList.toggle("playlist-add-enabled", hasLoadedTrack());
-    }
-    void hasTracks;
-    elements.playlistPreviousButton.classList.toggle("is-hidden", !active);
-    elements.playlistNextButton.classList.toggle("is-hidden", !active);
-    elements.playlistPreviousButton.disabled =
-      busy || !canMovePlaylistPrevious(state.playlist);
-    elements.playlistNextButton.disabled =
-      busy || !canMovePlaylistNext(state.playlist);
-  }
+
 
   function updatePlaylist(nextPlaylist: AppState["playlist"]) {
     state.playlist = nextPlaylist;
     savePlaylist(nextPlaylist);
-    syncPlaylistUi();
   }
 
 
 
-  function hasLoadedTrack() {
-    return (
-      Boolean(state.lastTrackId ?? state.lastJobId) &&
-      state.audioLoaded &&
-      state.analysisLoaded
-    );
-  }
+
 
   function isPlaylistLoadBlocked() {
     return (
@@ -329,7 +303,6 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       !state.playlist.tracks[index] ||
       isPlaylistLoadBlocked()
     ) {
-      syncPlaylistUi();
       return;
     }
     void loadPlaylistIndex(index, { closeModal: true });
@@ -346,6 +319,5 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     loadPlaylistIndex,
     selectPlaylistIndex,
     removePlaylistIndex,
-    syncPlaylistUi,
   };
 }

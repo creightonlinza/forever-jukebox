@@ -1211,10 +1211,6 @@ describe("playback controls", () => {
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
     expect(context.state.isRunning).toBe(false);
     expect(context.state.isPaused).toBe(true);
-    expect(context.elements.playButton.setAttribute).toHaveBeenLastCalledWith(
-      "aria-label",
-      "Resume",
-    );
 
     togglePlayback(context);
 
@@ -1238,12 +1234,6 @@ describe("playback controls", () => {
     expect(context.engine.play).not.toHaveBeenCalled();
     expect(context.engine.startJukebox).not.toHaveBeenCalled();
     expect(context.state.isRunning).toBe(false);
-    expect(context.elements.playButton.disabled).toBe(true);
-    expect(context.elements.playButton.setAttribute).toHaveBeenLastCalledWith(
-      "aria-label",
-      "Preparing Swing mode",
-    );
-    expect(context.elements.vizPlayButton.disabled).toBe(true);
   });
 
   it("shows only loading status panel while swing mode is preparing", () => {
@@ -1256,8 +1246,6 @@ describe("playback controls", () => {
     updateVizVisibility(context);
 
     expect(context.elements.vizPanel.classList.add).toHaveBeenCalledWith("hidden");
-    expect(context.elements.playButton.classList.add).toHaveBeenCalledWith("hidden");
-    expect(context.elements.vizSelect.disabled).toBe(true);
   });
 
   it("blocks beat-start playback while swing mode is preparing", () => {
@@ -1277,7 +1265,6 @@ describe("playback controls", () => {
     expect(context.engine.seekToBeat).not.toHaveBeenCalled();
     expect(context.engine.play).not.toHaveBeenCalled();
     expect(context.engine.startJukebox).not.toHaveBeenCalled();
-    expect(context.elements.playButton.disabled).toBe(true);
   });
 
   it("stop clears paused state and forces next play to restart", () => {

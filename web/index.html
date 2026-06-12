@@ -71,97 +71,12 @@
                   <span class="branch-stats-popup-value" id="branch-stats-similarity">0%</span>
                 </div>
               </div>
-              <div class="viz-top">
-              <div class="viz-actions">
-                <label class="viz-select-group" for="play-mode-select">
-                  <span class="viz-select-wrap">
-                    <select
-                      id="play-mode-select"
-                      class="viz-select"
-                      aria-label="Mode"
-                    >
-                      <option value="autocanonizer">Autocanonizer</option>
-                      <option value="jukebox" selected>Jukebox</option>
-                    </select>
-                    <span
-                      class="material-symbols-outlined viz-select-arrow"
-                      aria-hidden="true"
-                      >arrow_drop_down</span
-                    >
-                  </span>
-                </label>
-              </div>
-              <div class="viz-controls">
-                <label class="viz-select-group" for="viz-select">
-                  <span class="viz-select-wrap">
-                    <select
-                      id="viz-select"
-                      class="viz-select"
-                      aria-label="Visualization"
-                    >
-                      <option value="0">Arc</option>
-                      <option value="1">Classic</option>
-                      <option value="2">Galaxy</option>
-                      <option value="3">Grid</option>
-                      <option value="4">Infinite</option>
-                      <option value="5">Wave</option>
-                    </select>
-                    <span
-                      class="material-symbols-outlined viz-select-arrow"
-                      aria-hidden="true"
-                      >arrow_drop_down</span
-                    >
-                  </span>
-                </label>
-              </div>
-              <div class="canonizer-finish">
-                <input type="checkbox" id="canonizer-finish" />
-                <span>Finish out the track</span>
-              </div>
-            </div>
+              <div class="viz-top" id="viz-top-root"></div>
             <div id="viz-layer" class="viz-layer"></div>
             <div id="canonizer-layer" class="canonizer-layer"></div>
             <div class="viz-bottom" id="viz-stats">
               <div class="viz-bottom-left">
-                <div class="viz-play-controls">
-                  <button
-                    id="playlist-previous"
-                    class="playlist-control is-hidden"
-                    type="button"
-                    aria-label="Previous playlist track"
-                    title="Previous playlist track"
-                  >
-                    <span
-                      class="material-symbols-outlined playlist-control-icon"
-                      aria-hidden="true"
-                      >skip_previous</span
-                    >
-                  </button>
-                  <button
-                    id="viz-play"
-                    class="play-toggle viz-play-toggle"
-                    aria-label="Play"
-                  >
-                    <span
-                      class="material-symbols-outlined play-icon"
-                      aria-hidden="true"
-                      >play_arrow</span
-                    >
-                  </button>
-                  <button
-                    id="playlist-next"
-                    class="playlist-control is-hidden"
-                    type="button"
-                    aria-label="Next playlist track"
-                    title="Next playlist track"
-                  >
-                    <span
-                      class="material-symbols-outlined playlist-control-icon"
-                      aria-hidden="true"
-                      >skip_next</span
-                    >
-                  </button>
-                </div>
+                <div class="viz-play-controls" id="viz-play-controls-root"></div>
                 <div class="viz-info" id="viz-info-root"></div>
               </div>
               <div class="viz-bottom-right" id="viz-bottom-right-root"></div>

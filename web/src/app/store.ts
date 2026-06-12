@@ -64,6 +64,7 @@ type ShellSlice = {
   analysisProgressText: string;
   listenTimeText: string;
   beatsPlayedText: string;
+  playlistLoadBusy: boolean;
 };
 
 type Actions = {
@@ -113,6 +114,7 @@ const createUiSlice: Slice<
     | "analysisProgressText"
     | "listenTimeText"
     | "beatsPlayedText"
+    | "playlistLoadBusy"
   > &
     Actions
 > = (set) => ({
@@ -149,6 +151,7 @@ const createUiSlice: Slice<
   analysisProgressText: "",
   listenTimeText: "00:00:00",
   beatsPlayedText: "0",
+  playlistLoadBusy: false,
   setActiveTab: (activeTabId) => set({ activeTabId }),
   setTheme: (theme) => set({ theme }),
   setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),

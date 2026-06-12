@@ -15,39 +15,9 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#canonizer-layer"),
     "#canonizer-layer"
   );
-  const canonizerFinish = requireElement(
-    document.querySelector<HTMLInputElement>("#canonizer-finish"),
-    "#canonizer-finish"
-  );
   const jukeboxViz = requireElement(
     document.querySelector<HTMLDivElement>("#jukebox-viz"),
     "#jukebox-viz"
-  );
-  const vizSelect = requireElement(
-    document.querySelector<HTMLSelectElement>("#viz-select"),
-    "#viz-select"
-  );
-  const playModeSelect = requireElement(
-    document.querySelector<HTMLSelectElement>("#play-mode-select"),
-    "#play-mode-select"
-  );
-  const playButton =
-    document.querySelector<HTMLButtonElement>("#play") ??
-    requireElement(
-      document.querySelector<HTMLButtonElement>("#viz-play"),
-      "#viz-play"
-    );
-  const vizPlayButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#viz-play"),
-    "#viz-play"
-  );
-  const playlistPreviousButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#playlist-previous"),
-    "#playlist-previous"
-  );
-  const playlistNextButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#playlist-next"),
-    "#playlist-next"
   );
   const branchStatsPopup = requireElement(
     document.querySelector<HTMLDivElement>("#branch-stats-popup"),
@@ -87,14 +57,7 @@ export function getElements() {
     vizPanel,
     vizLayer,
     canonizerLayer,
-    canonizerFinish,
     jukeboxViz,
-    vizSelect,
-    playModeSelect,
-    playButton,
-    vizPlayButton,
-    playlistPreviousButton,
-    playlistNextButton,
     branchStatsPopup,
     branchStatsTitleEl,
     branchStatsDeleteButton,

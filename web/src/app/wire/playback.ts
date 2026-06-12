@@ -7,7 +7,6 @@ import type { JukeboxController } from "../../jukebox/JukeboxController";
 import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
 import type { ToastOptions } from "../ui";
 import { formatErrorForDisplay } from "../errorDisplay";
-import { VISUALIZATION_LABELS } from "../constants";
 import { formatDuration } from "../format";
 import { useAppStore } from "../store";
 import { serializeParams } from "../tuning";
@@ -62,16 +61,7 @@ type PlaybackUiDeps = {
 
 export type PlaybackUiHandlers = ReturnType<typeof createPlaybackUiHandlers>;
 
-function getVisualizationLabel(index: number) {
-  return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
-}
 
-function getVisualizationSelectEntries(count: number) {
-  return Array.from({ length: count }, (_, index) => ({
-    index,
-    label: getVisualizationLabel(index),
-  })).sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
-}
 
 function formatSignedDuration(seconds: number) {
   return `${seconds >= 0 ? "+" : "-"}${formatDuration(Math.abs(seconds))}`;
@@ -175,7 +165,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     setPlayMode("jukebox");
     setBringItHomeMode(state.bringItHomeMode);
     syncExtrasPopup(null);
-    syncVisualizationSelectOptions();
 
     const storedViz = localStorage.getItem(vizStorageKey);
     if (storedViz) {
@@ -186,7 +175,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     const storedCanonizerFinish = localStorage.getItem(canonizerFinishKey);
     const finishOutSong = storedCanonizerFinish === "true";
-    elements.canonizerFinish.checked = finishOutSong;
     autocanonizer.setFinishOutSong(finishOutSong);
 
     player.setOnEnded(() => {
@@ -273,37 +261,13 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
   }
 
-  function handlePlayClick() {
-    togglePlayback(context);
-  }
-
   function handleShortUrlClick() {
     void copyShortUrl();
   }
 
-  function handleVizSelectChange(event: Event) {
-    const select = event.currentTarget as HTMLSelectElement | null;
-    const idx = Number(select?.value);
-    if (!Number.isFinite(idx)) {
-      elements.vizSelect.value = String(state.activeVizIndex);
-      return;
-    }
-    setActiveVisualization(idx);
-  }
-
-  function handleModeSelectChange(event: Event) {
-    const select = event.currentTarget as HTMLSelectElement | null;
-    const mode = select?.value === "autocanonizer" ? "autocanonizer" : "jukebox";
-    setPlayMode(mode);
-  }
-
-  function handleCanonizerFinish(event: Event) {
-    const input = event.currentTarget as HTMLInputElement | null;
-    if (!input) {
-      return;
-    }
-    localStorage.setItem(canonizerFinishKey, String(input.checked));
-    autocanonizer.setFinishOutSong(input.checked);
+  function setCanonizerFinish(checked: boolean) {
+    localStorage.setItem(canonizerFinishKey, String(checked));
+    autocanonizer.setFinishOutSong(checked);
   }
 
   function selectAdjacentBranch(direction: -1 | 1) {
@@ -498,44 +462,14 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   function setActiveVisualization(index: number) {
     const count = jukebox.getCount();
     if (index < 0 || index >= count) {
-      elements.vizSelect.value = String(state.activeVizIndex);
       return;
     }
     if (index === state.activeVizIndex) {
-      elements.vizSelect.value = String(index);
       return;
     }
     state.activeVizIndex = index;
     jukebox.setActiveIndex(index);
-    elements.vizSelect.value = String(state.activeVizIndex);
     localStorage.setItem(vizStorageKey, String(state.activeVizIndex));
-  }
-
-  function syncVisualizationSelectOptions() {
-    const count = jukebox.getCount();
-    const entries = getVisualizationSelectEntries(count);
-    const expectedValues = entries.map((entry) => String(entry.index));
-    const expectedLabels = entries.map((entry) => entry.label);
-    const currentValues = Array.from(elements.vizSelect.options, (option) => option.value);
-    const currentLabels = Array.from(
-      elements.vizSelect.options,
-      (option) => option.textContent ?? ""
-    );
-    const needsRebuild =
-      currentValues.length !== expectedValues.length ||
-      currentValues.some((value, idx) => value !== expectedValues[idx]) ||
-      currentLabels.some((label, idx) => label !== expectedLabels[idx]);
-
-    if (needsRebuild) {
-      elements.vizSelect.replaceChildren();
-      entries.forEach((entry) => {
-        const option = document.createElement("option");
-        option.value = String(entry.index);
-        option.textContent = entry.label;
-        elements.vizSelect.append(option);
-      });
-    }
-    elements.vizSelect.value = String(state.activeVizIndex);
   }
 
   function getPlayModeFromUrl() {
@@ -549,7 +483,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
   function setPlayMode(mode: "jukebox" | "autocanonizer") {
     if (state.playMode === mode) {
-      elements.playModeSelect.value = mode;
       return;
     }
     if (state.isRunning || state.isPaused) {
@@ -557,7 +490,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     context.cowbellOverlay.cancelScheduledHits();
     state.playMode = mode;
-    elements.playModeSelect.value = mode;
     elements.jukeboxViz.classList.toggle(
       "is-canonizer",
       mode === "autocanonizer",
@@ -589,17 +521,14 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
   return {
     initializePlayback,
-    handlePlayClick,
     handleShortUrlClick,
-    handleVizSelectChange,
-    handleModeSelectChange,
-    handleCanonizerFinish,
     handleKeydown,
     handleKeyup,
     handleBeatSelect,
     handleEdgeSelect,
     handleBranchStatsDeleteClick,
     setActiveVisualization,
+    setCanonizerFinish,
     applyModeFromUrl,
     setPlayMode,
     updateVizVisibility: () => updateVizVisibility(context),

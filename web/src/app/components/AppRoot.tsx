@@ -13,6 +13,7 @@ import { SearchPanel } from "./SearchPanel";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
 import { InfoModal } from "./listen/InfoModal";
+import { PlayControls } from "./listen/PlayControls";
 import { PlayMenu } from "./listen/PlayMenu";
 import { PlaylistModal } from "./listen/PlaylistModal";
 import { SleepTimerModal } from "./listen/SleepTimerModal";
@@ -20,6 +21,7 @@ import { StatusPanel } from "./listen/StatusPanel";
 import { TuningModal } from "./listen/TuningModal";
 import { VizBottomRight } from "./listen/VizBottomRight";
 import { VizInfo } from "./listen/VizInfo";
+import { VizTop } from "./listen/VizTop";
 
 // Derives activeTab from the URL on every location change and runs the
 // legacy route handler (mode-from-URL, track loading, FAQ subtab sync) on
@@ -75,6 +77,20 @@ function useTabEffects(
   }, [activeTab, bridge, panelsRef]);
 }
 
+// Body-level flag CSS uses to reveal playlist-add buttons (formerly part
+// of wire/playlist's syncPlaylistUi).
+function usePlaylistAddEnabled() {
+  const lastTrackId = useAppStore((s) => s.lastTrackId);
+  const lastJobId = useAppStore((s) => s.lastJobId);
+  const audioLoaded = useAppStore((s) => s.audioLoaded);
+  const analysisLoaded = useAppStore((s) => s.analysisLoaded);
+  const enabled =
+    Boolean(lastTrackId ?? lastJobId) && audioLoaded && analysisLoaded;
+  useEffect(() => {
+    document.body.classList.toggle("playlist-add-enabled", enabled);
+  }, [enabled]);
+}
+
 function useThemeEffect(bridge: AppBridge) {
   const theme = useAppStore((s) => s.theme);
   useEffect(() => {
@@ -106,6 +122,8 @@ export function AppRoot({
   vizBottomRightRoot,
   playStatusRoot,
   vizInfoRoot,
+  vizTopRoot,
+  playControlsRoot,
 }: {
   bridge: AppBridge;
   legacyContent: DocumentFragment;
@@ -115,12 +133,15 @@ export function AppRoot({
   vizBottomRightRoot: Element | null;
   playStatusRoot: Element | null;
   vizInfoRoot: Element | null;
+  vizTopRoot: Element | null;
+  playControlsRoot: Element | null;
 }) {
   const panelsRef = useRef<HTMLDivElement | null>(null);
   useRouteSync(bridge);
   useTabEffects(bridge, panelsRef);
   useThemeEffect(bridge);
   useGlobalHotkeys(bridge);
+  usePlaylistAddEnabled();
   // Passthrough container: adopts the legacy panel/modal DOM nodes from
   // index.html. Imperative code keeps element references into this subtree,
   // so React must never re-render inside it. Adoption is idempotent — the
@@ -151,6 +172,10 @@ export function AppRoot({
         ? createPortal(<StatusPanel container={playStatusRoot} />, playStatusRoot)
         : null}
       {vizInfoRoot ? createPortal(<VizInfo />, vizInfoRoot) : null}
+      {vizTopRoot ? createPortal(<VizTop bridge={bridge} />, vizTopRoot) : null}
+      {playControlsRoot
+        ? createPortal(<PlayControls bridge={bridge} />, playControlsRoot)
+        : null}
       <TuningModal bridge={bridge} />
       <SleepTimerModal bridge={bridge} />
       <InfoModal />

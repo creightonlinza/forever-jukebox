@@ -337,25 +337,19 @@ export function updateVizVisibility(context: AppContext) {
   const { autocanonizer, elements, jukebox, state } = context;
   if (state.swingPreparing) {
     elements.vizPanel.classList.add("hidden");
-    elements.playButton.classList.add("hidden");
-    elements.vizSelect.disabled = true;
     updatePlayButton(context);
     return;
   }
   if (state.audioLoaded && state.analysisLoaded) {
     elements.vizPanel.classList.remove("hidden");
-    elements.playButton.classList.remove("hidden");
     updatePlayButton(context);
     if (state.playMode === "autocanonizer") {
       autocanonizer.resizeNow();
     } else {
       jukebox.resizeActive();
     }
-    elements.vizSelect.disabled = state.playMode === "autocanonizer";
   } else {
     elements.vizPanel.classList.add("hidden");
-    elements.playButton.classList.add("hidden");
-    elements.vizSelect.disabled = true;
   }
 }
 
@@ -414,7 +408,7 @@ function canPrepareSwingMode(context: AppContext) {
   );
 }
 
-function isPlaybackBlockedForSwing(context: AppContext) {
+export function isPlaybackBlockedForSwing(context: AppContext) {
   const { state } = context;
   return (
     state.playMode === "jukebox" &&
@@ -999,35 +993,11 @@ export function startAutocanonizerPlayback(
   return true;
 }
 
+// The React transport buttons derive icon/label/disabled from the store;
+// only the play-tab pulse needs an explicit write here.
 function updatePlayButton(context: AppContext) {
   const { state } = context;
-  const isRunning = state.isRunning;
-  const isBlocked = isPlaybackBlockedForSwing(context);
-  const label = isBlocked
-    ? "Preparing Swing mode"
-    : isRunning
-      ? "Pause"
-      : state.isPaused
-        ? "Resume"
-        : "Play";
-  const updateButton = (button: HTMLButtonElement) => {
-    const icon = button.querySelector<HTMLSpanElement>(".play-icon");
-    if (icon) {
-      icon.textContent = isBlocked
-        ? "hourglass_top"
-        : isRunning
-          ? "pause"
-          : "play_arrow";
-    }
-    button.disabled = isBlocked;
-    button.title = label;
-    button.setAttribute("aria-label", label);
-  };
-  updateButton(context.elements.playButton);
-  if (context.elements.vizPlayButton !== context.elements.playButton) {
-    updateButton(context.elements.vizPlayButton);
-  }
-  const shouldPulse = isRunning && context.state.activeTabId !== "play";
+  const shouldPulse = state.isRunning && state.activeTabId !== "play";
   useAppStore.getState().setPlayTabPulsing(shouldPulse);
 }
 

@@ -18,6 +18,10 @@ export function mountReactApp(
   );
   const playStatusRoot = legacyContent.querySelector("#play-status");
   const vizInfoRoot = legacyContent.querySelector("#viz-info-root");
+  const vizTopRoot = legacyContent.querySelector("#viz-top-root");
+  const playControlsRoot = legacyContent.querySelector(
+    "#viz-play-controls-root",
+  );
   const router = createBrowserRouter([
     {
       path: "*",
@@ -29,6 +33,8 @@ export function mountReactApp(
           vizBottomRightRoot={vizBottomRightRoot}
           playStatusRoot={playStatusRoot}
           vizInfoRoot={vizInfoRoot}
+          vizTopRoot={vizTopRoot}
+          playControlsRoot={playControlsRoot}
         />
       ),
     },

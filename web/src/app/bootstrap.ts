@@ -138,7 +138,6 @@ export function bootstrap(): AppBridge {
     state,
   };
   let playlistHandlers: PlaylistHandlers | null = null;
-  const syncPlaylistUi = () => playlistHandlers?.syncPlaylistUi();
   const handleNormalTrackSelected = (track: PlaylistTrack) => {
     playlistHandlers?.handleNormalTrackSelected(track);
   };
@@ -215,14 +214,9 @@ export function bootstrap(): AppBridge {
     syncTuningParamsState,
     setPlayMode: playbackHandlers.setPlayMode,
   });
-  playbackDeps.onTrackChange = () => {
-    syncPlaylistUi();
-  };
   playbackDeps.onAnalysisLoaded = (response) => {
     favoritesHandlers.maybeAutoFavoriteUserSupplied(response);
-    syncPlaylistUi();
   };
-  playbackDeps.onPlaylistChange = syncPlaylistUi;
   const searchDeps: SearchDeps = {
     setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
     navigateToTab: (
@@ -243,20 +237,16 @@ export function bootstrap(): AppBridge {
         response,
         (analysis) => {
           favoritesHandlers.maybeAutoFavoriteUserSupplied(analysis);
-          syncPlaylistUi();
         },
       ),
     loadAudioFromJob: (jobId: string) => loadAudioFromJob(context, jobId),
     resetForNewTrack: (options) => resetForNewTrack(context, options),
     updateVizVisibility: () => updateVizVisibility(context),
-    onTrackChange: () => {
-      syncPlaylistUi();
-    },
+
     onNormalTrackSelected: handleNormalTrackSelected,
   };
   playlistHandlers = createPlaylistHandlers({
     context,
-    elements,
     state,
     showToast,
     loadTrackById: (trackId, options) =>
@@ -303,7 +293,6 @@ export function bootstrap(): AppBridge {
     removeFavorite,
   });
   jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
-  elements.vizSelect.disabled = true;
   attachVisualizationResize([jukebox], elements.vizPanel);
   attachVisualizationResize([autocanonizer], elements.vizPanel);
   playbackHandlers.initializePlayback();
@@ -330,14 +319,12 @@ export function bootstrap(): AppBridge {
     });
 
   resetForNewTrack(context);
-  syncPlaylistUi();
 
   bindUiHandlers({
     elements,
     jukebox,
     playbackHandlers,
     fullscreenHandlers,
-    playlistHandlers: playlistHandlers!,
   });
 
   // Runs on initial load and browser back/forward, driven by the React
@@ -413,6 +400,12 @@ export function bootstrap(): AppBridge {
     resetExtras: () => resetExtrasDefaults(context),
     setSleepTimer: (durationMs: number | null) =>
       setSleepTimer(context, durationMs),
+    togglePlayback: () => togglePlayback(context),
+    setPlayMode: playbackHandlers.setPlayMode,
+    setActiveVisualization: playbackHandlers.setActiveVisualization,
+    setCanonizerFinish: playbackHandlers.setCanonizerFinish,
+    playlistPrevious: () => playlistHandlers!.handlePlaylistPrevious(),
+    playlistNext: () => playlistHandlers!.handlePlaylistNext(),
     setVolume: (volumePct: number) => {
       const volume = volumePct / 100;
       player.setVolume(volume);
