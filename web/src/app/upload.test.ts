@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppConfig } from "./api";
 import type { AppContext } from "./context";
+import { bumpLoadGeneration } from "./playback";
 import { useAppStore } from "./store";
 import {
   normalizeSupportedSourceUrl,
@@ -45,6 +46,24 @@ function createHarness() {
 }
 
 describe("uploadFromUrl", () => {
+  it("abandons the continuation when a newer load supersedes the upload", async () => {
+    const harness = createHarness();
+    harness.startUrlAnalysis.mockImplementation(async () => {
+      // the user loads another track while the URL job request is in flight
+      bumpLoadGeneration();
+      return { status: "queued", id: "a3f3c0dc73c6476c9db95c227f9206f2", source_provider: "youtube" };
+    });
+
+    await uploadFromUrl(
+      harness.deps,
+      "https://www.youtube.com/watch?v=abc123def45",
+    );
+
+    expect(harness.deps.resetForNewTrack).not.toHaveBeenCalled();
+    expect(harness.updateTrackUrl).not.toHaveBeenCalled();
+    expect(harness.pollAnalysisJob).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

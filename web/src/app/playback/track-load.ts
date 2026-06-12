@@ -34,6 +34,11 @@ import {
 } from "../playlist";
 import { useAppStore } from "../store";
 import {
+  bumpLoadGeneration,
+  getLoadGeneration,
+  isStaleLoad,
+} from "./load-generation";
+import {
   applyTuningParamsFromUrl,
   clearTuningParamsFromUrl,
   getTuningParamsStringFromUrl,
@@ -115,6 +120,7 @@ export function resetForNewTrack(
   context: AppContext,
   options?: { clearTuning?: boolean },
 ) {
+  bumpLoadGeneration();
   const {
     autocanonizer,
     cowbellOverlay,
@@ -214,9 +220,19 @@ export function resetForNewTrack(
 
 export async function loadAudioFromJob(context: AppContext, jobId: string) {
   const { autocanonizer, player } = context;
+  const generation = getLoadGeneration();
   try {
     const buffer = await fetchAudio(jobId);
+    // A newer load started while this download was in flight: its audio
+    // must not reach the player, the store, or the cache (where it would
+    // persist under the newer track's id).
+    if (isStaleLoad(generation)) {
+      return false;
+    }
     await player.decode(buffer);
+    if (isStaleLoad(generation)) {
+      return false;
+    }
     autocanonizer.setAudio(player.getBuffer(), player.getContext());
     useAppStore.setState({ audioLoaded: true });
     useAppStore.setState({ audioLoadInFlight: false });
@@ -231,7 +247,9 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     }
     return true;
   } catch (err) {
-    useAppStore.setState({ audioLoadInFlight: false });
+    if (!isStaleLoad(generation)) {
+      useAppStore.setState({ audioLoadInFlight: false });
+    }
     return false;
   }
 }
@@ -306,7 +324,10 @@ async function recordPlayOnce(jobId: string) {
   try {
     await recordPlay(jobId);
   } catch (err) {
-    useAppStore.setState({ lastPlayCountedJobId: null });
+    // Only clear our own guard; a newer track may own the field by now.
+    if (useAppStore.getState().lastPlayCountedJobId === jobId) {
+      useAppStore.setState({ lastPlayCountedJobId: null });
+    }
     throw err;
   }
 }
@@ -317,11 +338,12 @@ export async function pollAnalysis(
   jobId: string,
 ) {
   const controller = new AbortController();
+  const generation = getLoadGeneration();
   useAppStore.getState().pollController?.abort();
   useAppStore.setState({ pollController: controller });
   try {
     while (true) {
-      if (controller.signal.aborted) {
+      if (controller.signal.aborted || isStaleLoad(generation)) {
         return;
       }
       let response: Awaited<ReturnType<typeof fetchAnalysis>>;
@@ -341,6 +363,9 @@ export async function pollAnalysis(
       }
       const previousTrackId = normalizeTrackIdentityFromResponse(deps, response);
       await migrateCachedAudioForResponse(context, response, previousTrackId);
+      if (isStaleLoad(generation)) {
+        return;
+      }
       maybeUpdateDeleteEligibility(response, jobId);
       if (isAnalysisInProgress(response)) {
         const progress =
@@ -353,6 +378,9 @@ export async function pollAnalysis(
         ) {
           useAppStore.setState({ audioLoadInFlight: true });
           await loadAudioFromJob(context, jobId);
+          if (isStaleLoad(generation)) {
+            return;
+          }
         }
       } else if (isAnalysisFailed(response)) {
         deps.setAnalysisStatus(
@@ -367,6 +395,9 @@ export async function pollAnalysis(
       } else if (isAnalysisComplete(response)) {
         if (!useAppStore.getState().audioLoaded) {
           const audioLoaded = await loadAudioFromJob(context, jobId);
+          if (isStaleLoad(generation)) {
+            return;
+          }
           if (!audioLoaded) {
             await delay(ANALYSIS_POLL_INTERVAL_MS, controller.signal);
             continue;
@@ -379,7 +410,7 @@ export async function pollAnalysis(
         }
       }
       await delay(ANALYSIS_POLL_INTERVAL_MS, controller.signal);
-      if (controller.signal.aborted) {
+      if (controller.signal.aborted || isStaleLoad(generation)) {
         return;
       }
     }
@@ -395,16 +426,20 @@ async function continueTrackLoadWithResponse(
   deps: PlaybackDeps,
   response: AnalysisResponse | null,
 ): Promise<boolean> {
+  const generation = getLoadGeneration();
   if (!response || !response.id) {
     deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
     return false;
   }
   const previousTrackId = normalizeTrackIdentityFromResponse(deps, response);
   await migrateCachedAudioForResponse(context, response, previousTrackId);
+  if (isStaleLoad(generation)) {
+    return false;
+  }
   maybeUpdateDeleteEligibility(response, response.id);
   if (isAnalysisInProgress(response)) {
     await pollAnalysis(context, deps, response.id);
-    return true;
+    return !isStaleLoad(generation);
   }
   if (isAnalysisFailed(response)) {
     deps.setAnalysisStatus(
@@ -420,9 +455,12 @@ async function continueTrackLoadWithResponse(
   if (isAnalysisComplete(response)) {
     if (!useAppStore.getState().audioLoaded) {
       const audioLoaded = await loadAudioFromJob(context, response.id);
+      if (isStaleLoad(generation)) {
+        return false;
+      }
       if (!audioLoaded) {
         await pollAnalysis(context, deps, response.id);
-        return true;
+        return !isStaleLoad(generation);
       }
     }
     if (!applyAnalysisResult(context, response, deps.onAnalysisLoaded)) {
@@ -524,19 +562,30 @@ async function loadTrack(
     useAppStore.setState({ lastSourceProvider: options?.selectedTrack?.sourceType ?? null });
     deps.onTrackChange?.(source.id);
   }
+  const generation = getLoadGeneration();
   const cacheKey =
     source.type === "source" && source.provider !== "youtube"
       ? `${source.provider}:${source.id}`
       : source.id;
   await tryLoadCachedAudio(context, cacheKey);
+  if (isStaleLoad(generation)) {
+    return false;
+  }
   try {
     const response =
       source.type === "source"
         ? await fetchJobBySource(source.provider, source.id)
         : await fetchAnalysis(source.id);
+    // A newer load superseded this one while its initial request was in
+    // flight; its response must not rewrite identity, URL, or status.
+    if (isStaleLoad(generation)) {
+      return false;
+    }
     return await continueTrackLoadWithResponse(context, deps, response);
   } catch (err) {
-    deps.setAnalysisStatus(`Load failed: ${formatErrorForDisplay(err)}`, false);
+    if (!isStaleLoad(generation)) {
+      deps.setAnalysisStatus(`Load failed: ${formatErrorForDisplay(err)}`, false);
+    }
     return false;
   }
 }
@@ -780,13 +829,19 @@ export async function tryLoadCachedAudio(
   trackId: string,
 ) {
   const { autocanonizer, player } = context;
+  const generation = getLoadGeneration();
   try {
     const cached = await readCachedTrack(trackId);
-    if (!cached?.audio) {
+    if (!cached?.audio || isStaleLoad(generation)) {
+      return false;
+    }
+    await player.decode(cached.audio);
+    // Publish identity only after the decode survives supersession checks,
+    // so a stale cached load can't overwrite a newer track's job id.
+    if (isStaleLoad(generation)) {
       return false;
     }
     useAppStore.setState({ lastJobId: cached.jobId ?? null });
-    await player.decode(cached.audio);
     autocanonizer.setAudio(player.getBuffer(), player.getContext());
     useAppStore.setState({ audioLoaded: true });
     useAppStore.setState({ audioLoadInFlight: false });

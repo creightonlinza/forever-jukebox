@@ -43,6 +43,12 @@ vi.mock("../audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(async () => ({ duration: 120 }) as AudioBuffer),
 }));
 
+vi.mock("./cache", () => ({
+  readCachedTrack: vi.fn(async () => null),
+  updateCachedTrack: vi.fn(async () => undefined),
+  deleteCachedTrack: vi.fn(async () => undefined),
+}));
+
 
 
 function setLocalStorage() {
@@ -1633,6 +1639,83 @@ describe("playback loading", () => {
       false,
     );
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
+  });
+
+  it("discards a superseded audio download (no decode, no publish)", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    context.player = {
+      ...context.player,
+      decode: vi.fn(async () => undefined),
+      getBuffer: vi.fn(() => ({ duration: 12 }) as AudioBuffer),
+      getContext: vi.fn(() => ({}) as BaseAudioContext),
+    } as unknown as AppContext["player"];
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "complete",
+          id: "job-superseded",
+          result: {
+            sections: [],
+            bars: [],
+            beats: [],
+            tatums: [],
+            segments: [],
+            track: { title: "Old", duration: 12 },
+          },
+        }),
+      } as Response)
+      // the audio download resolves only after a newer load has started
+      .mockImplementationOnce(async () => {
+        resetForNewTrack(context);
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => new ArrayBuffer(8),
+        } as unknown as Response;
+      });
+
+    await pollAnalysis(context, deps, "job-superseded");
+
+    expect(context.player.decode).not.toHaveBeenCalled();
+    expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
+    expect(useAppStore.getState().audioLoaded).toBe(false);
+    expect(deps.setActiveTab).not.toHaveBeenCalledWith("play");
+  });
+
+  it("stops a poll iteration when a newer load supersedes it mid-await", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    useAppStore.setState({ audioLoaded: true });
+    (fetch as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => {
+      // a newer track load lands while the status request is in flight
+      resetForNewTrack(context);
+      useAppStore.setState({ audioLoaded: true });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "complete",
+          id: "job-late",
+          result: {
+            sections: [],
+            bars: [],
+            beats: [],
+            tatums: [],
+            segments: [],
+            track: { title: "Late", duration: 9 },
+          },
+        }),
+      } as unknown as Response;
+    });
+
+    await pollAnalysis(context, deps, "job-late");
+
+    // the stale iteration must not apply its analysis over the newer track
+    expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
+    expect(deps.setActiveTab).not.toHaveBeenCalledWith("play");
   });
 
   it("exits silently when the poll is cancelled mid-request", async () => {

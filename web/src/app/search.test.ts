@@ -15,9 +15,18 @@ vi.mock("./api", () => ({
   startYoutubeAnalysis: vi.fn(),
 }));
 
-vi.mock("./playback", () => ({
-  tryLoadCachedAudio: vi.fn(),
-}));
+vi.mock("./playback", () => {
+  let generation = 0;
+  return {
+    tryLoadCachedAudio: vi.fn(),
+    bumpLoadGeneration: vi.fn(() => {
+      generation += 1;
+      return generation;
+    }),
+    getLoadGeneration: vi.fn(() => generation),
+    isStaleLoad: vi.fn((g: number) => g !== generation),
+  };
+});
 
 let api: typeof import("./api");
 let playback: typeof import("./playback");

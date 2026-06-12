@@ -1,4 +1,5 @@
 import type { AppContext, TabId } from "./context";
+import { getLoadGeneration, isStaleLoad } from "./playback";
 import { useAppStore } from "./store";
 import {
   formatErrorForDisplay,
@@ -153,7 +154,13 @@ export async function uploadAudioFile(
     }
   }
   try {
+    const generation = getLoadGeneration();
     const response = await deps.uploadAudio(file);
+    // The user moved on to another track while the upload ran; the job is
+    // accepted server-side but must not hijack the newer session.
+    if (isStaleLoad(generation)) {
+      return;
+    }
     if (!response || !response.id) {
       throw new Error("Upload failed");
     }
@@ -232,9 +239,13 @@ export async function uploadFromUrl(
   }
   const requestedSourceProvider = inferSourceProviderFromUrl(sourceUrl);
   try {
+    const generation = getLoadGeneration();
     const response = await deps.startUrlAnalysis({
       url: sourceUrl,
     });
+    if (isStaleLoad(generation)) {
+      return;
+    }
     const sourceProvider = response?.source_provider;
     if (response?.status === "failed") {
       showToast(

@@ -187,7 +187,11 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     const previousPlaylist = useAppStore.getState().playlist;
     playlistLoadInFlight = true;
     useAppStore.setState({ playlistLoadBusy: true });
-    updatePlaylist(activatePlaylistTrack(useAppStore.getState().playlist, index));
+    const activatedPlaylist = activatePlaylistTrack(
+      useAppStore.getState().playlist,
+      index,
+    );
+    updatePlaylist(activatedPlaylist);
     applyTrackTuning(track);
     navigateToTabWithState("play", { trackId: getPlaylistListenId(track) });
     let loadStarted = false;
@@ -212,7 +216,10 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       useAppStore.setState({ playlistLoadBusy: false });
     }
     if (!loadStarted) {
-      updatePlaylist(previousPlaylist);
+      // Only roll back if no newer load has replaced the playlist meanwhile.
+      if (useAppStore.getState().playlist === activatedPlaylist) {
+        updatePlaylist(previousPlaylist);
+      }
       return false;
     }
     if (options?.playAfterLoad && !useAppStore.getState().isRunning) {

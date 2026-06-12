@@ -53,4 +53,9 @@ export {
   type PlaybackDeps,
   type TrackLoadOptions,
 } from "./track-load";
+export {
+  bumpLoadGeneration,
+  getLoadGeneration,
+  isStaleLoad,
+} from "./load-generation";
 export { releaseWakeLock, requestWakeLock } from "./wake-lock";

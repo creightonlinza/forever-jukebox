@@ -1,4 +1,5 @@
 import type { AppContext, TabId } from "./context";
+import { getLoadGeneration, isStaleLoad } from "./playback";
 import {
   fetchJobByTrack,
   searchSpotify,
@@ -95,6 +96,7 @@ export async function startYoutubeAnalysisFlow(
   artist: string
 ) {
   deps.resetForNewTrack({ clearTuning: true });
+  const generation = getLoadGeneration();
   resetSearchUI(context);
   useAppStore.setState({ audioLoaded: false });
   useAppStore.setState({ analysisLoaded: false });
@@ -107,8 +109,14 @@ export async function startYoutubeAnalysisFlow(
   deps.onTrackChange?.(youtubeId);
   deps.updateTrackUrl(youtubeId);
   await tryLoadCachedAudio(context, youtubeId);
+  if (isStaleLoad(generation)) {
+    return;
+  }
   const payload = { youtube_id: youtubeId, title, artist };
   const response = await startYoutubeAnalysis(payload);
+  if (isStaleLoad(generation)) {
+    return;
+  }
   if (!response || !response.id) {
     throw new Error("Invalid job response");
   }
@@ -131,6 +139,9 @@ export async function startYoutubeAnalysisFlow(
   deps.onTrackChange?.(jobId);
   deps.updateTrackUrl(jobId);
   await tryLoadCachedAudio(context, jobId);
+  if (isStaleLoad(generation)) {
+    return;
+  }
   if (isAnalysisInProgress(response)) {
     const progress =
       typeof response.progress === "number" ? response.progress : null;
@@ -179,8 +190,13 @@ export async function tryLoadExistingTrackByName(
   }
   setSearchMessage("Checking existing analysis...");
   setSearchHint("Step 2: Choose the closest YouTube match.");
+  const entryGeneration = getLoadGeneration();
   try {
     const response = await fetchJobByTrack(title, artist);
+    // The user loaded another track while the lookup ran.
+    if (isStaleLoad(entryGeneration)) {
+      return true;
+    }
     if (!response || !response.id) {
       return false;
     }
@@ -207,6 +223,7 @@ export async function tryLoadExistingTrackByName(
       tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
     });
     deps.resetForNewTrack({ clearTuning: true });
+    const generation = getLoadGeneration();
     resetSearchUI(context);
     useAppStore.setState({ audioLoaded: false });
     useAppStore.setState({ analysisLoaded: false });
@@ -235,6 +252,9 @@ export async function tryLoadExistingTrackByName(
     if (isAnalysisComplete(response)) {
       if (!useAppStore.getState().audioLoaded) {
         const audioLoaded = await deps.loadAudioFromJob(jobId);
+        if (isStaleLoad(generation)) {
+          return true;
+        }
         if (!audioLoaded) {
           await deps.pollAnalysis(jobId);
           return true;
