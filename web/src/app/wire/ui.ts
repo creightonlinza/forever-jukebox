@@ -178,10 +178,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     playbackHandlers.handleCanonizerFinish,
   );
   document.addEventListener("click", tuningHandlers.handleVolumeDocumentClick);
-  window.addEventListener("keydown", deleteJobHandlers.handleDeleteConfirmKeydown);
-  window.addEventListener("keydown", playlistHandlers.handlePlaylistModalKeydown);
-  window.addEventListener("keydown", playbackHandlers.handleKeydown);
-  window.addEventListener("keyup", playbackHandlers.handleKeyup);
 
   jukebox.setOnSelect(playbackHandlers.handleBeatSelect);
   jukebox.setOnEdgeSelect(playbackHandlers.handleEdgeSelect);

@@ -50,6 +50,12 @@ export type AppBridge = {
   onTabClick: (tabId: TabId) => void;
   onHeroHomeClick: () => void;
   applyTheme: (theme: ThemeName) => void;
+  // Window-level hotkey handlers (playback shortcuts, delete-confirm,
+  // playlist-modal Escape) registered once by useGlobalHotkeys in AppRoot.
+  hotkeys: {
+    keydown: Array<(event: KeyboardEvent) => void>;
+    keyup: Array<(event: KeyboardEvent) => void>;
+  };
   topPanel: TopPanelBridge;
   searchPanel: SearchPanelBridge;
 };

@@ -10,6 +10,12 @@ export type FooterCredit = {
   hostedByUrl: string | null;
 };
 
+export type ToastState = {
+  message: string;
+  icon?: string;
+  tone: "default" | "error";
+};
+
 export type SearchResultsState =
   | { kind: "message"; text: string }
   | { kind: "spotify"; items: SpotifySearchItem[] }
@@ -29,6 +35,7 @@ type ShellSlice = {
   theme: ThemeName;
   isPlayTabPulsing: boolean;
   footerCredit: FooterCredit | null;
+  toast: ToastState | null;
   searchQuery: string;
   searchHint: string;
   searchResults: SearchResultsState;
@@ -62,6 +69,7 @@ const createUiSlice: Slice<
     | "theme"
     | "isPlayTabPulsing"
     | "footerCredit"
+    | "toast"
     | "searchQuery"
     | "searchHint"
     | "searchResults"
@@ -77,6 +85,7 @@ const createUiSlice: Slice<
   theme: "dark",
   isPlayTabPulsing: false,
   footerCredit: null,
+  toast: null,
   searchQuery: "",
   searchHint: DEFAULT_SEARCH_HINT,
   searchResults: DEFAULT_SEARCH_RESULTS,

@@ -434,6 +434,14 @@ export function bootstrap(): AppBridge {
     context,
     handleRoute,
     onTabClick,
+    hotkeys: {
+      keydown: [
+        deleteJobHandlers.handleDeleteConfirmKeydown,
+        playlistHandlers!.handlePlaylistModalKeydown,
+        playbackHandlers.handleKeydown,
+      ],
+      keyup: [playbackHandlers.handleKeyup],
+    },
     onHeroHomeClick: () => {
       navigationHandlers.navigateToTabWithState("top");
     },

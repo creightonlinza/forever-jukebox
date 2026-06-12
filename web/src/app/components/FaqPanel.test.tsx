@@ -13,12 +13,9 @@ vi.mock("../cache", () => ({
 }));
 
 function createBridge(): Pick<AppBridge, "context"> {
-  const toast = document.createElement("div");
-  toast.id = "toast";
-  document.body.appendChild(toast);
   return {
     context: {
-      elements: { toast },
+      elements: {},
       state: { toastTimer: null },
     } as unknown as AppBridge["context"],
   };
@@ -45,7 +42,6 @@ describe("FaqPanel", () => {
   afterEach(() => {
     setAppRouter(null);
     cleanup();
-    document.getElementById("toast")?.remove();
   });
 
   it("shows the FAQ subtab content on /faq", () => {
@@ -112,7 +108,7 @@ describe("FaqPanel", () => {
     await userEvent.click(button);
     expect(cache.clearCachedAudio).toHaveBeenCalled();
     await waitFor(() => {
-      expect(document.getElementById("toast")?.textContent).toBe(
+      expect(useAppStore.getState().toast?.message).toBe(
         "Cached audio cleared.",
       );
     });

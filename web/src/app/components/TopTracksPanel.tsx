@@ -19,6 +19,7 @@ import {
   type FavoritesDisplaySort,
 } from "../favorites";
 import type { PlaylistTrack } from "../playlist";
+import { Modal, ModalHeader } from "./Modal";
 import { useAppStore } from "../store";
 import { urlForTrack } from "../tabs";
 import { blurMouseActivatedControl } from "../ui";
@@ -403,33 +404,13 @@ function FavoritesSyncEnterModal({
   };
 
   return (
-    <div
-      id="favorites-sync-enter-modal"
-      className={open ? "modal open" : "modal"}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="modal-panel">
-        <div className="modal-header">
-          <h2>Favorites Sync</h2>
-          <button
-            id="favorites-sync-enter-close"
-            className="modal-close"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <span
-              className="material-symbols-outlined modal-close-icon"
-              aria-hidden="true"
-            >
-              close
-            </span>
-          </button>
-        </div>
-        <div className="modal-body">
+    <Modal id="favorites-sync-enter-modal" open={open} onClose={onClose}>
+      <ModalHeader
+        title="Favorites Sync"
+        closeId="favorites-sync-enter-close"
+        onClose={onClose}
+      />
+      <div className="modal-body">
           <p className="modal-hint">
             Enter the 3-word sync code to pull down your favorites.
           </p>
@@ -464,18 +445,17 @@ function FavoritesSyncEnterModal({
             {status?.text ?? ""}
           </p>
         </div>
-        <div className="modal-footer">
-          <button
-            id="favorites-sync-enter-button"
-            type="button"
-            disabled={busy}
-            onClick={() => void submit()}
-          >
-            {busy ? "Syncing..." : "Sync favorites"}
-          </button>
-        </div>
+      <div className="modal-footer">
+        <button
+          id="favorites-sync-enter-button"
+          type="button"
+          disabled={busy}
+          onClick={() => void submit()}
+        >
+          {busy ? "Syncing..." : "Sync favorites"}
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -525,33 +505,13 @@ function FavoritesSyncCreateModal({
   };
 
   return (
-    <div
-      id="favorites-sync-create-modal"
-      className={open ? "modal open" : "modal"}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="modal-panel">
-        <div className="modal-header">
-          <h2>Favorites Sync</h2>
-          <button
-            id="favorites-sync-create-close"
-            className="modal-close"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <span
-              className="material-symbols-outlined modal-close-icon"
-              aria-hidden="true"
-            >
-              close
-            </span>
-          </button>
-        </div>
-        <div className="modal-body">
+    <Modal id="favorites-sync-create-modal" open={open} onClose={onClose}>
+      <ModalHeader
+        title="Favorites Sync"
+        closeId="favorites-sync-create-close"
+        onClose={onClose}
+      />
+      <div className="modal-body">
           <p className="modal-hint" id="favorites-sync-create-hint">
             {hint}
           </p>
@@ -578,18 +538,17 @@ function FavoritesSyncCreateModal({
             {status?.text ?? ""}
           </p>
         </div>
-        <div className="modal-footer">
-          <button
-            id="favorites-sync-create-button"
-            type="button"
-            className={buttonHidden ? "hidden" : undefined}
-            onClick={() => void submit()}
-          >
-            {buttonLabel}
-          </button>
-        </div>
+      <div className="modal-footer">
+        <button
+          id="favorites-sync-create-button"
+          type="button"
+          className={buttonHidden ? "hidden" : undefined}
+          onClick={() => void submit()}
+        >
+          {buttonLabel}
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 

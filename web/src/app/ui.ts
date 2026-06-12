@@ -1,4 +1,5 @@
 import type { AppContext } from "./context";
+import { useAppStore } from "./store";
 
 export type ToastOptions = {
   icon?: string;
@@ -59,32 +60,26 @@ export function blurMouseActivatedControl(event: Event) {
   event.currentTarget.blur();
 }
 
+// The React <Toast> renders this store state; only the auto-hide timer is
+// managed here.
 export function showToast(
   context: AppContext,
   message: string,
   options?: ToastOptions
 ) {
-  const { elements, state } = context;
-  if (options?.tone === "error") {
-    elements.toast.classList.add("error");
-  } else {
-    elements.toast.classList.remove("error");
-  }
-  if (options?.icon) {
-    elements.toast.classList.add("has-icon");
-    elements.toast.innerHTML =
-      `<span class="material-symbols-outlined toast-icon" aria-hidden="true">` +
-      `${options.icon}</span><span>${message}</span>`;
-  } else {
-    elements.toast.classList.remove("has-icon");
-    elements.toast.textContent = message;
-  }
-  elements.toast.classList.remove("hidden");
+  const { state } = context;
+  useAppStore.setState({
+    toast: {
+      message,
+      icon: options?.icon,
+      tone: options?.tone === "error" ? "error" : "default",
+    },
+  });
   if (state.toastTimer !== null) {
     window.clearTimeout(state.toastTimer);
   }
   state.toastTimer = window.setTimeout(() => {
-    elements.toast.classList.add("hidden");
+    useAppStore.setState({ toast: null });
     state.toastTimer = null;
   }, 2000);
 }

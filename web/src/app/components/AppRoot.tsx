@@ -9,6 +9,7 @@ import { FaqPanel } from "./FaqPanel";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
 import { SearchPanel } from "./SearchPanel";
+import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
 
 // Derives activeTab from the URL on every location change and runs the
@@ -72,6 +73,23 @@ function useThemeEffect(bridge: AppBridge) {
   }, [theme, bridge]);
 }
 
+// Window-level hotkeys (playback shortcuts, delete-confirm, playlist modal),
+// formerly registered by wire/ui.ts. Handlers themselves stay legacy until
+// their panels convert. Registration order is preserved.
+function useGlobalHotkeys(bridge: AppBridge) {
+  useEffect(() => {
+    const { keydown, keyup } = bridge.hotkeys;
+    keydown.forEach((handler) => window.addEventListener("keydown", handler));
+    keyup.forEach((handler) => window.addEventListener("keyup", handler));
+    return () => {
+      keydown.forEach((handler) =>
+        window.removeEventListener("keydown", handler),
+      );
+      keyup.forEach((handler) => window.removeEventListener("keyup", handler));
+    };
+  }, [bridge]);
+}
+
 export function AppRoot({
   bridge,
   legacyContent,
@@ -83,6 +101,7 @@ export function AppRoot({
   useRouteSync(bridge);
   useTabEffects(bridge, panelsRef);
   useThemeEffect(bridge);
+  useGlobalHotkeys(bridge);
   // Passthrough container: adopts the legacy panel/modal DOM nodes from
   // index.html. Imperative code keeps element references into this subtree,
   // so React must never re-render inside it. Adoption is idempotent — the
@@ -104,6 +123,7 @@ export function AppRoot({
       <div ref={adoptLegacy} />
       <FaqPanel bridge={bridge} />
       <Footer />
+      <Toast />
     </>
   );
 }

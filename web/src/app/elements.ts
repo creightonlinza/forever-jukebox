@@ -373,10 +373,6 @@ export function getElements() {
     document.querySelector<HTMLInputElement>("#audio-mode-swing"),
     "#audio-mode-swing"
   );
-  const toast = requireElement(
-    document.querySelector<HTMLDivElement>("#toast"),
-    "#toast"
-  );
   const branchStatsPopup = requireElement(
     document.querySelector<HTMLDivElement>("#branch-stats-popup"),
     "#branch-stats-popup"
@@ -512,7 +508,6 @@ export function getElements() {
     audioModeCathedralInput,
     audioModeCowbellInput,
     audioModeSwingInput,
-    toast,
     branchStatsPopup,
     branchStatsTitleEl,
     branchStatsDeleteButton,

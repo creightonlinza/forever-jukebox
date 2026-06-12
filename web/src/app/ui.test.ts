@@ -7,6 +7,7 @@ import {
   setLoadingProgress,
   showToast,
 } from "./ui";
+import { useAppStore } from "./store";
 import { setWindowUrl } from "./__tests__/test-utils";
 
 function createClassList() {
@@ -22,11 +23,6 @@ function createContext(): AppContext {
       analysisStatus: { textContent: "" },
       analysisSpinner: { classList: createClassList() },
       analysisProgress: { textContent: "" },
-      toast: {
-        classList: createClassList(),
-        innerHTML: "",
-        textContent: "",
-      },
       canonizerFinish: { checked: false, addEventListener: vi.fn() },
     } as unknown as AppContext["elements"],
     engine: {} as unknown as AppContext["engine"],
@@ -118,19 +114,23 @@ describe("ui helpers", () => {
     (globalThis.window as any).setTimeout = setTimeout;
     (globalThis.window as any).clearTimeout = clearTimeout;
     showToast(context, "Hi", { icon: "check" });
-    expect(context.elements.toast.innerHTML).toContain("check");
-    expect(context.elements.toast.classList.remove).toHaveBeenCalledWith("error");
-    expect(context.elements.toast.classList.remove).toHaveBeenCalledWith(
-      "hidden",
-    );
+    expect(useAppStore.getState().toast).toEqual({
+      message: "Hi",
+      icon: "check",
+      tone: "default",
+    });
     vi.runAllTimers();
-    expect(context.elements.toast.classList.add).toHaveBeenCalledWith("hidden");
+    expect(useAppStore.getState().toast).toBeNull();
     vi.useRealTimers();
   });
 
   it("shows error toast style", () => {
     const context = createContext();
     showToast(context, "Nope", { icon: "error", tone: "error" });
-    expect(context.elements.toast.classList.add).toHaveBeenCalledWith("error");
+    expect(useAppStore.getState().toast).toEqual({
+      message: "Nope",
+      icon: "error",
+      tone: "error",
+    });
   });
 });
