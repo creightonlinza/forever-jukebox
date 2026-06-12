@@ -84,16 +84,14 @@ export type TrackLoadOptions = {
 };
 
 function maybeUpdateDeleteEligibility(
-  context: AppContext,
   response: AnalysisResponse | null,
   jobIdOverride?: string | null,
 ) {
   if (!response) {
     return;
   }
-  const { state } = context;
   const jobId = jobIdOverride ?? ("id" in response ? response.id : undefined);
-  if (!jobId || state.deleteEligibilityJobId === jobId) {
+  if (!jobId || useAppStore.getState().deleteEligibilityJobId === jobId) {
     return;
   }
   let eligible = false;
@@ -105,12 +103,12 @@ function maybeUpdateDeleteEligibility(
       eligible = ageMs <= 30 * 60 * 1000;
     }
   } else {
-    state.deleteEligible = false;
-    state.deleteEligibilityJobId = null;
+    useAppStore.setState({ deleteEligible: false });
+    useAppStore.setState({ deleteEligibilityJobId: null });
     return;
   }
-  state.deleteEligibilityJobId = jobId;
-  state.deleteEligible = eligible;
+  useAppStore.setState({ deleteEligibilityJobId: jobId });
+  useAppStore.setState({ deleteEligible: eligible });
 }
 
 export function resetForNewTrack(
@@ -123,61 +121,62 @@ export function resetForNewTrack(
     engine,
     jukebox,
     player,
-    state,
     defaultConfig,
   } = context;
   const shouldClearTuning = options?.clearTuning ?? false;
   const shouldPreserveTuning = options?.clearTuning === false;
   const preservedTuningParams = shouldPreserveTuning
-    ? (state.tuningParams ?? getTuningParamsStringFromUrl())
+    ? (useAppStore.getState().tuningParams ?? getTuningParamsStringFromUrl())
     : null;
   const hadTrackLoaded =
-    state.audioLoaded ||
-    state.analysisLoaded ||
-    state.lastJobId !== null ||
-    state.lastTrackId !== null ||
-    state.trackTitle !== null;
+    useAppStore.getState().audioLoaded ||
+    useAppStore.getState().analysisLoaded ||
+    useAppStore.getState().lastJobId !== null ||
+    useAppStore.getState().lastTrackId !== null ||
+    useAppStore.getState().trackTitle !== null;
   if (hadTrackLoaded) {
-    state.jukeboxAudioMode = "off";
+    useAppStore.setState({ jukeboxAudioMode: "off" });
     player.setJukeboxAudioMode("off");
   }
   cowbellOverlay.disable();
   cowbellOverlay.setSectionStartBeatIndices([]);
-  state.swingRenderToken += 1;
-  state.swingPreparing = false;
-  cancelPoll(context);
-  state.shiftBranching = false;
+  useAppStore.setState({
+    swingRenderToken: useAppStore.getState().swingRenderToken + (1),
+  });
+  useAppStore.setState({ swingPreparing: false });
+  cancelPoll();
+  useAppStore.setState({ shiftBranching: false });
   engine.setForceBranch(false);
-  state.bringItHomeMode = false;
+  useAppStore.setState({ bringItHomeMode: false });
   engine.setBringItHomeMode(false);
-  state.selectedEdge = null;
+  useAppStore.setState({ selectedEdge: null });
   jukebox.setSelectedEdge(null);
   useAppStore.setState({ branchStats: null });
   engine.clearDeletedEdges();
-  state.deletedEdgeIds = [];
-  state.audioLoaded = false;
-  state.analysisLoaded = false;
-  state.audioLoadInFlight = false;
-  state.lastJobId = null;
-  state.lastTrackId = null;
-  state.lastSourceId = null;
-  state.lastSourceProvider = null;
-  state.lastPlayCountedJobId = null;
+  useAppStore.setState({ deletedEdgeIds: [] });
+  useAppStore.setState({ audioLoaded: false });
+  useAppStore.setState({ analysisLoaded: false });
+  useAppStore.setState({ audioLoadInFlight: false });
+  useAppStore.setState({ lastJobId: null });
+  useAppStore.setState({ lastTrackId: null });
+  useAppStore.setState({ lastSourceId: null });
+  useAppStore.setState({ lastSourceProvider: null });
+  useAppStore.setState({ lastPlayCountedJobId: null });
   updateVizVisibility();
-  state.playTimerMs = 0;
-  state.lastPlayStamp = null;
-  state.lastBeatIndex = null;
+  useAppStore.setState({ playTimerMs: 0 });
+  useAppStore.setState({ lastPlayStamp: null });
+  useAppStore.setState({ lastBeatIndex: null });
   updateListenTimeDisplay();
   useAppStore.setState({ beatsPlayedText: "0" });
   closeTuning();
   closeInfo();
-  if (state.isRunning || state.isPaused) {
+  if (useAppStore.getState().isRunning || useAppStore.getState().isPaused) {
     stopPlayback(context);
   }
   autocanonizer.reset();
-  state.autoComputedThreshold = null;
+  useAppStore.setState({ autoComputedThreshold: null });
   if (shouldClearTuning) {
-    state.tuningParams = null;
+    useAppStore.setState({ tuningParams: null });
     clearTuningParamsFromUrl(true);
   }
   engine.updateConfig({ ...defaultConfig });
@@ -187,19 +186,19 @@ export function resetForNewTrack(
     analysisSpinning: false,
     analysisProgressText: "",
   });
-  state.trackDurationSec = null;
-  state.trackTitle = null;
-  state.trackArtist = null;
-  state.deleteEligible = false;
-  state.deleteEligibilityJobId = null;
-  state.vizData = null;
+  useAppStore.setState({ trackDurationSec: null });
+  useAppStore.setState({ trackTitle: null });
+  useAppStore.setState({ trackArtist: null });
+  useAppStore.setState({ deleteEligible: false });
+  useAppStore.setState({ deleteEligibilityJobId: null });
+  useAppStore.setState({ vizData: null });
   if (shouldPreserveTuning) {
-    state.tuningParams = preservedTuningParams;
+    useAppStore.setState({ tuningParams: preservedTuningParams });
   } else {
     syncTuningParamsState(context);
   }
   if (hadTrackLoaded && !shouldClearTuning) {
-    writeTuningParamsToUrl(state.tuningParams, true);
+    writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   }
   updateTrackInfo(context);
   const emptyVizData = {
@@ -214,17 +213,17 @@ export function resetForNewTrack(
 }
 
 export async function loadAudioFromJob(context: AppContext, jobId: string) {
-  const { autocanonizer, player, state } = context;
+  const { autocanonizer, player } = context;
   try {
     const buffer = await fetchAudio(jobId);
     await player.decode(buffer);
     autocanonizer.setAudio(player.getBuffer(), player.getContext());
-    state.audioLoaded = true;
-    state.audioLoadInFlight = false;
+    useAppStore.setState({ audioLoaded: true });
+    useAppStore.setState({ audioLoadInFlight: false });
     updateVizVisibility();
     updateTrackInfo(context);
     maybePrepareSwingMode(context);
-    const cacheId = state.lastTrackId ?? state.lastJobId;
+    const cacheId = useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId;
     if (cacheId) {
       updateCachedTrack(cacheId, { audio: buffer, jobId }).catch((err) => {
         console.warn(`Cache save failed: ${String(err)}`);
@@ -232,7 +231,7 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     }
     return true;
   } catch (err) {
-    state.audioLoadInFlight = false;
+    useAppStore.setState({ audioLoadInFlight: false });
     return false;
   }
 }
@@ -245,8 +244,8 @@ export function applyAnalysisResult(
   if (!response || response.status !== "complete" || !response.result) {
     return false;
   }
-  maybeUpdateDeleteEligibility(context, response, response.id);
-  const { autocanonizer, cowbellOverlay, engine, jukebox, state } = context;
+  maybeUpdateDeleteEligibility(response, response.id);
+  const { autocanonizer, cowbellOverlay, engine, jukebox } = context;
   applyTuningParamsFromUrl(context);
   const useAutoThreshold = engine.getConfig().currentThreshold === 0;
   engine.loadAnalysis(response.result);
@@ -255,56 +254,55 @@ export function applyAnalysisResult(
   applyAnchorBranchFromUrl(context);
   autocanonizer.setAnalysis(response.result, response.result.track?.duration);
   const graph = engine.getGraphState();
-  state.autoComputedThreshold =
+  useAppStore.getState().autoComputedThreshold =
     useAutoThreshold && graph ? Math.round(graph.currentThreshold) : null;
-  state.vizData = engine.getVisualizationData();
-  const data = state.vizData;
+  useAppStore.setState({ vizData: engine.getVisualizationData() });
+  const data = useAppStore.getState().vizData;
   if (data) {
     jukebox.setData(data);
   }
-  state.selectedEdge = null;
+  useAppStore.setState({ selectedEdge: null });
   jukebox.setSelectedEdge(null);
   useAppStore.setState({ branchStats: null });
   syncDeletedEdgeState(context);
-  state.analysisLoaded = true;
+  useAppStore.setState({ analysisLoaded: true });
   updateVizVisibility();
   maybePrepareSwingMode(context);
   const resultTrack = response.result.track ?? null;
   const track = resultTrack ?? response.track;
   const title = track?.title;
   const artist = track?.artist;
-  state.trackTitle = typeof title === "string" ? title : null;
-  state.trackArtist = typeof artist === "string" ? artist : null;
-  state.trackDurationSec =
+  useAppStore.setState({ trackTitle: typeof title === "string" ? title : null });
+  useAppStore.setState({ trackArtist: typeof artist === "string" ? artist : null });
+  useAppStore.getState().trackDurationSec =
     typeof track?.duration === "number" && Number.isFinite(track.duration)
       ? track.duration
       : null;
   updateTrackInfo(context);
-  syncActivePlaylistTrackFromLoaded(context);
-  savePlaylist(state.playlist);
+  syncActivePlaylistTrackFromLoaded();
+  savePlaylist(useAppStore.getState().playlist);
   onAnalysisLoaded?.(response);
-  if (state.playMode === "jukebox") {
-    writeTuningParamsToUrl(state.tuningParams, true);
+  if (useAppStore.getState().playMode === "jukebox") {
+    writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   }
-  const jobId = response.id || state.lastJobId;
+  const jobId = response.id || useAppStore.getState().lastJobId;
   if (jobId) {
-    recordPlayOnce(context, jobId).catch((err) => {
+    recordPlayOnce(jobId).catch((err) => {
       console.warn(`Failed to record play: ${String(err)}`);
     });
   }
   return true;
 }
 
-async function recordPlayOnce(context: AppContext, jobId: string) {
-  const { state } = context;
-  if (state.lastPlayCountedJobId === jobId) {
+async function recordPlayOnce(jobId: string) {
+  if (useAppStore.getState().lastPlayCountedJobId === jobId) {
     return;
   }
-  state.lastPlayCountedJobId = jobId;
+  useAppStore.setState({ lastPlayCountedJobId: jobId });
   try {
     await recordPlay(jobId);
   } catch (err) {
-    state.lastPlayCountedJobId = null;
+    useAppStore.setState({ lastPlayCountedJobId: null });
     throw err;
   }
 }
@@ -314,10 +312,9 @@ export async function pollAnalysis(
   deps: PlaybackDeps,
   jobId: string,
 ) {
-  const { state } = context;
   const controller = new AbortController();
-  state.pollController?.abort();
-  state.pollController = controller;
+  useAppStore.getState().pollController?.abort();
+  useAppStore.setState({ pollController: controller });
   try {
     while (true) {
       if (controller.signal.aborted) {
@@ -338,19 +335,19 @@ export async function pollAnalysis(
         deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
         return;
       }
-      const previousTrackId = normalizeTrackIdentityFromResponse(context, deps, response);
+      const previousTrackId = normalizeTrackIdentityFromResponse(deps, response);
       await migrateCachedAudioForResponse(context, response, previousTrackId);
-      maybeUpdateDeleteEligibility(context, response, jobId);
+      maybeUpdateDeleteEligibility(response, jobId);
       if (isAnalysisInProgress(response)) {
         const progress =
           typeof response.progress === "number" ? response.progress : null;
         deps.setLoadingProgress(progress, response.message);
         if (
           response.status !== "downloading" &&
-          !state.audioLoaded &&
-          !state.audioLoadInFlight
+          !useAppStore.getState().audioLoaded &&
+          !useAppStore.getState().audioLoadInFlight
         ) {
-          state.audioLoadInFlight = true;
+          useAppStore.setState({ audioLoadInFlight: true });
           await loadAudioFromJob(context, jobId);
         }
       } else if (isAnalysisFailed(response)) {
@@ -364,7 +361,7 @@ export async function pollAnalysis(
         );
         return;
       } else if (isAnalysisComplete(response)) {
-        if (!state.audioLoaded) {
+        if (!useAppStore.getState().audioLoaded) {
           const audioLoaded = await loadAudioFromJob(context, jobId);
           if (!audioLoaded) {
             await delay(ANALYSIS_POLL_INTERVAL_MS, controller.signal);
@@ -383,8 +380,8 @@ export async function pollAnalysis(
       }
     }
   } finally {
-    if (state.pollController === controller) {
-      state.pollController = null;
+    if (useAppStore.getState().pollController === controller) {
+      useAppStore.setState({ pollController: null });
     }
   }
 }
@@ -398,9 +395,9 @@ async function continueTrackLoadWithResponse(
     deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
     return false;
   }
-  const previousTrackId = normalizeTrackIdentityFromResponse(context, deps, response);
+  const previousTrackId = normalizeTrackIdentityFromResponse(deps, response);
   await migrateCachedAudioForResponse(context, response, previousTrackId);
-  maybeUpdateDeleteEligibility(context, response, response.id);
+  maybeUpdateDeleteEligibility(response, response.id);
   if (isAnalysisInProgress(response)) {
     await pollAnalysis(context, deps, response.id);
     return true;
@@ -417,7 +414,7 @@ async function continueTrackLoadWithResponse(
     return false;
   }
   if (isAnalysisComplete(response)) {
-    if (!context.state.audioLoaded) {
+    if (!useAppStore.getState().audioLoaded) {
       const audioLoaded = await loadAudioFromJob(context, response.id);
       if (!audioLoaded) {
         await pollAnalysis(context, deps, response.id);
@@ -434,21 +431,19 @@ async function continueTrackLoadWithResponse(
 }
 
 function normalizeTrackIdentityFromResponse(
-  context: AppContext,
   deps: PlaybackDeps,
   response: AnalysisResponse,
 ) {
   if (!response.id) {
     return null;
   }
-  const { state } = context;
-  const previousTrackId = state.lastTrackId;
-  state.lastJobId = response.id;
-  state.lastTrackId = response.id;
-  state.lastSourceId =
+  const previousTrackId = useAppStore.getState().lastTrackId;
+  useAppStore.setState({ lastJobId: response.id });
+  useAppStore.setState({ lastTrackId: response.id });
+  useAppStore.getState().lastSourceId =
     typeof response.source_id === "string" ? response.source_id : null;
   if (typeof response.source_provider === "string") {
-    state.lastSourceProvider = response.source_provider;
+    useAppStore.setState({ lastSourceProvider: response.source_provider });
   }
   if (previousTrackId !== response.id) {
     deps.onTrackChange?.(response.id);
@@ -462,7 +457,7 @@ async function migrateCachedAudioForResponse(
   response: AnalysisResponse,
   previousTrackId: string | null,
 ) {
-  if (!response.id || context.state.audioLoaded) {
+  if (!response.id || useAppStore.getState().audioLoaded) {
     return;
   }
   if (await tryLoadCachedAudio(context, response.id)) {
@@ -507,20 +502,20 @@ async function loadTrack(
   options?: TrackLoadOptions,
 ): Promise<boolean> {
   const shouldClear = !options?.preserveUrlTuning;
-  handlePlaylistForNormalTrackLoad(context, deps, source, options);
+  handlePlaylistForNormalTrackLoad(deps, source, options);
   resetForNewTrack(context, { clearTuning: shouldClear });
   deps.setActiveTab("play");
   deps.setLoadingProgress(null, "Fetching audio");
   if (source.type === "source") {
-    context.state.lastSourceProvider = source.provider;
-    context.state.lastSourceId = source.id;
-    context.state.lastTrackId = source.trackId;
+    useAppStore.setState({ lastSourceProvider: source.provider });
+    useAppStore.setState({ lastSourceId: source.id });
+    useAppStore.setState({ lastTrackId: source.trackId });
     deps.onTrackChange?.(source.trackId);
   } else {
-    context.state.lastJobId = source.id;
-    context.state.lastTrackId = source.id;
-    context.state.lastSourceId = null;
-    context.state.lastSourceProvider = options?.selectedTrack?.sourceType ?? null;
+    useAppStore.setState({ lastJobId: source.id });
+    useAppStore.setState({ lastTrackId: source.id });
+    useAppStore.setState({ lastSourceId: null });
+    useAppStore.setState({ lastSourceProvider: options?.selectedTrack?.sourceType ?? null });
     deps.onTrackChange?.(source.id);
   }
   const cacheKey =
@@ -601,7 +596,6 @@ function parseTrackId(trackId: string):
 }
 
 function handlePlaylistForNormalTrackLoad(
-  context: AppContext,
   deps: PlaybackDeps,
   source:
     | { type: "source"; id: string; provider: string; trackId: string }
@@ -612,36 +606,34 @@ function handlePlaylistForNormalTrackLoad(
     return;
   }
   if (options?.preservePlaylist) {
-    reconcilePreservedPlaylistTrack(context, deps, source);
+    reconcilePreservedPlaylistTrack(deps, source);
     return;
   }
-  const { state } = context;
-  const playlist = state.playlist ?? emptyPlaylist();
-  state.playlist = playlist;
+  const playlist = useAppStore.getState().playlist ?? emptyPlaylist();
+  useAppStore.setState({ playlist: playlist });
   if (isPlaylistActive(playlist)) {
     const track =
-      options?.selectedTrack ?? playlistTrackFromLoadSource(source, state.tuningParams);
-    state.playlist = replaceActivePlaylistTrack(playlist, track);
-    savePlaylist(state.playlist);
+      options?.selectedTrack ?? playlistTrackFromLoadSource(source, useAppStore.getState().tuningParams);
+    useAppStore.setState({ playlist: replaceActivePlaylistTrack(playlist, track) });
+    savePlaylist(useAppStore.getState().playlist);
     deps.onPlaylistChange?.();
     return;
   }
   if (hasInactiveSavedPlaylist(playlist)) {
-    state.playlist = emptyPlaylist();
-    savePlaylist(state.playlist);
+    useAppStore.setState({ playlist: emptyPlaylist() });
+    savePlaylist(useAppStore.getState().playlist);
     deps.onPlaylistChange?.();
   }
 }
 
 function reconcilePreservedPlaylistTrack(
-  context: AppContext,
   deps: PlaybackDeps,
   source:
     | { type: "source"; id: string; provider: string; trackId: string }
     | { type: "job"; id: string },
 ) {
-  const playlist = context.state.playlist ?? emptyPlaylist();
-  context.state.playlist = playlist;
+  const playlist = useAppStore.getState().playlist ?? emptyPlaylist();
+  useAppStore.setState({ playlist: playlist });
   if (playlist.tracks.length < 2) {
     return;
   }
@@ -653,13 +645,13 @@ function reconcilePreservedPlaylistTrack(
     if (playlist.currentIndex === matchingIndex) {
       return;
     }
-    context.state.playlist = activatePlaylistTrack(playlist, matchingIndex);
+    useAppStore.setState({ playlist: activatePlaylistTrack(playlist, matchingIndex) });
     deps.onPlaylistChange?.();
     return;
   }
 
   const nextTracks = playlist.tracks.slice(0, PLAYLIST_MAX_TRACKS);
-  const nextTrack = playlistTrackFromLoadSource(source, context.state.tuningParams);
+  const nextTrack = playlistTrackFromLoadSource(source, useAppStore.getState().tuningParams);
   let nextCurrentIndex = nextTracks.length;
   if (nextTracks.length >= PLAYLIST_MAX_TRACKS) {
     nextCurrentIndex = PLAYLIST_MAX_TRACKS - 1;
@@ -667,11 +659,13 @@ function reconcilePreservedPlaylistTrack(
   } else {
     nextTracks.push(nextTrack);
   }
-  context.state.playlist = {
+  useAppStore.setState({
+    playlist: {
     tracks: nextTracks,
     currentIndex: nextCurrentIndex,
-  };
-  savePlaylist(context.state.playlist);
+  }
+  });
+  savePlaylist(useAppStore.getState().playlist);
   deps.onPlaylistChange?.();
 }
 
@@ -715,10 +709,9 @@ function playlistSourceTypeFromProvider(provider: string): PlaylistSourceType {
   return "youtube";
 }
 
-function syncActivePlaylistTrackFromLoaded(context: AppContext) {
-  const { state } = context;
-  const playlist = state.playlist ?? emptyPlaylist();
-  state.playlist = playlist;
+function syncActivePlaylistTrackFromLoaded() {
+  const playlist = useAppStore.getState().playlist ?? emptyPlaylist();
+  useAppStore.setState({ playlist: playlist });
   if (!isPlaylistActive(playlist)) {
     return;
   }
@@ -726,23 +719,37 @@ function syncActivePlaylistTrackFromLoaded(context: AppContext) {
   if (!track) {
     return;
   }
-  state.playlist = replaceActivePlaylistTrack(state.playlist, {
-    ...track,
-    id: state.lastTrackId ?? track.id,
-    sourceType: playlistSourceTypeFromProvider(state.lastSourceProvider ?? track.sourceType),
-    title: state.trackTitle || track.title || "Untitled",
-    artist: state.trackArtist || track.artist || "",
-    duration: state.trackDurationSec,
-    tuningParams: state.playMode === "jukebox" ? state.tuningParams : null,
+  const {
+    lastTrackId,
+    lastSourceProvider,
+    trackTitle,
+    trackArtist,
+    trackDurationSec,
+    playMode,
+    tuningParams,
+  } = useAppStore.getState();
+  useAppStore.setState({
+    playlist: replaceActivePlaylistTrack(useAppStore.getState().playlist, {
+      ...track,
+      id: lastTrackId ?? track.id,
+      sourceType: playlistSourceTypeFromProvider(
+        lastSourceProvider ?? track.sourceType,
+      ),
+      title: trackTitle || track.title || "Untitled",
+      artist: trackArtist || track.artist || "",
+      duration: trackDurationSec,
+      tuningParams: playMode === "jukebox" ? tuningParams : null,
+    }),
   });
 }
 
-export function cancelPoll(context: AppContext) {
-  if (!context.state.pollController) {
+export function cancelPoll() {
+  const { pollController } = useAppStore.getState();
+  if (!pollController) {
     return;
   }
-  context.state.pollController.abort();
-  context.state.pollController = null;
+  pollController.abort();
+  useAppStore.setState({ pollController: null });
 }
 
 export function delay(ms: number, signal?: AbortSignal) {
@@ -766,17 +773,17 @@ export async function tryLoadCachedAudio(
   context: AppContext,
   trackId: string,
 ) {
-  const { autocanonizer, player, state } = context;
+  const { autocanonizer, player } = context;
   try {
     const cached = await readCachedTrack(trackId);
     if (!cached?.audio) {
       return false;
     }
-    state.lastJobId = cached.jobId ?? null;
+    useAppStore.setState({ lastJobId: cached.jobId ?? null });
     await player.decode(cached.audio);
     autocanonizer.setAudio(player.getBuffer(), player.getContext());
-    state.audioLoaded = true;
-    state.audioLoadInFlight = false;
+    useAppStore.setState({ audioLoaded: true });
+    useAppStore.setState({ audioLoadInFlight: false });
     updateVizVisibility();
     updateTrackInfo(context);
     maybePrepareSwingMode(context);
