@@ -264,9 +264,9 @@ export function FaqPanel() {
             saved favorites bumped to 150 tracks.
           </li>
           <li>
-            Added local <strong>Playlists</strong>: queue up to 10 tracks from
-            discovery lists or Favorites, then skip between them from the
-            Listen screen.
+            Added local <strong>Playlists</strong>: queue up to 10 tracks,
+            then skip between them from the Listen screen. More info in the
+            FAQ.
           </li>
           <li>
             <strong>Rewrote the app in React</strong> — please report any
