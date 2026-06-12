@@ -14,7 +14,7 @@ import {
   isEditableTarget,
   showToast,
 } from "./ui";
-import { navigateToTab, type FaqSubtabId, updateTrackUrl } from "./tabs";
+import { navigateToTab, updateTrackUrl } from "./tabs";
 import { handleRouteChange } from "./routing";
 import { initBackgroundTimer } from "../shared/backgroundTimer";
 import {
@@ -78,7 +78,6 @@ import { createDeleteJobHandlers } from "./wire/delete-job";
 import { createTopSongsHandlers } from "./wire/top-songs";
 import { createAppConfigHandlers } from "./wire/app-config";
 import { bindUiHandlers } from "./wire/ui";
-import { createCacheHandlers } from "./wire/cache";
 import type { AppBridge } from "./bridge";
 import { legacyAppState, useAppStore } from "./store";
 import {
@@ -198,11 +197,6 @@ export function bootstrap(): AppBridge {
     setLoadingProgress: (progress: number | null, message?: string | null) =>
       setLoadingProgress(context, progress, message),
   };
-  const cacheHandlers = createCacheHandlers({
-    context,
-    elements,
-    showToast,
-  });
   const favoritesHandlers = createFavoritesHandlers({
     context,
     elements,
@@ -330,11 +324,6 @@ export function bootstrap(): AppBridge {
         console.warn(`${loader.errorLabel} load failed: ${String(err)}`);
       });
   };
-  const refreshCacheSafely = () => {
-    cacheHandlers.refreshCacheButton().catch((err) => {
-      console.warn(`Cache size failed: ${String(err)}`);
-    });
-  };
   const tabsHandlers = createTabsHandlers({
     elements,
     state,
@@ -351,25 +340,7 @@ export function bootstrap(): AppBridge {
       }
       loadTopSongsTab(tabId as LazyTopSongsTab, { force: true });
     },
-    onFaqOpen: refreshCacheSafely,
   });
-  const getFaqSubtabFromPath = (pathname: string): FaqSubtabId | null => {
-    if (pathname.startsWith("/whats-new")) {
-      return "whats-new";
-    }
-    if (pathname.startsWith("/faq")) {
-      return "faq";
-    }
-    return null;
-  };
-  const applyFaqRouteState = (pathname: string) => {
-    const faqSubtab = getFaqSubtabFromPath(pathname);
-    if (!faqSubtab) {
-      return;
-    }
-    tabsHandlers.setFaqTab(faqSubtab);
-    refreshCacheSafely();
-  };
   const appConfigHandlers = createAppConfigHandlers({
     elements,
     state,
@@ -462,7 +433,6 @@ export function bootstrap(): AppBridge {
   favoritesHandlers.renderFavoritesList();
   tabsHandlers.setTopSongsTab("top");
   favoritesHandlers.updateFavoritesSyncControls();
-  refreshCacheSafely();
 
   resetForNewTrack(context);
   favoritesHandlers.syncFavoriteButton();
@@ -478,7 +448,6 @@ export function bootstrap(): AppBridge {
     playbackHandlers,
     fullscreenHandlers,
     deleteJobHandlers,
-    cacheHandlers,
     playlistHandlers: playlistHandlers!,
   });
 
@@ -487,13 +456,9 @@ export function bootstrap(): AppBridge {
   // bootstrap-time handleRouteChange call).
   const handleRoute = (pathname: string) => {
     playbackHandlers.applyModeFromUrl();
-    handleRouteChange(context, playbackDeps, pathname)
-      .then(() => {
-        applyFaqRouteState(pathname);
-      })
-      .catch((err) => {
-        console.warn(`Route load failed: ${String(err)}`);
-      });
+    handleRouteChange(context, playbackDeps, pathname).catch((err) => {
+      console.warn(`Route load failed: ${String(err)}`);
+    });
   };
 
   const onTabClick = (tabId: TabId) => {
@@ -503,13 +468,7 @@ export function bootstrap(): AppBridge {
     if (tabId === "search") {
       tabsHandlers.setSearchTab("search");
     }
-    if (tabId === "faq") {
-      tabsHandlers.setFaqTab("faq");
-    }
     navigationHandlers.navigateToTabWithState(tabId);
-    if (tabId === "faq") {
-      refreshCacheSafely();
-    }
   };
 
   return {

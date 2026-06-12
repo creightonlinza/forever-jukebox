@@ -7,7 +7,6 @@ import type { TuningHandlers } from "./tuning";
 import type { PlaybackUiHandlers } from "./playback";
 import type { FullscreenHandlers } from "./fullscreen";
 import type { DeleteJobHandlers } from "./delete-job";
-import type { CacheHandlers } from "./cache";
 import type { PlaylistHandlers } from "./playlist";
 
 type UiBindingsDeps = {
@@ -20,7 +19,6 @@ type UiBindingsDeps = {
   playbackHandlers: PlaybackUiHandlers;
   fullscreenHandlers: FullscreenHandlers;
   deleteJobHandlers: DeleteJobHandlers;
-  cacheHandlers: CacheHandlers;
   playlistHandlers: PlaylistHandlers;
 };
 
@@ -35,7 +33,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     playbackHandlers,
     fullscreenHandlers,
     deleteJobHandlers,
-    cacheHandlers,
     playlistHandlers,
   } = deps;
 
@@ -53,9 +50,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   );
   elements.searchSubtabButtons.forEach((button) => {
     button.addEventListener("click", tabsHandlers.handleSearchSubtabClick);
-  });
-  elements.faqSubtabButtons.forEach((button) => {
-    button.addEventListener("click", tabsHandlers.handleFaqSubtabClick);
   });
   elements.favoritesSyncButton.addEventListener(
     "click",
@@ -231,10 +225,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   elements.shortUrlButton.addEventListener(
     "click",
     playbackHandlers.handleShortUrlClick,
-  );
-  elements.cachedAudioClearButton.addEventListener(
-    "click",
-    cacheHandlers.handleClearCacheClick,
   );
   elements.volumeButton.addEventListener("click", tuningHandlers.handleVolumeButtonClick);
 

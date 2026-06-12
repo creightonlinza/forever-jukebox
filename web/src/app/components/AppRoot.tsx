@@ -5,6 +5,7 @@ import type { AppBridge } from "../bridge";
 import { TOP_SONGS_REFRESH_MS } from "../constants";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
+import { FaqPanel } from "./FaqPanel";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
 
@@ -97,6 +98,7 @@ export function AppRoot({
     <>
       <Hero bridge={bridge} />
       <div ref={adoptLegacy} />
+      <FaqPanel bridge={bridge} />
       <Footer />
     </>
   );

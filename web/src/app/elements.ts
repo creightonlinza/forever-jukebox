@@ -439,26 +439,6 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#search-panel-title"),
     "#search-panel-title"
   );
-  const faqSubtabs = requireElement(
-    document.querySelector<HTMLDivElement>("#faq-subtabs"),
-    "#faq-subtabs"
-  );
-  const faqSubtabButtons = requireNonEmpty(
-    Array.from(document.querySelectorAll<HTMLButtonElement>("[data-faq-subtab]")),
-    "[data-faq-subtab]"
-  );
-  const faqPanelTitle = requireElement(
-    document.querySelector<HTMLDivElement>("#faq-panel-title"),
-    "#faq-panel-title"
-  );
-  const faqPanel = requireElement(
-    document.querySelector<HTMLDivElement>("#faq-panel"),
-    "#faq-panel"
-  );
-  const faqWhatsNewPanel = requireElement(
-    document.querySelector<HTMLDivElement>("#faq-whats-new-panel"),
-    "#faq-whats-new-panel"
-  );
   const searchPanel = requireElement(
     document.querySelector<HTMLDivElement>("#search-panel"),
     "#search-panel"
@@ -599,10 +579,6 @@ export function getElements() {
     document.querySelector<HTMLSpanElement>("#branch-stats-similarity"),
     "#branch-stats-similarity"
   );
-  const cachedAudioClearButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#cached-audio-clear"),
-    "#cached-audio-clear"
-  );
   const vizStats = document.querySelector<HTMLDivElement>("#viz-stats");
   const volumeButton = requireElement(
     document.querySelector<HTMLButtonElement>("#volume-button"),
@@ -722,11 +698,6 @@ export function getElements() {
     searchSubtabs,
     searchSubtabButtons,
     searchPanelTitle,
-    faqSubtabs,
-    faqSubtabButtons,
-    faqPanelTitle,
-    faqPanel,
-    faqWhatsNewPanel,
     searchPanel,
     uploadPanel,
     uploadFileSection,
@@ -761,7 +732,6 @@ export function getElements() {
     branchStatsDeltaEl,
     branchStatsDirectionEl,
     branchStatsSimilarityEl,
-    cachedAudioClearButton,
     vizStats,
     volumeButton,
     volumeControlPanel,

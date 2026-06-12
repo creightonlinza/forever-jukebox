@@ -1,7 +1,6 @@
 import type { AppState } from "../context";
 import { TOP_SONGS_LIMIT } from "../constants";
 import type { Elements } from "../elements";
-import { navigateToFaqSubtab, type FaqSubtabId } from "../tabs";
 import type { FavoritesHandlers } from "./favorites";
 
 type TopSongsTabId = "top" | "trending" | "recent" | "favorites";
@@ -12,7 +11,6 @@ type TabsDeps = {
   favoritesHandlers: FavoritesHandlers;
   onTopSongsTabChange?: (tabId: TopSongsTabId) => void;
   onTopSongsRefresh?: (tabId: TopSongsTabId) => void;
-  onFaqOpen?: () => void;
 };
 
 export type TabsHandlers = ReturnType<typeof createTabsHandlers>;
@@ -22,7 +20,6 @@ export function createTabsHandlers(deps: TabsDeps) {
     elements,
     state,
     favoritesHandlers,
-    onFaqOpen,
   } = deps;
 
   function setTopSongsTab(tabId: TopSongsTabId) {
@@ -67,15 +64,6 @@ export function createTabsHandlers(deps: TabsDeps) {
       tabId === "search" ? "Search" : "Upload";
   }
 
-  function setFaqTab(tabId: FaqSubtabId) {
-    elements.faqSubtabButtons.forEach((button) => {
-      button.classList.toggle("active", button.dataset.faqSubtab === tabId);
-    });
-    elements.faqPanel.classList.toggle("hidden", tabId !== "faq");
-    elements.faqWhatsNewPanel.classList.toggle("hidden", tabId !== "whats-new");
-    elements.faqPanelTitle.textContent = tabId === "faq" ? "FAQ" : "What's New";
-  }
-
   function handleTopSongsTabClick(event: Event) {
     const button = event.currentTarget as HTMLButtonElement | null;
     const tabId = button?.dataset.topSubtab as
@@ -106,24 +94,11 @@ export function createTabsHandlers(deps: TabsDeps) {
     setSearchTab(tabId);
   }
 
-  function handleFaqSubtabClick(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    const tabId = button?.dataset.faqSubtab as FaqSubtabId | undefined;
-    if (!tabId) {
-      return;
-    }
-    setFaqTab(tabId);
-    navigateToFaqSubtab(tabId);
-    onFaqOpen?.();
-  }
-
   return {
     setTopSongsTab,
     handleTopSongsTabClick,
     handleTopSongsRefreshClick,
     setSearchTab,
     handleSearchSubtabClick,
-    setFaqTab,
-    handleFaqSubtabClick,
   };
 }
