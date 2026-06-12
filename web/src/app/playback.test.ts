@@ -307,7 +307,7 @@ describe("playback tuning", () => {
     context.state.playMode = "jukebox";
 
     const result = applyExtrasChanges(context, {
-      ...getExtrasFormValues(context),
+      ...getExtrasFormValues(),
       branchStatsEnabled: true,
       audioMode: "daycore",
     });
@@ -325,7 +325,7 @@ describe("playback tuning", () => {
     context.state.playMode = "jukebox";
 
     const result = applyExtrasChanges(context, {
-      ...getExtrasFormValues(context),
+      ...getExtrasFormValues(),
       audioMode: "cowbell",
     });
 
@@ -342,7 +342,7 @@ describe("playback tuning", () => {
     context.state.audioLoaded = true;
 
     const result = applyExtrasChanges(context, {
-      ...getExtrasFormValues(context),
+      ...getExtrasFormValues(),
       audioMode: "eight_bit",
     });
 
@@ -356,7 +356,7 @@ describe("playback tuning", () => {
     const context = createContext();
 
     const result = applyExtrasChanges(context, {
-      ...getExtrasFormValues(context),
+      ...getExtrasFormValues(),
       audioMode: "underwater",
     });
 
@@ -370,7 +370,7 @@ describe("playback tuning", () => {
     const context = createContext();
 
     const result = applyExtrasChanges(context, {
-      ...getExtrasFormValues(context),
+      ...getExtrasFormValues(),
       audioMode: "cathedral",
     });
 
@@ -406,7 +406,7 @@ describe("playback tuning", () => {
     vi.mocked(renderSwingBuffer).mockResolvedValue(swingBuffer);
 
     applyExtrasChanges(context, {
-      ...getExtrasFormValues(context),
+      ...getExtrasFormValues(),
       audioMode: "swing",
     });
     await flushMicrotasks();
@@ -428,7 +428,7 @@ describe("playback tuning", () => {
     context.state.shiftBranching = true;
 
     applyExtrasChanges(context, {
-      ...getExtrasFormValues(context),
+      ...getExtrasFormValues(),
       bringItHomeMode: true,
     });
 
@@ -444,7 +444,7 @@ describe("playback tuning", () => {
     context.state.branchStatsEnabled = true;
 
     applyExtrasChanges(context, {
-      ...getExtrasFormValues(context),
+      ...getExtrasFormValues(),
       branchStatsEnabled: false,
     });
 

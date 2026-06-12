@@ -58,12 +58,13 @@ function applyDeletedEdgesById(context: AppContext, ids: number[]): boolean {
 
 export function applyDeletedEdgesFromUrl(context: AppContext) {
   const urlIds = getDeletedEdgeIdsFromUrl();
-  const fallbackIds = context.state.deletedEdgeIds;
+  const fallbackIds = useAppStore.getState().deletedEdgeIds;
   const ids = urlIds.length > 0 ? urlIds : fallbackIds;
   if (applyDeletedEdgesById(context, ids)) {
-    context.state.vizData = context.engine.getVisualizationData();
-    if (context.state.vizData) {
-      context.jukebox.setData(context.state.vizData);
+    const vizData = context.engine.getVisualizationData();
+    useAppStore.setState({ vizData });
+    if (vizData) {
+      context.jukebox.setData(vizData);
     }
   }
 }
@@ -82,8 +83,8 @@ export function applyAnchorBranchFromUrl(context: AppContext) {
 }
 
 export function syncDeletedEdgeState(context: AppContext) {
-  const { engine, state } = context;
-  state.deletedEdgeIds = getDeletedEdgeIdsFromGraph(engine.getGraphState());
+  const { engine } = context;
+  useAppStore.setState({ deletedEdgeIds: getDeletedEdgeIdsFromGraph(engine.getGraphState()) });
   syncTuningParamsState(context);
 }
 
@@ -98,13 +99,14 @@ export type ExtrasFormValues = {
   audioMode: JukeboxAudioMode;
 };
 
-export function getExtrasFormValues(context: AppContext): ExtrasFormValues {
-  const { state } = context;
-  const inJukeboxMode = state.playMode === "jukebox";
+export function getExtrasFormValues(): ExtrasFormValues {
+  const { playMode, bringItHomeMode, branchStatsEnabled, jukeboxAudioMode } =
+    useAppStore.getState();
+  const inJukeboxMode = playMode === "jukebox";
   return {
-    bringItHomeMode: inJukeboxMode && state.bringItHomeMode,
-    branchStatsEnabled: inJukeboxMode && state.branchStatsEnabled,
-    audioMode: state.jukeboxAudioMode,
+    bringItHomeMode: inJukeboxMode && bringItHomeMode,
+    branchStatsEnabled: inJukeboxMode && branchStatsEnabled,
+    audioMode: jukeboxAudioMode,
   };
 }
 
@@ -112,24 +114,24 @@ export function applyExtrasChanges(
   context: AppContext,
   values: ExtrasFormValues,
 ): ExtrasApplyResult {
-  const { cowbellOverlay, engine, player, state } = context;
-  const previousBranchStatsEnabled = state.branchStatsEnabled;
-  const previousAudioMode = state.jukeboxAudioMode;
-  state.bringItHomeMode =
-    state.playMode === "jukebox" && values.bringItHomeMode;
-  if (state.bringItHomeMode && state.shiftBranching) {
-    state.shiftBranching = false;
+  const { cowbellOverlay, engine, player } = context;
+  const previousBranchStatsEnabled = useAppStore.getState().branchStatsEnabled;
+  const previousAudioMode = useAppStore.getState().jukeboxAudioMode;
+  useAppStore.getState().bringItHomeMode =
+    useAppStore.getState().playMode === "jukebox" && values.bringItHomeMode;
+  if (useAppStore.getState().bringItHomeMode && useAppStore.getState().shiftBranching) {
+    useAppStore.setState({ shiftBranching: false });
     engine.setForceBranch(false);
   }
-  engine.setBringItHomeMode(state.bringItHomeMode);
-  state.branchStatsEnabled =
-    state.playMode === "jukebox" && values.branchStatsEnabled;
-  if (!state.branchStatsEnabled) {
+  engine.setBringItHomeMode(useAppStore.getState().bringItHomeMode);
+  useAppStore.getState().branchStatsEnabled =
+    useAppStore.getState().playMode === "jukebox" && values.branchStatsEnabled;
+  if (!useAppStore.getState().branchStatsEnabled) {
     useAppStore.setState({ branchStats: null });
   }
-  storeBranchStatsEnabled(state.branchStatsEnabled);
+  storeBranchStatsEnabled(useAppStore.getState().branchStatsEnabled);
   const nextAudioMode = values.audioMode;
-  state.jukeboxAudioMode = nextAudioMode;
+  useAppStore.setState({ jukeboxAudioMode: nextAudioMode });
   if (nextAudioMode === "cowbell") {
     cowbellOverlay.enable();
   } else {
@@ -144,55 +146,59 @@ export function applyExtrasChanges(
       });
     }
   } else {
-    state.swingRenderToken += 1;
-    state.swingPreparing = false;
+    useAppStore.setState({
+      swingRenderToken: useAppStore.getState().swingRenderToken + (1),
+    });
+    useAppStore.setState({ swingPreparing: false });
     player.setJukeboxAudioMode(nextAudioMode);
     if (
       previousAudioMode !== nextAudioMode &&
-      state.playMode === "jukebox" &&
-      (state.isRunning || state.isPaused)
+      useAppStore.getState().playMode === "jukebox" &&
+      (useAppStore.getState().isRunning || useAppStore.getState().isPaused)
     ) {
       engine.syncToPlaybackPosition();
     }
     updatePlayButton();
   }
   syncTuningParamsState(context);
-  writeTuningParamsToUrl(state.tuningParams, true);
+  writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   return {
     branchStatsChanged:
-      previousBranchStatsEnabled !== state.branchStatsEnabled,
-    audioModeChanged: previousAudioMode !== state.jukeboxAudioMode,
+      previousBranchStatsEnabled !== useAppStore.getState().branchStatsEnabled,
+    audioModeChanged: previousAudioMode !== useAppStore.getState().jukeboxAudioMode,
   };
 }
 
 export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
-  const { cowbellOverlay, engine, player, state } = context;
-  const previousBranchStatsEnabled = state.branchStatsEnabled;
-  const previousAudioMode = state.jukeboxAudioMode;
-  state.bringItHomeMode = false;
+  const { cowbellOverlay, engine, player } = context;
+  const previousBranchStatsEnabled = useAppStore.getState().branchStatsEnabled;
+  const previousAudioMode = useAppStore.getState().jukeboxAudioMode;
+  useAppStore.setState({ bringItHomeMode: false });
   engine.setBringItHomeMode(false);
-  state.branchStatsEnabled = false;
+  useAppStore.setState({ branchStatsEnabled: false });
   useAppStore.setState({ branchStats: null });
   storeBranchStatsEnabled(false);
   cowbellOverlay.disable();
-  state.swingRenderToken += 1;
-  state.swingPreparing = false;
-  state.jukeboxAudioMode = "off";
+  useAppStore.setState({
+    swingRenderToken: useAppStore.getState().swingRenderToken + (1),
+  });
+  useAppStore.setState({ swingPreparing: false });
+  useAppStore.setState({ jukeboxAudioMode: "off" });
   player.setJukeboxAudioMode("off");
   updatePlayButton();
   if (
     previousAudioMode !== "off" &&
-    state.playMode === "jukebox" &&
-    (state.isRunning || state.isPaused)
+    useAppStore.getState().playMode === "jukebox" &&
+    (useAppStore.getState().isRunning || useAppStore.getState().isPaused)
   ) {
     engine.syncToPlaybackPosition();
   }
   syncTuningParamsState(context);
-  writeTuningParamsToUrl(state.tuningParams, true);
+  writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   return {
     branchStatsChanged:
-      previousBranchStatsEnabled !== state.branchStatsEnabled,
-    audioModeChanged: previousAudioMode !== state.jukeboxAudioMode,
+      previousBranchStatsEnabled !== useAppStore.getState().branchStatsEnabled,
+    audioModeChanged: previousAudioMode !== useAppStore.getState().jukeboxAudioMode,
   };
 }
 
@@ -214,7 +220,7 @@ export type TuningFormValues = {
 // Snapshot the engine config for the React tuning form (the read half of
 // the old syncTuningUI).
 export function getTuningFormValues(context: AppContext): TuningFormValues {
-  const { engine, state } = context;
+  const { engine } = context;
   const config = engine.getConfig();
   const graph = engine.getGraphState();
   const thresholdValue =
@@ -222,7 +228,7 @@ export function getTuningFormValues(context: AppContext): TuningFormValues {
       ? Math.round(graph.currentThreshold)
       : config.currentThreshold;
   const computedValue =
-    state.autoComputedThreshold ??
+    useAppStore.getState().autoComputedThreshold ??
     (graph ? Math.round(graph.currentThreshold) : null);
   return {
     threshold: thresholdValue,
@@ -236,7 +242,7 @@ export function getTuningFormValues(context: AppContext): TuningFormValues {
     justBackwards: config.justBackwards,
     justLongBranches: config.justLongBranches,
     removeSequentialBranches: config.removeSequentialBranches,
-    highlightAnchorBranch: state.highlightAnchorBranch,
+    highlightAnchorBranch: useAppStore.getState().highlightAnchorBranch,
   };
 }
 
@@ -244,7 +250,7 @@ export function applyTuningChanges(
   context: AppContext,
   form: TuningFormValues,
 ): TuningFormValues {
-  const { engine, jukebox, state } = context;
+  const { engine, jukebox } = context;
   const threshold = form.threshold;
   const computed = form.computedThreshold;
   const useAutoThreshold =
@@ -267,12 +273,12 @@ export function applyTuningChanges(
     justLongBranches: form.justLongBranches,
     removeSequentialBranches: form.removeSequentialBranches,
   });
-  state.highlightAnchorBranch = form.highlightAnchorBranch;
-  storeAnchorHighlight(state.highlightAnchorBranch);
-  jukebox.setAnchorHighlightEnabled(state.highlightAnchorBranch);
+  useAppStore.setState({ highlightAnchorBranch: form.highlightAnchorBranch });
+  storeAnchorHighlight(useAppStore.getState().highlightAnchorBranch);
+  jukebox.setAnchorHighlightEnabled(useAppStore.getState().highlightAnchorBranch);
   engine.rebuildGraph();
-  state.vizData = engine.getVisualizationData();
-  const data = state.vizData;
+  useAppStore.setState({ vizData: engine.getVisualizationData() });
+  const data = useAppStore.getState().vizData;
   if (data) {
     jukebox.setData(data);
   }
@@ -283,15 +289,15 @@ export function applyTuningChanges(
   if (graph) {
     const resolved = Math.max(0, Math.round(graph.currentThreshold));
     if (useAutoThreshold) {
-      state.autoComputedThreshold = resolved;
+      useAppStore.setState({ autoComputedThreshold: resolved });
       nextThreshold = resolved;
     }
     nextComputed = resolved;
   } else {
-    nextComputed = state.autoComputedThreshold;
+    nextComputed = useAppStore.getState().autoComputedThreshold;
   }
   syncTuningParamsState(context);
-  writeTuningParamsToUrl(state.tuningParams, true);
+  writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   closeTuning();
   return {
     ...form,
@@ -303,26 +309,27 @@ export function applyTuningChanges(
 }
 
 export function resetTuningDefaults(context: AppContext) {
-  const { autocanonizer, cowbellOverlay, engine, jukebox, state, player } =
-    context;
+  const { autocanonizer, cowbellOverlay, engine, jukebox, player } = context;
   engine.clearDeletedEdges();
   engine.updateConfig(context.defaultConfig);
   engine.rebuildGraph();
-  state.vizData = engine.getVisualizationData();
-  const data = state.vizData;
+  useAppStore.setState({ vizData: engine.getVisualizationData() });
+  const data = useAppStore.getState().vizData;
   if (data) {
     jukebox.setData(data);
   }
   syncDeletedEdgeState(context);
   const graph = engine.getGraphState();
-  state.autoComputedThreshold = graph
+  useAppStore.setState({
+    autoComputedThreshold: graph
     ? Math.round(graph.currentThreshold)
-    : null;
-  state.tuningParams =
-    state.jukeboxAudioMode === "off"
+    : null
+  });
+  useAppStore.getState().tuningParams =
+    useAppStore.getState().jukeboxAudioMode === "off"
       ? null
-      : new URLSearchParams({ am: state.jukeboxAudioMode }).toString();
-  writeTuningParamsToUrl(state.tuningParams, true);
+      : new URLSearchParams({ am: useAppStore.getState().jukeboxAudioMode }).toString();
+  writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   player.setVolume(DEFAULT_VOLUME);
   autocanonizer.setVolume(DEFAULT_VOLUME);
   cowbellOverlay.setVolume(DEFAULT_VOLUME);

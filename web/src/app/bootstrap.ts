@@ -408,7 +408,7 @@ export function bootstrap(): AppBridge {
     resetTuning: () => {
       resetTuningDefaults(context);
     },
-    getExtrasForm: () => getExtrasFormValues(context),
+    getExtrasForm: () => getExtrasFormValues(),
     applyExtras: (values: ExtrasFormValues) =>
       applyExtrasChanges(context, values),
     resetExtras: () => resetExtrasDefaults(context),
