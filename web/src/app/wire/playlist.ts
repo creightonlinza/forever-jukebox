@@ -252,17 +252,13 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     if (typeof document !== "undefined") {
       document.body.classList.toggle("playlist-add-enabled", hasLoadedTrack());
     }
-    elements.playlistButton.classList.toggle("is-hidden", !hasTracks);
+    void hasTracks;
     elements.playlistPreviousButton.classList.toggle("is-hidden", !active);
     elements.playlistNextButton.classList.toggle("is-hidden", !active);
     elements.playlistPreviousButton.disabled =
       busy || !canMovePlaylistPrevious(state.playlist);
     elements.playlistNextButton.disabled =
       busy || !canMovePlaylistNext(state.playlist);
-    elements.playlistButton.title = active
-      ? `Playlist (${state.playlist.currentIndex + 1}/${state.playlist.tracks.length})`
-      : "Saved Playlist";
-    elements.playlistButton.setAttribute("aria-label", elements.playlistButton.title);
     elements.savedPlaylistButton.classList.toggle(
       "hidden",
       !shouldShowSavedPlaylistButton(),

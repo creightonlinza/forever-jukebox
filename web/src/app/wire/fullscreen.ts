@@ -1,6 +1,7 @@
 import type { AppContext } from "../context";
 import type { Elements } from "../elements";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
+import { useAppStore } from "../store";
 
 type FullscreenDeps = {
   context: AppContext;
@@ -48,17 +49,9 @@ export function createFullscreenHandlers(deps: FullscreenDeps) {
     jukebox.resizeActive();
   }
 
+  // The React fullscreen button renders from this store flag.
   function updateFullscreenButton(isFullscreen: boolean) {
-    const label = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
-    const icon =
-      elements.fullscreenButton.querySelector<HTMLSpanElement>(
-        ".fullscreen-icon",
-      );
-    if (icon) {
-      icon.textContent = isFullscreen ? "fullscreen_exit" : "fullscreen";
-    }
-    elements.fullscreenButton.title = label;
-    elements.fullscreenButton.setAttribute("aria-label", label);
+    useAppStore.setState({ isFullscreen });
   }
 
   function handleVisibilityChange() {

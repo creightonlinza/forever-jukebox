@@ -57,6 +57,8 @@ type ShellSlice = {
   deleteConfirmOpen: boolean;
   trackInfo: TrackInfoState;
   favoriteToggleBusy: boolean;
+  volumePct: number;
+  isFullscreen: boolean;
 };
 
 type Actions = {
@@ -99,6 +101,8 @@ const createUiSlice: Slice<
     | "deleteConfirmOpen"
     | "trackInfo"
     | "favoriteToggleBusy"
+    | "volumePct"
+    | "isFullscreen"
   > &
     Actions
 > = (set) => ({
@@ -128,6 +132,8 @@ const createUiSlice: Slice<
     deletedCount: 0,
   },
   favoriteToggleBusy: false,
+  volumePct: 50,
+  isFullscreen: false,
   setActiveTab: (activeTabId) => set({ activeTabId }),
   setTheme: (theme) => set({ theme }),
   setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),

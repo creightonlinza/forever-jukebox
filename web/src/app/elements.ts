@@ -89,25 +89,9 @@ export function getElements() {
     document.querySelector<HTMLButtonElement>("#playlist-next"),
     "#playlist-next"
   );
-  const playlistButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#playlist-open"),
-    "#playlist-open"
-  );
   const savedPlaylistButton = requireElement(
     document.querySelector<HTMLButtonElement>("#saved-playlist"),
     "#saved-playlist"
-  );
-  const fullscreenButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#fullscreen"),
-    "#fullscreen"
-  );
-  const volumeInput = requireElement(
-    document.querySelector<HTMLInputElement>("#volume"),
-    "#volume"
-  );
-  const volumeVal = requireElement(
-    document.querySelector<HTMLSpanElement>("#volume-val"),
-    "#volume-val"
   );
   const branchStatsPopup = requireElement(
     document.querySelector<HTMLDivElement>("#branch-stats-popup"),
@@ -142,14 +126,6 @@ export function getElements() {
     "#branch-stats-similarity"
   );
   const vizStats = document.querySelector<HTMLDivElement>("#viz-stats");
-  const volumeButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#volume-button"),
-    "#volume-button"
-  );
-  const volumeControlPanel = requireElement(
-    document.querySelector<HTMLDivElement>("#volume-control-panel"),
-    "#volume-control-panel"
-  );
 
   return {
     listenTimeEl,
@@ -173,11 +149,7 @@ export function getElements() {
     vizPlayButton,
     playlistPreviousButton,
     playlistNextButton,
-    playlistButton,
     savedPlaylistButton,
-    fullscreenButton,
-    volumeInput,
-    volumeVal,
     branchStatsPopup,
     branchStatsTitleEl,
     branchStatsDeleteButton,
@@ -187,7 +159,5 @@ export function getElements() {
     branchStatsDirectionEl,
     branchStatsSimilarityEl,
     vizStats,
-    volumeButton,
-    volumeControlPanel,
   };
 }

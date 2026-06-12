@@ -63,7 +63,6 @@ import type { AppContext, AppState, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers } from "./wire/favorites";
 import { createNavigationHandlers } from "./wire/navigation";
-import { createVolumeHandlers } from "./wire/volume";
 import { createFullscreenHandlers } from "./wire/fullscreen";
 import { createPlaybackUiHandlers } from "./wire/playback";
 import { createPlaylistHandlers, type PlaylistHandlers } from "./wire/playlist";
@@ -285,12 +284,6 @@ export function bootstrap(): AppBridge {
       pollAnalysis(context, playbackDeps, jobId),
     onNormalTrackSelected: handleNormalTrackSelected,
   };
-  const volumeHandlers = createVolumeHandlers({
-    context,
-    elements,
-    player,
-    autocanonizer,
-  });
   const fullscreenHandlers = createFullscreenHandlers({
     context,
     elements,
@@ -345,7 +338,6 @@ export function bootstrap(): AppBridge {
     jukebox,
     playbackHandlers,
     fullscreenHandlers,
-    volumeHandlers,
     playlistHandlers: playlistHandlers!,
   });
 
@@ -425,6 +417,13 @@ export function bootstrap(): AppBridge {
     },
     setSleepTimer: (durationMs: number | null) =>
       setSleepTimer(context, durationMs),
+    setVolume: (volumePct: number) => {
+      const volume = volumePct / 100;
+      player.setVolume(volume);
+      autocanonizer.setVolume(volume);
+      cowbellOverlay.setVolume(volume);
+    },
+    toggleFullscreen: fullscreenHandlers.handleFullscreenToggle,
     playlist: {
       selectIndex: (index: number) =>
         playlistHandlers!.selectPlaylistIndex(index),

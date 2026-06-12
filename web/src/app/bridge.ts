@@ -60,6 +60,8 @@ export type ListenPanelBridge = {
   resetExtras: () => ExtrasApplyResult;
   syncTrackTitleAfterAudioModeChange: () => void;
   setSleepTimer: (durationMs: number | null) => void;
+  setVolume: (volumePct: number) => void;
+  toggleFullscreen: () => void;
   playlist: {
     selectIndex: (index: number) => void;
     removeIndex: (index: number) => void;

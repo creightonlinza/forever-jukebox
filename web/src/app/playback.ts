@@ -363,13 +363,10 @@ export function updateVizVisibility(context: AppContext) {
   }
 }
 
-// Keeps the (legacy) volume panel slider in sync wherever the old code
-// re-synced the whole tuning UI; converts at 8b.
+// The React volume panel renders this store value.
 export function syncVolumeUI(context: AppContext) {
-  const { elements, player } = context;
-  const volumePct = Math.round(player.getVolume() * 100);
-  elements.volumeInput.value = `${volumePct}`;
-  elements.volumeVal.textContent = `${volumePct}`;
+  const { player } = context;
+  useAppStore.setState({ volumePct: Math.round(player.getVolume() * 100) });
 }
 
 function openTuningTab(context: AppContext, tab: "tuning" | "extras") {

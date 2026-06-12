@@ -17,6 +17,7 @@ import { PlayMenu } from "./listen/PlayMenu";
 import { PlaylistModal } from "./listen/PlaylistModal";
 import { SleepTimerModal } from "./listen/SleepTimerModal";
 import { TuningModal } from "./listen/TuningModal";
+import { VizBottomRight } from "./listen/VizBottomRight";
 
 // Derives activeTab from the URL on every location change and runs the
 // legacy route handler (mode-from-URL, track loading, FAQ subtab sync) on
@@ -100,12 +101,14 @@ export function AppRoot({
   bridge,
   legacyContent,
   playMenuRoot,
+  vizBottomRightRoot,
 }: {
   bridge: AppBridge;
   legacyContent: DocumentFragment;
-  // Mount node inside the legacy Listen panel; the React play menu renders
-  // into it via portal so the panel's DOM order is preserved.
+  // Mount nodes inside the legacy Listen panel; React subtrees render into
+  // them via portal so the panel's DOM order/layout is preserved.
   playMenuRoot: Element | null;
+  vizBottomRightRoot: Element | null;
 }) {
   const panelsRef = useRef<HTMLDivElement | null>(null);
   useRouteSync(bridge);
@@ -135,6 +138,9 @@ export function AppRoot({
       <Footer />
       <Toast />
       {playMenuRoot ? createPortal(<PlayMenu bridge={bridge} />, playMenuRoot) : null}
+      {vizBottomRightRoot
+        ? createPortal(<VizBottomRight bridge={bridge} />, vizBottomRightRoot)
+        : null}
       <TuningModal bridge={bridge} />
       <SleepTimerModal bridge={bridge} />
       <InfoModal />

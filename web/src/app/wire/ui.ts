@@ -2,7 +2,6 @@ import type { Elements } from "../elements";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
 import type { PlaybackUiHandlers } from "./playback";
 import type { FullscreenHandlers } from "./fullscreen";
-import type { VolumeHandlers } from "./volume";
 import type { PlaylistHandlers } from "./playlist";
 
 type UiBindingsDeps = {
@@ -10,7 +9,6 @@ type UiBindingsDeps = {
   jukebox: JukeboxController;
   playbackHandlers: PlaybackUiHandlers;
   fullscreenHandlers: FullscreenHandlers;
-  volumeHandlers: VolumeHandlers;
   playlistHandlers: PlaylistHandlers;
 };
 
@@ -23,18 +21,9 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     jukebox,
     playbackHandlers,
     fullscreenHandlers,
-    volumeHandlers,
     playlistHandlers,
   } = deps;
 
-  elements.volumeInput.addEventListener(
-    "input",
-    volumeHandlers.handleVolumeInput,
-  );
-  elements.playlistButton.addEventListener(
-    "click",
-    playlistHandlers.handleOpenPlaylist,
-  );
   elements.playlistPreviousButton.addEventListener(
     "click",
     playlistHandlers.handlePlaylistPrevious,
@@ -51,10 +40,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     playbackHandlers.handleBranchStatsDeleteClick,
   );
-  elements.fullscreenButton.addEventListener(
-    "click",
-    fullscreenHandlers.handleFullscreenToggle,
-  );
   document.addEventListener(
     "fullscreenchange",
     fullscreenHandlers.handleFullscreenChange,
@@ -70,11 +55,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
       playbackHandlers.handlePlayClick,
     );
   }
-  elements.volumeButton.addEventListener(
-    "click",
-    volumeHandlers.handleVolumeButtonClick,
-  );
-
   fullscreenHandlers.updateFullscreenButton(Boolean(document.fullscreenElement));
 
   elements.vizSelect.addEventListener(
@@ -89,7 +69,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "change",
     playbackHandlers.handleCanonizerFinish,
   );
-  document.addEventListener("click", volumeHandlers.handleVolumeDocumentClick);
 
   jukebox.setOnSelect(playbackHandlers.handleBeatSelect);
   jukebox.setOnEdgeSelect(playbackHandlers.handleEdgeSelect);
