@@ -35,8 +35,10 @@ export function VizTop({ bridge }: { bridge: AppBridge }) {
     !(audioLoaded && analysisLoaded) ||
     swingPreparing ||
     playMode === "autocanonizer";
+  // On the very first render the controllers are not constructed yet (the
+  // ref handoff happens at commit); fall back to the static label count.
   const entries = getVisualizationSelectEntries(
-    bridge.context.jukebox.getCount(),
+    bridge.context.jukebox?.getCount() ?? VISUALIZATION_LABELS.length,
   );
 
   return (

@@ -29,61 +29,6 @@
   </head>
   <body>
     <div id="app">
-      <section class="panel tab-panel hidden" data-tab-panel="play">
-        <div class="panel" id="play-status"></div>
-        <div id="play-menu-root"></div>
-        <div id="viz-panel" class="hidden">
-            <div id="jukebox-viz" class="viz">
-              <div id="branch-stats-popup" class="branch-stats-popup hidden">
-                <div class="branch-stats-popup-header">
-                  <div class="branch-stats-popup-title" id="branch-stats-title">Branch stats</div>
-                  <button
-                    id="branch-stats-delete"
-                    class="branch-stats-delete"
-                    aria-label="Delete selected branch"
-                    title="Delete selected branch"
-                  >
-                    <span
-                      class="material-symbols-outlined branch-stats-delete-icon"
-                      aria-hidden="true"
-                      >delete</span
-                    >
-                  </button>
-                </div>
-                <div class="branch-stats-popup-row">
-                  <span class="branch-stats-popup-label">Direction:</span>
-                  <span class="branch-stats-popup-value" id="branch-stats-direction">Backward</span>
-                </div>
-                <div class="branch-stats-popup-row">
-                  <span class="branch-stats-popup-label">Start:</span>
-                  <span class="branch-stats-popup-value" id="branch-stats-start">00:00:00</span>
-                </div>
-                <div class="branch-stats-popup-row">
-                  <span class="branch-stats-popup-label">End:</span>
-                  <span class="branch-stats-popup-value" id="branch-stats-end">00:00:00</span>
-                </div>
-                <div class="branch-stats-popup-row">
-                  <span class="branch-stats-popup-label">Difference:</span>
-                  <span class="branch-stats-popup-value" id="branch-stats-delta">+00:00:00</span>
-                </div>
-                <div class="branch-stats-popup-row">
-                  <span class="branch-stats-popup-label">Branch Match:</span>
-                  <span class="branch-stats-popup-value" id="branch-stats-similarity">0%</span>
-                </div>
-              </div>
-              <div class="viz-top" id="viz-top-root"></div>
-            <div id="viz-layer" class="viz-layer"></div>
-            <div id="canonizer-layer" class="canonizer-layer"></div>
-            <div class="viz-bottom" id="viz-stats">
-              <div class="viz-bottom-left">
-                <div class="viz-play-controls" id="viz-play-controls-root"></div>
-                <div class="viz-info" id="viz-info-root"></div>
-              </div>
-              <div class="viz-bottom-right" id="viz-bottom-right-root"></div>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

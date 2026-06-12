@@ -111,8 +111,7 @@ describe("StatusPanel", () => {
   });
 
   it("renders status text, spinner and progress from the store", () => {
-    const container = document.createElement("div");
-    render(<StatusPanel container={container} />);
+    render(<StatusPanel />);
     expect(document.getElementById("analysis-status")?.textContent).toBe(
       "No track selected.",
     );
@@ -138,8 +137,8 @@ describe("StatusPanel", () => {
   });
 
   it("hides the container once the track is loaded", () => {
-    const container = document.createElement("div");
-    render(<StatusPanel container={container} />);
+    render(<StatusPanel />);
+    const container = document.getElementById("play-status")!;
     expect(container.classList.contains("hidden")).toBe(false);
     act(() => {
       useAppStore.setState({ audioLoaded: true, analysisLoaded: true });
@@ -152,8 +151,7 @@ describe("StatusPanel", () => {
   });
 
   it("shows the saved-playlist shortcut for inactive saved playlists", () => {
-    const container = document.createElement("div");
-    render(<StatusPanel container={container} />);
+    render(<StatusPanel />);
     const button = document.getElementById("saved-playlist")!;
     expect(button.classList.contains("hidden")).toBe(true);
     act(() => {

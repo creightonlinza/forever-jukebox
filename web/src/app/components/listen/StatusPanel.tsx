@@ -1,12 +1,10 @@
-import { useEffect } from "react";
 import { hasInactiveSavedPlaylist } from "../../playlist";
 import { useAppStore } from "../../store";
 
 // The Listen-panel status row: spinner, loading progress, analysis status
-// text and the saved-playlist shortcut. Renders via portal into the legacy
-// #play-status panel (which React exclusively owns, including its hidden
-// class — formerly toggled by updateVizVisibility).
-export function StatusPanel({ container }: { container: Element | null }) {
+// text and the saved-playlist shortcut. Hidden once a track is fully
+// loaded (formerly toggled by updateVizVisibility).
+export function StatusPanel() {
   const statusText = useAppStore((s) => s.analysisStatusText);
   const spinning = useAppStore((s) => s.analysisSpinning);
   const progressText = useAppStore((s) => s.analysisProgressText);
@@ -20,10 +18,6 @@ export function StatusPanel({ container }: { container: Element | null }) {
   const swingPreparing = useAppStore((s) => s.swingPreparing);
 
   const panelHidden = audioLoaded && analysisLoaded && !swingPreparing;
-  useEffect(() => {
-    container?.classList.toggle("hidden", panelHidden);
-  }, [container, panelHidden]);
-
   const showSavedPlaylist =
     hasInactiveSavedPlaylist(playlist) &&
     !audioLoaded &&
@@ -33,7 +27,8 @@ export function StatusPanel({ container }: { container: Element | null }) {
     !lastJobId;
 
   return (
-    <div className="status-row">
+    <div className={panelHidden ? "panel hidden" : "panel"} id="play-status">
+      <div className="status-row">
       <div
         className={spinning ? "spinner" : "spinner hidden"}
         id="analysis-spinner"
@@ -57,6 +52,7 @@ export function StatusPanel({ container }: { container: Element | null }) {
       >
         Saved Playlist
       </button>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useLocation, useNavigationType } from "react-router-dom";
 import type { MutableRefObject } from "react";
 import type { AppBridge } from "../bridge";
@@ -13,15 +12,10 @@ import { SearchPanel } from "./SearchPanel";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
 import { InfoModal } from "./listen/InfoModal";
-import { PlayControls } from "./listen/PlayControls";
-import { PlayMenu } from "./listen/PlayMenu";
+import { ListenPanel } from "./listen/ListenPanel";
 import { PlaylistModal } from "./listen/PlaylistModal";
 import { SleepTimerModal } from "./listen/SleepTimerModal";
-import { StatusPanel } from "./listen/StatusPanel";
 import { TuningModal } from "./listen/TuningModal";
-import { VizBottomRight } from "./listen/VizBottomRight";
-import { VizInfo } from "./listen/VizInfo";
-import { VizTop } from "./listen/VizTop";
 
 // Derives activeTab from the URL on every location change and runs the
 // legacy route handler (mode-from-URL, track loading, FAQ subtab sync) on
@@ -118,23 +112,9 @@ function useGlobalHotkeys(bridge: AppBridge) {
 export function AppRoot({
   bridge,
   legacyContent,
-  playMenuRoot,
-  vizBottomRightRoot,
-  playStatusRoot,
-  vizInfoRoot,
-  vizTopRoot,
-  playControlsRoot,
 }: {
   bridge: AppBridge;
   legacyContent: DocumentFragment;
-  // Mount nodes inside the legacy Listen panel; React subtrees render into
-  // them via portal so the panel's DOM order/layout is preserved.
-  playMenuRoot: Element | null;
-  vizBottomRightRoot: Element | null;
-  playStatusRoot: Element | null;
-  vizInfoRoot: Element | null;
-  vizTopRoot: Element | null;
-  playControlsRoot: Element | null;
 }) {
   const panelsRef = useRef<HTMLDivElement | null>(null);
   useRouteSync(bridge);
@@ -160,22 +140,11 @@ export function AppRoot({
       <Hero bridge={bridge} />
       <TopTracksPanel bridge={bridge} />
       <SearchPanel bridge={bridge} />
+      <ListenPanel bridge={bridge} />
       <div ref={adoptLegacy} />
       <FaqPanel bridge={bridge} />
       <Footer />
       <Toast />
-      {playMenuRoot ? createPortal(<PlayMenu bridge={bridge} />, playMenuRoot) : null}
-      {vizBottomRightRoot
-        ? createPortal(<VizBottomRight bridge={bridge} />, vizBottomRightRoot)
-        : null}
-      {playStatusRoot
-        ? createPortal(<StatusPanel container={playStatusRoot} />, playStatusRoot)
-        : null}
-      {vizInfoRoot ? createPortal(<VizInfo />, vizInfoRoot) : null}
-      {vizTopRoot ? createPortal(<VizTop bridge={bridge} />, vizTopRoot) : null}
-      {playControlsRoot
-        ? createPortal(<PlayControls bridge={bridge} />, playControlsRoot)
-        : null}
       <TuningModal bridge={bridge} />
       <SleepTimerModal bridge={bridge} />
       <InfoModal />

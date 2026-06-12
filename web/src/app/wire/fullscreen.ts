@@ -1,12 +1,11 @@
 import type { AppContext } from "../context";
-import type { Elements } from "../elements";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
 import { useAppStore } from "../store";
 
 type FullscreenDeps = {
   context: AppContext;
-  elements: Elements;
   jukebox: JukeboxController;
+  getVizPanel: () => HTMLElement;
   requestWakeLock: (context: AppContext) => void;
   releaseWakeLock: (context: AppContext) => void;
 };
@@ -14,11 +13,11 @@ type FullscreenDeps = {
 export type FullscreenHandlers = ReturnType<typeof createFullscreenHandlers>;
 
 export function createFullscreenHandlers(deps: FullscreenDeps) {
-  const { context, elements, jukebox, requestWakeLock, releaseWakeLock } = deps;
+  const { context, jukebox, getVizPanel, requestWakeLock, releaseWakeLock } = deps;
 
   function handleFullscreenToggle() {
     if (!document.fullscreenElement) {
-      elements.vizPanel
+      getVizPanel()
         .requestFullscreen()
         .then(() => {
           requestWakeLock(context);

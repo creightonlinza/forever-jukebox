@@ -67,6 +67,7 @@ export type ListenPanelBridge = {
   setCanonizerFinish: (checked: boolean) => void;
   playlistPrevious: () => void;
   playlistNext: () => void;
+  deleteSelectedBranch: () => void;
   playlist: {
     selectIndex: (index: number) => void;
     removeIndex: (index: number) => void;
@@ -94,4 +95,11 @@ export type AppBridge = {
   topPanel: TopPanelBridge;
   searchPanel: SearchPanelBridge;
   listenPanel: ListenPanelBridge;
+  // <VizContainer>'s ref handoff: constructs the viz controllers on these
+  // nodes exactly once.
+  attachViz: (nodes: {
+    vizPanel: HTMLElement;
+    vizLayer: HTMLDivElement;
+    canonizerLayer: HTMLDivElement;
+  }) => void;
 };

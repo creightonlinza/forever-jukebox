@@ -1,8 +1,6 @@
 import { JukeboxEngine } from "../engine";
 import { BufferedAudioPlayer } from "../audio/BufferedAudioPlayer";
 import { CowbellOverlayService } from "../audio/CowbellOverlayService";
-import { getElements } from "./elements";
-import { attachVisualizationResize } from "./visualization";
 import { AutocanonizerController } from "../autocanonizer/AutocanonizerController";
 import { JukeboxController } from "../jukebox/JukeboxController";
 import { applyTheme, applyThemeVariables, resolveStoredTheme } from "./theme";
@@ -62,12 +60,11 @@ import type { AppContext, AppState, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers } from "./wire/favorites";
 import { createNavigationHandlers } from "./wire/navigation";
-import { createFullscreenHandlers } from "./wire/fullscreen";
-import { createPlaybackUiHandlers } from "./wire/playback";
+import { createFullscreenHandlers, type FullscreenHandlers } from "./wire/fullscreen";
+import { createPlaybackUiHandlers, type PlaybackUiHandlers } from "./wire/playback";
 import { createPlaylistHandlers, type PlaylistHandlers } from "./wire/playlist";
 import { createDeleteJobHandlers } from "./wire/delete-job";
 import { createAppConfigHandlers } from "./wire/app-config";
-import { bindUiHandlers } from "./wire/ui";
 import type { AppBridge } from "./bridge";
 import { legacyAppState, useAppStore } from "./store";
 import {
@@ -97,7 +94,6 @@ type SearchDeps = Parameters<typeof runSearch>[1];
 
 export function bootstrap(): AppBridge {
   initBackgroundTimer();
-  const elements = getElements();
   // Theme must apply before first paint; the React theme effect re-applies
   // idempotently (and persists + refreshes the viz) once mounted.
   const initialTheme = resolveStoredTheme();
@@ -109,11 +105,8 @@ export function bootstrap(): AppBridge {
   });
   cowbellOverlay.setVolume(player.getVolume());
   const engine = new JukeboxEngine(player, { randomMode: "random" });
-  const autocanonizer = new AutocanonizerController(elements.canonizerLayer);
-  const jukebox = new JukeboxController(elements.vizLayer);
   const highlightAnchorBranch = resolveStoredAnchorHighlight();
   const branchStatsEnabled = resolveStoredBranchStatsEnabled();
-  jukebox.setAnchorHighlightEnabled(highlightAnchorBranch);
   const defaultConfig = engine.getConfig();
   // The store holds all app state (defaults live in store.ts); hydrate the
   // persisted bits here, pre-render. `state` is the legacy proxy: every
@@ -127,12 +120,16 @@ export function bootstrap(): AppBridge {
     highlightAnchorBranch,
   });
   const state: AppState = legacyAppState;
+  // Controllers need their DOM nodes, which exist only after <VizContainer>
+  // renders; attachViz (below) constructs them and fills these slots before
+  // any effect (route handling, theme) can touch them — main.ts mounts the
+  // tree synchronously via flushSync.
   const context: AppContext = {
-    elements,
+    elements: getElementsPlaceholder(),
     engine,
     player,
-    autocanonizer,
-    jukebox,
+    autocanonizer: null as unknown as AppContext["autocanonizer"],
+    jukebox: null as unknown as AppContext["jukebox"],
     cowbellOverlay,
     defaultConfig,
     state,
@@ -143,35 +140,8 @@ export function bootstrap(): AppBridge {
   };
 
   const navigationHandlers = createNavigationHandlers({ context, state });
-  const playbackHandlers = createPlaybackUiHandlers({
-    context,
-    elements,
-    state,
-    player,
-    engine,
-    jukebox,
-    autocanonizer,
-    vizStorageKey,
-    canonizerFinishKey,
-    setAnalysisStatus,
-    showToast,
-    stopPlayback,
-    togglePlayback,
-    startJukeboxFromBeat,
-    startAutocanonizerPlayback,
-    updateTrackUrl,
-    navigateToTab,
-    updateVizVisibility,
-    openExtras,
-    getTuningParamsFromEngine,
-    writeTuningParamsToUrl,
-    syncDeletedEdgeState,
-    updateTrackInfo,
-    isEditableTarget,
-    getCurrentTrackId: navigationHandlers.getCurrentTrackId,
-    advancePlaylistOnAutocanonizerEnded: () =>
-      playlistHandlers?.advanceAutocanonizerOnEnded() ?? Promise.resolve(false),
-  });
+  let playbackHandlers: PlaybackUiHandlers | null = null;
+  let fullscreenHandlers: FullscreenHandlers | null = null;
   const playbackDeps: PlaybackDeps = {
     setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
     navigateToTab: (
@@ -212,7 +182,7 @@ export function bootstrap(): AppBridge {
       }),
     writeTuningParamsToUrl,
     syncTuningParamsState,
-    setPlayMode: playbackHandlers.setPlayMode,
+    setPlayMode: (mode) => playbackHandlers?.setPlayMode(mode),
   });
   playbackDeps.onAnalysisLoaded = (response) => {
     favoritesHandlers.maybeAutoFavoriteUserSupplied(response);
@@ -273,13 +243,6 @@ export function bootstrap(): AppBridge {
       pollAnalysis(context, playbackDeps, jobId),
     onNormalTrackSelected: handleNormalTrackSelected,
   };
-  const fullscreenHandlers = createFullscreenHandlers({
-    context,
-    elements,
-    jukebox,
-    requestWakeLock,
-    releaseWakeLock,
-  });
   const deleteJobHandlers = createDeleteJobHandlers({
     context,
     state,
@@ -292,10 +255,72 @@ export function bootstrap(): AppBridge {
     isFavorite,
     removeFavorite,
   });
-  jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
-  attachVisualizationResize([jukebox], elements.vizPanel);
-  attachVisualizationResize([autocanonizer], elements.vizPanel);
-  playbackHandlers.initializePlayback();
+  // Construct the viz controllers once <VizContainer> hands over its nodes
+  // (ref phase — before any React effect runs). StrictMode re-attaches the
+  // same nodes; the guard makes that a no-op.
+  let vizAttached = false;
+  const attachViz: AppBridge["attachViz"] = (nodes) => {
+    if (vizAttached) {
+      return;
+    }
+    vizAttached = true;
+    const autocanonizer = new AutocanonizerController(nodes.canonizerLayer);
+    const jukebox = new JukeboxController(nodes.vizLayer);
+    context.autocanonizer = autocanonizer;
+    context.jukebox = jukebox;
+    jukebox.setAnchorHighlightEnabled(state.highlightAnchorBranch);
+    playbackHandlers = createPlaybackUiHandlers({
+      context,
+      state,
+      player,
+      engine,
+      jukebox,
+      autocanonizer,
+      vizStorageKey,
+      canonizerFinishKey,
+      setAnalysisStatus,
+      showToast,
+      stopPlayback,
+      togglePlayback,
+      startJukeboxFromBeat,
+      startAutocanonizerPlayback,
+      updateTrackUrl,
+      navigateToTab,
+      updateVizVisibility,
+      openExtras,
+      getTuningParamsFromEngine,
+      writeTuningParamsToUrl,
+      syncDeletedEdgeState,
+      updateTrackInfo,
+      isEditableTarget,
+      getCurrentTrackId: navigationHandlers.getCurrentTrackId,
+      advancePlaylistOnAutocanonizerEnded: () =>
+        playlistHandlers?.advanceAutocanonizerOnEnded() ?? Promise.resolve(false),
+    });
+    fullscreenHandlers = createFullscreenHandlers({
+      context,
+      jukebox,
+      getVizPanel: () => nodes.vizPanel,
+      requestWakeLock,
+      releaseWakeLock,
+    });
+    jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
+    playbackHandlers.initializePlayback();
+    resetForNewTrack(context);
+    document.addEventListener(
+      "fullscreenchange",
+      fullscreenHandlers.handleFullscreenChange,
+    );
+    document.addEventListener(
+      "visibilitychange",
+      fullscreenHandlers.handleVisibilityChange,
+    );
+    fullscreenHandlers.updateFullscreenButton(
+      Boolean(document.fullscreenElement),
+    );
+    jukebox.setOnSelect(playbackHandlers.handleBeatSelect);
+    jukebox.setOnEdgeSelect(playbackHandlers.handleEdgeSelect);
+  };
 
   setAnalysisStatus(context, "No track selected.", false);
   loadAppConfig()
@@ -318,20 +343,11 @@ export function bootstrap(): AppBridge {
       console.warn(`App config fetch failed: ${String(err)}`);
     });
 
-  resetForNewTrack(context);
-
-  bindUiHandlers({
-    elements,
-    jukebox,
-    playbackHandlers,
-    fullscreenHandlers,
-  });
-
   // Runs on initial load and browser back/forward, driven by the React
   // shell's route-sync effect (replaces the popstate listener and the
   // bootstrap-time handleRouteChange call).
   const handleRoute = (pathname: string) => {
-    playbackHandlers.applyModeFromUrl();
+    playbackHandlers?.applyModeFromUrl();
     handleRouteChange(context, playbackDeps, pathname).catch((err) => {
       console.warn(`Route load failed: ${String(err)}`);
     });
@@ -383,7 +399,7 @@ export function bootstrap(): AppBridge {
   };
 
   const listenPanel = {
-    copyShortUrl: playbackHandlers.handleShortUrlClick,
+    copyShortUrl: () => playbackHandlers?.handleShortUrlClick(),
     toggleFavorite: () => {
       void favoritesHandlers.handleFavoriteToggle();
     },
@@ -401,18 +417,22 @@ export function bootstrap(): AppBridge {
     setSleepTimer: (durationMs: number | null) =>
       setSleepTimer(context, durationMs),
     togglePlayback: () => togglePlayback(context),
-    setPlayMode: playbackHandlers.setPlayMode,
-    setActiveVisualization: playbackHandlers.setActiveVisualization,
-    setCanonizerFinish: playbackHandlers.setCanonizerFinish,
+    setPlayMode: (mode: "jukebox" | "autocanonizer") =>
+      playbackHandlers?.setPlayMode(mode),
+    setActiveVisualization: (index: number) =>
+      playbackHandlers?.setActiveVisualization(index),
+    setCanonizerFinish: (checked: boolean) =>
+      playbackHandlers?.setCanonizerFinish(checked),
+    deleteSelectedBranch: () => playbackHandlers?.deleteSelectedBranch(),
     playlistPrevious: () => playlistHandlers!.handlePlaylistPrevious(),
     playlistNext: () => playlistHandlers!.handlePlaylistNext(),
     setVolume: (volumePct: number) => {
       const volume = volumePct / 100;
       player.setVolume(volume);
-      autocanonizer.setVolume(volume);
+      context.autocanonizer?.setVolume(volume);
       cowbellOverlay.setVolume(volume);
     },
-    toggleFullscreen: fullscreenHandlers.handleFullscreenToggle,
+    toggleFullscreen: () => fullscreenHandlers?.handleFullscreenToggle(),
     playlist: {
       selectIndex: (index: number) =>
         playlistHandlers!.selectPlaylistIndex(index),
@@ -427,8 +447,8 @@ export function bootstrap(): AppBridge {
     handleRoute,
     onTabClick,
     hotkeys: {
-      keydown: [playbackHandlers.handleKeydown],
-      keyup: [playbackHandlers.handleKeyup],
+      keydown: [(event) => playbackHandlers?.handleKeydown(event)],
+      keyup: [(event) => playbackHandlers?.handleKeyup(event)],
     },
     onHeroHomeClick: () => {
       navigationHandlers.navigateToTabWithState("top");
@@ -439,5 +459,12 @@ export function bootstrap(): AppBridge {
     topPanel,
     searchPanel,
     listenPanel,
+    attachViz,
   };
+}
+
+// AppContext.elements is dead as of 8e (deleted with elements.ts at the
+// Phase 5 cleanup).
+function getElementsPlaceholder(): AppContext["elements"] {
+  return {};
 }

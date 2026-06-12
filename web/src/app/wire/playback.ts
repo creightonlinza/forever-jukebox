@@ -1,5 +1,4 @@
 import type { AppContext, AppState, TabId } from "../context";
-import type { Elements } from "../elements";
 import type { Edge } from "../../engine/types";
 import type { BufferedAudioPlayer } from "../../audio/BufferedAudioPlayer";
 import type { JukeboxEngine } from "../../engine";
@@ -13,7 +12,6 @@ import { serializeParams } from "../tuning";
 
 type PlaybackUiDeps = {
   context: AppContext;
-  elements: Elements;
   state: AppState;
   player: BufferedAudioPlayer;
   engine: JukeboxEngine;
@@ -78,7 +76,6 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
 export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   const {
     context,
-    elements,
     state,
     player,
     engine,
@@ -112,8 +109,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       state.playMode !== "jukebox" ||
       !edge
     ) {
-      elements.branchStatsDeleteButton.disabled = true;
-      elements.branchStatsPopup.classList.add("hidden");
+      useAppStore.setState({ branchStats: null });
       return;
     }
     const startSeconds = Math.max(0, edge.src.start);
@@ -127,18 +123,19 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
           ? "Forward"
           : "Same beat";
     const maxDistance = Math.max(1, engine.getConfig().maxBranchThreshold);
-    elements.branchStatsTitleEl.textContent = `Branch #${edge.id} stats`;
-    elements.branchStatsStartEl.textContent = formatDuration(startDisplaySeconds);
-    elements.branchStatsEndEl.textContent = formatDuration(endDisplaySeconds);
-    elements.branchStatsDeltaEl.textContent = formatSignedDuration(
-      endDisplaySeconds - startDisplaySeconds,
-    );
-    elements.branchStatsDirectionEl.textContent = direction;
-    elements.branchStatsSimilarityEl.textContent =
-      `${toSimilarityPercent(edge.distance, maxDistance)}%`;
-    elements.branchStatsDeleteButton.disabled = edge.deleted;
-    elements.branchStatsPopup.classList.remove("hidden");
+    useAppStore.setState({
+      branchStats: {
+        title: `Branch #${edge.id} stats`,
+        startText: formatDuration(startDisplaySeconds),
+        endText: formatDuration(endDisplaySeconds),
+        deltaText: formatSignedDuration(endDisplaySeconds - startDisplaySeconds),
+        direction,
+        similarityText: `${toSimilarityPercent(edge.distance, maxDistance)}%`,
+        deleteDisabled: edge.deleted,
+      },
+    });
   }
+
 
   function deleteSelectedBranch() {
     if (!state.selectedEdge || state.selectedEdge.deleted) {
@@ -422,12 +419,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     syncExtrasPopup(edge);
   }
 
-  function handleBranchStatsDeleteClick(event: MouseEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-    deleteSelectedBranch();
-  }
-
   async function copyShortUrl() {
     const trackId = state.lastTrackId ?? state.lastJobId;
     if (!trackId) {
@@ -490,10 +481,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     context.cowbellOverlay.cancelScheduledHits();
     state.playMode = mode;
-    elements.jukeboxViz.classList.toggle(
-      "is-canonizer",
-      mode === "autocanonizer",
-    );
     if (mode !== "jukebox") {
       // The extras tab disappears outside jukebox mode; legacy forced the
       // stored tab back to "tuning".
@@ -526,7 +513,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     handleKeyup,
     handleBeatSelect,
     handleEdgeSelect,
-    handleBranchStatsDeleteClick,
+    deleteSelectedBranch,
     setActiveVisualization,
     setCanonizerFinish,
     applyModeFromUrl,

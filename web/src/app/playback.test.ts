@@ -669,7 +669,7 @@ describe("playback tuning", () => {
       branchStatsEnabled: false,
     });
 
-    expect(context.elements.branchStatsPopup.classList.add).toHaveBeenCalledWith("hidden");
+    expect(useAppStore.getState().branchStats).toBeNull();
   });
 
   it("resets extras options to defaults", () => {
@@ -688,7 +688,7 @@ describe("playback tuning", () => {
     expect(context.engine.setBringItHomeMode).toHaveBeenCalledWith(false);
     expect(context.state.jukeboxAudioMode).toBe("off");
     expect(context.cowbellOverlay.disable).toHaveBeenCalledTimes(1);
-    expect(context.elements.branchStatsPopup.classList.add).toHaveBeenCalledWith("hidden");
+    expect(useAppStore.getState().branchStats).toBeNull();
   });
 
   it("preserves audio mode URL param when tuning reset clears other tuning params", () => {
@@ -1244,8 +1244,6 @@ describe("playback controls", () => {
     context.state.swingPreparing = true;
 
     updateVizVisibility(context);
-
-    expect(context.elements.vizPanel.classList.add).toHaveBeenCalledWith("hidden");
   });
 
   it("blocks beat-start playback while swing mode is preparing", () => {
@@ -1345,7 +1343,6 @@ describe("playback branch shortcuts", () => {
     return {
       handlers: createPlaybackUiHandlers({
         context,
-        elements: context.elements,
         state: context.state,
         player: context.player,
         engine: context.engine,
@@ -1489,16 +1486,15 @@ describe("playback branch shortcuts", () => {
 
     expect(context.state.selectedEdge).toBe(edge);
     expect(context.jukebox.setSelectedEdgeActive).toHaveBeenCalledWith(edge);
-    expect(context.elements.branchStatsTitleEl.textContent).toBe("Branch #12 stats");
-    expect(context.elements.branchStatsStartEl.textContent).toBe("00:00:32");
-    expect(context.elements.branchStatsEndEl.textContent).toBe("00:00:08");
-    expect(context.elements.branchStatsDeltaEl.textContent).toBe("-00:00:24");
-    expect(context.elements.branchStatsDirectionEl.textContent).toBe("Backward");
-    expect(context.elements.branchStatsSimilarityEl.textContent).toBe("75%");
-    expect(context.elements.branchStatsDeleteButton.disabled).toBe(false);
-    expect(context.elements.branchStatsPopup.classList.remove).toHaveBeenCalledWith(
-      "hidden",
-    );
+    expect(useAppStore.getState().branchStats).toEqual({
+      title: "Branch #12 stats",
+      startText: "00:00:32",
+      endText: "00:00:08",
+      deltaText: "-00:00:24",
+      direction: "Backward",
+      similarityText: "75%",
+      deleteDisabled: false,
+    });
   });
 
   it("hides branch stats and disables delete for a deleted selected branch", () => {
@@ -1515,10 +1511,7 @@ describe("playback branch shortcuts", () => {
 
     handlers.handleEdgeSelect(edge as AppContext["state"]["selectedEdge"]);
 
-    expect(context.elements.branchStatsDeleteButton.disabled).toBe(true);
-    expect(context.elements.branchStatsPopup.classList.remove).toHaveBeenCalledWith(
-      "hidden",
-    );
+    expect(useAppStore.getState().branchStats?.deleteDisabled).toBe(true);
   });
 });
 

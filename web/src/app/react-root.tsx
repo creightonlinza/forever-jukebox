@@ -1,4 +1,5 @@
 import { StrictMode } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import type { AppBridge } from "./bridge";
@@ -12,37 +13,22 @@ export function mountReactApp(
   bridge: AppBridge,
   legacyContent: DocumentFragment,
 ) {
-  const playMenuRoot = legacyContent.querySelector("#play-menu-root");
-  const vizBottomRightRoot = legacyContent.querySelector(
-    "#viz-bottom-right-root",
-  );
-  const playStatusRoot = legacyContent.querySelector("#play-status");
-  const vizInfoRoot = legacyContent.querySelector("#viz-info-root");
-  const vizTopRoot = legacyContent.querySelector("#viz-top-root");
-  const playControlsRoot = legacyContent.querySelector(
-    "#viz-play-controls-root",
-  );
   const router = createBrowserRouter([
     {
       path: "*",
-      element: (
-        <AppRoot
-          bridge={bridge}
-          legacyContent={legacyContent}
-          playMenuRoot={playMenuRoot}
-          vizBottomRightRoot={vizBottomRightRoot}
-          playStatusRoot={playStatusRoot}
-          vizInfoRoot={vizInfoRoot}
-          vizTopRoot={vizTopRoot}
-          playControlsRoot={playControlsRoot}
-        />
-      ),
+      element: <AppRoot bridge={bridge} legacyContent={legacyContent} />,
     },
   ]);
   setAppRouter(router);
-  createRoot(container).render(
-    <StrictMode>
-      <RouterProvider router={router} />
-    </StrictMode>,
-  );
+  const root = createRoot(container);
+  // Mount synchronously so <VizContainer>'s ref handoff constructs the viz
+  // controllers before any queued microtask (config loads, favorites sync)
+  // can reach code that needs them.
+  flushSync(() => {
+    root.render(
+      <StrictMode>
+        <RouterProvider router={router} />
+      </StrictMode>,
+    );
+  });
 }

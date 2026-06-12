@@ -333,24 +333,25 @@ export function updateTrackInfo(context: AppContext) {
   });
 }
 
-export function updateVizVisibility(context: AppContext) {
-  const { autocanonizer, elements, jukebox, state } = context;
-  if (state.swingPreparing) {
-    elements.vizPanel.classList.add("hidden");
-    updatePlayButton(context);
+// Restarts the CSS pulse animation on the viz-bottom bar. Kept imperative:
+// the remove/reflow/add trick cannot be expressed as rendered state.
+function pulseVizStats() {
+  if (typeof document === "undefined" || !document.getElementById) {
     return;
   }
-  if (state.audioLoaded && state.analysisLoaded) {
-    elements.vizPanel.classList.remove("hidden");
-    updatePlayButton(context);
-    if (state.playMode === "autocanonizer") {
-      autocanonizer.resizeNow();
-    } else {
-      jukebox.resizeActive();
-    }
-  } else {
-    elements.vizPanel.classList.add("hidden");
+  const vizStats = document.getElementById("viz-stats");
+  if (!vizStats) {
+    return;
   }
+  vizStats.classList.remove("pulse");
+  void vizStats.offsetWidth;
+  vizStats.classList.add("pulse");
+}
+
+export function updateVizVisibility(context: AppContext) {
+  // Panel visibility and resize-on-reveal are derived in <VizContainer>;
+  // only the play-tab pulse remains imperative.
+  updatePlayButton(context);
 }
 
 // The React volume panel renders this store value.
@@ -561,7 +562,7 @@ export function applyExtrasChanges(
   state.branchStatsEnabled =
     state.playMode === "jukebox" && values.branchStatsEnabled;
   if (!state.branchStatsEnabled) {
-    context.elements.branchStatsPopup.classList.add("hidden");
+    useAppStore.setState({ branchStats: null });
   }
   storeBranchStatsEnabled(state.branchStatsEnabled);
   const nextAudioMode = values.audioMode;
@@ -602,13 +603,13 @@ export function applyExtrasChanges(
 }
 
 export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
-  const { cowbellOverlay, elements, engine, player, state } = context;
+  const { cowbellOverlay, engine, player, state } = context;
   const previousBranchStatsEnabled = state.branchStatsEnabled;
   const previousAudioMode = state.jukeboxAudioMode;
   state.bringItHomeMode = false;
   engine.setBringItHomeMode(false);
   state.branchStatsEnabled = false;
-  elements.branchStatsPopup.classList.add("hidden");
+  useAppStore.setState({ branchStats: null });
   storeBranchStatsEnabled(false);
   cowbellOverlay.disable();
   state.swingRenderToken += 1;
@@ -845,7 +846,7 @@ function pausePlayback(context: AppContext) {
 }
 
 function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
-  const { cowbellOverlay, engine, elements, jukebox, player, state } = context;
+  const { cowbellOverlay, engine, jukebox, player, state } = context;
   if (isPlaybackBlockedForSwing(context)) {
     showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
     updatePlayButton(context);
@@ -868,11 +869,7 @@ function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
     useAppStore.setState({ beatsPlayedText: "0" });
     state.lastBeatIndex = null;
     jukebox.reset();
-    if (elements.vizStats) {
-      elements.vizStats.classList.remove("pulse");
-      void elements.vizStats.offsetWidth;
-      elements.vizStats.classList.add("pulse");
-    }
+    pulseVizStats();
   } else {
     engine.syncToPlaybackPosition();
   }
@@ -958,8 +955,7 @@ export function startAutocanonizerPlayback(
   index: number,
   options?: { resetSession?: boolean },
 ) {
-  const { autocanonizer, cowbellOverlay, engine, elements, player, state } =
-    context;
+  const { autocanonizer, cowbellOverlay, engine, player, state } = context;
   if (!autocanonizer.isReady()) {
     console.warn("Autocanonizer not ready");
     return false;
@@ -974,11 +970,7 @@ export function startAutocanonizerPlayback(
     updateListenTimeDisplay(context);
     useAppStore.setState({ beatsPlayedText: "0" });
     state.lastBeatIndex = null;
-    if (elements.vizStats) {
-      elements.vizStats.classList.remove("pulse");
-      void elements.vizStats.offsetWidth;
-      elements.vizStats.classList.add("pulse");
-    }
+    pulseVizStats();
     autocanonizer.resetVisualization();
   }
   autocanonizer.startAtIndex(index);
@@ -1008,7 +1000,6 @@ export function resetForNewTrack(
   const {
     autocanonizer,
     cowbellOverlay,
-    elements,
     engine,
     jukebox,
     player,
@@ -1041,7 +1032,7 @@ export function resetForNewTrack(
   engine.setBringItHomeMode(false);
   state.selectedEdge = null;
   jukebox.setSelectedEdge(null);
-  elements.branchStatsPopup.classList.add("hidden");
+  useAppStore.setState({ branchStats: null });
   engine.clearDeletedEdges();
   state.deletedEdgeIds = [];
   state.audioLoaded = false;
@@ -1135,8 +1126,7 @@ export function applyAnalysisResult(
     return false;
   }
   maybeUpdateDeleteEligibility(context, response, response.id);
-  const { autocanonizer, cowbellOverlay, elements, engine, jukebox, state } =
-    context;
+  const { autocanonizer, cowbellOverlay, engine, jukebox, state } = context;
   applyTuningParamsFromUrl(context);
   const useAutoThreshold = engine.getConfig().currentThreshold === 0;
   engine.loadAnalysis(response.result);
@@ -1154,7 +1144,7 @@ export function applyAnalysisResult(
   }
   state.selectedEdge = null;
   jukebox.setSelectedEdge(null);
-  elements.branchStatsPopup.classList.add("hidden");
+  useAppStore.setState({ branchStats: null });
   syncDeletedEdgeState(context);
   state.analysisLoaded = true;
   updateVizVisibility(context);

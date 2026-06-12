@@ -16,6 +16,16 @@ export type ToastState = {
   tone: "default" | "error";
 };
 
+export type BranchStatsState = {
+  title: string;
+  startText: string;
+  endText: string;
+  deltaText: string;
+  direction: string;
+  similarityText: string;
+  deleteDisabled: boolean;
+};
+
 export type TrackInfoState = {
   durationText: string;
   totalBeats: number;
@@ -65,6 +75,7 @@ type ShellSlice = {
   listenTimeText: string;
   beatsPlayedText: string;
   playlistLoadBusy: boolean;
+  branchStats: BranchStatsState | null;
 };
 
 type Actions = {
@@ -115,6 +126,7 @@ const createUiSlice: Slice<
     | "listenTimeText"
     | "beatsPlayedText"
     | "playlistLoadBusy"
+    | "branchStats"
   > &
     Actions
 > = (set) => ({
@@ -152,6 +164,7 @@ const createUiSlice: Slice<
   listenTimeText: "00:00:00",
   beatsPlayedText: "0",
   playlistLoadBusy: false,
+  branchStats: null,
   setActiveTab: (activeTabId) => set({ activeTabId }),
   setTheme: (theme) => set({ theme }),
   setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),
