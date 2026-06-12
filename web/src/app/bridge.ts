@@ -18,6 +18,27 @@ export type TopPanelBridge = {
   createSyncCode: () => Promise<string>;
 };
 
+// Actions the React Search/Upload panel delegates to the search/upload flows.
+export type SearchPanelBridge = {
+  runSearch: () => Promise<void>;
+  selectSpotify: (selection: {
+    name: string;
+    artist: string;
+    duration: number;
+  }) => void;
+  selectYoutube: (selection: {
+    youtubeId: string | null | undefined;
+    name: string;
+    artist: string;
+    duration: number;
+  }) => void;
+  uploadFile: (
+    file: File | null | undefined,
+    onAccepted?: () => void,
+  ) => Promise<void>;
+  uploadUrl: (raw: string, onAccepted?: () => void) => Promise<void>;
+};
+
 // Interim seam between bootstrap (legacy wiring) and the React shell.
 // Shrinks as panels convert; replaced by the store + plain module imports
 // once bootstrap is deleted in Phase 5.
@@ -30,4 +51,5 @@ export type AppBridge = {
   onHeroHomeClick: () => void;
   applyTheme: (theme: ThemeName) => void;
   topPanel: TopPanelBridge;
+  searchPanel: SearchPanelBridge;
 };

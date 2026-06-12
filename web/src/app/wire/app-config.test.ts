@@ -1,24 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState } from "../context";
-import type { Elements } from "../elements";
 import { configureMaxFavorites, maxFavorites } from "../favorites";
 import { useAppStore } from "../store";
 import { createAppConfigHandlers } from "./app-config";
 
-function createClassList() {
-  return {
-    toggle: vi.fn(),
-  };
-}
-
 function createHarness() {
-  const elements = {
-    searchSubtabs: { classList: createClassList() },
-    uploadFileSection: { classList: createClassList() },
-    uploadYoutubeSection: { classList: createClassList() },
-    uploadFileHint: { textContent: "" },
-    uploadFileInput: { accept: "" },
-  } as unknown as Elements;
   const state = {
     searchTab: "search",
     appConfig: null,
@@ -28,17 +14,12 @@ function createHarness() {
     hydrateFavoritesFromSync: vi.fn(),
     updateFavorites: vi.fn(),
   };
-  const tabsHandlers = {
-    setSearchTab: vi.fn(),
-  };
   const handlers = createAppConfigHandlers({
-    elements,
     state,
     favoritesHandlers:
       favoritesHandlers as unknown as Parameters<
         typeof createAppConfigHandlers
       >[0]["favoritesHandlers"],
-    tabsHandlers,
   });
   return { favoritesHandlers, handlers, state };
 }

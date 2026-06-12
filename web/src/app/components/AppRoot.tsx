@@ -8,6 +8,7 @@ import { tabFromPathname } from "../tabs";
 import { FaqPanel } from "./FaqPanel";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
+import { SearchPanel } from "./SearchPanel";
 import { TopTracksPanel } from "./TopTracksPanel";
 
 // Derives activeTab from the URL on every location change and runs the
@@ -99,6 +100,7 @@ export function AppRoot({
     <>
       <Hero bridge={bridge} />
       <TopTracksPanel bridge={bridge} />
+      <SearchPanel bridge={bridge} />
       <div ref={adoptLegacy} />
       <FaqPanel bridge={bridge} />
       <Footer />

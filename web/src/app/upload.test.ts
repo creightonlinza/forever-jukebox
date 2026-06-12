@@ -1,48 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppContext, AppState } from "../context";
-import type { Elements } from "../elements";
-import { createSearchHandlers } from "./search";
-
-function createClassList() {
-  return {
-    toggle: vi.fn(),
-  };
-}
-
-function createButton() {
-  return {
-    disabled: false,
-    classList: createClassList(),
-    setAttribute: vi.fn(),
-  } as unknown as HTMLButtonElement;
-}
+import type { AppContext, AppState } from "./context";
+import {
+  normalizeSupportedSourceUrl,
+  uploadFromUrl,
+  type UploadDeps,
+} from "./upload";
 
 function createHarness() {
-  const context = {} as AppContext;
-  const elements = {
-    searchButton: createButton(),
-    uploadFileButton: createButton(),
-    uploadYoutubeButton: createButton(),
-    uploadFileInput: { files: null, value: "" },
-    uploadYoutubeInput: { value: "" },
-  } as unknown as Elements;
   const state = {
     appConfig: { allow_user_url: true },
     tuningParams: null,
     playMode: "jukebox",
   } as unknown as AppState;
+  const context = { state } as AppContext;
   const showToast = vi.fn();
   const startUrlAnalysis = vi.fn();
   const onNormalTrackSelected = vi.fn();
   const resetForNewTrack = vi.fn();
   const updateTrackUrl = vi.fn();
   const pollAnalysisJob = vi.fn();
-  const handlers = createSearchHandlers({
+  const deps: UploadDeps = {
     context,
-    elements,
-    state,
-    searchDeps: {} as Parameters<typeof createSearchHandlers>[0]["searchDeps"],
-    runSearch: vi.fn(),
     showToast,
     uploadAudio: vi.fn(),
     startUrlAnalysis,
@@ -52,10 +30,9 @@ function createHarness() {
     updateTrackUrl,
     pollAnalysisJob,
     onNormalTrackSelected,
-  });
+  };
   return {
-    elements,
-    handlers,
+    deps,
     onNormalTrackSelected,
     pollAnalysisJob,
     showToast,
@@ -65,21 +42,31 @@ function createHarness() {
   };
 }
 
-describe("createSearchHandlers", () => {
+describe("uploadFromUrl", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
+  it("normalizes supported source URLs", () => {
+    expect(normalizeSupportedSourceUrl("abc123def45")).toBe(
+      "https://www.youtube.com/watch?v=abc123def45",
+    );
+    expect(
+      normalizeSupportedSourceUrl("https://www.youtube.com/watch?v=abc123def45"),
+    ).toBe("https://www.youtube.com/watch?v=abc123def45");
+    expect(normalizeSupportedSourceUrl("https://example.com/x")).toBeNull();
+    expect(normalizeSupportedSourceUrl("ftp://youtube.com/x")).toBeNull();
+  });
+
   it("shows source-specific SoundCloud errors from URL upload failures", async () => {
-    const { elements, handlers, showToast, startUrlAnalysis } = createHarness();
-    elements.uploadYoutubeInput.value = "https://soundcloud.com/artist/track";
+    const { deps, showToast, startUrlAnalysis } = createHarness();
     startUrlAnalysis.mockRejectedValue(
       Object.assign(new Error("Error: ERROR: Unable to download video data."), {
         code: "download_unavailable",
       }),
     );
 
-    await handlers.handleUploadYoutubeClick();
+    await uploadFromUrl(deps, "https://soundcloud.com/artist/track");
 
     expect(showToast).toHaveBeenCalledWith(
       expect.anything(),
@@ -89,8 +76,7 @@ describe("createSearchHandlers", () => {
   });
 
   it("shows source-specific Bandcamp errors from failed URL responses", async () => {
-    const { elements, handlers, showToast, startUrlAnalysis } = createHarness();
-    elements.uploadYoutubeInput.value = "https://artist.bandcamp.com/track/song";
+    const { deps, showToast, startUrlAnalysis } = createHarness();
     startUrlAnalysis.mockResolvedValue({
       id: "job-bandcamp",
       status: "failed",
@@ -99,7 +85,7 @@ describe("createSearchHandlers", () => {
       error_code: "download_unavailable",
     });
 
-    await handlers.handleUploadYoutubeClick();
+    await uploadFromUrl(deps, "https://artist.bandcamp.com/track/song");
 
     expect(showToast).toHaveBeenCalledWith(
       expect.anything(),
@@ -110,8 +96,7 @@ describe("createSearchHandlers", () => {
 
   it("uses job id as the listen id for successful YouTube URL uploads", async () => {
     const {
-      elements,
-      handlers,
+      deps,
       onNormalTrackSelected,
       pollAnalysisJob,
       startUrlAnalysis,
@@ -119,19 +104,24 @@ describe("createSearchHandlers", () => {
       updateTrackUrl,
     } = createHarness();
     const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
-    elements.uploadYoutubeInput.value = "https://www.youtube.com/watch?v=abc123def45";
     startUrlAnalysis.mockResolvedValue({
       id: jobId,
       status: "downloading",
       source_provider: "youtube",
     });
+    const onAccepted = vi.fn();
 
-    await handlers.handleUploadYoutubeClick();
+    await uploadFromUrl(
+      deps,
+      "https://www.youtube.com/watch?v=abc123def45",
+      onAccepted,
+    );
 
     expect(state.lastTrackId).toBe(jobId);
     expect(state.pendingAutoFavoriteId).toBe(jobId);
     expect(updateTrackUrl).toHaveBeenCalledWith(jobId, true, null, "jukebox");
     expect(pollAnalysisJob).toHaveBeenCalledWith(jobId);
+    expect(onAccepted).toHaveBeenCalled();
     expect(onNormalTrackSelected).toHaveBeenCalledWith(
       expect.objectContaining({
         id: jobId,

@@ -60,14 +60,13 @@ import {
   updateTrackInfo,
   updateVizVisibility,
 } from "./playback";
-import { runSearch } from "./search";
+import { runSearch, selectSpotifyMatch, selectYoutubeMatch } from "./search";
+import { uploadAudioFile, uploadFromUrl, type UploadDeps } from "./upload";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
 import type { AppContext, AppState, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers } from "./wire/favorites";
 import { createNavigationHandlers } from "./wire/navigation";
-import { createTabsHandlers } from "./wire/tabs";
-import { createSearchHandlers } from "./wire/search";
 import { createTuningHandlers } from "./wire/tuning";
 import { createFullscreenHandlers } from "./wire/fullscreen";
 import { createPlaybackUiHandlers } from "./wire/playback";
@@ -277,22 +276,12 @@ export function bootstrap(): AppBridge {
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
     togglePlayback,
   });
-  const tabsHandlers = createTabsHandlers({
-    elements,
-    state,
-  });
   const appConfigHandlers = createAppConfigHandlers({
-    elements,
     state,
     favoritesHandlers,
-    tabsHandlers,
   });
-  const searchHandlers = createSearchHandlers({
+  const uploadDeps: UploadDeps = {
     context,
-    elements,
-    state,
-    searchDeps,
-    runSearch,
     showToast,
     uploadAudio,
     startUrlAnalysis,
@@ -303,7 +292,7 @@ export function bootstrap(): AppBridge {
     pollAnalysisJob: (jobId: string) =>
       pollAnalysis(context, playbackDeps, jobId),
     onNormalTrackSelected: handleNormalTrackSelected,
-  });
+  };
   const tuningHandlers = createTuningHandlers({
     context,
     elements,
@@ -379,8 +368,6 @@ export function bootstrap(): AppBridge {
     elements,
     jukebox,
     favoritesHandlers,
-    tabsHandlers,
-    searchHandlers,
     tuningHandlers,
     playbackHandlers,
     fullscreenHandlers,
@@ -403,7 +390,7 @@ export function bootstrap(): AppBridge {
       useAppStore.setState({ topSongsTab: "top" });
     }
     if (tabId === "search") {
-      tabsHandlers.setSearchTab("search");
+      useAppStore.setState({ searchTab: "search" });
     }
     navigationHandlers.navigateToTabWithState(tabId);
   };
@@ -427,6 +414,22 @@ export function bootstrap(): AppBridge {
     createSyncCode: favoritesHandlers.createSyncCode,
   };
 
+  const searchPanel = {
+    runSearch: () => runSearch(context, searchDeps),
+    selectSpotify: (selection: { name: string; artist: string; duration: number }) =>
+      selectSpotifyMatch(context, searchDeps, selection),
+    selectYoutube: (selection: {
+      youtubeId: string | null | undefined;
+      name: string;
+      artist: string;
+      duration: number;
+    }) => selectYoutubeMatch(context, searchDeps, selection),
+    uploadFile: (file: File | null | undefined, onAccepted?: () => void) =>
+      uploadAudioFile(uploadDeps, file, onAccepted),
+    uploadUrl: (raw: string, onAccepted?: () => void) =>
+      uploadFromUrl(uploadDeps, raw, onAccepted),
+  };
+
   return {
     context,
     handleRoute,
@@ -438,5 +441,6 @@ export function bootstrap(): AppBridge {
       applyTheme(context, theme);
     },
     topPanel,
+    searchPanel,
   };
 }

@@ -1,8 +1,6 @@
 import type { Elements } from "../elements";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
 import type { FavoritesHandlers } from "./favorites";
-import type { TabsHandlers } from "./tabs";
-import type { SearchHandlers } from "./search";
 import type { TuningHandlers } from "./tuning";
 import type { PlaybackUiHandlers } from "./playback";
 import type { FullscreenHandlers } from "./fullscreen";
@@ -13,8 +11,6 @@ type UiBindingsDeps = {
   elements: Elements;
   jukebox: JukeboxController;
   favoritesHandlers: FavoritesHandlers;
-  tabsHandlers: TabsHandlers;
-  searchHandlers: SearchHandlers;
   tuningHandlers: TuningHandlers;
   playbackHandlers: PlaybackUiHandlers;
   fullscreenHandlers: FullscreenHandlers;
@@ -27,8 +23,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     elements,
     jukebox,
     favoritesHandlers,
-    tabsHandlers,
-    searchHandlers,
     tuningHandlers,
     playbackHandlers,
     fullscreenHandlers,
@@ -36,22 +30,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     playlistHandlers,
   } = deps;
 
-  elements.searchButton.addEventListener("click", searchHandlers.handleSearchClick);
-  elements.searchInput.addEventListener(
-    "keydown",
-    searchHandlers.handleSearchKeydown,
-  );
-  elements.searchSubtabButtons.forEach((button) => {
-    button.addEventListener("click", tabsHandlers.handleSearchSubtabClick);
-  });
-  elements.uploadFileButton.addEventListener(
-    "click",
-    searchHandlers.handleUploadFileClick,
-  );
-  elements.uploadYoutubeForm.addEventListener(
-    "submit",
-    searchHandlers.handleUploadYoutubeSubmit,
-  );
   elements.thresholdInput.addEventListener(
     "input",
     tuningHandlers.handleThresholdInput,

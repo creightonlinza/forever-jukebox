@@ -1,4 +1,5 @@
 import { create, type StateCreator } from "zustand";
+import type { SpotifySearchItem, YoutubeSearchItem } from "./api";
 import type { AppState, SleepTimerState, TabId } from "./context";
 import type { ThemeName } from "./themeConfig";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
@@ -9,11 +10,28 @@ export type FooterCredit = {
   hostedByUrl: string | null;
 };
 
-// Shell-only UI state that has no AppState counterpart.
+export type SearchResultsState =
+  | { kind: "message"; text: string }
+  | { kind: "spotify"; items: SpotifySearchItem[] }
+  | {
+      kind: "youtube";
+      items: Array<{ item: YoutubeSearchItem; name: string; artist: string }>;
+    };
+
+export const DEFAULT_SEARCH_HINT = "Step 1: Find a Spotify track.";
+export const DEFAULT_SEARCH_RESULTS: SearchResultsState = {
+  kind: "message",
+  text: "Search results will appear here.",
+};
+
+// Shell/panel UI state that has no AppState counterpart.
 type ShellSlice = {
   theme: ThemeName;
   isPlayTabPulsing: boolean;
   footerCredit: FooterCredit | null;
+  searchQuery: string;
+  searchHint: string;
+  searchResults: SearchResultsState;
 };
 
 type Actions = {
@@ -44,6 +62,9 @@ const createUiSlice: Slice<
     | "theme"
     | "isPlayTabPulsing"
     | "footerCredit"
+    | "searchQuery"
+    | "searchHint"
+    | "searchResults"
   > &
     Actions
 > = (set) => ({
@@ -56,6 +77,9 @@ const createUiSlice: Slice<
   theme: "dark",
   isPlayTabPulsing: false,
   footerCredit: null,
+  searchQuery: "",
+  searchHint: DEFAULT_SEARCH_HINT,
+  searchResults: DEFAULT_SEARCH_RESULTS,
   setActiveTab: (activeTabId) => set({ activeTabId }),
   setTheme: (theme) => set({ theme }),
   setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),

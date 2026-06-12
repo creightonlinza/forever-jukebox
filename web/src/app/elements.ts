@@ -1,4 +1,4 @@
-import { requireElement, requireNonEmpty } from "./dom";
+import { requireElement } from "./dom";
 
 export type Elements = ReturnType<typeof getElements>;
 
@@ -373,74 +373,6 @@ export function getElements() {
     document.querySelector<HTMLInputElement>("#audio-mode-swing"),
     "#audio-mode-swing"
   );
-  const searchInput = requireElement(
-    document.querySelector<HTMLInputElement>("#search-input"),
-    "#search-input"
-  );
-  const searchButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#search-button"),
-    "#search-button"
-  );
-  const searchSubtabs = requireElement(
-    document.querySelector<HTMLDivElement>("#search-subtabs"),
-    "#search-subtabs"
-  );
-  const searchSubtabButtons = requireNonEmpty(
-    Array.from(document.querySelectorAll<HTMLButtonElement>("[data-search-subtab]")),
-    "[data-search-subtab]"
-  );
-  const searchPanelTitle = requireElement(
-    document.querySelector<HTMLDivElement>("#search-panel-title"),
-    "#search-panel-title"
-  );
-  const searchPanel = requireElement(
-    document.querySelector<HTMLDivElement>("#search-panel"),
-    "#search-panel"
-  );
-  const uploadPanel = requireElement(
-    document.querySelector<HTMLDivElement>("#upload-panel"),
-    "#upload-panel"
-  );
-  const uploadFileSection = requireElement(
-    document.querySelector<HTMLDivElement>("#upload-file-section"),
-    "#upload-file-section"
-  );
-  const uploadFileHint = requireElement(
-    document.querySelector<HTMLDivElement>("#upload-file-hint"),
-    "#upload-file-hint"
-  );
-  const uploadFileInput = requireElement(
-    document.querySelector<HTMLInputElement>("#upload-file-input"),
-    "#upload-file-input"
-  );
-  const uploadFileButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#upload-file-button"),
-    "#upload-file-button"
-  );
-  const uploadYoutubeSection = requireElement(
-    document.querySelector<HTMLDivElement>("#upload-youtube-section"),
-    "#upload-youtube-section"
-  );
-  const uploadYoutubeForm = requireElement(
-    document.querySelector<HTMLFormElement>("#upload-youtube-form"),
-    "#upload-youtube-form"
-  );
-  const uploadYoutubeInput = requireElement(
-    document.querySelector<HTMLInputElement>("#upload-youtube-input"),
-    "#upload-youtube-input"
-  );
-  const uploadYoutubeButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#upload-youtube-button"),
-    "#upload-youtube-button"
-  );
-  const searchResults = requireElement(
-    document.querySelector<HTMLDivElement>("#search-results"),
-    "#search-results"
-  );
-  const searchHint = requireElement(
-    document.querySelector<HTMLDivElement>("#search-hint"),
-    "#search-hint"
-  );
   const toast = requireElement(
     document.querySelector<HTMLDivElement>("#toast"),
     "#toast"
@@ -580,23 +512,6 @@ export function getElements() {
     audioModeCathedralInput,
     audioModeCowbellInput,
     audioModeSwingInput,
-    searchInput,
-    searchButton,
-    searchSubtabs,
-    searchSubtabButtons,
-    searchPanelTitle,
-    searchPanel,
-    uploadPanel,
-    uploadFileSection,
-    uploadFileHint,
-    uploadFileInput,
-    uploadFileButton,
-    uploadYoutubeSection,
-    uploadYoutubeForm,
-    uploadYoutubeInput,
-    uploadYoutubeButton,
-    searchResults,
-    searchHint,
     toast,
     branchStatsPopup,
     branchStatsTitleEl,
