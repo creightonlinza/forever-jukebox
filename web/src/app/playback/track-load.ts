@@ -163,14 +163,14 @@ export function resetForNewTrack(
   state.lastSourceId = null;
   state.lastSourceProvider = null;
   state.lastPlayCountedJobId = null;
-  updateVizVisibility(context);
+  updateVizVisibility();
   state.playTimerMs = 0;
   state.lastPlayStamp = null;
   state.lastBeatIndex = null;
-  updateListenTimeDisplay(context);
+  updateListenTimeDisplay();
   useAppStore.setState({ beatsPlayedText: "0" });
-  closeTuning(context);
-  closeInfo(context);
+  closeTuning();
+  closeInfo();
   if (state.isRunning || state.isPaused) {
     stopPlayback(context);
   }
@@ -221,7 +221,7 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     autocanonizer.setAudio(player.getBuffer(), player.getContext());
     state.audioLoaded = true;
     state.audioLoadInFlight = false;
-    updateVizVisibility(context);
+    updateVizVisibility();
     updateTrackInfo(context);
     maybePrepareSwingMode(context);
     const cacheId = state.lastTrackId ?? state.lastJobId;
@@ -267,7 +267,7 @@ export function applyAnalysisResult(
   useAppStore.setState({ branchStats: null });
   syncDeletedEdgeState(context);
   state.analysisLoaded = true;
-  updateVizVisibility(context);
+  updateVizVisibility();
   maybePrepareSwingMode(context);
   const resultTrack = response.result.track ?? null;
   const track = resultTrack ?? response.track;
@@ -777,7 +777,7 @@ export async function tryLoadCachedAudio(
     autocanonizer.setAudio(player.getBuffer(), player.getContext());
     state.audioLoaded = true;
     state.audioLoadInFlight = false;
-    updateVizVisibility(context);
+    updateVizVisibility();
     updateTrackInfo(context);
     maybePrepareSwingMode(context);
     return true;

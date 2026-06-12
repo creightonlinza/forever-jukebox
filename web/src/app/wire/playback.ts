@@ -46,7 +46,7 @@ type PlaybackUiDeps = {
     tuningParams?: string | null,
     playMode?: "jukebox" | "autocanonizer",
   ) => void;
-  updateVizVisibility: (context: AppContext) => void;
+  updateVizVisibility: () => void;
   openExtras: (context: AppContext) => void;
   getTuningParamsFromEngine: (context: AppContext) => URLSearchParams;
   writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
@@ -503,7 +503,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
         );
       }
     }
-    updateVizVisibility(context);
+    updateVizVisibility();
   }
 
   return {
@@ -518,6 +518,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     setCanonizerFinish,
     applyModeFromUrl,
     setPlayMode,
-    updateVizVisibility: () => updateVizVisibility(context),
+    updateVizVisibility: () => updateVizVisibility(),
   };
 }

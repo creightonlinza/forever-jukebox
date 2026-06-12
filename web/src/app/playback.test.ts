@@ -856,7 +856,7 @@ describe("playback timers", () => {
     context.state.playTimerMs = 1000;
     context.state.lastPlayStamp = 0;
     vi.spyOn(performance, "now").mockReturnValue(1000);
-    updateListenTimeDisplay(context);
+    updateListenTimeDisplay();
     expect(useAppStore.getState().listenTimeText).toBe("00:00:02");
   });
 
@@ -1022,7 +1022,7 @@ describe("playback controls", () => {
     context.state.jukeboxAudioMode = "swing";
     context.state.swingPreparing = true;
 
-    updateVizVisibility(context);
+    updateVizVisibility();
   });
 
   it("blocks beat-start playback while swing mode is preparing", () => {

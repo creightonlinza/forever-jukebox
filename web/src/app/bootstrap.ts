@@ -210,7 +210,7 @@ export function bootstrap(): AppBridge {
       ),
     loadAudioFromJob: (jobId: string) => loadAudioFromJob(context, jobId),
     resetForNewTrack: (options) => resetForNewTrack(context, options),
-    updateVizVisibility: () => updateVizVisibility(context),
+    updateVizVisibility: () => updateVizVisibility(),
 
     onNormalTrackSelected: handleNormalTrackSelected,
   };
@@ -297,7 +297,6 @@ export function bootstrap(): AppBridge {
         playlistHandlers?.advanceAutocanonizerOnEnded() ?? Promise.resolve(false),
     });
     fullscreenHandlers = createFullscreenHandlers({
-      context,
       jukebox,
       getVizPanel: () => nodes.vizPanel,
       requestWakeLock,

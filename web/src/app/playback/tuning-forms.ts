@@ -154,7 +154,7 @@ export function applyExtrasChanges(
     ) {
       engine.syncToPlaybackPosition();
     }
-    updatePlayButton(context);
+    updatePlayButton();
   }
   syncTuningParamsState(context);
   writeTuningParamsToUrl(state.tuningParams, true);
@@ -179,7 +179,7 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   state.swingPreparing = false;
   state.jukeboxAudioMode = "off";
   player.setJukeboxAudioMode("off");
-  updatePlayButton(context);
+  updatePlayButton();
   if (
     previousAudioMode !== "off" &&
     state.playMode === "jukebox" &&
@@ -292,7 +292,7 @@ export function applyTuningChanges(
   }
   syncTuningParamsState(context);
   writeTuningParamsToUrl(state.tuningParams, true);
-  closeTuning(context);
+  closeTuning();
   return {
     ...form,
     threshold: nextThreshold,

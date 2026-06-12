@@ -4,35 +4,33 @@ import { useAppStore } from "../store";
 
 export type TuningModalTab = "tuning" | "extras";
 
-export function updateListenTimeDisplay(context: AppContext) {
-  const { state } = context;
+export function updateListenTimeDisplay() {
+  const { playTimerMs, lastPlayStamp } = useAppStore.getState();
   const now = performance.now();
-  const totalMs =
-    state.playTimerMs +
-    (state.lastPlayStamp !== null ? now - state.lastPlayStamp : 0);
+  const totalMs = playTimerMs + (lastPlayStamp !== null ? now - lastPlayStamp : 0);
   useAppStore.setState({ listenTimeText: formatDuration(totalMs / 1000) });
 }
 
 export function updateTrackInfo(context: AppContext) {
-  const { engine, player, state } = context;
+  const { engine, player } = context;
+  const { trackDurationSec, vizData, deletedEdgeIds } = useAppStore.getState();
   const graph = engine.getGraphState();
   const resolvedDuration =
-    typeof state.trackDurationSec === "number" &&
-    Number.isFinite(state.trackDurationSec)
-      ? state.trackDurationSec
+    typeof trackDurationSec === "number" && Number.isFinite(trackDurationSec)
+      ? trackDurationSec
       : player.getDuration();
   const durationText =
     typeof resolvedDuration === "number" && Number.isFinite(resolvedDuration)
       ? formatDuration(resolvedDuration)
       : "00:00:00";
-  const branchCount = state.vizData
-    ? state.vizData.edges.length
+  const branchCount = vizData
+    ? vizData.edges.length
     : graph
       ? graph.allEdges.filter((edge) => !edge.deleted).length
       : 0;
   const deletedCount = graph
     ? graph.allEdges.filter((edge) => edge.deleted).length
-    : state.deletedEdgeIds.length;
+    : deletedEdgeIds.length;
   // The React info modal renders this store state.
   useAppStore.setState({
     trackInfo: {
@@ -43,9 +41,6 @@ export function updateTrackInfo(context: AppContext) {
     },
   });
 }
-
-// Restarts the CSS pulse animation on the viz-bottom bar. Kept imperative:
-// the remove/reflow/add trick cannot be expressed as rendered state.
 
 // Restarts the CSS pulse animation on the viz-bottom bar. Kept imperative:
 // the remove/reflow/add trick cannot be expressed as rendered state.
@@ -64,19 +59,16 @@ export function pulseVizStats() {
 
 // The React transport buttons derive icon/label/disabled from the store;
 // only the play-tab pulse needs an explicit write here.
-export function updatePlayButton(context: AppContext) {
-  const { state } = context;
-  const shouldPulse = state.isRunning && state.activeTabId !== "play";
-  useAppStore.getState().setPlayTabPulsing(shouldPulse);
+export function updatePlayButton() {
+  const { isRunning, activeTabId, setPlayTabPulsing } = useAppStore.getState();
+  setPlayTabPulsing(isRunning && activeTabId !== "play");
 }
 
-export function updateVizVisibility(context: AppContext) {
+export function updateVizVisibility() {
   // Panel visibility and resize-on-reveal are derived in <VizContainer>;
   // only the play-tab pulse remains imperative.
-  updatePlayButton(context);
+  updatePlayButton();
 }
-
-// The React volume panel renders this store value.
 
 // The React volume panel renders this store value.
 export function syncVolumeUI(context: AppContext) {
@@ -86,7 +78,7 @@ export function syncVolumeUI(context: AppContext) {
 
 function openTuningTab(context: AppContext, tab: "tuning" | "extras") {
   syncVolumeUI(context);
-  const hasExtrasTab = context.state.playMode === "jukebox";
+  const hasExtrasTab = useAppStore.getState().playMode === "jukebox";
   useAppStore.setState({
     tuningModalOpen: true,
     tuningModalTab: tab === "extras" && hasExtrasTab ? "extras" : "tuning",
@@ -101,8 +93,7 @@ export function openExtras(context: AppContext) {
   openTuningTab(context, "extras");
 }
 
-export function closeTuning(context: AppContext) {
-  void context;
+export function closeTuning() {
   useAppStore.setState({ tuningModalOpen: false });
 }
 
@@ -111,7 +102,6 @@ export function openInfo(context: AppContext) {
   useAppStore.setState({ infoModalOpen: true });
 }
 
-export function closeInfo(context: AppContext) {
-  void context;
+export function closeInfo() {
   useAppStore.setState({ infoModalOpen: false });
 }

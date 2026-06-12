@@ -24,7 +24,7 @@ export function startListenTimer(context: AppContext) {
     return;
   }
   state.listenTimerId = window.setInterval(() => {
-    updateListenTimeDisplay(context);
+    updateListenTimeDisplay();
   }, LISTEN_TIMER_INTERVAL_MS);
 }
 
@@ -68,8 +68,8 @@ export function stopPlayback(context: AppContext) {
     engine.setBringItHomeMode(false);
   }
   stopListenTimer(context);
-  updateListenTimeDisplay(context);
-  updatePlayButton(context);
+  updateListenTimeDisplay();
+  updatePlayButton();
 }
 
 export function pausePlayback(context: AppContext) {
@@ -94,15 +94,15 @@ export function pausePlayback(context: AppContext) {
   state.shiftBranching = false;
   engine.setForceBranch(false);
   stopListenTimer(context);
-  updateListenTimeDisplay(context);
-  updatePlayButton(context);
+  updateListenTimeDisplay();
+  updatePlayButton();
 }
 
 export function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
   const { cowbellOverlay, engine, jukebox, player, state } = context;
   if (isPlaybackBlockedForSwing(context)) {
     showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
-    updatePlayButton(context);
+    updatePlayButton();
     return;
   }
   if (player.getDuration() === null) {
@@ -118,7 +118,7 @@ export function startJukeboxPlayback(context: AppContext, resetSession: boolean)
     engine.resetStats();
     state.playTimerMs = 0;
     state.lastPlayStamp = null;
-    updateListenTimeDisplay(context);
+    updateListenTimeDisplay();
     useAppStore.setState({ beatsPlayedText: "0" });
     state.lastBeatIndex = null;
     jukebox.reset();
@@ -132,9 +132,9 @@ export function startJukeboxPlayback(context: AppContext, resetSession: boolean)
   state.isRunning = true;
   state.isPaused = false;
   startListenTimer(context);
-  updatePlayButton(context);
+  updatePlayButton();
   if (document.fullscreenElement) {
-    requestWakeLock(context);
+    requestWakeLock();
   }
 }
 
@@ -169,7 +169,7 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
   }
   if (isPlaybackBlockedForSwing(context)) {
     showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
-    updatePlayButton(context);
+    updatePlayButton();
     return;
   }
   if (player.getDuration() === null) {
@@ -192,9 +192,9 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
     state.isRunning = true;
     state.isPaused = false;
     startListenTimer(context);
-    updatePlayButton(context);
+    updatePlayButton();
     if (document.fullscreenElement) {
-      requestWakeLock(context);
+      requestWakeLock();
     }
     return;
   }
@@ -220,7 +220,7 @@ export function startAutocanonizerPlayback(
   if (resetSession) {
     state.playTimerMs = 0;
     state.lastPlayStamp = null;
-    updateListenTimeDisplay(context);
+    updateListenTimeDisplay();
     useAppStore.setState({ beatsPlayedText: "0" });
     state.lastBeatIndex = null;
     pulseVizStats();
@@ -231,9 +231,9 @@ export function startAutocanonizerPlayback(
   state.isRunning = true;
   state.isPaused = false;
   startListenTimer(context);
-  updatePlayButton(context);
+  updatePlayButton();
   if (document.fullscreenElement) {
-    requestWakeLock(context);
+    requestWakeLock();
   }
   return true;
 }

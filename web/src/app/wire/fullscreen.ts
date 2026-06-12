@@ -1,26 +1,24 @@
-import type { AppContext } from "../context";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
 import { useAppStore } from "../store";
 
 type FullscreenDeps = {
-  context: AppContext;
   jukebox: JukeboxController;
   getVizPanel: () => HTMLElement;
-  requestWakeLock: (context: AppContext) => void;
-  releaseWakeLock: (context: AppContext) => void;
+  requestWakeLock: () => void;
+  releaseWakeLock: () => void;
 };
 
 export type FullscreenHandlers = ReturnType<typeof createFullscreenHandlers>;
 
 export function createFullscreenHandlers(deps: FullscreenDeps) {
-  const { context, jukebox, getVizPanel, requestWakeLock, releaseWakeLock } = deps;
+  const { jukebox, getVizPanel, requestWakeLock, releaseWakeLock } = deps;
 
   function handleFullscreenToggle() {
     if (!document.fullscreenElement) {
       getVizPanel()
         .requestFullscreen()
         .then(() => {
-          requestWakeLock(context);
+          requestWakeLock();
         })
         .catch(() => {
           console.warn("Failed to enter fullscreen");
@@ -29,7 +27,7 @@ export function createFullscreenHandlers(deps: FullscreenDeps) {
       document
         .exitFullscreen()
         .then(() => {
-          releaseWakeLock(context);
+          releaseWakeLock();
         })
         .catch(() => {
           console.warn("Failed to exit fullscreen");
@@ -40,10 +38,10 @@ export function createFullscreenHandlers(deps: FullscreenDeps) {
   function handleFullscreenChange() {
     if (document.fullscreenElement) {
       updateFullscreenButton(true);
-      requestWakeLock(context);
+      requestWakeLock();
     } else {
       updateFullscreenButton(false);
-      releaseWakeLock(context);
+      releaseWakeLock();
     }
     jukebox.resizeActive();
   }
@@ -55,9 +53,9 @@ export function createFullscreenHandlers(deps: FullscreenDeps) {
 
   function handleVisibilityChange() {
     if (!document.hidden && document.fullscreenElement) {
-      requestWakeLock(context);
+      requestWakeLock();
     } else if (document.hidden) {
-      releaseWakeLock(context);
+      releaseWakeLock();
     }
   }
 

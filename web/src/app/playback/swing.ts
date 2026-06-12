@@ -44,8 +44,8 @@ export function prepareSwingMode(context: AppContext) {
     analysisSpinning: true,
     analysisProgressText: "0%",
   });
-  updateVizVisibility(context);
-  updatePlayButton(context);
+  updateVizVisibility();
+  updatePlayButton();
 
   const sourceIdentity = getCurrentSwingSourceIdentity(context);
   void getOrCreateSwingBuffer(sourceBuffer, sourceIdentity, () =>
@@ -77,11 +77,11 @@ export function prepareSwingMode(context: AppContext) {
         analysisSpinning: false,
         analysisProgressText: "",
       });
-      updateVizVisibility(context);
+      updateVizVisibility();
       if (context.state.isRunning || context.state.isPaused) {
         context.engine.syncToPlaybackPosition();
       }
-      updatePlayButton(context);
+      updatePlayButton();
       if (
         resumeAfterPrepare &&
         context.state.playMode === "jukebox" &&
@@ -104,10 +104,10 @@ export function prepareSwingMode(context: AppContext) {
         analysisSpinning: false,
         analysisProgressText: "",
       });
-      updateVizVisibility(context);
+      updateVizVisibility();
       syncTuningParamsState(context);
       writeTuningParamsToUrl(context.state.tuningParams, true);
-      updatePlayButton(context);
+      updatePlayButton();
       showToast(context, "Swing mode failed. Using Normal mode.", {
         icon: "error",
         tone: "error",

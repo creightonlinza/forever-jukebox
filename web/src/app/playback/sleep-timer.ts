@@ -1,4 +1,5 @@
 import type { AppContext } from "../context";
+import { useAppStore } from "../store";
 import {
   backgroundClearTimeout,
   backgroundSetTimeout,
@@ -44,29 +45,31 @@ function publishSleepTimerState(context: AppContext) {
   sleepTimerListeners.get(context)?.forEach((listener) => listener());
 }
 
-function clearSleepTimerTimeout(context: AppContext) {
-  const { state } = context;
-  if (state.sleepTimerTimeoutId === null) {
+function clearSleepTimerTimeout() {
+  const { sleepTimerTimeoutId } = useAppStore.getState();
+  if (sleepTimerTimeoutId === null) {
     return;
   }
-  backgroundClearTimeout(state.sleepTimerTimeoutId);
-  state.sleepTimerTimeoutId = null;
+  backgroundClearTimeout(sleepTimerTimeoutId);
+  useAppStore.setState({ sleepTimerTimeoutId: null });
 }
 
 function publishInactiveSleepTimer(context: AppContext) {
-  context.state.sleepTimer = {
-    configuredDurationMs: null,
-    endTimeMs: null,
-    remainingMs: 0,
-  };
+  useAppStore.setState({
+    sleepTimer: {
+      configuredDurationMs: null,
+      endTimeMs: null,
+      remainingMs: 0,
+    },
+  });
   publishSleepTimerState(context);
 }
 
 function expireSleepTimer(context: AppContext, expectedEndTimeMs: number) {
-  if (context.state.sleepTimer.endTimeMs !== expectedEndTimeMs) {
+  if (useAppStore.getState().sleepTimer.endTimeMs !== expectedEndTimeMs) {
     return;
   }
-  clearSleepTimerTimeout(context);
+  clearSleepTimerTimeout();
   publishInactiveSleepTimer(context);
   stopPlayback(context);
   if (document.fullscreenElement && document.exitFullscreen) {
@@ -77,19 +80,21 @@ function expireSleepTimer(context: AppContext, expectedEndTimeMs: number) {
 }
 
 function scheduleSleepTimerTick(context: AppContext, expectedEndTimeMs: number) {
-  clearSleepTimerTimeout(context);
+  clearSleepTimerTimeout();
   const remainingMs = Math.max(0, expectedEndTimeMs - performance.now());
   const nextDelayMs = remainingMs > 1000 ? 1000 : remainingMs;
-  context.state.sleepTimerTimeoutId = backgroundSetTimeout(() => {
-    if (context.state.sleepTimer.endTimeMs !== expectedEndTimeMs) {
+  const timeoutId = backgroundSetTimeout(() => {
+    if (useAppStore.getState().sleepTimer.endTimeMs !== expectedEndTimeMs) {
       return;
     }
     const nextRemainingMs = Math.max(0, expectedEndTimeMs - performance.now());
-    context.state.sleepTimer = {
-      configuredDurationMs: context.state.sleepTimer.configuredDurationMs,
-      endTimeMs: expectedEndTimeMs,
-      remainingMs: nextRemainingMs,
-    };
+    useAppStore.setState({
+      sleepTimer: {
+        configuredDurationMs: useAppStore.getState().sleepTimer.configuredDurationMs,
+        endTimeMs: expectedEndTimeMs,
+        remainingMs: nextRemainingMs,
+      },
+    });
     publishSleepTimerState(context);
     if (nextRemainingMs <= 0) {
       expireSleepTimer(context, expectedEndTimeMs);
@@ -97,13 +102,14 @@ function scheduleSleepTimerTick(context: AppContext, expectedEndTimeMs: number) 
     }
     scheduleSleepTimerTick(context, expectedEndTimeMs);
   }, nextDelayMs);
+  useAppStore.setState({ sleepTimerTimeoutId: timeoutId });
 }
 
 export function setSleepTimer(
   context: AppContext,
   durationMs: number | null,
 ) {
-  clearSleepTimerTimeout(context);
+  clearSleepTimerTimeout();
   if (
     durationMs === null ||
     !Number.isFinite(durationMs) ||
@@ -113,11 +119,13 @@ export function setSleepTimer(
     return;
   }
   const endTimeMs = performance.now() + durationMs;
-  context.state.sleepTimer = {
-    configuredDurationMs: durationMs,
-    endTimeMs,
-    remainingMs: durationMs,
-  };
+  useAppStore.setState({
+    sleepTimer: {
+      configuredDurationMs: durationMs,
+      endTimeMs,
+      remainingMs: durationMs,
+    },
+  });
   publishSleepTimerState(context);
   scheduleSleepTimerTick(context, endTimeMs);
 }

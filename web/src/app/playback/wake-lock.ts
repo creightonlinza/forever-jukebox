@@ -1,19 +1,19 @@
-import type { AppContext } from "../context";
+import { useAppStore } from "../store";
 
-export function requestWakeLock(context: AppContext) {
+export function requestWakeLock() {
   if (!("wakeLock" in navigator)) {
     return;
   }
-  if (context.state.wakeLock || !document.fullscreenElement) {
+  if (useAppStore.getState().wakeLock || !document.fullscreenElement) {
     return;
   }
   navigator.wakeLock
     .request("screen")
     .then((lock) => {
-      context.state.wakeLock = lock;
+      useAppStore.setState({ wakeLock: lock });
       function onRelease() {
-        if (context.state.wakeLock === lock) {
-          handleWakeLockRelease(context);
+        if (useAppStore.getState().wakeLock === lock) {
+          handleWakeLockRelease();
         }
       }
       lock.addEventListener("release", onRelease);
@@ -23,16 +23,16 @@ export function requestWakeLock(context: AppContext) {
     });
 }
 
-function handleWakeLockRelease(context: AppContext) {
-  context.state.wakeLock = null;
+function handleWakeLockRelease() {
+  useAppStore.setState({ wakeLock: null });
 }
 
-export function releaseWakeLock(context: AppContext) {
-  const lock = context.state.wakeLock;
+export function releaseWakeLock() {
+  const lock = useAppStore.getState().wakeLock;
   if (!lock) {
     return;
   }
-  context.state.wakeLock = null;
+  useAppStore.setState({ wakeLock: null });
   lock.release().catch(() => {
     console.warn("Failed to release wake lock");
   });
