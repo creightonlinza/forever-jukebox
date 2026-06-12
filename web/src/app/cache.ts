@@ -3,6 +3,8 @@ const trackCacheStore = "tracks";
 const appConfigStore = "app-config";
 
 export type CachedTrack = {
+  trackId: string;
+  // Legacy IndexedDB keyPath. Keep writing this until the object store is migrated.
   youtubeId: string;
   audio?: ArrayBuffer;
   jobId?: string;
@@ -45,7 +47,21 @@ export async function readCachedTrack(
     const store = tx.objectStore(trackCacheStore);
     const request = store.get(trackId);
     request.onsuccess = () => {
-      resolve((request.result as CachedTrack | undefined) ?? null);
+      const result = request.result as
+        | (Partial<CachedTrack> & { youtubeId?: string })
+        | undefined;
+      if (!result) {
+        resolve(null);
+        return;
+      }
+      const normalizedTrackId = result.trackId ?? result.youtubeId ?? trackId;
+      resolve({
+        trackId: normalizedTrackId,
+        youtubeId: result.youtubeId ?? normalizedTrackId,
+        audio: result.audio,
+        jobId: result.jobId,
+        updatedAt: result.updatedAt ?? 0,
+      });
     };
     request.onerror = () =>
       reject(request.error ?? new Error("IndexedDB read failed"));
@@ -58,6 +74,7 @@ export async function updateCachedTrack(
 ) {
   const existing = await readCachedTrack(trackId);
   const next: CachedTrack = {
+    trackId,
     youtubeId: trackId,
     audio: existing?.audio,
     jobId: existing?.jobId,

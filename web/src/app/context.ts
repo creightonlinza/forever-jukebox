@@ -37,6 +37,7 @@ export type AppState = {
   autoComputedThreshold: number | null;
   lastJobId: string | null;
   lastTrackId: string | null;
+  lastSourceId: string | null;
   lastSourceProvider: string | null;
   pendingAutoFavoriteId: string | null;
   lastPlayCountedJobId: string | null;

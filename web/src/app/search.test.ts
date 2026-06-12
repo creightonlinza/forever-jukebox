@@ -132,7 +132,8 @@ describe("search flows", () => {
       "Artist",
     );
     expect(result).toBe(true);
-    expect(deps.updateTrackUrl).toHaveBeenCalledWith("yt1");
+    expect(context.state.lastTrackId).toBe("job1");
+    expect(deps.updateTrackUrl).toHaveBeenCalledWith("job1");
     expect(deps.applyAnalysisResult).toHaveBeenCalled();
   });
 
@@ -215,14 +216,15 @@ describe("search flows", () => {
     (api.startYoutubeAnalysis as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "job2", status: "queued" });
     await startYoutubeAnalysisFlow(context, deps, "yt2", "Song", "Artist");
     expect(deps.onNormalTrackSelected).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "yt2", tuningParams: "jb=1" }),
+      expect.objectContaining({ id: "job2", tuningParams: null }),
     );
     expect(api.startYoutubeAnalysis).toHaveBeenCalledWith({
       youtube_id: "yt2",
       title: "Song",
       artist: "Artist",
     });
-    expect(deps.updateTrackUrl).toHaveBeenCalledWith("yt2");
+    expect(context.state.lastTrackId).toBe("job2");
+    expect(deps.updateTrackUrl).toHaveBeenCalledWith("job2");
     expect(deps.pollAnalysis).toHaveBeenCalledWith("job2");
   });
 

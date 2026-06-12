@@ -1,5 +1,6 @@
 import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
+import { isLikelyJobId } from "../identity";
 import {
   activatePlaylistTrack,
   addPlaylistTrack,
@@ -70,7 +71,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     if (!id) {
       return null;
     }
-    const sourceType = getCurrentPlaylistSourceType(id);
+    const sourceType = getCurrentPlaylistSourceType();
     const tuningParams = getCurrentTuningParams();
     return {
       id,
@@ -100,9 +101,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     return rawId;
   }
 
-  function getCurrentPlaylistSourceType(
-    id: string,
-  ): PlaylistTrack["sourceType"] {
+  function getCurrentPlaylistSourceType(): PlaylistTrack["sourceType"] {
     const provider = state.lastSourceProvider;
     if (
       provider === "youtube" ||
@@ -112,7 +111,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     ) {
       return provider;
     }
-    return isLikelyJobId(id) ? "upload" : "youtube";
+    return "youtube";
   }
 
   function handleNormalTrackSelected(track: PlaylistTrack) {
@@ -410,6 +409,9 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
   }
 
   function getPlaylistListenId(track: PlaylistTrack) {
+    if (isLikelyJobId(track.id)) {
+      return track.id;
+    }
     if (track.sourceType === "youtube" || track.sourceType === "upload") {
       return track.id;
     }
@@ -417,14 +419,13 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
   }
 
   function getPlaylistLoadId(track: PlaylistTrack) {
+    if (isLikelyJobId(track.id)) {
+      return track.id;
+    }
     if (track.sourceType === "youtube") {
       return track.id;
     }
     return `${track.sourceType}:${track.id}`;
-  }
-
-  function isLikelyJobId(value: string) {
-    return /^[a-f0-9]{32}$/.test(value);
   }
 
   return {

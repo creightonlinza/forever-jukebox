@@ -23,7 +23,7 @@ class MockStore {
     return request;
   }
 
-  put(value: { youtubeId?: string; key?: string }) {
+  put(value: { trackId?: string; youtubeId?: string; key?: string }) {
     const request = new MockRequest();
     queueMicrotask(() => {
       const storeKey = value.youtubeId ?? value.key;
@@ -155,7 +155,7 @@ describe("cache", () => {
     const { readCachedTrack, updateCachedTrack } = await import("./cache");
     await updateCachedTrack("abc", { jobId: "job1" });
     const cached = await readCachedTrack("abc");
-    expect(cached?.youtubeId).toBe("abc");
+    expect(cached?.trackId).toBe("abc");
     expect(cached?.jobId).toBe("job1");
   });
 

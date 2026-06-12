@@ -168,6 +168,7 @@ describe("playlist handlers", () => {
     const deps = createDeps({
       lastTrackId: null,
       lastJobId: jobId,
+      lastSourceProvider: "upload",
       trackTitle: "Upload",
     } as Partial<AppState>);
     const handlers = createPlaylistHandlers(deps);

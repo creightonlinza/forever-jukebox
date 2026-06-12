@@ -164,15 +164,6 @@ export async function startYoutubeAnalysisFlow(
   title: string,
   artist: string
 ) {
-  deps.onNormalTrackSelected?.({
-    id: youtubeId,
-    sourceType: "youtube",
-    title,
-    artist,
-    duration: null,
-    tuningParams:
-      context.state.playMode === "jukebox" ? context.state.tuningParams : null,
-  });
   deps.resetForNewTrack({ clearTuning: true });
   resetSearchUI(context);
   context.state.audioLoaded = false;
@@ -181,6 +172,7 @@ export async function startYoutubeAnalysisFlow(
   deps.setActiveTab("play");
   deps.setLoadingProgress(null, "Fetching audio");
   context.state.lastTrackId = youtubeId;
+  context.state.lastSourceId = youtubeId;
   context.state.lastSourceProvider = "youtube";
   deps.onTrackChange?.(youtubeId);
   deps.updateTrackUrl(youtubeId);
@@ -190,13 +182,29 @@ export async function startYoutubeAnalysisFlow(
   if (!response || !response.id) {
     throw new Error("Invalid job response");
   }
+  const jobId = response.id;
+  deps.onNormalTrackSelected?.({
+    id: jobId,
+    sourceType: "youtube",
+    title,
+    artist,
+    duration: null,
+    tuningParams: null,
+  });
+  context.state.lastTrackId = jobId;
+  context.state.lastJobId = jobId;
+  context.state.lastSourceId =
+    typeof response.source_id === "string" ? response.source_id : youtubeId;
+  context.state.lastSourceProvider = response.source_provider ?? "youtube";
+  deps.onTrackChange?.(jobId);
+  deps.updateTrackUrl(jobId);
+  await tryLoadCachedAudio(context, jobId);
   if (isAnalysisInProgress(response)) {
     const progress =
       typeof response.progress === "number" ? response.progress : null;
     deps.setLoadingProgress(progress, response.message);
   }
-  context.state.lastJobId = response.id;
-  await deps.pollAnalysis(response.id);
+  await deps.pollAnalysis(jobId);
 }
 
 export async function showYoutubeMatches(
@@ -247,26 +255,19 @@ export async function tryLoadExistingTrackByName(
       return false;
     }
     const jobId = response.id;
-    const trackId =
-      response.source_id && response.source_provider && response.source_provider !== "youtube"
-        ? `${response.source_provider}:${response.source_id}`
-        : (response.source_id ?? jobId);
     if (typeof response.source_provider === "string") {
       state.lastSourceProvider = response.source_provider;
     }
-    if (!trackId) {
-      return false;
-    }
+    state.lastSourceId =
+      typeof response.source_id === "string" ? response.source_id : null;
     const sourceType =
       response.source_provider === "soundcloud" ||
       response.source_provider === "bandcamp" ||
       response.source_provider === "upload"
         ? response.source_provider
         : "youtube";
-    const playlistId =
-      response.source_id && sourceType !== "upload" ? response.source_id : trackId;
     deps.onNormalTrackSelected?.({
-      id: playlistId,
+      id: jobId,
       sourceType,
       title,
       artist,
@@ -280,9 +281,9 @@ export async function tryLoadExistingTrackByName(
     deps.updateVizVisibility();
     deps.setActiveTab("play");
     deps.setLoadingProgress(null, "Fetching audio");
-    state.lastTrackId = trackId;
-    deps.onTrackChange?.(trackId);
-    deps.updateTrackUrl(trackId);
+    state.lastTrackId = jobId;
+    deps.onTrackChange?.(jobId);
+    deps.updateTrackUrl(jobId);
     state.lastJobId = jobId;
     if (isAnalysisInProgress(response)) {
       await deps.pollAnalysis(jobId);

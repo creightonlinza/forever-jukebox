@@ -1582,12 +1582,25 @@ describe("playback loading", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const context = createContext();
     const deps = createLoadDeps();
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: "failed",
+        id: jobId,
+        source_id: "abc123def45",
+        source_provider: "youtube",
+      }),
+    } as Response);
 
     await loadTrackById(context, deps, "abc123def45");
 
-    expect(context.state.lastTrackId).toBe("abc123def45");
+    expect(context.state.lastTrackId).toBe(jobId);
+    expect(context.state.lastJobId).toBe(jobId);
     expect(context.state.lastSourceProvider).toBe("youtube");
-    expect(deps.onTrackChange).toHaveBeenCalledWith("abc123def45");
+    expect(deps.onTrackChange).toHaveBeenCalledWith(jobId);
+    expect(deps.updateTrackUrl).toHaveBeenCalledWith(jobId, true);
     expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
       "/api/jobs/by-source/youtube/abc123def45",
     );
@@ -1603,7 +1616,7 @@ describe("playback loading", () => {
 
     expect(context.state.lastTrackId).toBe(jobId);
     expect(context.state.lastJobId).toBe(jobId);
-    expect(context.state.lastSourceProvider).toBe("upload");
+    expect(context.state.lastSourceProvider).toBeNull();
     expect(deps.onTrackChange).toHaveBeenCalledWith(jobId);
     expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
       `/api/analysis/${jobId}`,

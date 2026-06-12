@@ -108,7 +108,7 @@ describe("createSearchHandlers", () => {
     );
   });
 
-  it("uses provider listen ids and source playlist ids for URL uploads", async () => {
+  it("uses job id as the listen id for successful YouTube URL uploads", async () => {
     const {
       elements,
       handlers,
@@ -118,29 +118,25 @@ describe("createSearchHandlers", () => {
       state,
       updateTrackUrl,
     } = createHarness();
-    elements.uploadYoutubeInput.value = "https://soundcloud.com/artist/track";
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    elements.uploadYoutubeInput.value = "https://www.youtube.com/watch?v=abc123def45";
     startUrlAnalysis.mockResolvedValue({
-      id: "job-soundcloud",
-      status: "queued",
-      source_id: "source-soundcloud",
-      source_provider: "soundcloud",
+      id: jobId,
+      status: "downloading",
+      source_provider: "youtube",
     });
 
     await handlers.handleUploadYoutubeClick();
 
+    expect(state.lastTrackId).toBe(jobId);
+    expect(state.pendingAutoFavoriteId).toBe(jobId);
+    expect(updateTrackUrl).toHaveBeenCalledWith(jobId, true, null, "jukebox");
+    expect(pollAnalysisJob).toHaveBeenCalledWith(jobId);
     expect(onNormalTrackSelected).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: "source-soundcloud",
-        sourceType: "soundcloud",
+        id: jobId,
+        sourceType: "youtube",
       }),
     );
-    expect(state.lastTrackId).toBe("soundcloud:source-soundcloud");
-    expect(updateTrackUrl).toHaveBeenCalledWith(
-      "soundcloud:source-soundcloud",
-      true,
-      null,
-      "jukebox",
-    );
-    expect(pollAnalysisJob).toHaveBeenCalledWith("job-soundcloud");
   });
 });

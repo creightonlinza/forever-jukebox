@@ -147,6 +147,7 @@ export function bootstrap() {
     autoComputedThreshold: null,
     lastJobId: null,
     lastTrackId: null,
+    lastSourceId: null,
     lastSourceProvider: null,
     pendingAutoFavoriteId: null,
     lastPlayCountedJobId: null,

@@ -8,6 +8,7 @@ import {
   type FavoritesDisplaySort,
 } from "../favorites";
 import type { AnalysisComplete } from "../api";
+import { isLikelyJobId } from "../identity";
 import { blurMouseActivatedControl, type ToastOptions } from "../ui";
 import { urlForTrack } from "../tabs";
 import type { PlaylistTrack } from "../playlist";
@@ -535,8 +536,35 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return state.lastTrackId ?? state.lastJobId;
   }
 
-  function isLikelyJobId(value: string): boolean {
-    return /^[a-f0-9]{32}$/.test(value);
+  function getCurrentFavoriteMatch() {
+    const currentId = getCurrentFavoriteId();
+    if (!currentId) {
+      return null;
+    }
+    const current = state.favorites.find((item) => item.uniqueSongId === currentId);
+    if (current) {
+      return current;
+    }
+    const legacySourceId = getCurrentLegacyFavoriteId();
+    if (!legacySourceId) {
+      return null;
+    }
+    return state.favorites.find(
+      (item) =>
+        item.uniqueSongId === legacySourceId &&
+        (item.sourceType ?? "youtube") === "youtube",
+    ) ?? null;
+  }
+
+  function getCurrentLegacyFavoriteId() {
+    if (state.lastSourceProvider && state.lastSourceProvider !== "youtube") {
+      return null;
+    }
+    const sourceId = state.lastSourceId;
+    if (!sourceId || sourceId === getCurrentFavoriteId() || isLikelyJobId(sourceId)) {
+      return null;
+    }
+    return sourceId;
   }
 
   function getCurrentFavoriteSourceType(): FavoriteTrack["sourceType"] {
@@ -706,8 +734,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function syncFavoriteButton() {
-    const currentId = getCurrentFavoriteId();
-    const active = currentId ? isFavorite(state.favorites, currentId) : false;
+    const active = Boolean(getCurrentFavoriteMatch());
     elements.favoriteButton.classList.toggle("active", active);
     const label = active ? "Remove from Favorites" : "Add to Favorites";
     elements.favoriteButton.setAttribute("aria-label", label);
@@ -721,6 +748,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
+    migrateLegacyFavoriteFromResponse(response);
     const provider =
       response.source_provider === "upload" ||
       response.source_provider === "youtube" ||
@@ -728,8 +756,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       response.source_provider === "bandcamp"
         ? response.source_provider
         : null;
-    const favoriteId =
-      provider === "youtube" && response.source_id ? response.source_id : response.id;
+    const favoriteId = response.id;
     if (!favoriteId || state.pendingAutoFavoriteId !== favoriteId) {
       return;
     }
@@ -739,20 +766,86 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
     const title = state.trackTitle || "Untitled";
     const artist = state.trackArtist || "";
-    const inferredSourceType = response.source_id ? "youtube" : "upload";
+    const inferredSourceType = provider ?? sourceTypeFromAnalysis(response) ?? "upload";
     const track: FavoriteTrack = {
       uniqueSongId: favoriteId,
       title,
       artist,
       duration: state.trackDurationSec,
-      sourceType:
-        provider ?? inferredSourceType,
+      sourceType: inferredSourceType,
       tuningParams: getFavoriteTuningParams(),
     };
     const result = addFavorite(state.favorites, track);
     if (result.status === "added") {
       updateFavorites(result.favorites);
     }
+  }
+
+  function migrateLegacyFavoriteFromResponse(response: AnalysisComplete) {
+    const jobId = response.id;
+    const legacyId = legacyFavoriteIdFromResponse(response);
+    if (!jobId || !legacyId) {
+      return;
+    }
+    const legacyFavorite = state.favorites.find(
+      (item) =>
+        item.uniqueSongId === legacyId &&
+        (item.sourceType ?? "youtube") === "youtube",
+    );
+    if (!legacyFavorite) {
+      return;
+    }
+    const existingJobFavorite = state.favorites.find(
+      (item) => item.uniqueSongId === jobId,
+    );
+    if (existingJobFavorite) {
+      updateFavorites(
+        state.favorites.filter((item) => item.uniqueSongId !== legacyId),
+      );
+      return;
+    }
+    const migrated: FavoriteTrack = {
+      ...legacyFavorite,
+      uniqueSongId: jobId,
+      sourceType: sourceTypeFromAnalysis(response) ?? legacyFavorite.sourceType ?? "youtube",
+      title: state.trackTitle || legacyFavorite.title || "Untitled",
+      artist: state.trackArtist || legacyFavorite.artist || "",
+      duration: state.trackDurationSec ?? legacyFavorite.duration,
+    };
+    updateFavorites(
+      state.favorites.map((item) =>
+        item.uniqueSongId === legacyId ? migrated : item,
+      ),
+    );
+  }
+
+  function legacyFavoriteIdFromResponse(response: AnalysisComplete) {
+    if (
+      response.source_provider &&
+      response.source_provider !== "youtube"
+    ) {
+      return null;
+    }
+    const sourceId = response.source_id;
+    if (!sourceId || sourceId === response.id || isLikelyJobId(sourceId)) {
+      return null;
+    }
+    return sourceId;
+  }
+
+  function sourceTypeFromAnalysis(response: AnalysisComplete): FavoriteTrack["sourceType"] | null {
+    if (
+      response.source_provider === "upload" ||
+      response.source_provider === "youtube" ||
+      response.source_provider === "soundcloud" ||
+      response.source_provider === "bandcamp"
+    ) {
+      return response.source_provider;
+    }
+    if (response.source_id) {
+      return "youtube";
+    }
+    return null;
   }
 
   function handleFavoriteClick(event: Event) {
@@ -867,13 +960,14 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (elements.favoriteButton.classList.contains("is-loading")) {
       return;
     }
-    if (isFavorite(state.favorites, currentId)) {
+    const currentFavorite = getCurrentFavoriteMatch();
+    if (currentFavorite) {
       const showLoading = shouldShowFavoriteToggleLoading();
       if (showLoading) {
         setFavoriteToggleLoading(true);
       }
       try {
-        updateFavorites(removeFavorite(state.favorites, currentId));
+        updateFavorites(removeFavorite(state.favorites, currentFavorite.uniqueSongId));
         showFavoriteToast("Removed from Favorites");
         if (showLoading) {
           await waitForFavoritesSyncIdle();
