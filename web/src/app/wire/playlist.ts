@@ -35,7 +35,7 @@ type PlaylistDeps = {
       playlistLoad?: boolean;
       selectedTrack?: PlaylistTrack | null;
     },
-  ) => Promise<void>;
+  ) => Promise<boolean | void>;
   loadTrackByJobId: (
     jobId: string,
     options?: {
@@ -43,7 +43,7 @@ type PlaylistDeps = {
       playlistLoad?: boolean;
       selectedTrack?: PlaylistTrack | null;
     },
-  ) => Promise<void>;
+  ) => Promise<boolean | void>;
   navigateToTabWithState: (
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
@@ -64,9 +64,10 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     navigateToTabWithState,
     togglePlayback,
   } = deps;
+  let playlistLoadInFlight = false;
 
   function getCurrentPlaylistTrack(): PlaylistTrack | null {
-    const id = state.lastTrackId ?? state.lastJobId;
+    const id = getCurrentPlaylistTrackId();
     if (!id) {
       return null;
     }
@@ -80,6 +81,24 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       duration: state.trackDurationSec,
       tuningParams,
     };
+  }
+
+  function getCurrentPlaylistTrackId() {
+    const rawId = state.lastTrackId ?? state.lastJobId;
+    if (!rawId) {
+      return null;
+    }
+    const provider = state.lastSourceProvider;
+    if ((provider === "soundcloud" || provider === "bandcamp") && state.lastTrackId) {
+      const prefix = `${provider}:`;
+      return state.lastTrackId.startsWith(prefix)
+        ? state.lastTrackId.slice(prefix.length)
+        : state.lastTrackId;
+    }
+    if (provider === "upload") {
+      return state.lastJobId ?? rawId;
+    }
+    return rawId;
   }
 
   function getCurrentPlaylistSourceType(): PlaylistTrack["sourceType"] {
@@ -123,6 +142,10 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       showToast(context, "Playlist is full.");
       return;
     }
+    if (result.status === "invalid") {
+      showToast(context, "Track cannot be added to playlist.");
+      return;
+    }
     updatePlaylist(result.playlist);
     showToast(context, "Added to playlist", { icon: "playlist_add_check" });
   }
@@ -138,6 +161,15 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
 
   function handlePlaylistModalClick(event: MouseEvent) {
     if (event.target === elements.playlistModal) {
+      handleClosePlaylist();
+    }
+  }
+
+  function handlePlaylistModalKeydown(event: KeyboardEvent) {
+    if (
+      event.key === "Escape" &&
+      elements.playlistModal.classList.contains("open")
+    ) {
       handleClosePlaylist();
     }
   }
@@ -173,44 +205,57 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     if (!canMovePlaylistNext(state.playlist) || isPlaylistLoadBlocked()) {
       return false;
     }
-    await loadPlaylistIndex(state.playlist.currentIndex + 1, {
+    return await loadPlaylistIndex(state.playlist.currentIndex + 1, {
       playAfterLoad: true,
     });
-    return true;
   }
 
   async function loadPlaylistIndex(
     index: number,
     options?: { playAfterLoad?: boolean; closeModal?: boolean },
-  ) {
+  ): Promise<boolean> {
     const track = state.playlist.tracks[index];
     if (index === state.playlist.currentIndex || !track || isPlaylistLoadBlocked()) {
       syncPlaylistUi();
-      return;
+      return false;
     }
     if (options?.closeModal) {
       handleClosePlaylist();
     }
+    const previousPlaylist = state.playlist;
+    playlistLoadInFlight = true;
     updatePlaylist(activatePlaylistTrack(state.playlist, index));
     applyTrackTuning(track);
     navigateToTabWithState("play", { trackId: getPlaylistListenId(track) });
-    if (track.sourceType === "upload" || isLikelyJobId(track.id)) {
-      await loadTrackByJobId(track.id, {
-        preserveUrlTuning: true,
-        playlistLoad: true,
-        selectedTrack: track,
-      });
-    } else {
-      await loadTrackById(getPlaylistLoadId(track), {
-        preserveUrlTuning: true,
-        playlistLoad: true,
-        selectedTrack: track,
-      });
+    let loadStarted = false;
+    try {
+      const result =
+        track.sourceType === "upload" || isLikelyJobId(track.id)
+          ? await loadTrackByJobId(track.id, {
+              preserveUrlTuning: true,
+              playlistLoad: true,
+              selectedTrack: track,
+            })
+          : await loadTrackById(getPlaylistLoadId(track), {
+              preserveUrlTuning: true,
+              playlistLoad: true,
+              selectedTrack: track,
+            });
+      loadStarted = result !== false;
+    } catch {
+      loadStarted = false;
+    } finally {
+      playlistLoadInFlight = false;
+    }
+    if (!loadStarted) {
+      updatePlaylist(previousPlaylist);
+      return false;
     }
     syncPlaylistUi();
     if (options?.playAfterLoad && !state.isRunning) {
       togglePlayback(context);
     }
+    return true;
   }
 
   function renderPlaylistModal() {
@@ -341,6 +386,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     return (
       state.audioLoadInFlight ||
       state.pollController !== null ||
+      playlistLoadInFlight ||
       state.swingPreparing
     );
   }
@@ -388,6 +434,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     handleOpenPlaylist,
     handleClosePlaylist,
     handlePlaylistModalClick,
+    handlePlaylistModalKeydown,
     handleClearPlaylist,
     handleSavedPlaylistClick,
     handlePlaylistPrevious,

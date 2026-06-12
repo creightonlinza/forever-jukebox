@@ -210,9 +210,14 @@ describe("search flows", () => {
 
   it("starts youtube analysis flow", async () => {
     const context = createContext();
+    context.state.tuningParams = "jb=1";
     const deps = createDeps();
+    deps.onNormalTrackSelected = vi.fn();
     (api.startYoutubeAnalysis as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "job2", status: "queued" });
     await startYoutubeAnalysisFlow(context, deps, "yt2", "Song", "Artist");
+    expect(deps.onNormalTrackSelected).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "job2", tuningParams: null }),
+    );
     expect(api.startYoutubeAnalysis).toHaveBeenCalledWith({
       youtube_id: "yt2",
       title: "Song",

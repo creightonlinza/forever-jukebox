@@ -33,9 +33,10 @@ function createHarness() {
   } as unknown as AppState;
   const showToast = vi.fn();
   const startUrlAnalysis = vi.fn();
+  const onNormalTrackSelected = vi.fn();
+  const resetForNewTrack = vi.fn();
   const updateTrackUrl = vi.fn();
   const pollAnalysisJob = vi.fn();
-  const onNormalTrackSelected = vi.fn();
   const handlers = createSearchHandlers({
     context,
     elements,
@@ -45,7 +46,7 @@ function createHarness() {
     showToast,
     uploadAudio: vi.fn(),
     startUrlAnalysis,
-    resetForNewTrack: vi.fn(),
+    resetForNewTrack,
     setActiveTabWithRefresh: vi.fn(),
     setLoadingProgress: vi.fn(),
     updateTrackUrl,
@@ -55,12 +56,12 @@ function createHarness() {
   return {
     elements,
     handlers,
+    onNormalTrackSelected,
+    pollAnalysisJob,
     showToast,
     startUrlAnalysis,
     state,
     updateTrackUrl,
-    pollAnalysisJob,
-    onNormalTrackSelected,
   };
 }
 
@@ -111,11 +112,11 @@ describe("createSearchHandlers", () => {
     const {
       elements,
       handlers,
+      onNormalTrackSelected,
+      pollAnalysisJob,
       startUrlAnalysis,
       state,
       updateTrackUrl,
-      pollAnalysisJob,
-      onNormalTrackSelected,
     } = createHarness();
     const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
     elements.uploadYoutubeInput.value = "https://www.youtube.com/watch?v=abc123def45";

@@ -74,6 +74,13 @@ describe("playlist", () => {
     expect(result.playlist.tracks).toEqual([]);
   });
 
+  it("rejects invalid tracks separately from duplicates", () => {
+    const result = addPlaylistTrack(emptyPlaylist(), track("current"), track(""));
+
+    expect(result.status).toBe("invalid");
+    expect(result.playlist.tracks).toEqual([]);
+  });
+
   it("blocks duplicates and max size", () => {
     let playlist = {
       tracks: [track("0"), track("1")],
