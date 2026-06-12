@@ -1,5 +1,6 @@
 import legacy from "@vitejs/plugin-legacy";
-import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 
 const castRewritePlugin = () => ({
   name: "cast-rewrite",
@@ -18,6 +19,7 @@ export default defineConfig(() => {
   const enableLan = process.env.VITE_LAN === "1";
   return {
     plugins: [
+      react(),
       legacy({
         targets: ["chrome 63"],
         additionalLegacyPolyfills: ["regenerator-runtime/runtime"],
@@ -48,6 +50,11 @@ export default defineConfig(() => {
           cast: "cast-receiver.html",
         },
       },
+    },
+    test: {
+      environment: "node",
+      environmentMatchGlobs: [["**/*.test.tsx", "jsdom"] as [string, "jsdom"]],
+      exclude: ["e2e/**", "node_modules/**", "dist/**"],
     },
   };
 });

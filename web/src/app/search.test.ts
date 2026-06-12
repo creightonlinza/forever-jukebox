@@ -6,6 +6,7 @@ import {
   startYoutubeAnalysisFlow,
   tryLoadExistingTrackByName,
 } from "./search";
+import { DEFAULT_SEARCH_RESULTS, useAppStore } from "./store";
 import { setWindowUrl } from "./__tests__/test-utils";
 
 vi.mock("./api", () => ({
@@ -14,34 +15,30 @@ vi.mock("./api", () => ({
   startYoutubeAnalysis: vi.fn(),
 }));
 
-vi.mock("./playback", () => ({
-  tryLoadCachedAudio: vi.fn(),
-}));
+vi.mock("./playback", () => {
+  let generation = 0;
+  return {
+    tryLoadCachedAudio: vi.fn(),
+    bumpLoadGeneration: vi.fn(() => {
+      generation += 1;
+      return generation;
+    }),
+    getLoadGeneration: vi.fn(() => generation),
+    isStaleLoad: vi.fn((g: number) => g !== generation),
+  };
+});
 
 let api: typeof import("./api");
 let playback: typeof import("./playback");
 
 function createContext(): AppContext {
   return {
-    elements: {
-      searchInput: { value: "" },
-      searchResults: { textContent: "" },
-      searchHint: { textContent: "" },
-      canonizerFinish: { checked: false, addEventListener: vi.fn() },
-    } as unknown as AppContext["elements"],
     engine: {} as unknown as AppContext["engine"],
     player: {} as unknown as AppContext["player"],
     autocanonizer: {} as unknown as AppContext["autocanonizer"],
     jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
     cowbellOverlay: {} as unknown as AppContext["cowbellOverlay"],
     defaultConfig: {} as unknown as AppContext["defaultConfig"],
-    state: {
-      playMode: "jukebox",
-      lastTrackId: null,
-      lastJobId: null,
-      audioLoaded: false,
-      analysisLoaded: false,
-    } as unknown as AppContext["state"],
   };
 }
 
@@ -62,55 +59,24 @@ function createDeps(): SearchDeps {
   };
 }
 
-type FakeElement = {
-  tagName: string;
-  className: string;
-  textContent: string;
-  dataset: Record<string, string>;
-  children: FakeElement[];
-  append: (...children: FakeElement[]) => void;
-  appendChild: (child: FakeElement) => FakeElement;
-  replaceChildren: (...children: FakeElement[]) => void;
-  setAttribute: (name: string, value: string) => void;
-  addEventListener: (name: string, listener: EventListener) => void;
-};
 
-function createFakeElement(tagName: string): FakeElement {
-  return {
-    tagName,
-    className: "",
-    textContent: "",
-    dataset: {},
-    children: [],
-    append(...children: FakeElement[]) {
-      this.children.push(...children);
-    },
-    appendChild(child: FakeElement) {
-      this.children.push(child);
-      return child;
-    },
-    replaceChildren(...children: FakeElement[]) {
-      this.children = children;
-    },
-    setAttribute() {},
-    addEventListener() {},
-  };
-}
 
-function findByClass(element: FakeElement, className: string): FakeElement[] {
-  const matches = element.className.split(/\s+/).includes(className)
-    ? [element]
-    : [];
-  for (const child of element.children) {
-    matches.push(...findByClass(child, className));
-  }
-  return matches;
-}
+
+const initialStoreState = useAppStore.getState();
+
+beforeEach(() => {
+  useAppStore.setState(initialStoreState, true);
+});
 
 describe("search flows", () => {
   beforeEach(async () => {
     setWindowUrl("http://localhost/");
     vi.clearAllMocks();
+    useAppStore.setState({
+      searchQuery: "",
+      searchResults: DEFAULT_SEARCH_RESULTS,
+      searchHint: "Step 1: Find a Spotify track.",
+    });
     api = await import("./api");
     playback = await import("./playback");
     (playback.tryLoadCachedAudio as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -132,7 +98,7 @@ describe("search flows", () => {
       "Artist",
     );
     expect(result).toBe(true);
-    expect(context.state.lastTrackId).toBe("job1");
+    expect(useAppStore.getState().lastTrackId).toBe("job1");
     expect(deps.updateTrackUrl).toHaveBeenCalledWith("job1");
     expect(deps.applyAnalysisResult).toHaveBeenCalled();
   });
@@ -150,9 +116,10 @@ describe("search flows", () => {
     );
 
     expect(result).toBe(false);
-    expect(context.elements.searchResults.textContent).toBe(
-      "Checking existing analysis...",
-    );
+    expect(useAppStore.getState().searchResults).toEqual({
+      kind: "message",
+      text: "Checking existing analysis...",
+    });
     expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
     expect(deps.pollAnalysis).not.toHaveBeenCalled();
   });
@@ -210,7 +177,7 @@ describe("search flows", () => {
 
   it("starts youtube analysis flow", async () => {
     const context = createContext();
-    context.state.tuningParams = "jb=1";
+    useAppStore.setState({ tuningParams: "jb=1" });
     const deps = createDeps();
     deps.onNormalTrackSelected = vi.fn();
     (api.startYoutubeAnalysis as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "job2", status: "queued" });
@@ -223,21 +190,13 @@ describe("search flows", () => {
       title: "Song",
       artist: "Artist",
     });
-    expect(context.state.lastTrackId).toBe("job2");
+    expect(useAppStore.getState().lastTrackId).toBe("job2");
     expect(deps.updateTrackUrl).toHaveBeenCalledWith("job2");
     expect(deps.pollAnalysis).toHaveBeenCalledWith("job2");
   });
 
-  it("renders youtube matches without playlist add controls", async () => {
-    vi.stubGlobal("document", {
-      createElement: vi.fn((tagName: string) => createFakeElement(tagName)),
-    });
+  it("publishes youtube matches to the search results store", async () => {
     const context = createContext();
-    const searchResults = createFakeElement("div");
-    context.elements.searchResults =
-      searchResults as unknown as AppContext["elements"]["searchResults"];
-    context.elements.searchHint =
-      createFakeElement("div") as unknown as AppContext["elements"]["searchHint"];
     const deps = createDeps();
     (api.searchYoutube as ReturnType<typeof vi.fn>).mockResolvedValue([
       { id: "yt-match", title: "Match", duration: 123 },
@@ -245,7 +204,16 @@ describe("search flows", () => {
 
     await showYoutubeMatches(context, deps, "Song", "Artist", 123);
 
-    expect(findByClass(searchResults, "playlist-add-button")).toEqual([]);
-    expect(findByClass(searchResults, "search-open")).toHaveLength(1);
+    expect(deps.navigateToTab).toHaveBeenCalledWith("search", { replace: true });
+    expect(useAppStore.getState().searchResults).toEqual({
+      kind: "youtube",
+      items: [
+        {
+          item: { id: "yt-match", title: "Match", duration: 123 },
+          name: "Song",
+          artist: "Artist",
+        },
+      ],
+    });
   });
 });

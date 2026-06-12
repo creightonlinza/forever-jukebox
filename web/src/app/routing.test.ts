@@ -13,24 +13,12 @@ let playbackModule: typeof import("./playback");
 
 function createContext(): AppContext {
   return {
-    elements: {
-      canonizerFinish: { checked: false, addEventListener: vi.fn() },
-    } as unknown as AppContext["elements"],
     engine: {} as unknown as AppContext["engine"],
     player: {} as unknown as AppContext["player"],
     autocanonizer: {} as unknown as AppContext["autocanonizer"],
     jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
     cowbellOverlay: {} as unknown as AppContext["cowbellOverlay"],
     defaultConfig: {} as unknown as AppContext["defaultConfig"],
-    state: {
-      playMode: "jukebox",
-      lastTrackId: null,
-      lastJobId: null,
-      audioLoaded: false,
-      analysisLoaded: false,
-      audioLoadInFlight: false,
-      isRunning: false,
-    } as unknown as AppContext["state"],
   };
 }
 

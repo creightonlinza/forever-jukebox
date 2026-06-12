@@ -12,6 +12,20 @@ Lint:
 npm run lint
 ```
 
+## Tests
+
+```bash
+npm test              # unit tests (vitest)
+npm run test:e2e      # full-app Playwright e2e (boots ../dev.sh if needed)
+npm run test:e2e:ui   # interactive Playwright runner
+```
+
+The e2e suite drives the real UI against a real backend and discovers its
+fixture tracks from `/api/top` at runtime, so the backend needs at least
+three analyzed tracks (plus Spotify credentials for the search specs). See
+[`e2e/README.md`](./e2e/README.md) for running against a deployed
+environment and the opt-in YouTube ingest flow.
+
 Audio is decoded into a single in-memory buffer before playback to avoid stalls on jumps,
 and jumps are scheduled at beat boundaries.
 Use the Tuning panel to adjust branching behavior.

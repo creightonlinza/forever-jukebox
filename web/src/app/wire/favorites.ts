@@ -1,23 +1,18 @@
-import type { AppContext, AppState, TabId } from "../context";
-import type { Elements } from "../elements";
+import type { AppContext, TabId } from "../context";
 import {
-  favoriteDisplayArtist,
-  filterFavorites,
-  sortFavoritesForDisplay,
+  favoriteToPlaylistTrack,
+  findCurrentFavorite,
   type FavoriteTrack,
-  type FavoritesDisplaySort,
 } from "../favorites";
 import type { AnalysisComplete } from "../api";
 import { isLikelyJobId } from "../identity";
-import { blurMouseActivatedControl, type ToastOptions } from "../ui";
-import { urlForTrack } from "../tabs";
+import { useAppStore } from "../store";
+import type { ToastOptions } from "../ui";
 import type { PlaylistTrack } from "../playlist";
 
 type FavoritesDeps = {
   context: AppContext;
-  elements: Elements;
-  state: AppState;
-  showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
+  showToast: (message: string, options?: ToastOptions) => void;
   addFavorite: (
     items: FavoriteTrack[],
     track: FavoriteTrack,
@@ -51,16 +46,16 @@ type FavoritesDeps = {
   writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
   syncTuningParamsState: (context: AppContext) => string | null;
   setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
-  onAddToPlaylist?: (track: PlaylistTrack) => void;
 };
 
 export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
 
+// Favorites state machine + the Listen-panel star button. The Top Tracks
+// panel (lists, sync menu, sync modals) is React; it renders from the store
+// and calls into these handlers through bridge.topPanel.
 export function createFavoritesHandlers(deps: FavoritesDeps) {
   const {
     context,
-    elements,
-    state,
     showToast,
     addFavorite,
     removeFavorite,
@@ -78,7 +73,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     writeTuningParamsToUrl,
     syncTuningParamsState,
     setPlayMode,
-    onAddToPlaylist,
   } = deps;
 
   type FavoritesDelta = {
@@ -89,105 +83,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   let syncUpdateInFlight = false;
   let pendingSyncDelta: FavoritesDelta | null = null;
   let syncIdleWaiters: Array<() => void> = [];
-  let favoritesDisplaySort: FavoritesDisplaySort = {
-    key: "title",
-    direction: "asc",
-  };
-
-  function handleFavoritesSyncToggle(event: Event) {
-    event.stopPropagation();
-    toggleFavoritesSyncMenu();
-  }
-
-  function handleFavoritesSyncItem(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    closeFavoritesSyncMenu();
-    const action = button?.dataset.favoritesSync;
-    if (action === "refresh") {
-      void refreshFavoritesFromSync();
-    } else if (action === "create") {
-      openFavoritesSyncCreateModal();
-    } else if (action === "enter") {
-      openFavoritesSyncEnterModal();
-    }
-  }
-
-  function handleFavoritesSyncDocumentClick(event: Event) {
-    if (elements.favoritesSyncMenu.classList.contains("hidden")) {
-      return;
-    }
-    const target = event.target as HTMLElement | null;
-    if (!target) {
-      return;
-    }
-    if (
-      elements.favoritesSyncMenu.contains(target) ||
-      elements.favoritesSyncButton.contains(target)
-    ) {
-      return;
-    }
-    closeFavoritesSyncMenu();
-  }
-
-  function toggleFavoritesSyncMenu() {
-    if (elements.favoritesSyncMenu.classList.contains("hidden")) {
-      openFavoritesSyncMenu();
-    } else {
-      closeFavoritesSyncMenu();
-    }
-  }
-
-  function openFavoritesSyncMenu() {
-    elements.favoritesSyncMenu.classList.remove("hidden");
-    elements.favoritesSyncButton.setAttribute("aria-expanded", "true");
-  }
-
-  function closeFavoritesSyncMenu() {
-    elements.favoritesSyncMenu.classList.add("hidden");
-    elements.favoritesSyncButton.setAttribute("aria-expanded", "false");
-  }
-
-  function updateFavoritesSyncControls() {
-    const allowSync = Boolean(state.appConfig?.allow_favorites_sync);
-    const hasCode = Boolean(state.favoritesSyncCode);
-    const showControls = state.topSongsTab === "favorites" && allowSync;
-    elements.favoritesSyncButton.classList.toggle("hidden", !showControls);
-    elements.favoritesSyncIcon.textContent = hasCode ? "cloud" : "cloud_off";
-    const refreshItem = getFavoritesSyncRefreshItem();
-    if (refreshItem) {
-      refreshItem.classList.toggle("hidden", !hasCode);
-    }
-    const createItem = getFavoritesSyncCreateItem();
-    if (createItem) {
-      createItem.textContent = hasCode ? "View sync code" : "Create sync code";
-    }
-  }
-
-  function getFavoritesSyncCreateItem() {
-    return elements.favoritesSyncItems.find(
-      (item) => item.dataset.favoritesSync === "create",
-    );
-  }
-
-  function getFavoritesSyncRefreshItem() {
-    return elements.favoritesSyncItems.find(
-      (item) => item.dataset.favoritesSync === "refresh",
-    );
-  }
-
-  function openFavoritesSyncEnterModal() {
-    closeFavoritesSyncCreateModal();
-    elements.favoritesSyncEnterInput.value = "";
-    clearFavoritesSyncEnterStatus();
-    elements.favoritesSyncEnterModal.classList.add("open");
-    elements.favoritesSyncEnterInput.focus();
-  }
 
   async function hydrateFavoritesFromSync() {
-    if (!state.appConfig?.allow_favorites_sync) {
+    if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
-    const code = state.favoritesSyncCode;
+    const code = useAppStore.getState().favoritesSyncCode;
     if (!code) {
       return;
     }
@@ -195,15 +96,15 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       await refreshFavoritesFromSync();
     } catch (err) {
       console.warn(`Favorites sync hydrate failed: ${String(err)}`);
-      showToast(context, "Favorites sync failed.");
+      showToast("Favorites sync failed.");
     }
   }
 
   async function refreshFavoritesFromSync() {
-    if (!state.appConfig?.allow_favorites_sync) {
+    if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
-    const code = state.favoritesSyncCode;
+    const code = useAppStore.getState().favoritesSyncCode;
     if (!code) {
       return;
     }
@@ -211,138 +112,44 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       const items = await fetchFavoritesSync(code);
       const favorites = normalizeFavoritesFromSync(items);
       updateFavorites(favorites, { sync: false });
-      showToast(context, "Favorites refreshed.", { icon: "cloud_done" });
+      showToast("Favorites refreshed.", { icon: "cloud_done" });
     } catch (err) {
       console.warn(`Favorites sync refresh failed: ${String(err)}`);
-      showToast(context, "Favorites sync failed.");
+      showToast("Favorites sync failed.");
     }
   }
 
-  function closeFavoritesSyncEnterModal() {
-    elements.favoritesSyncEnterModal.classList.remove("open");
-  }
-
-  function openFavoritesSyncCreateModal() {
-    closeFavoritesSyncEnterModal();
-    resetFavoritesSyncCreateModal();
-    const existingCode = state.favoritesSyncCode;
-    elements.favoritesSyncCreateHint.textContent = existingCode
-      ? "Enter this code on another device to sync."
-      : "Create a sync code to share your favorites between devices.";
-    if (existingCode) {
-      elements.favoritesSyncCreateOutput.textContent = existingCode;
-      elements.favoritesSyncCreateOutput.classList.remove("hidden");
-      elements.favoritesSyncCreateButton.textContent = "Create new sync code";
+  // Fetches the synced list, confirms with the user, then replaces local
+  // favorites and stores the code. The React enter-modal renders statuses.
+  async function enterSyncCode(code: string): Promise<"replaced" | "cancelled"> {
+    const items = await fetchFavoritesSync(code);
+    const favorites = normalizeFavoritesFromSync(items);
+    const shouldReplace = window.confirm(
+      "Replace your local favorites with the synced list?",
+    );
+    if (!shouldReplace) {
+      return "cancelled";
     }
-    elements.favoritesSyncCreateModal.classList.add("open");
+    const normalizedCode = code.trim().toLowerCase();
+    useAppStore.setState({ favoritesSyncCode: normalizedCode });
+    saveFavoritesSyncCode(normalizedCode);
+    updateFavorites(favorites, { sync: false });
+    return "replaced";
   }
 
-  function closeFavoritesSyncCreateModal() {
-    elements.favoritesSyncCreateModal.classList.remove("open");
-  }
-
-  function resetFavoritesSyncCreateModal() {
-    elements.favoritesSyncCreateButton.classList.remove("hidden");
-    elements.favoritesSyncCreateButton.disabled = false;
-    elements.favoritesSyncCreateButton.textContent = "Create sync code";
-    elements.favoritesSyncCreateOutput.classList.add("hidden");
-    elements.favoritesSyncCreateOutput.textContent = "";
-    elements.favoritesSyncCreateHint.textContent =
-      "Create a sync code to share your favorites between devices.";
-    clearFavoritesSyncCreateStatus();
-  }
-
-  async function handleFavoritesSyncEnterSubmit() {
-    const code = elements.favoritesSyncEnterInput.value.trim();
+  async function createSyncCode(): Promise<string> {
+    const response = await createFavoritesSync(useAppStore.getState().favorites);
+    const code = response.code;
     if (!code) {
-      setFavoritesSyncEnterStatus("Enter a sync code first.", true);
-      return;
+      throw new Error("Missing sync code");
     }
-    elements.favoritesSyncEnterButton.disabled = true;
-    elements.favoritesSyncEnterButton.textContent = "Syncing...";
-    setFavoritesSyncEnterStatus("Syncing favorites...");
-    try {
-      const items = await fetchFavoritesSync(code);
-      const favorites = normalizeFavoritesFromSync(items);
-      const shouldReplace = window.confirm(
-        "Replace your local favorites with the synced list?",
-      );
-      if (shouldReplace) {
-        const normalizedCode = code.trim().toLowerCase();
-        state.favoritesSyncCode = normalizedCode;
-        saveFavoritesSyncCode(normalizedCode);
-        updateFavoritesSyncControls();
-        updateFavorites(favorites, { sync: false });
-        setFavoritesSyncEnterStatus("Favorites updated.");
-        closeFavoritesSyncEnterModal();
-      } else {
-        clearFavoritesSyncEnterStatus();
-      }
-    } catch (err) {
-      setFavoritesSyncEnterStatus("Unable to sync favorites.", true);
-      console.warn(`Favorites sync failed: ${String(err)}`);
-    } finally {
-      elements.favoritesSyncEnterButton.disabled = false;
-      elements.favoritesSyncEnterButton.textContent = "Sync favorites";
+    useAppStore.setState({ favoritesSyncCode: code });
+    saveFavoritesSyncCode(code);
+    if (Array.isArray(response.favorites)) {
+      const normalized = normalizeFavoritesFromSync(response.favorites);
+      updateFavorites(normalized, { sync: false });
     }
-  }
-
-  async function handleFavoritesSyncCreateSubmit() {
-    elements.favoritesSyncCreateButton.classList.add("hidden");
-    setFavoritesSyncCreateStatus("Creating sync code...");
-    try {
-      const response = await createFavoritesSync(state.favorites);
-      const code = response.code;
-      if (!code) {
-        throw new Error("Missing sync code");
-      }
-      state.favoritesSyncCode = code;
-      saveFavoritesSyncCode(code);
-      updateFavoritesSyncControls();
-      if (Array.isArray(response.favorites)) {
-        const normalized = normalizeFavoritesFromSync(response.favorites);
-        updateFavorites(normalized, { sync: false });
-      }
-      elements.favoritesSyncCreateButton.classList.add("hidden");
-      elements.favoritesSyncCreateOutput.textContent = code;
-      elements.favoritesSyncCreateOutput.classList.remove("hidden");
-      elements.favoritesSyncCreateHint.textContent =
-        "Enter this code on another device to sync.";
-      clearFavoritesSyncCreateStatus();
-    } catch (err) {
-      setFavoritesSyncCreateStatus("Unable to create sync code.", true);
-      elements.favoritesSyncCreateButton.classList.remove("hidden");
-      elements.favoritesSyncCreateButton.textContent = "Create sync code";
-      console.warn(`Favorites sync create failed: ${String(err)}`);
-    }
-  }
-
-  function handleFavoritesSyncEnterKeydown(event: KeyboardEvent) {
-    if (event.key !== "Enter") {
-      return;
-    }
-    event.preventDefault();
-    void handleFavoritesSyncEnterSubmit();
-  }
-
-  function handleFavoritesSyncEnterClose() {
-    closeFavoritesSyncEnterModal();
-  }
-
-  function handleFavoritesSyncCreateClose() {
-    closeFavoritesSyncCreateModal();
-  }
-
-  function handleFavoritesSyncEnterModalClick(event: MouseEvent) {
-    if (event.target === elements.favoritesSyncEnterModal) {
-      closeFavoritesSyncEnterModal();
-    }
-  }
-
-  function handleFavoritesSyncCreateModalClick(event: MouseEvent) {
-    if (event.target === elements.favoritesSyncCreateModal) {
-      closeFavoritesSyncCreateModal();
-    }
+    return code;
   }
 
   function normalizeFavoritesFromSync(items: FavoriteTrack[]) {
@@ -383,40 +190,16 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return sortFavorites(normalized).slice(0, maxFavorites());
   }
 
-  function setFavoritesSyncEnterStatus(message: string, isError = false) {
-    elements.favoritesSyncEnterStatus.textContent = message;
-    elements.favoritesSyncEnterStatus.classList.remove("hidden");
-    elements.favoritesSyncEnterStatus.classList.toggle("error", isError);
-  }
-
-  function clearFavoritesSyncEnterStatus() {
-    elements.favoritesSyncEnterStatus.textContent = "";
-    elements.favoritesSyncEnterStatus.classList.add("hidden");
-    elements.favoritesSyncEnterStatus.classList.remove("error");
-  }
-
-  function setFavoritesSyncCreateStatus(message: string, isError = false) {
-    elements.favoritesSyncCreateStatus.textContent = message;
-    elements.favoritesSyncCreateStatus.classList.remove("hidden");
-    elements.favoritesSyncCreateStatus.classList.toggle("error", isError);
-  }
-
-  function clearFavoritesSyncCreateStatus() {
-    elements.favoritesSyncCreateStatus.textContent = "";
-    elements.favoritesSyncCreateStatus.classList.add("hidden");
-    elements.favoritesSyncCreateStatus.classList.remove("error");
-  }
-
+  // React renders the favorites list from the store, so updating state is
+  // enough; only the Listen-panel star still needs an imperative sync.
   function updateFavorites(
     nextFavorites: FavoriteTrack[],
     options?: { sync?: boolean },
   ) {
-    const prevFavorites = state.favorites;
+    const prevFavorites = useAppStore.getState().favorites;
     const cappedFavorites = sortFavorites(nextFavorites).slice(0, maxFavorites());
-    state.favorites = cappedFavorites;
+    useAppStore.setState({ favorites: cappedFavorites });
     saveFavorites(cappedFavorites);
-    renderFavoritesList();
-    syncFavoriteButton();
     if (options?.sync === false) {
       return;
     }
@@ -425,10 +208,10 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function scheduleFavoritesSync(delta: FavoritesDelta) {
-    if (!state.appConfig?.allow_favorites_sync) {
+    if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
-    if (!state.favoritesSyncCode) {
+    if (!useAppStore.getState().favoritesSyncCode) {
       return;
     }
     if (syncUpdateInFlight) {
@@ -441,7 +224,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   async function syncFavoritesToBackend(delta: FavoritesDelta) {
     syncUpdateInFlight = true;
     try {
-      const code = state.favoritesSyncCode;
+      const code = useAppStore.getState().favoritesSyncCode;
       if (!code) {
         return;
       }
@@ -455,7 +238,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       }
     } catch (err) {
       console.warn(`Favorites sync update failed: ${String(err)}`);
-      showToast(context, "Favorites sync failed.");
+      showToast("Favorites sync failed.");
     } finally {
       syncUpdateInFlight = false;
       if (pendingSyncDelta) {
@@ -478,7 +261,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function waitForFavoritesSyncIdle() {
-    if (!state.appConfig?.allow_favorites_sync || !state.favoritesSyncCode) {
+    if (!useAppStore.getState().appConfig?.allow_favorites_sync || !useAppStore.getState().favoritesSyncCode) {
       return Promise.resolve();
     }
     if (!syncUpdateInFlight && !pendingSyncDelta) {
@@ -490,7 +273,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function shouldShowFavoriteToggleLoading() {
-    return Boolean(state.appConfig?.allow_favorites_sync && state.favoritesSyncCode);
+    return Boolean(useAppStore.getState().appConfig?.allow_favorites_sync && useAppStore.getState().favoritesSyncCode);
   }
 
   function computeFavoritesDelta(
@@ -533,42 +316,20 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function getCurrentFavoriteId() {
-    return state.lastTrackId ?? state.lastJobId;
+    return useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId;
   }
 
   function getCurrentFavoriteMatch() {
-    const currentId = getCurrentFavoriteId();
-    if (!currentId) {
-      return null;
-    }
-    const current = state.favorites.find((item) => item.uniqueSongId === currentId);
-    if (current) {
-      return current;
-    }
-    const legacySourceId = getCurrentLegacyFavoriteId();
-    if (!legacySourceId) {
-      return null;
-    }
-    return state.favorites.find(
-      (item) =>
-        item.uniqueSongId === legacySourceId &&
-        (item.sourceType ?? "youtube") === "youtube",
-    ) ?? null;
-  }
-
-  function getCurrentLegacyFavoriteId() {
-    if (state.lastSourceProvider && state.lastSourceProvider !== "youtube") {
-      return null;
-    }
-    const sourceId = state.lastSourceId;
-    if (!sourceId || sourceId === getCurrentFavoriteId() || isLikelyJobId(sourceId)) {
-      return null;
-    }
-    return sourceId;
+    return findCurrentFavorite(useAppStore.getState().favorites, {
+      lastTrackId: useAppStore.getState().lastTrackId,
+      lastJobId: useAppStore.getState().lastJobId,
+      lastSourceId: useAppStore.getState().lastSourceId,
+      lastSourceProvider: useAppStore.getState().lastSourceProvider,
+    });
   }
 
   function getCurrentFavoriteSourceType(): FavoriteTrack["sourceType"] {
-    const sourceProvider = state.lastSourceProvider;
+    const sourceProvider = useAppStore.getState().lastSourceProvider;
     if (
       sourceProvider === "upload" ||
       sourceProvider === "youtube" ||
@@ -577,174 +338,23 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     ) {
       return sourceProvider;
     }
-    if (!state.lastTrackId) {
+    if (!useAppStore.getState().lastTrackId) {
       return "upload";
     }
     return "youtube";
   }
 
   function getFavoriteTuningParams() {
-    if (state.playMode !== "jukebox") {
+    if (useAppStore.getState().playMode !== "jukebox") {
       return null;
     }
     return syncTuningParamsState(context);
   }
 
-  function renderFavoritesList() {
-    elements.favoritesList.innerHTML = "";
-    const query = elements.favoritesSearchInput.value.trim();
-    if (state.favorites.length === 0) {
-      elements.favoritesList.textContent = "No favorites yet.";
-      return;
-    }
-    const visibleFavorites = filterFavorites(state.favorites, query);
-    if (visibleFavorites.length === 0) {
-      elements.favoritesList.textContent = `No favorites match "${query}".`;
-      return;
-    }
-
-    const table = document.createElement("table");
-    table.className = "favorites-table";
-    const thead = document.createElement("thead");
-    const headerRow = document.createElement("tr");
-    headerRow.append(
-      createFavoritesSortHeader("title", "Title"),
-      createFavoritesSortHeader("artist", "Artist"),
-      createFavoritesRemoveHeader(),
-    );
-    thead.append(headerRow);
-
-    const tbody = document.createElement("tbody");
-    for (const item of sortFavoritesForDisplay(
-      visibleFavorites,
-      favoritesDisplaySort,
-    )) {
-      const row = document.createElement("tr");
-      row.className = "favorite-row";
-      const sourceType = item.sourceType ?? "youtube";
-      row.tabIndex = 0;
-      row.dataset.favoriteId = item.uniqueSongId;
-      row.dataset.sourceType = sourceType;
-      row.addEventListener("click", handleFavoriteRowClick);
-      row.addEventListener("keydown", handleFavoriteRowKeydown);
-      const titleCell = document.createElement("td");
-      titleCell.className = "favorite-title-cell";
-      const link = document.createElement("a");
-      link.href = urlForTrack(
-        item.uniqueSongId,
-        window.location.href,
-        item.tuningParams,
-        "jukebox",
-      );
-      const titleText = item.title || "Untitled";
-      link.textContent = titleText;
-      if (item.tuningParams) {
-        const tuneIcon = document.createElement("span");
-        tuneIcon.className = "material-symbols-outlined favorite-tune-icon";
-        tuneIcon.textContent = "tune";
-        tuneIcon.setAttribute("aria-hidden", "true");
-        tuneIcon.title = "Custom tuning";
-        link.append(" ", tuneIcon);
-      }
-      link.dataset.favoriteId = item.uniqueSongId;
-      link.dataset.sourceType = sourceType;
-      link.addEventListener("click", handleFavoriteClick);
-      titleCell.append(link);
-
-      const artistCell = document.createElement("td");
-      artistCell.className = "favorite-artist-cell";
-      artistCell.textContent = favoriteDisplayArtist(item);
-
-      const removeCell = document.createElement("td");
-      removeCell.className = "favorite-remove-cell";
-      const playlistButton = createFavoritePlaylistButton(item);
-      const removeButton = document.createElement("button");
-      removeButton.type = "button";
-      removeButton.className = "favorite-remove";
-      removeButton.setAttribute("aria-label", `Remove ${titleText} from Favorites`);
-      removeButton.innerHTML =
-        '<span class="material-symbols-outlined favorite-remove-icon" aria-hidden="true">close</span>';
-      removeButton.dataset.favoriteId = item.uniqueSongId;
-      removeButton.addEventListener("click", handleFavoriteRemove);
-      if (playlistButton) {
-        removeCell.append(playlistButton);
-      }
-      removeCell.append(removeButton);
-
-      row.append(titleCell, artistCell, removeCell);
-      tbody.append(row);
-    }
-    table.append(thead, tbody);
-    elements.favoritesList.append(table);
-  }
-
-  function createFavoritesSortHeader(
-    key: FavoritesDisplaySort["key"],
-    label: string,
-  ) {
-    const th = document.createElement("th");
-    th.scope = "col";
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "favorites-sort-button";
-    button.dataset.favoritesSort = key;
-    const active = favoritesDisplaySort.key === key;
-    th.setAttribute(
-      "aria-sort",
-      active ? (favoritesDisplaySort.direction === "asc" ? "ascending" : "descending") : "none",
-    );
-    button.textContent = label;
-    if (active) {
-      const icon = document.createElement("span");
-      icon.className = "material-symbols-outlined favorites-sort-icon";
-      icon.textContent =
-        favoritesDisplaySort.direction === "asc" ? "arrow_upward" : "arrow_downward";
-      icon.setAttribute("aria-hidden", "true");
-      button.append(" ", icon);
-    }
-    button.addEventListener("click", handleFavoritesSortClick);
-    th.append(button);
-    return th;
-  }
-
-  function createFavoritesRemoveHeader() {
-    const th = document.createElement("th");
-    th.scope = "col";
-    th.className = "favorite-remove-heading";
-    th.setAttribute("aria-label", "Remove favorite");
-    return th;
-  }
-
-  function handleFavoritesSortClick(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    const key = button?.dataset.favoritesSort as
-      | FavoritesDisplaySort["key"]
-      | undefined;
-    if (!key) {
-      return;
-    }
-    favoritesDisplaySort =
-      favoritesDisplaySort.key === key
-        ? {
-            key,
-            direction: favoritesDisplaySort.direction === "asc" ? "desc" : "asc",
-          }
-        : { key, direction: "asc" };
-    renderFavoritesList();
-  }
-
-  function syncFavoriteButton() {
-    const active = Boolean(getCurrentFavoriteMatch());
-    elements.favoriteButton.classList.toggle("active", active);
-    const label = active ? "Remove from Favorites" : "Add to Favorites";
-    elements.favoriteButton.setAttribute("aria-label", label);
-    elements.favoriteButton.title = label;
-  }
-
+  // The React play menu derives the star button from the store
+  // (findCurrentFavorite + favoriteToggleBusy).
   function setFavoriteToggleLoading(busy: boolean) {
-    elements.favoriteButton.classList.toggle("is-loading", busy);
-    elements.favoriteButton.disabled = busy;
-    elements.favoriteButton.setAttribute("aria-busy", busy ? "true" : "false");
+    useAppStore.setState({ favoriteToggleBusy: busy });
   }
 
   function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
@@ -757,25 +367,25 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         ? response.source_provider
         : null;
     const favoriteId = response.id;
-    if (!favoriteId || state.pendingAutoFavoriteId !== favoriteId) {
+    if (!favoriteId || useAppStore.getState().pendingAutoFavoriteId !== favoriteId) {
       return;
     }
-    state.pendingAutoFavoriteId = null;
-    if (isFavorite(state.favorites, favoriteId)) {
+    useAppStore.setState({ pendingAutoFavoriteId: null });
+    if (isFavorite(useAppStore.getState().favorites, favoriteId)) {
       return;
     }
-    const title = state.trackTitle || "Untitled";
-    const artist = state.trackArtist || "";
+    const title = useAppStore.getState().trackTitle || "Untitled";
+    const artist = useAppStore.getState().trackArtist || "";
     const inferredSourceType = provider ?? sourceTypeFromAnalysis(response) ?? "upload";
     const track: FavoriteTrack = {
       uniqueSongId: favoriteId,
       title,
       artist,
-      duration: state.trackDurationSec,
+      duration: useAppStore.getState().trackDurationSec,
       sourceType: inferredSourceType,
       tuningParams: getFavoriteTuningParams(),
     };
-    const result = addFavorite(state.favorites, track);
+    const result = addFavorite(useAppStore.getState().favorites, track);
     if (result.status === "added") {
       updateFavorites(result.favorites);
     }
@@ -787,7 +397,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (!jobId || !legacyId) {
       return;
     }
-    const legacyFavorite = state.favorites.find(
+    const legacyFavorite = useAppStore.getState().favorites.find(
       (item) =>
         item.uniqueSongId === legacyId &&
         (item.sourceType ?? "youtube") === "youtube",
@@ -795,12 +405,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (!legacyFavorite) {
       return;
     }
-    const existingJobFavorite = state.favorites.find(
+    const existingJobFavorite = useAppStore.getState().favorites.find(
       (item) => item.uniqueSongId === jobId,
     );
     if (existingJobFavorite) {
       updateFavorites(
-        state.favorites.filter((item) => item.uniqueSongId !== legacyId),
+        useAppStore.getState().favorites.filter((item) => item.uniqueSongId !== legacyId),
       );
       return;
     }
@@ -808,12 +418,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       ...legacyFavorite,
       uniqueSongId: jobId,
       sourceType: sourceTypeFromAnalysis(response) ?? legacyFavorite.sourceType ?? "youtube",
-      title: state.trackTitle || legacyFavorite.title || "Untitled",
-      artist: state.trackArtist || legacyFavorite.artist || "",
-      duration: state.trackDurationSec ?? legacyFavorite.duration,
+      title: useAppStore.getState().trackTitle || legacyFavorite.title || "Untitled",
+      artist: useAppStore.getState().trackArtist || legacyFavorite.artist || "",
+      duration: useAppStore.getState().trackDurationSec ?? legacyFavorite.duration,
     };
     updateFavorites(
-      state.favorites.map((item) =>
+      useAppStore.getState().favorites.map((item) =>
         item.uniqueSongId === legacyId ? migrated : item,
       ),
     );
@@ -848,26 +458,26 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return null;
   }
 
-  function handleFavoriteClick(event: Event) {
-    event.preventDefault();
-    const target = event.currentTarget as HTMLElement | null;
-    const favoriteId = target?.dataset.favoriteId;
-    if (!favoriteId) {
-      return;
-    }
-    const favorite = state.favorites.find(
+  // Selecting a favorite row in the React panel: apply its tuning params,
+  // navigate to the play tab and load it (job id vs source id aware).
+  function handleFavoriteSelect(
+    favoriteId: string,
+    sourceTypeRaw: string,
+  ) {
+    const favorite = useAppStore.getState().favorites.find(
       (item) => item.uniqueSongId === favoriteId,
     );
     const desiredTuningParams = favorite?.tuningParams ?? null;
-    if (desiredTuningParams && state.playMode !== "jukebox") {
+    if (desiredTuningParams && useAppStore.getState().playMode !== "jukebox") {
       setPlayMode("jukebox");
     }
-    state.tuningParams =
-      state.playMode === "jukebox" ? desiredTuningParams : null;
-    if (state.playMode === "jukebox") {
-      writeTuningParamsToUrl(state.tuningParams, true);
+    useAppStore.setState({
+      tuningParams:
+        useAppStore.getState().playMode === "jukebox" ? desiredTuningParams : null,
+    });
+    if (useAppStore.getState().playMode === "jukebox") {
+      writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
     }
-    const sourceTypeRaw = target?.dataset.sourceType ?? "youtube";
     const sourceType: FavoriteTrack["sourceType"] =
       sourceTypeRaw === "upload" ||
       sourceTypeRaw === "youtube" ||
@@ -886,70 +496,9 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     loadTrackById(favoriteId, { selectedTrack });
   }
 
-  function handleFavoriteRowClick(event: Event) {
-    const target = event.target as HTMLElement | null;
-    if (target?.closest("a, button")) {
-      return;
-    }
-    handleFavoriteClick(event);
-  }
-
-  function handleFavoriteRowKeydown(event: KeyboardEvent) {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-    event.preventDefault();
-    handleFavoriteClick(event);
-  }
-
-  function handleFavoriteRemove(event: Event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const target = event.currentTarget as HTMLButtonElement | null;
-    const favoriteId = target?.dataset.favoriteId;
-    if (!favoriteId) {
-      return;
-    }
-    updateFavorites(removeFavorite(state.favorites, favoriteId));
+  function removeFavoriteWithToast(favoriteId: string) {
+    updateFavorites(removeFavorite(useAppStore.getState().favorites, favoriteId));
     showFavoriteToast("Removed from Favorites");
-  }
-
-  function createFavoritePlaylistButton(item: FavoriteTrack) {
-    if (!onAddToPlaylist) {
-      return null;
-    }
-    const sourceType = item.sourceType ?? "youtube";
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "playlist-add-button";
-    button.title = "Add to playlist";
-    button.setAttribute(
-      "aria-label",
-      `Add ${item.title || "track"} to playlist`,
-    );
-    button.innerHTML =
-      '<span class="material-symbols-outlined playlist-add-icon" aria-hidden="true">add_circle</span>';
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      onAddToPlaylist(favoriteToPlaylistTrack(item, sourceType));
-      blurMouseActivatedControl(event);
-    });
-    return button;
-  }
-
-  function favoriteToPlaylistTrack(
-    item: FavoriteTrack,
-    sourceType: FavoriteTrack["sourceType"],
-  ): PlaylistTrack {
-    return {
-      id: item.uniqueSongId,
-      sourceType,
-      title: item.title || "Untitled",
-      artist: item.artist || "",
-      duration: item.duration,
-      tuningParams: item.tuningParams ?? null,
-    };
   }
 
   async function handleFavoriteToggle() {
@@ -957,7 +506,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (!currentId) {
       return;
     }
-    if (elements.favoriteButton.classList.contains("is-loading")) {
+    if (useAppStore.getState().favoriteToggleBusy) {
       return;
     }
     const currentFavorite = getCurrentFavoriteMatch();
@@ -967,7 +516,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         setFavoriteToggleLoading(true);
       }
       try {
-        updateFavorites(removeFavorite(state.favorites, currentFavorite.uniqueSongId));
+        updateFavorites(removeFavorite(useAppStore.getState().favorites, currentFavorite.uniqueSongId));
         showFavoriteToast("Removed from Favorites");
         if (showLoading) {
           await waitForFavoritesSyncIdle();
@@ -979,19 +528,19 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       }
       return;
     }
-    const title = state.trackTitle || "Untitled";
-    const artist = state.trackArtist || "";
+    const title = useAppStore.getState().trackTitle || "Untitled";
+    const artist = useAppStore.getState().trackArtist || "";
     const track: FavoriteTrack = {
       uniqueSongId: currentId,
       title,
       artist,
-      duration: state.trackDurationSec,
+      duration: useAppStore.getState().trackDurationSec,
       sourceType: getCurrentFavoriteSourceType(),
       tuningParams: getFavoriteTuningParams(),
     };
-    const result = addFavorite(state.favorites, track);
+    const result = addFavorite(useAppStore.getState().favorites, track);
     if (result.status === "limit") {
-      showToast(context, `Maximum favorites reached (${maxFavorites()}).`);
+      showToast(`Maximum favorites reached (${maxFavorites()}).`);
       return;
     }
     const showLoading = shouldShowFavoriteToggleLoading();
@@ -1003,7 +552,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       if (result.status === "added") {
         showFavoriteToast("Added to Favorites");
       } else {
-        showToast(context, "Favorited");
+        showToast("Favorited");
       }
       if (showLoading) {
         await waitForFavoritesSyncIdle();
@@ -1015,38 +564,22 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
   }
 
-  function handleFavoritesSearchInput() {
-    renderFavoritesList();
-  }
-
   function showFavoriteToast(message: string) {
-    if (state.favoritesSyncCode) {
-      showToast(context, message, { icon: "cloud_done" });
+    if (useAppStore.getState().favoritesSyncCode) {
+      showToast(message, { icon: "cloud_done" });
     } else {
-      showToast(context, message);
+      showToast(message);
     }
   }
 
   return {
-    handleFavoritesSyncToggle,
-    handleFavoritesSyncItem,
-    handleFavoritesSyncDocumentClick,
-    handleFavoritesSyncEnterClose,
-    handleFavoritesSyncCreateClose,
-    handleFavoritesSyncEnterSubmit,
-    handleFavoritesSyncCreateSubmit,
-    handleFavoritesSyncEnterKeydown,
-    handleFavoritesSyncEnterModalClick,
-    handleFavoritesSyncCreateModalClick,
-    closeFavoritesSyncMenu,
-    updateFavoritesSyncControls,
     hydrateFavoritesFromSync,
-    renderFavoritesList,
-    handleFavoritesSearchInput,
-    syncFavoriteButton,
+    refreshFavoritesFromSync,
+    enterSyncCode,
+    createSyncCode,
     maybeAutoFavoriteUserSupplied,
-    handleFavoriteClick,
-    handleFavoriteRemove,
+    handleFavoriteSelect,
+    removeFavoriteWithToast,
     handleFavoriteToggle,
     updateFavorites,
   };

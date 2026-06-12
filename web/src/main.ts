@@ -1,8 +1,14 @@
 import "./polyfills";
 import "./style.css";
 import { bootstrap } from "./app/bootstrap";
+import { mountReactApp } from "./app/react-root";
 
-bootstrap();
+const bridge = bootstrap();
+const appEl = document.getElementById("app");
+if (!appEl) {
+  throw new Error("#app container missing");
+}
+mountReactApp(appEl, bridge);
 
 const fontReady =
   "fonts" in document && typeof document.fonts?.ready?.then === "function"

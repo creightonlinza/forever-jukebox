@@ -1,13 +1,11 @@
 import type { AppContext, TabId } from "./context";
-import { formatTrackDuration } from "./format";
+import { getLoadGeneration, isStaleLoad } from "./playback";
 import {
   fetchJobByTrack,
   searchSpotify,
   searchYoutube,
   startYoutubeAnalysis,
   type AnalysisComplete,
-  type SpotifySearchItem,
-  type YoutubeSearchItem,
 } from "./api";
 import type { ToastOptions } from "./ui";
 import type { PlaylistTrack } from "./playlist";
@@ -18,6 +16,12 @@ import {
   isAnalysisInProgress,
 } from "./analysisStatus";
 import { formatErrorForDisplay } from "./errorDisplay";
+import {
+  DEFAULT_SEARCH_HINT,
+  DEFAULT_SEARCH_RESULTS,
+  useAppStore,
+  type SearchResultsState,
+} from "./store";
 
 export type SearchDeps = {
   setActiveTab: (tabId: TabId) => void;
@@ -46,20 +50,16 @@ function formatMinutes(value: number): string {
   return String(rounded);
 }
 
-function getMaxTrackLengthMinutes(context: AppContext): number | null {
-  const value = context.state.appConfig?.max_track_length;
+function getMaxTrackLengthMinutes(): number | null {
+  const value = useAppStore.getState().appConfig?.max_track_length;
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return null;
   }
   return value;
 }
 
-function isTrackLengthAllowed(
-  context: AppContext,
-  deps: SearchDeps,
-  duration: number,
-): boolean {
-  const maxTrackLengthMinutes = getMaxTrackLengthMinutes(context);
+function isTrackLengthAllowed(deps: SearchDeps, duration: number): boolean {
+  const maxTrackLengthMinutes = getMaxTrackLengthMinutes();
   if (
     maxTrackLengthMinutes !== null &&
     Number.isFinite(duration) &&
@@ -74,87 +74,18 @@ function isTrackLengthAllowed(
   return true;
 }
 
-function renderSearchList(
-  container: HTMLElement,
-  items: HTMLLIElement[],
-) {
-  const list = document.createElement("ol");
-  list.className = "search-list";
-  for (const item of items) {
-    list.append(item);
-  }
-  container.replaceChildren(list);
+// The search panel renders these store values; React replaced the manual
+// list-DOM building that used to live here.
+function setSearchResults(results: SearchResultsState) {
+  useAppStore.setState({ searchResults: results });
 }
 
-function buildYoutubeMatchItem(
-  context: AppContext,
-  deps: SearchDeps,
-  name: string,
-  artist: string,
-  item: YoutubeSearchItem,
-) {
-  const title = typeof item.title === "string" ? item.title : "Untitled";
-  const ytDuration = typeof item.duration === "number" ? item.duration : null;
-  const li = document.createElement("li");
-  li.className = "search-item";
-  li.dataset.youtubeId = item.id ? String(item.id) : "";
-  li.dataset.trackName = name;
-  li.dataset.trackArtist = artist;
-  li.dataset.trackDuration = ytDuration !== null ? String(ytDuration) : "";
-  const titleSpan = document.createElement("strong");
-  titleSpan.textContent = title;
-  const durationSpan = document.createElement("span");
-  durationSpan.textContent = formatTrackDuration(ytDuration);
-  const metaWrap = document.createElement("span");
-  metaWrap.className = "search-meta";
-  metaWrap.append(durationSpan);
-  if (item.id) {
-    const openLink = document.createElement("a");
-    openLink.className = "search-open";
-    openLink.href = `https://www.youtube.com/watch?v=${encodeURIComponent(String(item.id))}`;
-    openLink.target = "_blank";
-    openLink.rel = "noreferrer";
-    openLink.title = "Open on YouTube";
-    openLink.addEventListener("click", (event) => {
-      event.stopPropagation();
-    });
-    const openIcon = document.createElement("span");
-    openIcon.className = "material-symbols-outlined search-open-icon";
-    openIcon.setAttribute("aria-hidden", "true");
-    openIcon.textContent = "open_in_new";
-    openLink.append(openIcon);
-    metaWrap.append(openLink);
-  }
-  li.append(titleSpan, metaWrap);
-  li.addEventListener("click", (event) => {
-    handleYoutubeMatchClick(context, deps, event);
-  });
-  return li;
+function setSearchMessage(text: string) {
+  setSearchResults({ kind: "message", text });
 }
 
-function buildSpotifyMatchItem(
-  context: AppContext,
-  deps: SearchDeps,
-  item: SpotifySearchItem,
-) {
-  const name = typeof item.name === "string" ? item.name : "Untitled";
-  const artist = typeof item.artist === "string" ? item.artist : "";
-  const title = artist ? `${name} — ${artist}` : name;
-  const duration = typeof item.duration === "number" ? item.duration : null;
-  const li = document.createElement("li");
-  li.className = "search-item";
-  li.dataset.trackName = name;
-  li.dataset.trackArtist = artist;
-  li.dataset.trackDuration = duration !== null ? String(duration) : "";
-  const titleSpan = document.createElement("strong");
-  titleSpan.textContent = title;
-  const durationSpan = document.createElement("span");
-  durationSpan.textContent = formatTrackDuration(item.duration);
-  li.append(titleSpan, durationSpan);
-  li.addEventListener("click", (event) => {
-    handleSpotifyMatchClick(context, deps, event);
-  });
-  return li;
+function setSearchHint(text: string) {
+  useAppStore.setState({ searchHint: text });
 }
 
 export async function startYoutubeAnalysisFlow(
@@ -165,20 +96,27 @@ export async function startYoutubeAnalysisFlow(
   artist: string
 ) {
   deps.resetForNewTrack({ clearTuning: true });
+  const generation = getLoadGeneration();
   resetSearchUI(context);
-  context.state.audioLoaded = false;
-  context.state.analysisLoaded = false;
+  useAppStore.setState({ audioLoaded: false });
+  useAppStore.setState({ analysisLoaded: false });
   deps.updateVizVisibility();
   deps.setActiveTab("play");
   deps.setLoadingProgress(null, "Fetching audio");
-  context.state.lastTrackId = youtubeId;
-  context.state.lastSourceId = youtubeId;
-  context.state.lastSourceProvider = "youtube";
+  useAppStore.setState({ lastTrackId: youtubeId });
+  useAppStore.setState({ lastSourceId: youtubeId });
+  useAppStore.setState({ lastSourceProvider: "youtube" });
   deps.onTrackChange?.(youtubeId);
   deps.updateTrackUrl(youtubeId);
   await tryLoadCachedAudio(context, youtubeId);
+  if (isStaleLoad(generation)) {
+    return;
+  }
   const payload = { youtube_id: youtubeId, title, artist };
   const response = await startYoutubeAnalysis(payload);
+  if (isStaleLoad(generation)) {
+    return;
+  }
   if (!response || !response.id) {
     throw new Error("Invalid job response");
   }
@@ -191,14 +129,19 @@ export async function startYoutubeAnalysisFlow(
     duration: null,
     tuningParams: null,
   });
-  context.state.lastTrackId = jobId;
-  context.state.lastJobId = jobId;
-  context.state.lastSourceId =
-    typeof response.source_id === "string" ? response.source_id : youtubeId;
-  context.state.lastSourceProvider = response.source_provider ?? "youtube";
+  useAppStore.setState({ lastTrackId: jobId });
+  useAppStore.setState({ lastJobId: jobId });
+  useAppStore.setState({
+    lastSourceId:
+      typeof response.source_id === "string" ? response.source_id : youtubeId,
+  });
+  useAppStore.setState({ lastSourceProvider: response.source_provider ?? "youtube" });
   deps.onTrackChange?.(jobId);
   deps.updateTrackUrl(jobId);
   await tryLoadCachedAudio(context, jobId);
+  if (isStaleLoad(generation)) {
+    return;
+  }
   if (isAnalysisInProgress(response)) {
     const progress =
       typeof response.progress === "number" ? response.progress : null;
@@ -214,26 +157,25 @@ export async function showYoutubeMatches(
   artist: string,
   duration: number
 ) {
-  const { elements } = context;
+  void context;
   const query = artist ? `${artist} - ${name}` : name;
   deps.navigateToTab("search", { replace: true });
-  elements.searchResults.textContent = "Searching YouTube for matches...";
-  elements.searchHint.textContent = "Step 2: Choose the closest YouTube match.";
+  setSearchMessage("Searching YouTube for matches...");
+  setSearchHint("Step 2: Choose the closest YouTube match.");
   try {
     const ytItems = await searchYoutube(query, duration);
     if (ytItems.length === 0) {
-      elements.searchResults.textContent = "No YouTube matches found.";
-      elements.searchHint.textContent = "Step 1: Find a Spotify track.";
+      setSearchMessage("No YouTube matches found.");
+      setSearchHint(DEFAULT_SEARCH_HINT);
       return;
     }
-    const rows = ytItems.map((item) =>
-      buildYoutubeMatchItem(context, deps, name, artist, item),
-    );
-    renderSearchList(elements.searchResults, rows);
+    setSearchResults({
+      kind: "youtube",
+      items: ytItems.map((item) => ({ item, name, artist })),
+    });
   } catch (err) {
-    elements.searchResults.textContent =
-      `YouTube search failed: ${formatErrorForDisplay(err)}`;
-    elements.searchHint.textContent = "Step 1: Find a Spotify track.";
+    setSearchMessage(`YouTube search failed: ${formatErrorForDisplay(err)}`);
+    setSearchHint(DEFAULT_SEARCH_HINT);
   }
 }
 
@@ -243,23 +185,29 @@ export async function tryLoadExistingTrackByName(
   title: string,
   artist: string
 ) {
-  const { elements, state } = context;
   if (!artist) {
     return false;
   }
-  elements.searchResults.textContent = "Checking existing analysis...";
-  elements.searchHint.textContent = "Step 2: Choose the closest YouTube match.";
+  setSearchMessage("Checking existing analysis...");
+  setSearchHint("Step 2: Choose the closest YouTube match.");
+  const entryGeneration = getLoadGeneration();
   try {
     const response = await fetchJobByTrack(title, artist);
+    // The user loaded another track while the lookup ran.
+    if (isStaleLoad(entryGeneration)) {
+      return true;
+    }
     if (!response || !response.id) {
       return false;
     }
     const jobId = response.id;
     if (typeof response.source_provider === "string") {
-      state.lastSourceProvider = response.source_provider;
+      useAppStore.setState({ lastSourceProvider: response.source_provider });
     }
-    state.lastSourceId =
-      typeof response.source_id === "string" ? response.source_id : null;
+    useAppStore.setState({
+      lastSourceId:
+        typeof response.source_id === "string" ? response.source_id : null,
+    });
     const sourceType =
       response.source_provider === "soundcloud" ||
       response.source_provider === "bandcamp" ||
@@ -272,19 +220,20 @@ export async function tryLoadExistingTrackByName(
       title,
       artist,
       duration: null,
-      tuningParams: state.playMode === "jukebox" ? state.tuningParams : null,
+      tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
     });
     deps.resetForNewTrack({ clearTuning: true });
+    const generation = getLoadGeneration();
     resetSearchUI(context);
-    state.audioLoaded = false;
-    state.analysisLoaded = false;
+    useAppStore.setState({ audioLoaded: false });
+    useAppStore.setState({ analysisLoaded: false });
     deps.updateVizVisibility();
     deps.setActiveTab("play");
     deps.setLoadingProgress(null, "Fetching audio");
-    state.lastTrackId = jobId;
+    useAppStore.setState({ lastTrackId: jobId });
     deps.onTrackChange?.(jobId);
     deps.updateTrackUrl(jobId);
-    state.lastJobId = jobId;
+    useAppStore.setState({ lastJobId: jobId });
     if (isAnalysisInProgress(response)) {
       await deps.pollAnalysis(jobId);
       return true;
@@ -301,8 +250,11 @@ export async function tryLoadExistingTrackByName(
       return true;
     }
     if (isAnalysisComplete(response)) {
-      if (!state.audioLoaded) {
+      if (!useAppStore.getState().audioLoaded) {
         const audioLoaded = await deps.loadAudioFromJob(jobId);
+        if (isStaleLoad(generation)) {
+          return true;
+        }
         if (!audioLoaded) {
           await deps.pollAnalysis(jobId);
           return true;
@@ -314,63 +266,62 @@ export async function tryLoadExistingTrackByName(
     await deps.pollAnalysis(jobId);
     return true;
   } catch (err) {
-    elements.searchResults.textContent =
-      `Lookup failed: ${formatErrorForDisplay(err)}`;
+    setSearchMessage(`Lookup failed: ${formatErrorForDisplay(err)}`);
     return false;
   }
 }
 
 export async function runSearch(context: AppContext, deps: SearchDeps) {
-  const { elements } = context;
-  const query = elements.searchInput.value.trim().slice(0, 100);
-  if (elements.searchInput.value !== query) {
-    elements.searchInput.value = query;
+  void context;
+  void deps;
+  const query = useAppStore.getState().searchQuery.trim().slice(0, 100);
+  if (useAppStore.getState().searchQuery !== query) {
+    useAppStore.setState({ searchQuery: query });
   }
   if (!query) {
-    elements.searchResults.textContent = "Enter a search query.";
+    setSearchMessage("Enter a search query.");
     return;
   }
-  elements.searchButton.disabled = true;
-  elements.searchResults.textContent = "Searching Spotify...";
-  elements.searchHint.textContent = "Step 1: Find a Spotify track.";
+  setSearchMessage("Searching Spotify...");
+  setSearchHint(DEFAULT_SEARCH_HINT);
   try {
     const items = await searchSpotify(query);
     if (items.length === 0) {
-      elements.searchResults.textContent = "No Spotify results found.";
+      setSearchMessage("No Spotify results found.");
       return;
     }
-    const rows = items.map((item) => buildSpotifyMatchItem(context, deps, item));
-    renderSearchList(elements.searchResults, rows);
+    setSearchResults({ kind: "spotify", items });
   } catch (err) {
-    elements.searchResults.textContent =
-      `Search failed: ${formatErrorForDisplay(err)}`;
-  } finally {
-    elements.searchButton.disabled = false;
+    setSearchMessage(`Search failed: ${formatErrorForDisplay(err)}`);
   }
 }
 
 export function resetSearchUI(context: AppContext) {
-  const { elements } = context;
-  elements.searchInput.value = "";
-  elements.searchResults.textContent = "Search results will appear here.";
-  elements.searchHint.textContent = "Step 1: Find a Spotify track.";
+  void context;
+  useAppStore.setState({
+    searchQuery: "",
+    searchResults: DEFAULT_SEARCH_RESULTS,
+    searchHint: DEFAULT_SEARCH_HINT,
+  });
 }
 
-function handleYoutubeMatchClick(
+// Result selection — the React panel passes item data instead of DOM events.
+export function selectYoutubeMatch(
   context: AppContext,
   deps: SearchDeps,
-  event: Event
+  selection: {
+    youtubeId: string | null | undefined;
+    name: string;
+    artist: string;
+    duration: number;
+  },
 ) {
-  const target = event.currentTarget as HTMLLIElement | null;
-  const youtubeId = target?.dataset.youtubeId;
-  const name = target?.dataset.trackName ?? "";
-  const artist = target?.dataset.trackArtist ?? "";
-  const duration = Number(target?.dataset.trackDuration ?? Number.NaN);
+  const { youtubeId, name, artist, duration } = selection;
   if (!youtubeId) {
     deps.setAnalysisStatus("No YouTube id available.", false);
     return;
   }
-  if (!isTrackLengthAllowed(context, deps, duration)) {
+  if (!isTrackLengthAllowed(deps, duration)) {
     return;
   }
   startYoutubeAnalysisFlow(context, deps, youtubeId, name, artist).catch((err) => {
@@ -381,19 +332,16 @@ function handleYoutubeMatchClick(
   });
 }
 
-function handleSpotifyMatchClick(
+export function selectSpotifyMatch(
   context: AppContext,
   deps: SearchDeps,
-  event: Event
+  selection: { name: string; artist: string; duration: number },
 ) {
-  const target = event.currentTarget as HTMLLIElement | null;
-  const name = target?.dataset.trackName ?? "";
-  const artist = target?.dataset.trackArtist ?? "";
-  const duration = Number(target?.dataset.trackDuration ?? Number.NaN);
+  const { name, artist, duration } = selection;
   if (!name) {
     return;
   }
-  if (!isTrackLengthAllowed(context, deps, duration)) {
+  if (!isTrackLengthAllowed(deps, duration)) {
     return;
   }
   tryLoadExistingTrackByName(context, deps, name, artist).then((loaded) => {

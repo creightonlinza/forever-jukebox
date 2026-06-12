@@ -1,4 +1,5 @@
 import type { AppContext } from "./context";
+import { useAppStore } from "./store";
 import type { PlaybackDeps } from "./playback";
 import { loadTrackById } from "./playback";
 import { hasTuningParamsInUrl } from "./tuning";
@@ -28,14 +29,13 @@ export async function handleRouteChange(
       }
     }
     if (trackId) {
-      const { state } = context;
       const preserveUrlTuning = hasTuningParamsInUrl();
       if (
-        trackId === state.lastTrackId &&
-        (state.audioLoaded ||
-          state.analysisLoaded ||
-          state.audioLoadInFlight ||
-          state.isRunning)
+        trackId === useAppStore.getState().lastTrackId &&
+        (useAppStore.getState().audioLoaded ||
+          useAppStore.getState().analysisLoaded ||
+          useAppStore.getState().audioLoadInFlight ||
+          useAppStore.getState().isRunning)
       ) {
         deps.navigateToTab("play", { replace: true, trackId });
         return;

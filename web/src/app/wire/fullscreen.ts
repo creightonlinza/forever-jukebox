@@ -1,26 +1,24 @@
-import type { AppContext } from "../context";
-import type { Elements } from "../elements";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
+import { useAppStore } from "../store";
 
 type FullscreenDeps = {
-  context: AppContext;
-  elements: Elements;
   jukebox: JukeboxController;
-  requestWakeLock: (context: AppContext) => void;
-  releaseWakeLock: (context: AppContext) => void;
+  getVizPanel: () => HTMLElement;
+  requestWakeLock: () => void;
+  releaseWakeLock: () => void;
 };
 
 export type FullscreenHandlers = ReturnType<typeof createFullscreenHandlers>;
 
 export function createFullscreenHandlers(deps: FullscreenDeps) {
-  const { context, elements, jukebox, requestWakeLock, releaseWakeLock } = deps;
+  const { jukebox, getVizPanel, requestWakeLock, releaseWakeLock } = deps;
 
   function handleFullscreenToggle() {
     if (!document.fullscreenElement) {
-      elements.vizPanel
+      getVizPanel()
         .requestFullscreen()
         .then(() => {
-          requestWakeLock(context);
+          requestWakeLock();
         })
         .catch(() => {
           console.warn("Failed to enter fullscreen");
@@ -29,7 +27,7 @@ export function createFullscreenHandlers(deps: FullscreenDeps) {
       document
         .exitFullscreen()
         .then(() => {
-          releaseWakeLock(context);
+          releaseWakeLock();
         })
         .catch(() => {
           console.warn("Failed to exit fullscreen");
@@ -40,32 +38,24 @@ export function createFullscreenHandlers(deps: FullscreenDeps) {
   function handleFullscreenChange() {
     if (document.fullscreenElement) {
       updateFullscreenButton(true);
-      requestWakeLock(context);
+      requestWakeLock();
     } else {
       updateFullscreenButton(false);
-      releaseWakeLock(context);
+      releaseWakeLock();
     }
     jukebox.resizeActive();
   }
 
+  // The React fullscreen button renders from this store flag.
   function updateFullscreenButton(isFullscreen: boolean) {
-    const label = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
-    const icon =
-      elements.fullscreenButton.querySelector<HTMLSpanElement>(
-        ".fullscreen-icon",
-      );
-    if (icon) {
-      icon.textContent = isFullscreen ? "fullscreen_exit" : "fullscreen";
-    }
-    elements.fullscreenButton.title = label;
-    elements.fullscreenButton.setAttribute("aria-label", label);
+    useAppStore.setState({ isFullscreen });
   }
 
   function handleVisibilityChange() {
     if (!document.hidden && document.fullscreenElement) {
-      requestWakeLock(context);
+      requestWakeLock();
     } else if (document.hidden) {
-      releaseWakeLock(context);
+      releaseWakeLock();
     }
   }
 

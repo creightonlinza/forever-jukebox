@@ -1,3 +1,5 @@
+import type { PlaylistTrack } from "./playlist";
+
 export type FavoriteTrack = {
   uniqueSongId: string;
   title: string;
@@ -155,4 +157,59 @@ export function saveFavoritesSyncCode(code: string) {
     return;
   }
   localStorage.setItem(FAVORITES_SYNC_KEY, trimmed);
+}
+
+export function favoriteToPlaylistTrack(
+  item: FavoriteTrack,
+  sourceType: FavoriteTrack["sourceType"],
+): PlaylistTrack {
+  return {
+    id: item.uniqueSongId,
+    sourceType,
+    title: item.title || "Untitled",
+    artist: item.artist || "",
+    duration: item.duration,
+    tuningParams: item.tuningParams ?? null,
+  };
+}
+
+export type CurrentTrackIdentity = {
+  lastTrackId: string | null;
+  lastJobId: string | null;
+  lastSourceId: string | null;
+  lastSourceProvider: string | null;
+};
+
+// Pure version of the favorites-handler current-track matcher so the React
+// play menu can derive the star button state from the store.
+export function findCurrentFavorite(
+  favorites: FavoriteTrack[],
+  identity: CurrentTrackIdentity,
+): FavoriteTrack | null {
+  const currentId = identity.lastTrackId ?? identity.lastJobId;
+  if (!currentId) {
+    return null;
+  }
+  const current = favorites.find((item) => item.uniqueSongId === currentId);
+  if (current) {
+    return current;
+  }
+  if (identity.lastSourceProvider && identity.lastSourceProvider !== "youtube") {
+    return null;
+  }
+  const sourceId = identity.lastSourceId;
+  if (
+    !sourceId ||
+    sourceId === currentId ||
+    /^[a-f0-9]{32}$/.test(sourceId)
+  ) {
+    return null;
+  }
+  return (
+    favorites.find(
+      (item) =>
+        item.uniqueSongId === sourceId &&
+        (item.sourceType ?? "youtube") === "youtube",
+    ) ?? null
+  );
 }

@@ -12,3 +12,10 @@ __pycache__/
 
 # Fly.io
 *.toml
+
+# Playwright MCP browser-session artifacts (agent scratch, not tests)
+.playwright-mcp/
+
+# Playwright e2e artifacts
+web/playwright-report/
+web/test-results/

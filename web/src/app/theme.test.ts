@@ -54,27 +54,22 @@ describe("theme", () => {
   });
 
   it("applies theme updates and persists", () => {
-    const link = {
-      dataset: { theme: "light" },
-      classList: createClassList(),
-    } as unknown as HTMLButtonElement;
+    const refresh = vi.fn();
     const context = {
-      elements: { themeLinks: [link] },
-      jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
+      jukebox: { refresh } as unknown as AppContext["jukebox"],
     } as unknown as AppContext;
     applyTheme(context, "light");
     expect(document.body.classList.toggle).toHaveBeenCalledWith(
       "theme-light",
       true,
     );
-    expect(link.classList.toggle).toHaveBeenCalledWith("active", true);
+    expect(refresh).toHaveBeenCalled();
     expect(localStorage.getItem("fj-theme")).toBe("light");
   });
 
   it("applies stored theme", () => {
     localStorage.setItem("fj-theme", "light");
     const context = {
-      elements: { themeLinks: [] },
       jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
     } as unknown as AppContext;
     applyStoredTheme(context);

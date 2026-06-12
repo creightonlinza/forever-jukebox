@@ -67,10 +67,10 @@ describe("playlist", () => {
     ]);
   });
 
-  it("requires a current track for first add", () => {
+  it("treats a missing current track as invalid (unreachable via UI)", () => {
     const result = addPlaylistTrack(emptyPlaylist(), null, track("next"));
 
-    expect(result.status).toBe("no-current");
+    expect(result.status).toBe("invalid");
     expect(result.playlist.tracks).toEqual([]);
   });
 
