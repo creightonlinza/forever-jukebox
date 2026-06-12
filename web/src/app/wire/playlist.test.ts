@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppContext, AppState } from "../context";
 import { emptyPlaylist, type PlaylistTrack } from "../playlist";
 import { createPlaylistHandlers } from "./playlist";
+import { useAppStore } from "../store";
 import { setWindowUrl } from "../__tests__/test-utils";
 
 function createClassList(initial: string[] = []) {
@@ -295,6 +296,7 @@ describe("playlist handlers", () => {
   });
 
   it("does not load or close the modal for the current playlist item", async () => {
+    useAppStore.setState({ playlistModalOpen: true });
     const deps = createDeps({
       playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
     } as Partial<AppState>);
@@ -303,12 +305,11 @@ describe("playlist handlers", () => {
     await handlers.loadPlaylistIndex(0, { closeModal: true });
 
     expect(deps.loadTrackById).not.toHaveBeenCalled();
-    expect(deps.elements.playlistModal.classList.remove).not.toHaveBeenCalledWith(
-      "open",
-    );
+    expect(useAppStore.getState().playlistModalOpen).toBe(true);
   });
 
   it("closes the playlist modal immediately after selecting a playlist item", async () => {
+    useAppStore.setState({ playlistModalOpen: true });
     const deps = createDeps({
       playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
     } as Partial<AppState>);
@@ -323,9 +324,7 @@ describe("playlist handlers", () => {
 
     const loadPromise = handlers.loadPlaylistIndex(1, { closeModal: true });
 
-    expect(deps.elements.playlistModal.classList.remove).toHaveBeenCalledWith(
-      "open",
-    );
+    expect(useAppStore.getState().playlistModalOpen).toBe(false);
 
     resolveLoad(true);
     await loadPromise;
@@ -357,18 +356,6 @@ describe("playlist handlers", () => {
     expect(deps.togglePlayback).not.toHaveBeenCalled();
   });
 
-  it("closes the playlist modal with Escape", () => {
-    const deps = createDeps();
-    deps.elements.playlistModal.classList.add("open");
-    const handlers = createPlaylistHandlers(deps);
-
-    handlers.handlePlaylistModalKeydown({ key: "Escape" } as KeyboardEvent);
-
-    expect(deps.elements.playlistModal.classList.remove).toHaveBeenCalledWith(
-      "open",
-    );
-  });
-
   it("does not advance autocanonizer without a next playlist track", async () => {
     const deps = createDeps({
       playlist: { tracks: [track("a"), track("b")], currentIndex: 1 },
@@ -388,8 +375,6 @@ describe("playlist handlers", () => {
     handlers.handleClearPlaylist();
 
     expect(deps.state.playlist).toEqual(emptyPlaylist());
-    expect(deps.elements.playlistModal.classList.remove).toHaveBeenCalledWith(
-      "open",
-    );
+    expect(useAppStore.getState().playlistModalOpen).toBe(false);
   });
 });

@@ -4,7 +4,8 @@ import type { AnalysisComplete } from "./api";
 import {
   applyExtrasChanges,
   applyAnalysisResult,
-  getActiveTuningTab,
+  getExtrasFormValues,
+  getTuningFormValues,
   resetExtrasDefaults,
   resetTuningDefaults,
   applyTuningChanges,
@@ -14,15 +15,14 @@ import {
   pollAnalysis,
   resetForNewTrack,
   setSleepTimer,
-  setActiveTuningTab,
   startJukeboxFromBeat,
   stopPlayback,
-  syncTuningTabsUI,
-  syncTuningUI,
   togglePlayback,
   updateVizVisibility,
   updateListenTimeDisplay,
+  type TuningFormValues,
 } from "./playback";
+import { useAppStore } from "./store";
 import { createPlaybackUiHandlers } from "./wire/playback";
 import { setWindowUrl } from "./__tests__/test-utils";
 import { getOrCreateSwingBuffer } from "../audio/swingBufferCache";
@@ -415,21 +415,28 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
   };
 }
 
+function formValues(
+  context: AppContext,
+  overrides?: Partial<TuningFormValues>,
+): TuningFormValues {
+  return { ...getTuningFormValues(context), ...overrides };
+}
+
 describe("playback tuning", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     setWindowUrl("http://localhost/listen/abc");
   });
 
-  it("syncs tuning UI from config and graph", () => {
+  it("reads tuning form values from config and graph", () => {
     const context = createContext();
     context.state.highlightAnchorBranch = true;
-    syncTuningUI(context);
-    expect(context.elements.thresholdInput.value).toBe("45");
-    expect(context.elements.thresholdVal.textContent).toBe("45");
-    expect(context.elements.volumeVal.textContent).toBe("50");
-    expect(context.elements.highlightAnchorBranchInput.checked).toBe(true);
-    expect(context.elements.computedThresholdEl.textContent).toBe("45");
+    const form = getTuningFormValues(context);
+    expect(form.threshold).toBe(45);
+    expect(form.computedThreshold).toBe(45);
+    expect(form.minProbPct).toBe(18);
+    expect(form.maxProbPct).toBe(50);
+    expect(form.highlightAnchorBranch).toBe(true);
   });
 
   it("preserves selected tuning while resetting for a new track", () => {
@@ -446,14 +453,18 @@ describe("playback tuning", () => {
 
   it("applies tuning changes and normalizes min/max", () => {
     const context = createContext();
-    context.elements.minProbInput.value = "80";
-    context.elements.maxProbInput.value = "10";
-    context.elements.rampInput.value = "10";
-    context.elements.thresholdInput.value = "50";
-    context.elements.computedThresholdEl.textContent = "50";
-    applyTuningChanges(context);
-    expect(context.elements.minProbInput.value).toBe("10");
-    expect(context.elements.maxProbInput.value).toBe("80");
+    const result = applyTuningChanges(
+      context,
+      formValues(context, {
+        minProbPct: 80,
+        maxProbPct: 10,
+        rampPct: 10,
+        threshold: 50,
+        computedThreshold: 50,
+      }),
+    );
+    expect(result.minProbPct).toBe(10);
+    expect(result.maxProbPct).toBe(80);
     expect(context.engine.updateConfig).toHaveBeenCalledWith(
       expect.objectContaining({
         currentThreshold: 0,
@@ -461,7 +472,7 @@ describe("playback tuning", () => {
         maxRandomBranchChance: 0.8,
       }),
     );
-    expect(context.elements.thresholdInput.value).toBe("45");
+    expect(result.threshold).toBe(45);
   });
 
   it("updates visualization data when tuning changes apply", () => {
@@ -490,18 +501,21 @@ describe("playback tuning", () => {
         update: vi.fn(),
       } as unknown as AppContext["jukebox"],
     });
-    context.elements.thresholdInput.value = "40";
-    context.elements.computedThresholdEl.textContent = "45";
-    applyTuningChanges(context);
+    applyTuningChanges(
+      context,
+      formValues(context, { threshold: 40, computedThreshold: 45 }),
+    );
     expect(context.state.vizData).toEqual({ beats: [1], edges: [1] });
     expect(context.jukebox.setData).toHaveBeenCalledWith({ beats: [1], edges: [1] });
   });
 
   it("persists forced-branch highlight preference in localStorage", () => {
     const context = createContext();
-    context.elements.highlightAnchorBranchInput.checked = true;
 
-    applyTuningChanges(context);
+    applyTuningChanges(
+      context,
+      formValues(context, { highlightAnchorBranch: true }),
+    );
 
     expect(context.state.highlightAnchorBranch).toBe(true);
     expect(localStorage.getItem("fj-highlight-anchor-branch")).toBe("1");
@@ -512,10 +526,12 @@ describe("playback tuning", () => {
     const context = createContext();
     context.state.isRunning = true;
     context.state.playMode = "jukebox";
-    context.elements.extrasEnabledInput.checked = true;
-    context.elements.audioModeDaycoreInput.checked = true;
 
-    const result = applyExtrasChanges(context);
+    const result = applyExtrasChanges(context, {
+      ...getExtrasFormValues(context),
+      branchStatsEnabled: true,
+      audioMode: "daycore",
+    });
 
     expect(result).toEqual({ branchStatsChanged: true, audioModeChanged: true });
     expect(context.state.branchStatsEnabled).toBe(true);
@@ -528,9 +544,11 @@ describe("playback tuning", () => {
   it("applies cowbell as an audio mode from extras controls", () => {
     const context = createContext();
     context.state.playMode = "jukebox";
-    context.elements.audioModeCowbellInput.checked = true;
 
-    const result = applyExtrasChanges(context);
+    const result = applyExtrasChanges(context, {
+      ...getExtrasFormValues(context),
+      audioMode: "cowbell",
+    });
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
     expect(context.state.jukeboxAudioMode).toBe("cowbell");
@@ -543,9 +561,11 @@ describe("playback tuning", () => {
     const context = createContext();
     context.state.analysisLoaded = true;
     context.state.audioLoaded = true;
-    context.elements.audioModeEightBitInput.checked = true;
 
-    const result = applyExtrasChanges(context);
+    const result = applyExtrasChanges(context, {
+      ...getExtrasFormValues(context),
+      audioMode: "eight_bit",
+    });
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
     expect(context.state.jukeboxAudioMode).toBe("eight_bit");
@@ -555,9 +575,11 @@ describe("playback tuning", () => {
 
   it("applies underwater as an audio mode from extras controls", () => {
     const context = createContext();
-    context.elements.audioModeUnderwaterInput.checked = true;
 
-    const result = applyExtrasChanges(context);
+    const result = applyExtrasChanges(context, {
+      ...getExtrasFormValues(context),
+      audioMode: "underwater",
+    });
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
     expect(context.state.jukeboxAudioMode).toBe("underwater");
@@ -567,9 +589,11 @@ describe("playback tuning", () => {
 
   it("applies cathedral as an audio mode from extras controls", () => {
     const context = createContext();
-    context.elements.audioModeCathedralInput.checked = true;
 
-    const result = applyExtrasChanges(context);
+    const result = applyExtrasChanges(context, {
+      ...getExtrasFormValues(context),
+      audioMode: "cathedral",
+    });
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
     expect(context.state.jukeboxAudioMode).toBe("cathedral");
@@ -598,12 +622,14 @@ describe("playback tuning", () => {
       beats: [{ start: 0, duration: 1 }],
       edges: [],
     } as unknown as AppContext["state"]["vizData"];
-    context.elements.audioModeSwingInput.checked = true;
     vi.mocked(context.player.getDuration).mockReturnValue(120);
     vi.mocked(context.player.getSourceBuffer).mockReturnValue(sourceBuffer);
     vi.mocked(renderSwingBuffer).mockResolvedValue(swingBuffer);
 
-    applyExtrasChanges(context);
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(context),
+      audioMode: "swing",
+    });
     await flushMicrotasks();
 
     expect(context.engine.pauseJukebox).toHaveBeenCalledTimes(1);
@@ -621,18 +647,16 @@ describe("playback tuning", () => {
     const context = createContext();
     context.state.playMode = "jukebox";
     context.state.shiftBranching = true;
-    context.elements.bringHomeEnabledInput.checked = true;
 
-    applyExtrasChanges(context);
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(context),
+      bringItHomeMode: true,
+    });
 
     expect(context.state.bringItHomeMode).toBe(true);
     expect(context.state.shiftBranching).toBe(false);
     expect(context.engine.setForceBranch).toHaveBeenCalledWith(false);
     expect(context.engine.setBringItHomeMode).toHaveBeenCalledWith(true);
-    expect(context.elements.bringHomeLabel.classList.toggle).toHaveBeenCalledWith(
-      "is-hidden",
-      false,
-    );
     expect(
       context.elements.bringHomeFullscreenLabel.classList.toggle,
     ).toHaveBeenCalledWith("is-hidden", false);
@@ -642,9 +666,11 @@ describe("playback tuning", () => {
     const context = createContext();
     context.state.playMode = "jukebox";
     context.state.branchStatsEnabled = true;
-    context.elements.extrasEnabledInput.checked = false;
 
-    applyExtrasChanges(context);
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(context),
+      branchStatsEnabled: false,
+    });
 
     expect(context.elements.branchStatsPopup.classList.add).toHaveBeenCalledWith("hidden");
   });
@@ -763,15 +789,6 @@ describe("playback tuning", () => {
     expect(applied).toBe(true);
     expect(context.state.deleteEligible).toBe(false);
     expect(context.state.deleteEligibilityJobId).toBe("job123");
-    expect(context.elements.deleteButton.classList.toggle).toHaveBeenCalledWith(
-      "hidden",
-      false,
-    );
-    expect(context.elements.deleteButton.title).toBe("Delete track");
-    expect(context.elements.deleteButton.setAttribute).toHaveBeenCalledWith(
-      "aria-label",
-      "Delete track",
-    );
   });
 
   it("retains grace-window delete eligibility and label outside admin mode", () => {
@@ -787,17 +804,6 @@ describe("playback tuning", () => {
 
     expect(applied).toBe(true);
     expect(context.state.deleteEligible).toBe(true);
-    expect(context.elements.deleteButton.classList.toggle).toHaveBeenCalledWith(
-      "hidden",
-      false,
-    );
-    expect(context.elements.deleteButton.title).toBe(
-      "Delete within 30 minutes of creation",
-    );
-    expect(context.elements.deleteButton.setAttribute).toHaveBeenCalledWith(
-      "aria-label",
-      "Delete within 30 minutes of creation",
-    );
   });
 
   it("applies anchor branch from url when analysis loads", () => {
@@ -927,7 +933,6 @@ describe("playback tuning", () => {
     const applied = applyAnalysisResult(context, response);
 
     expect(applied).toBe(true);
-    expect(context.elements.playTitle.textContent).toBe("Song (nightcore) — Artist");
     expect(context.elements.vizNowPlayingEl.textContent).toBe("Song (nightcore) — Artist");
   });
 
@@ -969,58 +974,30 @@ describe("playback tuning", () => {
       4,
       12,
     ]);
-    expect(context.elements.playTitle.textContent).toBe("Song (daycore) — Artist");
+    expect(context.elements.vizNowPlayingEl.textContent).toBe("Song (daycore) — Artist");
     expect(context.state.tuningParams).toContain("am=daycore");
   });
 
-  it("switches modal header title/toggle visibility by active tuning tab", () => {
-    const context = createContext();
-    context.state.playMode = "jukebox";
-
-    setActiveTuningTab(context, "tuning");
-    expect(context.elements.tuningTitleText.textContent).toBe("Tuning");
-    expect(context.elements.tuningTitle.classList.contains("is-extras-active")).toBe(
-      false,
-    );
-    expect(context.elements.tuningTabToggleLabel.textContent).toBe("Extras");
-    expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(false);
-    expect(getActiveTuningTab(context)).toBe("tuning");
-
-    setActiveTuningTab(context, "extras");
-    expect(context.elements.tuningTitleText.textContent).toBe("Extras");
-    expect(context.elements.tuningTitle.classList.contains("is-extras-active")).toBe(
-      true,
-    );
-    expect(context.elements.tuningTabToggleLabel.textContent).toBe("Tuning");
-    expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(false);
-    expect(getActiveTuningTab(context)).toBe("extras");
-  });
-
   it("opens tuning modal on extras tab", () => {
+    useAppStore.setState({ tuningModalOpen: false, tuningModalTab: "tuning" });
     const context = createContext();
     context.state.playMode = "jukebox";
 
     openExtras(context);
 
-    expect(getActiveTuningTab(context)).toBe("extras");
-    expect(context.elements.tuningModal.classList.add).toHaveBeenCalledWith("open");
+    expect(useAppStore.getState().tuningModalOpen).toBe(true);
+    expect(useAppStore.getState().tuningModalTab).toBe("extras");
   });
 
-  it("forces tuning tab state when mode does not support extras", () => {
+  it("falls back to the tuning tab when mode does not support extras", () => {
+    useAppStore.setState({ tuningModalOpen: false, tuningModalTab: "tuning" });
     const context = createContext();
-    context.state.playMode = "jukebox";
-    setActiveTuningTab(context, "extras");
     context.state.playMode = "autocanonizer";
 
-    syncTuningTabsUI(context);
+    openExtras(context);
 
-    expect(context.elements.tuningTitleText.textContent).toBe("Tuning");
-    expect(context.elements.tuningTitle.classList.contains("is-extras-active")).toBe(
-      false,
-    );
-    expect(context.elements.tuningPanelTuning.classList.contains("hidden")).toBe(false);
-    expect(context.elements.tuningPanelExtras.classList.contains("hidden")).toBe(true);
-    expect(context.elements.tuningTabToggle.classList.contains("hidden")).toBe(true);
+    expect(useAppStore.getState().tuningModalOpen).toBe(true);
+    expect(useAppStore.getState().tuningModalTab).toBe("tuning");
   });
 
   it("applies tuning params and deleted edges from url together", () => {
@@ -1283,7 +1260,6 @@ describe("playback controls", () => {
     expect(context.elements.playStatusPanel.classList.remove).toHaveBeenCalledWith(
       "hidden",
     );
-    expect(context.elements.playMenu.classList.add).toHaveBeenCalledWith("hidden");
     expect(context.elements.vizPanel.classList.add).toHaveBeenCalledWith("hidden");
     expect(context.elements.playButton.classList.add).toHaveBeenCalledWith("hidden");
     expect(context.elements.vizSelect.disabled).toBe(true);
@@ -1405,7 +1381,6 @@ describe("playback branch shortcuts", () => {
         navigateToTab: vi.fn(),
         updateVizVisibility: vi.fn(),
         openExtras: vi.fn(),
-        syncTuningTabsUI: vi.fn(),
         getTuningParamsFromEngine: vi.fn(() => {
           const params = new URLSearchParams();
           const anchorId = context.engine.getUserAnchorEdgeId();
@@ -1498,8 +1473,8 @@ describe("playback branch shortcuts", () => {
   });
 
   it("ignores playback shortcuts while track delete confirmation is open", () => {
+    useAppStore.setState({ deleteConfirmOpen: true });
     const context = createContext();
-    context.elements.deleteConfirmModal.classList.add("open");
     context.state.selectedEdge = {
       id: 9,
       src: { which: 8 },
@@ -1513,6 +1488,7 @@ describe("playback branch shortcuts", () => {
 
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(context.engine.deleteEdge).not.toHaveBeenCalled();
+    useAppStore.setState({ deleteConfirmOpen: false });
   });
 
   it("shows branch stats and enables delete for a selected active branch", () => {

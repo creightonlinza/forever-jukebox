@@ -1,17 +1,17 @@
 import type { AppContext, AppState, TabId } from "../context";
-import type { Elements } from "../elements";
 import {
   favoriteToPlaylistTrack,
+  findCurrentFavorite,
   type FavoriteTrack,
 } from "../favorites";
 import type { AnalysisComplete } from "../api";
 import { isLikelyJobId } from "../identity";
+import { useAppStore } from "../store";
 import type { ToastOptions } from "../ui";
 import type { PlaylistTrack } from "../playlist";
 
 type FavoritesDeps = {
   context: AppContext;
-  elements: Elements;
   state: AppState;
   showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
   addFavorite: (
@@ -57,7 +57,6 @@ export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
 export function createFavoritesHandlers(deps: FavoritesDeps) {
   const {
     context,
-    elements,
     state,
     showToast,
     addFavorite,
@@ -203,7 +202,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     const cappedFavorites = sortFavorites(nextFavorites).slice(0, maxFavorites());
     state.favorites = cappedFavorites;
     saveFavorites(cappedFavorites);
-    syncFavoriteButton();
     if (options?.sync === false) {
       return;
     }
@@ -324,34 +322,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function getCurrentFavoriteMatch() {
-    const currentId = getCurrentFavoriteId();
-    if (!currentId) {
-      return null;
-    }
-    const current = state.favorites.find((item) => item.uniqueSongId === currentId);
-    if (current) {
-      return current;
-    }
-    const legacySourceId = getCurrentLegacyFavoriteId();
-    if (!legacySourceId) {
-      return null;
-    }
-    return state.favorites.find(
-      (item) =>
-        item.uniqueSongId === legacySourceId &&
-        (item.sourceType ?? "youtube") === "youtube",
-    ) ?? null;
-  }
-
-  function getCurrentLegacyFavoriteId() {
-    if (state.lastSourceProvider && state.lastSourceProvider !== "youtube") {
-      return null;
-    }
-    const sourceId = state.lastSourceId;
-    if (!sourceId || sourceId === getCurrentFavoriteId() || isLikelyJobId(sourceId)) {
-      return null;
-    }
-    return sourceId;
+    return findCurrentFavorite(state.favorites, {
+      lastTrackId: state.lastTrackId,
+      lastJobId: state.lastJobId,
+      lastSourceId: state.lastSourceId,
+      lastSourceProvider: state.lastSourceProvider,
+    });
   }
 
   function getCurrentFavoriteSourceType(): FavoriteTrack["sourceType"] {
@@ -377,18 +353,10 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return syncTuningParamsState(context);
   }
 
-  function syncFavoriteButton() {
-    const active = Boolean(getCurrentFavoriteMatch());
-    elements.favoriteButton.classList.toggle("active", active);
-    const label = active ? "Remove from Favorites" : "Add to Favorites";
-    elements.favoriteButton.setAttribute("aria-label", label);
-    elements.favoriteButton.title = label;
-  }
-
+  // The React play menu derives the star button from the store
+  // (findCurrentFavorite + favoriteToggleBusy).
   function setFavoriteToggleLoading(busy: boolean) {
-    elements.favoriteButton.classList.toggle("is-loading", busy);
-    elements.favoriteButton.disabled = busy;
-    elements.favoriteButton.setAttribute("aria-busy", busy ? "true" : "false");
+    useAppStore.setState({ favoriteToggleBusy: busy });
   }
 
   function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
@@ -538,7 +506,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (!currentId) {
       return;
     }
-    if (elements.favoriteButton.classList.contains("is-loading")) {
+    if (useAppStore.getState().favoriteToggleBusy) {
       return;
     }
     const currentFavorite = getCurrentFavoriteMatch();
@@ -609,7 +577,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     refreshFavoritesFromSync,
     enterSyncCode,
     createSyncCode,
-    syncFavoriteButton,
     maybeAutoFavoriteUserSupplied,
     handleFavoriteSelect,
     removeFavoriteWithToast,

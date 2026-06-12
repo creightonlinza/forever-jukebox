@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnalysisComplete } from "../api";
 import type { AppContext, AppState } from "../context";
-import type { Elements } from "../elements";
 import {
   addFavorite,
+  findCurrentFavorite,
   isFavorite,
   removeFavorite,
   sortFavorites,
@@ -66,7 +66,6 @@ function createFakeElement(): FakeElement {
 
 function createHarness(favorites: FavoriteTrack[]) {
   const context = {} as AppContext;
-  const favoriteButton = createFakeElement();
   const state = {
     favorites,
     lastTrackId: "a3f3c0dc73c6476c9db95c227f9206f2",
@@ -80,15 +79,9 @@ function createHarness(favorites: FavoriteTrack[]) {
     appConfig: null,
     favoritesSyncCode: null,
   } as unknown as AppState;
-  const elements = {
-    favoriteButton,
-    favoritesList: createFakeElement(),
-    favoritesSearchInput: { value: "" },
-  } as unknown as Elements;
   const saveFavorites = vi.fn();
   const handlers = createFavoritesHandlers({
     context,
-    elements,
     state,
     showToast: vi.fn(),
     addFavorite,
@@ -108,7 +101,7 @@ function createHarness(favorites: FavoriteTrack[]) {
     syncTuningParamsState: vi.fn(() => null),
     setPlayMode: vi.fn(),
   });
-  return { favoriteButton, handlers, saveFavorites, state };
+  return { handlers, saveFavorites, state };
 }
 
 describe("createFavoritesHandlers", () => {
@@ -126,7 +119,7 @@ describe("createFavoritesHandlers", () => {
   });
 
   it("treats a legacy YouTube favorite as active and migrates it to the job id", () => {
-    const { favoriteButton, handlers, saveFavorites, state } = createHarness([
+    const { handlers, saveFavorites, state } = createHarness([
       {
         uniqueSongId: "abc123def45",
         sourceType: "youtube",
@@ -143,10 +136,16 @@ describe("createFavoritesHandlers", () => {
       result: {},
     } as AnalysisComplete;
 
-    handlers.syncFavoriteButton();
+    expect(
+      findCurrentFavorite(state.favorites, {
+        lastTrackId: state.lastTrackId,
+        lastJobId: state.lastJobId,
+        lastSourceId: state.lastSourceId,
+        lastSourceProvider: state.lastSourceProvider,
+      }),
+    ).not.toBeNull();
     handlers.maybeAutoFavoriteUserSupplied(response);
 
-    expect(favoriteButton.classList.toggle).toHaveBeenCalledWith("active", true);
     expect(state.favorites).toHaveLength(1);
     expect(state.favorites[0].uniqueSongId).toBe(response.id);
     expect(state.favorites[0].sourceType).toBe("youtube");

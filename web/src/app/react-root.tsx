@@ -12,10 +12,17 @@ export function mountReactApp(
   bridge: AppBridge,
   legacyContent: DocumentFragment,
 ) {
+  const playMenuRoot = legacyContent.querySelector("#play-menu-root");
   const router = createBrowserRouter([
     {
       path: "*",
-      element: <AppRoot bridge={bridge} legacyContent={legacyContent} />,
+      element: (
+        <AppRoot
+          bridge={bridge}
+          legacyContent={legacyContent}
+          playMenuRoot={playMenuRoot}
+        />
+      ),
     },
   ]);
   setAppRouter(router);

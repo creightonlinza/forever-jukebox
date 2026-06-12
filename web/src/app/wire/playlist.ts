@@ -16,6 +16,7 @@ import {
   savePlaylist,
   type PlaylistTrack,
 } from "../playlist";
+import { useAppStore } from "../store";
 import { syncTuningParamsState, writeTuningParamsToUrl } from "../tuning";
 import type { ToastOptions } from "../ui";
 
@@ -150,28 +151,14 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     showToast(context, "Added to playlist", { icon: "playlist_add_check" });
   }
 
+  // The playlist modal renders in React from store.playlist; these only
+  // toggle the open flag.
   function handleOpenPlaylist() {
-    renderPlaylistModal();
-    elements.playlistModal.classList.add("open");
+    useAppStore.setState({ playlistModalOpen: true });
   }
 
   function handleClosePlaylist() {
-    elements.playlistModal.classList.remove("open");
-  }
-
-  function handlePlaylistModalClick(event: MouseEvent) {
-    if (event.target === elements.playlistModal) {
-      handleClosePlaylist();
-    }
-  }
-
-  function handlePlaylistModalKeydown(event: KeyboardEvent) {
-    if (
-      event.key === "Escape" &&
-      elements.playlistModal.classList.contains("open")
-    ) {
-      handleClosePlaylist();
-    }
+    useAppStore.setState({ playlistModalOpen: false });
   }
 
   function handleClearPlaylist() {
@@ -258,78 +245,6 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     return true;
   }
 
-  function renderPlaylistModal() {
-    elements.playlistList.innerHTML = "";
-    if (state.playlist.tracks.length === 0) {
-      elements.playlistList.textContent = "No playlist yet.";
-      elements.playlistClearButton.disabled = true;
-      return;
-    }
-    elements.playlistClearButton.disabled = false;
-    const list = document.createElement("ol");
-    list.className = "playlist-list";
-    state.playlist.tracks.forEach((track, index) => {
-      const isCurrent = index === state.playlist.currentIndex;
-      const item = document.createElement("li");
-      item.className = "playlist-item";
-      item.classList.toggle("is-current", isCurrent);
-      const selectButton = document.createElement("button");
-      selectButton.type = "button";
-      selectButton.className = "playlist-select";
-      selectButton.dataset.playlistIndex = String(index);
-      selectButton.disabled = isCurrent;
-      selectButton.addEventListener("click", handlePlaylistItemClick);
-      const title = document.createElement("span");
-      title.className = "playlist-item-title";
-      title.textContent = track.title || "Untitled";
-      const artist = document.createElement("span");
-      artist.className = "playlist-item-artist";
-      artist.textContent = track.artist || "";
-      selectButton.append(title, artist);
-
-      const removeButton = document.createElement("button");
-      removeButton.type = "button";
-      removeButton.className = "playlist-remove";
-      removeButton.dataset.playlistIndex = String(index);
-      removeButton.disabled = isCurrent;
-      removeButton.setAttribute("aria-label", `Remove ${track.title || "track"}`);
-      removeButton.innerHTML =
-        '<span class="material-symbols-outlined playlist-remove-icon" aria-hidden="true">close</span>';
-      removeButton.addEventListener("click", handlePlaylistRemoveClick);
-      item.append(selectButton, removeButton);
-      list.append(item);
-    });
-    elements.playlistList.append(list);
-  }
-
-  function handlePlaylistItemClick(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    const index = Number(button?.dataset.playlistIndex);
-    if (!Number.isInteger(index)) {
-      return;
-    }
-    if (
-      index === state.playlist.currentIndex ||
-      !state.playlist.tracks[index] ||
-      isPlaylistLoadBlocked()
-    ) {
-      syncPlaylistUi();
-      return;
-    }
-    void loadPlaylistIndex(index, { closeModal: true });
-  }
-
-  function handlePlaylistRemoveClick(event: Event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const button = event.currentTarget as HTMLButtonElement | null;
-    const index = Number(button?.dataset.playlistIndex);
-    if (!Number.isInteger(index)) {
-      return;
-    }
-    updatePlaylist(removePlaylistTrack(state.playlist, index));
-  }
-
   function syncPlaylistUi() {
     const hasTracks = hasPlaylistControls(state.playlist);
     const active = hasActivePlaylistControls(state.playlist);
@@ -352,9 +267,6 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       "hidden",
       !shouldShowSavedPlaylistButton(),
     );
-    if (elements.playlistModal.classList.contains("open")) {
-      renderPlaylistModal();
-    }
   }
 
   function updatePlaylist(nextPlaylist: AppState["playlist"]) {
@@ -428,19 +340,41 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     return `${track.sourceType}:${track.id}`;
   }
 
+  function removePlaylistIndex(index: number) {
+    if (!Number.isInteger(index)) {
+      return;
+    }
+    updatePlaylist(removePlaylistTrack(state.playlist, index));
+  }
+
+  function selectPlaylistIndex(index: number) {
+    if (!Number.isInteger(index)) {
+      return;
+    }
+    if (
+      index === state.playlist.currentIndex ||
+      !state.playlist.tracks[index] ||
+      isPlaylistLoadBlocked()
+    ) {
+      syncPlaylistUi();
+      return;
+    }
+    void loadPlaylistIndex(index, { closeModal: true });
+  }
+
   return {
     handleNormalTrackSelected,
     handleAddToPlaylist,
     handleOpenPlaylist,
     handleClosePlaylist,
-    handlePlaylistModalClick,
-    handlePlaylistModalKeydown,
     handleClearPlaylist,
     handleSavedPlaylistClick,
     handlePlaylistPrevious,
     handlePlaylistNext,
     advanceAutocanonizerOnEnded,
     loadPlaylistIndex,
+    selectPlaylistIndex,
+    removePlaylistIndex,
     syncPlaylistUi,
   };
 }

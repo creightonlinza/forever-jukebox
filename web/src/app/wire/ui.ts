@@ -1,82 +1,35 @@
 import type { Elements } from "../elements";
 import type { JukeboxController } from "../../jukebox/JukeboxController";
-import type { FavoritesHandlers } from "./favorites";
-import type { TuningHandlers } from "./tuning";
 import type { PlaybackUiHandlers } from "./playback";
 import type { FullscreenHandlers } from "./fullscreen";
-import type { DeleteJobHandlers } from "./delete-job";
+import type { VolumeHandlers } from "./volume";
 import type { PlaylistHandlers } from "./playlist";
 
 type UiBindingsDeps = {
   elements: Elements;
   jukebox: JukeboxController;
-  favoritesHandlers: FavoritesHandlers;
-  tuningHandlers: TuningHandlers;
   playbackHandlers: PlaybackUiHandlers;
   fullscreenHandlers: FullscreenHandlers;
-  deleteJobHandlers: DeleteJobHandlers;
+  volumeHandlers: VolumeHandlers;
   playlistHandlers: PlaylistHandlers;
 };
 
+// Remaining legacy Listen-panel listeners: transport/mode controls (8d),
+// volume + fullscreen (8b), branch-stats popup + viz callbacks (8e),
+// playlist transport buttons (8d).
 export function bindUiHandlers(deps: UiBindingsDeps) {
   const {
     elements,
     jukebox,
-    favoritesHandlers,
-    tuningHandlers,
     playbackHandlers,
     fullscreenHandlers,
-    deleteJobHandlers,
+    volumeHandlers,
     playlistHandlers,
   } = deps;
 
-  elements.thresholdInput.addEventListener(
-    "input",
-    tuningHandlers.handleThresholdInput,
-  );
-  elements.minProbInput.addEventListener(
-    "input",
-    tuningHandlers.handleMinProbInput,
-  );
-  elements.maxProbInput.addEventListener(
-    "input",
-    tuningHandlers.handleMaxProbInput,
-  );
-  elements.rampInput.addEventListener("input", tuningHandlers.handleRampInput);
   elements.volumeInput.addEventListener(
     "input",
-    tuningHandlers.handleVolumeInput,
-  );
-  elements.tuningButton.addEventListener("click", tuningHandlers.handleOpenTuning);
-  elements.sleepTimerOpen.addEventListener(
-    "click",
-    tuningHandlers.handleOpenSleepTimer,
-  );
-  elements.sleepTimerClose.addEventListener(
-    "click",
-    tuningHandlers.handleCloseSleepTimer,
-  );
-  elements.sleepTimerCancel.addEventListener(
-    "click",
-    tuningHandlers.handleCloseSleepTimer,
-  );
-  elements.sleepTimerSet.addEventListener(
-    "click",
-    tuningHandlers.handleSleepTimerSet,
-  );
-  elements.sleepTimerSelect.addEventListener(
-    "change",
-    tuningHandlers.handleSleepTimerSelectChange,
-  );
-  elements.sleepTimerModal.addEventListener(
-    "click",
-    tuningHandlers.handleSleepTimerModalClick,
-  );
-  elements.tuningTabToggle.addEventListener("click", tuningHandlers.handleTuningTabToggle);
-  elements.infoButton.addEventListener("click", tuningHandlers.handleOpenInfo);
-  elements.favoriteButton.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoriteToggle,
+    volumeHandlers.handleVolumeInput,
   );
   elements.playlistButton.addEventListener(
     "click",
@@ -94,34 +47,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "click",
     playlistHandlers.handleSavedPlaylistClick,
   );
-  elements.playlistClose.addEventListener(
-    "click",
-    playlistHandlers.handleClosePlaylist,
-  );
-  elements.playlistModal.addEventListener(
-    "click",
-    playlistHandlers.handlePlaylistModalClick,
-  );
-  elements.playlistClearButton.addEventListener(
-    "click",
-    playlistHandlers.handleClearPlaylist,
-  );
-  elements.deleteButton.addEventListener(
-    "click",
-    deleteJobHandlers.handleDeleteJobClick,
-  );
-  elements.deleteConfirmCancel.addEventListener(
-    "click",
-    deleteJobHandlers.handleDeleteConfirmCancel,
-  );
-  elements.deleteConfirmDelete.addEventListener(
-    "click",
-    deleteJobHandlers.handleDeleteConfirmDelete,
-  );
-  elements.deleteConfirmModal.addEventListener(
-    "click",
-    deleteJobHandlers.handleDeleteConfirmModalClick,
-  );
   elements.branchStatsDeleteButton.addEventListener(
     "click",
     playbackHandlers.handleBranchStatsDeleteClick,
@@ -138,15 +63,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "visibilitychange",
     fullscreenHandlers.handleVisibilityChange,
   );
-  elements.tuningClose.addEventListener("click", tuningHandlers.handleCloseTuning);
-  elements.infoClose.addEventListener("click", tuningHandlers.handleCloseInfo);
-  elements.tuningModal.addEventListener(
-    "click",
-    tuningHandlers.handleTuningModalClick,
-  );
-  elements.infoModal.addEventListener("click", tuningHandlers.handleInfoModalClick);
-  elements.tuningApply.addEventListener("click", tuningHandlers.handleTuningApply);
-  elements.tuningReset.addEventListener("click", tuningHandlers.handleTuningReset);
   elements.playButton.addEventListener("click", playbackHandlers.handlePlayClick);
   if (elements.vizPlayButton !== elements.playButton) {
     elements.vizPlayButton.addEventListener(
@@ -154,15 +70,11 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
       playbackHandlers.handlePlayClick,
     );
   }
-  elements.shortUrlButton.addEventListener(
+  elements.volumeButton.addEventListener(
     "click",
-    playbackHandlers.handleShortUrlClick,
+    volumeHandlers.handleVolumeButtonClick,
   );
-  elements.volumeButton.addEventListener("click", tuningHandlers.handleVolumeButtonClick);
 
-  tuningHandlers.syncInfoButton();
-  tuningHandlers.syncTuneButton();
-  tuningHandlers.syncCopyButton();
   fullscreenHandlers.updateFullscreenButton(Boolean(document.fullscreenElement));
 
   elements.vizSelect.addEventListener(
@@ -177,7 +89,7 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "change",
     playbackHandlers.handleCanonizerFinish,
   );
-  document.addEventListener("click", tuningHandlers.handleVolumeDocumentClick);
+  document.addEventListener("click", volumeHandlers.handleVolumeDocumentClick);
 
   jukebox.setOnSelect(playbackHandlers.handleBeatSelect);
   jukebox.setOnEdgeSelect(playbackHandlers.handleEdgeSelect);

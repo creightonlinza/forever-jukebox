@@ -1,7 +1,13 @@
 import type { AppContext, TabId } from "./context";
 import type { FavoriteTrack } from "./favorites";
+import type {
+  ExtrasApplyResult,
+  ExtrasFormValues,
+  TuningFormValues,
+} from "./playback";
 import type { PlaylistTrack } from "./playlist";
 import type { ThemeName } from "./themeConfig";
+import type { PendingDelete } from "./wire/delete-job";
 
 // Actions the React Top Tracks panel delegates to legacy flows (track
 // loading, playlist, favorites sync state machine).
@@ -39,6 +45,28 @@ export type SearchPanelBridge = {
   uploadUrl: (raw: string, onAccepted?: () => void) => Promise<void>;
 };
 
+// Actions the React Listen-panel modals/menus delegate to playback.ts and
+// the remaining wire controllers.
+export type ListenPanelBridge = {
+  copyShortUrl: () => void;
+  toggleFavorite: () => void;
+  getPendingDelete: () => PendingDelete | null;
+  performDelete: (pending: PendingDelete) => Promise<void>;
+  getTuningForm: () => TuningFormValues;
+  applyTuning: (form: TuningFormValues) => TuningFormValues;
+  resetTuning: () => void;
+  getExtrasForm: () => ExtrasFormValues;
+  applyExtras: (values: ExtrasFormValues) => ExtrasApplyResult;
+  resetExtras: () => ExtrasApplyResult;
+  syncTrackTitleAfterAudioModeChange: () => void;
+  setSleepTimer: (durationMs: number | null) => void;
+  playlist: {
+    selectIndex: (index: number) => void;
+    removeIndex: (index: number) => void;
+    clear: () => void;
+  };
+};
+
 // Interim seam between bootstrap (legacy wiring) and the React shell.
 // Shrinks as panels convert; replaced by the store + plain module imports
 // once bootstrap is deleted in Phase 5.
@@ -58,4 +86,5 @@ export type AppBridge = {
   };
   topPanel: TopPanelBridge;
   searchPanel: SearchPanelBridge;
+  listenPanel: ListenPanelBridge;
 };

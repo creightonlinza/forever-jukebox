@@ -10,6 +10,7 @@ import { formatErrorForDisplay } from "../errorDisplay";
 import { VISUALIZATION_LABELS } from "../constants";
 import { formatDuration, formatPlaybackTitle } from "../format";
 import { setAutoMarqueeText } from "../marquee";
+import { useAppStore } from "../store";
 import { serializeParams } from "../tuning";
 
 type PlaybackUiDeps = {
@@ -51,7 +52,6 @@ type PlaybackUiDeps = {
   ) => void;
   updateVizVisibility: (context: AppContext) => void;
   openExtras: (context: AppContext) => void;
-  syncTuningTabsUI: (context: AppContext) => void;
   getTuningParamsFromEngine: (context: AppContext) => URLSearchParams;
   writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
   syncDeletedEdgeState: (context: AppContext) => void;
@@ -107,7 +107,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     navigateToTab,
     updateVizVisibility,
     openExtras,
-    syncTuningTabsUI,
     getTuningParamsFromEngine,
     writeTuningParamsToUrl,
     syncDeletedEdgeState,
@@ -177,7 +176,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     setPlayMode("jukebox");
     setBringItHomeMode(state.bringItHomeMode);
     syncExtrasPopup(null);
-    syncTuningTabsUI(context);
     syncVisualizationSelectOptions();
 
     const storedViz = localStorage.getItem(vizStorageKey);
@@ -269,7 +267,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
   function syncBringItHomeLabel() {
     const visible = state.playMode === "jukebox" && state.bringItHomeMode;
-    elements.bringHomeLabel.classList.toggle("is-hidden", !visible);
     elements.bringHomeFullscreenLabel.classList.toggle("is-hidden", !visible);
   }
 
@@ -367,7 +364,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if (state.activeTabId !== "play") {
       return;
     }
-    if (elements.deleteConfirmModal.classList.contains("open")) {
+    if (useAppStore.getState().deleteConfirmOpen) {
       return;
     }
     if (isEditableTarget(event.target)) {
@@ -561,7 +558,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if (state.playMode === mode) {
       elements.playModeSelect.value = mode;
       syncBringItHomeLabel();
-      syncTuningTabsUI(context);
       return;
     }
     if (state.isRunning || state.isPaused) {
@@ -574,15 +570,11 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       "is-canonizer",
       mode === "autocanonizer",
     );
-    elements.tuningButton.disabled = mode === "autocanonizer";
-    elements.tuningButton.classList.toggle(
-      "is-hidden",
-      mode === "autocanonizer",
-    );
-    elements.infoButton.classList.toggle(
-      "is-hidden",
-      mode === "autocanonizer",
-    );
+    if (mode !== "jukebox") {
+      // The extras tab disappears outside jukebox mode; legacy forced the
+      // stored tab back to "tuning".
+      useAppStore.setState({ tuningModalTab: "tuning" });
+    }
     elements.beatsLabel.classList.toggle("is-hidden", mode === "autocanonizer");
     elements.beatsPlayedEl.classList.toggle(
       "is-hidden",
@@ -595,7 +587,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     autocanonizer.setVisible(mode === "autocanonizer");
     jukebox.setVisible(mode === "jukebox");
     syncExtrasPopup(state.selectedEdge);
-    syncTuningTabsUI(context);
     if (state.trackTitle || state.trackArtist) {
       const baseTitle = state.trackTitle ?? "Unknown";
       const withSuffix = formatPlaybackTitle(
@@ -606,7 +597,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       const displayTitle = state.trackArtist
         ? `${withSuffix} — ${state.trackArtist}`
         : withSuffix;
-      setAutoMarqueeText(elements.playTitle, displayTitle);
       setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
     }
     if (state.activeTabId === "play") {

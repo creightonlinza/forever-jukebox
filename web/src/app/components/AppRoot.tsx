@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigationType } from "react-router-dom";
 import type { MutableRefObject } from "react";
 import type { AppBridge } from "../bridge";
@@ -11,6 +12,11 @@ import { Hero } from "./Hero";
 import { SearchPanel } from "./SearchPanel";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
+import { InfoModal } from "./listen/InfoModal";
+import { PlayMenu } from "./listen/PlayMenu";
+import { PlaylistModal } from "./listen/PlaylistModal";
+import { SleepTimerModal } from "./listen/SleepTimerModal";
+import { TuningModal } from "./listen/TuningModal";
 
 // Derives activeTab from the URL on every location change and runs the
 // legacy route handler (mode-from-URL, track loading, FAQ subtab sync) on
@@ -93,9 +99,13 @@ function useGlobalHotkeys(bridge: AppBridge) {
 export function AppRoot({
   bridge,
   legacyContent,
+  playMenuRoot,
 }: {
   bridge: AppBridge;
   legacyContent: DocumentFragment;
+  // Mount node inside the legacy Listen panel; the React play menu renders
+  // into it via portal so the panel's DOM order is preserved.
+  playMenuRoot: Element | null;
 }) {
   const panelsRef = useRef<HTMLDivElement | null>(null);
   useRouteSync(bridge);
@@ -124,6 +134,11 @@ export function AppRoot({
       <FaqPanel bridge={bridge} />
       <Footer />
       <Toast />
+      {playMenuRoot ? createPortal(<PlayMenu bridge={bridge} />, playMenuRoot) : null}
+      <TuningModal bridge={bridge} />
+      <SleepTimerModal bridge={bridge} />
+      <InfoModal />
+      <PlaylistModal bridge={bridge} />
     </>
   );
 }

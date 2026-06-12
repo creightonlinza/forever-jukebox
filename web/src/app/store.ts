@@ -16,6 +16,13 @@ export type ToastState = {
   tone: "default" | "error";
 };
 
+export type TrackInfoState = {
+  durationText: string;
+  totalBeats: number;
+  branchCount: number;
+  deletedCount: number;
+};
+
 export type SearchResultsState =
   | { kind: "message"; text: string }
   | { kind: "spotify"; items: SpotifySearchItem[] }
@@ -39,6 +46,17 @@ type ShellSlice = {
   searchQuery: string;
   searchHint: string;
   searchResults: SearchResultsState;
+  // Listen-panel modal/menu state (checkpoint 8a). Open flags live here so
+  // legacy flows (openExtras hotkey, playlist buttons, resetForNewTrack)
+  // can drive the React modals.
+  tuningModalOpen: boolean;
+  tuningModalTab: "tuning" | "extras";
+  infoModalOpen: boolean;
+  sleepTimerModalOpen: boolean;
+  playlistModalOpen: boolean;
+  deleteConfirmOpen: boolean;
+  trackInfo: TrackInfoState;
+  favoriteToggleBusy: boolean;
 };
 
 type Actions = {
@@ -73,6 +91,14 @@ const createUiSlice: Slice<
     | "searchQuery"
     | "searchHint"
     | "searchResults"
+    | "tuningModalOpen"
+    | "tuningModalTab"
+    | "infoModalOpen"
+    | "sleepTimerModalOpen"
+    | "playlistModalOpen"
+    | "deleteConfirmOpen"
+    | "trackInfo"
+    | "favoriteToggleBusy"
   > &
     Actions
 > = (set) => ({
@@ -89,6 +115,19 @@ const createUiSlice: Slice<
   searchQuery: "",
   searchHint: DEFAULT_SEARCH_HINT,
   searchResults: DEFAULT_SEARCH_RESULTS,
+  tuningModalOpen: false,
+  tuningModalTab: "tuning",
+  infoModalOpen: false,
+  sleepTimerModalOpen: false,
+  playlistModalOpen: false,
+  deleteConfirmOpen: false,
+  trackInfo: {
+    durationText: "00:00:00",
+    totalBeats: 0,
+    branchCount: 0,
+    deletedCount: 0,
+  },
+  favoriteToggleBusy: false,
   setActiveTab: (activeTabId) => set({ activeTabId }),
   setTheme: (theme) => set({ theme }),
   setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),

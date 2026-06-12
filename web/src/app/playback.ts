@@ -31,7 +31,6 @@ import { storeBranchStatsEnabled } from "./extrasMode";
 import { setAutoMarqueeText } from "./marquee";
 import { useAppStore } from "./store";
 import { showToast } from "./ui";
-import { isAdminMode } from "./admin";
 import {
   activatePlaylistTrack,
   emptyPlaylist,
@@ -282,14 +281,8 @@ function maybeUpdateDeleteEligibility(
   if (!response) {
     return;
   }
-  const { state, elements } = context;
+  const { state } = context;
   const jobId = jobIdOverride ?? ("id" in response ? response.id : undefined);
-  const adminMode = isAdminMode();
-  const deleteLabel = adminMode
-    ? "Delete track"
-    : "Delete within 30 minutes of creation";
-  elements.deleteButton.title = deleteLabel;
-  elements.deleteButton.setAttribute("aria-label", deleteLabel);
   if (!jobId || state.deleteEligibilityJobId === jobId) {
     return;
   }
@@ -303,45 +296,48 @@ function maybeUpdateDeleteEligibility(
     }
   } else {
     state.deleteEligible = false;
-    elements.deleteButton.classList.toggle("hidden", !adminMode);
     state.deleteEligibilityJobId = null;
     return;
   }
   state.deleteEligibilityJobId = jobId;
   state.deleteEligible = eligible;
-  elements.deleteButton.classList.toggle("hidden", !(eligible || adminMode));
 }
 
 export function updateTrackInfo(context: AppContext) {
-  const { elements, engine, player, state } = context;
+  const { engine, player, state } = context;
   const graph = engine.getGraphState();
   const resolvedDuration =
     typeof state.trackDurationSec === "number" &&
     Number.isFinite(state.trackDurationSec)
       ? state.trackDurationSec
       : player.getDuration();
-  elements.infoDurationEl.textContent =
+  const durationText =
     typeof resolvedDuration === "number" && Number.isFinite(resolvedDuration)
       ? formatDuration(resolvedDuration)
       : "00:00:00";
-  elements.infoBeatsEl.textContent = `${graph ? graph.totalBeats : 0}`;
   const branchCount = state.vizData
     ? state.vizData.edges.length
     : graph
       ? graph.allEdges.filter((edge) => !edge.deleted).length
       : 0;
-  elements.infoBranchesEl.textContent = `${branchCount}`;
   const deletedCount = graph
     ? graph.allEdges.filter((edge) => edge.deleted).length
     : state.deletedEdgeIds.length;
-  elements.infoDeletedBranchesEl.textContent = `${deletedCount}`;
+  // The React info modal renders this store state.
+  useAppStore.setState({
+    trackInfo: {
+      durationText,
+      totalBeats: graph ? graph.totalBeats : 0,
+      branchCount,
+      deletedCount,
+    },
+  });
 }
 
 export function updateVizVisibility(context: AppContext) {
   const { autocanonizer, elements, jukebox, state } = context;
   if (state.swingPreparing) {
     elements.playStatusPanel.classList.remove("hidden");
-    elements.playMenu.classList.add("hidden");
     elements.vizPanel.classList.add("hidden");
     elements.playButton.classList.add("hidden");
     elements.vizSelect.disabled = true;
@@ -350,7 +346,6 @@ export function updateVizVisibility(context: AppContext) {
   }
   if (state.audioLoaded && state.analysisLoaded) {
     elements.playStatusPanel.classList.add("hidden");
-    elements.playMenu.classList.remove("hidden");
     elements.vizPanel.classList.remove("hidden");
     elements.playButton.classList.remove("hidden");
     updatePlayButton(context);
@@ -362,19 +357,28 @@ export function updateVizVisibility(context: AppContext) {
     elements.vizSelect.disabled = state.playMode === "autocanonizer";
   } else {
     elements.playStatusPanel.classList.remove("hidden");
-    elements.playMenu.classList.add("hidden");
     elements.vizPanel.classList.add("hidden");
     elements.playButton.classList.add("hidden");
     elements.vizSelect.disabled = true;
   }
 }
 
+// Keeps the (legacy) volume panel slider in sync wherever the old code
+// re-synced the whole tuning UI; converts at 8b.
+export function syncVolumeUI(context: AppContext) {
+  const { elements, player } = context;
+  const volumePct = Math.round(player.getVolume() * 100);
+  elements.volumeInput.value = `${volumePct}`;
+  elements.volumeVal.textContent = `${volumePct}`;
+}
+
 function openTuningTab(context: AppContext, tab: "tuning" | "extras") {
-  syncTuningUI(context);
-  syncExtrasUI(context);
-  syncTuningTabsUI(context);
-  setActiveTuningTab(context, tab);
-  context.elements.tuningModal.classList.add("open");
+  syncVolumeUI(context);
+  const hasExtrasTab = context.state.playMode === "jukebox";
+  useAppStore.setState({
+    tuningModalOpen: true,
+    tuningModalTab: tab === "extras" && hasExtrasTab ? "extras" : "tuning",
+  });
 }
 
 export function openTuning(context: AppContext) {
@@ -386,52 +390,20 @@ export function openExtras(context: AppContext) {
 }
 
 export function closeTuning(context: AppContext) {
-  context.elements.tuningModal.classList.remove("open");
+  void context;
+  useAppStore.setState({ tuningModalOpen: false });
 }
 
 export function openInfo(context: AppContext) {
   updateTrackInfo(context);
-  context.elements.infoModal.classList.add("open");
+  useAppStore.setState({ infoModalOpen: true });
 }
 
 export function closeInfo(context: AppContext) {
-  context.elements.infoModal.classList.remove("open");
+  void context;
+  useAppStore.setState({ infoModalOpen: false });
 }
 
-function getSelectedAudioMode(context: AppContext): JukeboxAudioMode {
-  const { elements } = context;
-  if (elements.audioModeNightcoreInput.checked) {
-    return "nightcore";
-  }
-  if (elements.audioModeDaycoreInput.checked) {
-    return "daycore";
-  }
-  if (elements.audioModeVaporwaveInput.checked) {
-    return "vaporwave";
-  }
-  if (elements.audioModeEightDInput.checked) {
-    return "eight_d";
-  }
-  if (elements.audioModeEightBitInput.checked) {
-    return "eight_bit";
-  }
-  if (elements.audioModeLofiInput.checked) {
-    return "lofi";
-  }
-  if (elements.audioModeUnderwaterInput.checked) {
-    return "underwater";
-  }
-  if (elements.audioModeCathedralInput.checked) {
-    return "cathedral";
-  }
-  if (elements.audioModeCowbellInput.checked) {
-    return "cowbell";
-  }
-  if (elements.audioModeSwingInput.checked) {
-    return "swing";
-  }
-  return "off";
-}
 
 function getCurrentSwingSourceIdentity(context: AppContext): string | null {
   const { state } = context;
@@ -554,96 +526,64 @@ function maybePrepareSwingMode(context: AppContext) {
   prepareSwingMode(context);
 }
 
+// Imperative marquee update for the (still legacy) viz-bottom title; the
+// React play-menu title derives reactively from the store.
+export function syncVizNowPlayingTitle(context: AppContext) {
+  const { elements, state } = context;
+  if (!state.trackTitle && !state.trackArtist) {
+    return;
+  }
+  const baseTitle = state.trackTitle ?? "Unknown";
+  const title = formatPlaybackTitle(
+    baseTitle,
+    state.playMode,
+    state.jukeboxAudioMode,
+  );
+  const displayTitle = state.trackArtist
+    ? `${title} — ${state.trackArtist}`
+    : title;
+  setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
+}
+
 function syncBringItHomeLabels(context: AppContext) {
   const { elements, state } = context;
   const visible = state.playMode === "jukebox" && state.bringItHomeMode;
-  elements.bringHomeLabel.classList.toggle("is-hidden", !visible);
   elements.bringHomeFullscreenLabel.classList.toggle("is-hidden", !visible);
 }
 
-export function syncExtrasUI(context: AppContext) {
-  const { elements, state } = context;
-  const inJukeboxMode = state.playMode === "jukebox";
-  elements.extrasEnabledInput.checked =
-    inJukeboxMode && state.branchStatsEnabled;
-  elements.extrasEnabledInput.disabled = !inJukeboxMode;
-  elements.bringHomeEnabledInput.checked =
-    inJukeboxMode && state.bringItHomeMode;
-  elements.bringHomeEnabledInput.disabled = !inJukeboxMode;
-  const audioMode = state.jukeboxAudioMode;
-  elements.audioModeOffInput.checked = audioMode === "off";
-  elements.audioModeNightcoreInput.checked = audioMode === "nightcore";
-  elements.audioModeDaycoreInput.checked = audioMode === "daycore";
-  elements.audioModeVaporwaveInput.checked = audioMode === "vaporwave";
-  elements.audioModeEightDInput.checked = audioMode === "eight_d";
-  elements.audioModeEightBitInput.checked = audioMode === "eight_bit";
-  elements.audioModeLofiInput.checked = audioMode === "lofi";
-  elements.audioModeUnderwaterInput.checked = audioMode === "underwater";
-  elements.audioModeCathedralInput.checked = audioMode === "cathedral";
-  elements.audioModeCowbellInput.checked = audioMode === "cowbell";
-  elements.audioModeSwingInput.checked = audioMode === "swing";
-  elements.audioModeOffInput.disabled = !inJukeboxMode;
-  elements.audioModeNightcoreInput.disabled = !inJukeboxMode;
-  elements.audioModeDaycoreInput.disabled = !inJukeboxMode;
-  elements.audioModeVaporwaveInput.disabled = !inJukeboxMode;
-  elements.audioModeEightDInput.disabled = !inJukeboxMode;
-  elements.audioModeEightBitInput.disabled = !inJukeboxMode;
-  elements.audioModeLofiInput.disabled = !inJukeboxMode;
-  elements.audioModeUnderwaterInput.disabled = !inJukeboxMode;
-  elements.audioModeCathedralInput.disabled = !inJukeboxMode;
-  elements.audioModeCowbellInput.disabled = !inJukeboxMode;
-  elements.audioModeSwingInput.disabled = !inJukeboxMode;
-}
 
 export type TuningModalTab = "tuning" | "extras";
-
-export function syncTuningTabsUI(context: AppContext) {
-  const { elements, state } = context;
-  const hasExtrasTab = state.playMode === "jukebox";
-  elements.tuningTabToggle.classList.toggle("hidden", !hasExtrasTab);
-  if (!hasExtrasTab) {
-    setActiveTuningTab(context, "tuning");
-    return;
-  }
-  const activeTab = getActiveTuningTab(context);
-  setActiveTuningTab(context, activeTab);
-}
-
-export function setActiveTuningTab(context: AppContext, tab: TuningModalTab) {
-  const { elements, state } = context;
-  const hasExtrasTab = state.playMode === "jukebox";
-  const nextTab = tab === "extras" && hasExtrasTab ? "extras" : "tuning";
-  const tuningActive = nextTab === "tuning";
-  elements.tuningTitleText.textContent = tuningActive ? "Tuning" : "Extras";
-  elements.tuningTitle.classList.toggle("is-extras-active", !tuningActive);
-  elements.tuningTabToggle.classList.toggle("hidden", !hasExtrasTab);
-  elements.tuningTabToggleIcon.textContent = tuningActive ? "science" : "tune";
-  elements.tuningTabToggleLabel.textContent = tuningActive ? "Extras" : "Tuning";
-  elements.tuningTabToggle.setAttribute(
-    "aria-label",
-    tuningActive ? "Switch to Extras" : "Switch to Tuning"
-  );
-  elements.tuningPanelTuning.classList.toggle("hidden", !tuningActive);
-  elements.tuningPanelExtras.classList.toggle("hidden", tuningActive);
-}
-
-export function getActiveTuningTab(context: AppContext): TuningModalTab {
-  return context.elements.tuningPanelTuning.classList.contains("hidden")
-    ? "extras"
-    : "tuning";
-}
 
 export type ExtrasApplyResult = {
   branchStatsChanged: boolean;
   audioModeChanged: boolean;
 };
 
-export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
-  const { cowbellOverlay, elements, engine, player, state } = context;
+export type ExtrasFormValues = {
+  bringItHomeMode: boolean;
+  branchStatsEnabled: boolean;
+  audioMode: JukeboxAudioMode;
+};
+
+export function getExtrasFormValues(context: AppContext): ExtrasFormValues {
+  const { state } = context;
+  const inJukeboxMode = state.playMode === "jukebox";
+  return {
+    bringItHomeMode: inJukeboxMode && state.bringItHomeMode,
+    branchStatsEnabled: inJukeboxMode && state.branchStatsEnabled,
+    audioMode: state.jukeboxAudioMode,
+  };
+}
+
+export function applyExtrasChanges(
+  context: AppContext,
+  values: ExtrasFormValues,
+): ExtrasApplyResult {
+  const { cowbellOverlay, engine, player, state } = context;
   const previousBranchStatsEnabled = state.branchStatsEnabled;
   const previousAudioMode = state.jukeboxAudioMode;
   state.bringItHomeMode =
-    state.playMode === "jukebox" && elements.bringHomeEnabledInput.checked;
+    state.playMode === "jukebox" && values.bringItHomeMode;
   if (state.bringItHomeMode && state.shiftBranching) {
     state.shiftBranching = false;
     engine.setForceBranch(false);
@@ -651,12 +591,12 @@ export function applyExtrasChanges(context: AppContext): ExtrasApplyResult {
   engine.setBringItHomeMode(state.bringItHomeMode);
   syncBringItHomeLabels(context);
   state.branchStatsEnabled =
-    state.playMode === "jukebox" && elements.extrasEnabledInput.checked;
+    state.playMode === "jukebox" && values.branchStatsEnabled;
   if (!state.branchStatsEnabled) {
-    elements.branchStatsPopup.classList.add("hidden");
+    context.elements.branchStatsPopup.classList.add("hidden");
   }
   storeBranchStatsEnabled(state.branchStatsEnabled);
-  const nextAudioMode = getSelectedAudioMode(context);
+  const nextAudioMode = values.audioMode;
   state.jukeboxAudioMode = nextAudioMode;
   if (nextAudioMode === "cowbell") {
     cowbellOverlay.enable();
@@ -725,68 +665,76 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   };
 }
 
-export function syncTuningUI(context: AppContext) {
-  const { elements, engine, player, state } = context;
+
+export type TuningFormValues = {
+  threshold: number;
+  computedThreshold: number | null;
+  minProbPct: number;
+  maxProbPct: number;
+  rampPct: number;
+  justBackwards: boolean;
+  justLongBranches: boolean;
+  removeSequentialBranches: boolean;
+  highlightAnchorBranch: boolean;
+};
+
+// Snapshot the engine config for the React tuning form (the read half of
+// the old syncTuningUI).
+export function getTuningFormValues(context: AppContext): TuningFormValues {
+  const { engine, state } = context;
   const config = engine.getConfig();
   const graph = engine.getGraphState();
   const thresholdValue =
     config.currentThreshold === 0 && graph
       ? Math.round(graph.currentThreshold)
       : config.currentThreshold;
-  elements.thresholdInput.value = `${thresholdValue}`;
-  elements.thresholdVal.textContent = elements.thresholdInput.value;
-  const minProbPct = Math.round(config.minRandomBranchChance * 100);
-  const maxProbPct = Math.round(config.maxRandomBranchChance * 100);
-  const rampPct =
-    Math.round(config.randomBranchChanceDelta * RANDOM_BRANCH_DELTA_PERCENT_SCALE * 10) / 10;
-  elements.minProbInput.value = `${minProbPct}`;
-  elements.minProbVal.textContent = `${minProbPct}%`;
-  elements.maxProbInput.value = `${maxProbPct}`;
-  elements.maxProbVal.textContent = `${maxProbPct}%`;
-  elements.rampInput.value = `${rampPct}`;
-  elements.rampVal.textContent = `${rampPct}%`;
-  const volumePct = Math.round(player.getVolume() * 100);
-  elements.volumeInput.value = `${volumePct}`;
-  elements.volumeVal.textContent = `${volumePct}`;
-  elements.justBackwardsInput.checked = config.justBackwards;
-  elements.justLongInput.checked = config.justLongBranches;
-  elements.removeSeqInput.checked = config.removeSequentialBranches;
-  elements.highlightAnchorBranchInput.checked = state.highlightAnchorBranch;
   const computedValue =
     state.autoComputedThreshold ??
     (graph ? Math.round(graph.currentThreshold) : null);
-  elements.computedThresholdEl.textContent =
-    computedValue === null ? "-" : `${computedValue}`;
+  return {
+    threshold: thresholdValue,
+    computedThreshold: computedValue,
+    minProbPct: Math.round(config.minRandomBranchChance * 100),
+    maxProbPct: Math.round(config.maxRandomBranchChance * 100),
+    rampPct:
+      Math.round(
+        config.randomBranchChanceDelta * RANDOM_BRANCH_DELTA_PERCENT_SCALE * 10,
+      ) / 10,
+    justBackwards: config.justBackwards,
+    justLongBranches: config.justLongBranches,
+    removeSequentialBranches: config.removeSequentialBranches,
+    highlightAnchorBranch: state.highlightAnchorBranch,
+  };
 }
 
-export function applyTuningChanges(context: AppContext) {
-  const { elements, engine, jukebox, state } = context;
-  const threshold = Number(elements.thresholdInput.value);
-  const computed = Number(elements.computedThresholdEl.textContent);
+export function applyTuningChanges(
+  context: AppContext,
+  form: TuningFormValues,
+): TuningFormValues {
+  const { engine, jukebox, state } = context;
+  const threshold = form.threshold;
+  const computed = form.computedThreshold;
   const useAutoThreshold =
     engine.getConfig().currentThreshold === 0 &&
+    computed !== null &&
     Number.isFinite(computed) &&
     threshold === computed;
-  let minProb = Number(elements.minProbInput.value) / 100;
-  let maxProb = Number(elements.maxProbInput.value) / 100;
-  const ramp = Number(elements.rampInput.value) / RANDOM_BRANCH_DELTA_PERCENT_SCALE;
+  let minProb = form.minProbPct / 100;
+  let maxProb = form.maxProbPct / 100;
+  const ramp = form.rampPct / RANDOM_BRANCH_DELTA_PERCENT_SCALE;
   if (minProb > maxProb) {
     [minProb, maxProb] = [maxProb, minProb];
-    elements.minProbInput.value = `${Math.round(minProb * 100)}`;
-    elements.maxProbInput.value = `${Math.round(maxProb * 100)}`;
-    elements.minProbVal.textContent = `${elements.minProbInput.value}%`;
-    elements.maxProbVal.textContent = `${elements.maxProbInput.value}%`;
   }
   engine.updateConfig({
     currentThreshold: useAutoThreshold ? 0 : threshold,
     minRandomBranchChance: minProb,
     maxRandomBranchChance: maxProb,
     randomBranchChanceDelta: ramp,
-    justBackwards: elements.justBackwardsInput.checked,
-    justLongBranches: elements.justLongInput.checked,
-    removeSequentialBranches: elements.removeSeqInput.checked,
+    justBackwards: form.justBackwards,
+    justLongBranches: form.justLongBranches,
+    removeSequentialBranches: form.removeSequentialBranches,
   });
-  state.highlightAnchorBranch = elements.highlightAnchorBranchInput.checked;
+  state.highlightAnchorBranch = form.highlightAnchorBranch;
   storeAnchorHighlight(state.highlightAnchorBranch);
   jukebox.setAnchorHighlightEnabled(state.highlightAnchorBranch);
   engine.rebuildGraph();
@@ -797,25 +745,28 @@ export function applyTuningChanges(context: AppContext) {
   }
   const graph = engine.getGraphState();
   updateTrackInfo(context);
+  let nextThreshold = threshold;
+  let nextComputed = computed;
   if (graph) {
     const resolved = Math.max(0, Math.round(graph.currentThreshold));
     if (useAutoThreshold) {
       state.autoComputedThreshold = resolved;
+      nextThreshold = resolved;
     }
-    elements.computedThresholdEl.textContent = `${resolved}`;
-    if (useAutoThreshold) {
-      elements.thresholdInput.value = `${resolved}`;
-      elements.thresholdVal.textContent = elements.thresholdInput.value;
-    }
+    nextComputed = resolved;
   } else {
-    elements.computedThresholdEl.textContent =
-      state.autoComputedThreshold === null
-        ? "-"
-        : `${state.autoComputedThreshold}`;
+    nextComputed = state.autoComputedThreshold;
   }
   syncTuningParamsState(context);
   writeTuningParamsToUrl(state.tuningParams, true);
   closeTuning(context);
+  return {
+    ...form,
+    threshold: nextThreshold,
+    computedThreshold: nextComputed,
+    minProbPct: Math.round(minProb * 100),
+    maxProbPct: Math.round(maxProb * 100),
+  };
 }
 
 export function resetTuningDefaults(context: AppContext) {
@@ -842,7 +793,7 @@ export function resetTuningDefaults(context: AppContext) {
   player.setVolume(DEFAULT_VOLUME);
   autocanonizer.setVolume(DEFAULT_VOLUME);
   cowbellOverlay.setVolume(DEFAULT_VOLUME);
-  syncTuningUI(context);
+  syncVolumeUI(context);
   updateTrackInfo(context);
 }
 
@@ -895,7 +846,6 @@ export function stopPlayback(context: AppContext) {
   if (state.bringItHomeMode) {
     state.bringItHomeMode = false;
     engine.setBringItHomeMode(false);
-    elements.bringHomeLabel.classList.add("is-hidden");
     elements.bringHomeFullscreenLabel.classList.add("is-hidden");
   }
   stopListenTimer(context);
@@ -1148,7 +1098,6 @@ export function resetForNewTrack(
   engine.setForceBranch(false);
   state.bringItHomeMode = false;
   engine.setBringItHomeMode(false);
-  elements.bringHomeLabel.classList.add("is-hidden");
   elements.bringHomeFullscreenLabel.classList.add("is-hidden");
   state.selectedEdge = null;
   jukebox.setSelectedEdge(null);
@@ -1170,12 +1119,8 @@ export function resetForNewTrack(
   updateListenTimeDisplay(context);
   elements.beatsPlayedEl.textContent = "0";
   setAutoMarqueeText(elements.vizNowPlayingEl, "The Forever Jukebox");
-  if (elements.tuningModal.classList.contains("open")) {
-    elements.tuningModal.classList.remove("open");
-  }
-  if (elements.infoModal.classList.contains("open")) {
-    elements.infoModal.classList.remove("open");
-  }
+  closeTuning(context);
+  closeInfo(context);
   if (state.isRunning || state.isPaused) {
     stopPlayback(context);
   }
@@ -1185,10 +1130,8 @@ export function resetForNewTrack(
     state.tuningParams = null;
     clearTuningParamsFromUrl(true);
   }
-  elements.computedThresholdEl.textContent = "-";
   engine.updateConfig({ ...defaultConfig });
-  syncTuningUI(context);
-  setAutoMarqueeText(elements.playTitle, "");
+  syncVolumeUI(context);
   elements.analysisStatus.textContent = "No track selected.";
   elements.analysisSpinner.classList.add("hidden");
   elements.analysisProgress.textContent = "";
@@ -1197,7 +1140,6 @@ export function resetForNewTrack(
   state.trackArtist = null;
   state.deleteEligible = false;
   state.deleteEligibilityJobId = null;
-  elements.deleteButton.classList.add("hidden");
   state.vizData = null;
   if (shouldPreserveTuning) {
     state.tuningParams = preservedTuningParams;
@@ -1294,10 +1236,8 @@ export function applyAnalysisResult(
       state.jukeboxAudioMode,
     );
     const displayTitle = artist ? `${withSuffix} — ${artist}` : withSuffix;
-    setAutoMarqueeText(elements.playTitle, displayTitle);
     setAutoMarqueeText(elements.vizNowPlayingEl, displayTitle);
   } else {
-    setAutoMarqueeText(elements.playTitle, "");
     setAutoMarqueeText(elements.vizNowPlayingEl, "The Forever Jukebox");
   }
   updateTrackInfo(context);

@@ -33,32 +33,28 @@ import {
   applyTuningChanges,
   applyExtrasChanges,
   resetExtrasDefaults,
-  closeInfo,
-  closeTuning,
   resetTuningDefaults,
+  getExtrasFormValues,
+  getTuningFormValues,
   loadAudioFromJob,
   loadTrackByJobId,
   loadTrackById,
   openExtras,
-  openInfo,
-  openTuning,
   pollAnalysis,
   releaseWakeLock,
   requestWakeLock,
   resetForNewTrack,
-  addSleepTimerListener,
   syncDeletedEdgeState,
+  syncVizNowPlayingTitle,
   startAutocanonizerPlayback,
   startJukeboxFromBeat,
   setSleepTimer,
   stopPlayback,
-  syncExtrasUI,
-  syncTuningTabsUI,
-  setActiveTuningTab,
-  getActiveTuningTab,
   togglePlayback,
   updateTrackInfo,
   updateVizVisibility,
+  type ExtrasFormValues,
+  type TuningFormValues,
 } from "./playback";
 import { runSearch, selectSpotifyMatch, selectYoutubeMatch } from "./search";
 import { uploadAudioFile, uploadFromUrl, type UploadDeps } from "./upload";
@@ -67,7 +63,7 @@ import type { AppContext, AppState, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers } from "./wire/favorites";
 import { createNavigationHandlers } from "./wire/navigation";
-import { createTuningHandlers } from "./wire/tuning";
+import { createVolumeHandlers } from "./wire/volume";
 import { createFullscreenHandlers } from "./wire/fullscreen";
 import { createPlaybackUiHandlers } from "./wire/playback";
 import { createPlaylistHandlers, type PlaylistHandlers } from "./wire/playlist";
@@ -170,7 +166,6 @@ export function bootstrap(): AppBridge {
     navigateToTab,
     updateVizVisibility,
     openExtras,
-    syncTuningTabsUI,
     getTuningParamsFromEngine,
     writeTuningParamsToUrl,
     syncDeletedEdgeState,
@@ -195,7 +190,6 @@ export function bootstrap(): AppBridge {
   };
   const favoritesHandlers = createFavoritesHandlers({
     context,
-    elements,
     state,
     showToast,
     addFavorite,
@@ -224,7 +218,6 @@ export function bootstrap(): AppBridge {
     setPlayMode: playbackHandlers.setPlayMode,
   });
   playbackDeps.onTrackChange = () => {
-    favoritesHandlers.syncFavoriteButton();
     syncPlaylistUi();
   };
   playbackDeps.onAnalysisLoaded = (response) => {
@@ -259,7 +252,6 @@ export function bootstrap(): AppBridge {
     resetForNewTrack: (options) => resetForNewTrack(context, options),
     updateVizVisibility: () => updateVizVisibility(context),
     onTrackChange: () => {
-      favoritesHandlers.syncFavoriteButton();
       syncPlaylistUi();
     },
     onNormalTrackSelected: handleNormalTrackSelected,
@@ -293,25 +285,11 @@ export function bootstrap(): AppBridge {
       pollAnalysis(context, playbackDeps, jobId),
     onNormalTrackSelected: handleNormalTrackSelected,
   };
-  const tuningHandlers = createTuningHandlers({
+  const volumeHandlers = createVolumeHandlers({
     context,
     elements,
     player,
     autocanonizer,
-    openTuning,
-    closeTuning,
-    openInfo,
-    closeInfo,
-    applyTuningChanges,
-    resetTuningDefaults,
-    applyExtrasChanges,
-    resetExtrasDefaults,
-    syncExtrasUI,
-    syncTuningTabsUI,
-    setActiveTuningTab,
-    getActiveTuningTab,
-    setSleepTimer,
-    addSleepTimerListener,
   });
   const fullscreenHandlers = createFullscreenHandlers({
     context,
@@ -322,7 +300,6 @@ export function bootstrap(): AppBridge {
   });
   const deleteJobHandlers = createDeleteJobHandlers({
     context,
-    elements,
     state,
     favoritesHandlers,
     deleteJob,
@@ -361,17 +338,14 @@ export function bootstrap(): AppBridge {
     });
 
   resetForNewTrack(context);
-  favoritesHandlers.syncFavoriteButton();
   syncPlaylistUi();
 
   bindUiHandlers({
     elements,
     jukebox,
-    favoritesHandlers,
-    tuningHandlers,
     playbackHandlers,
     fullscreenHandlers,
-    deleteJobHandlers,
+    volumeHandlers,
     playlistHandlers: playlistHandlers!,
   });
 
@@ -430,16 +404,42 @@ export function bootstrap(): AppBridge {
       uploadFromUrl(uploadDeps, raw, onAccepted),
   };
 
+  const listenPanel = {
+    copyShortUrl: playbackHandlers.handleShortUrlClick,
+    toggleFavorite: () => {
+      void favoritesHandlers.handleFavoriteToggle();
+    },
+    getPendingDelete: deleteJobHandlers.getPendingDelete,
+    performDelete: deleteJobHandlers.performDelete,
+    getTuningForm: () => getTuningFormValues(context),
+    applyTuning: (form: TuningFormValues) => applyTuningChanges(context, form),
+    resetTuning: () => {
+      resetTuningDefaults(context);
+    },
+    getExtrasForm: () => getExtrasFormValues(context),
+    applyExtras: (values: ExtrasFormValues) =>
+      applyExtrasChanges(context, values),
+    resetExtras: () => resetExtrasDefaults(context),
+    syncTrackTitleAfterAudioModeChange: () => {
+      syncVizNowPlayingTitle(context);
+    },
+    setSleepTimer: (durationMs: number | null) =>
+      setSleepTimer(context, durationMs),
+    playlist: {
+      selectIndex: (index: number) =>
+        playlistHandlers!.selectPlaylistIndex(index),
+      removeIndex: (index: number) =>
+        playlistHandlers!.removePlaylistIndex(index),
+      clear: () => playlistHandlers!.handleClearPlaylist(),
+    },
+  };
+
   return {
     context,
     handleRoute,
     onTabClick,
     hotkeys: {
-      keydown: [
-        deleteJobHandlers.handleDeleteConfirmKeydown,
-        playlistHandlers!.handlePlaylistModalKeydown,
-        playbackHandlers.handleKeydown,
-      ],
+      keydown: [playbackHandlers.handleKeydown],
       keyup: [playbackHandlers.handleKeyup],
     },
     onHeroHomeClick: () => {
@@ -450,5 +450,6 @@ export function bootstrap(): AppBridge {
     },
     topPanel,
     searchPanel,
+    listenPanel,
   };
 }
