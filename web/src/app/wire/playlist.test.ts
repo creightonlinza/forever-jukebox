@@ -107,8 +107,8 @@ function createDeps(overrides?: Partial<AppState>) {
     elements,
     state,
     showToast: vi.fn(),
-    loadTrackById: vi.fn(async () => {}),
-    loadTrackByJobId: vi.fn(async () => {}),
+    loadTrackById: vi.fn(async () => true),
+    loadTrackByJobId: vi.fn(async () => true),
     navigateToTabWithState: vi.fn(),
     togglePlayback: vi.fn(),
   };
@@ -163,6 +163,55 @@ describe("playlist handlers", () => {
     );
   });
 
+  it("uses the job id as an upload when adding the current uploaded track", () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    const deps = createDeps({
+      lastTrackId: null,
+      lastJobId: jobId,
+      trackTitle: "Upload",
+    } as Partial<AppState>);
+    const handlers = createPlaylistHandlers(deps);
+
+    handlers.handleAddToPlaylist(track("next"));
+
+    expect(deps.state.playlist.tracks[0]).toMatchObject({
+      id: jobId,
+      sourceType: "upload",
+    });
+  });
+
+  it("uses provider source ids when adding the current provider track", () => {
+    const deps = createDeps({
+      lastTrackId: "soundcloud:source-1",
+      lastSourceProvider: "soundcloud",
+      trackTitle: "Provider Track",
+    } as Partial<AppState>);
+    const handlers = createPlaylistHandlers(deps);
+
+    handlers.handleAddToPlaylist(track("next"));
+
+    expect(deps.state.playlist.tracks[0]).toMatchObject({
+      id: "source-1",
+      sourceType: "soundcloud",
+    });
+  });
+
+  it("shows an invalid message for malformed playlist tracks", () => {
+    const deps = createDeps({
+      lastTrackId: "current",
+      lastSourceProvider: "youtube",
+      trackTitle: "Current",
+    } as Partial<AppState>);
+    const handlers = createPlaylistHandlers(deps);
+
+    handlers.handleAddToPlaylist({ ...track(""), id: "" });
+
+    expect(deps.showToast).toHaveBeenCalledWith(
+      deps.context,
+      "Track cannot be added to playlist.",
+    );
+  });
+
   it("clears inactive saved playlists on normal track selection", () => {
     const deps = createDeps({
       playlist: { tracks: [track("a"), track("b")], currentIndex: -1 },
@@ -208,6 +257,42 @@ describe("playlist handlers", () => {
     expect(deps.loadTrackById).toHaveBeenCalledTimes(1);
   });
 
+  it("rolls back playlist activation when a playlist item load fails", async () => {
+    const deps = createDeps({
+      playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
+      isRunning: false,
+    } as Partial<AppState>);
+    deps.loadTrackById = vi.fn(async (): Promise<boolean> => false);
+    const handlers = createPlaylistHandlers(deps);
+
+    const loaded = await handlers.loadPlaylistIndex(1, { playAfterLoad: true });
+
+    expect(loaded).toBe(false);
+    expect(deps.state.playlist.currentIndex).toBe(0);
+    expect(deps.togglePlayback).not.toHaveBeenCalled();
+  });
+
+  it("blocks rapid playlist skips while a playlist load is pending", () => {
+    const deps = createDeps({
+      playlist: {
+        tracks: [track("a"), track("b"), track("c")],
+        currentIndex: 0,
+      },
+    } as Partial<AppState>);
+    deps.loadTrackById = vi.fn(
+      () =>
+        new Promise<boolean>(() => {
+          // Keep the first load pending.
+        }),
+    );
+    const handlers = createPlaylistHandlers(deps);
+
+    handlers.handlePlaylistNext();
+    handlers.handlePlaylistNext();
+
+    expect(deps.loadTrackById).toHaveBeenCalledTimes(1);
+  });
+
   it("does not load or close the modal for the current playlist item", async () => {
     const deps = createDeps({
       playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
@@ -226,10 +311,10 @@ describe("playlist handlers", () => {
     const deps = createDeps({
       playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
     } as Partial<AppState>);
-    let resolveLoad: () => void = () => {};
+    let resolveLoad: (value: boolean) => void = () => {};
     deps.loadTrackById = vi.fn(
       () =>
-        new Promise<void>((resolve) => {
+        new Promise<boolean>((resolve) => {
           resolveLoad = resolve;
         }),
     );
@@ -241,7 +326,7 @@ describe("playlist handlers", () => {
       "open",
     );
 
-    resolveLoad();
+    resolveLoad(true);
     await loadPromise;
   });
 
@@ -256,6 +341,31 @@ describe("playlist handlers", () => {
     expect(advanced).toBe(true);
     expect(deps.loadTrackById).toHaveBeenCalledOnce();
     expect(deps.togglePlayback).toHaveBeenCalledWith(deps.context);
+  });
+
+  it("does not report autocanonizer advance when the playlist load fails", async () => {
+    const deps = createDeps({
+      playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
+    } as Partial<AppState>);
+    deps.loadTrackById = vi.fn(async (): Promise<boolean> => false);
+    const handlers = createPlaylistHandlers(deps);
+
+    const advanced = await handlers.advanceAutocanonizerOnEnded();
+
+    expect(advanced).toBe(false);
+    expect(deps.togglePlayback).not.toHaveBeenCalled();
+  });
+
+  it("closes the playlist modal with Escape", () => {
+    const deps = createDeps();
+    deps.elements.playlistModal.classList.add("open");
+    const handlers = createPlaylistHandlers(deps);
+
+    handlers.handlePlaylistModalKeydown({ key: "Escape" } as KeyboardEvent);
+
+    expect(deps.elements.playlistModal.classList.remove).toHaveBeenCalledWith(
+      "open",
+    );
   });
 
   it("does not advance autocanonizer without a next playlist track", async () => {

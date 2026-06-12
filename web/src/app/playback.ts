@@ -1399,10 +1399,10 @@ async function continueTrackLoadWithResponse(
   context: AppContext,
   deps: PlaybackDeps,
   response: AnalysisResponse | null,
-) {
+): Promise<boolean> {
   if (!response || !response.id) {
     deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
-    return;
+    return false;
   }
   maybeUpdateDeleteEligibility(context, response, response.id);
   context.state.lastJobId = response.id;
@@ -1421,26 +1421,43 @@ async function continueTrackLoadWithResponse(
     response.source_provider !== "youtube" &&
     response.id
   ) {
-    context.state.lastTrackId = response.id;
-    deps.onTrackChange?.(response.id);
+    const trackId =
+      typeof response.source_id === "string" && response.source_id
+        ? `${response.source_provider}:${response.source_id}`
+        : response.id;
+    context.state.lastTrackId = trackId;
+    deps.onTrackChange?.(trackId);
   }
   if (isAnalysisInProgress(response)) {
     await pollAnalysis(context, deps, response.id);
-    return;
+    return true;
+  }
+  if (isAnalysisFailed(response)) {
+    deps.setAnalysisStatus(
+      formatErrorForDisplay(response.error, {
+        sourceProvider: response.source_provider,
+        errorCode: response.error_code,
+        fallback: "Loading failed.",
+      }),
+      false,
+    );
+    return false;
   }
   if (isAnalysisComplete(response)) {
     if (!context.state.audioLoaded) {
       const audioLoaded = await loadAudioFromJob(context, response.id);
       if (!audioLoaded) {
         await pollAnalysis(context, deps, response.id);
-        return;
+        return true;
       }
     }
-    applyAnalysisResult(context, response, deps.onAnalysisLoaded);
+    if (!applyAnalysisResult(context, response, deps.onAnalysisLoaded)) {
+      return false;
+    }
     deps.setActiveTab("play");
-    return;
+    return true;
   }
-  await pollAnalysis(context, deps, response.id);
+  return false;
 }
 
 async function loadTrack(
@@ -1450,7 +1467,7 @@ async function loadTrack(
     | { type: "source"; id: string; provider: string; trackId: string }
     | { type: "job"; id: string },
   options?: TrackLoadOptions,
-) {
+): Promise<boolean> {
   const shouldClear = !options?.preserveUrlTuning;
   handlePlaylistForNormalTrackLoad(context, deps, source, options);
   resetForNewTrack(context, { clearTuning: shouldClear });
@@ -1476,9 +1493,10 @@ async function loadTrack(
       source.type === "source"
         ? await fetchJobBySource(source.provider, source.id)
         : await fetchAnalysis(source.id);
-    await continueTrackLoadWithResponse(context, deps, response);
+    return await continueTrackLoadWithResponse(context, deps, response);
   } catch (err) {
     deps.setAnalysisStatus(`Load failed: ${formatErrorForDisplay(err)}`, false);
+    return false;
   }
 }
 
@@ -1490,10 +1508,9 @@ export async function loadTrackById(
 ) {
   const parsed = parseTrackId(trackId);
   if (parsed.type === "job") {
-    await loadTrack(context, deps, { type: "job", id: parsed.jobId }, options);
-    return;
+    return await loadTrack(context, deps, { type: "job", id: parsed.jobId }, options);
   }
-  await loadTrack(
+  return await loadTrack(
     context,
     deps,
     {
@@ -1512,7 +1529,7 @@ export async function loadTrackByJobId(
   jobId: string,
   options?: TrackLoadOptions,
 ) {
-  await loadTrack(context, deps, { type: "job", id: jobId }, options);
+  return await loadTrack(context, deps, { type: "job", id: jobId }, options);
 }
 
 function isLikelyJobId(value: string) {

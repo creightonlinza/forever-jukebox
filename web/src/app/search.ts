@@ -170,7 +170,8 @@ export async function startYoutubeAnalysisFlow(
     title,
     artist,
     duration: null,
-    tuningParams: null,
+    tuningParams:
+      context.state.playMode === "jukebox" ? context.state.tuningParams : null,
   });
   deps.resetForNewTrack({ clearTuning: true });
   resetSearchUI(context);

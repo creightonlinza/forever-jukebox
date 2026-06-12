@@ -33,6 +33,10 @@ function createHarness() {
   } as unknown as AppState;
   const showToast = vi.fn();
   const startUrlAnalysis = vi.fn();
+  const onNormalTrackSelected = vi.fn();
+  const resetForNewTrack = vi.fn();
+  const updateTrackUrl = vi.fn();
+  const pollAnalysisJob = vi.fn();
   const handlers = createSearchHandlers({
     context,
     elements,
@@ -42,13 +46,23 @@ function createHarness() {
     showToast,
     uploadAudio: vi.fn(),
     startUrlAnalysis,
-    resetForNewTrack: vi.fn(),
+    resetForNewTrack,
     setActiveTabWithRefresh: vi.fn(),
     setLoadingProgress: vi.fn(),
-    updateTrackUrl: vi.fn(),
-    pollAnalysisJob: vi.fn(),
+    updateTrackUrl,
+    pollAnalysisJob,
+    onNormalTrackSelected,
   });
-  return { elements, handlers, showToast, startUrlAnalysis };
+  return {
+    elements,
+    handlers,
+    onNormalTrackSelected,
+    pollAnalysisJob,
+    showToast,
+    startUrlAnalysis,
+    state,
+    updateTrackUrl,
+  };
 }
 
 describe("createSearchHandlers", () => {
@@ -92,5 +106,41 @@ describe("createSearchHandlers", () => {
       "Bandcamp fetch failed.",
       { icon: "error", tone: "error" },
     );
+  });
+
+  it("uses provider listen ids and source playlist ids for URL uploads", async () => {
+    const {
+      elements,
+      handlers,
+      onNormalTrackSelected,
+      pollAnalysisJob,
+      startUrlAnalysis,
+      state,
+      updateTrackUrl,
+    } = createHarness();
+    elements.uploadYoutubeInput.value = "https://soundcloud.com/artist/track";
+    startUrlAnalysis.mockResolvedValue({
+      id: "job-soundcloud",
+      status: "queued",
+      source_id: "source-soundcloud",
+      source_provider: "soundcloud",
+    });
+
+    await handlers.handleUploadYoutubeClick();
+
+    expect(onNormalTrackSelected).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "source-soundcloud",
+        sourceType: "soundcloud",
+      }),
+    );
+    expect(state.lastTrackId).toBe("soundcloud:source-soundcloud");
+    expect(updateTrackUrl).toHaveBeenCalledWith(
+      "soundcloud:source-soundcloud",
+      true,
+      null,
+      "jukebox",
+    );
+    expect(pollAnalysisJob).toHaveBeenCalledWith("job-soundcloud");
   });
 });

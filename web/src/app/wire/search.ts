@@ -321,7 +321,10 @@ export function createSearchHandlers(deps: SearchHandlersDeps) {
       const listenId =
         sourceProvider === "youtube"
           ? (sourceId as string)
-          : response.id;
+          : sourceId &&
+              (sourceProvider === "soundcloud" || sourceProvider === "bandcamp")
+            ? `${sourceProvider}:${sourceId}`
+            : response.id;
       const playlistSourceType =
         sourceProvider === "soundcloud" || sourceProvider === "bandcamp"
           ? sourceProvider

@@ -268,6 +268,7 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   );
   document.addEventListener("click", tuningHandlers.handleVolumeDocumentClick);
   window.addEventListener("keydown", deleteJobHandlers.handleDeleteConfirmKeydown);
+  window.addEventListener("keydown", playlistHandlers.handlePlaylistModalKeydown);
   window.addEventListener("keydown", playbackHandlers.handleKeydown);
   window.addEventListener("keyup", playbackHandlers.handleKeyup);
 

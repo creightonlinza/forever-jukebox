@@ -18,6 +18,7 @@ export type PlaylistAddStatus =
   | "added"
   | "duplicate"
   | "full"
+  | "invalid"
   | "no-current";
 
 export const PLAYLIST_STORAGE_KEY = "fj-playlist";
@@ -102,7 +103,7 @@ export function addPlaylistTrack(
     ? normalizePlaylistTrack(currentTrack)
     : null;
   if (!normalizedTrack) {
-    return { playlist, status: "duplicate" };
+    return { playlist, status: "invalid" };
   }
   const existingTracks = playlist.tracks;
   const existingKeys = new Set(existingTracks.map(playlistTrackKey));
