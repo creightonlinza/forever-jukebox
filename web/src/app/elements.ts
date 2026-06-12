@@ -59,18 +59,6 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#play-menu"),
     "#play-menu"
   );
-  const tabButtons = requireNonEmpty(
-    Array.from(document.querySelectorAll<HTMLButtonElement>("[data-tab-button]")),
-    "[data-tab-button]"
-  );
-  const tabPanels = requireNonEmpty(
-    Array.from(document.querySelectorAll<HTMLElement>("[data-tab-panel]")),
-    "[data-tab-panel]"
-  );
-  const playTabButton = requireElement(
-    document.querySelector<HTMLButtonElement>('[data-tab-button="play"]'),
-    '[data-tab-button="play"]'
-  );
   const analysisStatus = requireElement(
     document.querySelector<HTMLDivElement>("#analysis-status"),
     "#analysis-status"
@@ -168,10 +156,6 @@ export function getElements() {
   const playTitle = requireElement(
     document.querySelector<HTMLDivElement>("#play-title"),
     "#play-title"
-  );
-  const themeLinks = requireNonEmpty(
-    Array.from(document.querySelectorAll<HTMLButtonElement>("[data-theme]")),
-    "[data-theme]"
   );
   const fullscreenButton = requireElement(
     document.querySelector<HTMLButtonElement>("#fullscreen"),
@@ -583,10 +567,6 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#toast"),
     "#toast"
   );
-  const footerCredit = requireElement(
-    document.querySelector<HTMLParagraphElement>("#site-footer-credit"),
-    "#site-footer-credit"
-  );
   const branchStatsPopup = requireElement(
     document.querySelector<HTMLDivElement>("#branch-stats-popup"),
     "#branch-stats-popup"
@@ -648,9 +628,6 @@ export function getElements() {
     playModeSelect,
     playStatusPanel,
     playMenu,
-    tabButtons,
-    tabPanels,
-    playTabButton,
     analysisStatus,
     analysisSpinner,
     analysisProgress,
@@ -675,7 +652,6 @@ export function getElements() {
     deleteConfirmCancel,
     deleteConfirmDelete,
     playTitle,
-    themeLinks,
     fullscreenButton,
     tuningModal,
     infoModal,
@@ -777,7 +753,6 @@ export function getElements() {
     favoritesSyncMenu,
     favoritesSyncItems,
     toast,
-    footerCredit,
     branchStatsPopup,
     branchStatsTitleEl,
     branchStatsDeleteButton,

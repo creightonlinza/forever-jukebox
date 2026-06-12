@@ -62,7 +62,6 @@ function createHarness() {
     elements,
     state,
     favoritesHandlers,
-    navigateToTabWithState: vi.fn(),
     onTopSongsTabChange,
     onTopSongsRefresh,
   });

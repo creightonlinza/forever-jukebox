@@ -1,5 +1,6 @@
 import type { AppContext, AppState, TabId } from "../context";
-import { navigateToTab, setActiveTab } from "../tabs";
+import { useShellStore } from "../shell-store";
+import { navigateToTab } from "../tabs";
 import { getTuningParamsStringFromUrl } from "../tuning";
 
 type NavigationDeps = {
@@ -10,7 +11,7 @@ type NavigationDeps = {
 export type NavigationHandlers = ReturnType<typeof createNavigationHandlers>;
 
 export function createNavigationHandlers(deps: NavigationDeps) {
-  const { context, state } = deps;
+  const { state } = deps;
 
   function getCurrentTrackId() {
     return state.lastTrackId ?? state.lastJobId;
@@ -31,8 +32,10 @@ export function createNavigationHandlers(deps: NavigationDeps) {
     );
   }
 
+  // Tab visibility side effects now run in the React shell, keyed on the
+  // store's activeTab (see AppRoot's useTabEffects).
   function setActiveTabWithRefresh(tabId: TabId) {
-    setActiveTab(context, tabId, () => {});
+    useShellStore.getState().setActiveTab(tabId);
   }
 
   return {

@@ -1,4 +1,4 @@
-import type { AppState, TabId } from "../context";
+import type { AppState } from "../context";
 import { TOP_SONGS_LIMIT } from "../constants";
 import type { Elements } from "../elements";
 import { navigateToFaqSubtab, type FaqSubtabId } from "../tabs";
@@ -10,10 +10,6 @@ type TabsDeps = {
   elements: Elements;
   state: AppState;
   favoritesHandlers: FavoritesHandlers;
-  navigateToTabWithState: (
-    tabId: TabId,
-    options?: { replace?: boolean; trackId?: string | null },
-  ) => void;
   onTopSongsTabChange?: (tabId: TopSongsTabId) => void;
   onTopSongsRefresh?: (tabId: TopSongsTabId) => void;
   onFaqOpen?: () => void;
@@ -26,7 +22,6 @@ export function createTabsHandlers(deps: TabsDeps) {
     elements,
     state,
     favoritesHandlers,
-    navigateToTabWithState,
     onFaqOpen,
   } = deps;
 
@@ -122,27 +117,6 @@ export function createTabsHandlers(deps: TabsDeps) {
     onFaqOpen?.();
   }
 
-  function handleTabClick(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    const tabId = button?.dataset.tabButton as TabId | undefined;
-    if (!tabId) {
-      return;
-    }
-    if (tabId === "top") {
-      setTopSongsTab("top");
-    }
-    if (tabId === "search") {
-      setSearchTab("search");
-    }
-    if (tabId === "faq") {
-      setFaqTab("faq");
-    }
-    navigateToTabWithState(tabId);
-    if (tabId === "faq") {
-      onFaqOpen?.();
-    }
-  }
-
   return {
     setTopSongsTab,
     handleTopSongsTabClick,
@@ -151,6 +125,5 @@ export function createTabsHandlers(deps: TabsDeps) {
     handleSearchSubtabClick,
     setFaqTab,
     handleFaqSubtabClick,
-    handleTabClick,
   };
 }

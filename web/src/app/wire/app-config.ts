@@ -2,6 +2,7 @@ import type { AppConfig } from "../api";
 import type { AppState } from "../context";
 import type { Elements } from "../elements";
 import { configureMaxFavorites, maxFavorites } from "../favorites";
+import { useShellStore } from "../shell-store";
 import type { FavoritesHandlers } from "./favorites";
 import type { TabsHandlers } from "./tabs";
 
@@ -57,41 +58,12 @@ export function createAppConfigHandlers(deps: AppConfigDeps) {
     }
   }
 
-  function createFooterLink(text: string, href: string) {
-    const link = elements.footerCredit.ownerDocument.createElement("a");
-    link.href = href;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-    link.textContent = text;
-    return link;
-  }
-
+  // The footer is React-owned; <Footer> renders the credit from the store.
   function renderFooterCredit(config: AppConfig) {
-    const doc = elements.footerCredit.ownerDocument;
-    const hostedByName = config.hosted_by_name?.trim();
-    const hostedByUrl = config.hosted_by_url?.trim();
-
-    elements.footerCredit.textContent = "";
-    elements.footerCredit.appendChild(
-      doc.createTextNode("The Forever Jukebox & Analysis Engine by "),
-    );
-    elements.footerCredit.appendChild(
-      createFooterLink("Creighton", "https://creighton.dev"),
-    );
-
-    if (!hostedByName) {
-      return;
-    }
-
-    elements.footerCredit.appendChild(
-      doc.createTextNode(". This instance is hosted by "),
-    );
-    if (hostedByUrl) {
-      elements.footerCredit.appendChild(createFooterLink(hostedByName, hostedByUrl));
-    } else {
-      elements.footerCredit.appendChild(doc.createTextNode(hostedByName));
-    }
-    elements.footerCredit.appendChild(doc.createTextNode("."));
+    useShellStore.getState().setFooterCredit({
+      hostedByName: config.hosted_by_name?.trim() || null,
+      hostedByUrl: config.hosted_by_url?.trim() || null,
+    });
   }
 
   return { applyAppConfig };

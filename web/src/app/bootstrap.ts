@@ -76,11 +76,11 @@ import { createPlaybackUiHandlers } from "./wire/playback";
 import { createPlaylistHandlers, type PlaylistHandlers } from "./wire/playlist";
 import { createDeleteJobHandlers } from "./wire/delete-job";
 import { createTopSongsHandlers } from "./wire/top-songs";
-import { createThemeHandlers } from "./wire/theme";
 import { createAppConfigHandlers } from "./wire/app-config";
 import { bindUiHandlers } from "./wire/ui";
-import { createRoutingHandlers } from "./wire/routing";
 import { createCacheHandlers } from "./wire/cache";
+import type { AppBridge } from "./bridge";
+import { useShellStore } from "./shell-store";
 import {
   getTuningParamsFromEngine,
   syncTuningParamsState,
@@ -106,15 +106,15 @@ type PlaybackDeps = Parameters<typeof pollAnalysis>[1];
 
 type SearchDeps = Parameters<typeof runSearch>[1];
 
-export function bootstrap() {
+export function bootstrap(): AppBridge {
   initBackgroundTimer();
   const elements = getElements();
+  // Theme must apply before first paint; the React theme effect re-applies
+  // idempotently (and persists + refreshes the viz) once mounted.
   const initialTheme = resolveStoredTheme();
   applyThemeVariables(initialTheme);
   document.body.classList.toggle("theme-light", initialTheme === "light");
-  elements.themeLinks.forEach((link) => {
-    link.classList.toggle("active", link.dataset.theme === initialTheme);
-  });
+  useShellStore.setState({ theme: initialTheme });
   const player = new BufferedAudioPlayer();
   const cowbellOverlay = new CowbellOverlayService(player.getContext(), {
     getPlaybackRate: () => player.getPlaybackRate(),
@@ -190,6 +190,13 @@ export function bootstrap() {
     defaultConfig,
     state,
   };
+  // Legacy modules read state.activeTabId synchronously after setting the
+  // shell store's activeTab, so mirror it here (zustand notifies in-line).
+  useShellStore.subscribe((s, prev) => {
+    if (s.activeTab !== prev.activeTab) {
+      state.activeTabId = s.activeTab;
+    }
+  });
   let playlistHandlers: PlaylistHandlers | null = null;
   const syncPlaylistUi = () => playlistHandlers?.syncPlaylistUi();
   const handleNormalTrackSelected = (track: PlaylistTrack) => {
@@ -381,7 +388,6 @@ export function bootstrap() {
     elements,
     state,
     favoritesHandlers,
-    navigateToTabWithState: navigationHandlers.navigateToTabWithState,
     onTopSongsTabChange: (tabId) => {
       if (!(tabId in topSongsTabLoaders)) {
         return;
@@ -476,34 +482,13 @@ export function bootstrap() {
     isFavorite,
     removeFavorite,
   });
-  const themeHandlers = createThemeHandlers({
-    context,
-    elements,
-    applyTheme,
-  });
-  const routingHandlers = createRoutingHandlers({
-    context,
-    playbackHandlers,
-    handleRouteChange,
-    playbackDeps,
-    onFaqRoute: (subtabId) => {
-      tabsHandlers.setFaqTab(subtabId);
-      refreshCacheSafely();
-    },
-  });
-  const heroTitleHomeButton = document.querySelector<HTMLButtonElement>(
-    "#hero-title-home",
-  );
-
   jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
   elements.vizSelect.disabled = true;
   attachVisualizationResize([jukebox], elements.vizPanel);
   attachVisualizationResize([autocanonizer], elements.vizPanel);
   playbackHandlers.initializePlayback();
 
-  navigationHandlers.setActiveTabWithRefresh("top");
   setAnalysisStatus(context, "No track selected.", false);
-  applyTheme(context, initialTheme);
   loadAppConfig()
     .then((config) => {
       if (config) {
@@ -532,19 +517,6 @@ export function bootstrap() {
   favoritesHandlers.syncFavoriteButton();
   syncPlaylistUi();
 
-  playbackHandlers.applyModeFromUrl();
-  handleRouteChange(context, playbackDeps, window.location.pathname)
-    .then(() => {
-      applyFaqRouteState(window.location.pathname);
-    })
-    .catch((err) => {
-      console.warn(`Route load failed: ${String(err)}`);
-    });
-
-  window.addEventListener("popstate", routingHandlers.handlePopState);
-  heroTitleHomeButton?.addEventListener("click", () => {
-    navigationHandlers.navigateToTabWithState("top");
-  });
   bindUiHandlers({
     elements,
     jukebox,
@@ -555,9 +527,49 @@ export function bootstrap() {
     playbackHandlers,
     fullscreenHandlers,
     deleteJobHandlers,
-    themeHandlers,
     cacheHandlers,
     playlistHandlers: playlistHandlers!,
   });
 
+  // Runs on initial load and browser back/forward, driven by the React
+  // shell's route-sync effect (replaces the popstate listener and the
+  // bootstrap-time handleRouteChange call).
+  const handleRoute = (pathname: string) => {
+    playbackHandlers.applyModeFromUrl();
+    handleRouteChange(context, playbackDeps, pathname)
+      .then(() => {
+        applyFaqRouteState(pathname);
+      })
+      .catch((err) => {
+        console.warn(`Route load failed: ${String(err)}`);
+      });
+  };
+
+  const onTabClick = (tabId: TabId) => {
+    if (tabId === "top") {
+      tabsHandlers.setTopSongsTab("top");
+    }
+    if (tabId === "search") {
+      tabsHandlers.setSearchTab("search");
+    }
+    if (tabId === "faq") {
+      tabsHandlers.setFaqTab("faq");
+    }
+    navigationHandlers.navigateToTabWithState(tabId);
+    if (tabId === "faq") {
+      refreshCacheSafely();
+    }
+  };
+
+  return {
+    context,
+    handleRoute,
+    onTabClick,
+    onHeroHomeClick: () => {
+      navigationHandlers.navigateToTabWithState("top");
+    },
+    applyTheme: (theme) => {
+      applyTheme(context, theme);
+    },
+  };
 }

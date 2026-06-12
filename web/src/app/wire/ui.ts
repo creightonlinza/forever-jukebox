@@ -7,7 +7,6 @@ import type { TuningHandlers } from "./tuning";
 import type { PlaybackUiHandlers } from "./playback";
 import type { FullscreenHandlers } from "./fullscreen";
 import type { DeleteJobHandlers } from "./delete-job";
-import type { ThemeHandlers } from "./theme";
 import type { CacheHandlers } from "./cache";
 import type { PlaylistHandlers } from "./playlist";
 
@@ -21,7 +20,6 @@ type UiBindingsDeps = {
   playbackHandlers: PlaybackUiHandlers;
   fullscreenHandlers: FullscreenHandlers;
   deleteJobHandlers: DeleteJobHandlers;
-  themeHandlers: ThemeHandlers;
   cacheHandlers: CacheHandlers;
   playlistHandlers: PlaylistHandlers;
 };
@@ -37,14 +35,10 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     playbackHandlers,
     fullscreenHandlers,
     deleteJobHandlers,
-    themeHandlers,
     cacheHandlers,
     playlistHandlers,
   } = deps;
 
-  elements.tabButtons.forEach((button) => {
-    button.addEventListener("click", tabsHandlers.handleTabClick);
-  });
   elements.topSongsTabs.forEach((button) => {
     button.addEventListener("click", tabsHandlers.handleTopSongsTabClick);
   });
@@ -261,7 +255,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     "change",
     playbackHandlers.handleCanonizerFinish,
   );
-  themeHandlers.bindThemeLinks();
   document.addEventListener(
     "click",
     favoritesHandlers.handleFavoritesSyncDocumentClick,

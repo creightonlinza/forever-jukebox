@@ -236,7 +236,6 @@ function createElements() {
     playButton: createPlayButton(),
     bringHomeLabel: { classList: createClassList() },
     bringHomeFullscreenLabel: { classList: createClassList() },
-    playTabButton: { classList: createClassList(), disabled: false },
     vizPlayButton: createPlayButton(),
     vizSelect: { disabled: false, value: "0" },
     canonizerFinish: { checked: false, addEventListener: vi.fn() },

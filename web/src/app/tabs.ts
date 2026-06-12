@@ -1,5 +1,5 @@
-import type { AppContext, TabId } from "./context";
-import { TOP_SONGS_REFRESH_MS } from "./constants";
+import type { TabId } from "./context";
+import { appNavigate } from "./router";
 import { serializeParams } from "./tuning";
 
 export type FaqSubtabId = "faq" | "whats-new";
@@ -20,6 +20,19 @@ export function pathForTab(tabId: TabId, trackId?: string | null) {
   return "/";
 }
 
+export function tabFromPathname(pathname: string): TabId {
+  if (pathname.startsWith("/search")) {
+    return "search";
+  }
+  if (pathname.startsWith("/listen")) {
+    return "play";
+  }
+  if (pathname.startsWith("/faq") || pathname.startsWith("/whats-new")) {
+    return "faq";
+  }
+  return "top";
+}
+
 export function urlForTrack(
   trackId: string,
   baseUrl: string,
@@ -33,43 +46,6 @@ export function urlForTrack(
 
 export function pathForFaqSubtab(subtabId: FaqSubtabId) {
   return subtabId === "whats-new" ? "/whats-new" : "/faq";
-}
-
-export function setActiveTab(
-  context: AppContext,
-  tabId: TabId,
-  onTopRefresh: () => void
-) {
-  const { elements, jukebox, engine, state } = context;
-  state.activeTabId = tabId;
-  elements.tabPanels.forEach((panel) => {
-    panel.classList.toggle("hidden", panel.dataset.tabPanel !== tabId);
-  });
-  elements.tabButtons.forEach((button) => {
-    button.classList.toggle("active", button.dataset.tabButton === tabId);
-  });
-  elements.playTabButton.classList.toggle(
-    "is-playing",
-    state.isRunning && tabId !== "play"
-  );
-  if (tabId === "play") {
-    jukebox.resizeActive();
-  } else if (tabId === "top") {
-    if (state.topSongsRefreshTimer !== null) {
-      window.clearTimeout(state.topSongsRefreshTimer);
-    }
-    state.topSongsRefreshTimer = window.setTimeout(() => {
-      state.topSongsRefreshTimer = null;
-      onTopRefresh();
-    }, TOP_SONGS_REFRESH_MS);
-  } else if (state.shiftBranching) {
-    state.shiftBranching = false;
-    engine.setForceBranch(false);
-  }
-  if (tabId !== "play" && state.selectedEdge) {
-    state.selectedEdge = null;
-    jukebox.setSelectedEdge(null);
-  }
 }
 
 export function navigateToTab(
@@ -86,25 +62,14 @@ export function navigateToTab(
   const url = new URL(window.location.href);
   url.pathname = path;
   url.search = tabId === "play" ? buildSearchParams(tuningParams, playMode) : "";
-  if (options?.replace) {
-    window.history.replaceState({}, "", url.toString());
-  } else {
-    window.history.pushState({}, "", url.toString());
-  }
+  appNavigate(url.pathname + url.search, { replace: options?.replace });
 }
 
 export function navigateToFaqSubtab(
   subtabId: FaqSubtabId,
   options?: { replace?: boolean },
 ) {
-  const url = new URL(window.location.href);
-  url.pathname = pathForFaqSubtab(subtabId);
-  url.search = "";
-  if (options?.replace) {
-    window.history.replaceState({}, "", url.toString());
-  } else {
-    window.history.pushState({}, "", url.toString());
-  }
+  appNavigate(pathForFaqSubtab(subtabId), { replace: options?.replace });
 }
 
 export function updateTrackUrl(
@@ -116,14 +81,10 @@ export function updateTrackUrl(
   const url = new URL(
     urlForTrack(trackId, window.location.href, tuningParams, playMode),
   );
-  if (replace) {
-    window.history.replaceState({}, "", url.toString());
-  } else {
-    window.history.pushState({}, "", url.toString());
-  }
+  appNavigate(url.pathname + url.search, { replace });
 }
 
-function buildSearchParams(
+export function buildSearchParams(
   tuningParams?: string | null,
   playMode?: "jukebox" | "autocanonizer",
 ) {

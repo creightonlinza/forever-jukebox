@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState } from "../context";
 import type { Elements } from "../elements";
 import { configureMaxFavorites, maxFavorites } from "../favorites";
+import { useShellStore } from "../shell-store";
 import { createAppConfigHandlers } from "./app-config";
 
 function createClassList() {
@@ -10,45 +11,8 @@ function createClassList() {
   };
 }
 
-function createElement(tagName: string) {
-  return {
-    tagName: tagName.toUpperCase(),
-    href: "",
-    target: "",
-    rel: "",
-    textContent: "",
-  };
-}
-
-function createTextNode(text: string) {
-  return {
-    textContent: text,
-  };
-}
-
-function createFooterCredit() {
-  const children: Array<{ textContent?: string; href?: string }> = [];
-  const ownerDocument = {
-    createElement,
-    createTextNode,
-  };
-  return {
-    ownerDocument,
-    children,
-    textContent: "",
-    appendChild: vi.fn((child: { textContent?: string; href?: string }) => {
-      children.push(child);
-      return child;
-    }),
-  } as unknown as HTMLParagraphElement & {
-    children: Array<{ textContent?: string; href?: string }>;
-  };
-}
-
 function createHarness() {
-  const footerCredit = createFooterCredit();
   const elements = {
-    footerCredit,
     searchSubtabs: { classList: createClassList() },
     uploadFileSection: { classList: createClassList() },
     uploadYoutubeSection: { classList: createClassList() },
@@ -77,13 +41,14 @@ function createHarness() {
       >[0]["favoritesHandlers"],
     tabsHandlers,
   });
-  return { favoritesHandlers, footerCredit, handlers, state };
+  return { favoritesHandlers, handlers, state };
 }
 
 describe("createAppConfigHandlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     configureMaxFavorites(null);
+    useShellStore.setState({ footerCredit: null });
   });
 
   it("applies configured max favorites and trims local state", () => {
@@ -125,8 +90,8 @@ describe("createAppConfigHandlers", () => {
     );
   });
 
-  it("renders host credit as a footer link when name and URL are configured", () => {
-    const { footerCredit, handlers } = createHarness();
+  it("publishes host credit with URL to the shell store", () => {
+    const { handlers } = createHarness();
 
     handlers.applyAppConfig({
       allow_user_upload: false,
@@ -135,17 +100,14 @@ describe("createAppConfigHandlers", () => {
       hosted_by_url: "https://example.com",
     });
 
-    expect(footerCredit.children.map((child) => child.textContent).join("")).toBe(
-      "The Forever Jukebox & Analysis Engine by Creighton. This instance is hosted by Example Host.",
-    );
-    expect(footerCredit.children.filter((child) => child.href)).toEqual([
-      expect.objectContaining({ href: "https://creighton.dev" }),
-      expect.objectContaining({ href: "https://example.com" }),
-    ]);
+    expect(useShellStore.getState().footerCredit).toEqual({
+      hostedByName: "Example Host",
+      hostedByUrl: "https://example.com",
+    });
   });
 
-  it("renders host credit as text when no URL is configured", () => {
-    const { footerCredit, handlers } = createHarness();
+  it("publishes host credit without URL to the shell store", () => {
+    const { handlers } = createHarness();
 
     handlers.applyAppConfig({
       allow_user_upload: false,
@@ -153,12 +115,10 @@ describe("createAppConfigHandlers", () => {
       hosted_by_name: "Example Host",
     });
 
-    expect(footerCredit.children.map((child) => child.textContent).join("")).toBe(
-      "The Forever Jukebox & Analysis Engine by Creighton. This instance is hosted by Example Host.",
-    );
-    expect(footerCredit.children.filter((child) => child.href)).toEqual([
-      expect.objectContaining({ href: "https://creighton.dev" }),
-    ]);
+    expect(useShellStore.getState().footerCredit).toEqual({
+      hostedByName: "Example Host",
+      hostedByUrl: null,
+    });
   });
 
   it("hydrates favorites when fresh config allows sync", () => {
