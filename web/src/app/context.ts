@@ -4,7 +4,6 @@ import type {
   JukeboxAudioMode,
 } from "../audio/BufferedAudioPlayer";
 import type { Edge } from "../engine/types";
-import type { getElements } from "./elements";
 import type { FavoriteTrack } from "./favorites";
 import type { PlaylistState } from "./playlist";
 import type { AppConfig } from "./api";
@@ -13,8 +12,6 @@ import type { JukeboxController } from "../jukebox/JukeboxController";
 import type { CowbellOverlayService } from "../audio/CowbellOverlayService";
 
 export type TabId = "top" | "search" | "play" | "faq";
-
-export type Elements = ReturnType<typeof getElements>;
 
 export type AppState = {
   activeTabId: TabId;
@@ -73,7 +70,6 @@ export type SleepTimerState = {
 };
 
 export type AppContext = {
-  elements: Elements;
   engine: JukeboxEngine;
   player: BufferedAudioPlayer;
   autocanonizer: AutocanonizerController;

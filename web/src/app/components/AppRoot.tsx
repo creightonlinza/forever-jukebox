@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
-import type { MutableRefObject } from "react";
 import type { AppBridge } from "../bridge";
 import { TOP_SONGS_REFRESH_MS } from "../constants";
 import { useAppStore } from "../store";
@@ -35,19 +34,12 @@ function useRouteSync(bridge: AppBridge) {
 }
 
 // Side effects formerly in tabs.ts setActiveTab, keyed on the derived
-// activeTab. Panels stay in the DOM permanently; only `hidden` toggles.
-function useTabEffects(
-  bridge: AppBridge,
-  panelsRef: MutableRefObject<HTMLDivElement | null>,
-) {
+// activeTab. Panels stay in the DOM permanently (each derives its own
+// hidden class from activeTabId).
+function useTabEffects(bridge: AppBridge) {
   const activeTab = useAppStore((s) => s.activeTabId);
   useEffect(() => {
     const { state, jukebox, engine } = bridge.context;
-    panelsRef.current
-      ?.querySelectorAll<HTMLElement>("[data-tab-panel]")
-      .forEach((panel) => {
-        panel.classList.toggle("hidden", panel.dataset.tabPanel !== activeTab);
-      });
     useAppStore
       .getState()
       .setPlayTabPulsing(state.isRunning && activeTab !== "play");
@@ -68,7 +60,7 @@ function useTabEffects(
       state.selectedEdge = null;
       jukebox.setSelectedEdge(null);
     }
-  }, [activeTab, bridge, panelsRef]);
+  }, [activeTab, bridge]);
 }
 
 // Body-level flag CSS uses to reveal playlist-add buttons (formerly part
@@ -109,39 +101,18 @@ function useGlobalHotkeys(bridge: AppBridge) {
   }, [bridge]);
 }
 
-export function AppRoot({
-  bridge,
-  legacyContent,
-}: {
-  bridge: AppBridge;
-  legacyContent: DocumentFragment;
-}) {
-  const panelsRef = useRef<HTMLDivElement | null>(null);
+export function AppRoot({ bridge }: { bridge: AppBridge }) {
   useRouteSync(bridge);
-  useTabEffects(bridge, panelsRef);
+  useTabEffects(bridge);
   useThemeEffect(bridge);
   useGlobalHotkeys(bridge);
   usePlaylistAddEnabled();
-  // Passthrough container: adopts the legacy panel/modal DOM nodes from
-  // index.html. Imperative code keeps element references into this subtree,
-  // so React must never re-render inside it. Adoption is idempotent — the
-  // fragment empties on first attach and StrictMode re-attaches the same div.
-  const adoptLegacy = useCallback(
-    (node: HTMLDivElement | null) => {
-      panelsRef.current = node;
-      if (node && legacyContent.childNodes.length > 0) {
-        node.appendChild(legacyContent);
-      }
-    },
-    [legacyContent],
-  );
   return (
     <>
       <Hero bridge={bridge} />
       <TopTracksPanel bridge={bridge} />
       <SearchPanel bridge={bridge} />
       <ListenPanel bridge={bridge} />
-      <div ref={adoptLegacy} />
       <FaqPanel bridge={bridge} />
       <Footer />
       <Toast />

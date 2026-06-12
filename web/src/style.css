@@ -765,11 +765,6 @@ button.is-loading::after {
   line-height: 1;
 }
 
-.modal-tab.is-active {
-  background: var(--surface-control);
-  color: var(--text);
-}
-
 .modal-icon-button {
   display: inline-flex;
   align-items: center;

@@ -10,21 +10,9 @@ import {
 import { useAppStore } from "./store";
 import { setWindowUrl } from "./__tests__/test-utils";
 
-function createClassList() {
-  return {
-    add: vi.fn(),
-    remove: vi.fn(),
-  };
-}
 
 function createContext(): AppContext {
   return {
-    elements: {
-      analysisStatus: { textContent: "" },
-      analysisSpinner: { classList: createClassList() },
-      analysisProgress: { textContent: "" },
-      canonizerFinish: { checked: false, addEventListener: vi.fn() },
-    } as unknown as AppContext["elements"],
     engine: {} as unknown as AppContext["engine"],
     player: {} as unknown as AppContext["player"],
     autocanonizer: {} as unknown as AppContext["autocanonizer"],

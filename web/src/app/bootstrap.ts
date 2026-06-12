@@ -125,7 +125,6 @@ export function bootstrap(): AppBridge {
   // any effect (route handling, theme) can touch them — main.ts mounts the
   // tree synchronously via flushSync.
   const context: AppContext = {
-    elements: getElementsPlaceholder(),
     engine,
     player,
     autocanonizer: null as unknown as AppContext["autocanonizer"],
@@ -463,8 +462,3 @@ export function bootstrap(): AppBridge {
   };
 }
 
-// AppContext.elements is dead as of 8e (deleted with elements.ts at the
-// Phase 5 cleanup).
-function getElementsPlaceholder(): AppContext["elements"] {
-  return {};
-}

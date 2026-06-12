@@ -43,43 +43,7 @@ vi.mock("../audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(async () => ({ duration: 120 }) as AudioBuffer),
 }));
 
-function createClassList() {
-  return {
-    add: vi.fn(),
-    remove: vi.fn(),
-    toggle: vi.fn(),
-    contains: vi.fn().mockReturnValue(false),
-  };
-}
 
-function createMutableClassList(initial: string[] = []) {
-  const classes = new Set(initial);
-  return {
-    add: vi.fn((token: string) => {
-      classes.add(token);
-    }),
-    remove: vi.fn((token: string) => {
-      classes.delete(token);
-    }),
-    toggle: vi.fn((token: string, force?: boolean) => {
-      if (force === true) {
-        classes.add(token);
-        return true;
-      }
-      if (force === false) {
-        classes.delete(token);
-        return false;
-      }
-      if (classes.has(token)) {
-        classes.delete(token);
-        return false;
-      }
-      classes.add(token);
-      return true;
-    }),
-    contains: vi.fn((token: string) => classes.has(token)),
-  };
-}
 
 function setLocalStorage() {
   const store = new Map<string, string>();
@@ -119,9 +83,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function createInput(initial = "") {
-  return { value: initial, checked: false } as HTMLInputElement;
-}
 
 async function flushMicrotasks(count = 5) {
   for (let index = 0; index < count; index += 1) {
@@ -129,145 +90,9 @@ async function flushMicrotasks(count = 5) {
   }
 }
 
-function createSpan() {
-  return { textContent: "" } as HTMLSpanElement;
-}
 
-function createPlayButton() {
-  const icon = createSpan();
-  const text = createSpan();
-  return {
-    classList: createClassList(),
-    disabled: false,
-    title: "",
-    querySelector: vi.fn((selector: string) => {
-      if (selector === ".play-icon") {
-        return icon;
-      }
-      if (selector === ".play-text") {
-        return text;
-      }
-      return null;
-    }),
-    setAttribute: vi.fn(),
-  };
-}
-
-function createElements() {
-  return {
-    thresholdInput: createInput("0"),
-    thresholdVal: createSpan(),
-    computedThresholdEl: createSpan(),
-    minProbInput: createInput("0"),
-    minProbVal: createSpan(),
-    maxProbInput: createInput("0"),
-    maxProbVal: createSpan(),
-    rampInput: createInput("0"),
-    rampVal: createSpan(),
-    volumeInput: createInput("50"),
-    volumeVal: createSpan(),
-    justBackwardsInput: createInput(),
-    justLongInput: createInput(),
-    removeSeqInput: createInput(),
-    highlightAnchorBranchInput: createInput(),
-    jukeboxAudioModeGroup: { classList: createClassList() },
-    audioModeOffInput: createInput(),
-    audioModeNightcoreInput: createInput(),
-    audioModeDaycoreInput: createInput(),
-    audioModeVaporwaveInput: createInput(),
-    audioModeEightDInput: createInput(),
-    audioModeEightBitInput: createInput(),
-    audioModeLofiInput: createInput(),
-    audioModeUnderwaterInput: createInput(),
-    audioModeCathedralInput: createInput(),
-    audioModeCowbellInput: createInput(),
-    audioModeSwingInput: createInput(),
-    extrasEnabledInput: createInput(),
-    bringHomeEnabledInput: createInput(),
-    extrasJukeboxOnlyHint: { classList: createClassList() },
-    tuningTitle: {
-      textContent: "",
-      classList: createMutableClassList(),
-    },
-    tuningTitleText: createSpan(),
-    tuningTabToggle: {
-      classList: createMutableClassList(),
-      setAttribute: vi.fn(),
-    },
-    tuningTabToggleIcon: createSpan(),
-    tuningTabToggleLabel: createSpan(),
-    sleepTimerOpen: {
-      classList: createMutableClassList(),
-      setAttribute: vi.fn(),
-    },
-    sleepTimerModal: { classList: createMutableClassList() },
-    sleepTimerClose: {
-      classList: createMutableClassList(),
-      setAttribute: vi.fn(),
-    },
-    sleepTimerCancel: {
-      classList: createMutableClassList(),
-      setAttribute: vi.fn(),
-    },
-    sleepTimerSet: {
-      classList: createMutableClassList(),
-      setAttribute: vi.fn(),
-    },
-    sleepTimerSelect: { value: "off" },
-    sleepTimerCurrent: createSpan(),
-    tuningPanelTuning: { classList: createMutableClassList() },
-    tuningPanelExtras: { classList: createMutableClassList(["hidden"]) },
-    tuningModal: { classList: createClassList() },
-    infoModal: { classList: createClassList() },
-    extrasModal: { classList: createClassList() },
-    listenTimeEl: createSpan(),
-    playStatusPanel: { classList: createClassList() },
-    playMenu: { classList: createClassList() },
-    vizPanel: { classList: createClassList() },
-    analysisStatus: createSpan(),
-    analysisSpinner: { classList: createClassList() },
-    analysisProgress: createSpan(),
-    toast: {
-      classList: createClassList(),
-      innerHTML: "",
-      textContent: "",
-    },
-    beatsPlayedEl: createSpan(),
-    playButton: createPlayButton(),
-    bringHomeLabel: { classList: createClassList() },
-    bringHomeFullscreenLabel: { classList: createClassList() },
-    vizPlayButton: createPlayButton(),
-    vizSelect: { disabled: false, value: "0" },
-    canonizerFinish: { checked: false, addEventListener: vi.fn() },
-    playTitle: createSpan(),
-    vizNowPlayingEl: createSpan(),
-    infoDurationEl: createSpan(),
-    infoBeatsEl: createSpan(),
-    infoBranchesEl: createSpan(),
-    infoDeletedBranchesEl: createSpan(),
-    branchStatsPopup: { classList: createClassList() },
-    branchStatsTitleEl: createSpan(),
-    branchStatsStartEl: createSpan(),
-    branchStatsEndEl: createSpan(),
-    branchStatsDeltaEl: createSpan(),
-    branchStatsDirectionEl: createSpan(),
-    branchStatsSimilarityEl: createSpan(),
-    branchStatsDeleteButton: { disabled: false },
-    deleteButton: {
-      classList: createClassList(),
-      title: "",
-      setAttribute: vi.fn(),
-    },
-    deleteConfirmModal: { classList: createMutableClassList() },
-    vizStats: {
-      classList: createClassList(),
-      offsetWidth: 0,
-    },
-  };
-}
 
 function createContext(overrides?: Partial<AppContext>): AppContext {
-  const elements = createElements();
   const engineConfig = {
     maxBranches: 4,
     maxBranchThreshold: 80,
@@ -353,7 +178,6 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     dispose: vi.fn(),
   };
   return {
-    elements: elements as unknown as AppContext["elements"],
     engine: engine as unknown as AppContext["engine"],
     player: player as unknown as AppContext["player"],
     autocanonizer: autocanonizer as unknown as AppContext["autocanonizer"],

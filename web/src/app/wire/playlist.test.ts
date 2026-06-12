@@ -5,30 +5,6 @@ import { createPlaylistHandlers } from "./playlist";
 import { useAppStore } from "../store";
 import { setWindowUrl } from "../__tests__/test-utils";
 
-function createClassList(initial: string[] = []) {
-  const classes = new Set(initial);
-  return {
-    add: vi.fn((token: string) => classes.add(token)),
-    remove: vi.fn((token: string) => classes.delete(token)),
-    toggle: vi.fn((token: string, force?: boolean) => {
-      if (force === true) {
-        classes.add(token);
-        return true;
-      }
-      if (force === false) {
-        classes.delete(token);
-        return false;
-      }
-      if (classes.has(token)) {
-        classes.delete(token);
-        return false;
-      }
-      classes.add(token);
-      return true;
-    }),
-    contains: vi.fn((token: string) => classes.has(token)),
-  };
-}
 
 function setLocalStorage() {
   const store = new Map<string, string>();
@@ -56,14 +32,6 @@ function track(id: string, sourceType: PlaylistTrack["sourceType"] = "youtube") 
   } satisfies PlaylistTrack;
 }
 
-function createButton() {
-  return {
-    classList: createClassList(),
-    disabled: false,
-    title: "",
-    setAttribute: vi.fn(),
-  } as unknown as HTMLButtonElement;
-}
 
 function createDeps(overrides?: Partial<AppState>) {
   const state = {
@@ -85,27 +53,11 @@ function createDeps(overrides?: Partial<AppState>) {
     toastTimer: null,
     ...overrides,
   } as unknown as AppState;
-  const elements = {
-    playlistButton: createButton(),
-    playlistPreviousButton: createButton(),
-    playlistNextButton: createButton(),
-    savedPlaylistButton: createButton(),
-    playlistModal: {
-      classList: createClassList(),
-    },
-    playlistList: {
-      innerHTML: "",
-      textContent: "",
-    },
-    playlistClearButton: createButton(),
-  } as unknown as AppContext["elements"];
   const context = {
     state,
-    elements,
   } as unknown as AppContext;
   return {
     context,
-    elements,
     state,
     showToast: vi.fn(),
     loadTrackById: vi.fn(async () => true),

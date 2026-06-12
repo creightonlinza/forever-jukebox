@@ -45,9 +45,6 @@ function createContext(
   return {
     defaultConfig,
     engine: engine as unknown as AppContext["engine"],
-    elements: {
-      canonizerFinish: { checked: false, addEventListener: vi.fn() },
-    } as unknown as AppContext["elements"],
     player: {
       setJukeboxAudioMode: vi.fn(),
     } as unknown as AppContext["player"],

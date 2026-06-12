@@ -8,15 +8,11 @@ import { setAppRouter } from "./router";
 
 // Panels persist in the DOM; routes only select visibility. One catch-all
 // route renders the whole shell — React Router never mounts/unmounts panels.
-export function mountReactApp(
-  container: HTMLElement,
-  bridge: AppBridge,
-  legacyContent: DocumentFragment,
-) {
+export function mountReactApp(container: HTMLElement, bridge: AppBridge) {
   const router = createBrowserRouter([
     {
       path: "*",
-      element: <AppRoot bridge={bridge} legacyContent={legacyContent} />,
+      element: <AppRoot bridge={bridge} />,
     },
   ]);
   setAppRouter(router);
