@@ -1,4 +1,156 @@
-# React Migration Plan — `web/`
+# React Migration — `web/` ✅ COMPLETE
+
+**Status: done.** All 13 checkpoints landed on the `react-migration` branch
+(2026-06-12). The original plan this document started as is preserved at the
+bottom for reference; this top section records what shipped, what deviated,
+and what to do next.
+
+Every checkpoint commit passed `npm run typecheck && npm run lint && npm test
+&& npm run build` (main + cast entries with legacy chunks), and the finished
+branch was smoke-tested against the real backend via `./dev.sh`: track load,
+playback, branching, tuning modal ↔ URL, extras/audio modes, sleep timer,
+favorites (+tuning restore), playlists, search → YouTube matching, volume,
+viz/mode switching, theme, deep links, back/forward, copy link, cast page.
+
+## Checkpoints → commits
+
+| # | Checkpoint | Commit |
+|---|---|---|
+| 1 | Tooling: deps, tsconfig/eslint, vitest envs, StrictMode root | `3e30480` |
+| 2 | Shell + router: AppRoot, tab bar, URL contract tests, panels passthrough | `b9e87f2` |
+| 3 | Zustand store; legacy writes flow through the store | `2ce904a` |
+| 4 | FAQ panel | `eff0df8` |
+| 5 | Top Tracks panel (+ favorites lists, sync modals) | `d990a12` |
+| 6 | Search/Upload panel | `778c282` |
+| 7 | Modal primitive + toast + hotkeys hooks | `89a8090` |
+| 8a | Listen: modals + menus | `7abd9c5` |
+| 8b | Listen: volume + fullscreen (+ playlist-open button) | `516feea` |
+| 8c | Listen: track info, marquee, counters, status | `7bbfba4` |
+| 8d | Listen: transport + mode controls | `2486119` |
+| 8e | Listen: VizContainer + controller ref handoff | `7533d93` |
+| 9 | Cleanup: dead modules deleted, passthrough removed, CSS audit | `04bacd2` |
+
+Tests: **435 → 494** (48 → 58 files). Bundle (gzip): `main.js` 77.3 →
+149.0 kB (+71.7, of which ~45 kB is React 18 as forecast; rest is
+react-router-dom + zustand + converted markup); `index.html` 10.9 → 1.1 kB
+(1,344 → 35 lines). `cast` entries byte-stable. Net first load ≈ +62 kB gz.
+
+## What shipped (architecture as-built)
+
+- **Components** (`src/app/components/`): `AppRoot` under one catch-all
+  `createBrowserRouter` route; `Hero`/`TabBar`/`Footer`/`Toast`; one
+  component per panel (`TopTracksPanel`, `SearchPanel`, `ListenPanel`,
+  `FaqPanel`); Listen subtree components under `components/listen/`
+  (`VizContainer`, `PlayMenu`, `StatusPanel`, `VizInfo`, `VizTop`,
+  `PlayControls`, `VizBottomRight`, `BranchStatsPopup`, plus the five
+  modals); shared `Modal`/`ModalHeader` primitive; `useMarquee` and
+  `useGlobalHotkeys` hooks. StrictMode is ON.
+- **Store** (`src/app/store.ts`): one flat zustand store in the planned
+  ui/playback/track/tuning/library/config slice layout, plus UI-only fields
+  (theme, toast, modal flags, status/counter text, search results, …).
+  `context.state` is a Proxy over the store, so the untouched `state.x = y`
+  mutations in `playback.ts` and the controllers notify subscribers.
+- **Bridge** (`src/app/bridge.ts`): the typed seam React uses to call legacy
+  flows (track loading, tuning apply, delete, playlist ops, `attachViz`).
+  Built by `bootstrap.ts`, which remains the composition root: it constructs
+  the audio/engine singletons, hydrates the store, and wires dependency
+  closures. Viz controllers are constructed lazily — exactly once,
+  StrictMode-guarded — in `VizContainer`'s ref handoff; `mountReactApp` uses
+  `flushSync` so that happens before any microtask needs them.
+- **Controllers** (`src/app/wire/`): app-config, delete-job, favorites,
+  fullscreen, navigation, playback, playlist. No DOM wiring remains in them
+  (the only `addEventListener`s left are two document-level
+  fullscreen/visibility hooks); they are the store-action layer in front of
+  `playback.ts`.
+
+### Invariants that still hold (do not regress)
+
+- **Panels persist; routes select.** All four panels render permanently
+  under one route; visibility is class-only. React Router never
+  mounts/unmounts panels. `#viz-layer`/`#canonizer-layer` are never
+  remounted — node identity must survive tab switches and re-renders
+  (covered by `VizContainer.test.tsx`).
+- **URL contract** frozen and pinned by `__tests__/url-contract.test.tsx`.
+- **Persistence keys** unchanged: localStorage `fj-*` keys and IndexedDB
+  `forever-jukebox-cache` v2; zustand `persist` middleware is intentionally
+  not used.
+- `pwa/`, `api/`, `engine/`, `audio/`, `cast/`, `legacy/`, `api.ts`,
+  `JukeboxViz`/`*Viz*` untouched (zero diff vs. the branch point).
+
+## Deviations from the original plan (judgment calls)
+
+- `createBrowserRouter` + a module-level `appNavigate()` instead of
+  `useNavigate` hooks — legacy modules had to navigate imperatively during
+  the interim, and still do via the bridge.
+- `activeTab` is store state set from `useLocation`; legacy `setActiveTab`
+  can still set it without a URL write (preserves the pre-existing tab/URL
+  divergence during analysis-poll completion).
+- Subtree conversions used portals into emptied legacy containers to keep
+  flex layouts byte-identical; all portals collapsed into plain composition
+  at 8e.
+- The Modal primitive has no focus trap because the legacy app had none —
+  only the Escape/backdrop/focus behaviors that actually existed were
+  ported.
+- `search.test.ts` was not pure-logic as planned (it asserted on element
+  fakes); flow assertions survived verbatim, element assertions became store
+  assertions. `wire/delete-job.ts` turned out to be Listen-panel code, not
+  search — converted at 8a, not 6.
+- `bootstrap.ts` (464 lines) and the seven `wire/` controllers were **not**
+  deleted at checkpoint 9, unlike the plan's wording: they hold living
+  composition/flow logic. Deleting them is the same future-work category as
+  "decompose playback.ts" below. Genuinely dead modules were deleted:
+  `elements.ts` (794 lines → 0), `dom.ts`, `visualization.ts`, `wire/ui.ts`,
+  `wire/tabs.ts`, `wire/search.ts`, `wire/top-songs.ts`, `wire/theme.ts`,
+  `wire/routing.ts`, `wire/cache.ts`, `wire/tuning.ts`.
+- CSS audit found exactly one dead rule (`.modal-tab.is-active`, dead since
+  before the migration) — removed; everything else in `style.css` is live.
+
+## What's left / not converted (by design)
+
+- `src/cast/` — vanilla cast receiver, separate entry. Stays.
+- `web/legacy/` — untouched per the plan (unrelated Jekyll content; delete
+  separately if it's truly dead weight).
+- `bootstrap.ts` + `wire/` controllers + the bridge — working interim
+  architecture; dissolving them is listed below.
+- `pulseVizStats()` in `playback.ts` is the one intentional imperative DOM
+  escape hatch (CSS animation restart can't be rendered state).
+
+## Suggested next steps
+
+1. **Full-app Playwright test suite.** The manual smoke checklist that was
+   run by hand at the end of the migration should become a real e2e suite:
+   add `@playwright/test` to `web/`, spin the stack (or `./dev.sh`) in CI,
+   and cover at minimum: track load via top list and via deep link with
+   tuning params; play/pause/Space; shift-branch; tuning modal Apply ↔ URL;
+   extras audio mode → title suffix + `am=` param; sleep timer countdown;
+   favorites add → list → click restores saved tuning; playlist build,
+   modal select, prev/next; Spotify search → YouTube match step; volume
+   panel + click-away; viz selector + `fj-viz`; jukebox ⇄ autocanonizer
+   switching (URL `mode=` round-trip); theme toggle + `fj-theme`;
+   back/forward history incl. FAQ subtabs; copy link clipboard; `/cast`
+   loads; **viz-layer node identity survives tab switches** (the
+   panels-persist invariant). Seed the API with a pre-analyzed fixture
+   track so tests don't depend on YouTube/yt-dlp.
+2. **Decompose `playback.ts`** (1,696 lines) into per-slice action modules,
+   then dissolve `bootstrap.ts` into module-scope singletons and fold the
+   remaining `wire/` controllers + the bridge into plain imports — React
+   components calling store actions directly, no `AppContext`.
+3. **Route-level code splitting** — only after rethinking the
+   panels-persist constraint (would need explicit viz mount/unmount
+   lifecycle support).
+4. **TanStack Query** for top-songs/search/app-config fetching if
+   caching/retry needs grow (plan deferred this deliberately).
+5. **Share `engine/`/`audio/` with the PWA** via a workspace package.
+6. **react-router v7 future flags** (`v7_startTransition` etc.) to silence
+   the dev warnings and ease the eventual upgrade.
+7. **Beat-rate render audit** — store writes for `beatsPlayedText`/`vizData`
+   are fine today (selector equality limits re-renders to actual value
+   changes); if profiling ever shows pressure, move beat-rate data to the
+   transient/subscription path the plan sketched.
+
+---
+
+# Original plan (historical reference)
 
 Strategy: **incremental, in-place**. React is added to the existing Vite app and takes over the page region by region. The app stays shippable after every phase. The PWA is untouched.
 
