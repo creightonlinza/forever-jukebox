@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
+import { useAppStore } from "./store";
 import type { AppContext } from "./context";
 import type { JukeboxConfig } from "../engine/types";
 import {
@@ -54,14 +55,14 @@ function createContext(
       enable: vi.fn(),
       disable: vi.fn(),
     } as unknown as AppContext["cowbellOverlay"],
-    state: {
-      tuningParams: null,
-      playMode: "jukebox",
-      deletedEdgeIds: [],
-      jukeboxAudioMode: "off",
-    } as unknown as AppContext["state"],
   };
 }
+
+const initialStoreState = useAppStore.getState();
+
+beforeEach(() => {
+  useAppStore.setState(initialStoreState, true);
+});
 
 describe("tuning params", () => {
   beforeEach(() => {
@@ -83,7 +84,7 @@ describe("tuning params", () => {
     expect(config.minRandomBranchChance).toBeCloseTo(0.18, 4);
     expect(config.maxRandomBranchChance).toBeCloseTo(0.5, 4);
     expect(config.randomBranchChanceDelta).toBeCloseTo(0.02, 4);
-    expect(context.state.jukeboxAudioMode).toBe("nightcore");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("nightcore");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("nightcore");
   });
 
@@ -92,7 +93,7 @@ describe("tuning params", () => {
     const params = new URLSearchParams("am=chipmunk");
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
-    expect(context.state.jukeboxAudioMode).toBe("off");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("off");
     expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
   });
 
@@ -101,7 +102,7 @@ describe("tuning params", () => {
     const params = new URLSearchParams("am=eight_bit");
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
-    expect(context.state.jukeboxAudioMode).toBe("eight_bit");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("eight_bit");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_bit");
   });
 
@@ -110,7 +111,7 @@ describe("tuning params", () => {
     const params = new URLSearchParams("am=underwater");
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
-    expect(context.state.jukeboxAudioMode).toBe("underwater");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("underwater");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("underwater");
   });
 
@@ -119,7 +120,7 @@ describe("tuning params", () => {
     const params = new URLSearchParams("am=cathedral");
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
-    expect(context.state.jukeboxAudioMode).toBe("cathedral");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("cathedral");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cathedral");
   });
 
@@ -128,7 +129,7 @@ describe("tuning params", () => {
     const params = new URLSearchParams("am=cowbell");
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
-    expect(context.state.jukeboxAudioMode).toBe("cowbell");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("cowbell");
     expect(context.cowbellOverlay.enable).toHaveBeenCalledTimes(1);
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cowbell");
   });
@@ -146,7 +147,7 @@ describe("tuning params", () => {
 
   it("serializes audio mode when enabled", () => {
     const context = createContext();
-    context.state.jukeboxAudioMode = "cowbell";
+    useAppStore.setState({ jukeboxAudioMode: "cowbell" });
     const params = getTuningParamsFromEngine(context);
     expect(params.get("am")).toBe("cowbell");
   });
@@ -188,7 +189,7 @@ describe("tuning params", () => {
     const context = createContext({ justBackwards: true });
     const result = syncTuningParamsState(context);
     expect(result).toBe("jb=1");
-    expect(context.state.tuningParams).toBe("jb=1");
+    expect(useAppStore.getState().tuningParams).toBe("jb=1");
   });
 
   it("writes and clears tuning params in the URL", () => {

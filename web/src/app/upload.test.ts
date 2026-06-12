@@ -1,18 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppContext, AppState } from "./context";
+import type { AppConfig } from "./api";
+import type { AppContext } from "./context";
+import { useAppStore } from "./store";
 import {
   normalizeSupportedSourceUrl,
   uploadFromUrl,
   type UploadDeps,
 } from "./upload";
 
+const initialStoreState = useAppStore.getState();
+
 function createHarness() {
-  const state = {
-    appConfig: { allow_user_url: true },
-    tuningParams: null,
-    playMode: "jukebox",
-  } as unknown as AppState;
-  const context = { state } as AppContext;
+  useAppStore.setState(initialStoreState, true);
+  useAppStore.setState({
+    appConfig: { allow_user_url: true } as AppConfig,
+  });
+  const context = {} as AppContext;
   const showToast = vi.fn();
   const startUrlAnalysis = vi.fn();
   const onNormalTrackSelected = vi.fn();
@@ -37,7 +40,6 @@ function createHarness() {
     pollAnalysisJob,
     showToast,
     startUrlAnalysis,
-    state,
     updateTrackUrl,
   };
 }
@@ -69,8 +71,7 @@ describe("uploadFromUrl", () => {
     await uploadFromUrl(deps, "https://soundcloud.com/artist/track");
 
     expect(showToast).toHaveBeenCalledWith(
-      expect.anything(),
-      "SoundCloud fetch failed.",
+            "SoundCloud fetch failed.",
       { icon: "error", tone: "error" },
     );
   });
@@ -88,8 +89,7 @@ describe("uploadFromUrl", () => {
     await uploadFromUrl(deps, "https://artist.bandcamp.com/track/song");
 
     expect(showToast).toHaveBeenCalledWith(
-      expect.anything(),
-      "Bandcamp fetch failed.",
+            "Bandcamp fetch failed.",
       { icon: "error", tone: "error" },
     );
   });
@@ -100,7 +100,6 @@ describe("uploadFromUrl", () => {
       onNormalTrackSelected,
       pollAnalysisJob,
       startUrlAnalysis,
-      state,
       updateTrackUrl,
     } = createHarness();
     const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
@@ -117,8 +116,8 @@ describe("uploadFromUrl", () => {
       onAccepted,
     );
 
-    expect(state.lastTrackId).toBe(jobId);
-    expect(state.pendingAutoFavoriteId).toBe(jobId);
+    expect(useAppStore.getState().lastTrackId).toBe(jobId);
+    expect(useAppStore.getState().pendingAutoFavoriteId).toBe(jobId);
     expect(updateTrackUrl).toHaveBeenCalledWith(jobId, true, null, "jukebox");
     expect(pollAnalysisJob).toHaveBeenCalledWith(jobId);
     expect(onAccepted).toHaveBeenCalled();

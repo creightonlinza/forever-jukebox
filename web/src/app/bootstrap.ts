@@ -56,7 +56,7 @@ import {
 import { runSearch, selectSpotifyMatch, selectYoutubeMatch } from "./search";
 import { uploadAudioFile, uploadFromUrl, type UploadDeps } from "./upload";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
-import type { AppContext, AppState, TabId } from "./context";
+import type { AppContext, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers } from "./wire/favorites";
 import { createNavigationHandlers } from "./wire/navigation";
@@ -66,7 +66,7 @@ import { createPlaylistHandlers, type PlaylistHandlers } from "./wire/playlist";
 import { createDeleteJobHandlers } from "./wire/delete-job";
 import { createAppConfigHandlers } from "./wire/app-config";
 import type { AppBridge } from "./bridge";
-import { legacyAppState, useAppStore } from "./store";
+import { useAppStore } from "./store";
 import {
   getTuningParamsFromEngine,
   syncTuningParamsState,
@@ -119,7 +119,6 @@ export function bootstrap(): AppBridge {
     branchStatsEnabled,
     highlightAnchorBranch,
   });
-  const state: AppState = legacyAppState;
   // Controllers need their DOM nodes, which exist only after <VizContainer>
   // renders; attachViz (below) constructs them and fills these slots before
   // any effect (route handling, theme) can touch them — main.ts mounts the
@@ -131,14 +130,13 @@ export function bootstrap(): AppBridge {
     jukebox: null as unknown as AppContext["jukebox"],
     cowbellOverlay,
     defaultConfig,
-    state,
   };
   let playlistHandlers: PlaylistHandlers | null = null;
   const handleNormalTrackSelected = (track: PlaylistTrack) => {
     playlistHandlers?.handleNormalTrackSelected(track);
   };
 
-  const navigationHandlers = createNavigationHandlers({ context, state });
+  const navigationHandlers = createNavigationHandlers();
   let playbackHandlers: PlaybackUiHandlers | null = null;
   let fullscreenHandlers: FullscreenHandlers | null = null;
   const playbackDeps: PlaybackDeps = {
@@ -148,7 +146,7 @@ export function bootstrap(): AppBridge {
       options?: { replace?: boolean; trackId?: string | null },
     ) => navigationHandlers.navigateToTabWithState(tabId, options),
     updateTrackUrl: (trackId: string, replace?: boolean) =>
-      updateTrackUrl(trackId, replace, state.tuningParams, state.playMode),
+      updateTrackUrl(trackId, replace, useAppStore.getState().tuningParams, useAppStore.getState().playMode),
     setAnalysisStatus: (message: string, spinning: boolean) =>
       setAnalysisStatus(context, message, spinning),
     setLoadingProgress: (progress: number | null, message?: string | null) =>
@@ -156,7 +154,6 @@ export function bootstrap(): AppBridge {
   };
   const favoritesHandlers = createFavoritesHandlers({
     context,
-    state,
     showToast,
     addFavorite,
     removeFavorite,
@@ -193,10 +190,10 @@ export function bootstrap(): AppBridge {
       options?: { replace?: boolean; trackId?: string | null },
     ) => navigationHandlers.navigateToTabWithState(tabId, options),
     updateTrackUrl: (trackId: string, replace?: boolean) =>
-      updateTrackUrl(trackId, replace, state.tuningParams, state.playMode),
+      updateTrackUrl(trackId, replace, useAppStore.getState().tuningParams, useAppStore.getState().playMode),
     setAnalysisStatus: (message: string, spinning: boolean) =>
       setAnalysisStatus(context, message, spinning),
-    showToast: (message, options) => showToast(context, message, options),
+    showToast: (message, options) => showToast(message, options),
     setLoadingProgress: (progress: number | null, message?: string | null) =>
       setLoadingProgress(context, progress, message),
     pollAnalysis: (jobId: string) => pollAnalysis(context, playbackDeps, jobId),
@@ -216,7 +213,6 @@ export function bootstrap(): AppBridge {
   };
   playlistHandlers = createPlaylistHandlers({
     context,
-    state,
     showToast,
     loadTrackById: (trackId, options) =>
       loadTrackById(context, playbackDeps, trackId, options),
@@ -226,7 +222,6 @@ export function bootstrap(): AppBridge {
     togglePlayback,
   });
   const appConfigHandlers = createAppConfigHandlers({
-    state,
     favoritesHandlers,
   });
   const uploadDeps: UploadDeps = {
@@ -244,7 +239,6 @@ export function bootstrap(): AppBridge {
   };
   const deleteJobHandlers = createDeleteJobHandlers({
     context,
-    state,
     favoritesHandlers,
     deleteJob,
     deleteCachedTrack,
@@ -267,10 +261,9 @@ export function bootstrap(): AppBridge {
     const jukebox = new JukeboxController(nodes.vizLayer);
     context.autocanonizer = autocanonizer;
     context.jukebox = jukebox;
-    jukebox.setAnchorHighlightEnabled(state.highlightAnchorBranch);
+    jukebox.setAnchorHighlightEnabled(useAppStore.getState().highlightAnchorBranch);
     playbackHandlers = createPlaybackUiHandlers({
       context,
-      state,
       player,
       engine,
       jukebox,

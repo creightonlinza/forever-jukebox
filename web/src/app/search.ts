@@ -49,20 +49,16 @@ function formatMinutes(value: number): string {
   return String(rounded);
 }
 
-function getMaxTrackLengthMinutes(context: AppContext): number | null {
-  const value = context.state.appConfig?.max_track_length;
+function getMaxTrackLengthMinutes(): number | null {
+  const value = useAppStore.getState().appConfig?.max_track_length;
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return null;
   }
   return value;
 }
 
-function isTrackLengthAllowed(
-  context: AppContext,
-  deps: SearchDeps,
-  duration: number,
-): boolean {
-  const maxTrackLengthMinutes = getMaxTrackLengthMinutes(context);
+function isTrackLengthAllowed(deps: SearchDeps, duration: number): boolean {
+  const maxTrackLengthMinutes = getMaxTrackLengthMinutes();
   if (
     maxTrackLengthMinutes !== null &&
     Number.isFinite(duration) &&
@@ -100,14 +96,14 @@ export async function startYoutubeAnalysisFlow(
 ) {
   deps.resetForNewTrack({ clearTuning: true });
   resetSearchUI(context);
-  context.state.audioLoaded = false;
-  context.state.analysisLoaded = false;
+  useAppStore.setState({ audioLoaded: false });
+  useAppStore.setState({ analysisLoaded: false });
   deps.updateVizVisibility();
   deps.setActiveTab("play");
   deps.setLoadingProgress(null, "Fetching audio");
-  context.state.lastTrackId = youtubeId;
-  context.state.lastSourceId = youtubeId;
-  context.state.lastSourceProvider = "youtube";
+  useAppStore.setState({ lastTrackId: youtubeId });
+  useAppStore.setState({ lastSourceId: youtubeId });
+  useAppStore.setState({ lastSourceProvider: "youtube" });
   deps.onTrackChange?.(youtubeId);
   deps.updateTrackUrl(youtubeId);
   await tryLoadCachedAudio(context, youtubeId);
@@ -125,11 +121,11 @@ export async function startYoutubeAnalysisFlow(
     duration: null,
     tuningParams: null,
   });
-  context.state.lastTrackId = jobId;
-  context.state.lastJobId = jobId;
-  context.state.lastSourceId =
+  useAppStore.setState({ lastTrackId: jobId });
+  useAppStore.setState({ lastJobId: jobId });
+  useAppStore.getState().lastSourceId =
     typeof response.source_id === "string" ? response.source_id : youtubeId;
-  context.state.lastSourceProvider = response.source_provider ?? "youtube";
+  useAppStore.setState({ lastSourceProvider: response.source_provider ?? "youtube" });
   deps.onTrackChange?.(jobId);
   deps.updateTrackUrl(jobId);
   await tryLoadCachedAudio(context, jobId);
@@ -176,7 +172,6 @@ export async function tryLoadExistingTrackByName(
   title: string,
   artist: string
 ) {
-  const { state } = context;
   if (!artist) {
     return false;
   }
@@ -189,9 +184,9 @@ export async function tryLoadExistingTrackByName(
     }
     const jobId = response.id;
     if (typeof response.source_provider === "string") {
-      state.lastSourceProvider = response.source_provider;
+      useAppStore.setState({ lastSourceProvider: response.source_provider });
     }
-    state.lastSourceId =
+    useAppStore.getState().lastSourceId =
       typeof response.source_id === "string" ? response.source_id : null;
     const sourceType =
       response.source_provider === "soundcloud" ||
@@ -205,19 +200,19 @@ export async function tryLoadExistingTrackByName(
       title,
       artist,
       duration: null,
-      tuningParams: state.playMode === "jukebox" ? state.tuningParams : null,
+      tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
     });
     deps.resetForNewTrack({ clearTuning: true });
     resetSearchUI(context);
-    state.audioLoaded = false;
-    state.analysisLoaded = false;
+    useAppStore.setState({ audioLoaded: false });
+    useAppStore.setState({ analysisLoaded: false });
     deps.updateVizVisibility();
     deps.setActiveTab("play");
     deps.setLoadingProgress(null, "Fetching audio");
-    state.lastTrackId = jobId;
+    useAppStore.setState({ lastTrackId: jobId });
     deps.onTrackChange?.(jobId);
     deps.updateTrackUrl(jobId);
-    state.lastJobId = jobId;
+    useAppStore.setState({ lastJobId: jobId });
     if (isAnalysisInProgress(response)) {
       await deps.pollAnalysis(jobId);
       return true;
@@ -234,7 +229,7 @@ export async function tryLoadExistingTrackByName(
       return true;
     }
     if (isAnalysisComplete(response)) {
-      if (!state.audioLoaded) {
+      if (!useAppStore.getState().audioLoaded) {
         const audioLoaded = await deps.loadAudioFromJob(jobId);
         if (!audioLoaded) {
           await deps.pollAnalysis(jobId);
@@ -302,7 +297,7 @@ export function selectYoutubeMatch(
     deps.setAnalysisStatus("No YouTube id available.", false);
     return;
   }
-  if (!isTrackLengthAllowed(context, deps, duration)) {
+  if (!isTrackLengthAllowed(deps, duration)) {
     return;
   }
   startYoutubeAnalysisFlow(context, deps, youtubeId, name, artist).catch((err) => {
@@ -322,7 +317,7 @@ export function selectSpotifyMatch(
   if (!name) {
     return;
   }
-  if (!isTrackLengthAllowed(context, deps, duration)) {
+  if (!isTrackLengthAllowed(deps, duration)) {
     return;
   }
   tryLoadExistingTrackByName(context, deps, name, artist).then((loaded) => {

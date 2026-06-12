@@ -30,13 +30,6 @@ function createContext(): AppContext {
     jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
     cowbellOverlay: {} as unknown as AppContext["cowbellOverlay"],
     defaultConfig: {} as unknown as AppContext["defaultConfig"],
-    state: {
-      playMode: "jukebox",
-      lastTrackId: null,
-      lastJobId: null,
-      audioLoaded: false,
-      analysisLoaded: false,
-    } as unknown as AppContext["state"],
   };
 }
 
@@ -59,6 +52,12 @@ function createDeps(): SearchDeps {
 
 
 
+
+const initialStoreState = useAppStore.getState();
+
+beforeEach(() => {
+  useAppStore.setState(initialStoreState, true);
+});
 
 describe("search flows", () => {
   beforeEach(async () => {
@@ -90,7 +89,7 @@ describe("search flows", () => {
       "Artist",
     );
     expect(result).toBe(true);
-    expect(context.state.lastTrackId).toBe("job1");
+    expect(useAppStore.getState().lastTrackId).toBe("job1");
     expect(deps.updateTrackUrl).toHaveBeenCalledWith("job1");
     expect(deps.applyAnalysisResult).toHaveBeenCalled();
   });
@@ -169,7 +168,7 @@ describe("search flows", () => {
 
   it("starts youtube analysis flow", async () => {
     const context = createContext();
-    context.state.tuningParams = "jb=1";
+    useAppStore.setState({ tuningParams: "jb=1" });
     const deps = createDeps();
     deps.onNormalTrackSelected = vi.fn();
     (api.startYoutubeAnalysis as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "job2", status: "queued" });
@@ -182,7 +181,7 @@ describe("search flows", () => {
       title: "Song",
       artist: "Artist",
     });
-    expect(context.state.lastTrackId).toBe("job2");
+    expect(useAppStore.getState().lastTrackId).toBe("job2");
     expect(deps.updateTrackUrl).toHaveBeenCalledWith("job2");
     expect(deps.pollAnalysis).toHaveBeenCalledWith("job2");
   });

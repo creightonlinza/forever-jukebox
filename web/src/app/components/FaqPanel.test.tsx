@@ -24,7 +24,7 @@ function createBridge(): Pick<AppBridge, "context"> {
 function renderFaqPanel(initialPath = "/faq") {
   const bridge = createBridge();
   const router = createMemoryRouter(
-    [{ path: "*", element: <FaqPanel bridge={bridge} /> }],
+    [{ path: "*", element: <FaqPanel /> }],
     { initialEntries: [initialPath] },
   );
   render(<RouterProvider router={router} />);

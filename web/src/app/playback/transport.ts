@@ -102,7 +102,7 @@ export function pausePlayback(context: AppContext) {
 export function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
   const { cowbellOverlay, engine, jukebox, player } = context;
   if (isPlaybackBlockedForSwing()) {
-    showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
+    showToast("Preparing Swing mode...", { icon: "hourglass_top" });
     updatePlayButton();
     return;
   }
@@ -168,7 +168,7 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
     return;
   }
   if (isPlaybackBlockedForSwing()) {
-    showToast(context, "Preparing Swing mode...", { icon: "hourglass_top" });
+    showToast("Preparing Swing mode...", { icon: "hourglass_top" });
     updatePlayButton();
     return;
   }

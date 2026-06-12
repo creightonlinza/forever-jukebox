@@ -1,11 +1,11 @@
 import type { AppContext, AppState, TabId } from "../context";
+import { useAppStore } from "../store";
 import type { ToastOptions } from "../ui";
 import type { FavoritesHandlers } from "./favorites";
 import { getAdminKey } from "../admin";
 
 type DeleteJobDeps = {
   context: AppContext;
-  state: AppState;
   favoritesHandlers: Pick<FavoritesHandlers, "updateFavorites">;
   deleteJob: (jobId: string, adminKey?: string | null) => Promise<void>;
   deleteCachedTrack: (trackId: string) => Promise<void>;
@@ -14,7 +14,7 @@ type DeleteJobDeps = {
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
   ) => void;
-  showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
+  showToast: (message: string, options?: ToastOptions) => void;
   isFavorite: (items: AppState["favorites"], id: string) => boolean;
   removeFavorite: (items: AppState["favorites"], id: string) => AppState["favorites"];
 };
@@ -32,7 +32,6 @@ export type DeleteJobHandlers = ReturnType<typeof createDeleteJobHandlers>;
 export function createDeleteJobHandlers(deps: DeleteJobDeps) {
   const {
     context,
-    state,
     favoritesHandlers,
     deleteJob,
     deleteCachedTrack,
@@ -44,8 +43,8 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
   } = deps;
 
   function getPendingDelete(): PendingDelete | null {
-    const jobId = state.lastJobId;
-    const trackId = state.lastTrackId;
+    const jobId = useAppStore.getState().lastJobId;
+    const trackId = useAppStore.getState().lastTrackId;
     if (!jobId) {
       return null;
     }
@@ -62,21 +61,21 @@ export function createDeleteJobHandlers(deps: DeleteJobDeps) {
           console.warn(`Cache delete failed: ${String(err)}`);
         });
       }
-      if (favoriteId && isFavorite(state.favorites, favoriteId)) {
+      if (favoriteId && isFavorite(useAppStore.getState().favorites, favoriteId)) {
         favoritesHandlers.updateFavorites(
-          removeFavorite(state.favorites, favoriteId),
+          removeFavorite(useAppStore.getState().favorites, favoriteId),
         );
       }
       resetForNewTrack(context);
       navigateToTabWithState("top", { replace: true });
-      showToast(context, "Deleted track");
+      showToast("Deleted track");
     } catch {
-      state.deleteEligibilityJobId = jobId;
+      useAppStore.setState({ deleteEligibilityJobId: jobId });
       if (adminKey) {
-        showToast(context, "Unable to delete track");
+        showToast("Unable to delete track");
       } else {
-        state.deleteEligible = false;
-        showToast(context, "Track can no longer be deleted");
+        useAppStore.setState({ deleteEligible: false });
+        showToast("Track can no longer be deleted");
       }
     }
   }

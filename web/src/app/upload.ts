@@ -1,4 +1,5 @@
 import type { AppContext, TabId } from "./context";
+import { useAppStore } from "./store";
 import {
   formatErrorForDisplay,
   inferSourceProviderFromUrl,
@@ -11,11 +12,7 @@ import type { ToastOptions } from "./ui";
 // the point the legacy flow cleared the input (job accepted, before poll).
 export type UploadDeps = {
   context: AppContext;
-  showToast: (
-    context: AppContext,
-    message: string,
-    options?: ToastOptions,
-  ) => void;
+  showToast: (message: string, options?: ToastOptions) => void;
   uploadAudio: (file: File) => Promise<{ id?: string } | null>;
   startUrlAnalysis: (payload: { url: string }) => Promise<{
     id?: string;
@@ -121,19 +118,17 @@ export async function uploadAudioFile(
   onAccepted?: () => void,
 ) {
   const { context, showToast } = deps;
-  const state = context.state;
-  const config = state.appConfig;
+  const config = useAppStore.getState().appConfig;
   if (!config?.allow_user_upload) {
-    showToast(context, "Uploads are disabled.");
+    showToast("Uploads are disabled.");
     return;
   }
   if (!file) {
-    showToast(context, "Choose a file to upload.");
+    showToast("Choose a file to upload.");
     return;
   }
   if (config.max_upload_size && file.size > config.max_upload_size) {
     showToast(
-      context,
       `File is too large. Max ${Math.round(config.max_upload_size / (1024 * 1024))} MB.`,
     );
     return;
@@ -150,7 +145,7 @@ export async function uploadAudioFile(
       Number.isFinite(durationSeconds) &&
       durationSeconds > maxTrackLengthMinutes * 60
     ) {
-      showToast(context, maxTrackLengthMessage(maxTrackLengthMinutes), {
+      showToast(maxTrackLengthMessage(maxTrackLengthMinutes), {
         icon: "error",
         tone: "error",
       });
@@ -168,17 +163,17 @@ export async function uploadAudioFile(
       title: file.name || "Untitled",
       artist: "",
       duration: null,
-      tuningParams: state.playMode === "jukebox" ? state.tuningParams : null,
+      tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
     });
     deps.resetForNewTrack(context);
-    state.lastJobId = response.id;
-    state.pendingAutoFavoriteId = response.id;
-    state.lastTrackId = response.id;
-    state.lastSourceId = null;
-    state.lastSourceProvider = "upload";
-    state.audioLoaded = false;
-    state.analysisLoaded = false;
-    deps.updateTrackUrl(response.id, true, state.tuningParams, state.playMode);
+    useAppStore.setState({ lastJobId: response.id });
+    useAppStore.setState({ pendingAutoFavoriteId: response.id });
+    useAppStore.setState({ lastTrackId: response.id });
+    useAppStore.setState({ lastSourceId: null });
+    useAppStore.setState({ lastSourceProvider: "upload" });
+    useAppStore.setState({ audioLoaded: false });
+    useAppStore.setState({ analysisLoaded: false });
+    deps.updateTrackUrl(response.id, true, useAppStore.getState().tuningParams, useAppStore.getState().playMode);
     onAccepted?.();
     deps.setActiveTabWithRefresh("play");
     deps.setLoadingProgress(context, null, "Queued");
@@ -195,7 +190,6 @@ export async function uploadAudioFile(
           ? maxTrackLength
           : null;
       showToast(
-        context,
         formatErrorForDisplay(err) ||
           (fallbackLimit !== null
             ? maxTrackLengthMessage(fallbackLimit)
@@ -207,7 +201,7 @@ export async function uploadAudioFile(
       );
       return;
     }
-    showToast(context, `Upload failed: ${formatErrorForDisplay(err)}`, {
+    showToast(`Upload failed: ${formatErrorForDisplay(err)}`, {
       icon: "error",
       tone: "error",
     });
@@ -220,21 +214,20 @@ export async function uploadFromUrl(
   onAccepted?: () => void,
 ) {
   const { context, showToast } = deps;
-  const state = context.state;
-  const config = state.appConfig;
+  const config = useAppStore.getState().appConfig;
   const allowUserUrl = Boolean(config?.allow_user_url);
   if (!allowUserUrl) {
-    showToast(context, "URL uploads are disabled.");
+    showToast("URL uploads are disabled.");
     return;
   }
   const trimmed = raw.trim();
   if (!trimmed) {
-    showToast(context, "Enter a supported URL.");
+    showToast("Enter a supported URL.");
     return;
   }
   const sourceUrl = normalizeSupportedSourceUrl(trimmed);
   if (!sourceUrl) {
-    showToast(context, "Invalid or unsupported URL.");
+    showToast("Invalid or unsupported URL.");
     return;
   }
   const requestedSourceProvider = inferSourceProviderFromUrl(sourceUrl);
@@ -245,7 +238,6 @@ export async function uploadFromUrl(
     const sourceProvider = response?.source_provider;
     if (response?.status === "failed") {
       showToast(
-        context,
         formatErrorForDisplay(response.error, {
           sourceProvider: sourceProvider ?? requestedSourceProvider,
           errorCode: response.error_code,
@@ -271,17 +263,17 @@ export async function uploadFromUrl(
       title: "Untitled",
       artist: "",
       duration: null,
-      tuningParams: state.playMode === "jukebox" ? state.tuningParams : null,
+      tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
     });
     deps.resetForNewTrack(context);
-    state.lastTrackId = listenId;
-    state.lastJobId = response.id;
-    state.lastSourceId =
+    useAppStore.setState({ lastTrackId: listenId });
+    useAppStore.setState({ lastJobId: response.id });
+    useAppStore.getState().lastSourceId =
       typeof response.source_id === "string" ? response.source_id : null;
-    state.lastSourceProvider = sourceProvider;
-    state.pendingAutoFavoriteId = listenId;
+    useAppStore.setState({ lastSourceProvider: sourceProvider });
+    useAppStore.setState({ pendingAutoFavoriteId: listenId });
     onAccepted?.();
-    deps.updateTrackUrl(listenId, true, state.tuningParams, state.playMode);
+    deps.updateTrackUrl(listenId, true, useAppStore.getState().tuningParams, useAppStore.getState().playMode);
     deps.setActiveTabWithRefresh("play");
     deps.setLoadingProgress(context, null, "Fetching audio");
     await deps.pollAnalysisJob(response.id);
@@ -297,7 +289,6 @@ export async function uploadFromUrl(
           ? maxTrackLength
           : null;
       showToast(
-        context,
         formatErrorForDisplay(err, {
           sourceProvider: requestedSourceProvider,
         }) ||
@@ -312,7 +303,6 @@ export async function uploadFromUrl(
       return;
     }
     showToast(
-      context,
       formatErrorForDisplay(err, {
         sourceProvider: requestedSourceProvider,
         fallback: "Upload failed.",

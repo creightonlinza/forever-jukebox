@@ -64,12 +64,7 @@ export function blurMouseActivatedControl(event: Event) {
 
 // The React <Toast> renders this store state; only the auto-hide timer is
 // managed here.
-export function showToast(
-  context: AppContext,
-  message: string,
-  options?: ToastOptions
-) {
-  const { state } = context;
+export function showToast(message: string, options?: ToastOptions) {
   useAppStore.setState({
     toast: {
       message,
@@ -77,11 +72,12 @@ export function showToast(
       tone: options?.tone === "error" ? "error" : "default",
     },
   });
-  if (state.toastTimer !== null) {
-    window.clearTimeout(state.toastTimer);
+  const { toastTimer } = useAppStore.getState();
+  if (toastTimer !== null) {
+    window.clearTimeout(toastTimer);
   }
-  state.toastTimer = window.setTimeout(() => {
-    useAppStore.setState({ toast: null });
-    state.toastTimer = null;
+  const nextToastTimer = window.setTimeout(() => {
+    useAppStore.setState({ toast: null, toastTimer: null });
   }, 2000);
+  useAppStore.setState({ toastTimer: nextToastTimer });
 }

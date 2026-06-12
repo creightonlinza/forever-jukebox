@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppContext } from "./context";
+import type { AppContext, AppState } from "./context";
 import type { AnalysisComplete } from "./api";
 import {
   applyExtrasChanges,
@@ -22,7 +22,7 @@ import {
   updateListenTimeDisplay,
   type TuningFormValues,
 } from "./playback";
-import { legacyAppState, useAppStore } from "./store";
+import { useAppStore } from "./store";
 import { createPlaybackUiHandlers } from "./wire/playback";
 import { setWindowUrl } from "./__tests__/test-utils";
 import { getOrCreateSwingBuffer } from "../audio/swingBufferCache";
@@ -189,7 +189,6 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     jukebox: jukebox as unknown as AppContext["jukebox"],
     cowbellOverlay: cowbellOverlay as unknown as AppContext["cowbellOverlay"],
     defaultConfig: engineConfig as unknown as AppContext["defaultConfig"],
-    state: legacyAppState,
     ...overrides,
   };
 }
@@ -209,7 +208,7 @@ describe("playback tuning", () => {
 
   it("reads tuning form values from config and graph", () => {
     const context = createContext();
-    context.state.highlightAnchorBranch = true;
+    useAppStore.setState({ highlightAnchorBranch: true });
     const form = getTuningFormValues(context);
     expect(form.threshold).toBe(45);
     expect(form.computedThreshold).toBe(45);
@@ -221,12 +220,12 @@ describe("playback tuning", () => {
   it("preserves selected tuning while resetting for a new track", () => {
     setWindowUrl("http://localhost/listen/favorite?jb=1&d=2,8");
     const context = createContext();
-    context.state.lastTrackId = "old-track";
-    context.state.tuningParams = "jb=1&d=2,8";
+    useAppStore.setState({ lastTrackId: "old-track" });
+    useAppStore.setState({ tuningParams: "jb=1&d=2,8" });
 
     resetForNewTrack(context, { clearTuning: false });
 
-    expect(context.state.tuningParams).toBe("jb=1&d=2,8");
+    expect(useAppStore.getState().tuningParams).toBe("jb=1&d=2,8");
     expect(window.location.search).toBe("?jb=1&d=2,8");
   });
 
@@ -284,7 +283,7 @@ describe("playback tuning", () => {
       context,
       formValues(context, { threshold: 40, computedThreshold: 45 }),
     );
-    expect(context.state.vizData).toEqual({ beats: [1], edges: [1] });
+    expect(useAppStore.getState().vizData).toEqual({ beats: [1], edges: [1] });
     expect(context.jukebox.setData).toHaveBeenCalledWith({ beats: [1], edges: [1] });
   });
 
@@ -296,15 +295,15 @@ describe("playback tuning", () => {
       formValues(context, { highlightAnchorBranch: true }),
     );
 
-    expect(context.state.highlightAnchorBranch).toBe(true);
+    expect(useAppStore.getState().highlightAnchorBranch).toBe(true);
     expect(localStorage.getItem("fj-highlight-anchor-branch")).toBe("1");
     expect(context.jukebox.setAnchorHighlightEnabled).toHaveBeenCalledWith(true);
   });
 
   it("applies branch stats toggle and audio mode from extras controls", () => {
     const context = createContext();
-    context.state.isRunning = true;
-    context.state.playMode = "jukebox";
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({ playMode: "jukebox" });
 
     const result = applyExtrasChanges(context, {
       ...getExtrasFormValues(),
@@ -313,8 +312,8 @@ describe("playback tuning", () => {
     });
 
     expect(result).toEqual({ branchStatsChanged: true, audioModeChanged: true });
-    expect(context.state.branchStatsEnabled).toBe(true);
-    expect(context.state.jukeboxAudioMode).toBe("daycore");
+    expect(useAppStore.getState().branchStatsEnabled).toBe(true);
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("daycore");
     expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("1");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("daycore");
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
@@ -322,7 +321,7 @@ describe("playback tuning", () => {
 
   it("applies cowbell as an audio mode from extras controls", () => {
     const context = createContext();
-    context.state.playMode = "jukebox";
+    useAppStore.setState({ playMode: "jukebox" });
 
     const result = applyExtrasChanges(context, {
       ...getExtrasFormValues(),
@@ -330,7 +329,7 @@ describe("playback tuning", () => {
     });
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
-    expect(context.state.jukeboxAudioMode).toBe("cowbell");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("cowbell");
     expect(context.cowbellOverlay.enable).toHaveBeenCalledTimes(1);
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cowbell");
     expect(window.location.search).toContain("am=cowbell");
@@ -338,8 +337,8 @@ describe("playback tuning", () => {
 
   it("applies eight-bit as an audio mode from extras controls", () => {
     const context = createContext();
-    context.state.analysisLoaded = true;
-    context.state.audioLoaded = true;
+    useAppStore.setState({ analysisLoaded: true });
+    useAppStore.setState({ audioLoaded: true });
 
     const result = applyExtrasChanges(context, {
       ...getExtrasFormValues(),
@@ -347,7 +346,7 @@ describe("playback tuning", () => {
     });
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
-    expect(context.state.jukeboxAudioMode).toBe("eight_bit");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("eight_bit");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_bit");
     expect(window.location.search).toContain("am=eight_bit");
   });
@@ -361,7 +360,7 @@ describe("playback tuning", () => {
     });
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
-    expect(context.state.jukeboxAudioMode).toBe("underwater");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("underwater");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("underwater");
     expect(window.location.search).toContain("am=underwater");
   });
@@ -375,7 +374,7 @@ describe("playback tuning", () => {
     });
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
-    expect(context.state.jukeboxAudioMode).toBe("cathedral");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("cathedral");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cathedral");
     expect(window.location.search).toContain("am=cathedral");
   });
@@ -393,14 +392,16 @@ describe("playback tuning", () => {
     const context = createContext();
     const sourceBuffer = { duration: 120 } as AudioBuffer;
     const swingBuffer = { duration: 120 } as AudioBuffer;
-    context.state.playMode = "jukebox";
-    context.state.isRunning = true;
-    context.state.audioLoaded = true;
-    context.state.analysisLoaded = true;
-    context.state.vizData = {
+    useAppStore.setState({ playMode: "jukebox" });
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({ audioLoaded: true });
+    useAppStore.setState({ analysisLoaded: true });
+    useAppStore.setState({
+      vizData: {
       beats: [{ start: 0, duration: 1 }],
       edges: [],
-    } as unknown as AppContext["state"]["vizData"];
+    } as unknown as AppState["vizData"]
+    });
     vi.mocked(context.player.getDuration).mockReturnValue(120);
     vi.mocked(context.player.getSourceBuffer).mockReturnValue(sourceBuffer);
     vi.mocked(renderSwingBuffer).mockResolvedValue(swingBuffer);
@@ -418,30 +419,30 @@ describe("playback tuning", () => {
     );
     expect(context.engine.startJukebox).toHaveBeenLastCalledWith(false);
     expect(context.engine.play).toHaveBeenCalledTimes(1);
-    expect(context.state.isRunning).toBe(true);
-    expect(context.state.isPaused).toBe(false);
+    expect(useAppStore.getState().isRunning).toBe(true);
+    expect(useAppStore.getState().isPaused).toBe(false);
   });
 
   it("applies bring it home mode from extras controls", () => {
     const context = createContext();
-    context.state.playMode = "jukebox";
-    context.state.shiftBranching = true;
+    useAppStore.setState({ playMode: "jukebox" });
+    useAppStore.setState({ shiftBranching: true });
 
     applyExtrasChanges(context, {
       ...getExtrasFormValues(),
       bringItHomeMode: true,
     });
 
-    expect(context.state.bringItHomeMode).toBe(true);
-    expect(context.state.shiftBranching).toBe(false);
+    expect(useAppStore.getState().bringItHomeMode).toBe(true);
+    expect(useAppStore.getState().shiftBranching).toBe(false);
     expect(context.engine.setForceBranch).toHaveBeenCalledWith(false);
     expect(context.engine.setBringItHomeMode).toHaveBeenCalledWith(true);
   });
 
   it("hides branch stats popup when extras branch stats is disabled", () => {
     const context = createContext();
-    context.state.playMode = "jukebox";
-    context.state.branchStatsEnabled = true;
+    useAppStore.setState({ playMode: "jukebox" });
+    useAppStore.setState({ branchStatsEnabled: true });
 
     applyExtrasChanges(context, {
       ...getExtrasFormValues(),
@@ -453,19 +454,19 @@ describe("playback tuning", () => {
 
   it("resets extras options to defaults", () => {
     const context = createContext();
-    context.state.playMode = "jukebox";
-    context.state.branchStatsEnabled = true;
-    context.state.bringItHomeMode = true;
-    context.state.jukeboxAudioMode = "nightcore";
+    useAppStore.setState({ playMode: "jukebox" });
+    useAppStore.setState({ branchStatsEnabled: true });
+    useAppStore.setState({ bringItHomeMode: true });
+    useAppStore.setState({ jukeboxAudioMode: "nightcore" });
 
     const result = resetExtrasDefaults(context);
 
     expect(result).toEqual({ branchStatsChanged: true, audioModeChanged: true });
-    expect(context.state.branchStatsEnabled).toBe(false);
+    expect(useAppStore.getState().branchStatsEnabled).toBe(false);
     expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("0");
-    expect(context.state.bringItHomeMode).toBe(false);
+    expect(useAppStore.getState().bringItHomeMode).toBe(false);
     expect(context.engine.setBringItHomeMode).toHaveBeenCalledWith(false);
-    expect(context.state.jukeboxAudioMode).toBe("off");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("off");
     expect(context.cowbellOverlay.disable).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().branchStats).toBeNull();
   });
@@ -473,28 +474,28 @@ describe("playback tuning", () => {
   it("preserves audio mode URL param when tuning reset clears other tuning params", () => {
     setWindowUrl("http://localhost/listen/abc?jb=1&thresh=30&ab=7&am=daycore");
     const context = createContext();
-    context.state.tuningParams = "jb=1&thresh=30&ab=7&am=daycore";
-    context.state.jukeboxAudioMode = "daycore";
+    useAppStore.setState({ tuningParams: "jb=1&thresh=30&ab=7&am=daycore" });
+    useAppStore.setState({ jukeboxAudioMode: "daycore" });
     context.engine.setUserAnchorEdge(
       { id: 7 } as Parameters<AppContext["engine"]["setUserAnchorEdge"]>[0],
     );
 
     resetTuningDefaults(context);
 
-    expect(context.state.tuningParams).toBe("am=daycore");
+    expect(useAppStore.getState().tuningParams).toBe("am=daycore");
     expect(window.location.search).toBe("?am=daycore");
-    expect(context.state.jukeboxAudioMode).toBe("daycore");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("daycore");
   });
 
   it("resets audio mode on track change", () => {
     setWindowUrl("http://localhost/listen/abc?am=daycore");
     const context = createContext();
-    context.state.analysisLoaded = true;
-    context.state.jukeboxAudioMode = "daycore";
+    useAppStore.setState({ analysisLoaded: true });
+    useAppStore.setState({ jukeboxAudioMode: "daycore" });
 
     resetForNewTrack(context);
 
-    expect(context.state.jukeboxAudioMode).toBe("off");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("off");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("off");
     expect(window.location.search).not.toContain("am=daycore");
   });
@@ -547,7 +548,7 @@ describe("playback tuning", () => {
     ).toBe(2);
     expect(graph.allEdges[0].deleted).toBe(true);
     expect(graph.allEdges[2].deleted).toBe(true);
-    expect(context.state.deletedEdgeIds).toEqual([1, 3]);
+    expect(useAppStore.getState().deletedEdgeIds).toEqual([1, 3]);
   });
 
   it("keeps track deletion visible for admin mode regardless of track age", () => {
@@ -563,8 +564,8 @@ describe("playback tuning", () => {
     const applied = applyAnalysisResult(context, response);
 
     expect(applied).toBe(true);
-    expect(context.state.deleteEligible).toBe(false);
-    expect(context.state.deleteEligibilityJobId).toBe("job123");
+    expect(useAppStore.getState().deleteEligible).toBe(false);
+    expect(useAppStore.getState().deleteEligibilityJobId).toBe("job123");
   });
 
   it("retains grace-window delete eligibility and label outside admin mode", () => {
@@ -579,7 +580,7 @@ describe("playback tuning", () => {
     const applied = applyAnalysisResult(context, response);
 
     expect(applied).toBe(true);
-    expect(context.state.deleteEligible).toBe(true);
+    expect(useAppStore.getState().deleteEligible).toBe(true);
   });
 
   it("applies anchor branch from url when analysis loads", () => {
@@ -627,7 +628,7 @@ describe("playback tuning", () => {
 
     expect(applied).toBe(true);
     expect(context.engine.setUserAnchorEdge).toHaveBeenCalledWith(anchorEdge);
-    expect(context.state.tuningParams).toContain("ab=3");
+    expect(useAppStore.getState().tuningParams).toContain("ab=3");
   });
 
   it("ignores forward anchor branch ids from url", () => {
@@ -697,8 +698,8 @@ describe("playback tuning", () => {
         rebuildGraph: vi.fn(),
       } as unknown as AppContext["engine"],
     });
-    context.state.playMode = "jukebox";
-    context.state.jukeboxAudioMode = "nightcore";
+    useAppStore.setState({ playMode: "jukebox" });
+    useAppStore.setState({ jukeboxAudioMode: "nightcore" });
 
     const response: AnalysisComplete = {
       status: "complete",
@@ -709,9 +710,9 @@ describe("playback tuning", () => {
     const applied = applyAnalysisResult(context, response);
 
     expect(applied).toBe(true);
-    expect(context.state.trackTitle).toBe("Song");
-    expect(context.state.trackArtist).toBe("Artist");
-    expect(context.state.jukeboxAudioMode).toBe("nightcore");
+    expect(useAppStore.getState().trackTitle).toBe("Song");
+    expect(useAppStore.getState().trackArtist).toBe("Artist");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("nightcore");
   });
 
   it("applies audio mode from URL params when loading analysis", () => {
@@ -736,7 +737,7 @@ describe("playback tuning", () => {
         rebuildGraph: vi.fn(),
       } as unknown as AppContext["engine"],
     });
-    context.state.playMode = "jukebox";
+    useAppStore.setState({ playMode: "jukebox" });
     const response: AnalysisComplete = {
       status: "complete",
       id: "job123",
@@ -746,19 +747,19 @@ describe("playback tuning", () => {
     const applied = applyAnalysisResult(context, response);
 
     expect(applied).toBe(true);
-    expect(context.state.jukeboxAudioMode).toBe("daycore");
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("daycore");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("daycore");
     expect(context.cowbellOverlay.setSectionStartBeatIndices).toHaveBeenCalledWith([
       4,
       12,
     ]);
-    expect(context.state.tuningParams).toContain("am=daycore");
+    expect(useAppStore.getState().tuningParams).toContain("am=daycore");
   });
 
   it("opens tuning modal on extras tab", () => {
     useAppStore.setState({ tuningModalOpen: false, tuningModalTab: "tuning" });
     const context = createContext();
-    context.state.playMode = "jukebox";
+    useAppStore.setState({ playMode: "jukebox" });
 
     openExtras(context);
 
@@ -769,7 +770,7 @@ describe("playback tuning", () => {
   it("falls back to the tuning tab when mode does not support extras", () => {
     useAppStore.setState({ tuningModalOpen: false, tuningModalTab: "tuning" });
     const context = createContext();
-    context.state.playMode = "autocanonizer";
+    useAppStore.setState({ playMode: "autocanonizer" });
 
     openExtras(context);
 
@@ -826,7 +827,7 @@ describe("playback tuning", () => {
     );
     expect(deleteEdge).toHaveBeenCalledTimes(1);
     expect(graph.allEdges[0].deleted).toBe(true);
-    expect(context.state.deletedEdgeIds).toEqual([2]);
+    expect(useAppStore.getState().deletedEdgeIds).toEqual([2]);
   });
 });
 
@@ -852,9 +853,9 @@ describe("playback timers", () => {
   }
 
   it("updates listen time display", () => {
-    const context = createContext();
-    context.state.playTimerMs = 1000;
-    context.state.lastPlayStamp = 0;
+    createContext();
+    useAppStore.setState({ playTimerMs: 1000 });
+    useAppStore.setState({ lastPlayStamp: 0 });
     vi.spyOn(performance, "now").mockReturnValue(1000);
     updateListenTimeDisplay();
     expect(useAppStore.getState().listenTimeText).toBe("00:00:02");
@@ -868,12 +869,12 @@ describe("playback timers", () => {
       setSleepTimer(context, 30 * 60 * 1000);
       setSleepTimer(context, durationMs);
 
-      expect(context.state.sleepTimer).toEqual({
+      expect(useAppStore.getState().sleepTimer).toEqual({
         configuredDurationMs: null,
         endTimeMs: null,
         remainingMs: 0,
       });
-      expect(context.state.sleepTimerTimeoutId).toBe(null);
+      expect(useAppStore.getState().sleepTimerTimeoutId).toBe(null);
     }
   });
 
@@ -883,18 +884,18 @@ describe("playback timers", () => {
 
     setSleepTimer(context, 15 * 60 * 1000);
 
-    expect(context.state.sleepTimer).toEqual({
+    expect(useAppStore.getState().sleepTimer).toEqual({
       configuredDurationMs: 15 * 60 * 1000,
       endTimeMs: 905000,
       remainingMs: 15 * 60 * 1000,
     });
-    expect(context.state.sleepTimerTimeoutId).not.toBe(null);
+    expect(useAppStore.getState().sleepTimerTimeoutId).not.toBe(null);
   });
 
   it("replacing a sleep timer cancels the old expiry", () => {
     const clock = setupSleepTimerClock(1000);
     const context = createContext();
-    context.state.isRunning = true;
+    useAppStore.setState({ isRunning: true });
 
     setSleepTimer(context, 1000);
     setSleepTimer(context, 5000);
@@ -902,8 +903,8 @@ describe("playback timers", () => {
     vi.advanceTimersByTime(1000);
 
     expect(context.engine.stopJukebox).not.toHaveBeenCalled();
-    expect(context.state.sleepTimer.configuredDurationMs).toBe(5000);
-    expect(context.state.sleepTimer.remainingMs).toBe(4000);
+    expect(useAppStore.getState().sleepTimer.configuredDurationMs).toBe(5000);
+    expect(useAppStore.getState().sleepTimer.remainingMs).toBe(4000);
   });
 
   it("expires by clearing timer state, stopping playback, and exiting fullscreen", () => {
@@ -914,22 +915,22 @@ describe("playback timers", () => {
       exitFullscreen,
     });
     const context = createContext();
-    context.state.isRunning = true;
-    context.state.isPaused = false;
-    context.state.playTimerMs = 1234;
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({ isPaused: false });
+    useAppStore.setState({ playTimerMs: 1234 });
     useAppStore.setState({ beatsPlayedText: "8" });
 
     setSleepTimer(context, 1000);
     clock.setNow(2000);
     vi.advanceTimersByTime(1000);
 
-    expect(context.state.sleepTimer).toEqual({
+    expect(useAppStore.getState().sleepTimer).toEqual({
       configuredDurationMs: null,
       endTimeMs: null,
       remainingMs: 0,
     });
-    expect(context.state.isRunning).toBe(false);
-    expect(context.state.isPaused).toBe(false);
+    expect(useAppStore.getState().isRunning).toBe(false);
+    expect(useAppStore.getState().isPaused).toBe(false);
     expect(context.engine.stopJukebox).toHaveBeenCalled();
     expect(useAppStore.getState().beatsPlayedText).toBe("0");
     expect(exitFullscreen).toHaveBeenCalledTimes(1);
@@ -938,13 +939,13 @@ describe("playback timers", () => {
   it("schedules the final partial second without waiting a full extra tick", () => {
     const clock = setupSleepTimerClock(1000);
     const context = createContext();
-    context.state.isRunning = true;
+    useAppStore.setState({ isRunning: true });
 
     setSleepTimer(context, 1500);
     clock.setNow(2000);
     vi.advanceTimersByTime(1000);
 
-    expect(context.state.sleepTimer.remainingMs).toBe(500);
+    expect(useAppStore.getState().sleepTimer.remainingMs).toBe(500);
     expect(context.engine.stopJukebox).not.toHaveBeenCalled();
 
     clock.setNow(2499);
@@ -973,67 +974,69 @@ describe("playback controls", () => {
 
   it("pauses and resumes without resetting when already started", () => {
     const context = createContext();
-    context.state.audioLoaded = true;
-    context.state.analysisLoaded = true;
+    useAppStore.setState({ audioLoaded: true });
+    useAppStore.setState({ analysisLoaded: true });
     (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
 
     togglePlayback(context);
 
     expect(context.engine.resetStats).toHaveBeenCalledTimes(1);
     expect(context.engine.startJukebox).toHaveBeenCalledWith(true);
-    expect(context.state.isRunning).toBe(true);
-    expect(context.state.isPaused).toBe(false);
+    expect(useAppStore.getState().isRunning).toBe(true);
+    expect(useAppStore.getState().isPaused).toBe(false);
 
     togglePlayback(context);
 
     expect(context.engine.pauseJukebox).toHaveBeenCalledTimes(1);
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
-    expect(context.state.isRunning).toBe(false);
-    expect(context.state.isPaused).toBe(true);
+    expect(useAppStore.getState().isRunning).toBe(false);
+    expect(useAppStore.getState().isPaused).toBe(true);
 
     togglePlayback(context);
 
     expect(context.engine.resetStats).toHaveBeenCalledTimes(1);
     expect(context.engine.startJukebox).toHaveBeenLastCalledWith(false);
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(2);
-    expect(context.state.isRunning).toBe(true);
-    expect(context.state.isPaused).toBe(false);
+    expect(useAppStore.getState().isRunning).toBe(true);
+    expect(useAppStore.getState().isPaused).toBe(false);
   });
 
   it("blocks jukebox playback while swing mode is preparing", () => {
     const context = createContext();
-    context.state.audioLoaded = true;
-    context.state.analysisLoaded = true;
-    context.state.jukeboxAudioMode = "swing";
-    context.state.swingPreparing = true;
+    useAppStore.setState({ audioLoaded: true });
+    useAppStore.setState({ analysisLoaded: true });
+    useAppStore.setState({ jukeboxAudioMode: "swing" });
+    useAppStore.setState({ swingPreparing: true });
     (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
 
     togglePlayback(context);
 
     expect(context.engine.play).not.toHaveBeenCalled();
     expect(context.engine.startJukebox).not.toHaveBeenCalled();
-    expect(context.state.isRunning).toBe(false);
+    expect(useAppStore.getState().isRunning).toBe(false);
   });
 
   it("shows only loading status panel while swing mode is preparing", () => {
-    const context = createContext();
-    context.state.audioLoaded = true;
-    context.state.analysisLoaded = true;
-    context.state.jukeboxAudioMode = "swing";
-    context.state.swingPreparing = true;
+    createContext();
+    useAppStore.setState({ audioLoaded: true });
+    useAppStore.setState({ analysisLoaded: true });
+    useAppStore.setState({ jukeboxAudioMode: "swing" });
+    useAppStore.setState({ swingPreparing: true });
 
     updateVizVisibility();
   });
 
   it("blocks beat-start playback while swing mode is preparing", () => {
     const context = createContext();
-    context.state.playMode = "jukebox";
-    context.state.jukeboxAudioMode = "swing";
-    context.state.swingPreparing = true;
-    context.state.vizData = {
+    useAppStore.setState({ playMode: "jukebox" });
+    useAppStore.setState({ jukeboxAudioMode: "swing" });
+    useAppStore.setState({ swingPreparing: true });
+    useAppStore.setState({
+      vizData: {
       beats: [{ start: 2, duration: 1 }],
       edges: [],
-    } as unknown as AppContext["state"]["vizData"];
+    } as unknown as AppState["vizData"]
+    });
     (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
 
     startJukeboxFromBeat(context, 0);
@@ -1046,21 +1049,21 @@ describe("playback controls", () => {
 
   it("stop clears paused state and forces next play to restart", () => {
     const context = createContext();
-    context.state.audioLoaded = true;
-    context.state.analysisLoaded = true;
+    useAppStore.setState({ audioLoaded: true });
+    useAppStore.setState({ analysisLoaded: true });
     (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
 
     togglePlayback(context);
     togglePlayback(context);
-    context.state.playTimerMs = 12345;
-    context.state.lastBeatIndex = 7;
+    useAppStore.setState({ playTimerMs: 12345 });
+    useAppStore.setState({ lastBeatIndex: 7 });
     useAppStore.setState({ beatsPlayedText: "7" });
     stopPlayback(context);
 
-    expect(context.state.isPaused).toBe(false);
-    expect(context.state.isRunning).toBe(false);
-    expect(context.state.playTimerMs).toBe(0);
-    expect(context.state.lastBeatIndex).toBe(null);
+    expect(useAppStore.getState().isPaused).toBe(false);
+    expect(useAppStore.getState().isRunning).toBe(false);
+    expect(useAppStore.getState().playTimerMs).toBe(0);
+    expect(useAppStore.getState().lastBeatIndex).toBe(null);
     expect(useAppStore.getState().beatsPlayedText).toBe("0");
     expect(context.engine.stopJukebox).toHaveBeenCalled();
     expect(context.engine.resetStats).toHaveBeenCalled();
@@ -1074,12 +1077,14 @@ describe("playback controls", () => {
 
   it("resumes audio output when selecting a beat while session is running", () => {
     const context = createContext();
-    context.state.playMode = "jukebox";
-    context.state.isRunning = true;
-    context.state.vizData = {
+    useAppStore.setState({ playMode: "jukebox" });
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({
+      vizData: {
       beats: [{ start: 0, duration: 1 }],
       edges: [],
-    } as unknown as AppContext["state"]["vizData"];
+    } as unknown as AppState["vizData"]
+    });
     (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
     (context.player.isPlaying as ReturnType<typeof vi.fn>).mockReturnValue(false);
 
@@ -1093,12 +1098,14 @@ describe("playback controls", () => {
 
   it("does not replay when selecting a beat while already actively playing", () => {
     const context = createContext();
-    context.state.playMode = "jukebox";
-    context.state.isRunning = true;
-    context.state.vizData = {
+    useAppStore.setState({ playMode: "jukebox" });
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({
+      vizData: {
       beats: [{ start: 2, duration: 1 }],
       edges: [],
-    } as unknown as AppContext["state"]["vizData"];
+    } as unknown as AppState["vizData"]
+    });
     (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
     (context.player.isPlaying as ReturnType<typeof vi.fn>).mockReturnValue(true);
 
@@ -1122,7 +1129,6 @@ describe("playback branch shortcuts", () => {
     return {
       handlers: createPlaybackUiHandlers({
         context,
-        state: context.state,
         player: context.player,
         engine: context.engine,
         jukebox: context.jukebox,
@@ -1175,13 +1181,15 @@ describe("playback branch shortcuts", () => {
       dest: { which: 2 },
       deleted: false,
     };
-    context.state.selectedEdge = edge as AppContext["state"]["selectedEdge"];
-    context.state.vizData = {
+    useAppStore.setState({ selectedEdge: edge as AppState["selectedEdge"] });
+    useAppStore.setState({
+      vizData: {
       beats: [],
       edges: [edge],
       lastBranchPoint: 1,
       anchorEdgeId: null,
-    } as unknown as AppContext["state"]["vizData"];
+    } as unknown as AppState["vizData"]
+    });
     const nextVizData = {
       beats: [],
       edges: [edge],
@@ -1200,7 +1208,7 @@ describe("playback branch shortcuts", () => {
     expect(context.engine.setUserAnchorEdge).toHaveBeenCalledWith(edge);
     expect(context.jukebox.setData).toHaveBeenCalledWith(nextVizData);
     expect(context.jukebox.setSelectedEdgeActive).toHaveBeenCalledWith(edge);
-    expect(showToast).toHaveBeenCalledWith(context, "Anchor branch set");
+    expect(showToast).toHaveBeenCalledWith("Anchor branch set");
     expect(writeTuningParamsToUrl).toHaveBeenCalledWith("ab=7", true);
 
     const resetEvent = keyEvent("a");
@@ -1208,7 +1216,7 @@ describe("playback branch shortcuts", () => {
 
     expect(resetEvent.preventDefault).toHaveBeenCalledTimes(1);
     expect(context.engine.setUserAnchorEdge).toHaveBeenLastCalledWith(null);
-    expect(showToast).toHaveBeenLastCalledWith(context, "Anchor branch reset");
+    expect(showToast).toHaveBeenLastCalledWith("Anchor branch reset");
     expect(writeTuningParamsToUrl).toHaveBeenLastCalledWith(null, true);
   });
 
@@ -1220,7 +1228,7 @@ describe("playback branch shortcuts", () => {
       dest: { which: 5 },
       deleted: false,
     };
-    context.state.selectedEdge = edge as AppContext["state"]["selectedEdge"];
+    useAppStore.setState({ selectedEdge: edge as AppState["selectedEdge"] });
     const { handlers } = makeHandlers(context);
     const event = keyEvent("A");
 
@@ -1233,12 +1241,14 @@ describe("playback branch shortcuts", () => {
   it("ignores playback shortcuts while track delete confirmation is open", () => {
     useAppStore.setState({ deleteConfirmOpen: true });
     const context = createContext();
-    context.state.selectedEdge = {
+    useAppStore.setState({
+      selectedEdge: {
       id: 9,
       src: { which: 8 },
       dest: { which: 2 },
       deleted: false,
-    } as AppContext["state"]["selectedEdge"];
+    } as AppState["selectedEdge"]
+    });
     const { handlers } = makeHandlers(context);
     const event = keyEvent("Delete");
 
@@ -1251,7 +1261,7 @@ describe("playback branch shortcuts", () => {
 
   it("shows branch stats and enables delete for a selected active branch", () => {
     const context = createContext();
-    context.state.branchStatsEnabled = true;
+    useAppStore.setState({ branchStatsEnabled: true });
     const edge = {
       id: 12,
       src: { which: 8, start: 32 },
@@ -1261,9 +1271,9 @@ describe("playback branch shortcuts", () => {
     };
     const { handlers } = makeHandlers(context);
 
-    handlers.handleEdgeSelect(edge as AppContext["state"]["selectedEdge"]);
+    handlers.handleEdgeSelect(edge as AppState["selectedEdge"]);
 
-    expect(context.state.selectedEdge).toBe(edge);
+    expect(useAppStore.getState().selectedEdge).toBe(edge);
     expect(context.jukebox.setSelectedEdgeActive).toHaveBeenCalledWith(edge);
     expect(useAppStore.getState().branchStats).toEqual({
       title: "Branch #12 stats",
@@ -1278,7 +1288,7 @@ describe("playback branch shortcuts", () => {
 
   it("hides branch stats and disables delete for a deleted selected branch", () => {
     const context = createContext();
-    context.state.branchStatsEnabled = true;
+    useAppStore.setState({ branchStatsEnabled: true });
     const edge = {
       id: 13,
       src: { which: 8, start: 32 },
@@ -1288,7 +1298,7 @@ describe("playback branch shortcuts", () => {
     };
     const { handlers } = makeHandlers(context);
 
-    handlers.handleEdgeSelect(edge as AppContext["state"]["selectedEdge"]);
+    handlers.handleEdgeSelect(edge as AppState["selectedEdge"]);
 
     expect(useAppStore.getState().branchStats?.deleteDisabled).toBe(true);
   });
@@ -1325,9 +1335,9 @@ describe("playback loading", () => {
 
     await loadTrackById(context, deps, "abc123def45");
 
-    expect(context.state.lastTrackId).toBe(jobId);
-    expect(context.state.lastJobId).toBe(jobId);
-    expect(context.state.lastSourceProvider).toBe("youtube");
+    expect(useAppStore.getState().lastTrackId).toBe(jobId);
+    expect(useAppStore.getState().lastJobId).toBe(jobId);
+    expect(useAppStore.getState().lastSourceProvider).toBe("youtube");
     expect(deps.onTrackChange).toHaveBeenCalledWith(jobId);
     expect(deps.updateTrackUrl).toHaveBeenCalledWith(jobId, true);
     expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
@@ -1343,9 +1353,9 @@ describe("playback loading", () => {
 
     await loadTrackById(context, deps, jobId);
 
-    expect(context.state.lastTrackId).toBe(jobId);
-    expect(context.state.lastJobId).toBe(jobId);
-    expect(context.state.lastSourceProvider).toBeNull();
+    expect(useAppStore.getState().lastTrackId).toBe(jobId);
+    expect(useAppStore.getState().lastJobId).toBe(jobId);
+    expect(useAppStore.getState().lastSourceProvider).toBeNull();
     expect(deps.onTrackChange).toHaveBeenCalledWith(jobId);
     expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
       `/api/analysis/${jobId}`,
@@ -1355,7 +1365,8 @@ describe("playback loading", () => {
   it("marks the matching saved playlist item current on preserved route loads", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const context = createContext();
-    context.state.playlist = {
+    useAppStore.setState({
+      playlist: {
       tracks: [
         {
           id: "first",
@@ -1373,21 +1384,23 @@ describe("playback loading", () => {
         },
       ],
       currentIndex: -1,
-    };
+    }
+    });
     const deps = createLoadDeps();
 
     await loadTrackById(context, deps, "soundcloud:sc-123", {
       preservePlaylist: true,
     });
 
-    expect(context.state.playlist.currentIndex).toBe(1);
+    expect(useAppStore.getState().playlist.currentIndex).toBe(1);
     expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
   });
 
   it("appends missing route-loaded tracks to saved playlists", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const context = createContext();
-    context.state.playlist = {
+    useAppStore.setState({
+      playlist: {
       tracks: [
         {
           id: "saved-a",
@@ -1405,15 +1418,16 @@ describe("playback loading", () => {
         },
       ],
       currentIndex: -1,
-    };
+    }
+    });
     const deps = createLoadDeps();
 
     await loadTrackById(context, deps, "outside", {
       preservePlaylist: true,
     });
 
-    expect(context.state.playlist.currentIndex).toBe(2);
-    expect(context.state.playlist.tracks.map((track) => track.id)).toEqual([
+    expect(useAppStore.getState().playlist.currentIndex).toBe(2);
+    expect(useAppStore.getState().playlist.tracks.map((track) => track.id)).toEqual([
       "saved-a",
       "saved-b",
       "outside",
@@ -1425,7 +1439,8 @@ describe("playback loading", () => {
   it("replaces the final saved playlist slot for missing route-loaded tracks when full", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const context = createContext();
-    context.state.playlist = {
+    useAppStore.setState({
+      playlist: {
       tracks: Array.from({ length: 10 }, (_, index) => ({
         id: `saved-${index}`,
         sourceType: "youtube" as const,
@@ -1434,24 +1449,26 @@ describe("playback loading", () => {
         duration: null,
       })),
       currentIndex: -1,
-    };
+    }
+    });
     const deps = createLoadDeps();
 
     await loadTrackById(context, deps, "outside", {
       preservePlaylist: true,
     });
 
-    expect(context.state.playlist.currentIndex).toBe(9);
-    expect(context.state.playlist.tracks).toHaveLength(10);
-    expect(context.state.playlist.tracks[9]?.id).toBe("outside");
-    expect(context.state.playlist.tracks[8]?.id).toBe("saved-8");
+    expect(useAppStore.getState().playlist.currentIndex).toBe(9);
+    expect(useAppStore.getState().playlist.tracks).toHaveLength(10);
+    expect(useAppStore.getState().playlist.tracks[9]?.id).toBe("outside");
+    expect(useAppStore.getState().playlist.tracks[8]?.id).toBe("saved-8");
     expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
   });
 
   it("replaces only the current active playlist item on normal track loads", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const context = createContext();
-    context.state.playlist = {
+    useAppStore.setState({
+      playlist: {
       tracks: [
         {
           id: "current",
@@ -1469,7 +1486,8 @@ describe("playback loading", () => {
         },
       ],
       currentIndex: 0,
-    };
+    }
+    });
     const deps = createLoadDeps();
 
     await loadTrackById(context, deps, "outside", {
@@ -1482,8 +1500,8 @@ describe("playback loading", () => {
       },
     });
 
-    expect(context.state.playlist.currentIndex).toBe(0);
-    expect(context.state.playlist.tracks.map((track) => track.id)).toEqual([
+    expect(useAppStore.getState().playlist.currentIndex).toBe(0);
+    expect(useAppStore.getState().playlist.tracks.map((track) => track.id)).toEqual([
       "outside",
       "next",
     ]);
@@ -1493,7 +1511,8 @@ describe("playback loading", () => {
   it("clears inactive saved playlists on normal track loads", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const context = createContext();
-    context.state.playlist = {
+    useAppStore.setState({
+      playlist: {
       tracks: [
         {
           id: "saved-a",
@@ -1511,19 +1530,20 @@ describe("playback loading", () => {
         },
       ],
       currentIndex: -1,
-    };
+    }
+    });
     const deps = createLoadDeps();
 
     await loadTrackById(context, deps, "outside");
 
-    expect(context.state.playlist.tracks).toEqual([]);
-    expect(context.state.playlist.currentIndex).toBe(-1);
+    expect(useAppStore.getState().playlist.tracks).toEqual([]);
+    expect(useAppStore.getState().playlist.currentIndex).toBe(-1);
     expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
   });
 
   it("returns false on missing audio without calling repair endpoint", async () => {
     const context = createContext();
-    context.state.audioLoadInFlight = true;
+    useAppStore.setState({ audioLoadInFlight: true });
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: false,
       status: 404,
@@ -1532,7 +1552,7 @@ describe("playback loading", () => {
     const loaded = await loadAudioFromJob(context, "upload-job");
 
     expect(loaded).toBe(false);
-    expect(context.state.audioLoadInFlight).toBe(false);
+    expect(useAppStore.getState().audioLoadInFlight).toBe(false);
     const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls;
     expect(calls[0]?.[0]).toBe("/api/audio/upload-job");
     expect(calls.some((call) => String(call[0]).includes("/api/repair/"))).toBe(
@@ -1591,8 +1611,8 @@ describe("playback loading", () => {
     });
     expect(context.player.decode).toHaveBeenCalledWith(audioBuffer);
     expect(context.engine.loadAnalysis).toHaveBeenCalled();
-    expect(context.state.audioLoaded).toBe(true);
-    expect(context.state.analysisLoaded).toBe(true);
+    expect(useAppStore.getState().audioLoaded).toBe(true);
+    expect(useAppStore.getState().analysisLoaded).toBe(true);
     expect(deps.setLoadingProgress).toHaveBeenCalledWith(100, "Calculating pathways");
     expect(deps.setActiveTab).toHaveBeenCalledWith("play");
   });
@@ -1620,7 +1640,7 @@ describe("playback loading", () => {
     const deps = createLoadDeps();
     (fetch as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => {
       // a newer track load cancels this poll while its request is in flight
-      context.state.pollController?.abort();
+      useAppStore.getState().pollController?.abort();
       const err = new Error("signal is aborted without reason");
       err.name = "AbortError";
       throw err;
@@ -1630,7 +1650,7 @@ describe("playback loading", () => {
 
     expect(deps.setAnalysisStatus).not.toHaveBeenCalled();
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
-    expect(context.state.pollController).toBeNull();
+    expect(useAppStore.getState().pollController).toBeNull();
   });
 
   it("surfaces failed analysis status without applying stale analysis", async () => {
@@ -1655,6 +1675,6 @@ describe("playback loading", () => {
       false,
     );
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
-    expect(context.state.analysisLoaded).toBe(false);
+    expect(useAppStore.getState().analysisLoaded).toBe(false);
   });
 });

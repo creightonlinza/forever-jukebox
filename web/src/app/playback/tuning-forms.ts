@@ -141,7 +141,7 @@ export function applyExtrasChanges(
     if (canPrepareSwingMode(context)) {
       prepareSwingMode(context);
     } else {
-      showToast(context, "Swing mode will prepare once audio is loaded", {
+      showToast("Swing mode will prepare once audio is loaded", {
         icon: "hourglass_top",
       });
     }

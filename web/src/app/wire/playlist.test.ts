@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi  } from "vitest";
 import type { AppContext, AppState } from "../context";
 import { emptyPlaylist, type PlaylistTrack } from "../playlist";
 import { createPlaylistHandlers } from "./playlist";
@@ -33,32 +33,19 @@ function track(id: string, sourceType: PlaylistTrack["sourceType"] = "youtube") 
 }
 
 
+const initialStoreState = useAppStore.getState();
+
+beforeEach(() => {
+  useAppStore.setState(initialStoreState, true);
+});
+
 function createDeps(overrides?: Partial<AppState>) {
-  const state = {
-    playlist: emptyPlaylist(),
-    lastTrackId: null,
-    lastJobId: null,
-    lastSourceProvider: null,
-    trackTitle: null,
-    trackArtist: null,
-    trackDurationSec: null,
-    playMode: "jukebox",
-    tuningParams: null,
-    audioLoaded: false,
-    analysisLoaded: false,
-    audioLoadInFlight: false,
-    pollController: null,
-    swingPreparing: false,
-    isRunning: false,
-    toastTimer: null,
-    ...overrides,
-  } as unknown as AppState;
-  const context = {
-    state,
-  } as unknown as AppContext;
+  if (overrides) {
+    useAppStore.setState(overrides);
+  }
+  const context = {} as unknown as AppContext;
   return {
     context,
-    state,
     showToast: vi.fn(),
     loadTrackById: vi.fn(async () => true),
     loadTrackByJobId: vi.fn(async () => true),
@@ -82,25 +69,25 @@ describe("playlist handlers", () => {
     const handlers = createPlaylistHandlers(deps);
 
     handlers.handleAddToPlaylist(track("next"));
-    expect(deps.state.playlist.tracks.map((item) => item.id)).toEqual([
+    expect(useAppStore.getState().playlist.tracks.map((item) => item.id)).toEqual([
       "current",
       "next",
     ]);
 
     handlers.handleAddToPlaylist(track("next"));
     expect(deps.showToast).toHaveBeenCalledWith(
-      deps.context,
-      "Already in playlist",
+            "Already in playlist",
     );
 
-    deps.state.playlist = {
+    useAppStore.setState({
+      playlist: {
       tracks: Array.from({ length: 10 }, (_, index) => track(`${index}`)),
       currentIndex: 0,
-    };
+    }
+    });
     handlers.handleAddToPlaylist(track("extra"));
     expect(deps.showToast).toHaveBeenCalledWith(
-      deps.context,
-      "Playlist is full.",
+            "Playlist is full.",
     );
   });
 
@@ -111,8 +98,7 @@ describe("playlist handlers", () => {
     handlers.handleAddToPlaylist(track("next"));
 
     expect(deps.showToast).toHaveBeenCalledWith(
-      deps.context,
-      "Track cannot be added to playlist.",
+            "Track cannot be added to playlist.",
     );
   });
 
@@ -128,7 +114,7 @@ describe("playlist handlers", () => {
 
     handlers.handleAddToPlaylist(track("next"));
 
-    expect(deps.state.playlist.tracks[0]).toMatchObject({
+    expect(useAppStore.getState().playlist.tracks[0]).toMatchObject({
       id: jobId,
       sourceType: "upload",
     });
@@ -144,7 +130,7 @@ describe("playlist handlers", () => {
 
     handlers.handleAddToPlaylist(track("next"));
 
-    expect(deps.state.playlist.tracks[0]).toMatchObject({
+    expect(useAppStore.getState().playlist.tracks[0]).toMatchObject({
       id: "source-1",
       sourceType: "soundcloud",
     });
@@ -161,8 +147,7 @@ describe("playlist handlers", () => {
     handlers.handleAddToPlaylist({ ...track(""), id: "" });
 
     expect(deps.showToast).toHaveBeenCalledWith(
-      deps.context,
-      "Track cannot be added to playlist.",
+            "Track cannot be added to playlist.",
     );
   });
 
@@ -174,7 +159,7 @@ describe("playlist handlers", () => {
 
     handlers.handleNormalTrackSelected(track("outside"));
 
-    expect(deps.state.playlist).toEqual(emptyPlaylist());
+    expect(useAppStore.getState().playlist).toEqual(emptyPlaylist());
   });
 
   it("replaces the active playlist item on normal track selection", () => {
@@ -185,8 +170,8 @@ describe("playlist handlers", () => {
 
     handlers.handleNormalTrackSelected(track("outside"));
 
-    expect(deps.state.playlist.currentIndex).toBe(1);
-    expect(deps.state.playlist.tracks.map((item) => item.id)).toEqual([
+    expect(useAppStore.getState().playlist.currentIndex).toBe(1);
+    expect(useAppStore.getState().playlist.tracks.map((item) => item.id)).toEqual([
       "a",
       "outside",
     ]);
@@ -206,7 +191,7 @@ describe("playlist handlers", () => {
       selectedTrack: track("b"),
     });
 
-    deps.state.audioLoadInFlight = true;
+    useAppStore.setState({ audioLoadInFlight: true });
     await handlers.loadPlaylistIndex(0);
     expect(deps.loadTrackById).toHaveBeenCalledTimes(1);
   });
@@ -222,7 +207,7 @@ describe("playlist handlers", () => {
     const loaded = await handlers.loadPlaylistIndex(1, { playAfterLoad: true });
 
     expect(loaded).toBe(false);
-    expect(deps.state.playlist.currentIndex).toBe(0);
+    expect(useAppStore.getState().playlist.currentIndex).toBe(0);
     expect(deps.togglePlayback).not.toHaveBeenCalled();
   });
 
@@ -326,7 +311,7 @@ describe("playlist handlers", () => {
 
     handlers.handleClearPlaylist();
 
-    expect(deps.state.playlist).toEqual(emptyPlaylist());
+    expect(useAppStore.getState().playlist).toEqual(emptyPlaylist());
     expect(useAppStore.getState().playlistModalOpen).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useAppStore } from "../store";
 import type { AnalysisComplete } from "../api";
-import type { AppContext, AppState } from "../context";
+import type { AppContext } from "../context";
 import {
   addFavorite,
   findCurrentFavorite,
@@ -64,9 +65,12 @@ function createFakeElement(): FakeElement {
   };
 }
 
+const initialStoreState = useAppStore.getState();
+
 function createHarness(favorites: FavoriteTrack[]) {
   const context = {} as AppContext;
-  const state = {
+  useAppStore.setState(initialStoreState, true);
+  useAppStore.setState({
     favorites,
     lastTrackId: "a3f3c0dc73c6476c9db95c227f9206f2",
     lastJobId: "a3f3c0dc73c6476c9db95c227f9206f2",
@@ -75,14 +79,10 @@ function createHarness(favorites: FavoriteTrack[]) {
     trackTitle: "Song",
     trackArtist: "Artist",
     trackDurationSec: 123,
-    playMode: "jukebox",
-    appConfig: null,
-    favoritesSyncCode: null,
-  } as unknown as AppState;
+  });
   const saveFavorites = vi.fn();
   const handlers = createFavoritesHandlers({
     context,
-    state,
     showToast: vi.fn(),
     addFavorite,
     removeFavorite,
@@ -101,7 +101,7 @@ function createHarness(favorites: FavoriteTrack[]) {
     syncTuningParamsState: vi.fn(() => null),
     setPlayMode: vi.fn(),
   });
-  return { handlers, saveFavorites, state };
+  return { handlers, saveFavorites };
 }
 
 describe("createFavoritesHandlers", () => {
@@ -119,7 +119,7 @@ describe("createFavoritesHandlers", () => {
   });
 
   it("treats a legacy YouTube favorite as active and migrates it to the job id", () => {
-    const { handlers, saveFavorites, state } = createHarness([
+    const { handlers, saveFavorites } = createHarness([
       {
         uniqueSongId: "abc123def45",
         sourceType: "youtube",
@@ -137,18 +137,18 @@ describe("createFavoritesHandlers", () => {
     } as AnalysisComplete;
 
     expect(
-      findCurrentFavorite(state.favorites, {
-        lastTrackId: state.lastTrackId,
-        lastJobId: state.lastJobId,
-        lastSourceId: state.lastSourceId,
-        lastSourceProvider: state.lastSourceProvider,
+      findCurrentFavorite(useAppStore.getState().favorites, {
+        lastTrackId: useAppStore.getState().lastTrackId,
+        lastJobId: useAppStore.getState().lastJobId,
+        lastSourceId: useAppStore.getState().lastSourceId,
+        lastSourceProvider: useAppStore.getState().lastSourceProvider,
       }),
     ).not.toBeNull();
     handlers.maybeAutoFavoriteUserSupplied(response);
 
-    expect(state.favorites).toHaveLength(1);
-    expect(state.favorites[0].uniqueSongId).toBe(response.id);
-    expect(state.favorites[0].sourceType).toBe("youtube");
-    expect(saveFavorites).toHaveBeenCalledWith(state.favorites);
+    expect(useAppStore.getState().favorites).toHaveLength(1);
+    expect(useAppStore.getState().favorites[0].uniqueSongId).toBe(response.id);
+    expect(useAppStore.getState().favorites[0].sourceType).toBe("youtube");
+    expect(saveFavorites).toHaveBeenCalledWith(useAppStore.getState().favorites);
   });
 });

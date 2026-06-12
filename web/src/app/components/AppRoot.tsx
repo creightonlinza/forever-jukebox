@@ -39,25 +39,27 @@ function useRouteSync(bridge: AppBridge) {
 function useTabEffects(bridge: AppBridge) {
   const activeTab = useAppStore((s) => s.activeTabId);
   useEffect(() => {
-    const { state, jukebox, engine } = bridge.context;
+    const { jukebox, engine } = bridge.context;
     useAppStore
       .getState()
-      .setPlayTabPulsing(state.isRunning && activeTab !== "play");
+      .setPlayTabPulsing(useAppStore.getState().isRunning && activeTab !== "play");
     if (activeTab === "play") {
       jukebox.resizeActive();
     } else if (activeTab === "top") {
-      if (state.topSongsRefreshTimer !== null) {
-        window.clearTimeout(state.topSongsRefreshTimer);
+      const { topSongsRefreshTimer } = useAppStore.getState();
+      if (topSongsRefreshTimer !== null) {
+        window.clearTimeout(topSongsRefreshTimer);
       }
-      state.topSongsRefreshTimer = window.setTimeout(() => {
-        state.topSongsRefreshTimer = null;
+      const nextTimer = window.setTimeout(() => {
+        useAppStore.setState({ topSongsRefreshTimer: null });
       }, TOP_SONGS_REFRESH_MS);
-    } else if (state.shiftBranching) {
-      state.shiftBranching = false;
+      useAppStore.setState({ topSongsRefreshTimer: nextTimer });
+    } else if (useAppStore.getState().shiftBranching) {
+      useAppStore.setState({ shiftBranching: false });
       engine.setForceBranch(false);
     }
-    if (activeTab !== "play" && state.selectedEdge) {
-      state.selectedEdge = null;
+    if (activeTab !== "play" && useAppStore.getState().selectedEdge) {
+      useAppStore.setState({ selectedEdge: null });
       jukebox.setSelectedEdge(null);
     }
   }, [activeTab, bridge]);
@@ -113,7 +115,7 @@ export function AppRoot({ bridge }: { bridge: AppBridge }) {
       <TopTracksPanel bridge={bridge} />
       <SearchPanel bridge={bridge} />
       <ListenPanel bridge={bridge} />
-      <FaqPanel bridge={bridge} />
+      <FaqPanel />
       <Footer />
       <Toast />
       <TuningModal bridge={bridge} />

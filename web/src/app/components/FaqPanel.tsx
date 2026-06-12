@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import type { AppBridge } from "../bridge";
 import { clearCachedAudio, getCachedAudioBytes } from "../cache";
 import { useAppStore } from "../store";
 import { navigateToFaqSubtab, type FaqSubtabId } from "../tabs";
@@ -12,7 +11,7 @@ function formatMegabytes(bytes: number) {
   return rounded.endsWith(".0") ? rounded.slice(0, -2) : rounded;
 }
 
-function CachedAudioClearButton({ bridge }: { bridge: Pick<AppBridge, "context"> }) {
+function CachedAudioClearButton() {
   const [label, setLabel] = useState("Clear 0MB");
   const [disabled, setDisabled] = useState(false);
   const location = useLocation();
@@ -46,10 +45,10 @@ function CachedAudioClearButton({ bridge }: { bridge: Pick<AppBridge, "context">
     setLabel("Clearing...");
     try {
       await clearCachedAudio();
-      showToast(bridge.context, "Cached audio cleared.");
+      showToast("Cached audio cleared.");
     } catch (err) {
       console.warn(`Cache clear failed: ${String(err)}`);
-      showToast(bridge.context, "Unable to clear cached audio.");
+      showToast("Unable to clear cached audio.");
     } finally {
       void refresh();
     }
@@ -67,7 +66,7 @@ function CachedAudioClearButton({ bridge }: { bridge: Pick<AppBridge, "context">
   );
 }
 
-export function FaqPanel({ bridge }: { bridge: Pick<AppBridge, "context"> }) {
+export function FaqPanel() {
   const activeTab = useAppStore((s) => s.activeTabId);
   const location = useLocation();
   const subtab: FaqSubtabId = location.pathname.startsWith("/whats-new")
@@ -248,7 +247,7 @@ export function FaqPanel({ bridge }: { bridge: Pick<AppBridge, "context"> }) {
         </p>
 
         <h4>CACHED AUDIO</h4>
-        <CachedAudioClearButton bridge={bridge} />
+        <CachedAudioClearButton />
       </div>
       <div
         className={subtab === "whats-new" ? "faq faq-updates" : "faq faq-updates hidden"}

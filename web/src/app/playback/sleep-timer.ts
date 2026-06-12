@@ -1,4 +1,4 @@
-import type { AppContext } from "../context";
+import type { AppContext, SleepTimerState } from "../context";
 import { useAppStore } from "../store";
 import {
   backgroundClearTimeout,
@@ -22,7 +22,7 @@ export const SLEEP_TIMER_OPTIONS: SleepTimerOption[] = [
 
 const sleepTimerListeners = new WeakMap<AppContext, Set<() => void>>();
 
-export function isSleepTimerActive(state: AppContext["state"]["sleepTimer"]) {
+export function isSleepTimerActive(state: SleepTimerState) {
   return state.endTimeMs !== null && state.remainingMs > 0;
 }
 

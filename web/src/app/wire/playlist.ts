@@ -19,12 +19,7 @@ import type { ToastOptions } from "../ui";
 
 type PlaylistDeps = {
   context: AppContext;
-  state: AppState;
-  showToast: (
-    context: AppContext,
-    message: string,
-    options?: ToastOptions,
-  ) => void;
+  showToast: (message: string, options?: ToastOptions) => void;
   loadTrackById: (
     trackId: string,
     options?: {
@@ -53,7 +48,6 @@ export type PlaylistHandlers = ReturnType<typeof createPlaylistHandlers>;
 export function createPlaylistHandlers(deps: PlaylistDeps) {
   const {
     context,
-    state,
     showToast,
     loadTrackById,
     loadTrackByJobId,
@@ -72,33 +66,34 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     return {
       id,
       sourceType,
-      title: state.trackTitle || "Untitled",
-      artist: state.trackArtist || "",
-      duration: state.trackDurationSec,
+      title: useAppStore.getState().trackTitle || "Untitled",
+      artist: useAppStore.getState().trackArtist || "",
+      duration: useAppStore.getState().trackDurationSec,
       tuningParams,
     };
   }
 
   function getCurrentPlaylistTrackId() {
-    const rawId = state.lastTrackId ?? state.lastJobId;
+    const rawId = useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId;
     if (!rawId) {
       return null;
     }
-    const provider = state.lastSourceProvider;
-    if ((provider === "soundcloud" || provider === "bandcamp") && state.lastTrackId) {
+    const { lastSourceProvider: provider, lastTrackId } =
+      useAppStore.getState();
+    if ((provider === "soundcloud" || provider === "bandcamp") && lastTrackId) {
       const prefix = `${provider}:`;
-      return state.lastTrackId.startsWith(prefix)
-        ? state.lastTrackId.slice(prefix.length)
-        : state.lastTrackId;
+      return lastTrackId.startsWith(prefix)
+        ? lastTrackId.slice(prefix.length)
+        : lastTrackId;
     }
     if (provider === "upload") {
-      return state.lastJobId ?? rawId;
+      return useAppStore.getState().lastJobId ?? rawId;
     }
     return rawId;
   }
 
   function getCurrentPlaylistSourceType(): PlaylistTrack["sourceType"] {
-    const provider = state.lastSourceProvider;
+    const provider = useAppStore.getState().lastSourceProvider;
     if (
       provider === "youtube" ||
       provider === "soundcloud" ||
@@ -111,35 +106,35 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
   }
 
   function handleNormalTrackSelected(track: PlaylistTrack) {
-    if (isPlaylistActive(state.playlist)) {
-      updatePlaylist(replaceActivePlaylistTrack(state.playlist, track));
+    if (isPlaylistActive(useAppStore.getState().playlist)) {
+      updatePlaylist(replaceActivePlaylistTrack(useAppStore.getState().playlist, track));
       return;
     }
-    if (hasInactiveSavedPlaylist(state.playlist)) {
+    if (hasInactiveSavedPlaylist(useAppStore.getState().playlist)) {
       updatePlaylist(emptyPlaylist());
     }
   }
 
   function handleAddToPlaylist(track: PlaylistTrack) {
     const result = addPlaylistTrack(
-      state.playlist,
+      useAppStore.getState().playlist,
       getCurrentPlaylistTrack(),
       track,
     );
     if (result.status === "duplicate") {
-      showToast(context, "Already in playlist");
+      showToast("Already in playlist");
       return;
     }
     if (result.status === "full") {
-      showToast(context, "Playlist is full.");
+      showToast("Playlist is full.");
       return;
     }
     if (result.status === "invalid") {
-      showToast(context, "Track cannot be added to playlist.");
+      showToast("Track cannot be added to playlist.");
       return;
     }
     updatePlaylist(result.playlist);
-    showToast(context, "Added to playlist", { icon: "playlist_add_check" });
+    showToast("Added to playlist", { icon: "playlist_add_check" });
   }
 
   function handleClosePlaylist() {
@@ -152,28 +147,28 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
   }
 
   function handlePlaylistPrevious() {
-    if (!canMovePlaylistPrevious(state.playlist) || isPlaylistLoadBlocked()) {
+    if (!canMovePlaylistPrevious(useAppStore.getState().playlist) || isPlaylistLoadBlocked()) {
       return;
     }
-    void loadPlaylistIndex(state.playlist.currentIndex - 1, {
-      playAfterLoad: state.isRunning,
+    void loadPlaylistIndex(useAppStore.getState().playlist.currentIndex - 1, {
+      playAfterLoad: useAppStore.getState().isRunning,
     });
   }
 
   function handlePlaylistNext() {
-    if (!canMovePlaylistNext(state.playlist) || isPlaylistLoadBlocked()) {
+    if (!canMovePlaylistNext(useAppStore.getState().playlist) || isPlaylistLoadBlocked()) {
       return;
     }
-    void loadPlaylistIndex(state.playlist.currentIndex + 1, {
-      playAfterLoad: state.isRunning,
+    void loadPlaylistIndex(useAppStore.getState().playlist.currentIndex + 1, {
+      playAfterLoad: useAppStore.getState().isRunning,
     });
   }
 
   async function advanceAutocanonizerOnEnded() {
-    if (!canMovePlaylistNext(state.playlist) || isPlaylistLoadBlocked()) {
+    if (!canMovePlaylistNext(useAppStore.getState().playlist) || isPlaylistLoadBlocked()) {
       return false;
     }
-    return await loadPlaylistIndex(state.playlist.currentIndex + 1, {
+    return await loadPlaylistIndex(useAppStore.getState().playlist.currentIndex + 1, {
       playAfterLoad: true,
     });
   }
@@ -182,17 +177,17 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     index: number,
     options?: { playAfterLoad?: boolean; closeModal?: boolean },
   ): Promise<boolean> {
-    const track = state.playlist.tracks[index];
-    if (index === state.playlist.currentIndex || !track || isPlaylistLoadBlocked()) {
+    const track = useAppStore.getState().playlist.tracks[index];
+    if (index === useAppStore.getState().playlist.currentIndex || !track || isPlaylistLoadBlocked()) {
       return false;
     }
     if (options?.closeModal) {
       handleClosePlaylist();
     }
-    const previousPlaylist = state.playlist;
+    const previousPlaylist = useAppStore.getState().playlist;
     playlistLoadInFlight = true;
     useAppStore.setState({ playlistLoadBusy: true });
-    updatePlaylist(activatePlaylistTrack(state.playlist, index));
+    updatePlaylist(activatePlaylistTrack(useAppStore.getState().playlist, index));
     applyTrackTuning(track);
     navigateToTabWithState("play", { trackId: getPlaylistListenId(track) });
     let loadStarted = false;
@@ -220,7 +215,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       updatePlaylist(previousPlaylist);
       return false;
     }
-    if (options?.playAfterLoad && !state.isRunning) {
+    if (options?.playAfterLoad && !useAppStore.getState().isRunning) {
       togglePlayback(context);
     }
     return true;
@@ -229,7 +224,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
 
 
   function updatePlaylist(nextPlaylist: AppState["playlist"]) {
-    state.playlist = nextPlaylist;
+    useAppStore.setState({ playlist: nextPlaylist });
     savePlaylist(nextPlaylist);
   }
 
@@ -239,26 +234,28 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
 
   function isPlaylistLoadBlocked() {
     return (
-      state.audioLoadInFlight ||
-      state.pollController !== null ||
+      useAppStore.getState().audioLoadInFlight ||
+      useAppStore.getState().pollController !== null ||
       playlistLoadInFlight ||
-      state.swingPreparing
+      useAppStore.getState().swingPreparing
     );
   }
 
   function applyTrackTuning(track: PlaylistTrack) {
-    state.tuningParams = state.playMode === "jukebox"
+    useAppStore.setState({
+      tuningParams: useAppStore.getState().playMode === "jukebox"
       ? (track.tuningParams ?? null)
-      : null;
-    writeTuningParamsToUrl(state.tuningParams, true);
+      : null
+    });
+    writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   }
 
   function getCurrentTuningParams() {
-    if (state.playMode !== "jukebox") {
+    if (useAppStore.getState().playMode !== "jukebox") {
       return null;
     }
     if (!context.engine || !context.defaultConfig) {
-      return state.tuningParams;
+      return useAppStore.getState().tuningParams;
     }
     return syncTuningParamsState(context);
   }
@@ -287,7 +284,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     if (!Number.isInteger(index)) {
       return;
     }
-    updatePlaylist(removePlaylistTrack(state.playlist, index));
+    updatePlaylist(removePlaylistTrack(useAppStore.getState().playlist, index));
   }
 
   function selectPlaylistIndex(index: number) {
@@ -295,8 +292,8 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       return;
     }
     if (
-      index === state.playlist.currentIndex ||
-      !state.playlist.tracks[index] ||
+      index === useAppStore.getState().playlist.currentIndex ||
+      !useAppStore.getState().playlist.tracks[index] ||
       isPlaylistLoadBlocked()
     ) {
       return;

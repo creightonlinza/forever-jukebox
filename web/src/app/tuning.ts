@@ -1,4 +1,5 @@
 import type { AppContext } from "./context";
+import { useAppStore } from "./store";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
@@ -142,7 +143,7 @@ export function applyTuningParamsToEngine(
   context.engine.updateConfig(nextConfig);
   const audioMode = parseAudioMode(params.get("am"));
   if (audioMode) {
-    context.state.jukeboxAudioMode = audioMode;
+    useAppStore.setState({ jukeboxAudioMode: audioMode });
     if (audioMode === "cowbell") {
       context.cowbellOverlay.enable();
     } else {
@@ -205,7 +206,7 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
   }
   const deletedIds = graph
     ? graph.allEdges.filter((edge) => edge.deleted).map((edge) => edge.id)
-    : context.state.deletedEdgeIds;
+    : useAppStore.getState().deletedEdgeIds;
   if (deletedIds.length > 0) {
     params.set("d", deletedIds.join(","));
   }
@@ -213,8 +214,8 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
   if (anchorBranchId !== null) {
     params.set("ab", `${anchorBranchId}`);
   }
-  if (context.state.jukeboxAudioMode !== "off") {
-    params.set("am", context.state.jukeboxAudioMode);
+  if (useAppStore.getState().jukeboxAudioMode !== "off") {
+    params.set("am", useAppStore.getState().jukeboxAudioMode);
   }
   return params;
 }
@@ -222,8 +223,8 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
 export function syncTuningParamsState(context: AppContext): string | null {
   const params = getTuningParamsFromEngine(context);
   const result = serializeParams(params);
-  context.state.tuningParams = result.length > 0 ? result : null;
-  return context.state.tuningParams;
+  useAppStore.setState({ tuningParams: result.length > 0 ? result : null });
+  return useAppStore.getState().tuningParams;
 }
 
 export function writeTuningParamsToUrl(

@@ -297,19 +297,3 @@ export const useAppStore = create<AppStoreState>()((...args) => ({
   ...createLibrarySlice(...args),
   ...createConfigSlice(...args),
 }));
-
-// Legacy bridge: context.state is this proxy, so the untouched `state.x = y`
-// mutations in playback.ts and wire/* flow through the store (and notify
-// subscribers), and reads always see the latest snapshot. Audited: no legacy
-// code mutates nested objects/arrays in place or enumerates state keys.
-export const legacyAppState: AppState = new Proxy({} as AppState, {
-  get(_target, prop) {
-    return (useAppStore.getState() as unknown as Record<PropertyKey, unknown>)[
-      prop
-    ];
-  },
-  set(_target, prop, value) {
-    useAppStore.setState({ [prop]: value } as Partial<AppStoreState>);
-    return true;
-  },
-});

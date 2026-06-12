@@ -1,4 +1,4 @@
-import type { AppContext, AppState, TabId } from "../context";
+import type { AppContext, TabId } from "../context";
 import {
   favoriteToPlaylistTrack,
   findCurrentFavorite,
@@ -12,8 +12,7 @@ import type { PlaylistTrack } from "../playlist";
 
 type FavoritesDeps = {
   context: AppContext;
-  state: AppState;
-  showToast: (context: AppContext, message: string, options?: ToastOptions) => void;
+  showToast: (message: string, options?: ToastOptions) => void;
   addFavorite: (
     items: FavoriteTrack[],
     track: FavoriteTrack,
@@ -57,7 +56,6 @@ export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
 export function createFavoritesHandlers(deps: FavoritesDeps) {
   const {
     context,
-    state,
     showToast,
     addFavorite,
     removeFavorite,
@@ -87,10 +85,10 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   let syncIdleWaiters: Array<() => void> = [];
 
   async function hydrateFavoritesFromSync() {
-    if (!state.appConfig?.allow_favorites_sync) {
+    if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
-    const code = state.favoritesSyncCode;
+    const code = useAppStore.getState().favoritesSyncCode;
     if (!code) {
       return;
     }
@@ -98,15 +96,15 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       await refreshFavoritesFromSync();
     } catch (err) {
       console.warn(`Favorites sync hydrate failed: ${String(err)}`);
-      showToast(context, "Favorites sync failed.");
+      showToast("Favorites sync failed.");
     }
   }
 
   async function refreshFavoritesFromSync() {
-    if (!state.appConfig?.allow_favorites_sync) {
+    if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
-    const code = state.favoritesSyncCode;
+    const code = useAppStore.getState().favoritesSyncCode;
     if (!code) {
       return;
     }
@@ -114,10 +112,10 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       const items = await fetchFavoritesSync(code);
       const favorites = normalizeFavoritesFromSync(items);
       updateFavorites(favorites, { sync: false });
-      showToast(context, "Favorites refreshed.", { icon: "cloud_done" });
+      showToast("Favorites refreshed.", { icon: "cloud_done" });
     } catch (err) {
       console.warn(`Favorites sync refresh failed: ${String(err)}`);
-      showToast(context, "Favorites sync failed.");
+      showToast("Favorites sync failed.");
     }
   }
 
@@ -133,19 +131,19 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       return "cancelled";
     }
     const normalizedCode = code.trim().toLowerCase();
-    state.favoritesSyncCode = normalizedCode;
+    useAppStore.setState({ favoritesSyncCode: normalizedCode });
     saveFavoritesSyncCode(normalizedCode);
     updateFavorites(favorites, { sync: false });
     return "replaced";
   }
 
   async function createSyncCode(): Promise<string> {
-    const response = await createFavoritesSync(state.favorites);
+    const response = await createFavoritesSync(useAppStore.getState().favorites);
     const code = response.code;
     if (!code) {
       throw new Error("Missing sync code");
     }
-    state.favoritesSyncCode = code;
+    useAppStore.setState({ favoritesSyncCode: code });
     saveFavoritesSyncCode(code);
     if (Array.isArray(response.favorites)) {
       const normalized = normalizeFavoritesFromSync(response.favorites);
@@ -198,9 +196,9 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     nextFavorites: FavoriteTrack[],
     options?: { sync?: boolean },
   ) {
-    const prevFavorites = state.favorites;
+    const prevFavorites = useAppStore.getState().favorites;
     const cappedFavorites = sortFavorites(nextFavorites).slice(0, maxFavorites());
-    state.favorites = cappedFavorites;
+    useAppStore.setState({ favorites: cappedFavorites });
     saveFavorites(cappedFavorites);
     if (options?.sync === false) {
       return;
@@ -210,10 +208,10 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function scheduleFavoritesSync(delta: FavoritesDelta) {
-    if (!state.appConfig?.allow_favorites_sync) {
+    if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
-    if (!state.favoritesSyncCode) {
+    if (!useAppStore.getState().favoritesSyncCode) {
       return;
     }
     if (syncUpdateInFlight) {
@@ -226,7 +224,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   async function syncFavoritesToBackend(delta: FavoritesDelta) {
     syncUpdateInFlight = true;
     try {
-      const code = state.favoritesSyncCode;
+      const code = useAppStore.getState().favoritesSyncCode;
       if (!code) {
         return;
       }
@@ -240,7 +238,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       }
     } catch (err) {
       console.warn(`Favorites sync update failed: ${String(err)}`);
-      showToast(context, "Favorites sync failed.");
+      showToast("Favorites sync failed.");
     } finally {
       syncUpdateInFlight = false;
       if (pendingSyncDelta) {
@@ -263,7 +261,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function waitForFavoritesSyncIdle() {
-    if (!state.appConfig?.allow_favorites_sync || !state.favoritesSyncCode) {
+    if (!useAppStore.getState().appConfig?.allow_favorites_sync || !useAppStore.getState().favoritesSyncCode) {
       return Promise.resolve();
     }
     if (!syncUpdateInFlight && !pendingSyncDelta) {
@@ -275,7 +273,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function shouldShowFavoriteToggleLoading() {
-    return Boolean(state.appConfig?.allow_favorites_sync && state.favoritesSyncCode);
+    return Boolean(useAppStore.getState().appConfig?.allow_favorites_sync && useAppStore.getState().favoritesSyncCode);
   }
 
   function computeFavoritesDelta(
@@ -318,20 +316,20 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function getCurrentFavoriteId() {
-    return state.lastTrackId ?? state.lastJobId;
+    return useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId;
   }
 
   function getCurrentFavoriteMatch() {
-    return findCurrentFavorite(state.favorites, {
-      lastTrackId: state.lastTrackId,
-      lastJobId: state.lastJobId,
-      lastSourceId: state.lastSourceId,
-      lastSourceProvider: state.lastSourceProvider,
+    return findCurrentFavorite(useAppStore.getState().favorites, {
+      lastTrackId: useAppStore.getState().lastTrackId,
+      lastJobId: useAppStore.getState().lastJobId,
+      lastSourceId: useAppStore.getState().lastSourceId,
+      lastSourceProvider: useAppStore.getState().lastSourceProvider,
     });
   }
 
   function getCurrentFavoriteSourceType(): FavoriteTrack["sourceType"] {
-    const sourceProvider = state.lastSourceProvider;
+    const sourceProvider = useAppStore.getState().lastSourceProvider;
     if (
       sourceProvider === "upload" ||
       sourceProvider === "youtube" ||
@@ -340,14 +338,14 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     ) {
       return sourceProvider;
     }
-    if (!state.lastTrackId) {
+    if (!useAppStore.getState().lastTrackId) {
       return "upload";
     }
     return "youtube";
   }
 
   function getFavoriteTuningParams() {
-    if (state.playMode !== "jukebox") {
+    if (useAppStore.getState().playMode !== "jukebox") {
       return null;
     }
     return syncTuningParamsState(context);
@@ -369,25 +367,25 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         ? response.source_provider
         : null;
     const favoriteId = response.id;
-    if (!favoriteId || state.pendingAutoFavoriteId !== favoriteId) {
+    if (!favoriteId || useAppStore.getState().pendingAutoFavoriteId !== favoriteId) {
       return;
     }
-    state.pendingAutoFavoriteId = null;
-    if (isFavorite(state.favorites, favoriteId)) {
+    useAppStore.setState({ pendingAutoFavoriteId: null });
+    if (isFavorite(useAppStore.getState().favorites, favoriteId)) {
       return;
     }
-    const title = state.trackTitle || "Untitled";
-    const artist = state.trackArtist || "";
+    const title = useAppStore.getState().trackTitle || "Untitled";
+    const artist = useAppStore.getState().trackArtist || "";
     const inferredSourceType = provider ?? sourceTypeFromAnalysis(response) ?? "upload";
     const track: FavoriteTrack = {
       uniqueSongId: favoriteId,
       title,
       artist,
-      duration: state.trackDurationSec,
+      duration: useAppStore.getState().trackDurationSec,
       sourceType: inferredSourceType,
       tuningParams: getFavoriteTuningParams(),
     };
-    const result = addFavorite(state.favorites, track);
+    const result = addFavorite(useAppStore.getState().favorites, track);
     if (result.status === "added") {
       updateFavorites(result.favorites);
     }
@@ -399,7 +397,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (!jobId || !legacyId) {
       return;
     }
-    const legacyFavorite = state.favorites.find(
+    const legacyFavorite = useAppStore.getState().favorites.find(
       (item) =>
         item.uniqueSongId === legacyId &&
         (item.sourceType ?? "youtube") === "youtube",
@@ -407,12 +405,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (!legacyFavorite) {
       return;
     }
-    const existingJobFavorite = state.favorites.find(
+    const existingJobFavorite = useAppStore.getState().favorites.find(
       (item) => item.uniqueSongId === jobId,
     );
     if (existingJobFavorite) {
       updateFavorites(
-        state.favorites.filter((item) => item.uniqueSongId !== legacyId),
+        useAppStore.getState().favorites.filter((item) => item.uniqueSongId !== legacyId),
       );
       return;
     }
@@ -420,12 +418,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       ...legacyFavorite,
       uniqueSongId: jobId,
       sourceType: sourceTypeFromAnalysis(response) ?? legacyFavorite.sourceType ?? "youtube",
-      title: state.trackTitle || legacyFavorite.title || "Untitled",
-      artist: state.trackArtist || legacyFavorite.artist || "",
-      duration: state.trackDurationSec ?? legacyFavorite.duration,
+      title: useAppStore.getState().trackTitle || legacyFavorite.title || "Untitled",
+      artist: useAppStore.getState().trackArtist || legacyFavorite.artist || "",
+      duration: useAppStore.getState().trackDurationSec ?? legacyFavorite.duration,
     };
     updateFavorites(
-      state.favorites.map((item) =>
+      useAppStore.getState().favorites.map((item) =>
         item.uniqueSongId === legacyId ? migrated : item,
       ),
     );
@@ -466,17 +464,17 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     favoriteId: string,
     sourceTypeRaw: string,
   ) {
-    const favorite = state.favorites.find(
+    const favorite = useAppStore.getState().favorites.find(
       (item) => item.uniqueSongId === favoriteId,
     );
     const desiredTuningParams = favorite?.tuningParams ?? null;
-    if (desiredTuningParams && state.playMode !== "jukebox") {
+    if (desiredTuningParams && useAppStore.getState().playMode !== "jukebox") {
       setPlayMode("jukebox");
     }
-    state.tuningParams =
-      state.playMode === "jukebox" ? desiredTuningParams : null;
-    if (state.playMode === "jukebox") {
-      writeTuningParamsToUrl(state.tuningParams, true);
+    useAppStore.getState().tuningParams =
+      useAppStore.getState().playMode === "jukebox" ? desiredTuningParams : null;
+    if (useAppStore.getState().playMode === "jukebox") {
+      writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
     }
     const sourceType: FavoriteTrack["sourceType"] =
       sourceTypeRaw === "upload" ||
@@ -497,7 +495,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function removeFavoriteWithToast(favoriteId: string) {
-    updateFavorites(removeFavorite(state.favorites, favoriteId));
+    updateFavorites(removeFavorite(useAppStore.getState().favorites, favoriteId));
     showFavoriteToast("Removed from Favorites");
   }
 
@@ -516,7 +514,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         setFavoriteToggleLoading(true);
       }
       try {
-        updateFavorites(removeFavorite(state.favorites, currentFavorite.uniqueSongId));
+        updateFavorites(removeFavorite(useAppStore.getState().favorites, currentFavorite.uniqueSongId));
         showFavoriteToast("Removed from Favorites");
         if (showLoading) {
           await waitForFavoritesSyncIdle();
@@ -528,19 +526,19 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       }
       return;
     }
-    const title = state.trackTitle || "Untitled";
-    const artist = state.trackArtist || "";
+    const title = useAppStore.getState().trackTitle || "Untitled";
+    const artist = useAppStore.getState().trackArtist || "";
     const track: FavoriteTrack = {
       uniqueSongId: currentId,
       title,
       artist,
-      duration: state.trackDurationSec,
+      duration: useAppStore.getState().trackDurationSec,
       sourceType: getCurrentFavoriteSourceType(),
       tuningParams: getFavoriteTuningParams(),
     };
-    const result = addFavorite(state.favorites, track);
+    const result = addFavorite(useAppStore.getState().favorites, track);
     if (result.status === "limit") {
-      showToast(context, `Maximum favorites reached (${maxFavorites()}).`);
+      showToast(`Maximum favorites reached (${maxFavorites()}).`);
       return;
     }
     const showLoading = shouldShowFavoriteToggleLoading();
@@ -552,7 +550,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       if (result.status === "added") {
         showFavoriteToast("Added to Favorites");
       } else {
-        showToast(context, "Favorited");
+        showToast("Favorited");
       }
       if (showLoading) {
         await waitForFavoritesSyncIdle();
@@ -565,10 +563,10 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function showFavoriteToast(message: string) {
-    if (state.favoritesSyncCode) {
-      showToast(context, message, { icon: "cloud_done" });
+    if (useAppStore.getState().favoritesSyncCode) {
+      showToast(message, { icon: "cloud_done" });
     } else {
-      showToast(context, message);
+      showToast(message);
     }
   }
 

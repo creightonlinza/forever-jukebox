@@ -1,4 +1,4 @@
-import type { AppContext, AppState, TabId } from "../context";
+import type { AppContext, TabId } from "../context";
 import type { Edge } from "../../engine/types";
 import type { BufferedAudioPlayer } from "../../audio/BufferedAudioPlayer";
 import type { JukeboxEngine } from "../../engine";
@@ -12,7 +12,6 @@ import { serializeParams } from "../tuning";
 
 type PlaybackUiDeps = {
   context: AppContext;
-  state: AppState;
   player: BufferedAudioPlayer;
   engine: JukeboxEngine;
   jukebox: JukeboxController;
@@ -24,11 +23,7 @@ type PlaybackUiDeps = {
     message: string,
     spinning: boolean,
   ) => void;
-  showToast: (
-    context: AppContext,
-    message: string,
-    options?: ToastOptions,
-  ) => void;
+  showToast: (message: string, options?: ToastOptions) => void;
   stopPlayback: (context: AppContext) => void;
   togglePlayback: (context: AppContext) => void;
   startJukeboxFromBeat: (context: AppContext, index: number) => void;
@@ -76,7 +71,6 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
 export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   const {
     context,
-    state,
     player,
     engine,
     jukebox,
@@ -105,8 +99,8 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
   function syncExtrasPopup(edge: Edge | null) {
     if (
-      !state.branchStatsEnabled ||
-      state.playMode !== "jukebox" ||
+      !useAppStore.getState().branchStatsEnabled ||
+      useAppStore.getState().playMode !== "jukebox" ||
       !edge
     ) {
       useAppStore.setState({ branchStats: null });
@@ -138,13 +132,14 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
 
   function deleteSelectedBranch() {
-    if (!state.selectedEdge || state.selectedEdge.deleted) {
+    const { selectedEdge } = useAppStore.getState();
+    if (!selectedEdge || selectedEdge.deleted) {
       return;
     }
-    engine.deleteEdge(state.selectedEdge);
+    engine.deleteEdge(selectedEdge);
     engine.rebuildGraph();
-    state.vizData = engine.getVisualizationData();
-    const data = state.vizData;
+    useAppStore.setState({ vizData: engine.getVisualizationData() });
+    const data = useAppStore.getState().vizData;
     if (data) {
       jukebox.setData(data);
     }
@@ -152,15 +147,15 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     jukebox.resizeActive();
     syncDeletedEdgeState(context);
     updateTrackInfo(context);
-    writeTuningParamsToUrl(state.tuningParams, true);
-    state.selectedEdge = null;
+    writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
+    useAppStore.setState({ selectedEdge: null });
     jukebox.setSelectedEdge(null);
     syncExtrasPopup(null);
   }
 
   function initializePlayback() {
     setPlayMode("jukebox");
-    setBringItHomeMode(state.bringItHomeMode);
+    setBringItHomeMode(useAppStore.getState().bringItHomeMode);
     syncExtrasPopup(null);
 
     const storedViz = localStorage.getItem(vizStorageKey);
@@ -175,10 +170,10 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     autocanonizer.setFinishOutSong(finishOutSong);
 
     player.setOnEnded(() => {
-      if (!state.isRunning) {
+      if (!useAppStore.getState().isRunning) {
         return;
       }
-      if (state.playMode === "jukebox" && !state.bringItHomeMode) {
+      if (useAppStore.getState().playMode === "jukebox" && !useAppStore.getState().bringItHomeMode) {
         // Recover if audio hits buffer end before scheduled wrap executes.
         startJukeboxFromBeat(context, 0);
         if (!player.isPlaying()) {
@@ -191,22 +186,22 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
 
     autocanonizer.setOnBeat((index) => {
       useAppStore.setState({ beatsPlayedText: `${index + 1}` });
-      state.lastBeatIndex = index;
+      useAppStore.setState({ lastBeatIndex: index });
     });
     autocanonizer.setOnEnded(() => {
-      if (!state.isRunning) {
+      if (!useAppStore.getState().isRunning) {
         return;
       }
       if (advancePlaylistOnAutocanonizerEnded) {
         advancePlaylistOnAutocanonizerEnded()
           .then((advanced) => {
-            if (!advanced && state.isRunning) {
+            if (!advanced && useAppStore.getState().isRunning) {
               stopPlayback(context);
             }
           })
           .catch((err) => {
             console.warn(`Playlist advance failed: ${String(err)}`);
-            if (state.isRunning) {
+            if (useAppStore.getState().isRunning) {
               stopPlayback(context);
             }
           });
@@ -215,7 +210,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       stopPlayback(context);
     });
     autocanonizer.setOnSelect((index) => {
-      if (state.playMode !== "autocanonizer") {
+      if (useAppStore.getState().playMode !== "autocanonizer") {
         return;
       }
       startAutocanonizerPlayback(context, index);
@@ -226,34 +221,34 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       if (engineState.currentBeatIndex >= 0) {
         if (engineState.beatsPlayed !== lastCowbellBeatsPlayed) {
           lastCowbellBeatsPlayed = engineState.beatsPlayed;
-          const beat = state.vizData?.beats[engineState.currentBeatIndex];
+          const beat = useAppStore.getState().vizData?.beats[engineState.currentBeatIndex];
           if (beat) {
             context.cowbellOverlay.handleBeatEnter(
               engineState.currentBeatIndex,
               beat,
-              state.vizData?.beats[engineState.currentBeatIndex + 1],
+              useAppStore.getState().vizData?.beats[engineState.currentBeatIndex + 1],
             );
           }
         }
         const jumpFrom =
           engineState.lastJumped && engineState.lastJumpFromIndex !== null
             ? engineState.lastJumpFromIndex
-            : state.lastBeatIndex;
+            : useAppStore.getState().lastBeatIndex;
         jukebox.update(
           engineState.currentBeatIndex,
           engineState.lastJumped,
           jumpFrom,
         );
-        state.lastBeatIndex = engineState.currentBeatIndex;
+        useAppStore.setState({ lastBeatIndex: engineState.currentBeatIndex });
       }
     });
   }
 
   function setBringItHomeMode(enabled: boolean) {
-    state.bringItHomeMode = enabled;
+    useAppStore.setState({ bringItHomeMode: enabled });
     engine.setBringItHomeMode(enabled);
-    if (enabled && state.shiftBranching) {
-      state.shiftBranching = false;
+    if (enabled && useAppStore.getState().shiftBranching) {
+      useAppStore.setState({ shiftBranching: false });
       engine.setForceBranch(false);
     }
   }
@@ -268,15 +263,15 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   }
 
   function selectAdjacentBranch(direction: -1 | 1) {
-    if (!state.selectedEdge) {
+    if (!useAppStore.getState().selectedEdge) {
       return;
     }
-    const edges = (state.vizData?.edges ?? []).filter((edge) => !edge.deleted);
+    const edges = (useAppStore.getState().vizData?.edges ?? []).filter((edge) => !edge.deleted);
     if (edges.length === 0) {
       return;
     }
     const currentIndex = edges.findIndex(
-      (edge) => edge.id === state.selectedEdge?.id,
+      (edge) => edge.id === useAppStore.getState().selectedEdge?.id,
     );
     const nextIndex =
       currentIndex >= 0
@@ -285,37 +280,36 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
           ? 0
           : edges.length - 1;
     const nextEdge = edges[nextIndex];
-    state.selectedEdge = nextEdge;
+    useAppStore.setState({ selectedEdge: nextEdge });
     jukebox.setSelectedEdgeActive(nextEdge);
     syncExtrasPopup(nextEdge);
   }
 
   function toggleSelectedAnchorBranch() {
-    const edge = state.selectedEdge;
+    const edge = useAppStore.getState().selectedEdge;
     if (!edge || edge.deleted || edge.dest.which >= edge.src.which) {
       return false;
     }
     const nextAnchor = engine.getUserAnchorEdgeId() === edge.id ? null : edge;
     engine.setUserAnchorEdge(nextAnchor);
-    state.vizData = engine.getVisualizationData();
-    const data = state.vizData;
+    useAppStore.setState({ vizData: engine.getVisualizationData() });
+    const data = useAppStore.getState().vizData;
     if (data) {
       jukebox.setData(data);
     }
     jukebox.setSelectedEdgeActive(edge);
     const tuningParams = getTuningParamsFromEngine(context);
     const result = serializeParams(tuningParams);
-    state.tuningParams = result.length > 0 ? result : null;
-    writeTuningParamsToUrl(state.tuningParams, true);
+    useAppStore.setState({ tuningParams: result.length > 0 ? result : null });
+    writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
     showToast(
-      context,
       nextAnchor ? "Anchor branch set" : "Anchor branch reset",
     );
     return true;
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (state.activeTabId !== "play") {
+    if (useAppStore.getState().activeTabId !== "play") {
       return;
     }
     if (useAppStore.getState().deleteConfirmOpen) {
@@ -330,7 +324,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       return;
     }
     if (
-      state.playMode === "jukebox" &&
+      useAppStore.getState().playMode === "jukebox" &&
       (event.key === "e" || event.key === "E") &&
       !event.repeat
     ) {
@@ -338,15 +332,14 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       openExtras(context);
       return;
     }
-    if (state.playMode === "autocanonizer") {
+    if (useAppStore.getState().playMode === "autocanonizer") {
       return;
     }
     if ((event.key === "h" || event.key === "H") && !event.repeat) {
       event.preventDefault();
-      const enabled = !state.bringItHomeMode;
+      const enabled = !useAppStore.getState().bringItHomeMode;
       setBringItHomeMode(enabled);
       showToast(
-        context,
         `Bring It Home ${enabled ? "enabled" : "disabled"}`,
       );
       return;
@@ -359,16 +352,17 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     if (
       (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
-      state.selectedEdge
+      useAppStore.getState().selectedEdge
     ) {
       event.preventDefault();
       selectAdjacentBranch(event.key === "ArrowRight" ? 1 : -1);
       return;
     }
+    const { selectedEdge } = useAppStore.getState();
     if (
       (event.key === "Delete" || event.key === "Backspace") &&
-      state.selectedEdge &&
-      !state.selectedEdge.deleted
+      selectedEdge &&
+      !selectedEdge.deleted
     ) {
       event.preventDefault();
       deleteSelectedBranch();
@@ -376,33 +370,34 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     if (
       event.key === "Shift" &&
-      state.isRunning &&
-      !state.shiftBranching &&
-      !state.bringItHomeMode
+      useAppStore.getState().isRunning &&
+      !useAppStore.getState().shiftBranching &&
+      !useAppStore.getState().bringItHomeMode
     ) {
-      state.shiftBranching = true;
+      useAppStore.setState({ shiftBranching: true });
       engine.setForceBranch(true);
     }
   }
 
   function handleKeyup(event: KeyboardEvent) {
-    if (state.playMode === "autocanonizer") {
+    if (useAppStore.getState().playMode === "autocanonizer") {
       return;
     }
-    if (event.key === "Shift" && state.shiftBranching) {
-      state.shiftBranching = false;
+    if (event.key === "Shift" && useAppStore.getState().shiftBranching) {
+      useAppStore.setState({ shiftBranching: false });
       engine.setForceBranch(false);
     }
   }
 
   function handleBeatSelect(index: number) {
-    if (state.playMode === "autocanonizer") {
+    if (useAppStore.getState().playMode === "autocanonizer") {
       return;
     }
-    if (!state.vizData) {
+    const { vizData } = useAppStore.getState();
+    if (!vizData) {
       return;
     }
-    const beat = state.vizData.beats[index];
+    const beat = vizData.beats[index];
     if (!beat) {
       return;
     }
@@ -411,16 +406,16 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   }
 
   function handleEdgeSelect(edge: Edge | null) {
-    if (state.playMode === "autocanonizer") {
+    if (useAppStore.getState().playMode === "autocanonizer") {
       return;
     }
-    state.selectedEdge = edge;
+    useAppStore.setState({ selectedEdge: edge });
     jukebox.setSelectedEdgeActive(edge);
     syncExtrasPopup(edge);
   }
 
   async function copyShortUrl() {
-    const trackId = state.lastTrackId ?? state.lastJobId;
+    const trackId = useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId;
     if (!trackId) {
       setAnalysisStatus(
         context,
@@ -432,19 +427,19 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     const url = new URL(
       `${window.location.origin}/listen/${encodeURIComponent(trackId)}`,
     );
-    if (state.playMode === "jukebox") {
+    if (useAppStore.getState().playMode === "jukebox") {
       const tuningParams = getTuningParamsFromEngine(context);
       tuningParams.forEach((value, key) => {
         url.searchParams.set(key, value);
       });
     }
-    if (state.playMode === "autocanonizer") {
+    if (useAppStore.getState().playMode === "autocanonizer") {
       url.searchParams.set("mode", "autocanonizer");
     }
     const shortUrl = url.toString();
     try {
       await navigator.clipboard.writeText(shortUrl);
-      showToast(context, "Link copied to clipboard");
+      showToast("Link copied to clipboard");
     } catch (err) {
       setAnalysisStatus(context, `Copy failed: ${formatErrorForDisplay(err)}`, false);
     }
@@ -455,12 +450,12 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if (index < 0 || index >= count) {
       return;
     }
-    if (index === state.activeVizIndex) {
+    if (index === useAppStore.getState().activeVizIndex) {
       return;
     }
-    state.activeVizIndex = index;
+    useAppStore.setState({ activeVizIndex: index });
     jukebox.setActiveIndex(index);
-    localStorage.setItem(vizStorageKey, String(state.activeVizIndex));
+    localStorage.setItem(vizStorageKey, String(useAppStore.getState().activeVizIndex));
   }
 
   function getPlayModeFromUrl() {
@@ -473,14 +468,14 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   }
 
   function setPlayMode(mode: "jukebox" | "autocanonizer") {
-    if (state.playMode === mode) {
+    if (useAppStore.getState().playMode === mode) {
       return;
     }
-    if (state.isRunning || state.isPaused) {
+    if (useAppStore.getState().isRunning || useAppStore.getState().isPaused) {
       stopPlayback(context);
     }
     context.cowbellOverlay.cancelScheduledHits();
-    state.playMode = mode;
+    useAppStore.setState({ playMode: mode });
     if (mode !== "jukebox") {
       // The extras tab disappears outside jukebox mode; legacy forced the
       // stored tab back to "tuning".
@@ -488,18 +483,18 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     autocanonizer.setVisible(mode === "autocanonizer");
     jukebox.setVisible(mode === "jukebox");
-    syncExtrasPopup(state.selectedEdge);
-    if (state.activeTabId === "play") {
+    syncExtrasPopup(useAppStore.getState().selectedEdge);
+    if (useAppStore.getState().activeTabId === "play") {
       const currentId = getCurrentTrackId();
       if (currentId) {
-        updateTrackUrl(currentId, true, state.tuningParams, state.playMode);
+        updateTrackUrl(currentId, true, useAppStore.getState().tuningParams, useAppStore.getState().playMode);
       } else {
         navigateToTab(
           "play",
           { replace: true },
           null,
-          state.tuningParams,
-          state.playMode,
+          useAppStore.getState().tuningParams,
+          useAppStore.getState().playMode,
         );
       }
     }

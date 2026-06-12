@@ -19,10 +19,6 @@ function createContext(): AppContext {
     jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
     cowbellOverlay: {} as unknown as AppContext["cowbellOverlay"],
     defaultConfig: {} as unknown as AppContext["defaultConfig"],
-    state: {
-      toastTimer: null,
-      playMode: "jukebox",
-    } as unknown as AppContext["state"],
   };
 }
 
@@ -95,10 +91,9 @@ describe("ui helpers", () => {
 
   it("shows and hides toast", () => {
     vi.useFakeTimers();
-    const context = createContext();
     (globalThis.window as any).setTimeout = setTimeout;
     (globalThis.window as any).clearTimeout = clearTimeout;
-    showToast(context, "Hi", { icon: "check" });
+    showToast("Hi", { icon: "check" });
     expect(useAppStore.getState().toast).toEqual({
       message: "Hi",
       icon: "check",
@@ -110,8 +105,7 @@ describe("ui helpers", () => {
   });
 
   it("shows error toast style", () => {
-    const context = createContext();
-    showToast(context, "Nope", { icon: "error", tone: "error" });
+    showToast("Nope", { icon: "error", tone: "error" });
     expect(useAppStore.getState().toast).toEqual({
       message: "Nope",
       icon: "error",

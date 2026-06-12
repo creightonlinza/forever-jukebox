@@ -76,5 +76,4 @@ export type AppContext = {
   jukebox: JukeboxController;
   cowbellOverlay: CowbellOverlayService;
   defaultConfig: ReturnType<JukeboxEngine["getConfig"]>;
-  state: AppState;
 };

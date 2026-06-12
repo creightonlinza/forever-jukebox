@@ -19,15 +19,6 @@ function createContext(): AppContext {
     jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
     cowbellOverlay: {} as unknown as AppContext["cowbellOverlay"],
     defaultConfig: {} as unknown as AppContext["defaultConfig"],
-    state: {
-      playMode: "jukebox",
-      lastTrackId: null,
-      lastJobId: null,
-      audioLoaded: false,
-      analysisLoaded: false,
-      audioLoadInFlight: false,
-      isRunning: false,
-    } as unknown as AppContext["state"],
   };
 }
 

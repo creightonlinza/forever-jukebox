@@ -110,7 +110,7 @@ export function prepareSwingMode(context: AppContext) {
       syncTuningParamsState(context);
       writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
       updatePlayButton();
-      showToast(context, "Swing mode failed. Using Normal mode.", {
+      showToast("Swing mode failed. Using Normal mode.", {
         icon: "error",
         tone: "error",
       });

@@ -1,27 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppState } from "../context";
 import { configureMaxFavorites, maxFavorites } from "../favorites";
 import { useAppStore } from "../store";
 import { createAppConfigHandlers } from "./app-config";
 
+const initialStoreState = useAppStore.getState();
+
 function createHarness() {
-  const state = {
-    searchTab: "search",
-    appConfig: null,
-    favorites: [],
-  } as unknown as AppState;
+  useAppStore.setState(initialStoreState, true);
   const favoritesHandlers = {
     hydrateFavoritesFromSync: vi.fn(),
     updateFavorites: vi.fn(),
   };
   const handlers = createAppConfigHandlers({
-    state,
     favoritesHandlers:
       favoritesHandlers as unknown as Parameters<
         typeof createAppConfigHandlers
       >[0]["favoritesHandlers"],
   });
-  return { favoritesHandlers, handlers, state };
+  return { favoritesHandlers, handlers };
 }
 
 describe("createAppConfigHandlers", () => {
@@ -32,8 +28,9 @@ describe("createAppConfigHandlers", () => {
   });
 
   it("applies configured max favorites and trims local state", () => {
-    const { favoritesHandlers, handlers, state } = createHarness();
-    state.favorites = [
+    const { favoritesHandlers, handlers } = createHarness();
+    useAppStore.setState({
+      favorites: [
       {
         uniqueSongId: "1",
         title: "A",
@@ -55,7 +52,8 @@ describe("createAppConfigHandlers", () => {
         duration: null,
         sourceType: "youtube",
       },
-    ];
+    ]
+    });
 
     handlers.applyAppConfig({
       allow_user_upload: false,
@@ -65,7 +63,7 @@ describe("createAppConfigHandlers", () => {
 
     expect(maxFavorites()).toBe(2);
     expect(favoritesHandlers.updateFavorites).toHaveBeenCalledWith(
-      state.favorites,
+      useAppStore.getState().favorites,
       { sync: false },
     );
   });
