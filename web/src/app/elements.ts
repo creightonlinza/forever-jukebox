@@ -257,52 +257,6 @@ export function getElements() {
     document.querySelector<HTMLSpanElement>("#info-deleted-branches"),
     "#info-deleted-branches"
   );
-  const favoritesSyncEnterModal = requireElement(
-    document.querySelector<HTMLDivElement>("#favorites-sync-enter-modal"),
-    "#favorites-sync-enter-modal"
-  );
-  const favoritesSyncEnterClose = requireElement(
-    document.querySelector<HTMLButtonElement>("#favorites-sync-enter-close"),
-    "#favorites-sync-enter-close"
-  );
-  const favoritesSyncEnterInput = requireElement(
-    document.querySelector<HTMLInputElement>("#favorites-sync-enter-input"),
-    "#favorites-sync-enter-input"
-  );
-  const favoritesSyncEnterButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#favorites-sync-enter-button"),
-    "#favorites-sync-enter-button"
-  );
-  const favoritesSyncEnterStatus = requireElement(
-    document.querySelector<HTMLParagraphElement>("#favorites-sync-enter-status"),
-    "#favorites-sync-enter-status"
-  );
-  const favoritesSyncCreateModal = requireElement(
-    document.querySelector<HTMLDivElement>("#favorites-sync-create-modal"),
-    "#favorites-sync-create-modal"
-  );
-  const favoritesSyncCreateClose = requireElement(
-    document.querySelector<HTMLButtonElement>("#favorites-sync-create-close"),
-    "#favorites-sync-create-close"
-  );
-  const favoritesSyncCreateButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#favorites-sync-create-button"),
-    "#favorites-sync-create-button"
-  );
-  const favoritesSyncCreateHint = requireElement(
-    document.querySelector<HTMLParagraphElement>("#favorites-sync-create-hint"),
-    "#favorites-sync-create-hint"
-  );
-  const favoritesSyncCreateOutput = requireElement(
-    document.querySelector<HTMLDivElement>("#favorites-sync-create-output"),
-    "#favorites-sync-create-output"
-  );
-  const favoritesSyncCreateStatus = requireElement(
-    document.querySelector<HTMLParagraphElement>(
-      "#favorites-sync-create-status"
-    ),
-    "#favorites-sync-create-status"
-  );
   const thresholdInput = requireElement(
     document.querySelector<HTMLInputElement>("#threshold"),
     "#threshold"
@@ -487,62 +441,6 @@ export function getElements() {
     document.querySelector<HTMLDivElement>("#search-hint"),
     "#search-hint"
   );
-  const topSongsList = requireElement(
-    document.querySelector<HTMLOListElement>("#top-songs"),
-    "#top-songs"
-  );
-  const trendingSongsList = requireElement(
-    document.querySelector<HTMLOListElement>("#trending-songs"),
-    "#trending-songs"
-  );
-  const recentSongsList = requireElement(
-    document.querySelector<HTMLOListElement>("#recent-songs"),
-    "#recent-songs"
-  );
-  const favoritesFilter = requireElement(
-    document.querySelector<HTMLDivElement>("#favorites-filter"),
-    "#favorites-filter"
-  );
-  const favoritesSearchInput = requireElement(
-    document.querySelector<HTMLInputElement>("#favorites-search-input"),
-    "#favorites-search-input"
-  );
-  const favoritesList = requireElement(
-    document.querySelector<HTMLDivElement>("#favorites-list"),
-    "#favorites-list"
-  );
-  const topSongsTabs = requireNonEmpty(
-    Array.from(document.querySelectorAll<HTMLButtonElement>("[data-top-subtab]")),
-    "[data-top-subtab]"
-  );
-  const topListTitle = requireElement(
-    document.querySelector<HTMLSpanElement>("#top-list-title"),
-    "#top-list-title"
-  );
-  const topListRefreshButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#top-list-refresh"),
-    "#top-list-refresh"
-  );
-  const favoritesSyncButton = requireElement(
-    document.querySelector<HTMLButtonElement>("#favorites-sync-button"),
-    "#favorites-sync-button"
-  );
-  const favoritesSyncIcon = requireElement(
-    favoritesSyncButton.querySelector<HTMLSpanElement>(
-      ".favorites-sync-icon"
-    ),
-    ".favorites-sync-icon"
-  );
-  const favoritesSyncMenu = requireElement(
-    document.querySelector<HTMLDivElement>("#favorites-sync-menu"),
-    "#favorites-sync-menu"
-  );
-  const favoritesSyncItems = requireNonEmpty(
-    Array.from(
-      document.querySelectorAll<HTMLButtonElement>("[data-favorites-sync]")
-    ),
-    "[data-favorites-sync]"
-  );
   const toast = requireElement(
     document.querySelector<HTMLDivElement>("#toast"),
     "#toast"
@@ -649,17 +547,6 @@ export function getElements() {
     infoClose,
     tuningApply,
     tuningReset,
-    favoritesSyncEnterModal,
-    favoritesSyncEnterClose,
-    favoritesSyncEnterInput,
-    favoritesSyncEnterButton,
-    favoritesSyncEnterStatus,
-    favoritesSyncCreateModal,
-    favoritesSyncCreateClose,
-    favoritesSyncCreateButton,
-    favoritesSyncCreateHint,
-    favoritesSyncCreateOutput,
-    favoritesSyncCreateStatus,
     infoDurationEl,
     infoBeatsEl,
     infoBranchesEl,
@@ -710,19 +597,6 @@ export function getElements() {
     uploadYoutubeButton,
     searchResults,
     searchHint,
-    topSongsList,
-    trendingSongsList,
-    recentSongsList,
-    favoritesFilter,
-    favoritesSearchInput,
-    favoritesList,
-    topSongsTabs,
-    topListTitle,
-    topListRefreshButton,
-    favoritesSyncButton,
-    favoritesSyncIcon,
-    favoritesSyncMenu,
-    favoritesSyncItems,
     toast,
     branchStatsPopup,
     branchStatsTitleEl,

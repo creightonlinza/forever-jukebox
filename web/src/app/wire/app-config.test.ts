@@ -25,7 +25,6 @@ function createHarness() {
     favorites: [],
   } as unknown as AppState;
   const favoritesHandlers = {
-    updateFavoritesSyncControls: vi.fn(),
     hydrateFavoritesFromSync: vi.fn(),
     updateFavorites: vi.fn(),
   };
@@ -146,6 +145,5 @@ describe("createAppConfigHandlers", () => {
     );
 
     expect(favoritesHandlers.hydrateFavoritesFromSync).not.toHaveBeenCalled();
-    expect(favoritesHandlers.updateFavoritesSyncControls).toHaveBeenCalledOnce();
   });
 });

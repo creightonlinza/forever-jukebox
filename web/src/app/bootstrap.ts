@@ -21,15 +21,13 @@ import {
   deleteJob,
   fetchAppConfig,
   fetchFavoritesSync,
-  fetchTopSongs,
-  fetchTrendingSongs,
-  fetchRecentSongs,
   createFavoritesSync,
   startUrlAnalysis,
   updateFavoritesSync,
   uploadAudio,
 } from "./api";
 import { deleteCachedTrack, loadAppConfig, saveAppConfig } from "./cache";
+import { isLikelyJobId } from "./identity";
 import {
   applyAnalysisResult,
   applyTuningChanges,
@@ -63,7 +61,7 @@ import {
   updateVizVisibility,
 } from "./playback";
 import { runSearch } from "./search";
-import { DEFAULT_VISUALIZATION_INDEX, TOP_SONGS_LIMIT } from "./constants";
+import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
 import type { AppContext, AppState, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers } from "./wire/favorites";
@@ -75,7 +73,6 @@ import { createFullscreenHandlers } from "./wire/fullscreen";
 import { createPlaybackUiHandlers } from "./wire/playback";
 import { createPlaylistHandlers, type PlaylistHandlers } from "./wire/playlist";
 import { createDeleteJobHandlers } from "./wire/delete-job";
-import { createTopSongsHandlers } from "./wire/top-songs";
 import { createAppConfigHandlers } from "./wire/app-config";
 import { bindUiHandlers } from "./wire/ui";
 import type { AppBridge } from "./bridge";
@@ -226,7 +223,6 @@ export function bootstrap(): AppBridge {
     writeTuningParamsToUrl,
     syncTuningParamsState,
     setPlayMode: playbackHandlers.setPlayMode,
-    onAddToPlaylist: (track) => playlistHandlers?.handleAddToPlaylist(track),
   });
   playbackDeps.onTrackChange = () => {
     favoritesHandlers.syncFavoriteButton();
@@ -281,65 +277,9 @@ export function bootstrap(): AppBridge {
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
     togglePlayback,
   });
-  const topSongsHandlers = createTopSongsHandlers({
-    elements,
-    fetchTopSongs,
-    fetchTrendingSongs,
-    fetchRecentSongs,
-    limit: TOP_SONGS_LIMIT,
-    loadTrackById: (trackId: string, options) =>
-      loadTrackById(context, playbackDeps, trackId, options),
-    loadTrackByJobId: (jobId: string, options) =>
-      loadTrackByJobId(context, playbackDeps, jobId, options),
-    navigateToTabWithState: navigationHandlers.navigateToTabWithState,
-    onAddToPlaylist: (track) => playlistHandlers?.handleAddToPlaylist(track),
-  });
-  type LazyTopSongsTab = "top" | "trending" | "recent";
-  const loadedTopSongTabs = new Set<LazyTopSongsTab>();
-  const topSongsTabLoaders = {
-    top: {
-      fetch: () => topSongsHandlers.fetchTopSongsList(),
-      errorLabel: "Top tracks",
-    },
-    trending: {
-      fetch: () => topSongsHandlers.fetchTrendingSongsList(),
-      errorLabel: "Trending tracks",
-    },
-    recent: {
-      fetch: () => topSongsHandlers.fetchRecentSongsList(),
-      errorLabel: "Recent tracks",
-    },
-  } as const;
-  const loadTopSongsTab = (tabId: LazyTopSongsTab, options?: { force?: boolean }) => {
-    const loader = topSongsTabLoaders[tabId];
-    if (!options?.force && loadedTopSongTabs.has(tabId)) {
-      return;
-    }
-    loader
-      .fetch()
-      .then(() => {
-        loadedTopSongTabs.add(tabId);
-      })
-      .catch((err) => {
-        console.warn(`${loader.errorLabel} load failed: ${String(err)}`);
-      });
-  };
   const tabsHandlers = createTabsHandlers({
     elements,
     state,
-    favoritesHandlers,
-    onTopSongsTabChange: (tabId) => {
-      if (!(tabId in topSongsTabLoaders)) {
-        return;
-      }
-      loadTopSongsTab(tabId as LazyTopSongsTab);
-    },
-    onTopSongsRefresh: (tabId) => {
-      if (!(tabId in topSongsTabLoaders)) {
-        return;
-      }
-      loadTopSongsTab(tabId as LazyTopSongsTab, { force: true });
-    },
   });
   const appConfigHandlers = createAppConfigHandlers({
     elements,
@@ -430,9 +370,6 @@ export function bootstrap(): AppBridge {
     .catch((err) => {
       console.warn(`App config fetch failed: ${String(err)}`);
     });
-  favoritesHandlers.renderFavoritesList();
-  tabsHandlers.setTopSongsTab("top");
-  favoritesHandlers.updateFavoritesSyncControls();
 
   resetForNewTrack(context);
   favoritesHandlers.syncFavoriteButton();
@@ -463,12 +400,31 @@ export function bootstrap(): AppBridge {
 
   const onTabClick = (tabId: TabId) => {
     if (tabId === "top") {
-      tabsHandlers.setTopSongsTab("top");
+      useAppStore.setState({ topSongsTab: "top" });
     }
     if (tabId === "search") {
       tabsHandlers.setSearchTab("search");
     }
     navigationHandlers.navigateToTabWithState(tabId);
+  };
+
+  const topPanel = {
+    selectTrack: (trackId: string, selectedTrack: PlaylistTrack | null) => {
+      navigationHandlers.navigateToTabWithState("play", { trackId });
+      if (isLikelyJobId(trackId)) {
+        void loadTrackByJobId(context, playbackDeps, trackId, { selectedTrack });
+        return;
+      }
+      void loadTrackById(context, playbackDeps, trackId, { selectedTrack });
+    },
+    selectFavorite: favoritesHandlers.handleFavoriteSelect,
+    addToPlaylist: (track: PlaylistTrack) => {
+      playlistHandlers?.handleAddToPlaylist(track);
+    },
+    removeFavorite: favoritesHandlers.removeFavoriteWithToast,
+    refreshFavoritesFromSync: favoritesHandlers.refreshFavoritesFromSync,
+    enterSyncCode: favoritesHandlers.enterSyncCode,
+    createSyncCode: favoritesHandlers.createSyncCode,
   };
 
   return {
@@ -481,5 +437,6 @@ export function bootstrap(): AppBridge {
     applyTheme: (theme) => {
       applyTheme(context, theme);
     },
+    topPanel,
   };
 }

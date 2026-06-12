@@ -8,6 +8,7 @@ import { tabFromPathname } from "../tabs";
 import { FaqPanel } from "./FaqPanel";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
+import { TopTracksPanel } from "./TopTracksPanel";
 
 // Derives activeTab from the URL on every location change and runs the
 // legacy route handler (mode-from-URL, track loading, FAQ subtab sync) on
@@ -97,6 +98,7 @@ export function AppRoot({
   return (
     <>
       <Hero bridge={bridge} />
+      <TopTracksPanel bridge={bridge} />
       <div ref={adoptLegacy} />
       <FaqPanel bridge={bridge} />
       <Footer />

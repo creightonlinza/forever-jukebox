@@ -52,7 +52,6 @@ export function createAppConfigHandlers(deps: AppConfigDeps) {
       tabsHandlers.setSearchTab("search");
     }
     tabsHandlers.setSearchTab(state.searchTab);
-    favoritesHandlers.updateFavoritesSyncControls();
     if (options.hydrateFavorites !== false && config.allow_favorites_sync) {
       favoritesHandlers.hydrateFavoritesFromSync();
     }

@@ -1,16 +1,12 @@
 import type { AppContext, AppState, TabId } from "../context";
 import type { Elements } from "../elements";
 import {
-  favoriteDisplayArtist,
-  filterFavorites,
-  sortFavoritesForDisplay,
+  favoriteToPlaylistTrack,
   type FavoriteTrack,
-  type FavoritesDisplaySort,
 } from "../favorites";
 import type { AnalysisComplete } from "../api";
 import { isLikelyJobId } from "../identity";
-import { blurMouseActivatedControl, type ToastOptions } from "../ui";
-import { urlForTrack } from "../tabs";
+import type { ToastOptions } from "../ui";
 import type { PlaylistTrack } from "../playlist";
 
 type FavoritesDeps = {
@@ -51,11 +47,13 @@ type FavoritesDeps = {
   writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
   syncTuningParamsState: (context: AppContext) => string | null;
   setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
-  onAddToPlaylist?: (track: PlaylistTrack) => void;
 };
 
 export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
 
+// Favorites state machine + the Listen-panel star button. The Top Tracks
+// panel (lists, sync menu, sync modals) is React; it renders from the store
+// and calls into these handlers through bridge.topPanel.
 export function createFavoritesHandlers(deps: FavoritesDeps) {
   const {
     context,
@@ -78,7 +76,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     writeTuningParamsToUrl,
     syncTuningParamsState,
     setPlayMode,
-    onAddToPlaylist,
   } = deps;
 
   type FavoritesDelta = {
@@ -89,99 +86,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   let syncUpdateInFlight = false;
   let pendingSyncDelta: FavoritesDelta | null = null;
   let syncIdleWaiters: Array<() => void> = [];
-  let favoritesDisplaySort: FavoritesDisplaySort = {
-    key: "title",
-    direction: "asc",
-  };
-
-  function handleFavoritesSyncToggle(event: Event) {
-    event.stopPropagation();
-    toggleFavoritesSyncMenu();
-  }
-
-  function handleFavoritesSyncItem(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    closeFavoritesSyncMenu();
-    const action = button?.dataset.favoritesSync;
-    if (action === "refresh") {
-      void refreshFavoritesFromSync();
-    } else if (action === "create") {
-      openFavoritesSyncCreateModal();
-    } else if (action === "enter") {
-      openFavoritesSyncEnterModal();
-    }
-  }
-
-  function handleFavoritesSyncDocumentClick(event: Event) {
-    if (elements.favoritesSyncMenu.classList.contains("hidden")) {
-      return;
-    }
-    const target = event.target as HTMLElement | null;
-    if (!target) {
-      return;
-    }
-    if (
-      elements.favoritesSyncMenu.contains(target) ||
-      elements.favoritesSyncButton.contains(target)
-    ) {
-      return;
-    }
-    closeFavoritesSyncMenu();
-  }
-
-  function toggleFavoritesSyncMenu() {
-    if (elements.favoritesSyncMenu.classList.contains("hidden")) {
-      openFavoritesSyncMenu();
-    } else {
-      closeFavoritesSyncMenu();
-    }
-  }
-
-  function openFavoritesSyncMenu() {
-    elements.favoritesSyncMenu.classList.remove("hidden");
-    elements.favoritesSyncButton.setAttribute("aria-expanded", "true");
-  }
-
-  function closeFavoritesSyncMenu() {
-    elements.favoritesSyncMenu.classList.add("hidden");
-    elements.favoritesSyncButton.setAttribute("aria-expanded", "false");
-  }
-
-  function updateFavoritesSyncControls() {
-    const allowSync = Boolean(state.appConfig?.allow_favorites_sync);
-    const hasCode = Boolean(state.favoritesSyncCode);
-    const showControls = state.topSongsTab === "favorites" && allowSync;
-    elements.favoritesSyncButton.classList.toggle("hidden", !showControls);
-    elements.favoritesSyncIcon.textContent = hasCode ? "cloud" : "cloud_off";
-    const refreshItem = getFavoritesSyncRefreshItem();
-    if (refreshItem) {
-      refreshItem.classList.toggle("hidden", !hasCode);
-    }
-    const createItem = getFavoritesSyncCreateItem();
-    if (createItem) {
-      createItem.textContent = hasCode ? "View sync code" : "Create sync code";
-    }
-  }
-
-  function getFavoritesSyncCreateItem() {
-    return elements.favoritesSyncItems.find(
-      (item) => item.dataset.favoritesSync === "create",
-    );
-  }
-
-  function getFavoritesSyncRefreshItem() {
-    return elements.favoritesSyncItems.find(
-      (item) => item.dataset.favoritesSync === "refresh",
-    );
-  }
-
-  function openFavoritesSyncEnterModal() {
-    closeFavoritesSyncCreateModal();
-    elements.favoritesSyncEnterInput.value = "";
-    clearFavoritesSyncEnterStatus();
-    elements.favoritesSyncEnterModal.classList.add("open");
-    elements.favoritesSyncEnterInput.focus();
-  }
 
   async function hydrateFavoritesFromSync() {
     if (!state.appConfig?.allow_favorites_sync) {
@@ -218,131 +122,37 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
   }
 
-  function closeFavoritesSyncEnterModal() {
-    elements.favoritesSyncEnterModal.classList.remove("open");
-  }
-
-  function openFavoritesSyncCreateModal() {
-    closeFavoritesSyncEnterModal();
-    resetFavoritesSyncCreateModal();
-    const existingCode = state.favoritesSyncCode;
-    elements.favoritesSyncCreateHint.textContent = existingCode
-      ? "Enter this code on another device to sync."
-      : "Create a sync code to share your favorites between devices.";
-    if (existingCode) {
-      elements.favoritesSyncCreateOutput.textContent = existingCode;
-      elements.favoritesSyncCreateOutput.classList.remove("hidden");
-      elements.favoritesSyncCreateButton.textContent = "Create new sync code";
+  // Fetches the synced list, confirms with the user, then replaces local
+  // favorites and stores the code. The React enter-modal renders statuses.
+  async function enterSyncCode(code: string): Promise<"replaced" | "cancelled"> {
+    const items = await fetchFavoritesSync(code);
+    const favorites = normalizeFavoritesFromSync(items);
+    const shouldReplace = window.confirm(
+      "Replace your local favorites with the synced list?",
+    );
+    if (!shouldReplace) {
+      return "cancelled";
     }
-    elements.favoritesSyncCreateModal.classList.add("open");
+    const normalizedCode = code.trim().toLowerCase();
+    state.favoritesSyncCode = normalizedCode;
+    saveFavoritesSyncCode(normalizedCode);
+    updateFavorites(favorites, { sync: false });
+    return "replaced";
   }
 
-  function closeFavoritesSyncCreateModal() {
-    elements.favoritesSyncCreateModal.classList.remove("open");
-  }
-
-  function resetFavoritesSyncCreateModal() {
-    elements.favoritesSyncCreateButton.classList.remove("hidden");
-    elements.favoritesSyncCreateButton.disabled = false;
-    elements.favoritesSyncCreateButton.textContent = "Create sync code";
-    elements.favoritesSyncCreateOutput.classList.add("hidden");
-    elements.favoritesSyncCreateOutput.textContent = "";
-    elements.favoritesSyncCreateHint.textContent =
-      "Create a sync code to share your favorites between devices.";
-    clearFavoritesSyncCreateStatus();
-  }
-
-  async function handleFavoritesSyncEnterSubmit() {
-    const code = elements.favoritesSyncEnterInput.value.trim();
+  async function createSyncCode(): Promise<string> {
+    const response = await createFavoritesSync(state.favorites);
+    const code = response.code;
     if (!code) {
-      setFavoritesSyncEnterStatus("Enter a sync code first.", true);
-      return;
+      throw new Error("Missing sync code");
     }
-    elements.favoritesSyncEnterButton.disabled = true;
-    elements.favoritesSyncEnterButton.textContent = "Syncing...";
-    setFavoritesSyncEnterStatus("Syncing favorites...");
-    try {
-      const items = await fetchFavoritesSync(code);
-      const favorites = normalizeFavoritesFromSync(items);
-      const shouldReplace = window.confirm(
-        "Replace your local favorites with the synced list?",
-      );
-      if (shouldReplace) {
-        const normalizedCode = code.trim().toLowerCase();
-        state.favoritesSyncCode = normalizedCode;
-        saveFavoritesSyncCode(normalizedCode);
-        updateFavoritesSyncControls();
-        updateFavorites(favorites, { sync: false });
-        setFavoritesSyncEnterStatus("Favorites updated.");
-        closeFavoritesSyncEnterModal();
-      } else {
-        clearFavoritesSyncEnterStatus();
-      }
-    } catch (err) {
-      setFavoritesSyncEnterStatus("Unable to sync favorites.", true);
-      console.warn(`Favorites sync failed: ${String(err)}`);
-    } finally {
-      elements.favoritesSyncEnterButton.disabled = false;
-      elements.favoritesSyncEnterButton.textContent = "Sync favorites";
+    state.favoritesSyncCode = code;
+    saveFavoritesSyncCode(code);
+    if (Array.isArray(response.favorites)) {
+      const normalized = normalizeFavoritesFromSync(response.favorites);
+      updateFavorites(normalized, { sync: false });
     }
-  }
-
-  async function handleFavoritesSyncCreateSubmit() {
-    elements.favoritesSyncCreateButton.classList.add("hidden");
-    setFavoritesSyncCreateStatus("Creating sync code...");
-    try {
-      const response = await createFavoritesSync(state.favorites);
-      const code = response.code;
-      if (!code) {
-        throw new Error("Missing sync code");
-      }
-      state.favoritesSyncCode = code;
-      saveFavoritesSyncCode(code);
-      updateFavoritesSyncControls();
-      if (Array.isArray(response.favorites)) {
-        const normalized = normalizeFavoritesFromSync(response.favorites);
-        updateFavorites(normalized, { sync: false });
-      }
-      elements.favoritesSyncCreateButton.classList.add("hidden");
-      elements.favoritesSyncCreateOutput.textContent = code;
-      elements.favoritesSyncCreateOutput.classList.remove("hidden");
-      elements.favoritesSyncCreateHint.textContent =
-        "Enter this code on another device to sync.";
-      clearFavoritesSyncCreateStatus();
-    } catch (err) {
-      setFavoritesSyncCreateStatus("Unable to create sync code.", true);
-      elements.favoritesSyncCreateButton.classList.remove("hidden");
-      elements.favoritesSyncCreateButton.textContent = "Create sync code";
-      console.warn(`Favorites sync create failed: ${String(err)}`);
-    }
-  }
-
-  function handleFavoritesSyncEnterKeydown(event: KeyboardEvent) {
-    if (event.key !== "Enter") {
-      return;
-    }
-    event.preventDefault();
-    void handleFavoritesSyncEnterSubmit();
-  }
-
-  function handleFavoritesSyncEnterClose() {
-    closeFavoritesSyncEnterModal();
-  }
-
-  function handleFavoritesSyncCreateClose() {
-    closeFavoritesSyncCreateModal();
-  }
-
-  function handleFavoritesSyncEnterModalClick(event: MouseEvent) {
-    if (event.target === elements.favoritesSyncEnterModal) {
-      closeFavoritesSyncEnterModal();
-    }
-  }
-
-  function handleFavoritesSyncCreateModalClick(event: MouseEvent) {
-    if (event.target === elements.favoritesSyncCreateModal) {
-      closeFavoritesSyncCreateModal();
-    }
+    return code;
   }
 
   function normalizeFavoritesFromSync(items: FavoriteTrack[]) {
@@ -383,30 +193,8 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return sortFavorites(normalized).slice(0, maxFavorites());
   }
 
-  function setFavoritesSyncEnterStatus(message: string, isError = false) {
-    elements.favoritesSyncEnterStatus.textContent = message;
-    elements.favoritesSyncEnterStatus.classList.remove("hidden");
-    elements.favoritesSyncEnterStatus.classList.toggle("error", isError);
-  }
-
-  function clearFavoritesSyncEnterStatus() {
-    elements.favoritesSyncEnterStatus.textContent = "";
-    elements.favoritesSyncEnterStatus.classList.add("hidden");
-    elements.favoritesSyncEnterStatus.classList.remove("error");
-  }
-
-  function setFavoritesSyncCreateStatus(message: string, isError = false) {
-    elements.favoritesSyncCreateStatus.textContent = message;
-    elements.favoritesSyncCreateStatus.classList.remove("hidden");
-    elements.favoritesSyncCreateStatus.classList.toggle("error", isError);
-  }
-
-  function clearFavoritesSyncCreateStatus() {
-    elements.favoritesSyncCreateStatus.textContent = "";
-    elements.favoritesSyncCreateStatus.classList.add("hidden");
-    elements.favoritesSyncCreateStatus.classList.remove("error");
-  }
-
+  // React renders the favorites list from the store, so updating state is
+  // enough; only the Listen-panel star still needs an imperative sync.
   function updateFavorites(
     nextFavorites: FavoriteTrack[],
     options?: { sync?: boolean },
@@ -415,7 +203,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     const cappedFavorites = sortFavorites(nextFavorites).slice(0, maxFavorites());
     state.favorites = cappedFavorites;
     saveFavorites(cappedFavorites);
-    renderFavoritesList();
     syncFavoriteButton();
     if (options?.sync === false) {
       return;
@@ -590,149 +377,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return syncTuningParamsState(context);
   }
 
-  function renderFavoritesList() {
-    elements.favoritesList.innerHTML = "";
-    const query = elements.favoritesSearchInput.value.trim();
-    if (state.favorites.length === 0) {
-      elements.favoritesList.textContent = "No favorites yet.";
-      return;
-    }
-    const visibleFavorites = filterFavorites(state.favorites, query);
-    if (visibleFavorites.length === 0) {
-      elements.favoritesList.textContent = `No favorites match "${query}".`;
-      return;
-    }
-
-    const table = document.createElement("table");
-    table.className = "favorites-table";
-    const thead = document.createElement("thead");
-    const headerRow = document.createElement("tr");
-    headerRow.append(
-      createFavoritesSortHeader("title", "Title"),
-      createFavoritesSortHeader("artist", "Artist"),
-      createFavoritesRemoveHeader(),
-    );
-    thead.append(headerRow);
-
-    const tbody = document.createElement("tbody");
-    for (const item of sortFavoritesForDisplay(
-      visibleFavorites,
-      favoritesDisplaySort,
-    )) {
-      const row = document.createElement("tr");
-      row.className = "favorite-row";
-      const sourceType = item.sourceType ?? "youtube";
-      row.tabIndex = 0;
-      row.dataset.favoriteId = item.uniqueSongId;
-      row.dataset.sourceType = sourceType;
-      row.addEventListener("click", handleFavoriteRowClick);
-      row.addEventListener("keydown", handleFavoriteRowKeydown);
-      const titleCell = document.createElement("td");
-      titleCell.className = "favorite-title-cell";
-      const link = document.createElement("a");
-      link.href = urlForTrack(
-        item.uniqueSongId,
-        window.location.href,
-        item.tuningParams,
-        "jukebox",
-      );
-      const titleText = item.title || "Untitled";
-      link.textContent = titleText;
-      if (item.tuningParams) {
-        const tuneIcon = document.createElement("span");
-        tuneIcon.className = "material-symbols-outlined favorite-tune-icon";
-        tuneIcon.textContent = "tune";
-        tuneIcon.setAttribute("aria-hidden", "true");
-        tuneIcon.title = "Custom tuning";
-        link.append(" ", tuneIcon);
-      }
-      link.dataset.favoriteId = item.uniqueSongId;
-      link.dataset.sourceType = sourceType;
-      link.addEventListener("click", handleFavoriteClick);
-      titleCell.append(link);
-
-      const artistCell = document.createElement("td");
-      artistCell.className = "favorite-artist-cell";
-      artistCell.textContent = favoriteDisplayArtist(item);
-
-      const removeCell = document.createElement("td");
-      removeCell.className = "favorite-remove-cell";
-      const playlistButton = createFavoritePlaylistButton(item);
-      const removeButton = document.createElement("button");
-      removeButton.type = "button";
-      removeButton.className = "favorite-remove";
-      removeButton.setAttribute("aria-label", `Remove ${titleText} from Favorites`);
-      removeButton.innerHTML =
-        '<span class="material-symbols-outlined favorite-remove-icon" aria-hidden="true">close</span>';
-      removeButton.dataset.favoriteId = item.uniqueSongId;
-      removeButton.addEventListener("click", handleFavoriteRemove);
-      if (playlistButton) {
-        removeCell.append(playlistButton);
-      }
-      removeCell.append(removeButton);
-
-      row.append(titleCell, artistCell, removeCell);
-      tbody.append(row);
-    }
-    table.append(thead, tbody);
-    elements.favoritesList.append(table);
-  }
-
-  function createFavoritesSortHeader(
-    key: FavoritesDisplaySort["key"],
-    label: string,
-  ) {
-    const th = document.createElement("th");
-    th.scope = "col";
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "favorites-sort-button";
-    button.dataset.favoritesSort = key;
-    const active = favoritesDisplaySort.key === key;
-    th.setAttribute(
-      "aria-sort",
-      active ? (favoritesDisplaySort.direction === "asc" ? "ascending" : "descending") : "none",
-    );
-    button.textContent = label;
-    if (active) {
-      const icon = document.createElement("span");
-      icon.className = "material-symbols-outlined favorites-sort-icon";
-      icon.textContent =
-        favoritesDisplaySort.direction === "asc" ? "arrow_upward" : "arrow_downward";
-      icon.setAttribute("aria-hidden", "true");
-      button.append(" ", icon);
-    }
-    button.addEventListener("click", handleFavoritesSortClick);
-    th.append(button);
-    return th;
-  }
-
-  function createFavoritesRemoveHeader() {
-    const th = document.createElement("th");
-    th.scope = "col";
-    th.className = "favorite-remove-heading";
-    th.setAttribute("aria-label", "Remove favorite");
-    return th;
-  }
-
-  function handleFavoritesSortClick(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    const key = button?.dataset.favoritesSort as
-      | FavoritesDisplaySort["key"]
-      | undefined;
-    if (!key) {
-      return;
-    }
-    favoritesDisplaySort =
-      favoritesDisplaySort.key === key
-        ? {
-            key,
-            direction: favoritesDisplaySort.direction === "asc" ? "desc" : "asc",
-          }
-        : { key, direction: "asc" };
-    renderFavoritesList();
-  }
-
   function syncFavoriteButton() {
     const active = Boolean(getCurrentFavoriteMatch());
     elements.favoriteButton.classList.toggle("active", active);
@@ -848,13 +492,12 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return null;
   }
 
-  function handleFavoriteClick(event: Event) {
-    event.preventDefault();
-    const target = event.currentTarget as HTMLElement | null;
-    const favoriteId = target?.dataset.favoriteId;
-    if (!favoriteId) {
-      return;
-    }
+  // Selecting a favorite row in the React panel: apply its tuning params,
+  // navigate to the play tab and load it (job id vs source id aware).
+  function handleFavoriteSelect(
+    favoriteId: string,
+    sourceTypeRaw: string,
+  ) {
     const favorite = state.favorites.find(
       (item) => item.uniqueSongId === favoriteId,
     );
@@ -867,7 +510,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (state.playMode === "jukebox") {
       writeTuningParamsToUrl(state.tuningParams, true);
     }
-    const sourceTypeRaw = target?.dataset.sourceType ?? "youtube";
     const sourceType: FavoriteTrack["sourceType"] =
       sourceTypeRaw === "upload" ||
       sourceTypeRaw === "youtube" ||
@@ -886,70 +528,9 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     loadTrackById(favoriteId, { selectedTrack });
   }
 
-  function handleFavoriteRowClick(event: Event) {
-    const target = event.target as HTMLElement | null;
-    if (target?.closest("a, button")) {
-      return;
-    }
-    handleFavoriteClick(event);
-  }
-
-  function handleFavoriteRowKeydown(event: KeyboardEvent) {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-    event.preventDefault();
-    handleFavoriteClick(event);
-  }
-
-  function handleFavoriteRemove(event: Event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const target = event.currentTarget as HTMLButtonElement | null;
-    const favoriteId = target?.dataset.favoriteId;
-    if (!favoriteId) {
-      return;
-    }
+  function removeFavoriteWithToast(favoriteId: string) {
     updateFavorites(removeFavorite(state.favorites, favoriteId));
     showFavoriteToast("Removed from Favorites");
-  }
-
-  function createFavoritePlaylistButton(item: FavoriteTrack) {
-    if (!onAddToPlaylist) {
-      return null;
-    }
-    const sourceType = item.sourceType ?? "youtube";
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "playlist-add-button";
-    button.title = "Add to playlist";
-    button.setAttribute(
-      "aria-label",
-      `Add ${item.title || "track"} to playlist`,
-    );
-    button.innerHTML =
-      '<span class="material-symbols-outlined playlist-add-icon" aria-hidden="true">add_circle</span>';
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      onAddToPlaylist(favoriteToPlaylistTrack(item, sourceType));
-      blurMouseActivatedControl(event);
-    });
-    return button;
-  }
-
-  function favoriteToPlaylistTrack(
-    item: FavoriteTrack,
-    sourceType: FavoriteTrack["sourceType"],
-  ): PlaylistTrack {
-    return {
-      id: item.uniqueSongId,
-      sourceType,
-      title: item.title || "Untitled",
-      artist: item.artist || "",
-      duration: item.duration,
-      tuningParams: item.tuningParams ?? null,
-    };
   }
 
   async function handleFavoriteToggle() {
@@ -1015,10 +596,6 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
   }
 
-  function handleFavoritesSearchInput() {
-    renderFavoritesList();
-  }
-
   function showFavoriteToast(message: string) {
     if (state.favoritesSyncCode) {
       showToast(context, message, { icon: "cloud_done" });
@@ -1028,25 +605,14 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   return {
-    handleFavoritesSyncToggle,
-    handleFavoritesSyncItem,
-    handleFavoritesSyncDocumentClick,
-    handleFavoritesSyncEnterClose,
-    handleFavoritesSyncCreateClose,
-    handleFavoritesSyncEnterSubmit,
-    handleFavoritesSyncCreateSubmit,
-    handleFavoritesSyncEnterKeydown,
-    handleFavoritesSyncEnterModalClick,
-    handleFavoritesSyncCreateModalClick,
-    closeFavoritesSyncMenu,
-    updateFavoritesSyncControls,
     hydrateFavoritesFromSync,
-    renderFavoritesList,
-    handleFavoritesSearchInput,
+    refreshFavoritesFromSync,
+    enterSyncCode,
+    createSyncCode,
     syncFavoriteButton,
     maybeAutoFavoriteUserSupplied,
-    handleFavoriteClick,
-    handleFavoriteRemove,
+    handleFavoriteSelect,
+    removeFavoriteWithToast,
     handleFavoriteToggle,
     updateFavorites,
   };

@@ -1,57 +1,17 @@
 import type { AppState } from "../context";
-import { TOP_SONGS_LIMIT } from "../constants";
 import type { Elements } from "../elements";
-import type { FavoritesHandlers } from "./favorites";
-
-type TopSongsTabId = "top" | "trending" | "recent" | "favorites";
 
 type TabsDeps = {
   elements: Elements;
   state: AppState;
-  favoritesHandlers: FavoritesHandlers;
-  onTopSongsTabChange?: (tabId: TopSongsTabId) => void;
-  onTopSongsRefresh?: (tabId: TopSongsTabId) => void;
 };
 
 export type TabsHandlers = ReturnType<typeof createTabsHandlers>;
 
+// Search/Upload subtab wiring — the last legacy subtab logic; converts with
+// the Search panel (checkpoint 6).
 export function createTabsHandlers(deps: TabsDeps) {
-  const {
-    elements,
-    state,
-    favoritesHandlers,
-  } = deps;
-
-  function setTopSongsTab(tabId: TopSongsTabId) {
-    state.topSongsTab = tabId;
-    elements.topSongsTabs.forEach((button) => {
-      button.classList.toggle("active", button.dataset.topSubtab === tabId);
-    });
-    elements.topSongsList.classList.toggle("hidden", tabId !== "top");
-    elements.trendingSongsList.classList.toggle("hidden", tabId !== "trending");
-    elements.recentSongsList.classList.toggle("hidden", tabId !== "recent");
-    elements.favoritesFilter.classList.toggle("hidden", tabId !== "favorites");
-    elements.favoritesList.classList.toggle("hidden", tabId !== "favorites");
-    elements.topListTitle.textContent =
-      tabId === "top"
-        ? `Top ${TOP_SONGS_LIMIT}`
-        : tabId === "trending"
-          ? "Trending"
-        : tabId === "recent"
-          ? `Last ${TOP_SONGS_LIMIT} Played`
-          : "Favorites";
-    elements.topListRefreshButton.classList.toggle(
-      "hidden",
-      tabId === "favorites",
-    );
-    elements.topListRefreshButton.setAttribute(
-      "aria-label",
-      `Refresh ${elements.topListTitle.textContent ?? "list"}`,
-    );
-    favoritesHandlers.closeFavoritesSyncMenu();
-    favoritesHandlers.updateFavoritesSyncControls();
-    deps.onTopSongsTabChange?.(tabId);
-  }
+  const { elements, state } = deps;
 
   function setSearchTab(tabId: "search" | "upload") {
     state.searchTab = tabId;
@@ -62,24 +22,6 @@ export function createTabsHandlers(deps: TabsDeps) {
     elements.uploadPanel.classList.toggle("hidden", tabId !== "upload");
     elements.searchPanelTitle.textContent =
       tabId === "search" ? "Search" : "Upload";
-  }
-
-  function handleTopSongsTabClick(event: Event) {
-    const button = event.currentTarget as HTMLButtonElement | null;
-    const tabId = button?.dataset.topSubtab as
-      | "top"
-      | "trending"
-      | "recent"
-      | "favorites"
-      | undefined;
-    if (!tabId) {
-      return;
-    }
-    setTopSongsTab(tabId);
-  }
-
-  function handleTopSongsRefreshClick() {
-    deps.onTopSongsRefresh?.(state.topSongsTab);
   }
 
   function handleSearchSubtabClick(event: Event) {
@@ -95,9 +37,6 @@ export function createTabsHandlers(deps: TabsDeps) {
   }
 
   return {
-    setTopSongsTab,
-    handleTopSongsTabClick,
-    handleTopSongsRefreshClick,
     setSearchTab,
     handleSearchSubtabClick,
   };

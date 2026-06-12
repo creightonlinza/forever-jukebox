@@ -1,3 +1,5 @@
+import type { PlaylistTrack } from "./playlist";
+
 export type FavoriteTrack = {
   uniqueSongId: string;
   title: string;
@@ -155,4 +157,18 @@ export function saveFavoritesSyncCode(code: string) {
     return;
   }
   localStorage.setItem(FAVORITES_SYNC_KEY, trimmed);
+}
+
+export function favoriteToPlaylistTrack(
+  item: FavoriteTrack,
+  sourceType: FavoriteTrack["sourceType"],
+): PlaylistTrack {
+  return {
+    id: item.uniqueSongId,
+    sourceType,
+    title: item.title || "Untitled",
+    artist: item.artist || "",
+    duration: item.duration,
+    tuningParams: item.tuningParams ?? null,
+  };
 }

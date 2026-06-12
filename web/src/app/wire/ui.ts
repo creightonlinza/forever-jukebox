@@ -36,13 +36,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     playlistHandlers,
   } = deps;
 
-  elements.topSongsTabs.forEach((button) => {
-    button.addEventListener("click", tabsHandlers.handleTopSongsTabClick);
-  });
-  elements.topListRefreshButton.addEventListener(
-    "click",
-    tabsHandlers.handleTopSongsRefreshClick,
-  );
   elements.searchButton.addEventListener("click", searchHandlers.handleSearchClick);
   elements.searchInput.addEventListener(
     "keydown",
@@ -51,37 +44,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   elements.searchSubtabButtons.forEach((button) => {
     button.addEventListener("click", tabsHandlers.handleSearchSubtabClick);
   });
-  elements.favoritesSyncButton.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoritesSyncToggle,
-  );
-  elements.favoritesSyncItems.forEach((button) => {
-    button.addEventListener("click", favoritesHandlers.handleFavoritesSyncItem);
-  });
-  elements.favoritesSearchInput.addEventListener(
-    "input",
-    favoritesHandlers.handleFavoritesSearchInput,
-  );
-  elements.favoritesSyncEnterClose.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoritesSyncEnterClose,
-  );
-  elements.favoritesSyncCreateClose.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoritesSyncCreateClose,
-  );
-  elements.favoritesSyncEnterButton.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoritesSyncEnterSubmit,
-  );
-  elements.favoritesSyncCreateButton.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoritesSyncCreateSubmit,
-  );
-  elements.favoritesSyncEnterInput.addEventListener(
-    "keydown",
-    favoritesHandlers.handleFavoritesSyncEnterKeydown,
-  );
   elements.uploadFileButton.addEventListener(
     "click",
     searchHandlers.handleUploadFileClick,
@@ -205,14 +167,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
     tuningHandlers.handleTuningModalClick,
   );
   elements.infoModal.addEventListener("click", tuningHandlers.handleInfoModalClick);
-  elements.favoritesSyncEnterModal.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoritesSyncEnterModalClick,
-  );
-  elements.favoritesSyncCreateModal.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoritesSyncCreateModalClick,
-  );
   elements.tuningApply.addEventListener("click", tuningHandlers.handleTuningApply);
   elements.tuningReset.addEventListener("click", tuningHandlers.handleTuningReset);
   elements.playButton.addEventListener("click", playbackHandlers.handlePlayClick);
@@ -244,10 +198,6 @@ export function bindUiHandlers(deps: UiBindingsDeps) {
   elements.canonizerFinish.addEventListener(
     "change",
     playbackHandlers.handleCanonizerFinish,
-  );
-  document.addEventListener(
-    "click",
-    favoritesHandlers.handleFavoritesSyncDocumentClick,
   );
   document.addEventListener("click", tuningHandlers.handleVolumeDocumentClick);
   window.addEventListener("keydown", deleteJobHandlers.handleDeleteConfirmKeydown);
