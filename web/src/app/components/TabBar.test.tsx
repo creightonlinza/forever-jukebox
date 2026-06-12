@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useShellStore } from "../shell-store";
+import { useAppStore } from "../store";
 import { TabBar } from "./TabBar";
 
 describe("TabBar", () => {
   beforeEach(() => {
     act(() => {
-      useShellStore.setState({ activeTab: "top", isPlayTabPulsing: false });
+      useAppStore.setState({ activeTabId: "top", isPlayTabPulsing: false });
     });
   });
 
@@ -33,7 +33,7 @@ describe("TabBar", () => {
     expect(topButton?.className).toContain("active");
     expect(searchButton?.className).not.toContain("active");
     act(() => {
-      useShellStore.getState().setActiveTab("search");
+      useAppStore.getState().setActiveTab("search");
     });
     expect(topButton?.className).not.toContain("active");
     expect(searchButton?.className).toContain("active");
@@ -44,7 +44,7 @@ describe("TabBar", () => {
     const playButton = screen.getByText("Listen").closest("button");
     expect(playButton?.className).not.toContain("is-playing");
     act(() => {
-      useShellStore.getState().setPlayTabPulsing(true);
+      useAppStore.getState().setPlayTabPulsing(true);
     });
     expect(playButton?.className).toContain("is-playing");
   });

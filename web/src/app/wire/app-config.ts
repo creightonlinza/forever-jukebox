@@ -2,7 +2,7 @@ import type { AppConfig } from "../api";
 import type { AppState } from "../context";
 import type { Elements } from "../elements";
 import { configureMaxFavorites, maxFavorites } from "../favorites";
-import { useShellStore } from "../shell-store";
+import { useAppStore } from "../store";
 import type { FavoritesHandlers } from "./favorites";
 import type { TabsHandlers } from "./tabs";
 
@@ -60,7 +60,7 @@ export function createAppConfigHandlers(deps: AppConfigDeps) {
 
   // The footer is React-owned; <Footer> renders the credit from the store.
   function renderFooterCredit(config: AppConfig) {
-    useShellStore.getState().setFooterCredit({
+    useAppStore.getState().setFooterCredit({
       hostedByName: config.hosted_by_name?.trim() || null,
       hostedByUrl: config.hosted_by_url?.trim() || null,
     });

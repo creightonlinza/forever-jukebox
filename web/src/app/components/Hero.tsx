@@ -1,10 +1,10 @@
 import type { AppBridge } from "../bridge";
-import { useShellStore } from "../shell-store";
+import { useAppStore } from "../store";
 import { TabBar } from "./TabBar";
 
 function ThemeToggle() {
-  const theme = useShellStore((s) => s.theme);
-  const setTheme = useShellStore((s) => s.setTheme);
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
   return (
     <div className="theme-toggle" id="theme-toggle">
       <button

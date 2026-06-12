@@ -1,7 +1,7 @@
-import { useShellStore } from "../shell-store";
+import { useAppStore } from "../store";
 
 export function Footer() {
-  const credit = useShellStore((s) => s.footerCredit);
+  const credit = useAppStore((s) => s.footerCredit);
   return (
     <footer className="site-footer">
       <p id="site-footer-credit">

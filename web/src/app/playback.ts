@@ -29,7 +29,7 @@ import {
 import { storeAnchorHighlight } from "./anchorHighlight";
 import { storeBranchStatsEnabled } from "./extrasMode";
 import { setAutoMarqueeText } from "./marquee";
-import { useShellStore } from "./shell-store";
+import { useAppStore } from "./store";
 import { showToast } from "./ui";
 import { isAdminMode } from "./admin";
 import {
@@ -1107,7 +1107,7 @@ function updatePlayButton(context: AppContext) {
     updateButton(context.elements.vizPlayButton);
   }
   const shouldPulse = isRunning && context.state.activeTabId !== "play";
-  useShellStore.getState().setPlayTabPulsing(shouldPulse);
+  useAppStore.getState().setPlayTabPulsing(shouldPulse);
 }
 
 export function resetForNewTrack(

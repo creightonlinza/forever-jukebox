@@ -3,7 +3,7 @@ import { useLocation, useNavigationType } from "react-router-dom";
 import type { MutableRefObject } from "react";
 import type { AppBridge } from "../bridge";
 import { TOP_SONGS_REFRESH_MS } from "../constants";
-import { useShellStore } from "../shell-store";
+import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
@@ -17,7 +17,7 @@ function useRouteSync(bridge: AppBridge) {
   const navigationType = useNavigationType();
   const handledKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    useShellStore.getState().setActiveTab(tabFromPathname(location.pathname));
+    useAppStore.getState().setActiveTab(tabFromPathname(location.pathname));
     if (navigationType === "POP" && handledKeyRef.current !== location.key) {
       handledKeyRef.current = location.key;
       bridge.handleRoute(location.pathname);
@@ -31,16 +31,15 @@ function useTabEffects(
   bridge: AppBridge,
   panelsRef: MutableRefObject<HTMLDivElement | null>,
 ) {
-  const activeTab = useShellStore((s) => s.activeTab);
+  const activeTab = useAppStore((s) => s.activeTabId);
   useEffect(() => {
     const { state, jukebox, engine } = bridge.context;
-    state.activeTabId = activeTab;
     panelsRef.current
       ?.querySelectorAll<HTMLElement>("[data-tab-panel]")
       .forEach((panel) => {
         panel.classList.toggle("hidden", panel.dataset.tabPanel !== activeTab);
       });
-    useShellStore
+    useAppStore
       .getState()
       .setPlayTabPulsing(state.isRunning && activeTab !== "play");
     if (activeTab === "play") {
@@ -64,7 +63,7 @@ function useTabEffects(
 }
 
 function useThemeEffect(bridge: AppBridge) {
-  const theme = useShellStore((s) => s.theme);
+  const theme = useAppStore((s) => s.theme);
   useEffect(() => {
     bridge.applyTheme(theme);
   }, [theme, bridge]);

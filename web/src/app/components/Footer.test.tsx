@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { useShellStore } from "../shell-store";
+import { useAppStore } from "../store";
 import { Footer } from "./Footer";
 
 describe("Footer", () => {
   beforeEach(() => {
     act(() => {
-      useShellStore.setState({ footerCredit: null });
+      useAppStore.setState({ footerCredit: null });
     });
   });
 
@@ -27,7 +27,7 @@ describe("Footer", () => {
 
   it("renders host credit as a link when name and URL are configured", () => {
     act(() => {
-      useShellStore.getState().setFooterCredit({
+      useAppStore.getState().setFooterCredit({
         hostedByName: "Example Host",
         hostedByUrl: "https://example.com",
       });
@@ -43,7 +43,7 @@ describe("Footer", () => {
 
   it("renders host credit as plain text when no URL is configured", () => {
     act(() => {
-      useShellStore.getState().setFooterCredit({
+      useAppStore.getState().setFooterCredit({
         hostedByName: "Example Host",
         hostedByUrl: null,
       });

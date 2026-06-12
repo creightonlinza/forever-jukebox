@@ -1,6 +1,6 @@
 import type { AppBridge } from "../bridge";
 import type { TabId } from "../context";
-import { useShellStore } from "../shell-store";
+import { useAppStore } from "../store";
 
 function tabClass(active: boolean, pulsing = false) {
   let cls = "tab-btn";
@@ -10,8 +10,8 @@ function tabClass(active: boolean, pulsing = false) {
 }
 
 export function TabBar({ bridge }: { bridge: Pick<AppBridge, "onTabClick"> }) {
-  const activeTab = useShellStore((s) => s.activeTab);
-  const isPlayTabPulsing = useShellStore((s) => s.isPlayTabPulsing);
+  const activeTab = useAppStore((s) => s.activeTabId);
+  const isPlayTabPulsing = useAppStore((s) => s.isPlayTabPulsing);
   const onClick = (tabId: TabId) => () => bridge.onTabClick(tabId);
   return (
     <nav className="tabs" aria-label="Primary">

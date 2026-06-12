@@ -1,5 +1,5 @@
 import type { AppContext, AppState, TabId } from "../context";
-import { useShellStore } from "../shell-store";
+import { useAppStore } from "../store";
 import { navigateToTab } from "../tabs";
 import { getTuningParamsStringFromUrl } from "../tuning";
 
@@ -35,7 +35,7 @@ export function createNavigationHandlers(deps: NavigationDeps) {
   // Tab visibility side effects now run in the React shell, keyed on the
   // store's activeTab (see AppRoot's useTabEffects).
   function setActiveTabWithRefresh(tabId: TabId) {
-    useShellStore.getState().setActiveTab(tabId);
+    useAppStore.getState().setActiveTab(tabId);
   }
 
   return {

@@ -80,7 +80,7 @@ import { createAppConfigHandlers } from "./wire/app-config";
 import { bindUiHandlers } from "./wire/ui";
 import { createCacheHandlers } from "./wire/cache";
 import type { AppBridge } from "./bridge";
-import { useShellStore } from "./shell-store";
+import { legacyAppState, useAppStore } from "./store";
 import {
   getTuningParamsFromEngine,
   syncTuningParamsState,
@@ -114,7 +114,6 @@ export function bootstrap(): AppBridge {
   const initialTheme = resolveStoredTheme();
   applyThemeVariables(initialTheme);
   document.body.classList.toggle("theme-light", initialTheme === "light");
-  useShellStore.setState({ theme: initialTheme });
   const player = new BufferedAudioPlayer();
   const cowbellOverlay = new CowbellOverlayService(player.getContext(), {
     getPlaybackRate: () => player.getPlaybackRate(),
@@ -127,59 +126,18 @@ export function bootstrap(): AppBridge {
   const branchStatsEnabled = resolveStoredBranchStatsEnabled();
   jukebox.setAnchorHighlightEnabled(highlightAnchorBranch);
   const defaultConfig = engine.getConfig();
-  const state: AppState = {
-    activeTabId: "top",
-    activeVizIndex: DEFAULT_VISUALIZATION_INDEX,
-    playMode: "jukebox",
-    topSongsTab: "top",
+  // The store holds all app state (defaults live in store.ts); hydrate the
+  // persisted bits here, pre-render. `state` is the legacy proxy: every
+  // `state.x = y` in playback.ts / wire/* is a store write.
+  useAppStore.setState({
+    theme: initialTheme,
     favorites: loadFavorites(),
     playlist: loadPlaylist(),
     favoritesSyncCode: loadFavoritesSyncCode(),
-    playTimerMs: 0,
-    lastPlayStamp: null,
-    lastBeatIndex: null,
-    vizData: null,
-    isRunning: false,
-    isPaused: false,
-    audioLoaded: false,
-    analysisLoaded: false,
-    audioLoadInFlight: false,
-    autoComputedThreshold: null,
-    lastJobId: null,
-    lastTrackId: null,
-    lastSourceId: null,
-    lastSourceProvider: null,
-    pendingAutoFavoriteId: null,
-    lastPlayCountedJobId: null,
-    shiftBranching: false,
-    bringItHomeMode: false,
     branchStatsEnabled,
-    jukeboxAudioMode: "off",
-    swingPreparing: false,
-    swingRenderToken: 0,
-    selectedEdge: null,
-    topSongsRefreshTimer: null,
-    trackDurationSec: null,
-    trackTitle: null,
-    trackArtist: null,
-    toastTimer: null,
-    deleteEligible: false,
-    deleteEligibilityJobId: null,
-    searchTab: "search",
-    appConfig: null,
-    pollController: null,
-    listenTimerId: null,
-    sleepTimer: {
-      configuredDurationMs: null,
-      endTimeMs: null,
-      remainingMs: 0,
-    },
-    sleepTimerTimeoutId: null,
-    wakeLock: null,
-    tuningParams: null,
-    deletedEdgeIds: [],
     highlightAnchorBranch,
-  };
+  });
+  const state: AppState = legacyAppState;
   const context: AppContext = {
     elements,
     engine,
@@ -190,13 +148,6 @@ export function bootstrap(): AppBridge {
     defaultConfig,
     state,
   };
-  // Legacy modules read state.activeTabId synchronously after setting the
-  // shell store's activeTab, so mirror it here (zustand notifies in-line).
-  useShellStore.subscribe((s, prev) => {
-    if (s.activeTab !== prev.activeTab) {
-      state.activeTabId = s.activeTab;
-    }
-  });
   let playlistHandlers: PlaylistHandlers | null = null;
   const syncPlaylistUi = () => playlistHandlers?.syncPlaylistUi();
   const handleNormalTrackSelected = (track: PlaylistTrack) => {

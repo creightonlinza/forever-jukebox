@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState } from "../context";
 import type { Elements } from "../elements";
 import { configureMaxFavorites, maxFavorites } from "../favorites";
-import { useShellStore } from "../shell-store";
+import { useAppStore } from "../store";
 import { createAppConfigHandlers } from "./app-config";
 
 function createClassList() {
@@ -48,7 +48,7 @@ describe("createAppConfigHandlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     configureMaxFavorites(null);
-    useShellStore.setState({ footerCredit: null });
+    useAppStore.setState({ footerCredit: null });
   });
 
   it("applies configured max favorites and trims local state", () => {
@@ -100,7 +100,7 @@ describe("createAppConfigHandlers", () => {
       hosted_by_url: "https://example.com",
     });
 
-    expect(useShellStore.getState().footerCredit).toEqual({
+    expect(useAppStore.getState().footerCredit).toEqual({
       hostedByName: "Example Host",
       hostedByUrl: "https://example.com",
     });
@@ -115,7 +115,7 @@ describe("createAppConfigHandlers", () => {
       hosted_by_name: "Example Host",
     });
 
-    expect(useShellStore.getState().footerCredit).toEqual({
+    expect(useAppStore.getState().footerCredit).toEqual({
       hostedByName: "Example Host",
       hostedByUrl: null,
     });
