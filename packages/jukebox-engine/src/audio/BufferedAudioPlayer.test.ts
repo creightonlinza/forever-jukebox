@@ -170,6 +170,46 @@ describe("BufferedAudioPlayer", () => {
     expect(player.getDuration()).toBe(3);
   });
 
+  it("ignores a stale decode that resolves after a newer one", async () => {
+    const context = new MockAudioContext();
+    const pending: Array<(buffer: AudioBuffer) => void> = [];
+    context.decodeAudioData = ((_buffer: ArrayBuffer) =>
+      new Promise<AudioBuffer>((resolve) => {
+        pending.push(resolve);
+      })) as MockAudioContext["decodeAudioData"];
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+
+    const first = player.decode(new ArrayBuffer(1));
+    const second = player.decode(new ArrayBuffer(2));
+
+    // The newer decode finishes first and wins.
+    pending[1]({ duration: 20 } as AudioBuffer);
+    await second;
+    expect(player.getDuration()).toBe(20);
+
+    // The older decode resolves late; it must not clobber the newer buffer.
+    pending[0]({ duration: 10 } as AudioBuffer);
+    await first;
+    expect(player.getDuration()).toBe(20);
+  });
+
+  it("lets a direct loadBuffer supersede an in-flight decode", async () => {
+    const context = new MockAudioContext();
+    const pending: Array<(buffer: AudioBuffer) => void> = [];
+    context.decodeAudioData = ((_buffer: ArrayBuffer) =>
+      new Promise<AudioBuffer>((resolve) => {
+        pending.push(resolve);
+      })) as MockAudioContext["decodeAudioData"];
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+
+    const decoding = player.decode(new ArrayBuffer(1));
+    await player.loadBuffer({ duration: 42 } as AudioBuffer);
+
+    pending[0]({ duration: 7 } as AudioBuffer);
+    await decoding;
+    expect(player.getDuration()).toBe(42);
+  });
+
   it("tracks buffer time using selected playback rate", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);

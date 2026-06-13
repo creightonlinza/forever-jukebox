@@ -215,10 +215,34 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       return;
     }
     if (syncUpdateInFlight) {
-      pendingSyncDelta = delta;
+      // Merge rather than replace: a second local change while a sync is in
+      // flight must not clobber the first, or the server echo deletes it
+      // back out locally.
+      pendingSyncDelta = pendingSyncDelta
+        ? mergeFavoritesDeltas(pendingSyncDelta, delta)
+        : delta;
       return;
     }
     void syncFavoritesToBackend(delta);
+  }
+
+  // Fold a later delta into an earlier queued one so the combined effect is
+  // applied atomically on the next flush. `added` unions by key; `removedIds`
+  // unions; a later add cancels an earlier remove and vice versa.
+  function mergeFavoritesDeltas(
+    base: FavoritesDelta,
+    next: FavoritesDelta,
+  ): FavoritesDelta {
+    const removedIds = new Set<string>(base.removedIds);
+    next.removedIds.forEach((id) => removedIds.add(id));
+    next.added.forEach((item) => removedIds.delete(item.uniqueSongId));
+
+    const addedById = new Map<string, FavoriteTrack>();
+    base.added.forEach((item) => addedById.set(item.uniqueSongId, item));
+    next.added.forEach((item) => addedById.set(item.uniqueSongId, item));
+    removedIds.forEach((id) => addedById.delete(id));
+
+    return { added: [...addedById.values()], removedIds };
   }
 
   async function syncFavoritesToBackend(delta: FavoritesDelta) {

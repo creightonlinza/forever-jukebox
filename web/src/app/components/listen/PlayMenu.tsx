@@ -40,9 +40,19 @@ function DeleteConfirmModal({
     if (busy || !pending) {
       return;
     }
+    // `pending` was frozen at modal-open; if the active track changed
+    // underneath us (e.g. autocanonizer playlist auto-advance) the frozen job
+    // no longer matches the current session. Re-read and bail rather than
+    // delete the right job but reset/navigate the wrong session.
+    const current = bridge.listenPanel.getPendingDelete();
+    if (!current || current.jobId !== pending.jobId) {
+      useAppStore.setState({ deleteConfirmOpen: false });
+      onClosed();
+      return;
+    }
     setBusy(true);
     try {
-      await bridge.listenPanel.performDelete(pending);
+      await bridge.listenPanel.performDelete(current);
     } finally {
       setBusy(false);
       useAppStore.setState({ deleteConfirmOpen: false });

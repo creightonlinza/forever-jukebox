@@ -67,7 +67,14 @@ function createFakeElement(): FakeElement {
 
 const initialStoreState = useAppStore.getState();
 
-function createHarness(favorites: FavoriteTrack[]) {
+type HarnessOverrides = Partial<
+  Parameters<typeof createFavoritesHandlers>[0]
+>;
+
+function createHarness(
+  favorites: FavoriteTrack[],
+  overrides: HarnessOverrides = {},
+) {
   const context = {} as AppContext;
   useAppStore.setState(initialStoreState, true);
   useAppStore.setState({
@@ -100,8 +107,25 @@ function createHarness(favorites: FavoriteTrack[]) {
     writeTuningParamsToUrl: vi.fn(),
     syncTuningParamsState: vi.fn(() => null),
     setPlayMode: vi.fn(),
+    ...overrides,
   });
   return { handlers, saveFavorites };
+}
+
+function favorite(id: string): FavoriteTrack {
+  return {
+    uniqueSongId: id,
+    title: id,
+    artist: "",
+    duration: null,
+    sourceType: "youtube",
+  };
+}
+
+async function flushMicrotasks(count = 5) {
+  for (let idx = 0; idx < count; idx += 1) {
+    await Promise.resolve();
+  }
 }
 
 describe("createFavoritesHandlers", () => {
@@ -150,5 +174,52 @@ describe("createFavoritesHandlers", () => {
     expect(useAppStore.getState().favorites[0].uniqueSongId).toBe(response.id);
     expect(useAppStore.getState().favorites[0].sourceType).toBe("youtube");
     expect(saveFavorites).toHaveBeenCalledWith(useAppStore.getState().favorites);
+  });
+
+  it("merges queued deltas instead of dropping them while a sync is in flight", async () => {
+    // Each update call returns a controllable promise so we can hold the
+    // first sync "in flight" while further local edits queue up behind it.
+    const resolvers: Array<(value: { favorites?: FavoriteTrack[] }) => void> =
+      [];
+    const updateCalls: FavoriteTrack[][] = [];
+    const updateFavoritesSync = vi.fn(
+      (_code: string, favorites: FavoriteTrack[]) => {
+        updateCalls.push(favorites);
+        return new Promise<{ favorites?: FavoriteTrack[] }>((resolve) => {
+          resolvers.push(resolve);
+        });
+      },
+    );
+    const { handlers } = createHarness([], {
+      // Server is empty throughout; the merged local delta is what matters.
+      fetchFavoritesSync: vi.fn(async () => []),
+      updateFavoritesSync,
+    });
+    useAppStore.setState({
+      appConfig: { allow_favorites_sync: true } as never,
+      favoritesSyncCode: "code",
+      favorites: [],
+    });
+
+    const a = favorite("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1");
+    const b = favorite("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2");
+
+    handlers.updateFavorites([a]); // starts sync #1 (adds A)
+    await flushMicrotasks();
+    handlers.updateFavorites([a, b]); // queue: add B
+    handlers.updateFavorites([b]); // queue: remove A — must MERGE with add B
+
+    expect(updateCalls).toHaveLength(1);
+
+    // Resolve sync #1, echoing what it pushed; this flushes the queued delta.
+    resolvers[0]({ favorites: updateCalls[0] });
+    await flushMicrotasks();
+
+    // The second sync must carry B (queued add survived the later remove-A);
+    // pre-fix the third edit replaced the second and B was lost.
+    expect(updateCalls).toHaveLength(2);
+    const ids = updateCalls[1].map((item) => item.uniqueSongId);
+    expect(ids).toContain(b.uniqueSongId);
+    expect(ids).not.toContain(a.uniqueSongId);
   });
 });

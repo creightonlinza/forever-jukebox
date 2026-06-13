@@ -25,11 +25,12 @@ describe("engine-parity fixture manifest", () => {
   ) as Manifest;
 
   it("lists every fixture case file", () => {
+    const byName = (a: string, b: string) => a.localeCompare(b);
     const onDisk = fs
       .readdirSync(fixtureDir)
       .filter((name) => name.endsWith("-cases.json"))
-      .sort();
-    expect(onDisk).toEqual(Object.keys(manifest.files).sort());
+      .sort(byName);
+    expect(onDisk).toEqual(Object.keys(manifest.files).sort(byName));
   });
 
   it("matches the content hash of every fixture", () => {

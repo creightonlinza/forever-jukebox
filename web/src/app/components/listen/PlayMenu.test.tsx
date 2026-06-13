@@ -153,6 +153,28 @@ describe("PlayMenu", () => {
     });
   });
 
+  it("bails out of delete when the job changes under the open modal", async () => {
+    const bridge = createBridge();
+    act(() => {
+      useAppStore.setState({ deleteEligible: true });
+    });
+    render(<PlayMenu bridge={bridge} />);
+    await userEvent.click(document.getElementById("delete-job")!);
+    expect(useAppStore.getState().deleteConfirmOpen).toBe(true);
+
+    // The track auto-advanced while the modal was open; the live pending job
+    // no longer matches the snapshot frozen at modal-open.
+    (
+      bridge.listenPanel.getPendingDelete as ReturnType<typeof vi.fn>
+    ).mockReturnValue({ jobId: "job2", trackId: "track2", adminKey: null });
+
+    await userEvent.click(document.getElementById("delete-confirm-delete")!);
+    await waitFor(() => {
+      expect(useAppStore.getState().deleteConfirmOpen).toBe(false);
+    });
+    expect(bridge.listenPanel.performDelete).not.toHaveBeenCalled();
+  });
+
   it("cancels the confirm modal with Escape", async () => {
     const bridge = createBridge();
     act(() => {

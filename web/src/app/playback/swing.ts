@@ -86,6 +86,7 @@ export function prepareSwingMode(context: AppContext) {
       updatePlayButton();
       if (
         resumeAfterPrepare &&
+        useAppStore.getState().isPaused &&
         useAppStore.getState().playMode === "jukebox" &&
         useAppStore.getState().jukeboxAudioMode === "swing" &&
         !useAppStore.getState().isRunning

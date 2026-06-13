@@ -40,6 +40,7 @@ export class BufferedAudioPlayer {
   private offset = 0;
   private playing = false;
   private playRequestId = 0;
+  private loadGeneration = 0;
   private onEnded: (() => void) | null = null;
   private audioMode: JukeboxAudioMode = "off";
   private playbackRate = AUDIO_MODE_SETTINGS.off.rate;
@@ -66,6 +67,23 @@ export class BufferedAudioPlayer {
   }
 
   async loadBuffer(buffer: AudioBuffer) {
+    this.loadGeneration += 1;
+    this.applyLoadedBuffer(buffer);
+  }
+
+  async decode(arrayBuffer: ArrayBuffer) {
+    const generation = ++this.loadGeneration;
+    const buffer = await this.context.decodeAudioData(arrayBuffer.slice(0));
+    // Two decodes can be in flight at once and finish out of order; a later
+    // load (decode or loadBuffer) bumps the generation, so drop this stale
+    // result rather than clobber the newer buffer.
+    if (generation !== this.loadGeneration) {
+      return;
+    }
+    this.applyLoadedBuffer(buffer);
+  }
+
+  private applyLoadedBuffer(buffer: AudioBuffer) {
     this.stop();
     this.clearAnchorJump();
     this.originalBuffer = buffer;
@@ -73,11 +91,6 @@ export class BufferedAudioPlayer {
     this.reverbImpulseBuffers.clear();
     this.buffer = this.getActiveBuffer();
     this.offset = 0;
-  }
-
-  async decode(arrayBuffer: ArrayBuffer) {
-    const buffer = await this.context.decodeAudioData(arrayBuffer.slice(0));
-    await this.loadBuffer(buffer);
   }
 
   getBuffer(): AudioBuffer | null {
