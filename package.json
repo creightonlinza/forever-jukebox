@@ -1,0 +1,15 @@
+{
+  "name": "forever-jukebox-root",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "web",
+    "pwa"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "npm run lint --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  }
+}

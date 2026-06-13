@@ -2,11 +2,11 @@ import "../cast/style.css";
 import {
   BufferedAudioPlayer,
   type JukeboxAudioMode,
-} from "../audio/BufferedAudioPlayer";
-import { CowbellOverlayService } from "../audio/CowbellOverlayService";
-import { JukeboxEngine } from "../engine";
-import type { JukeboxConfig } from "../engine/types";
-import { JukeboxViz } from "../jukebox/JukeboxViz";
+} from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
+import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
+import { JukeboxEngine } from "@forever-jukebox/engine";
+import type { JukeboxConfig } from "@forever-jukebox/engine/types";
+import { JukeboxViz } from "@forever-jukebox/engine/viz/JukeboxViz";
 import { fetchAnalysis, fetchAudio, recordPlay } from "../app/api";
 import { formatErrorForDisplay } from "../app/errorDisplay";
 import { formatDuration } from "../app/format";

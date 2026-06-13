@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { JukeboxAudioMode } from "../../../audio/BufferedAudioPlayer";
+import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
 import type { AppBridge } from "../../bridge";
 import type { ExtrasFormValues, TuningFormValues } from "../../playback";
 import { useAppStore } from "../../store";

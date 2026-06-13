@@ -3,8 +3,8 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { Listen } from "./Listen";
-import { getOrCreateSwingBuffer } from "@/shared/jukebox/audio/swingBufferCache";
-import { renderSwingBuffer } from "@/shared/jukebox/audio/swingRenderer";
+import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
+import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
 
 const exportMocks = vi.hoisted(() => ({
   exportJukeboxAudio: vi.fn(),
@@ -101,7 +101,7 @@ vi.mock("@/core/application/usecases/analyzeAudio", () => ({
   },
 }));
 
-vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
+vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
   BufferedAudioPlayer: class BufferedAudioPlayer {
     private volume = 0.5;
     private onEnded: (() => void) | null = null;
@@ -163,7 +163,7 @@ vi.mock("@/shared/jukebox/audio/BufferedAudioPlayer", () => ({
   },
 }));
 
-vi.mock("@/shared/jukebox/audio/swingBufferCache", () => ({
+vi.mock("@forever-jukebox/engine/audio/swingBufferCache", () => ({
   getOrCreateSwingBuffer: vi.fn(
     (
       _sourceBuffer: AudioBuffer,
@@ -173,11 +173,11 @@ vi.mock("@/shared/jukebox/audio/swingBufferCache", () => ({
   ),
 }));
 
-vi.mock("@/shared/jukebox/audio/swingRenderer", () => ({
+vi.mock("@forever-jukebox/engine/audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(async () => ({ duration: 4 }) as AudioBuffer),
 }));
 
-vi.mock("@/shared/jukebox/export", () => ({
+vi.mock("@/shared/export", () => ({
   exportJukeboxAudio: exportMocks.exportJukeboxAudio,
 }));
 
@@ -186,7 +186,7 @@ vi.mock("@/shared/utils/exportJson", () => ({
   saveExportBinary: exportMocks.saveExportBinary,
 }));
 
-vi.mock("@/shared/jukebox/engine", () => ({
+vi.mock("@forever-jukebox/engine", () => ({
   JukeboxEngine: class JukeboxEngine {
     private config = {
       maxBranches: 4,
@@ -248,7 +248,7 @@ vi.mock("@/shared/jukebox/engine", () => ({
   },
 }));
 
-vi.mock("@/shared/jukebox/viz/JukeboxController", () => ({
+vi.mock("@forever-jukebox/engine/viz/JukeboxController", () => ({
   JukeboxController: class JukeboxController {
     private onEdgeSelect: ((edge: unknown) => void) | null = null;
     constructor(_layer: HTMLElement) {
@@ -277,7 +277,7 @@ vi.mock("@/shared/jukebox/viz/JukeboxController", () => ({
   },
 }));
 
-vi.mock("@/shared/jukebox/autocanonizer/AutocanonizerController", () => ({
+vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => ({
   AutocanonizerController: class AutocanonizerController {
     private onBeat: ((index: number) => void) | null = null;
     private onEnded: (() => void) | null = null;

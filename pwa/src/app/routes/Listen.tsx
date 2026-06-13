@@ -17,25 +17,25 @@ import {
 import {
   BufferedAudioPlayer,
   type JukeboxAudioMode,
-} from "@/shared/jukebox/audio/BufferedAudioPlayer";
-import { CowbellOverlayService } from "@/shared/jukebox/audio/CowbellOverlayService";
-import { getOrCreateSwingBuffer } from "@/shared/jukebox/audio/swingBufferCache";
-import { renderSwingBuffer } from "@/shared/jukebox/audio/swingRenderer";
-import { Edge, JukeboxConfig, JukeboxEngine } from "@/shared/jukebox/engine";
+} from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
+import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
+import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
+import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
+import { Edge, JukeboxConfig, JukeboxEngine } from "@forever-jukebox/engine";
 import {
   DEFAULT_VISUALIZATION_INDEX,
   VISUALIZATION_LABELS,
-} from "@/shared/jukebox/constants/visualization";
+} from "@forever-jukebox/engine/constants/visualization";
 import {
   backgroundClearTimeout,
   backgroundSetTimeout,
-} from "@/shared/jukebox/background/backgroundTimer";
+} from "@forever-jukebox/engine/background";
 import {
   exportJukeboxAudio,
   type JukeboxExportProgress,
-} from "@/shared/jukebox/export";
-import { AutocanonizerController } from "@/shared/jukebox/autocanonizer/AutocanonizerController";
-import { JukeboxController } from "@/shared/jukebox/viz/JukeboxController";
+} from "@/shared/export";
+import { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
+import { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
 import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";

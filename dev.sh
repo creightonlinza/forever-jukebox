@@ -331,8 +331,10 @@ ensure_engine_env() {
 }
 
 ensure_web_deps() {
-  if [[ ! -d "$WEB_DIR/node_modules" ]]; then
-    (cd "$WEB_DIR" && npm install)
+  # npm workspaces: a single install at the repo root covers web, pwa,
+  # and packages/*.
+  if [[ ! -d "$ROOT/node_modules" ]]; then
+    (cd "$ROOT" && npm install)
   fi
 }
 
@@ -379,6 +381,18 @@ start_web() {
   pids+=("$!")
 }
 
+start_pwa() {
+  (
+    cd "$ROOT/pwa"
+    if [[ -n "$VITE_HOST_FLAG" ]]; then
+      run_prefixed "pwa" npm run dev -- --host
+    else
+      run_prefixed "pwa" npm run dev
+    fi
+  ) &
+  pids+=("$!")
+}
+
 cleanup() {
   echo "Shutting down..."
   for pid in "${pids[@]:-}"; do
@@ -401,7 +415,9 @@ ensure_web_deps
 start_api
 start_worker
 start_web
+start_pwa
 
 echo "API: http://localhost:8000"
 echo "Web: http://localhost:5173"
+echo "PWA: http://localhost:5174"
 wait

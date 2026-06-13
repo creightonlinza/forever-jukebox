@@ -1,5 +1,5 @@
 // Adapted from web/src/app/browser-analysis.ts on 2026-02-11, reason: move analysis pipeline into a dedicated worker.
-import type { TrackMeta } from "@/shared/jukebox/engine/types";
+import type { TrackMeta } from "@forever-jukebox/engine/types";
 import {
   computeSections,
   computeTempo,

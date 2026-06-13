@@ -1,9 +1,9 @@
 import type { AppContext, TabId } from "../context";
-import type { Edge } from "../../engine/types";
-import type { BufferedAudioPlayer } from "../../audio/BufferedAudioPlayer";
-import type { JukeboxEngine } from "../../engine";
-import type { JukeboxController } from "../../jukebox/JukeboxController";
-import type { AutocanonizerController } from "../../autocanonizer/AutocanonizerController";
+import type { Edge } from "@forever-jukebox/engine/types";
+import type { BufferedAudioPlayer } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
+import type { JukeboxEngine } from "@forever-jukebox/engine";
+import type { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
+import type { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
 import type { ToastOptions } from "../ui";
 import { formatErrorForDisplay } from "../errorDisplay";
 import { formatDuration } from "../format";

@@ -1,18 +1,16 @@
 # syntax=docker/dockerfile:1.6
 
-FROM --platform=$BUILDPLATFORM node:20-slim AS web-build
-WORKDIR /app/web
-COPY web/package*.json ./
+FROM --platform=$BUILDPLATFORM node:20-slim AS frontend-build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY web/package.json web/
+COPY pwa/package.json pwa/
+COPY packages/jukebox-engine/package.json packages/jukebox-engine/
 RUN npm ci
-COPY web/ ./
-RUN npm run build
-
-FROM --platform=$BUILDPLATFORM node:20-slim AS pwa-build
-WORKDIR /app/pwa
-COPY pwa/package*.json ./
-RUN npm ci
-COPY pwa/ ./
-RUN npm run build
+COPY packages/ packages/
+COPY web/ web/
+COPY pwa/ pwa/
+RUN npm run build --workspace=web && npm run build --workspace=pwa
 
 # Force amd64 so pip can use Essentia's manylinux x86_64 wheel (no source builds)
 FROM --platform=linux/amd64 python:3.11-slim-bookworm AS runtime
@@ -59,8 +57,8 @@ RUN curl -fsSL "https://github.com/denoland/deno/releases/latest/download/deno-x
 # Now copy the actual source
 COPY api/ ./api/
 COPY engine/ ./engine/
-COPY --from=web-build /app/web/dist ./web/dist
-COPY --from=pwa-build /app/pwa/dist ./web/dist/offline
+COPY --from=frontend-build /app/web/dist ./web/dist
+COPY --from=frontend-build /app/pwa/dist ./web/dist/offline
 COPY docker/entrypoint.sh /app/entrypoint.sh
 
 RUN chmod +x /app/entrypoint.sh
