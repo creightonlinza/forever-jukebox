@@ -1,3 +1,4 @@
+import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { useAppStore } from "../../store";
@@ -74,6 +75,45 @@ describe("VizInfo", () => {
         "is-hidden",
       ),
     ).toBe(true);
+  });
+
+  it("updates the live counters via direct DOM writes without re-rendering", () => {
+    let renders = 0;
+    render(
+      <Profiler id="viz-info" onRender={() => (renders += 1)}>
+        <VizInfo />
+      </Profiler>,
+    );
+    const afterMount = renders;
+
+    act(() => {
+      useAppStore.setState({
+        listenTimeText: "00:00:05",
+        beatsPlayedText: "7",
+      });
+    });
+
+    // The DOM reflects the new values...
+    expect(document.getElementById("listen-time")?.textContent).toBe(
+      "00:00:05",
+    );
+    expect(document.getElementById("beats-played")?.textContent).toBe("7");
+    // ...but the high-frequency updates never went through React.
+    expect(renders).toBe(afterMount);
+  });
+
+  it("still re-renders when track metadata changes", () => {
+    let renders = 0;
+    render(
+      <Profiler id="viz-info" onRender={() => (renders += 1)}>
+        <VizInfo />
+      </Profiler>,
+    );
+    const afterMount = renders;
+    act(() => {
+      useAppStore.setState({ trackTitle: "New Song" });
+    });
+    expect(renders).toBeGreaterThan(afterMount);
   });
 
   it("shows the bring-it-home fullscreen note", () => {

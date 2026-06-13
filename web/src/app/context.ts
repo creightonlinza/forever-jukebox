@@ -45,7 +45,6 @@ export type AppState = {
   swingPreparing: boolean;
   swingRenderToken: number;
   selectedEdge: Edge | null;
-  topSongsRefreshTimer: number | null;
   trackDurationSec: number | null;
   trackTitle: string | null;
   trackArtist: string | null;

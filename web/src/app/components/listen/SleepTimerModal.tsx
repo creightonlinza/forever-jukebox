@@ -30,7 +30,16 @@ function resolveConfiguredDuration(configuredDurationMs: number | null) {
 
 export function SleepTimerModal({ bridge }: { bridge: AppBridge }) {
   const open = useAppStore((s) => s.sleepTimerModalOpen);
-  const sleepTimer = useAppStore((s) => s.sleepTimer);
+  // sleepTimer is replaced every second while a countdown runs (up to 2h), so
+  // subscribing to the whole object would re-render this modal every tick even
+  // while it's closed. Track configuredDurationMs (changes only on set/expire)
+  // and read the live remainingMs only while open.
+  const configuredDurationMs = useAppStore(
+    (s) => s.sleepTimer.configuredDurationMs,
+  );
+  const remainingMs = useAppStore((s) =>
+    s.sleepTimerModalOpen ? s.sleepTimer.remainingMs : 0,
+  );
   const [pendingValue, setPendingValue] = useState("off");
   const appliedRef = useRef<number | null>(null);
 
@@ -48,19 +57,19 @@ export function SleepTimerModal({ bridge }: { bridge: AppBridge }) {
   // Mirrors the legacy syncSleepTimerUi: when the applied timer changes
   // externally (set/expired), the select resets to it.
   useEffect(() => {
-    const applied = resolveConfiguredDuration(sleepTimer.configuredDurationMs);
+    const applied = resolveConfiguredDuration(configuredDurationMs);
     if (applied !== appliedRef.current) {
       appliedRef.current = applied;
       setPendingValue(valueForDuration(applied));
     }
-  }, [sleepTimer.configuredDurationMs]);
+  }, [configuredDurationMs]);
 
   const close = () => useAppStore.setState({ sleepTimerModalOpen: false });
 
   const countdown =
-    sleepTimer.remainingMs > 0
+    remainingMs > 0
       ? `Current countdown: ${formatDuration(
-          Math.ceil(Math.max(0, sleepTimer.remainingMs) / 1000),
+          Math.ceil(Math.max(0, remainingMs) / 1000),
         )}`
       : "Off";
 

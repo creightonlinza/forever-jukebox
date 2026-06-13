@@ -276,14 +276,12 @@ const createLibrarySlice: Slice<
     | "playlist"
     | "favoritesSyncCode"
     | "pendingAutoFavoriteId"
-    | "topSongsRefreshTimer"
   >
 > = () => ({
   favorites: [],
   playlist: emptyPlaylist(),
   favoritesSyncCode: null,
   pendingAutoFavoriteId: null,
-  topSongsRefreshTimer: null,
 });
 
 const createConfigSlice: Slice<Pick<AppStoreState, "appConfig">> = () => ({

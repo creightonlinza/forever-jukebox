@@ -28,6 +28,21 @@ function createBridge() {
   return { bridge, attachViz };
 }
 
+class StubResizeObserver {
+  static instances: StubResizeObserver[] = [];
+  callback: ResizeObserverCallback;
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    StubResizeObserver.instances.push(this);
+  }
+  trigger() {
+    this.callback([], this as unknown as ResizeObserver);
+  }
+}
+
 describe("VizContainer", () => {
   beforeEach(() => {
     act(() => {
@@ -46,6 +61,8 @@ describe("VizContainer", () => {
 
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("hands the panel and layer nodes to attachViz under StrictMode", () => {
@@ -102,5 +119,47 @@ describe("VizContainer", () => {
       document.getElementById("viz-panel")?.classList.contains("hidden"),
     ).toBe(false);
     expect(bridge.context.jukebox.resizeActive).toHaveBeenCalled();
+  });
+
+  it("observes the panel with ResizeObserver and resizes both controllers", () => {
+    StubResizeObserver.instances = [];
+    vi.stubGlobal("ResizeObserver", StubResizeObserver);
+    const { bridge } = createBridge();
+    const { unmount } = render(<VizContainer bridge={bridge} />);
+
+    // An effect remount (StrictMode-style) can create then disconnect an
+    // earlier observer; the last one is the live subscription.
+    expect(StubResizeObserver.instances.length).toBeGreaterThanOrEqual(1);
+    const observer =
+      StubResizeObserver.instances[StubResizeObserver.instances.length - 1];
+    expect(observer.observe).toHaveBeenCalledWith(
+      document.getElementById("viz-panel"),
+    );
+
+    act(() => observer.trigger());
+    expect(bridge.context.jukebox.resizeNow).toHaveBeenCalled();
+    expect(bridge.context.autocanonizer.resizeNow).toHaveBeenCalled();
+
+    unmount();
+    expect(observer.disconnect).toHaveBeenCalled();
+  });
+
+  it("falls back to the window resize listener without ResizeObserver", () => {
+    vi.stubGlobal("ResizeObserver", undefined);
+    const addSpy = vi.spyOn(window, "addEventListener");
+    const removeSpy = vi.spyOn(window, "removeEventListener");
+    const { bridge } = createBridge();
+    const { unmount } = render(<VizContainer bridge={bridge} />);
+
+    expect(addSpy).toHaveBeenCalledWith("resize", expect.any(Function));
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(bridge.context.jukebox.resizeNow).toHaveBeenCalled();
+    expect(bridge.context.autocanonizer.resizeNow).toHaveBeenCalled();
+
+    unmount();
+    expect(removeSpy).toHaveBeenCalledWith("resize", expect.any(Function));
   });
 });

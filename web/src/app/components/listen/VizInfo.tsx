@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { formatPlaybackTitle } from "../../format";
 import { useMarquee } from "../../hooks/useMarquee";
 import { useAppStore } from "../../store";
@@ -10,10 +10,39 @@ export function VizInfo() {
   const trackArtist = useAppStore((s) => s.trackArtist);
   const playMode = useAppStore((s) => s.playMode);
   const audioMode = useAppStore((s) => s.jukeboxAudioMode);
-  const listenTimeText = useAppStore((s) => s.listenTimeText);
-  const beatsPlayedText = useAppStore((s) => s.beatsPlayedText);
   const bringItHomeMode = useAppStore((s) => s.bringItHomeMode);
   const titleRef = useRef<HTMLDivElement | null>(null);
+  const listenTimeRef = useRef<HTMLSpanElement | null>(null);
+  const beatsPlayedRef = useRef<HTMLSpanElement | null>(null);
+
+  // listenTimeText (~5Hz) and beatsPlayedText (engine-rate) change far too
+  // often to drive React renders — each would re-run the title/marquee work
+  // several times a second during playback. Write them straight to their DOM
+  // nodes through a transient store subscription instead, so VizInfo only
+  // re-renders when the track metadata around them actually changes.
+  useLayoutEffect(() => {
+    const seed = useAppStore.getState();
+    if (listenTimeRef.current) {
+      listenTimeRef.current.textContent = seed.listenTimeText;
+    }
+    if (beatsPlayedRef.current) {
+      beatsPlayedRef.current.textContent = seed.beatsPlayedText;
+    }
+    return useAppStore.subscribe((state, prev) => {
+      if (
+        state.listenTimeText !== prev.listenTimeText &&
+        listenTimeRef.current
+      ) {
+        listenTimeRef.current.textContent = state.listenTimeText;
+      }
+      if (
+        state.beatsPlayedText !== prev.beatsPlayedText &&
+        beatsPlayedRef.current
+      ) {
+        beatsPlayedRef.current.textContent = state.beatsPlayedText;
+      }
+    });
+  }, []);
 
   const displayTitle =
     trackTitle || trackArtist
@@ -37,7 +66,7 @@ export function VizInfo() {
       <div className="viz-meta">
         <span className="viz-meta-stats">
           <span>Listen Time:</span>
-          <span id="listen-time">{listenTimeText}</span>
+          <span id="listen-time" ref={listenTimeRef}></span>
           <span
             id="viz-beats-divider"
             className={isCanonizer ? "viz-divider is-hidden" : "viz-divider"}
@@ -53,9 +82,8 @@ export function VizInfo() {
           <span
             id="beats-played"
             className={isCanonizer ? "is-hidden" : undefined}
-          >
-            {beatsPlayedText}
-          </span>
+            ref={beatsPlayedRef}
+          ></span>
         </span>
         <span
           id="bring-home-fullscreen-label"

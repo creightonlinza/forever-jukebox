@@ -42,6 +42,7 @@ import {
   releaseWakeLock,
   requestWakeLock,
   resetForNewTrack,
+  setMasterVolume,
   syncDeletedEdgeState,
   startAutocanonizerPlayback,
   startJukeboxFromBeat,
@@ -417,12 +418,7 @@ export function bootstrap(): AppBridge {
     deleteSelectedBranch: () => playbackHandlers?.deleteSelectedBranch(),
     playlistPrevious: () => playlistHandlers!.handlePlaylistPrevious(),
     playlistNext: () => playlistHandlers!.handlePlaylistNext(),
-    setVolume: (volumePct: number) => {
-      const volume = volumePct / 100;
-      player.setVolume(volume);
-      context.autocanonizer?.setVolume(volume);
-      cowbellOverlay.setVolume(volume);
-    },
+    setVolume: (volumePct: number) => setMasterVolume(context, volumePct),
     toggleFullscreen: () => fullscreenHandlers?.handleFullscreenToggle(),
     playlist: {
       selectIndex: (index: number) =>

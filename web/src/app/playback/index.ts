@@ -13,6 +13,7 @@ export {
   openExtras,
   openInfo,
   openTuning,
+  setMasterVolume,
   syncVolumeUI,
   updateListenTimeDisplay,
   updateTrackInfo,

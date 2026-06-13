@@ -258,7 +258,12 @@ button,
   text-align: center;
   color: var(--muted);
   font-size: 0.8rem;
+  /* margin-top:auto pushes the footer to the viewport bottom whenever #app
+     (a min-height:100vh flex column) has spare room. When content is taller
+     than the viewport the auto margin collapses to 0, so padding-top supplies
+     a consistent gap above the footer instead of butting against content. */
   margin-top: auto;
+  padding-top: 24px;
 }
 
 .site-footer a {
@@ -2354,8 +2359,7 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
     display: contents;
   }
 
-  #viz-stats .viz-play-controls,
-  #viz-stats .viz-play-toggle {
+  #viz-stats .viz-play-controls {
     order: 1;
   }
 

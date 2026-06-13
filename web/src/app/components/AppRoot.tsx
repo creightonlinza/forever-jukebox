@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
 import type { AppBridge } from "../bridge";
-import { TOP_SONGS_REFRESH_MS } from "../constants";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
 import { FaqPanel } from "./FaqPanel";
@@ -45,15 +44,6 @@ function useTabEffects(bridge: AppBridge) {
       .setPlayTabPulsing(useAppStore.getState().isRunning && activeTab !== "play");
     if (activeTab === "play") {
       jukebox.resizeActive();
-    } else if (activeTab === "top") {
-      const { topSongsRefreshTimer } = useAppStore.getState();
-      if (topSongsRefreshTimer !== null) {
-        window.clearTimeout(topSongsRefreshTimer);
-      }
-      const nextTimer = window.setTimeout(() => {
-        useAppStore.setState({ topSongsRefreshTimer: null });
-      }, TOP_SONGS_REFRESH_MS);
-      useAppStore.setState({ topSongsRefreshTimer: nextTimer });
     } else if (useAppStore.getState().shiftBranching) {
       useAppStore.setState({ shiftBranching: false });
       engine.setForceBranch(false);

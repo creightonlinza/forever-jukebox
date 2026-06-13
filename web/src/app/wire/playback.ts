@@ -217,7 +217,13 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     });
 
     engine.onUpdate((engineState) => {
-      useAppStore.setState({ beatsPlayedText: `${engineState.beatsPlayed}` });
+      // onUpdate fires every engine tick (~20Hz); only write when the counter
+      // actually advances so we don't churn the store and wake subscribers on
+      // every tick.
+      const beatsPlayedText = `${engineState.beatsPlayed}`;
+      if (useAppStore.getState().beatsPlayedText !== beatsPlayedText) {
+        useAppStore.setState({ beatsPlayedText });
+      }
       if (engineState.currentBeatIndex >= 0) {
         if (engineState.beatsPlayed !== lastCowbellBeatsPlayed) {
           lastCowbellBeatsPlayed = engineState.beatsPlayed;

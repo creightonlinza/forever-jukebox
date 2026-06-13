@@ -15,32 +15,38 @@ test.describe("branch stats", () => {
     await expect(page.locator("#branch-stats-popup")).toHaveClass(
       /\bhidden\b/,
     );
-    // selecting an edge requires canvas hit-testing; click around the viz
-    // center band until the popup appears (best-effort across viz layouts).
+    // Selecting an edge requires canvas hit-testing. Sweep a fixed, dense grid
+    // across the branch-arc band (deterministic for a given viz layout) until
+    // the popup appears. These are hard assertions, not skips: a track is
+    // always loaded by this point, so a non-measurable viz or a grid that
+    // finds no edge is a real failure — not something to silently pass.
     const box = await page.locator("#viz-layer").boundingBox();
-    test.skip(!box, "viz layer not measurable");
-    const points = [
-      [0.5, 0.55],
-      [0.45, 0.6],
-      [0.55, 0.6],
-      [0.4, 0.65],
-      [0.6, 0.65],
-      [0.5, 0.7],
-      [0.35, 0.6],
-      [0.65, 0.6],
-    ];
+    expect(box, "viz layer must be measurable after a track loads").toBeTruthy();
+    const fractionsX = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7];
+    const fractionsY = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75];
     let shown = false;
-    for (const [fx, fy] of points) {
-      await page.mouse.click(box!.x + box!.width * fx, box!.y + box!.height * fy);
-      shown = await page
-        .locator("#branch-stats-popup")
-        .evaluate((el) => !el.classList.contains("hidden"))
-        .catch(() => false);
+    for (const fy of fractionsY) {
+      for (const fx of fractionsX) {
+        await page.mouse.click(
+          box!.x + box!.width * fx,
+          box!.y + box!.height * fy,
+        );
+        shown = await page
+          .locator("#branch-stats-popup")
+          .evaluate((el) => !el.classList.contains("hidden"))
+          .catch(() => false);
+        if (shown) {
+          break;
+        }
+      }
       if (shown) {
         break;
       }
     }
-    test.skip(!shown, "no edge under the probed points for this viz");
+    expect(
+      shown,
+      "a branch-stats popup should appear for some edge under the grid sweep",
+    ).toBe(true);
     await expect(page.locator("#branch-stats-title")).toContainText(
       /Branch #\d+ stats/,
     );

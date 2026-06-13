@@ -175,6 +175,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     setSelectedEdge: vi.fn(),
     setSelectedEdgeActive: vi.fn(),
     resizeActive: vi.fn(),
+    refresh: vi.fn(),
     reset: vi.fn(),
     update: vi.fn(),
   };
@@ -1132,6 +1133,7 @@ describe("playback branch shortcuts", () => {
 
   function makeHandlers(context: AppContext, showToast = vi.fn()) {
     const writeTuningParamsToUrl = vi.fn();
+    const syncDeletedEdgeState = vi.fn();
     return {
       handlers: createPlaybackUiHandlers({
         context,
@@ -1160,13 +1162,14 @@ describe("playback branch shortcuts", () => {
           return params;
         }),
         writeTuningParamsToUrl,
-        syncDeletedEdgeState: vi.fn(),
+        syncDeletedEdgeState,
         updateTrackInfo: vi.fn(),
         isEditableTarget: vi.fn(() => false),
         getCurrentTrackId: vi.fn(() => null),
       }),
       showToast,
       writeTuningParamsToUrl,
+      syncDeletedEdgeState,
     };
   }
 
@@ -1307,6 +1310,195 @@ describe("playback branch shortcuts", () => {
     handlers.handleEdgeSelect(edge as AppState["selectedEdge"]);
 
     expect(useAppStore.getState().branchStats?.deleteDisabled).toBe(true);
+  });
+
+  function branchEdge(id: number, deleted = false) {
+    return { id, src: { which: id }, dest: { which: 0 }, deleted };
+  }
+
+  function setBranchState(
+    edges: ReturnType<typeof branchEdge>[],
+    selectedId: number | null,
+  ) {
+    const selected = edges.find((edge) => edge.id === selectedId) ?? null;
+    useAppStore.setState({
+      playMode: "jukebox",
+      deleteConfirmOpen: false,
+      selectedEdge: selected as AppState["selectedEdge"],
+      vizData: {
+        beats: [],
+        edges,
+        lastBranchPoint: 1,
+        anchorEdgeId: null,
+      } as unknown as AppState["vizData"],
+    });
+  }
+
+  it("cycles to the next branch on ArrowRight and wraps around", () => {
+    const context = createContext();
+    const edges = [branchEdge(1), branchEdge(2), branchEdge(3)];
+    setBranchState(edges, 3);
+    const { handlers } = makeHandlers(context);
+    const event = keyEvent("ArrowRight");
+
+    handlers.handleKeydown(event);
+
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    // From the last edge, wrap around to the first.
+    expect(useAppStore.getState().selectedEdge?.id).toBe(1);
+    expect(context.jukebox.setSelectedEdgeActive).toHaveBeenLastCalledWith(
+      edges[0],
+    );
+  });
+
+  it("cycles to the previous branch on ArrowLeft and wraps around", () => {
+    const context = createContext();
+    const edges = [branchEdge(1), branchEdge(2), branchEdge(3)];
+    setBranchState(edges, 1);
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("ArrowLeft"));
+
+    // From the first edge, wrap around to the last.
+    expect(useAppStore.getState().selectedEdge?.id).toBe(3);
+  });
+
+  it("skips deleted edges when cycling branches", () => {
+    const context = createContext();
+    const edges = [branchEdge(1), branchEdge(2, true), branchEdge(3)];
+    setBranchState(edges, 1);
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("ArrowRight"));
+
+    // Edge 2 is deleted and filtered out, so next after 1 is 3.
+    expect(useAppStore.getState().selectedEdge?.id).toBe(3);
+  });
+
+  it("ignores arrow keys when no branch is selected", () => {
+    const context = createContext();
+    setBranchState([branchEdge(1)], null);
+    const { handlers } = makeHandlers(context);
+    const event = keyEvent("ArrowRight");
+
+    handlers.handleKeydown(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(context.jukebox.setSelectedEdgeActive).not.toHaveBeenCalled();
+  });
+
+  it("deletes the selected branch on Delete and syncs deleted-edge URL state", () => {
+    const context = createContext();
+    const edge = branchEdge(5);
+    setBranchState([edge], 5);
+    const { handlers, syncDeletedEdgeState } = makeHandlers(context);
+    const event = keyEvent("Delete");
+
+    handlers.handleKeydown(event);
+
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(context.engine.deleteEdge).toHaveBeenCalledWith(edge);
+    expect(context.engine.rebuildGraph).toHaveBeenCalledTimes(1);
+    expect(syncDeletedEdgeState).toHaveBeenCalledWith(context);
+    expect(useAppStore.getState().selectedEdge).toBeNull();
+    expect(context.jukebox.setSelectedEdge).toHaveBeenLastCalledWith(null);
+  });
+
+  it("removes the selected branch on Backspace too", () => {
+    const context = createContext();
+    const edge = branchEdge(6);
+    setBranchState([edge], 6);
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("Backspace"));
+
+    expect(context.engine.deleteEdge).toHaveBeenCalledWith(edge);
+  });
+
+  it("ignores Delete for an already-deleted branch", () => {
+    const context = createContext();
+    const edge = branchEdge(7, true);
+    setBranchState([edge], 7);
+    const { handlers } = makeHandlers(context);
+    const event = keyEvent("Delete");
+
+    handlers.handleKeydown(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(context.engine.deleteEdge).not.toHaveBeenCalled();
+  });
+
+  it("force-branches while Shift is held during playback and clears on release", () => {
+    const context = createContext();
+    useAppStore.setState({
+      playMode: "jukebox",
+      deleteConfirmOpen: false,
+      isRunning: true,
+      shiftBranching: false,
+      bringItHomeMode: false,
+    });
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("Shift"));
+    expect(useAppStore.getState().shiftBranching).toBe(true);
+    expect(context.engine.setForceBranch).toHaveBeenLastCalledWith(true);
+
+    handlers.handleKeyup(keyEvent("Shift"));
+    expect(useAppStore.getState().shiftBranching).toBe(false);
+    expect(context.engine.setForceBranch).toHaveBeenLastCalledWith(false);
+  });
+
+  it("suppresses Shift force-branching while Bring It Home is on", () => {
+    const context = createContext();
+    useAppStore.setState({
+      playMode: "jukebox",
+      deleteConfirmOpen: false,
+      isRunning: true,
+      shiftBranching: false,
+      bringItHomeMode: true,
+    });
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("Shift"));
+
+    expect(useAppStore.getState().shiftBranching).toBe(false);
+    expect(context.engine.setForceBranch).not.toHaveBeenCalledWith(true);
+  });
+
+  it("does not force-branch on Shift while paused", () => {
+    const context = createContext();
+    useAppStore.setState({
+      playMode: "jukebox",
+      deleteConfirmOpen: false,
+      isRunning: false,
+      shiftBranching: false,
+      bringItHomeMode: false,
+    });
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("Shift"));
+
+    expect(useAppStore.getState().shiftBranching).toBe(false);
+    expect(context.engine.setForceBranch).not.toHaveBeenCalledWith(true);
+  });
+
+  it("clears active force-branching when Bring It Home is toggled on via hotkey", () => {
+    const context = createContext();
+    useAppStore.setState({
+      playMode: "jukebox",
+      deleteConfirmOpen: false,
+      isRunning: true,
+      shiftBranching: true,
+      bringItHomeMode: false,
+    });
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("h"));
+
+    expect(useAppStore.getState().bringItHomeMode).toBe(true);
+    expect(useAppStore.getState().shiftBranching).toBe(false);
+    expect(context.engine.setBringItHomeMode).toHaveBeenCalledWith(true);
+    expect(context.engine.setForceBranch).toHaveBeenLastCalledWith(false);
   });
 });
 

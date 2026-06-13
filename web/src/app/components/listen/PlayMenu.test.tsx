@@ -175,6 +175,33 @@ describe("PlayMenu", () => {
     expect(bridge.listenPanel.performDelete).not.toHaveBeenCalled();
   });
 
+  it("guards against double-clicking delete while a delete is in flight", async () => {
+    const bridge = createBridge();
+    let resolveDelete!: () => void;
+    (bridge.listenPanel.performDelete as ReturnType<typeof vi.fn>).mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveDelete = resolve;
+      }),
+    );
+    act(() => {
+      useAppStore.setState({ deleteEligible: true });
+    });
+    render(<PlayMenu bridge={bridge} />);
+    await userEvent.click(document.getElementById("delete-job")!);
+    const deleteButton = document.getElementById("delete-confirm-delete")!;
+
+    await userEvent.click(deleteButton);
+    // Second click while the first delete is still pending must be ignored.
+    await userEvent.click(deleteButton);
+    expect(bridge.listenPanel.performDelete).toHaveBeenCalledTimes(1);
+    expect((deleteButton as HTMLButtonElement).disabled).toBe(true);
+
+    await act(async () => {
+      resolveDelete();
+    });
+    expect(useAppStore.getState().deleteConfirmOpen).toBe(false);
+  });
+
   it("cancels the confirm modal with Escape", async () => {
     const bridge = createBridge();
     act(() => {

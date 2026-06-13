@@ -8,7 +8,13 @@ export function updateListenTimeDisplay() {
   const { playTimerMs, lastPlayStamp } = useAppStore.getState();
   const now = performance.now();
   const totalMs = playTimerMs + (lastPlayStamp !== null ? now - lastPlayStamp : 0);
-  useAppStore.setState({ listenTimeText: formatDuration(totalMs / 1000) });
+  // Polled ~5Hz but the displayed value only changes per second; skip the
+  // redundant writes so subscribers aren't woken four times a second for the
+  // same string.
+  const listenTimeText = formatDuration(totalMs / 1000);
+  if (useAppStore.getState().listenTimeText !== listenTimeText) {
+    useAppStore.setState({ listenTimeText });
+  }
 }
 
 export function updateTrackInfo(context: AppContext) {
@@ -74,6 +80,17 @@ export function updateVizVisibility() {
 export function syncVolumeUI(context: AppContext) {
   const { player } = context;
   useAppStore.setState({ volumePct: Math.round(player.getVolume() * 100) });
+}
+
+// Fan a 0–100 volume percentage out to every audio sink: the main player, the
+// autocanonizer (only once its viz controller is attached), and the cowbell
+// overlay. Centralised so the pct→fraction conversion can't drift — a missing
+// /100 here ships audio 100x too loud.
+export function setMasterVolume(context: AppContext, volumePct: number) {
+  const volume = volumePct / 100;
+  context.player.setVolume(volume);
+  context.autocanonizer?.setVolume(volume);
+  context.cowbellOverlay.setVolume(volume);
 }
 
 function openTuningTab(context: AppContext, tab: "tuning" | "extras") {
