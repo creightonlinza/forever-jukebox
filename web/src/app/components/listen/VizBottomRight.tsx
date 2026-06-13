@@ -79,6 +79,7 @@ export function VizBottomRight({ bridge }: { bridge: AppBridge }) {
               className="volume-slider"
               id="volume"
               type="range"
+              aria-label="Volume"
               min={0}
               max={100}
               step={1}

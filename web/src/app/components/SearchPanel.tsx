@@ -19,7 +19,7 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
   if (results.kind === "spotify") {
     return (
       <div className="search-results" id="search-results">
-        <ol className="search-list">
+        <ol className="search-list" role="listbox" aria-label="Search results">
           {results.items.map((item, index) => {
             const name = typeof item.name === "string" ? item.name : "Untitled";
             const artist = typeof item.artist === "string" ? item.artist : "";
@@ -30,7 +30,7 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
               <li
                 key={index}
                 className="search-item"
-                role="button"
+                role="option"
                 tabIndex={0}
                 data-track-name={name}
                 data-track-artist={artist}
@@ -55,7 +55,7 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
   }
   return (
     <div className="search-results" id="search-results">
-      <ol className="search-list">
+      <ol className="search-list" role="listbox" aria-label="Search results">
         {results.items.map(({ item, name, artist }, index) => {
           const title = typeof item.title === "string" ? item.title : "Untitled";
           const ytDuration =
@@ -65,7 +65,7 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
             <li
               key={index}
               className="search-item"
-              role="button"
+              role="option"
               tabIndex={0}
               data-youtube-id={youtubeId}
               data-track-name={name}

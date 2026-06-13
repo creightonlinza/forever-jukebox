@@ -2137,6 +2137,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     <input
                       className="volume-slider"
                       type="range"
+                      aria-label="Volume"
                       min={0}
                       max={100}
                       step={1}
@@ -2210,6 +2211,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <input
                   className="field-input"
                   type="number"
+                  aria-label="Export duration"
                   min={5}
                   max={MAX_EXPORT_DURATION_SECONDS}
                   step={5}
@@ -2248,6 +2250,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   </div>
                   <input
                     type="range"
+                    aria-label="MP3 bitrate"
                     min={64}
                     max={320}
                     step={32}
@@ -2361,6 +2364,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   </div>
                   <input
                     type="range"
+                    aria-label="Branch similarity threshold"
                     min={2}
                     max={80}
                     step={1}
@@ -2381,6 +2385,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     max={100}
                     step={2}
                     value={tuneForm.minProb}
+                    aria-label="Branch probability minimum"
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, minProb: Number(event.target.value) }))
                     }
@@ -2397,6 +2402,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     max={100}
                     step={2}
                     value={tuneForm.maxProb}
+                    aria-label="Branch probability maximum"
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, maxProb: Number(event.target.value) }))
                     }
@@ -2413,6 +2419,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     max={100}
                     step={2}
                     value={tuneForm.ramp}
+                    aria-label="Branch ramp speed"
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, ramp: Number(event.target.value) }))
                     }

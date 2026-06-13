@@ -133,8 +133,7 @@ export function FaqPanel() {
           — rebuilt from the ground up by{" "}
           <a href="https://creighton.dev" target="_blank" rel="noreferrer">
             Creighton Linza
-          </a>
-          . It generates a forever-evolving version of any song.
+          </a>. It generates a forever-evolving version of any song.
         </p>
 
         <h4>How does it work?</h4>
@@ -195,8 +194,7 @@ export function FaqPanel() {
             rel="noreferrer"
           >
             Echo Nest Remix
-          </a>
-          .
+          </a>.
         </p>
 
         <h4>How do Favorites work?</h4>
