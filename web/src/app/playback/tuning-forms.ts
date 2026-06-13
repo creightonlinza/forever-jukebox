@@ -1,5 +1,5 @@
 import type { AppContext } from "../context";
-import type { JukeboxAudioMode } from "../../audio/BufferedAudioPlayer";
+import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
 import { storeAnchorHighlight } from "../anchorHighlight";
 import { storeBranchStatsEnabled } from "../extrasMode";
 import { useAppStore } from "../store";

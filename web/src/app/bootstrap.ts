@@ -1,8 +1,8 @@
-import { JukeboxEngine } from "../engine";
-import { BufferedAudioPlayer } from "../audio/BufferedAudioPlayer";
-import { CowbellOverlayService } from "../audio/CowbellOverlayService";
-import { AutocanonizerController } from "../autocanonizer/AutocanonizerController";
-import { JukeboxController } from "../jukebox/JukeboxController";
+import { JukeboxEngine } from "@forever-jukebox/engine";
+import { BufferedAudioPlayer } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
+import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
+import { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
+import { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
 import { applyTheme, applyThemeVariables, resolveStoredTheme } from "./theme";
 import { resolveStoredAnchorHighlight } from "./anchorHighlight";
 import { resolveStoredBranchStatsEnabled } from "./extrasMode";
@@ -14,7 +14,7 @@ import {
 } from "./ui";
 import { navigateToTab, updateTrackUrl } from "./tabs";
 import { handleRouteChange } from "./routing";
-import { initBackgroundTimer } from "../shared/backgroundTimer";
+import { initBackgroundTimer } from "@forever-jukebox/engine/background";
 import {
   deleteJob,
   fetchAppConfig,

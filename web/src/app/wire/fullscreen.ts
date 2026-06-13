@@ -1,4 +1,4 @@
-import type { JukeboxController } from "../../jukebox/JukeboxController";
+import type { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
 import { useAppStore } from "../store";
 
 type FullscreenDeps = {

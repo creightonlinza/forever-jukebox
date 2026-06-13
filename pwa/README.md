@@ -9,8 +9,8 @@ Standalone, offline PWA for local audio analysis and playback.
 ## Quick start
 
 ```bash
+npm install   # once, at the repo root (npm workspaces)
 cd pwa
-npm install
 npm run dev
 ```
 

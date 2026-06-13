@@ -1,4 +1,4 @@
-import type { JukeboxAudioMode } from "../audio/BufferedAudioPlayer";
+import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
 import type { AppState } from "./context";
 
 export function formatDuration(seconds: number) {

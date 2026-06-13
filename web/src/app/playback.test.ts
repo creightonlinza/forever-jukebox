@@ -25,11 +25,11 @@ import {
 import { useAppStore } from "./store";
 import { createPlaybackUiHandlers } from "./wire/playback";
 import { setWindowUrl } from "./__tests__/test-utils";
-import { getOrCreateSwingBuffer } from "../audio/swingBufferCache";
-import { renderSwingBuffer } from "../audio/swingRenderer";
+import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
+import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
 import { ADMIN_KEY_STORAGE_KEY } from "./admin";
 
-vi.mock("../audio/swingBufferCache", () => ({
+vi.mock("@forever-jukebox/engine/audio/swingBufferCache", () => ({
   getOrCreateSwingBuffer: vi.fn(
     (
       _sourceBuffer: AudioBuffer,
@@ -39,7 +39,7 @@ vi.mock("../audio/swingBufferCache", () => ({
   ),
 }));
 
-vi.mock("../audio/swingRenderer", () => ({
+vi.mock("@forever-jukebox/engine/audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(async () => ({ duration: 120 }) as AudioBuffer),
 }));
 

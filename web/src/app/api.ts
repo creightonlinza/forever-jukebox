@@ -1,4 +1,4 @@
-import type { TrackMeta } from "../engine/types";
+import type { TrackMeta } from "@forever-jukebox/engine/types";
 import type { FavoriteTrack } from "./favorites";
 import { maxFavorites } from "./favorites";
 

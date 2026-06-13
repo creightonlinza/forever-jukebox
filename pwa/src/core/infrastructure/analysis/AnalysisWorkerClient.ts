@@ -1,6 +1,6 @@
 import { AnalysisPort, AnalysisProgress } from "@/core/domain/ports/AnalysisPort";
 import { AnalysisOutput } from "@/shared/analysis-schema";
-import { TrackMeta } from "@/shared/jukebox/engine/types";
+import { TrackMeta } from "@forever-jukebox/engine/types";
 
 type WorkerProgress = {
   type: "progress";

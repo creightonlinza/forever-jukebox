@@ -1,15 +1,15 @@
-import type { JukeboxEngine } from "../engine";
+import type { JukeboxEngine } from "@forever-jukebox/engine";
 import type {
   BufferedAudioPlayer,
   JukeboxAudioMode,
-} from "../audio/BufferedAudioPlayer";
-import type { Edge } from "../engine/types";
+} from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
+import type { Edge } from "@forever-jukebox/engine/types";
 import type { FavoriteTrack } from "./favorites";
 import type { PlaylistState } from "./playlist";
 import type { AppConfig } from "./api";
-import type { AutocanonizerController } from "../autocanonizer/AutocanonizerController";
-import type { JukeboxController } from "../jukebox/JukeboxController";
-import type { CowbellOverlayService } from "../audio/CowbellOverlayService";
+import type { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
+import type { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
+import type { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
 
 export type TabId = "top" | "search" | "play" | "faq";
 

@@ -141,7 +141,7 @@ const doubles = vi.hoisted(() => {
   };
 });
 
-vi.mock("../audio/BufferedAudioPlayer", () => ({
+vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
   BufferedAudioPlayer: vi.fn(() => {
     const player = doubles.makePlayer();
     doubles.playerInstances.push(player);
@@ -149,7 +149,7 @@ vi.mock("../audio/BufferedAudioPlayer", () => ({
   }),
 }));
 
-vi.mock("../audio/CowbellOverlayService", () => ({
+vi.mock("@forever-jukebox/engine/audio/CowbellOverlayService", () => ({
   CowbellOverlayService: vi.fn((context: unknown, options: unknown) => {
     const overlay = Object.assign(doubles.makeCowbellOverlay(), {
       context,
@@ -160,7 +160,7 @@ vi.mock("../audio/CowbellOverlayService", () => ({
   }),
 }));
 
-vi.mock("../engine", () => ({
+vi.mock("@forever-jukebox/engine", () => ({
   JukeboxEngine: vi.fn((player: unknown) => {
     const engine = doubles.makeEngine(player);
     doubles.engineInstances.push(engine);
@@ -168,7 +168,7 @@ vi.mock("../engine", () => ({
   }),
 }));
 
-vi.mock("../jukebox/JukeboxViz", () => ({
+vi.mock("@forever-jukebox/engine/viz/JukeboxViz", () => ({
   JukeboxViz: vi.fn(() => {
     const viz = doubles.makeViz();
     doubles.vizInstances.push(viz);

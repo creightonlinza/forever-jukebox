@@ -15,6 +15,8 @@ generating similar beat/segment/section data locally.
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI.
 - `pwa/` — Offline/local analysis PWA that can also export jukebox audio.
+- `packages/jukebox-engine/` — Shared jukebox engine/audio/visualization code used by
+  both `web/` and `pwa/` (npm workspace package `@forever-jukebox/engine`).
 - `schema.json` — JSON schema reference for analysis output.
 
 ## Quick Start
@@ -29,7 +31,7 @@ All-in-one local dev:
 
 Local dev startup installs missing dependencies by default and does not check for latest versions each run. To force dependency updates locally, temporarily enable the update toggles in `dev.sh` and rerun it.
 
-Then open the web UI at `http://localhost:5173`.
+Then open the web UI at `http://localhost:5173` (the offline PWA also runs, at `http://localhost:5174`).
 
 Tests: each component documents its own (see Standalone Setup below). The
 web UI has unit tests (`cd web && npm test`) and a full-app Playwright e2e

@@ -1,6 +1,6 @@
-import type { JukeboxEngine } from "../engine";
-import type { JukeboxConfig } from "../engine/types";
-import type { JukeboxAudioMode } from "../audio/BufferedAudioPlayer";
+import type { JukeboxEngine } from "@forever-jukebox/engine";
+import type { JukeboxConfig } from "@forever-jukebox/engine/types";
+import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;

@@ -3,7 +3,7 @@ import { useAppStore } from "../store";
 import {
   backgroundClearTimeout,
   backgroundSetTimeout,
-} from "../../shared/backgroundTimer";
+} from "@forever-jukebox/engine/background";
 import { stopPlayback } from "./transport";
 
 export type SleepTimerOption = {

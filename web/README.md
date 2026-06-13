@@ -2,7 +2,7 @@
 
 ## Run
 ```bash
-npm install
+npm install   # once, at the repo root (npm workspaces)
 npm run dev
 ```
 
@@ -107,7 +107,7 @@ use admin mode only on trusted instances and devices.
 - A "last branch point" is computed to avoid dead-ends; that beat always branches.
 
 ## Core components
-- `web/src/engine/analysis.ts` preprocesses quanta + overlapping segments.
-- `web/src/engine/graph.ts` builds the jump graph and branch thresholds.
-- `web/src/engine/JukeboxEngine.ts` runs playback + random branching.
-- `web/src/audio/BufferedAudioPlayer.ts` buffers audio and handles jumps.
+- `packages/jukebox-engine/src/engine/analysis.ts` preprocesses quanta + overlapping segments.
+- `packages/jukebox-engine/src/engine/graph.ts` builds the jump graph and branch thresholds.
+- `packages/jukebox-engine/src/engine/JukeboxEngine.ts` runs playback + random branching.
+- `packages/jukebox-engine/src/audio/BufferedAudioPlayer.ts` buffers audio and handles jumps.
