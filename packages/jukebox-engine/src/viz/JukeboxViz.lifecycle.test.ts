@@ -79,7 +79,7 @@ function createContainer() {
   } as unknown as HTMLElement;
 }
 
-describe("JukeboxViz", () => {
+describe("JukeboxViz lifecycle", () => {
   let canvases: HTMLCanvasElement[];
 
   beforeEach(() => {
@@ -157,70 +157,5 @@ describe("JukeboxViz", () => {
     viz.setActiveIndex(-1);
     viz.setActiveIndex(99);
     expect(canvases.length).toBe(2);
-  });
-
-  it("clears selected edge when clicking empty visualization space", () => {
-    const viz = new JukeboxViz(createContainer());
-    const edge = {
-      id: 7,
-      src: { which: 0 },
-      dest: { which: 1 },
-      deleted: false,
-    };
-    viz.setData(
-      {
-        beats: [
-          { which: 0, start: 0, duration: 1 },
-          { which: 1, start: 1, duration: 1 },
-        ],
-        edges: [edge],
-        lastBranchPoint: 0,
-        anchorEdgeId: null,
-      } as any
-    );
-    viz.setSelectedEdge(edge as any);
-    const onEdgeSelect = vi.fn();
-    viz.setOnEdgeSelect(onEdgeSelect);
-    const active = (viz as any).activeViz;
-
-    active.handleCanvasClick({
-      clientX: -100,
-      clientY: -100,
-    } as MouseEvent);
-
-    expect(onEdgeSelect).toHaveBeenCalledWith(null);
-  });
-
-  it("draws user-selected anchor highlight even when anchor highlighting is disabled", () => {
-    const viz = new JukeboxViz(createContainer());
-    const edge = {
-      id: 7,
-      src: { which: 0 },
-      dest: { which: 1 },
-      deleted: false,
-    };
-    viz.setData(
-      {
-        beats: [
-          { which: 0, start: 0, duration: 1 },
-          { which: 1, start: 1, duration: 1 },
-        ],
-        edges: [edge],
-        lastBranchPoint: 0,
-        anchorEdgeId: 7,
-        userAnchorEdgeId: 7,
-      } as any
-    );
-    const active = (viz as any).activeViz;
-    const drawEdge = vi.spyOn(active, "drawEdge");
-
-    active.drawBase();
-
-    expect(drawEdge).toHaveBeenCalledWith(
-      expect.anything(),
-      edge,
-      "#ff2d2d",
-      1.8,
-    );
   });
 });
