@@ -330,6 +330,13 @@ a:focus-visible {
   flex-wrap: wrap;
 }
 
+.favorites-count {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: none;
+}
+
 .favorites-sync {
   position: relative;
   display: inline-flex;

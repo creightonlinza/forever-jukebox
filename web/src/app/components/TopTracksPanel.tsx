@@ -14,6 +14,7 @@ import {
   favoriteDisplayArtist,
   favoriteToPlaylistTrack,
   filterFavorites,
+  maxFavorites,
   sortFavoritesForDisplay,
   type FavoriteTrack,
   type FavoritesDisplaySort,
@@ -681,6 +682,9 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
   const allowSync = useAppStore((s) =>
     Boolean(s.appConfig?.allow_favorites_sync),
   );
+  const favoritesCount = useAppStore((s) => s.favorites.length);
+  const maxFavoritesValue =
+    useAppStore((s) => s.appConfig?.max_favorites) ?? maxFavorites();
   const [query, setQuery] = useState("");
   const [lists, setLists] = useState<Record<LazyTabId, ListState>>({
     top: { kind: "message", text: LIST_CONFIG.top.loadingText },
@@ -779,7 +783,17 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
         )}
       </div>
       <div className="panel-title panel-title-row">
-        <span id="top-list-title">{title}</span>
+        <span id="top-list-title">
+          {title}
+          {subtab === "favorites" ? (
+            <>
+              <br />
+              <span className="favorites-count">
+                {favoritesCount} / {maxFavoritesValue}
+              </span>
+            </>
+          ) : null}
+        </span>
         <button
           id="top-list-refresh"
           className={
