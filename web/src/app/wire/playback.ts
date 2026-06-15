@@ -1,14 +1,29 @@
-import type { AppContext, TabId } from "../context";
-import type { Edge } from "@forever-jukebox/engine/types";
-import type { BufferedAudioPlayer } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
 import type { JukeboxEngine } from "@forever-jukebox/engine";
-import type { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
 import type { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
-import type { ToastOptions } from "../ui";
+import type { BufferedAudioPlayer } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
+import type { Edge } from "@forever-jukebox/engine/types";
+import type { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
+import type { AppContext } from "../context";
 import { formatErrorForDisplay } from "../errorDisplay";
 import { formatDuration } from "../format";
+import {
+  openExtras,
+  startAutocanonizerPlayback,
+  startJukeboxFromBeat,
+  stopPlayback,
+  syncDeletedEdgeState,
+  togglePlayback,
+  updateTrackInfo,
+  updateVizVisibility,
+} from "../playback";
 import { useAppStore } from "../store";
-import { serializeParams } from "../tuning";
+import { navigateToTab, updateTrackUrl } from "../tabs";
+import {
+  getTuningParamsFromEngine,
+  serializeParams,
+  writeTuningParamsToUrl,
+} from "../tuning";
+import { isEditableTarget, setAnalysisStatus, showToast } from "../ui";
 
 type PlaybackUiDeps = {
   context: AppContext;
@@ -18,36 +33,6 @@ type PlaybackUiDeps = {
   autocanonizer: AutocanonizerController;
   vizStorageKey: string;
   canonizerFinishKey: string;
-  setAnalysisStatus: (
-    context: AppContext,
-    message: string,
-    spinning: boolean,
-  ) => void;
-  showToast: (message: string, options?: ToastOptions) => void;
-  stopPlayback: (context: AppContext) => void;
-  togglePlayback: (context: AppContext) => void;
-  startJukeboxFromBeat: (context: AppContext, index: number) => void;
-  startAutocanonizerPlayback: (context: AppContext, index: number) => void;
-  updateTrackUrl: (
-    trackId: string,
-    replace?: boolean,
-    tuningParams?: string | null,
-    playMode?: "jukebox" | "autocanonizer",
-  ) => void;
-  navigateToTab: (
-    tabId: TabId,
-    options?: { replace?: boolean; trackId?: string | null },
-    lastTrackId?: string | null,
-    tuningParams?: string | null,
-    playMode?: "jukebox" | "autocanonizer",
-  ) => void;
-  updateVizVisibility: () => void;
-  openExtras: (context: AppContext) => void;
-  getTuningParamsFromEngine: (context: AppContext) => URLSearchParams;
-  writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
-  syncDeletedEdgeState: (context: AppContext) => void;
-  updateTrackInfo: (context: AppContext) => void;
-  isEditableTarget: (target: EventTarget | null) => boolean;
   getCurrentTrackId: () => string | null;
   advancePlaylistOnAutocanonizerEnded?: () => Promise<boolean>;
 };
@@ -77,21 +62,6 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     autocanonizer,
     vizStorageKey,
     canonizerFinishKey,
-    setAnalysisStatus,
-    showToast,
-    stopPlayback,
-    togglePlayback,
-    startJukeboxFromBeat,
-    startAutocanonizerPlayback,
-    updateTrackUrl,
-    navigateToTab,
-    updateVizVisibility,
-    openExtras,
-    getTuningParamsFromEngine,
-    writeTuningParamsToUrl,
-    syncDeletedEdgeState,
-    updateTrackInfo,
-    isEditableTarget,
     getCurrentTrackId,
     advancePlaylistOnAutocanonizerEnded,
   } = deps;

@@ -17,14 +17,29 @@ import {
   setSleepTimer,
   startJukeboxFromBeat,
   stopPlayback,
+  syncDeletedEdgeState,
   togglePlayback,
   updateVizVisibility,
   updateListenTimeDisplay,
   type TuningFormValues,
 } from "./playback";
 import { useAppStore } from "./store";
+import { showToast } from "./ui";
 import { createPlaybackUiHandlers } from "./wire/playback";
 import { setWindowUrl } from "./__tests__/test-utils";
+
+vi.mock("./ui", async (importActual) => ({
+  ...(await importActual<typeof import("./ui")>()),
+  showToast: vi.fn(),
+  // The real isEditableTarget references HTMLElement, undefined in this
+  // DOM-less test env; the keyboard handlers only need a falsy result.
+  isEditableTarget: vi.fn(() => false),
+}));
+vi.mock("./playback", async (importActual) => ({
+  ...(await importActual<typeof import("./playback")>()),
+  syncDeletedEdgeState: vi.fn(),
+  updateTrackInfo: vi.fn(),
+}));
 import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
 import { ADMIN_KEY_STORAGE_KEY } from "./admin";
@@ -1131,9 +1146,7 @@ describe("playback branch shortcuts", () => {
     setWindowUrl("http://localhost/listen/abc");
   });
 
-  function makeHandlers(context: AppContext, showToast = vi.fn()) {
-    const writeTuningParamsToUrl = vi.fn();
-    const syncDeletedEdgeState = vi.fn();
+  function makeHandlers(context: AppContext) {
     return {
       handlers: createPlaybackUiHandlers({
         context,
@@ -1143,33 +1156,12 @@ describe("playback branch shortcuts", () => {
         autocanonizer: context.autocanonizer,
         vizStorageKey: "viz",
         canonizerFinishKey: "finish",
-        setAnalysisStatus: vi.fn(),
-        showToast,
-        stopPlayback: vi.fn(),
-        togglePlayback: vi.fn(),
-        startJukeboxFromBeat: vi.fn(),
-        startAutocanonizerPlayback: vi.fn(),
-        updateTrackUrl: vi.fn(),
-        navigateToTab: vi.fn(),
-        updateVizVisibility: vi.fn(),
-        openExtras: vi.fn(),
-        getTuningParamsFromEngine: vi.fn(() => {
-          const params = new URLSearchParams();
-          const anchorId = context.engine.getUserAnchorEdgeId();
-          if (anchorId !== null) {
-            params.set("ab", `${anchorId}`);
-          }
-          return params;
-        }),
-        writeTuningParamsToUrl,
-        syncDeletedEdgeState,
-        updateTrackInfo: vi.fn(),
-        isEditableTarget: vi.fn(() => false),
-        getCurrentTrackId: vi.fn(() => null),
+        getCurrentTrackId: () => null,
       }),
-      showToast,
-      writeTuningParamsToUrl,
-      syncDeletedEdgeState,
+      // `showToast` (./ui) and `syncDeletedEdgeState` (./playback) are module
+      // mocks; the handlers call the same instances we assert on here.
+      showToast: vi.mocked(showToast),
+      syncDeletedEdgeState: vi.mocked(syncDeletedEdgeState),
     };
   }
 
@@ -1208,7 +1200,7 @@ describe("playback branch shortcuts", () => {
     (
       context.engine.getVisualizationData as ReturnType<typeof vi.fn>
     ).mockReturnValue(nextVizData);
-    const { handlers, showToast, writeTuningParamsToUrl } = makeHandlers(context);
+    const { handlers, showToast } = makeHandlers(context);
     const setEvent = keyEvent("A");
 
     handlers.handleKeydown(setEvent);
@@ -1218,7 +1210,10 @@ describe("playback branch shortcuts", () => {
     expect(context.jukebox.setData).toHaveBeenCalledWith(nextVizData);
     expect(context.jukebox.setSelectedEdgeActive).toHaveBeenCalledWith(edge);
     expect(showToast).toHaveBeenCalledWith("Anchor branch set");
-    expect(writeTuningParamsToUrl).toHaveBeenCalledWith("ab=7", true);
+    // The folded writeTuningParamsToUrl runs for real; assert the serialized
+    // anchor it persists to the store (and thus the URL).
+    expect(useAppStore.getState().tuningParams).toBe("ab=7");
+    expect(window.location.search).toBe("?ab=7");
 
     const resetEvent = keyEvent("a");
     handlers.handleKeydown(resetEvent);
@@ -1226,7 +1221,8 @@ describe("playback branch shortcuts", () => {
     expect(resetEvent.preventDefault).toHaveBeenCalledTimes(1);
     expect(context.engine.setUserAnchorEdge).toHaveBeenLastCalledWith(null);
     expect(showToast).toHaveBeenLastCalledWith("Anchor branch reset");
-    expect(writeTuningParamsToUrl).toHaveBeenLastCalledWith(null, true);
+    expect(useAppStore.getState().tuningParams).toBeNull();
+    expect(window.location.search).toBe("");
   });
 
   it("ignores A for a selected forward branch", () => {

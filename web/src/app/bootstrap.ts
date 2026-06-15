@@ -9,10 +9,9 @@ import { resolveStoredBranchStatsEnabled } from "./extrasMode";
 import {
   setAnalysisStatus,
   setLoadingProgress,
-  isEditableTarget,
   showToast,
 } from "./ui";
-import { navigateToTab, updateTrackUrl } from "./tabs";
+import { updateTrackUrl } from "./tabs";
 import { handleRouteChange } from "./routing";
 import { initBackgroundTimer } from "@forever-jukebox/engine/background";
 import {
@@ -33,17 +32,11 @@ import {
   loadAudioFromJob,
   loadTrackByJobId,
   loadTrackById,
-  openExtras,
   pollAnalysis,
   resetForNewTrack,
   setMasterVolume,
-  syncDeletedEdgeState,
-  startAutocanonizerPlayback,
-  startJukeboxFromBeat,
   setSleepTimer,
-  stopPlayback,
   togglePlayback,
-  updateTrackInfo,
   updateVizVisibility,
   type ExtrasFormValues,
   type TuningFormValues,
@@ -62,10 +55,6 @@ import { createDeleteJobHandlers } from "./wire/delete-job";
 import { createAppConfigHandlers } from "./wire/app-config";
 import type { AppBridge } from "./bridge";
 import { useAppStore } from "./store";
-import {
-  getTuningParamsFromEngine,
-  writeTuningParamsToUrl,
-} from "./tuning";
 import {
   loadFavorites,
   loadFavoritesSyncCode,
@@ -237,21 +226,6 @@ export function bootstrap(): AppBridge {
       autocanonizer,
       vizStorageKey,
       canonizerFinishKey,
-      setAnalysisStatus,
-      showToast,
-      stopPlayback,
-      togglePlayback,
-      startJukeboxFromBeat,
-      startAutocanonizerPlayback,
-      updateTrackUrl,
-      navigateToTab,
-      updateVizVisibility,
-      openExtras,
-      getTuningParamsFromEngine,
-      writeTuningParamsToUrl,
-      syncDeletedEdgeState,
-      updateTrackInfo,
-      isEditableTarget,
       getCurrentTrackId: navigationHandlers.getCurrentTrackId,
       advancePlaylistOnAutocanonizerEnded: () =>
         playlistHandlers?.advanceAutocanonizerOnEnded() ?? Promise.resolve(false),
