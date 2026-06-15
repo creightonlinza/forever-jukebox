@@ -221,6 +221,7 @@ export function bootstrap(): AppBridge {
       loadTrackByJobId(context, playbackDeps, jobId, options),
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
     togglePlayback,
+    setPlayMode: (mode) => playbackHandlers?.setPlayMode(mode),
   });
   const appConfigHandlers = createAppConfigHandlers({
     favoritesHandlers,

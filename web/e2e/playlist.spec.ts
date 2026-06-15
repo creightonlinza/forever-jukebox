@@ -72,6 +72,42 @@ test.describe("playlists", () => {
     await expect(open).toHaveAttribute("title", "Playlist (1/2)");
   });
 
+  test("playlist preserves per-track play mode across prev/next", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    const second = await getSecondFixtureTrack(request, baseURL!);
+    await loadFirstTopTrack(page);
+
+    // Put the current (first) track into autocanonizer, then seed a playlist
+    // with a second, plain (jukebox) track. The current track auto-seeds at
+    // index 0, capturing its autocanonizer mode.
+    await page.locator("#play-mode-select").selectOption("autocanonizer");
+    await expect(page).toHaveURL(/[?&]mode=autocanonizer/);
+
+    await page.locator('[data-tab-button="top"]').click();
+    const secondRow = page.locator(`a[data-track-id="${second.id}"]`).locator("..");
+    await secondRow.hover();
+    await secondRow.locator(".playlist-add-button").click();
+    await expectToast(page, "Added to playlist");
+
+    await page.locator('[data-tab-button="play"]').click();
+
+    // next → the plain track loads in jukebox (no stored mode → default)
+    await page.locator("#playlist-next").click();
+    await waitForTrackLoaded(page);
+    await expect(page).toHaveURL(new RegExp(second.id));
+    await expect(page.locator("#play-mode-select")).toHaveValue("jukebox");
+    await expect(page).not.toHaveURL(/[?&]mode=autocanonizer/);
+
+    // prev → the autocanonizer track loads back in autocanonizer
+    await page.locator("#playlist-previous").click();
+    await waitForTrackLoaded(page);
+    await expect(page.locator("#play-mode-select")).toHaveValue("autocanonizer");
+    await expect(page).toHaveURL(/[?&]mode=autocanonizer/);
+  });
+
   test("playlist modal: Escape closes, remove disabled for current, clear empties", async ({
     page,
     request,

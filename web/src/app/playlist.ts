@@ -7,6 +7,9 @@ export type PlaylistTrack = {
   artist: string;
   duration: number | null;
   tuningParams?: string | null;
+  // Play mode to load this track in. Absent means jukebox (the default), so
+  // legacy saved playlists and search/top tracks need no migration.
+  playMode?: "jukebox" | "autocanonizer";
 };
 
 export type PlaylistState = {
@@ -88,6 +91,11 @@ export function normalizePlaylistTrack(track: PlaylistTrack): PlaylistTrack | nu
   };
   if (tuningParams) {
     normalized.tuningParams = tuningParams;
+  }
+  // Only autocanonizer is stored; jukebox is the implicit default, keeping
+  // existing saved playlists byte-for-byte unchanged.
+  if (track.playMode === "autocanonizer") {
+    normalized.playMode = "autocanonizer";
   }
   return normalized;
 }

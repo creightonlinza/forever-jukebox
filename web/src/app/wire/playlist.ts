@@ -41,6 +41,7 @@ type PlaylistDeps = {
     options?: { replace?: boolean; trackId?: string | null },
   ) => void;
   togglePlayback: (context: AppContext) => void;
+  setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
 };
 
 export type PlaylistHandlers = ReturnType<typeof createPlaylistHandlers>;
@@ -53,6 +54,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     loadTrackByJobId,
     navigateToTabWithState,
     togglePlayback,
+    setPlayMode,
   } = deps;
   let playlistLoadInFlight = false;
 
@@ -70,6 +72,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       artist: useAppStore.getState().trackArtist || "",
       duration: useAppStore.getState().trackDurationSec,
       tuningParams,
+      playMode: useAppStore.getState().playMode,
     };
   }
 
@@ -192,6 +195,10 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
       index,
     );
     updatePlaylist(activatedPlaylist);
+    // Switch mode first so applyTrackTuning sees the right mode and the URL
+    // navigation below serializes it. Tracks without a stored mode default to
+    // jukebox.
+    setPlayMode(track.playMode ?? "jukebox");
     applyTrackTuning(track);
     navigateToTabWithState("play", { trackId: getPlaylistListenId(track) });
     let loadStarted = false;
