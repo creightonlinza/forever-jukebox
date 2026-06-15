@@ -7,6 +7,9 @@ export type FavoriteTrack = {
   duration: number | null;
   sourceType: "youtube" | "soundcloud" | "bandcamp" | "upload";
   tuningParams?: string | null;
+  // Play mode the track was favorited in. Absent on legacy favorites, which
+  // predate autocanonizer favorites and are therefore treated as jukebox.
+  playMode?: "jukebox" | "autocanonizer";
 };
 
 export type FavoritesDisplaySort = {
@@ -170,6 +173,7 @@ export function favoriteToPlaylistTrack(
     artist: item.artist || "",
     duration: item.duration,
     tuningParams: item.tuningParams ?? null,
+    playMode: item.playMode,
   };
 }
 

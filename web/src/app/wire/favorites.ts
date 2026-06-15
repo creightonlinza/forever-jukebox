@@ -178,14 +178,19 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
         typeof item.tuningParams === "string" && item.tuningParams.trim()
           ? item.tuningParams.trim()
           : null;
-      normalized.push({
+      const entry: FavoriteTrack = {
         uniqueSongId: item.uniqueSongId,
         title,
         artist,
         duration,
         sourceType,
         tuningParams,
-      });
+      };
+      // Only the non-default mode is stored; absence means jukebox.
+      if (item.playMode === "autocanonizer") {
+        entry.playMode = "autocanonizer";
+      }
+      normalized.push(entry);
     }
     return sortFavorites(normalized).slice(0, maxFavorites());
   }
@@ -491,15 +496,18 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     const favorite = useAppStore.getState().favorites.find(
       (item) => item.uniqueSongId === favoriteId,
     );
-    const desiredTuningParams = favorite?.tuningParams ?? null;
-    if (desiredTuningParams && useAppStore.getState().playMode !== "jukebox") {
-      setPlayMode("jukebox");
+    // Restore the mode the track was favorited in (legacy favorites have no
+    // playMode and fall back to jukebox). setPlayMode runs before the play-tab
+    // navigation below, so navigateToTabWithState serializes the right mode.
+    const desiredMode =
+      favorite?.playMode === "autocanonizer" ? "autocanonizer" : "jukebox";
+    const desiredTuningParams =
+      desiredMode === "jukebox" ? (favorite?.tuningParams ?? null) : null;
+    if (useAppStore.getState().playMode !== desiredMode) {
+      setPlayMode(desiredMode);
     }
-    useAppStore.setState({
-      tuningParams:
-        useAppStore.getState().playMode === "jukebox" ? desiredTuningParams : null,
-    });
-    if (useAppStore.getState().playMode === "jukebox") {
+    useAppStore.setState({ tuningParams: desiredTuningParams });
+    if (desiredMode === "jukebox") {
       writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
     }
     const sourceType: FavoriteTrack["sourceType"] =
@@ -561,6 +569,11 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       duration: useAppStore.getState().trackDurationSec,
       sourceType: getCurrentFavoriteSourceType(),
       tuningParams: getFavoriteTuningParams(),
+      // Only the non-default mode is stored; absence means jukebox.
+      playMode:
+        useAppStore.getState().playMode === "autocanonizer"
+          ? "autocanonizer"
+          : undefined,
     };
     const result = addFavorite(useAppStore.getState().favorites, track);
     if (result.status === "limit") {

@@ -296,7 +296,7 @@ function FavoritesList({
                     item.uniqueSongId,
                     window.location.href,
                     item.tuningParams,
-                    "jukebox",
+                    item.playMode,
                   )}
                   data-favorite-id={item.uniqueSongId}
                   data-source-type={sourceType}
