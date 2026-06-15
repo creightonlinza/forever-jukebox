@@ -38,7 +38,12 @@ test.describe("Top Tracks panel", () => {
     );
 
     await page.locator('[data-top-subtab="favorites"]').click();
-    await expect(page.locator("#top-list-title")).toHaveText("Favorites");
+    // The favorites title carries a count badge ("<count> / <max>") alongside
+    // the label, so match the label and the badge separately.
+    await expect(page.locator("#top-list-title")).toContainText("Favorites");
+    await expect(page.locator("#top-list-title .favorites-count")).toHaveText(
+      "0 / 150",
+    );
     await expect(page.locator("#top-list-refresh")).toHaveClass(/\bhidden\b/);
     await expect(page.locator("#favorites-filter")).toBeVisible();
     await expect(page.locator("#favorites-list")).toContainText(
@@ -88,7 +93,7 @@ test.describe("Top Tracks panel", () => {
   }) => {
     await page.goto("/");
     await page.locator('[data-top-subtab="favorites"]').click();
-    await expect(page.locator("#top-list-title")).toHaveText("Favorites");
+    await expect(page.locator("#top-list-title")).toContainText("Favorites");
     await page.locator('[data-tab-button="top"]').click();
     await expect(page.locator("#top-list-title")).toHaveText("Top 25");
   });

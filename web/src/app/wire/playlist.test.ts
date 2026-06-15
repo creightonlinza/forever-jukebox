@@ -51,6 +51,7 @@ function createDeps(overrides?: Partial<AppState>) {
     loadTrackByJobId: vi.fn(async () => true),
     navigateToTabWithState: vi.fn(),
     togglePlayback: vi.fn(),
+    setPlayMode: vi.fn(),
   };
 }
 
@@ -265,6 +266,29 @@ describe("playlist handlers", () => {
 
     resolveLoad(true);
     await loadPromise;
+  });
+
+  it("applies the per-track play mode when loading a playlist track", async () => {
+    const autocanonTrack = { ...track("b"), playMode: "autocanonizer" as const };
+    const deps = createDeps({
+      playlist: { tracks: [track("a"), autocanonTrack], currentIndex: 0 },
+    } as Partial<AppState>);
+    const handlers = createPlaylistHandlers(deps);
+
+    await handlers.loadPlaylistIndex(1);
+
+    expect(deps.setPlayMode).toHaveBeenCalledWith("autocanonizer");
+  });
+
+  it("defaults a playlist track without a stored mode to jukebox", async () => {
+    const deps = createDeps({
+      playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
+    } as Partial<AppState>);
+    const handlers = createPlaylistHandlers(deps);
+
+    await handlers.loadPlaylistIndex(1);
+
+    expect(deps.setPlayMode).toHaveBeenCalledWith("jukebox");
   });
 
   it("advances autocanonizer to the next playlist track when available", async () => {

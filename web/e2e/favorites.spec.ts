@@ -89,6 +89,40 @@ test.describe("favorites", () => {
     await expect(page).toHaveURL(/thresh=42/);
   });
 
+  test("favoriting in autocanonizer mode stores it and restores the mode", async ({
+    page,
+  }) => {
+    await loadFirstTopTrack(page);
+    // switch to autocanonizer, then favorite
+    await page.locator("#play-mode-select").selectOption("autocanonizer");
+    await expect(page).toHaveURL(/[?&]mode=autocanonizer/);
+    await page.locator("#favorite-toggle").click();
+    await expectToast(page, "Added to Favorites");
+
+    const stored = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("fj-favorites") ?? "[]"),
+    );
+    expect(stored[0].playMode).toBe("autocanonizer");
+
+    // navigate away (which strips the mode param), then restore via the list
+    await page.locator('[data-tab-button="top"]').click();
+    await page.locator('[data-top-subtab="favorites"]').click();
+    // the row's link carries the mode so copy-link / open-in-new-tab work
+    await expect(page.locator(".favorite-row a").first()).toHaveAttribute(
+      "href",
+      /[?&]mode=autocanonizer/,
+    );
+    await page.locator(".favorite-row a").first().click();
+    await waitForTrackLoaded(page);
+
+    // back in autocanonizer mode, URL and control reflect it
+    await expect(page).toHaveURL(/[?&]mode=autocanonizer/);
+    await expect(page.locator("#play-mode-select")).toHaveValue(
+      "autocanonizer",
+    );
+    await expect(page.locator("#jukebox-viz")).toHaveClass(/is-canonizer/);
+  });
+
   test("favorites survive a reload", async ({ page }) => {
     await loadFirstTopTrack(page);
     await page.locator("#favorite-toggle").click();
