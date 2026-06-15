@@ -152,9 +152,16 @@ class FavoriteTrack(BaseModel):
     artist: str
     duration: float | None = None
     sourceType: Literal["youtube", "soundcloud", "bandcamp", "upload"] | None = None
+    # Opaque URL-param string holding all tuning (jb, thresh, bp, am, ab, ...).
     tuningParams: str | None = None
+    # Play mode the track was favorited in; absent/None on legacy favorites,
+    # which predate autocanonizer favorites and are treated as jukebox.
+    playMode: Literal["jukebox", "autocanonizer"] | None = None
 
-    model_config = ConfigDict(extra="allow")
+    # The model enumerates every field the client persists, so unknown keys are
+    # dropped rather than stored verbatim. Adding a new favorite field requires
+    # adding it here too (it will otherwise be silently discarded on sync).
+    model_config = ConfigDict(extra="ignore")
 
 
 class FavoritesSyncRequest(BaseModel):
