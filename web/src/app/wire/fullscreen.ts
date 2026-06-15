@@ -1,17 +1,16 @@
 import type { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
+import { releaseWakeLock, requestWakeLock } from "../playback/wake-lock";
 import { useAppStore } from "../store";
 
 type FullscreenDeps = {
   jukebox: JukeboxController;
   getVizPanel: () => HTMLElement;
-  requestWakeLock: () => void;
-  releaseWakeLock: () => void;
 };
 
 export type FullscreenHandlers = ReturnType<typeof createFullscreenHandlers>;
 
 export function createFullscreenHandlers(deps: FullscreenDeps) {
-  const { jukebox, getVizPanel, requestWakeLock, releaseWakeLock } = deps;
+  const { jukebox, getVizPanel } = deps;
 
   function handleFullscreenToggle() {
     if (!document.fullscreenElement) {

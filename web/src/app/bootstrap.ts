@@ -39,8 +39,6 @@ import {
   loadTrackById,
   openExtras,
   pollAnalysis,
-  releaseWakeLock,
-  requestWakeLock,
   resetForNewTrack,
   setMasterVolume,
   syncDeletedEdgeState,
@@ -294,8 +292,6 @@ export function bootstrap(): AppBridge {
     fullscreenHandlers = createFullscreenHandlers({
       jukebox,
       getVizPanel: () => nodes.vizPanel,
-      requestWakeLock,
-      releaseWakeLock,
     });
     jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
     playbackHandlers.initializePlayback();
