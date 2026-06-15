@@ -98,7 +98,12 @@ describe("TopTracksPanel", () => {
     act(() => {
       useAppStore.setState({ topSongsTab: "favorites" });
     });
-    expect(title?.textContent).toBe("Favorites");
+    // The favorites title carries a count badge ("<count> / <max>") next to
+    // the label, so assert the label and the badge separately.
+    expect(title?.textContent).toContain("Favorites");
+    expect(title?.querySelector(".favorites-count")?.textContent).toBe(
+      "0 / 150",
+    );
     expect(refresh?.classList.contains("hidden")).toBe(true);
   });
 
