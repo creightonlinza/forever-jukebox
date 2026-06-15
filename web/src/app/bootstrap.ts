@@ -17,10 +17,7 @@ import { handleRouteChange } from "./routing";
 import { initBackgroundTimer } from "@forever-jukebox/engine/background";
 import {
   fetchAppConfig,
-  fetchFavoritesSync,
-  createFavoritesSync,
   startUrlAnalysis,
-  updateFavoritesSync,
   uploadAudio,
 } from "./api";
 import { loadAppConfig, saveAppConfig } from "./cache";
@@ -67,19 +64,11 @@ import type { AppBridge } from "./bridge";
 import { useAppStore } from "./store";
 import {
   getTuningParamsFromEngine,
-  syncTuningParamsState,
   writeTuningParamsToUrl,
 } from "./tuning";
 import {
-  addFavorite,
-  isFavorite,
   loadFavorites,
   loadFavoritesSyncCode,
-  maxFavorites,
-  removeFavorite,
-  saveFavoritesSyncCode,
-  saveFavorites,
-  sortFavorites,
 } from "./favorites";
 import { loadPlaylist, type PlaylistTrack } from "./playlist";
 
@@ -152,17 +141,6 @@ export function bootstrap(): AppBridge {
   };
   const favoritesHandlers = createFavoritesHandlers({
     context,
-    showToast,
-    addFavorite,
-    removeFavorite,
-    isFavorite,
-    sortFavorites,
-    maxFavorites,
-    saveFavorites,
-    saveFavoritesSyncCode,
-    fetchFavoritesSync,
-    createFavoritesSync,
-    updateFavoritesSync,
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
     loadTrackById: (trackId, options) =>
       loadTrackById(context, playbackDeps, trackId, {
@@ -174,8 +152,6 @@ export function bootstrap(): AppBridge {
         preserveUrlTuning: true,
         ...options,
       }),
-    writeTuningParamsToUrl,
-    syncTuningParamsState,
     setPlayMode: (mode) => playbackHandlers?.setPlayMode(mode),
   });
   playbackDeps.onAnalysisLoaded = (response) => {

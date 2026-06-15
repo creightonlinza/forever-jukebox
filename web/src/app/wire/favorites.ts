@@ -1,36 +1,30 @@
+import {
+  createFavoritesSync,
+  fetchFavoritesSync,
+  updateFavoritesSync,
+  type AnalysisComplete,
+} from "../api";
 import type { AppContext, TabId } from "../context";
 import {
+  addFavorite,
   favoriteToPlaylistTrack,
   findCurrentFavorite,
+  isFavorite,
+  maxFavorites,
+  removeFavorite,
+  saveFavorites,
+  saveFavoritesSyncCode,
+  sortFavorites,
   type FavoriteTrack,
 } from "../favorites";
-import type { AnalysisComplete } from "../api";
 import { isLikelyJobId } from "../identity";
-import { useAppStore } from "../store";
-import type { ToastOptions } from "../ui";
 import type { PlaylistTrack } from "../playlist";
+import { useAppStore } from "../store";
+import { syncTuningParamsState, writeTuningParamsToUrl } from "../tuning";
+import { showToast } from "../ui";
 
 type FavoritesDeps = {
   context: AppContext;
-  showToast: (message: string, options?: ToastOptions) => void;
-  addFavorite: (
-    items: FavoriteTrack[],
-    track: FavoriteTrack,
-  ) => { favorites: FavoriteTrack[]; status: "added" | "duplicate" | "limit" };
-  removeFavorite: (items: FavoriteTrack[], uniqueSongId: string) => FavoriteTrack[];
-  isFavorite: (items: FavoriteTrack[], uniqueSongId: string) => boolean;
-  sortFavorites: (items: FavoriteTrack[]) => FavoriteTrack[];
-  maxFavorites: () => number;
-  saveFavorites: (items: FavoriteTrack[]) => void;
-  saveFavoritesSyncCode: (code: string) => void;
-  fetchFavoritesSync: (code: string) => Promise<FavoriteTrack[]>;
-  createFavoritesSync: (favorites: FavoriteTrack[]) => Promise<{
-    code?: string;
-    favorites?: FavoriteTrack[];
-  }>;
-  updateFavoritesSync: (code: string, favorites: FavoriteTrack[]) => Promise<{
-    favorites?: FavoriteTrack[];
-  }>;
   navigateToTabWithState: (
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
@@ -43,8 +37,6 @@ type FavoritesDeps = {
     jobId: string,
     options?: { selectedTrack?: PlaylistTrack | null },
   ) => void;
-  writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
-  syncTuningParamsState: (context: AppContext) => string | null;
   setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
 };
 
@@ -56,22 +48,9 @@ export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
 export function createFavoritesHandlers(deps: FavoritesDeps) {
   const {
     context,
-    showToast,
-    addFavorite,
-    removeFavorite,
-    isFavorite,
-    sortFavorites,
-    maxFavorites,
-    saveFavorites,
-    saveFavoritesSyncCode,
-    fetchFavoritesSync,
-    createFavoritesSync,
-    updateFavoritesSync,
     navigateToTabWithState,
     loadTrackById,
     loadTrackByJobId,
-    writeTuningParamsToUrl,
-    syncTuningParamsState,
     setPlayMode,
   } = deps;
 

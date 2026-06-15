@@ -1,16 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAppStore } from "../store";
-import type { AnalysisComplete } from "../api";
+import {
+  fetchFavoritesSync,
+  updateFavoritesSync,
+  type AnalysisComplete,
+} from "../api";
 import type { AppContext } from "../context";
 import {
-  addFavorite,
   findCurrentFavorite,
-  isFavorite,
-  removeFavorite,
-  sortFavorites,
+  saveFavorites,
   type FavoriteTrack,
 } from "../favorites";
+import { useAppStore } from "../store";
 import { createFavoritesHandlers } from "./favorites";
+
+vi.mock("../ui", () => ({ showToast: vi.fn() }));
+vi.mock("../tuning", () => ({
+  syncTuningParamsState: vi.fn(() => null),
+  writeTuningParamsToUrl: vi.fn(),
+}));
+vi.mock("../api", () => ({
+  fetchFavoritesSync: vi.fn(async () => []),
+  createFavoritesSync: vi.fn(async () => ({})),
+  updateFavoritesSync: vi.fn(async () => ({})),
+}));
+vi.mock("../favorites", async (importActual) => ({
+  ...(await importActual<typeof import("../favorites")>()),
+  saveFavorites: vi.fn(),
+  saveFavoritesSyncCode: vi.fn(),
+}));
 
 type FakeElement = {
   className: string;
@@ -87,29 +104,15 @@ function createHarness(
     trackArtist: "Artist",
     trackDurationSec: 123,
   });
-  const saveFavorites = vi.fn();
   const handlers = createFavoritesHandlers({
     context,
-    showToast: vi.fn(),
-    addFavorite,
-    removeFavorite,
-    isFavorite,
-    sortFavorites,
-    maxFavorites: () => 150,
-    saveFavorites,
-    saveFavoritesSyncCode: vi.fn(),
-    fetchFavoritesSync: vi.fn(async () => []),
-    createFavoritesSync: vi.fn(async () => ({})),
-    updateFavoritesSync: vi.fn(async () => ({})),
     navigateToTabWithState: vi.fn(),
     loadTrackById: vi.fn(),
     loadTrackByJobId: vi.fn(),
-    writeTuningParamsToUrl: vi.fn(),
-    syncTuningParamsState: vi.fn(() => null),
     setPlayMode: vi.fn(),
     ...overrides,
   });
-  return { handlers, saveFavorites };
+  return { handlers };
 }
 
 function favorite(id: string): FavoriteTrack {
@@ -130,6 +133,7 @@ async function flushMicrotasks(count = 5) {
 
 describe("createFavoritesHandlers", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.stubGlobal("document", {
       createElement: vi.fn(() => createFakeElement()),
     });
@@ -143,7 +147,7 @@ describe("createFavoritesHandlers", () => {
   });
 
   it("treats a legacy YouTube favorite as active and migrates it to the job id", () => {
-    const { handlers, saveFavorites } = createHarness([
+    const { handlers } = createHarness([
       {
         uniqueSongId: "abc123def45",
         sourceType: "youtube",
@@ -182,7 +186,7 @@ describe("createFavoritesHandlers", () => {
     const resolvers: Array<(value: { favorites?: FavoriteTrack[] }) => void> =
       [];
     const updateCalls: FavoriteTrack[][] = [];
-    const updateFavoritesSync = vi.fn(
+    vi.mocked(updateFavoritesSync).mockImplementation(
       (_code: string, favorites: FavoriteTrack[]) => {
         updateCalls.push(favorites);
         return new Promise<{ favorites?: FavoriteTrack[] }>((resolve) => {
@@ -190,11 +194,9 @@ describe("createFavoritesHandlers", () => {
         });
       },
     );
-    const { handlers } = createHarness([], {
-      // Server is empty throughout; the merged local delta is what matters.
-      fetchFavoritesSync: vi.fn(async () => []),
-      updateFavoritesSync,
-    });
+    // Server is empty throughout; the merged local delta is what matters.
+    vi.mocked(fetchFavoritesSync).mockResolvedValue([]);
+    const { handlers } = createHarness([]);
     useAppStore.setState({
       appConfig: { allow_favorites_sync: true } as never,
       favoritesSyncCode: "code",
