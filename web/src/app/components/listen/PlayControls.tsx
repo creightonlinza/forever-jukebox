@@ -7,7 +7,7 @@ import {
 import { useAppStore } from "../../store";
 
 // Transport cluster: playlist previous, play/pause toggle, playlist next.
-// Renders via portal into the legacy .viz-play-controls container.
+// Rendered into the .viz-play-controls container.
 export function PlayControls({ bridge }: { bridge: AppBridge }) {
   const isRunning = useAppStore((s) => s.isRunning);
   const isPaused = useAppStore((s) => s.isPaused);
@@ -21,7 +21,7 @@ export function PlayControls({ bridge }: { bridge: AppBridge }) {
   const playlistLoadBusy = useAppStore((s) => s.playlistLoadBusy);
   const playlist = useAppStore((s) => s.playlist);
 
-  // updatePlayButton derivation (playback.ts), now rendered.
+  // Derive the play button's label, icon and visibility from playback state.
   const isBlocked =
     playMode === "jukebox" && audioMode === "swing" && swingPreparing;
   const playLabel = isBlocked

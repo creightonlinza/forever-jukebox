@@ -39,9 +39,8 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
     [bridge],
   );
 
-  // attachVisualizationResize equivalent: observe the panel and resize both
-  // controllers (window-resize fallback for browsers without
-  // ResizeObserver, matching the legacy chrome 63 path).
+  // Observe the panel and resize both controllers, with a window-resize
+  // fallback for older browsers without ResizeObserver.
   useEffect(() => {
     const panel = vizPanelRef.current;
     if (!panel) {
@@ -65,7 +64,7 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
     return () => window.removeEventListener("resize", handleResize);
   }, [bridge]);
 
-  // updateVizVisibility's resize-on-reveal, now reactive.
+  // Resize the active controller when the viz becomes visible.
   useEffect(() => {
     if (!visible) {
       return;

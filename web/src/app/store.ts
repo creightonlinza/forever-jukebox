@@ -56,9 +56,9 @@ type ShellSlice = {
   searchQuery: string;
   searchHint: string;
   searchResults: SearchResultsState;
-  // Listen-panel modal/menu state (checkpoint 8a). Open flags live here so
-  // legacy flows (openExtras hotkey, playlist buttons, resetForNewTrack)
-  // can drive the React modals.
+  // Listen-panel modal/menu state. Open flags live here so the imperative
+  // flows (openExtras hotkey, playlist buttons, resetForNewTrack) can drive
+  // the React modals.
   tuningModalOpen: boolean;
   tuningModalTab: "tuning" | "extras";
   infoModalOpen: boolean;
@@ -89,9 +89,8 @@ export type AppStoreState = AppState & ShellSlice & Actions;
 
 type Slice<T> = StateCreator<AppStoreState, [], [], T>;
 
-// Slice layout follows the migration plan's ui/playback/track/tuning/library/
-// config mapping. The store is
-// flat (zustand slices pattern) so legacy field names survive unchanged.
+// The store is flat (zustand slices pattern); slices group state by domain
+// (ui / playback / track / tuning / library / config).
 // Non-serializable handles (pollController, wakeLock, timer ids) are fine in
 // zustand; no devtools middleware is attached, so nothing serializes them.
 

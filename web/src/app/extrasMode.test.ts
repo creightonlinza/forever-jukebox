@@ -36,7 +36,7 @@ describe("branch stats preference", () => {
     expect(resolveStoredBranchStatsEnabled()).toBe(true);
   });
 
-  it("supports legacy true values", () => {
+  it("supports older true values", () => {
     localStorage.setItem("fj-branch-stats-enabled", "true");
     expect(resolveStoredBranchStatsEnabled()).toBe(true);
   });

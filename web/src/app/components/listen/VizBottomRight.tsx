@@ -7,8 +7,8 @@ import {
 import { useAppStore } from "../../store";
 
 // The right-hand cluster of the viz bottom bar: playlist-open button,
-// volume panel, fullscreen toggle. Renders via portal into the legacy
-// .viz-bottom-right flex container (which React exclusively owns).
+// volume panel, fullscreen toggle. Rendered into the .viz-bottom-right
+// container.
 export function VizBottomRight({ bridge }: { bridge: AppBridge }) {
   const playlist = useAppStore((s) => s.playlist);
   const volumePct = useAppStore((s) => s.volumePct);
@@ -16,7 +16,7 @@ export function VizBottomRight({ bridge }: { bridge: AppBridge }) {
   const [volumeOpen, setVolumeOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
-  // Click-away closes the volume panel (legacy handleVolumeDocumentClick).
+  // Click-away closes the volume panel.
   useEffect(() => {
     if (!volumeOpen) {
       return;

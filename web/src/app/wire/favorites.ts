@@ -366,7 +366,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
   }
 
   function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
-    migrateLegacyFavoriteFromResponse(response);
+    migrateOlderFavoriteFromResponse(response);
     const provider =
       response.source_provider === "upload" ||
       response.source_provider === "youtube" ||
@@ -399,18 +399,18 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
   }
 
-  function migrateLegacyFavoriteFromResponse(response: AnalysisComplete) {
+  function migrateOlderFavoriteFromResponse(response: AnalysisComplete) {
     const jobId = response.id;
-    const legacyId = legacyFavoriteIdFromResponse(response);
-    if (!jobId || !legacyId) {
+    const olderId = olderFavoriteIdFromResponse(response);
+    if (!jobId || !olderId) {
       return;
     }
-    const legacyFavorite = useAppStore.getState().favorites.find(
+    const olderFavorite = useAppStore.getState().favorites.find(
       (item) =>
-        item.uniqueSongId === legacyId &&
+        item.uniqueSongId === olderId &&
         (item.sourceType ?? "youtube") === "youtube",
     );
-    if (!legacyFavorite) {
+    if (!olderFavorite) {
       return;
     }
     const existingJobFavorite = useAppStore.getState().favorites.find(
@@ -418,26 +418,26 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     );
     if (existingJobFavorite) {
       updateFavorites(
-        useAppStore.getState().favorites.filter((item) => item.uniqueSongId !== legacyId),
+        useAppStore.getState().favorites.filter((item) => item.uniqueSongId !== olderId),
       );
       return;
     }
     const migrated: FavoriteTrack = {
-      ...legacyFavorite,
+      ...olderFavorite,
       uniqueSongId: jobId,
-      sourceType: sourceTypeFromAnalysis(response) ?? legacyFavorite.sourceType ?? "youtube",
-      title: useAppStore.getState().trackTitle || legacyFavorite.title || "Untitled",
-      artist: useAppStore.getState().trackArtist || legacyFavorite.artist || "",
-      duration: useAppStore.getState().trackDurationSec ?? legacyFavorite.duration,
+      sourceType: sourceTypeFromAnalysis(response) ?? olderFavorite.sourceType ?? "youtube",
+      title: useAppStore.getState().trackTitle || olderFavorite.title || "Untitled",
+      artist: useAppStore.getState().trackArtist || olderFavorite.artist || "",
+      duration: useAppStore.getState().trackDurationSec ?? olderFavorite.duration,
     };
     updateFavorites(
       useAppStore.getState().favorites.map((item) =>
-        item.uniqueSongId === legacyId ? migrated : item,
+        item.uniqueSongId === olderId ? migrated : item,
       ),
     );
   }
 
-  function legacyFavoriteIdFromResponse(response: AnalysisComplete) {
+  function olderFavoriteIdFromResponse(response: AnalysisComplete) {
     if (
       response.source_provider &&
       response.source_provider !== "youtube"
@@ -475,7 +475,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     const favorite = useAppStore.getState().favorites.find(
       (item) => item.uniqueSongId === favoriteId,
     );
-    // Restore the mode the track was favorited in (legacy favorites have no
+    // Restore the mode the track was favorited in (older favorites have no
     // playMode and fall back to jukebox). setPlayMode runs before the play-tab
     // navigation below, so navigateToTabWithState serializes the right mode.
     const desiredMode =

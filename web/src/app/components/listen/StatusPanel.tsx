@@ -3,7 +3,7 @@ import { useAppStore } from "../../store";
 
 // The Listen-panel status row: spinner, loading progress, analysis status
 // text and the saved-playlist shortcut. Hidden once a track is fully
-// loaded (formerly toggled by updateVizVisibility).
+// loaded.
 export function StatusPanel() {
   const statusText = useAppStore((s) => s.analysisStatusText);
   const spinning = useAppStore((s) => s.analysisSpinning);

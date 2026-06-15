@@ -29,8 +29,8 @@ function CachedAudioClearButton() {
     }
   }, []);
 
-  // Matches the legacy refresh triggers: once at startup, and on every
-  // navigation that lands on (or within) the FAQ tab.
+  // Refresh once at startup, and on every navigation that lands on (or
+  // within) the FAQ tab.
   useEffect(() => {
     void refresh();
   }, [refresh]);

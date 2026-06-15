@@ -19,8 +19,7 @@ function getVisualizationSelectEntries(count: number) {
 }
 
 // The viz-top controls: play-mode select, visualization select and the
-// autocanonizer finish-out checkbox. Renders via portal into the legacy
-// .viz-top container.
+// autocanonizer finish-out checkbox. Rendered into the .viz-top container.
 export function VizTop({ bridge }: { bridge: AppBridge }) {
   const playMode = useAppStore((s) => s.playMode);
   const activeVizIndex = useAppStore((s) => s.activeVizIndex);

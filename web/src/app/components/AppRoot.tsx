@@ -16,7 +16,7 @@ import { SleepTimerModal } from "./listen/SleepTimerModal";
 import { TuningModal } from "./listen/TuningModal";
 
 // Derives activeTab from the URL on every location change and runs the
-// legacy route handler (mode-from-URL, track loading, FAQ subtab sync) on
+// route handler (mode-from-URL, track loading, FAQ subtab sync) on
 // initial load and browser back/forward. The location.key guard keeps
 // StrictMode's double-invoked effects from loading a track twice.
 function useRouteSync(bridge: AppBridge) {
@@ -32,9 +32,8 @@ function useRouteSync(bridge: AppBridge) {
   }, [location, navigationType, bridge]);
 }
 
-// Side effects formerly in tabs.ts setActiveTab, keyed on the derived
-// activeTab. Panels stay in the DOM permanently (each derives its own
-// hidden class from activeTabId).
+// Side effects keyed on the derived activeTab. Panels stay in the DOM
+// permanently (each derives its own hidden class from activeTabId).
 function useTabEffects(bridge: AppBridge) {
   const activeTab = useAppStore((s) => s.activeTabId);
   useEffect(() => {
@@ -55,8 +54,7 @@ function useTabEffects(bridge: AppBridge) {
   }, [activeTab, bridge]);
 }
 
-// Body-level flag CSS uses to reveal playlist-add buttons (formerly part
-// of wire/playlist's syncPlaylistUi).
+// Body-level flag CSS uses to reveal playlist-add buttons.
 function usePlaylistAddEnabled() {
   const lastTrackId = useAppStore((s) => s.lastTrackId);
   const lastJobId = useAppStore((s) => s.lastJobId);
@@ -76,9 +74,8 @@ function useThemeEffect(bridge: AppBridge) {
   }, [theme, bridge]);
 }
 
-// Window-level hotkeys (playback shortcuts, delete-confirm, playlist modal),
-// formerly registered by wire/ui.ts. Handlers themselves stay legacy until
-// their panels convert. Registration order is preserved.
+// Window-level hotkeys (playback shortcuts, delete-confirm, playlist modal).
+// Registration order is preserved.
 function useGlobalHotkeys(bridge: AppBridge) {
   useEffect(() => {
     const { keydown, keyup } = bridge.hotkeys;

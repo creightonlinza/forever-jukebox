@@ -146,7 +146,7 @@ describe("createFavoritesHandlers", () => {
     vi.unstubAllGlobals();
   });
 
-  it("treats a legacy YouTube favorite as active and migrates it to the job id", () => {
+  it("treats an older YouTube favorite as active and migrates it to the job id", () => {
     const { handlers } = createHarness([
       {
         uniqueSongId: "abc123def45",

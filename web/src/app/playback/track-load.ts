@@ -507,20 +507,20 @@ async function migrateCachedAudioForResponse(
   if (await tryLoadCachedAudio(context, response.id)) {
     return;
   }
-  const legacyKeys = new Set<string>();
+  const previousKeys = new Set<string>();
   if (previousTrackId && previousTrackId !== response.id) {
-    legacyKeys.add(previousTrackId);
+    previousKeys.add(previousTrackId);
   }
   if (
     (response.source_provider === "youtube" || !response.source_provider) &&
     typeof response.source_id === "string" &&
     response.source_id !== response.id
   ) {
-    legacyKeys.add(response.source_id);
+    previousKeys.add(response.source_id);
   }
-  for (const legacyKey of legacyKeys) {
+  for (const previousKey of previousKeys) {
     try {
-      const cached = await readCachedTrack(legacyKey);
+      const cached = await readCachedTrack(previousKey);
       if (!cached?.audio) {
         continue;
       }
@@ -528,7 +528,7 @@ async function migrateCachedAudioForResponse(
         audio: cached.audio,
         jobId: cached.jobId ?? response.id,
       });
-      await deleteCachedTrack(legacyKey);
+      await deleteCachedTrack(previousKey);
       await tryLoadCachedAudio(context, response.id);
       return;
     } catch (err) {

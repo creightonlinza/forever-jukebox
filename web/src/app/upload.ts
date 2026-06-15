@@ -8,9 +8,9 @@ import {
 import type { PlaylistTrack } from "./playlist";
 import type { ToastOptions } from "./ui";
 
-// Upload flows extracted from wire/search.ts. The React Search panel owns
-// the inputs/busy state and calls these with values; `onAccepted` fires at
-// the point the legacy flow cleared the input (job accepted, before poll).
+// Upload flows. The React Search panel owns the inputs/busy state and calls
+// these with values; `onAccepted` fires when the job is accepted (before
+// polling) — the point at which the input should be cleared.
 export type UploadDeps = {
   context: AppContext;
   showToast: (message: string, options?: ToastOptions) => void;

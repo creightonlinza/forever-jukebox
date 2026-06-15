@@ -9,8 +9,8 @@ import type { PlaylistTrack } from "./playlist";
 import type { ThemeName } from "./themeConfig";
 import type { PendingDelete } from "./wire/delete-job";
 
-// Actions the React Top Tracks panel delegates to legacy flows (track
-// loading, playlist, favorites sync state machine).
+// Actions the React Top Tracks panel delegates to the imperative flow
+// modules (track loading, playlist, favorites sync state machine).
 export type TopPanelBridge = {
   selectTrack: (trackId: string, selectedTrack: PlaylistTrack | null) => void;
   selectFavorite: (
@@ -75,9 +75,9 @@ export type ListenPanelBridge = {
   };
 };
 
-// Interim seam between bootstrap (legacy wiring) and the React shell.
-// Shrinks as panels convert; replaced by the store + plain module imports
-// once bootstrap is deleted in Phase 5.
+// Seam between the imperative bootstrap wiring and the React shell:
+// components dispatch through it instead of importing actions directly.
+// See web/TECH_DEBT.md for the plan to retire it.
 export type AppBridge = {
   context: AppContext;
   // applyModeFromUrl + handleRouteChange — runs on initial load and browser

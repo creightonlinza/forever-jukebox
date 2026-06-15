@@ -4,7 +4,7 @@ import { useMarquee } from "../../hooks/useMarquee";
 import { useAppStore } from "../../store";
 
 // Viz-bottom track info: marquee title, listen time and beat counters.
-// Renders via portal into the legacy .viz-info container.
+// Rendered into the .viz-info container.
 export function VizInfo() {
   const trackTitle = useAppStore((s) => s.trackTitle);
   const trackArtist = useAppStore((s) => s.trackArtist);

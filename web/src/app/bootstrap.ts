@@ -85,8 +85,7 @@ export function bootstrap(): AppBridge {
   const branchStatsEnabled = resolveStoredBranchStatsEnabled();
   const defaultConfig = engine.getConfig();
   // The store holds all app state (defaults live in store.ts); hydrate the
-  // persisted bits here, pre-render. `state` is the legacy proxy: every
-  // `state.x = y` in playback.ts / wire/* is a store write.
+  // persisted bits here, pre-render.
   useAppStore.setState({
     theme: initialTheme,
     favorites: loadFavorites(),

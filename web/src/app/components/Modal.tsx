@@ -22,7 +22,7 @@ function focusableElementsIn(root: HTMLElement): HTMLElement[] {
   );
 }
 
-// Modal primitive matching the legacy .modal/.modal-panel markup: visibility
+// Modal primitive matching the existing .modal/.modal-panel CSS: visibility
 // via the "open" class, backdrop click closes. All modals close on Escape and
 // trap Tab focus while open; focus returns to the prior element on close.
 export function Modal({

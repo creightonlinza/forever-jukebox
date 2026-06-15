@@ -453,8 +453,8 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     context.cowbellOverlay.cancelScheduledHits();
     useAppStore.setState({ playMode: mode });
     if (mode !== "jukebox") {
-      // The extras tab disappears outside jukebox mode; legacy forced the
-      // stored tab back to "tuning".
+      // The extras tab disappears outside jukebox mode, so force the stored
+      // tab back to "tuning".
       useAppStore.setState({ tuningModalTab: "tuning" });
     }
     autocanonizer.setVisible(mode === "autocanonizer");

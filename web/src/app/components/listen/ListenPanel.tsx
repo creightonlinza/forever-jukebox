@@ -4,8 +4,8 @@ import { PlayMenu } from "./PlayMenu";
 import { StatusPanel } from "./StatusPanel";
 import { VizContainer } from "./VizContainer";
 
-// The Listen panel, fully React as of checkpoint 8e. It persists in the
-// DOM permanently — visibility is class-only, driven by the active tab.
+// The Listen panel. It persists in the DOM permanently — visibility is
+// class-only, driven by the active tab.
 export function ListenPanel({ bridge }: { bridge: AppBridge }) {
   const activeTab = useAppStore((s) => s.activeTabId);
   return (

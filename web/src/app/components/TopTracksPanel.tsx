@@ -482,7 +482,7 @@ function FavoritesSyncCreateModal({
       setOutput(existingCode || null);
       setButtonHidden(false);
     }
-    // The legacy modal snapshots the existing code at open time only.
+    // Snapshot the existing code at open time only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -582,8 +582,7 @@ function FavoritesSyncControls({
     return () => document.removeEventListener("click", onDocumentClick);
   }, [menuOpen]);
 
-  // Menu closes whenever the subtab changes / controls hide (legacy
-  // setTopSongsTab called closeFavoritesSyncMenu).
+  // Menu closes whenever the subtab changes / controls hide.
   useEffect(() => {
     if (!visible) {
       setMenuOpen(false);

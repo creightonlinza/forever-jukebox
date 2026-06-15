@@ -54,8 +54,8 @@ export function SleepTimerModal({ bridge }: { bridge: AppBridge }) {
     }
   }, [open]);
 
-  // Mirrors the legacy syncSleepTimerUi: when the applied timer changes
-  // externally (set/expired), the select resets to it.
+  // When the applied timer changes externally (set/expired), the select
+  // resets to it.
   useEffect(() => {
     const applied = resolveConfiguredDuration(configuredDurationMs);
     if (applied !== appliedRef.current) {

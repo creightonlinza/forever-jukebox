@@ -74,8 +74,7 @@ function isTrackLengthAllowed(deps: SearchDeps, duration: number): boolean {
   return true;
 }
 
-// The search panel renders these store values; React replaced the manual
-// list-DOM building that used to live here.
+// The search panel renders these store values.
 function setSearchResults(results: SearchResultsState) {
   useAppStore.setState({ searchResults: results });
 }
