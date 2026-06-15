@@ -1,5 +1,6 @@
 import type { AppContext, AppState, TabId } from "../context";
 import { isLikelyJobId } from "../identity";
+import { togglePlayback } from "../playback";
 import {
   activatePlaylistTrack,
   addPlaylistTrack,
@@ -15,11 +16,10 @@ import {
 } from "../playlist";
 import { useAppStore } from "../store";
 import { syncTuningParamsState, writeTuningParamsToUrl } from "../tuning";
-import type { ToastOptions } from "../ui";
+import { showToast } from "../ui";
 
 type PlaylistDeps = {
   context: AppContext;
-  showToast: (message: string, options?: ToastOptions) => void;
   loadTrackById: (
     trackId: string,
     options?: {
@@ -40,7 +40,6 @@ type PlaylistDeps = {
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
   ) => void;
-  togglePlayback: (context: AppContext) => void;
   setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
 };
 
@@ -49,11 +48,9 @@ export type PlaylistHandlers = ReturnType<typeof createPlaylistHandlers>;
 export function createPlaylistHandlers(deps: PlaylistDeps) {
   const {
     context,
-    showToast,
     loadTrackById,
     loadTrackByJobId,
     navigateToTabWithState,
-    togglePlayback,
     setPlayMode,
   } = deps;
   let playlistLoadInFlight = false;

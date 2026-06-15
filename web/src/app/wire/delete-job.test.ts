@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { deleteJob } from "../api";
+import { deleteCachedTrack } from "../cache";
 import type { AppContext } from "../context";
 import type { FavoriteTrack } from "../favorites";
+import { resetForNewTrack } from "../playback";
 import { useAppStore } from "../store";
+import { showToast } from "../ui";
 import { createDeleteJobHandlers } from "./delete-job";
+
+vi.mock("../api", () => ({ deleteJob: vi.fn(async () => {}) }));
+vi.mock("../cache", () => ({ deleteCachedTrack: vi.fn(async () => {}) }));
+vi.mock("../playback", () => ({ resetForNewTrack: vi.fn() }));
+vi.mock("../ui", () => ({ showToast: vi.fn() }));
 
 const initialStoreState = useAppStore.getState();
 
@@ -16,36 +25,28 @@ function favorite(id: string): FavoriteTrack {
   };
 }
 
-function createHarness(overrides: Record<string, unknown> = {}) {
+function createHarness() {
   useAppStore.setState(initialStoreState, true);
   const context = {} as AppContext;
-  const deps = {
+  const favoritesHandlers = { updateFavorites: vi.fn() };
+  const navigateToTabWithState = vi.fn();
+  const handlers = createDeleteJobHandlers({
     context,
-    favoritesHandlers: { updateFavorites: vi.fn() },
-    deleteJob: vi.fn(async () => {}),
-    deleteCachedTrack: vi.fn(async () => {}),
-    resetForNewTrack: vi.fn(),
-    navigateToTabWithState: vi.fn(),
-    showToast: vi.fn(),
-    isFavorite: vi.fn((items: FavoriteTrack[], id: string) =>
-      items.some((item) => item.uniqueSongId === id),
-    ),
-    removeFavorite: vi.fn((items: FavoriteTrack[], id: string) =>
-      items.filter((item) => item.uniqueSongId !== id),
-    ),
-    ...overrides,
-  };
-  const handlers = createDeleteJobHandlers(deps as never);
-  return { handlers, deps, context };
+    favoritesHandlers,
+    navigateToTabWithState,
+  });
+  return { handlers, context, favoritesHandlers, navigateToTabWithState };
 }
 
 describe("performDelete", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     useAppStore.setState(initialStoreState, true);
   });
 
   it("deletes the job, clears cache + favorite, resets, navigates, and toasts", async () => {
-    const { handlers, deps, context } = createHarness();
+    const { handlers, context, favoritesHandlers, navigateToTabWithState } =
+      createHarness();
     useAppStore.setState({ favorites: [favorite("track1")] });
 
     await handlers.performDelete({
@@ -54,23 +55,19 @@ describe("performDelete", () => {
       adminKey: null,
     });
 
-    expect(deps.deleteJob).toHaveBeenCalledWith("job1", null);
+    expect(deleteJob).toHaveBeenCalledWith("job1", null);
     // favoriteId = trackId ?? jobId
-    expect(deps.deleteCachedTrack).toHaveBeenCalledWith("track1");
-    expect(deps.isFavorite).toHaveBeenCalledWith(
-      useAppStore.getState().favorites,
-      "track1",
-    );
-    expect(deps.favoritesHandlers.updateFavorites).toHaveBeenCalledWith([]);
-    expect(deps.resetForNewTrack).toHaveBeenCalledWith(context);
-    expect(deps.navigateToTabWithState).toHaveBeenCalledWith("top", {
+    expect(deleteCachedTrack).toHaveBeenCalledWith("track1");
+    expect(favoritesHandlers.updateFavorites).toHaveBeenCalledWith([]);
+    expect(resetForNewTrack).toHaveBeenCalledWith(context);
+    expect(navigateToTabWithState).toHaveBeenCalledWith("top", {
       replace: true,
     });
-    expect(deps.showToast).toHaveBeenCalledWith("Deleted track");
+    expect(showToast).toHaveBeenCalledWith("Deleted track");
   });
 
   it("falls back to the job id for cache delete when no track id", async () => {
-    const { handlers, deps } = createHarness();
+    const { handlers, favoritesHandlers } = createHarness();
     useAppStore.setState({ favorites: [] });
 
     await handlers.performDelete({
@@ -79,13 +76,13 @@ describe("performDelete", () => {
       adminKey: null,
     });
 
-    expect(deps.deleteCachedTrack).toHaveBeenCalledWith("job1");
+    expect(deleteCachedTrack).toHaveBeenCalledWith("job1");
     // Not a favorite, so no favorites mutation.
-    expect(deps.favoritesHandlers.updateFavorites).not.toHaveBeenCalled();
+    expect(favoritesHandlers.updateFavorites).not.toHaveBeenCalled();
   });
 
   it("passes the admin key through to deleteJob", async () => {
-    const { handlers, deps } = createHarness();
+    const { handlers } = createHarness();
 
     await handlers.performDelete({
       jobId: "job1",
@@ -93,15 +90,14 @@ describe("performDelete", () => {
       adminKey: "secret",
     });
 
-    expect(deps.deleteJob).toHaveBeenCalledWith("job1", "secret");
+    expect(deleteJob).toHaveBeenCalledWith("job1", "secret");
   });
 
   it("marks the track ineligible and toasts on a non-admin failure", async () => {
-    const { handlers, deps } = createHarness({
-      deleteJob: vi.fn(async () => {
-        throw new Error("boom");
-      }),
+    vi.mocked(deleteJob).mockImplementationOnce(async () => {
+      throw new Error("boom");
     });
+    const { handlers, navigateToTabWithState } = createHarness();
     useAppStore.setState({ deleteEligible: true });
 
     await handlers.performDelete({
@@ -112,18 +108,15 @@ describe("performDelete", () => {
 
     expect(useAppStore.getState().deleteEligibilityJobId).toBe("job1");
     expect(useAppStore.getState().deleteEligible).toBe(false);
-    expect(deps.showToast).toHaveBeenCalledWith(
-      "Track can no longer be deleted",
-    );
-    expect(deps.navigateToTabWithState).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("Track can no longer be deleted");
+    expect(navigateToTabWithState).not.toHaveBeenCalled();
   });
 
   it("keeps eligibility on an admin failure and shows a generic error", async () => {
-    const { handlers, deps } = createHarness({
-      deleteJob: vi.fn(async () => {
-        throw new Error("boom");
-      }),
+    vi.mocked(deleteJob).mockImplementationOnce(async () => {
+      throw new Error("boom");
     });
+    const { handlers } = createHarness();
     useAppStore.setState({ deleteEligible: true });
 
     await handlers.performDelete({
@@ -135,6 +128,6 @@ describe("performDelete", () => {
     expect(useAppStore.getState().deleteEligibilityJobId).toBe("job1");
     // Admin path does not flip deleteEligible.
     expect(useAppStore.getState().deleteEligible).toBe(true);
-    expect(deps.showToast).toHaveBeenCalledWith("Unable to delete track");
+    expect(showToast).toHaveBeenCalledWith("Unable to delete track");
   });
 });

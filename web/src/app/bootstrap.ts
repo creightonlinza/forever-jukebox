@@ -16,7 +16,6 @@ import { navigateToTab, updateTrackUrl } from "./tabs";
 import { handleRouteChange } from "./routing";
 import { initBackgroundTimer } from "@forever-jukebox/engine/background";
 import {
-  deleteJob,
   fetchAppConfig,
   fetchFavoritesSync,
   createFavoritesSync,
@@ -24,7 +23,7 @@ import {
   updateFavoritesSync,
   uploadAudio,
 } from "./api";
-import { deleteCachedTrack, loadAppConfig, saveAppConfig } from "./cache";
+import { loadAppConfig, saveAppConfig } from "./cache";
 import { isLikelyJobId } from "./identity";
 import {
   applyAnalysisResult,
@@ -212,13 +211,11 @@ export function bootstrap(): AppBridge {
   };
   playlistHandlers = createPlaylistHandlers({
     context,
-    showToast,
     loadTrackById: (trackId, options) =>
       loadTrackById(context, playbackDeps, trackId, options),
     loadTrackByJobId: (jobId, options) =>
       loadTrackByJobId(context, playbackDeps, jobId, options),
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
-    togglePlayback,
     setPlayMode: (mode) => playbackHandlers?.setPlayMode(mode),
   });
   const appConfigHandlers = createAppConfigHandlers({
@@ -240,13 +237,7 @@ export function bootstrap(): AppBridge {
   const deleteJobHandlers = createDeleteJobHandlers({
     context,
     favoritesHandlers,
-    deleteJob,
-    deleteCachedTrack,
-    resetForNewTrack,
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
-    showToast,
-    isFavorite,
-    removeFavorite,
   });
   // Construct the viz controllers once <VizContainer> hands over its nodes
   // (ref phase — before any React effect runs). StrictMode re-attaches the

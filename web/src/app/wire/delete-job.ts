@@ -1,22 +1,20 @@
-import type { AppContext, AppState, TabId } from "../context";
-import { useAppStore } from "../store";
-import type { ToastOptions } from "../ui";
-import type { FavoritesHandlers } from "./favorites";
 import { getAdminKey } from "../admin";
+import { deleteJob } from "../api";
+import { deleteCachedTrack } from "../cache";
+import type { AppContext, TabId } from "../context";
+import { isFavorite, removeFavorite } from "../favorites";
+import { resetForNewTrack } from "../playback";
+import { useAppStore } from "../store";
+import { showToast } from "../ui";
+import type { FavoritesHandlers } from "./favorites";
 
 type DeleteJobDeps = {
   context: AppContext;
   favoritesHandlers: Pick<FavoritesHandlers, "updateFavorites">;
-  deleteJob: (jobId: string, adminKey?: string | null) => Promise<void>;
-  deleteCachedTrack: (trackId: string) => Promise<void>;
-  resetForNewTrack: (context: AppContext) => void;
   navigateToTabWithState: (
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
   ) => void;
-  showToast: (message: string, options?: ToastOptions) => void;
-  isFavorite: (items: AppState["favorites"], id: string) => boolean;
-  removeFavorite: (items: AppState["favorites"], id: string) => AppState["favorites"];
 };
 
 export type PendingDelete = {
@@ -30,17 +28,7 @@ export type DeleteJobHandlers = ReturnType<typeof createDeleteJobHandlers>;
 // Deletion flow only — the delete button + confirm modal render in React
 // (PlayMenu / DeleteConfirmModal) and call these.
 export function createDeleteJobHandlers(deps: DeleteJobDeps) {
-  const {
-    context,
-    favoritesHandlers,
-    deleteJob,
-    deleteCachedTrack,
-    resetForNewTrack,
-    navigateToTabWithState,
-    showToast,
-    isFavorite,
-    removeFavorite,
-  } = deps;
+  const { context, favoritesHandlers, navigateToTabWithState } = deps;
 
   function getPendingDelete(): PendingDelete | null {
     const jobId = useAppStore.getState().lastJobId;

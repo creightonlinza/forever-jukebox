@@ -1,9 +1,20 @@
 import { beforeEach, describe, expect, it, vi  } from "vitest";
 import type { AppContext, AppState } from "../context";
+import { togglePlayback } from "../playback";
 import { emptyPlaylist, type PlaylistTrack } from "../playlist";
-import { createPlaylistHandlers } from "./playlist";
 import { useAppStore } from "../store";
+import { showToast } from "../ui";
+import { createPlaylistHandlers } from "./playlist";
 import { setWindowUrl } from "../__tests__/test-utils";
+
+vi.mock("../ui", async (importActual) => ({
+  ...(await importActual<typeof import("../ui")>()),
+  showToast: vi.fn(),
+}));
+vi.mock("../playback", async (importActual) => ({
+  ...(await importActual<typeof import("../playback")>()),
+  togglePlayback: vi.fn(),
+}));
 
 
 function setLocalStorage() {
@@ -46,17 +57,16 @@ function createDeps(overrides?: Partial<AppState>) {
   const context = {} as unknown as AppContext;
   return {
     context,
-    showToast: vi.fn(),
     loadTrackById: vi.fn(async () => true),
     loadTrackByJobId: vi.fn(async () => true),
     navigateToTabWithState: vi.fn(),
-    togglePlayback: vi.fn(),
     setPlayMode: vi.fn(),
   };
 }
 
 describe("playlist handlers", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     setLocalStorage();
     setWindowUrl("http://localhost/listen");
   });
@@ -76,7 +86,7 @@ describe("playlist handlers", () => {
     ]);
 
     handlers.handleAddToPlaylist(track("next"));
-    expect(deps.showToast).toHaveBeenCalledWith(
+    expect(showToast).toHaveBeenCalledWith(
             "Already in playlist",
     );
 
@@ -87,7 +97,7 @@ describe("playlist handlers", () => {
     }
     });
     handlers.handleAddToPlaylist(track("extra"));
-    expect(deps.showToast).toHaveBeenCalledWith(
+    expect(showToast).toHaveBeenCalledWith(
             "Playlist is full.",
     );
   });
@@ -98,7 +108,7 @@ describe("playlist handlers", () => {
 
     handlers.handleAddToPlaylist(track("next"));
 
-    expect(deps.showToast).toHaveBeenCalledWith(
+    expect(showToast).toHaveBeenCalledWith(
             "Track cannot be added to playlist.",
     );
   });
@@ -147,7 +157,7 @@ describe("playlist handlers", () => {
 
     handlers.handleAddToPlaylist({ ...track(""), id: "" });
 
-    expect(deps.showToast).toHaveBeenCalledWith(
+    expect(showToast).toHaveBeenCalledWith(
             "Track cannot be added to playlist.",
     );
   });
@@ -209,7 +219,7 @@ describe("playlist handlers", () => {
 
     expect(loaded).toBe(false);
     expect(useAppStore.getState().playlist.currentIndex).toBe(0);
-    expect(deps.togglePlayback).not.toHaveBeenCalled();
+    expect(togglePlayback).not.toHaveBeenCalled();
   });
 
   it("blocks rapid playlist skips while a playlist load is pending", () => {
@@ -301,7 +311,7 @@ describe("playlist handlers", () => {
 
     expect(advanced).toBe(true);
     expect(deps.loadTrackById).toHaveBeenCalledOnce();
-    expect(deps.togglePlayback).toHaveBeenCalledWith(deps.context);
+    expect(togglePlayback).toHaveBeenCalledWith(deps.context);
   });
 
   it("does not report autocanonizer advance when the playlist load fails", async () => {
@@ -314,7 +324,7 @@ describe("playlist handlers", () => {
     const advanced = await handlers.advanceAutocanonizerOnEnded();
 
     expect(advanced).toBe(false);
-    expect(deps.togglePlayback).not.toHaveBeenCalled();
+    expect(togglePlayback).not.toHaveBeenCalled();
   });
 
   it("does not advance autocanonizer without a next playlist track", async () => {
