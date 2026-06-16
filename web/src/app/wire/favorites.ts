@@ -43,7 +43,7 @@ type FavoritesDeps = {
 export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
 
 // Module singleton so components reach the favorites flow without the bridge
-// prop. bootstrap registers the instance. See web/TECH_DEBT.md item 1 (Phase 2/3).
+// prop. init registers the instance. See web/TECH_DEBT.md item 1 (Phase 2/3).
 let handlers: FavoritesHandlers | null = null;
 
 export function setFavoritesHandlers(next: FavoritesHandlers): void {

@@ -11,7 +11,7 @@ import { VizTop } from "./VizTop";
 // stable JSX nodes — React renders them once and NEVER remounts them (no
 // keys, no conditional unmount; visibility is class-only), because the
 // controllers hold canvas/WebGL state inside. The panel-level ref callback
-// hands the nodes to bootstrap's attachViz, which constructs the
+// hands the nodes to init's attachViz, which constructs the
 // controllers exactly once (StrictMode re-attaches are ignored there).
 export function VizContainer() {
   const audioLoaded = useAppStore((s) => s.audioLoaded);

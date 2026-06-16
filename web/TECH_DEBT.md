@@ -128,10 +128,18 @@ Targets: **import** = direct module-fn import · **action** = zustand store acti
 - [x] **Phase 4 — Search/Upload:** `runSearch`, `selectSpotify`, `selectYoutube`
       → import (`search.ts`) · `uploadFile`, `uploadUrl` → import (`upload.ts`);
       delete `SearchPanelBridge`. *(M)*
-- [ ] **Phase 5 — shell + teardown:** move `handleRoute`/`applyTheme`/`hotkeys`
+- [x] **Phase 5 — shell + teardown:** move `handleRoute`/`applyTheme`/`hotkeys`
       off `AppRoot` into hooks using `getAppContext()`/store actions; delete
-      `bridge.ts` + `bootstrap.ts` (replace with a small `initRuntime()` from
-      `main.ts`); collapse/empty `wire/`. *(M)*
+      `bridge.ts` + `bootstrap.ts` (replaced with `initRuntime()` in `init.ts`,
+      called from `main.ts`). *(M)*
+
+> **Item 1 complete.** The `AppBridge` god-object and its prop-threading are
+> gone: `bridge.ts` and `bootstrap.ts` are deleted, components reach the runtime
+> through `runtime.ts` (`getAppContext`/`attachViz`/`handleRoute`), store actions
+> (navigation), direct flow-module imports, and per-domain module singletons in
+> `wire/*` + `search.ts`/`upload.ts`. The `wire/*` factories remain as the
+> irreducible runtime (handler closures + late-bound viz), now registered by
+> `init.ts` rather than passed as a prop.
 
 ### Guardrails
 - One panel per commit; behavior-preserving.

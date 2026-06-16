@@ -26,7 +26,7 @@ export type PendingDelete = {
 export type DeleteJobHandlers = ReturnType<typeof createDeleteJobHandlers>;
 
 // Module singleton so PlayMenu reaches the delete flow without the bridge prop.
-// bootstrap registers the instance. See web/TECH_DEBT.md item 1 (Phase 2).
+// init registers the instance. See web/TECH_DEBT.md item 1 (Phase 2).
 let handlers: DeleteJobHandlers | null = null;
 
 export function setDeleteJobHandlers(next: DeleteJobHandlers): void {

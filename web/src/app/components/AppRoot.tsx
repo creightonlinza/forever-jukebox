@@ -1,8 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
-import type { AppBridge } from "../bridge";
+import { getAppContext, handleRoute } from "../runtime";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
+import { applyTheme } from "../theme";
+import {
+  handleKeydown as playbackHandleKeydown,
+  handleKeyup as playbackHandleKeyup,
+} from "../wire/playback";
 import { FaqPanel } from "./FaqPanel";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
@@ -19,7 +24,7 @@ import { TuningModal } from "./listen/TuningModal";
 // route handler (mode-from-URL, track loading, FAQ subtab sync) on
 // initial load and browser back/forward. The location.key guard keeps
 // StrictMode's double-invoked effects from loading a track twice.
-function useRouteSync(bridge: AppBridge) {
+function useRouteSync() {
   const location = useLocation();
   const navigationType = useNavigationType();
   const handledKeyRef = useRef<string | null>(null);
@@ -27,17 +32,17 @@ function useRouteSync(bridge: AppBridge) {
     useAppStore.getState().setActiveTab(tabFromPathname(location.pathname));
     if (navigationType === "POP" && handledKeyRef.current !== location.key) {
       handledKeyRef.current = location.key;
-      bridge.handleRoute(location.pathname);
+      handleRoute(location.pathname);
     }
-  }, [location, navigationType, bridge]);
+  }, [location, navigationType]);
 }
 
 // Side effects keyed on the derived activeTab. Panels stay in the DOM
 // permanently (each derives its own hidden class from activeTabId).
-function useTabEffects(bridge: AppBridge) {
+function useTabEffects() {
   const activeTab = useAppStore((s) => s.activeTabId);
   useEffect(() => {
-    const { jukebox, engine } = bridge.context;
+    const { jukebox, engine } = getAppContext();
     useAppStore
       .getState()
       .setPlayTabPulsing(useAppStore.getState().isRunning && activeTab !== "play");
@@ -51,7 +56,7 @@ function useTabEffects(bridge: AppBridge) {
       useAppStore.setState({ selectedEdge: null });
       jukebox.setSelectedEdge(null);
     }
-  }, [activeTab, bridge]);
+  }, [activeTab]);
 }
 
 // Body-level flag CSS uses to reveal playlist-add buttons.
@@ -67,34 +72,32 @@ function usePlaylistAddEnabled() {
   }, [enabled]);
 }
 
-function useThemeEffect(bridge: AppBridge) {
+function useThemeEffect() {
   const theme = useAppStore((s) => s.theme);
   useEffect(() => {
-    bridge.applyTheme(theme);
-  }, [theme, bridge]);
+    applyTheme(getAppContext(), theme);
+  }, [theme]);
 }
 
 // Window-level hotkeys (playback shortcuts, delete-confirm, playlist modal).
-// Registration order is preserved.
-function useGlobalHotkeys(bridge: AppBridge) {
+function useGlobalHotkeys() {
   useEffect(() => {
-    const { keydown, keyup } = bridge.hotkeys;
-    keydown.forEach((handler) => window.addEventListener("keydown", handler));
-    keyup.forEach((handler) => window.addEventListener("keyup", handler));
+    const onKeydown = (event: KeyboardEvent) => playbackHandleKeydown(event);
+    const onKeyup = (event: KeyboardEvent) => playbackHandleKeyup(event);
+    window.addEventListener("keydown", onKeydown);
+    window.addEventListener("keyup", onKeyup);
     return () => {
-      keydown.forEach((handler) =>
-        window.removeEventListener("keydown", handler),
-      );
-      keyup.forEach((handler) => window.removeEventListener("keyup", handler));
+      window.removeEventListener("keydown", onKeydown);
+      window.removeEventListener("keyup", onKeyup);
     };
-  }, [bridge]);
+  }, []);
 }
 
-export function AppRoot({ bridge }: { bridge: AppBridge }) {
-  useRouteSync(bridge);
-  useTabEffects(bridge);
-  useThemeEffect(bridge);
-  useGlobalHotkeys(bridge);
+export function AppRoot() {
+  useRouteSync();
+  useTabEffects();
+  useThemeEffect();
+  useGlobalHotkeys();
   usePlaylistAddEnabled();
   return (
     <>

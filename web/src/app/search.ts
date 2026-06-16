@@ -355,7 +355,7 @@ export function selectSpotifyMatch(
   });
 }
 
-// Module singleton: bootstrap registers the search flow's runtime (context +
+// Module singleton: init registers the search flow's runtime (context +
 // deps) so SearchPanel calls these without the bridge prop. (Phase 4)
 let searchContext: AppContext | null = null;
 let searchDeps: SearchDeps | null = null;

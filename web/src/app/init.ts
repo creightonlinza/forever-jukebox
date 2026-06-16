@@ -3,7 +3,7 @@ import { BufferedAudioPlayer } from "@forever-jukebox/engine/audio/BufferedAudio
 import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
 import { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
 import { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
-import { applyTheme, applyThemeVariables, resolveStoredTheme } from "./theme";
+import { applyThemeVariables, resolveStoredTheme } from "./theme";
 import { resolveStoredAnchorHighlight } from "./anchorHighlight";
 import { resolveStoredBranchStatsEnabled } from "./extrasMode";
 import {
@@ -33,7 +33,12 @@ import {
 import { setSearchRuntime, type SearchDeps } from "./search";
 import { setUploadRuntime, type UploadDeps } from "./upload";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
-import { setAppRuntime, setAttachViz, type AttachVizNodes } from "./runtime";
+import {
+  setAppRuntime,
+  setAttachViz,
+  setRouteHandler,
+  type AttachVizNodes,
+} from "./runtime";
 import type { AppContext, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers, setFavoritesHandlers } from "./wire/favorites";
@@ -56,7 +61,6 @@ import {
 import { createDeleteJobHandlers, setDeleteJobHandlers } from "./wire/delete-job";
 import { setSelectTrack } from "./wire/track-select";
 import { createAppConfigHandlers } from "./wire/app-config";
-import type { AppBridge } from "./bridge";
 import { useAppStore } from "./store";
 import {
   loadFavorites,
@@ -69,7 +73,7 @@ const canonizerFinishKey = "fj-canonizer-finish";
 
 type PlaybackDeps = Parameters<typeof pollAnalysis>[1];
 
-export function bootstrap(): AppBridge {
+export function initRuntime(): void {
   initBackgroundTimer();
   // Theme must apply before first paint; the React theme effect re-applies
   // idempotently (and persists + refreshes the viz) once mounted.
@@ -286,13 +290,13 @@ export function bootstrap(): AppBridge {
 
   // Runs on initial load and browser back/forward, driven by the React
   // shell's route-sync effect (replaces the popstate listener and the
-  // bootstrap-time handleRouteChange call).
-  const handleRoute = (pathname: string) => {
+  // init-time handleRouteChange call).
+  setRouteHandler((pathname) => {
     playbackHandlers?.applyModeFromUrl();
     handleRouteChange(context, playbackDeps, pathname).catch((err) => {
       console.warn(`Route load failed: ${String(err)}`);
     });
-  };
+  });
 
   setSelectTrack((trackId, selectedTrack) => {
     navigationHandlers.navigateToTabWithState("play", { trackId });
@@ -305,17 +309,5 @@ export function bootstrap(): AppBridge {
 
   setSearchRuntime(context, searchDeps);
   setUploadRuntime(uploadDeps);
-
-  return {
-    context,
-    handleRoute,
-    hotkeys: {
-      keydown: [(event) => playbackHandlers?.handleKeydown(event)],
-      keyup: [(event) => playbackHandlers?.handleKeyup(event)],
-    },
-    applyTheme: (theme) => {
-      applyTheme(context, theme);
-    },
-  };
 }
 

@@ -325,7 +325,7 @@ export async function uploadFromUrl(
   }
 }
 
-// Module singleton: bootstrap registers the upload flow's deps so SearchPanel
+// Module singleton: init registers the upload flow's deps so SearchPanel
 // calls these without the bridge prop. (Phase 4)
 let uploadDeps: UploadDeps | null = null;
 

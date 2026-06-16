@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import type { AppBridge } from "../bridge";
 import { setAppRouter } from "../router";
 import { useAppStore } from "../store";
 import { FaqPanel } from "./FaqPanel";
@@ -12,24 +11,14 @@ vi.mock("../cache", () => ({
   clearCachedAudio: vi.fn(async () => {}),
 }));
 
-function createBridge(): Pick<AppBridge, "context"> {
-  return {
-    context: {
-      elements: {},
-      state: { toastTimer: null },
-    } as unknown as AppBridge["context"],
-  };
-}
-
 function renderFaqPanel(initialPath = "/faq") {
-  const bridge = createBridge();
   const router = createMemoryRouter(
     [{ path: "*", element: <FaqPanel /> }],
     { initialEntries: [initialPath] },
   );
   render(<RouterProvider router={router} />);
   setAppRouter(router);
-  return { router, bridge };
+  return { router };
 }
 
 describe("FaqPanel", () => {

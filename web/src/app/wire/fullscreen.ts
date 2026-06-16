@@ -10,7 +10,7 @@ type FullscreenDeps = {
 export type FullscreenHandlers = ReturnType<typeof createFullscreenHandlers>;
 
 // Module singleton so components reach the fullscreen toggle without the bridge
-// prop. bootstrap registers the instance built in attachViz (it needs the viz
+// prop. init registers the instance built in attachViz (it needs the viz
 // panel node + controller). See web/TECH_DEBT.md item 1 (Phase 2).
 let handlers: FullscreenHandlers | null = null;
 
