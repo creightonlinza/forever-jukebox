@@ -16,7 +16,7 @@ import {
   clearPlaylist,
   removePlaylistIndex,
   selectPlaylistIndex,
-} from "../../wire/playlist";
+} from "../../playlist-actions";
 import { InfoModal } from "./InfoModal";
 import { PlaylistModal } from "./PlaylistModal";
 import { SleepTimerModal } from "./SleepTimerModal";
@@ -35,7 +35,7 @@ vi.mock("../../playback", async (importOriginal) => {
     resetExtrasDefaults: vi.fn(),
   };
 });
-vi.mock("../../wire/playlist", () => ({
+vi.mock("../../playlist-actions", () => ({
   selectPlaylistIndex: vi.fn(),
   removePlaylistIndex: vi.fn(),
   clearPlaylist: vi.fn(),

@@ -16,56 +16,51 @@ import { handleRouteChange } from "./routing";
 import { initBackgroundTimer } from "@forever-jukebox/engine/background";
 import { fetchAppConfig } from "./api";
 import { loadAppConfig, saveAppConfig } from "./cache";
-import { isLikelyJobId } from "./identity";
 import {
   applyAnalysisResult,
   loadAudioFromJob,
-  loadTrackByJobId,
-  loadTrackById,
   pollAnalysis,
   resetForNewTrack,
   updateVizVisibility,
 } from "./playback";
 import { setSearchRuntime, type SearchDeps } from "./search";
 import { setUploadRuntime, type UploadDeps } from "./upload";
-import {
-  CANONIZER_FINISH_KEY,
-  DEFAULT_VISUALIZATION_INDEX,
-  VIZ_STORAGE_KEY,
-} from "./constants";
+import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
 import {
   setAppRuntime,
   setAttachViz,
+  setAdvancePlaylistOnAutocanonizerEnded,
+  setPlaybackDeps,
   setRouteHandler,
   type AttachVizNodes,
 } from "./runtime";
 import type { AppContext, TabId } from "./context";
 import type { AppConfig } from "./api";
-import { createFavoritesHandlers, setFavoritesHandlers } from "./wire/favorites";
 import {
-  createFullscreenHandlers,
-  setFullscreenHandlers,
-  type FullscreenHandlers,
-} from "./wire/fullscreen";
+  maybeAutoFavoriteUserSupplied,
+} from "./favorites-actions";
 import {
-  createPlaybackUiHandlers,
-  setPlaybackUiHandlers,
-  type PlaybackUiHandlers,
-} from "./wire/playback";
+  handleFullscreenChange,
+  handleVisibilityChange,
+  updateFullscreenButton,
+} from "./fullscreen";
 import {
-  createPlaylistHandlers,
-  setPlaylistHandlers,
-  type PlaylistHandlers,
-} from "./wire/playlist";
-import { createDeleteJobHandlers, setDeleteJobHandlers } from "./wire/delete-job";
-import { setSelectTrack } from "./wire/track-select";
-import { createAppConfigHandlers } from "./wire/app-config";
-import { getCurrentTrackId, useAppStore } from "./store";
+  applyModeFromUrl,
+  handleBeatSelect,
+  handleEdgeSelect,
+  initializePlayback,
+} from "./playback-ui";
+import {
+  advanceAutocanonizerOnEnded,
+  handleNormalTrackSelected,
+} from "./playlist-actions";
+import { applyAppConfig } from "./app-config";
+import { useAppStore } from "./store";
 import {
   loadFavorites,
   loadFavoritesSyncCode,
 } from "./favorites";
-import { loadPlaylist, type PlaylistTrack } from "./playlist";
+import { loadPlaylist } from "./playlist";
 
 type PlaybackDeps = Parameters<typeof pollAnalysis>[1];
 
@@ -112,13 +107,6 @@ export function initRuntime(): void {
   // mutates this same `context`, so the viz controllers become visible through
   // getAppContext() once they're attached. See web/TECH_DEBT.md item 1.
   setAppRuntime(context);
-  let playlistHandlers: PlaylistHandlers | null = null;
-  const handleNormalTrackSelected = (track: PlaylistTrack) => {
-    playlistHandlers?.handleNormalTrackSelected(track);
-  };
-
-  let playbackHandlers: PlaybackUiHandlers | null = null;
-  let fullscreenHandlers: FullscreenHandlers | null = null;
   // Navigation lives in the store now; the flows still take it as a dep (so
   // they stay unit-testable), resolved at call time via these thin wrappers.
   const navigateToTabWithState = (
@@ -139,24 +127,10 @@ export function initRuntime(): void {
       setLoadingProgress(context, progress, message),
   };
   const playbackDeps: PlaybackDeps = { ...sharedFlowDeps };
-  const favoritesHandlers = createFavoritesHandlers({
-    context,
-    navigateToTabWithState,
-    loadTrackById: (trackId, options) =>
-      loadTrackById(context, playbackDeps, trackId, {
-        preserveUrlTuning: true,
-        ...options,
-      }),
-    loadTrackByJobId: (jobId, options) =>
-      loadTrackByJobId(context, playbackDeps, jobId, {
-        preserveUrlTuning: true,
-        ...options,
-      }),
-    setPlayMode: (mode) => playbackHandlers?.setPlayMode(mode),
-  });
-  setFavoritesHandlers(favoritesHandlers);
+  setPlaybackDeps(playbackDeps);
+  setAdvancePlaylistOnAutocanonizerEnded(advanceAutocanonizerOnEnded);
   playbackDeps.onAnalysisLoaded = (response) => {
-    favoritesHandlers.maybeAutoFavoriteUserSupplied(response);
+    maybeAutoFavoriteUserSupplied(response);
   };
   const searchDeps: SearchDeps = {
     ...sharedFlowDeps,
@@ -167,7 +141,7 @@ export function initRuntime(): void {
         context,
         response,
         (analysis) => {
-          favoritesHandlers.maybeAutoFavoriteUserSupplied(analysis);
+          maybeAutoFavoriteUserSupplied(analysis);
         },
       ),
     loadAudioFromJob: (jobId: string) => loadAudioFromJob(context, jobId),
@@ -176,31 +150,12 @@ export function initRuntime(): void {
 
     onNormalTrackSelected: handleNormalTrackSelected,
   };
-  playlistHandlers = createPlaylistHandlers({
-    context,
-    loadTrackById: (trackId, options) =>
-      loadTrackById(context, playbackDeps, trackId, options),
-    loadTrackByJobId: (jobId, options) =>
-      loadTrackByJobId(context, playbackDeps, jobId, options),
-    navigateToTabWithState,
-    setPlayMode: (mode) => playbackHandlers?.setPlayMode(mode),
-  });
-  setPlaylistHandlers(playlistHandlers);
-  const appConfigHandlers = createAppConfigHandlers({
-    favoritesHandlers,
-  });
   const uploadDeps: UploadDeps = {
     context,
     pollAnalysisJob: (jobId: string) =>
       pollAnalysis(context, playbackDeps, jobId),
     onNormalTrackSelected: handleNormalTrackSelected,
   };
-  const deleteJobHandlers = createDeleteJobHandlers({
-    context,
-    favoritesHandlers,
-    navigateToTabWithState,
-  });
-  setDeleteJobHandlers(deleteJobHandlers);
   // Construct the viz controllers once <VizContainer> hands over its nodes
   // (ref phase — before any React effect runs). StrictMode re-attaches the
   // same nodes; the guard makes that a no-op.
@@ -215,40 +170,20 @@ export function initRuntime(): void {
     context.autocanonizer = autocanonizer;
     context.jukebox = jukebox;
     jukebox.setAnchorHighlightEnabled(useAppStore.getState().highlightAnchorBranch);
-    playbackHandlers = createPlaybackUiHandlers({
-      context,
-      player,
-      engine,
-      jukebox,
-      autocanonizer,
-      vizStorageKey: VIZ_STORAGE_KEY,
-      canonizerFinishKey: CANONIZER_FINISH_KEY,
-      getCurrentTrackId,
-      advancePlaylistOnAutocanonizerEnded: () =>
-        playlistHandlers?.advanceAutocanonizerOnEnded() ?? Promise.resolve(false),
-    });
-    setPlaybackUiHandlers(playbackHandlers);
-    fullscreenHandlers = createFullscreenHandlers({
-      jukebox,
-      getVizPanel: () => nodes.vizPanel,
-    });
-    setFullscreenHandlers(fullscreenHandlers);
     jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
-    playbackHandlers.initializePlayback();
+    initializePlayback();
     resetForNewTrack(context);
     document.addEventListener(
       "fullscreenchange",
-      fullscreenHandlers.handleFullscreenChange,
+      handleFullscreenChange,
     );
     document.addEventListener(
       "visibilitychange",
-      fullscreenHandlers.handleVisibilityChange,
+      handleVisibilityChange,
     );
-    fullscreenHandlers.updateFullscreenButton(
-      Boolean(document.fullscreenElement),
-    );
-    jukebox.setOnSelect(playbackHandlers.handleBeatSelect);
-    jukebox.setOnEdgeSelect(playbackHandlers.handleEdgeSelect);
+    updateFullscreenButton(Boolean(document.fullscreenElement));
+    jukebox.setOnSelect(handleBeatSelect);
+    jukebox.setOnEdgeSelect(handleEdgeSelect);
   };
   setAttachViz(attachViz);
 
@@ -256,7 +191,7 @@ export function initRuntime(): void {
   loadAppConfig()
     .then((config) => {
       if (config) {
-        appConfigHandlers.applyAppConfig(config as AppConfig, {
+        applyAppConfig(config as AppConfig, {
           hydrateFavorites: false,
         });
       }
@@ -266,7 +201,7 @@ export function initRuntime(): void {
     });
   fetchAppConfig()
     .then((config) => {
-      appConfigHandlers.applyAppConfig(config);
+      applyAppConfig(config);
       return saveAppConfig(config);
     })
     .catch((err) => {
@@ -277,22 +212,12 @@ export function initRuntime(): void {
   // shell's route-sync effect (replaces the popstate listener and the
   // init-time handleRouteChange call).
   setRouteHandler((pathname) => {
-    playbackHandlers?.applyModeFromUrl();
+    applyModeFromUrl();
     handleRouteChange(context, playbackDeps, pathname).catch((err) => {
       console.warn(`Route load failed: ${String(err)}`);
     });
   });
 
-  setSelectTrack((trackId, selectedTrack) => {
-    navigateToTabWithState("play", { trackId });
-    if (isLikelyJobId(trackId)) {
-      void loadTrackByJobId(context, playbackDeps, trackId, { selectedTrack });
-      return;
-    }
-    void loadTrackById(context, playbackDeps, trackId, { selectedTrack });
-  });
-
   setSearchRuntime(context, searchDeps);
   setUploadRuntime(uploadDeps);
 }
-

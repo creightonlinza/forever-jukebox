@@ -13,8 +13,8 @@ vi.mock("../../playback", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../playback")>()),
   setMasterVolume: h.setMasterVolume,
 }));
-vi.mock("../../wire/fullscreen", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../wire/fullscreen")>()),
+vi.mock("../../fullscreen", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../fullscreen")>()),
   toggleFullscreen: h.toggleFullscreen,
 }));
 vi.mock("../../runtime", () => ({

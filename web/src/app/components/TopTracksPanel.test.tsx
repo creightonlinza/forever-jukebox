@@ -30,9 +30,9 @@ const h = vi.hoisted(() => ({
   createSyncCode: vi.fn(async () => "alpha-bravo-charlie"),
 }));
 
-vi.mock("../wire/track-select", () => ({ selectTrack: h.selectTrack }));
-vi.mock("../wire/playlist", () => ({ addToPlaylist: h.addToPlaylist }));
-vi.mock("../wire/favorites", () => ({
+vi.mock("../track-select", () => ({ selectTrack: h.selectTrack }));
+vi.mock("../playlist-actions", () => ({ addToPlaylist: h.addToPlaylist }));
+vi.mock("../favorites-actions", () => ({
   selectFavorite: h.selectFavorite,
   removeFavoriteWithToast: h.removeFavoriteWithToast,
   refreshFavoritesFromSync: h.refreshFavoritesFromSync,

@@ -12,12 +12,12 @@ const h = vi.hoisted(() => ({
   copyShortUrl: vi.fn(),
 }));
 
-vi.mock("../../wire/delete-job", () => ({
+vi.mock("../../delete-job", () => ({
   getPendingDelete: h.getPendingDelete,
   performDelete: h.performDelete,
 }));
-vi.mock("../../wire/favorites", () => ({ toggleFavorite: h.toggleFavorite }));
-vi.mock("../../wire/playback", () => ({ copyShortUrl: h.copyShortUrl }));
+vi.mock("../../favorites-actions", () => ({ toggleFavorite: h.toggleFavorite }));
+vi.mock("../../playback-ui", () => ({ copyShortUrl: h.copyShortUrl }));
 vi.mock("../../playback", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../playback")>()),
   openTuning: vi.fn(),

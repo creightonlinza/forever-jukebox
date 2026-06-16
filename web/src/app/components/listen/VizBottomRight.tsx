@@ -6,7 +6,7 @@ import {
 } from "../../playlist";
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
-import { toggleFullscreen } from "../../wire/fullscreen";
+import { toggleFullscreen } from "../../fullscreen";
 
 // The right-hand cluster of the viz bottom bar: playlist-open button,
 // volume panel, fullscreen toggle. Rendered into the .viz-bottom-right

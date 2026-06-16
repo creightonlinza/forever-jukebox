@@ -1,34 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { configureMaxFavorites, maxFavorites } from "../favorites";
-import { useAppStore } from "../store";
-import { createAppConfigHandlers } from "./app-config";
+import {
+  hydrateFavoritesFromSync,
+  updateFavorites,
+} from "./favorites-actions";
+import { configureMaxFavorites, maxFavorites } from "./favorites";
+import { useAppStore } from "./store";
+import { applyAppConfig } from "./app-config";
+
+vi.mock("./favorites-actions", () => ({
+  hydrateFavoritesFromSync: vi.fn(),
+  updateFavorites: vi.fn(),
+}));
 
 const initialStoreState = useAppStore.getState();
 
-function createHarness() {
-  useAppStore.setState(initialStoreState, true);
-  const favoritesHandlers = {
-    hydrateFavoritesFromSync: vi.fn(),
-    updateFavorites: vi.fn(),
-  };
-  const handlers = createAppConfigHandlers({
-    favoritesHandlers:
-      favoritesHandlers as unknown as Parameters<
-        typeof createAppConfigHandlers
-      >[0]["favoritesHandlers"],
-  });
-  return { favoritesHandlers, handlers };
-}
-
-describe("createAppConfigHandlers", () => {
+describe("applyAppConfig", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     configureMaxFavorites(null);
+    useAppStore.setState(initialStoreState, true);
     useAppStore.setState({ footerCredit: null });
   });
 
   it("applies configured max favorites and trims local state", () => {
-    const { favoritesHandlers, handlers } = createHarness();
     useAppStore.setState({
       favorites: [
       {
@@ -55,23 +49,21 @@ describe("createAppConfigHandlers", () => {
     ]
     });
 
-    handlers.applyAppConfig({
+    applyAppConfig({
       allow_user_upload: false,
       allow_user_url: false,
       max_favorites: 2,
     });
 
     expect(maxFavorites()).toBe(2);
-    expect(favoritesHandlers.updateFavorites).toHaveBeenCalledWith(
+    expect(updateFavorites).toHaveBeenCalledWith(
       useAppStore.getState().favorites,
       { sync: false },
     );
   });
 
   it("publishes host credit with URL to the shell store", () => {
-    const { handlers } = createHarness();
-
-    handlers.applyAppConfig({
+    applyAppConfig({
       allow_user_upload: false,
       allow_user_url: false,
       hosted_by_name: "Example Host",
@@ -85,9 +77,7 @@ describe("createAppConfigHandlers", () => {
   });
 
   it("publishes host credit without URL to the shell store", () => {
-    const { handlers } = createHarness();
-
-    handlers.applyAppConfig({
+    applyAppConfig({
       allow_user_upload: false,
       allow_user_url: false,
       hosted_by_name: "Example Host",
@@ -100,21 +90,17 @@ describe("createAppConfigHandlers", () => {
   });
 
   it("hydrates favorites when fresh config allows sync", () => {
-    const { favoritesHandlers, handlers } = createHarness();
-
-    handlers.applyAppConfig({
+    applyAppConfig({
       allow_user_upload: false,
       allow_user_url: false,
       allow_favorites_sync: true,
     });
 
-    expect(favoritesHandlers.hydrateFavoritesFromSync).toHaveBeenCalledOnce();
+    expect(hydrateFavoritesFromSync).toHaveBeenCalledOnce();
   });
 
   it("skips favorites hydration when applying cached config", () => {
-    const { favoritesHandlers, handlers } = createHarness();
-
-    handlers.applyAppConfig(
+    applyAppConfig(
       {
         allow_user_upload: false,
         allow_user_url: false,
@@ -123,6 +109,6 @@ describe("createAppConfigHandlers", () => {
       { hydrateFavorites: false },
     );
 
-    expect(favoritesHandlers.hydrateFavoritesFromSync).not.toHaveBeenCalled();
+    expect(hydrateFavoritesFromSync).not.toHaveBeenCalled();
   });
 });

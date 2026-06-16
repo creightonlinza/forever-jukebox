@@ -3,28 +3,33 @@ import {
   fetchFavoritesSync,
   updateFavoritesSync,
   type AnalysisComplete,
-} from "../api";
-import type { AppContext } from "../context";
+} from "./api";
+import type { AppContext } from "./context";
 import {
   findCurrentFavorite,
   saveFavorites,
   type FavoriteTrack,
-} from "../favorites";
-import { useAppStore } from "../store";
-import { createFavoritesHandlers } from "./favorites";
+} from "./favorites";
+import { setAppRuntime } from "./runtime";
+import { useAppStore } from "./store";
+import {
+  maybeAutoFavoriteUserSupplied,
+  resetFavoritesActionsForTest,
+  updateFavorites,
+} from "./favorites-actions";
 
-vi.mock("../ui", () => ({ showToast: vi.fn() }));
-vi.mock("../tuning", () => ({
+vi.mock("./ui", () => ({ showToast: vi.fn() }));
+vi.mock("./tuning", () => ({
   syncTuningParamsState: vi.fn(() => null),
   writeTuningParamsToUrl: vi.fn(),
 }));
-vi.mock("../api", () => ({
+vi.mock("./api", () => ({
   fetchFavoritesSync: vi.fn(async () => []),
   createFavoritesSync: vi.fn(async () => ({})),
   updateFavoritesSync: vi.fn(async () => ({})),
 }));
-vi.mock("../favorites", async (importActual) => ({
-  ...(await importActual<typeof import("../favorites")>()),
+vi.mock("./favorites", async (importActual) => ({
+  ...(await importActual<typeof import("./favorites")>()),
   saveFavorites: vi.fn(),
   saveFavoritesSyncCode: vi.fn(),
 }));
@@ -84,15 +89,9 @@ function createFakeElement(): FakeElement {
 
 const initialStoreState = useAppStore.getState();
 
-type HarnessOverrides = Partial<
-  Parameters<typeof createFavoritesHandlers>[0]
->;
-
-function createHarness(
-  favorites: FavoriteTrack[],
-  overrides: HarnessOverrides = {},
-) {
+function setupFavorites(favorites: FavoriteTrack[]) {
   const context = {} as AppContext;
+  setAppRuntime(context);
   useAppStore.setState(initialStoreState, true);
   useAppStore.setState({
     favorites,
@@ -104,15 +103,6 @@ function createHarness(
     trackArtist: "Artist",
     trackDurationSec: 123,
   });
-  const handlers = createFavoritesHandlers({
-    context,
-    navigateToTabWithState: vi.fn(),
-    loadTrackById: vi.fn(),
-    loadTrackByJobId: vi.fn(),
-    setPlayMode: vi.fn(),
-    ...overrides,
-  });
-  return { handlers };
 }
 
 function favorite(id: string): FavoriteTrack {
@@ -131,9 +121,10 @@ async function flushMicrotasks(count = 5) {
   }
 }
 
-describe("createFavoritesHandlers", () => {
+describe("favorites actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetFavoritesActionsForTest();
     vi.stubGlobal("document", {
       createElement: vi.fn(() => createFakeElement()),
     });
@@ -147,7 +138,7 @@ describe("createFavoritesHandlers", () => {
   });
 
   it("treats an older YouTube favorite as active and migrates it to the job id", () => {
-    const { handlers } = createHarness([
+    setupFavorites([
       {
         uniqueSongId: "abc123def45",
         sourceType: "youtube",
@@ -161,7 +152,7 @@ describe("createFavoritesHandlers", () => {
       id: "a3f3c0dc73c6476c9db95c227f9206f2",
       source_id: "abc123def45",
       source_provider: "youtube",
-      result: {},
+        result: {},
     } as AnalysisComplete;
 
     expect(
@@ -172,7 +163,7 @@ describe("createFavoritesHandlers", () => {
         lastSourceProvider: useAppStore.getState().lastSourceProvider,
       }),
     ).not.toBeNull();
-    handlers.maybeAutoFavoriteUserSupplied(response);
+    maybeAutoFavoriteUserSupplied(response);
 
     expect(useAppStore.getState().favorites).toHaveLength(1);
     expect(useAppStore.getState().favorites[0].uniqueSongId).toBe(response.id);
@@ -196,7 +187,7 @@ describe("createFavoritesHandlers", () => {
     );
     // Server is empty throughout; the merged local delta is what matters.
     vi.mocked(fetchFavoritesSync).mockResolvedValue([]);
-    const { handlers } = createHarness([]);
+    setupFavorites([]);
     useAppStore.setState({
       appConfig: { allow_favorites_sync: true } as never,
       favoritesSyncCode: "code",
@@ -206,10 +197,10 @@ describe("createFavoritesHandlers", () => {
     const a = favorite("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1");
     const b = favorite("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2");
 
-    handlers.updateFavorites([a]); // starts sync #1 (adds A)
+    updateFavorites([a]); // starts sync #1 (adds A)
     await flushMicrotasks();
-    handlers.updateFavorites([a, b]); // queue: add B
-    handlers.updateFavorites([b]); // queue: remove A — must MERGE with add B
+    updateFavorites([a, b]); // queue: add B
+    updateFavorites([b]); // queue: remove A — must MERGE with add B
 
     expect(updateCalls).toHaveLength(1);
 

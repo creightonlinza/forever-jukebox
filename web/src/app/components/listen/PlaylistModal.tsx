@@ -3,7 +3,7 @@ import {
   clearPlaylist,
   removePlaylistIndex,
   selectPlaylistIndex,
-} from "../../wire/playlist";
+} from "../../playlist-actions";
 import { Modal } from "../Modal";
 
 export function PlaylistModal() {

@@ -1,6 +1,7 @@
-import type { AppContext, AppState, TabId } from "../context";
-import { isLikelyJobId } from "../identity";
-import { togglePlayback } from "../playback";
+import type { AppState } from "./context";
+import { isLikelyJobId } from "./identity";
+import { loadTrackById, loadTrackByJobId, togglePlayback } from "./playback";
+import { setPlayMode } from "./playback-ui";
 import {
   activatePlaylistTrack,
   addPlaylistTrack,
@@ -13,79 +14,41 @@ import {
   replaceActivePlaylistTrack,
   savePlaylist,
   type PlaylistTrack,
-} from "../playlist";
-import { useAppStore } from "../store";
-import { syncTuningParamsState, writeTuningParamsToUrl } from "../tuning";
-import { showToast } from "../ui";
+} from "./playlist";
+import { getAppContext, getPlaybackDeps } from "./runtime";
+import { useAppStore } from "./store";
+import { syncTuningParamsState, writeTuningParamsToUrl } from "./tuning";
+import { showToast } from "./ui";
 
-type PlaylistDeps = {
-  context: AppContext;
-  loadTrackById: (
-    trackId: string,
-    options?: {
-      preserveUrlTuning?: boolean;
-      playlistLoad?: boolean;
-      selectedTrack?: PlaylistTrack | null;
-    },
-  ) => Promise<boolean | void>;
-  loadTrackByJobId: (
-    jobId: string,
-    options?: {
-      preserveUrlTuning?: boolean;
-      playlistLoad?: boolean;
-      selectedTrack?: PlaylistTrack | null;
-    },
-  ) => Promise<boolean | void>;
-  navigateToTabWithState: (
-    tabId: TabId,
-    options?: { replace?: boolean; trackId?: string | null },
-  ) => void;
-  setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
-};
-
-export type PlaylistHandlers = ReturnType<typeof createPlaylistHandlers>;
-
-// Module singleton so components reach the playlist flow without the bridge
-// prop. init registers the instance. See web/TECH_DEBT.md item 1 (Phase 2).
-let handlers: PlaylistHandlers | null = null;
-
-export function setPlaylistHandlers(next: PlaylistHandlers): void {
-  handlers = next;
-}
+let playlistLoadInFlight = false;
 
 export function playlistPrevious(): void {
-  handlers?.handlePlaylistPrevious();
+  handlePlaylistPrevious();
 }
 
 export function playlistNext(): void {
-  handlers?.handlePlaylistNext();
+  handlePlaylistNext();
 }
 
 export function selectPlaylistIndex(index: number): void {
-  handlers?.selectPlaylistIndex(index);
+  selectPlaylistIndexInternal(index);
 }
 
 export function removePlaylistIndex(index: number): void {
-  handlers?.removePlaylistIndex(index);
+  removePlaylistIndexInternal(index);
 }
 
 export function clearPlaylist(): void {
-  handlers?.handleClearPlaylist();
+  handleClearPlaylist();
 }
 
 export function addToPlaylist(track: PlaylistTrack): void {
-  handlers?.handleAddToPlaylist(track);
+  handleAddToPlaylist(track);
 }
 
-export function createPlaylistHandlers(deps: PlaylistDeps) {
-  const {
-    context,
-    loadTrackById,
-    loadTrackByJobId,
-    navigateToTabWithState,
-    setPlayMode,
-  } = deps;
-  let playlistLoadInFlight = false;
+export function resetPlaylistActionsForTest(): void {
+  playlistLoadInFlight = false;
+}
 
   function getCurrentPlaylistTrack(): PlaylistTrack | null {
     const id = getCurrentPlaylistTrackId();
@@ -137,7 +100,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     return "youtube";
   }
 
-  function handleNormalTrackSelected(track: PlaylistTrack) {
+export function handleNormalTrackSelected(track: PlaylistTrack) {
     if (isPlaylistActive(useAppStore.getState().playlist)) {
       updatePlaylist(replaceActivePlaylistTrack(useAppStore.getState().playlist, track));
       return;
@@ -196,7 +159,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     });
   }
 
-  async function advanceAutocanonizerOnEnded() {
+export async function advanceAutocanonizerOnEnded() {
     if (!canMovePlaylistNext(useAppStore.getState().playlist) || isPlaylistLoadBlocked()) {
       return false;
     }
@@ -205,7 +168,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     });
   }
 
-  async function loadPlaylistIndex(
+export async function loadPlaylistIndex(
     index: number,
     options?: { playAfterLoad?: boolean; closeModal?: boolean },
   ): Promise<boolean> {
@@ -213,6 +176,11 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     if (index === useAppStore.getState().playlist.currentIndex || !track || isPlaylistLoadBlocked()) {
       return false;
     }
+    const deps = getPlaybackDeps();
+    if (!deps) {
+      return false;
+    }
+    const context = getAppContext();
     if (options?.closeModal) {
       handleClosePlaylist();
     }
@@ -229,17 +197,19 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     // jukebox.
     setPlayMode(track.playMode ?? "jukebox");
     applyTrackTuning(track);
-    navigateToTabWithState("play", { trackId: getPlaylistListenId(track) });
+    useAppStore
+      .getState()
+      .navigateToTabWithState("play", { trackId: getPlaylistListenId(track) });
     let loadStarted = false;
     try {
       const result =
         track.sourceType === "upload" || isLikelyJobId(track.id)
-          ? await loadTrackByJobId(track.id, {
+          ? await loadTrackByJobId(context, deps, track.id, {
               preserveUrlTuning: true,
               playlistLoad: true,
               selectedTrack: track,
             })
-          : await loadTrackById(getPlaylistLoadId(track), {
+          : await loadTrackById(context, deps, getPlaylistLoadId(track), {
               preserveUrlTuning: true,
               playlistLoad: true,
               selectedTrack: track,
@@ -297,6 +267,7 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     if (useAppStore.getState().playMode !== "jukebox") {
       return null;
     }
+    const context = getAppContext();
     if (!context.engine || !context.defaultConfig) {
       return useAppStore.getState().tuningParams;
     }
@@ -323,14 +294,14 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     return `${track.sourceType}:${track.id}`;
   }
 
-  function removePlaylistIndex(index: number) {
+  function removePlaylistIndexInternal(index: number) {
     if (!Number.isInteger(index)) {
       return;
     }
     updatePlaylist(removePlaylistTrack(useAppStore.getState().playlist, index));
   }
 
-  function selectPlaylistIndex(index: number) {
+  function selectPlaylistIndexInternal(index: number) {
     if (!Number.isInteger(index)) {
       return;
     }
@@ -343,17 +314,3 @@ export function createPlaylistHandlers(deps: PlaylistDeps) {
     }
     void loadPlaylistIndex(index, { closeModal: true });
   }
-
-  return {
-    handleNormalTrackSelected,
-    handleAddToPlaylist,
-    handleClosePlaylist,
-    handleClearPlaylist,
-    handlePlaylistPrevious,
-    handlePlaylistNext,
-    advanceAutocanonizerOnEnded,
-    loadPlaylistIndex,
-    selectPlaylistIndex,
-    removePlaylistIndex,
-  };
-}

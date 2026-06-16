@@ -6,7 +6,7 @@ import {
 } from "../../playlist";
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
-import { playlistNext, playlistPrevious } from "../../wire/playlist";
+import { playlistNext, playlistPrevious } from "../../playlist-actions";
 
 // Transport cluster: playlist previous, play/pause toggle, playlist next.
 // Rendered into the .viz-play-controls container.

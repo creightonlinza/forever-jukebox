@@ -6,7 +6,7 @@ import {
   setActiveVisualization,
   setCanonizerFinish,
   setPlayMode,
-} from "../../wire/playback";
+} from "../../playback-ui";
 
 function getVisualizationLabel(index: number) {
   return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;

@@ -7,7 +7,7 @@ import { applyTheme } from "../theme";
 import {
   handleKeydown as playbackHandleKeydown,
   handleKeyup as playbackHandleKeyup,
-} from "../wire/playback";
+} from "../playback-ui";
 import { FaqPanel } from "./FaqPanel";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";

@@ -10,9 +10,9 @@ import {
   getPendingDelete,
   performDelete,
   type PendingDelete,
-} from "../../wire/delete-job";
-import { toggleFavorite } from "../../wire/favorites";
-import { copyShortUrl } from "../../wire/playback";
+} from "../../delete-job";
+import { toggleFavorite } from "../../favorites-actions";
+import { copyShortUrl } from "../../playback-ui";
 import { Modal } from "../Modal";
 
 function DeleteConfirmModal({

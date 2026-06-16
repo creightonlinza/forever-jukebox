@@ -1,11 +1,7 @@
-import type { JukeboxEngine } from "@forever-jukebox/engine";
-import type { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
-import type { BufferedAudioPlayer } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
 import type { Edge } from "@forever-jukebox/engine/types";
-import type { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
-import type { AppContext } from "../context";
-import { formatErrorForDisplay } from "../errorDisplay";
-import { formatDuration } from "../format";
+import { CANONIZER_FINISH_KEY, VIZ_STORAGE_KEY } from "./constants";
+import { formatErrorForDisplay } from "./errorDisplay";
+import { formatDuration } from "./format";
 import {
   openExtras,
   startAutocanonizerPlayback,
@@ -15,65 +11,24 @@ import {
   togglePlayback,
   updateTrackInfo,
   updateVizVisibility,
-} from "../playback";
-import { useAppStore } from "../store";
-import { navigateToTab, updateTrackUrl } from "../tabs";
+} from "./playback";
+import {
+  advancePlaylistOnAutocanonizerEnded,
+  getAttachedAppContext,
+} from "./runtime";
+import { getCurrentTrackId, useAppStore } from "./store";
+import { navigateToTab, updateTrackUrl } from "./tabs";
 import {
   getTuningParamsFromEngine,
   serializeParams,
   writeTuningParamsToUrl,
-} from "../tuning";
-import { isEditableTarget, setAnalysisStatus, showToast } from "../ui";
+} from "./tuning";
+import { isEditableTarget, setAnalysisStatus, showToast } from "./ui";
 
-type PlaybackUiDeps = {
-  context: AppContext;
-  player: BufferedAudioPlayer;
-  engine: JukeboxEngine;
-  jukebox: JukeboxController;
-  autocanonizer: AutocanonizerController;
-  vizStorageKey: string;
-  canonizerFinishKey: string;
-  getCurrentTrackId: () => string | null;
-  advancePlaylistOnAutocanonizerEnded?: () => Promise<boolean>;
-};
+let lastCowbellBeatsPlayed = 0;
 
-export type PlaybackUiHandlers = ReturnType<typeof createPlaybackUiHandlers>;
-
-// Module singleton so components reach the playback-UI handlers without the
-// bridge prop. init registers the instance built in attachViz (it needs
-// the viz controllers). See web/TECH_DEBT.md item 1 (Phase 2).
-let handlers: PlaybackUiHandlers | null = null;
-
-export function setPlaybackUiHandlers(next: PlaybackUiHandlers): void {
-  handlers = next;
-}
-
-export function setPlayMode(mode: "jukebox" | "autocanonizer"): void {
-  handlers?.setPlayMode(mode);
-}
-
-export function setActiveVisualization(index: number): void {
-  handlers?.setActiveVisualization(index);
-}
-
-export function setCanonizerFinish(checked: boolean): void {
-  handlers?.setCanonizerFinish(checked);
-}
-
-export function copyShortUrl(): void {
-  handlers?.handleShortUrlClick();
-}
-
-export function deleteSelectedBranch(): void {
-  handlers?.deleteSelectedBranch();
-}
-
-export function handleKeydown(event: KeyboardEvent): void {
-  handlers?.handleKeydown(event);
-}
-
-export function handleKeyup(event: KeyboardEvent): void {
-  handlers?.handleKeyup(event);
+export function resetPlaybackUiForTest(): void {
+  lastCowbellBeatsPlayed = 0;
 }
 
 function formatSignedDuration(seconds: number) {
@@ -88,21 +43,12 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
   return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
 }
 
-export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
-  const {
-    context,
-    player,
-    engine,
-    jukebox,
-    autocanonizer,
-    vizStorageKey,
-    canonizerFinishKey,
-    getCurrentTrackId,
-    advancePlaylistOnAutocanonizerEnded,
-  } = deps;
-  let lastCowbellBeatsPlayed = 0;
-
   function syncExtrasPopup(edge: Edge | null) {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { engine } = context;
     if (
       !useAppStore.getState().branchStatsEnabled ||
       useAppStore.getState().playMode !== "jukebox" ||
@@ -136,7 +82,12 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   }
 
 
-  function deleteSelectedBranch() {
+export function deleteSelectedBranch(): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { engine, jukebox } = context;
     const { selectedEdge } = useAppStore.getState();
     if (!selectedEdge || selectedEdge.deleted) {
       return;
@@ -158,19 +109,24 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     syncExtrasPopup(null);
   }
 
-  function initializePlayback() {
+export function initializePlayback(): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { autocanonizer, engine, jukebox, player } = context;
     setPlayMode("jukebox");
     setBringItHomeMode(useAppStore.getState().bringItHomeMode);
     syncExtrasPopup(null);
 
-    const storedViz = localStorage.getItem(vizStorageKey);
+    const storedViz = localStorage.getItem(VIZ_STORAGE_KEY);
     if (storedViz) {
       const parsed = Number.parseInt(storedViz, 10);
       if (Number.isFinite(parsed)) {
         setActiveVisualization(parsed);
       }
     }
-    const storedCanonizerFinish = localStorage.getItem(canonizerFinishKey);
+    const storedCanonizerFinish = localStorage.getItem(CANONIZER_FINISH_KEY);
     const finishOutSong = storedCanonizerFinish === "true";
     autocanonizer.setFinishOutSong(finishOutSong);
 
@@ -197,22 +153,18 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
       if (!useAppStore.getState().isRunning) {
         return;
       }
-      if (advancePlaylistOnAutocanonizerEnded) {
-        advancePlaylistOnAutocanonizerEnded()
-          .then((advanced) => {
-            if (!advanced && useAppStore.getState().isRunning) {
-              stopPlayback(context);
-            }
-          })
-          .catch((err) => {
-            console.warn(`Playlist advance failed: ${String(err)}`);
-            if (useAppStore.getState().isRunning) {
-              stopPlayback(context);
-            }
-          });
-        return;
-      }
-      stopPlayback(context);
+      advancePlaylistOnAutocanonizerEnded()
+        .then((advanced) => {
+          if (!advanced && useAppStore.getState().isRunning) {
+            stopPlayback(context);
+          }
+        })
+        .catch((err) => {
+          console.warn(`Playlist advance failed: ${String(err)}`);
+          if (useAppStore.getState().isRunning) {
+            stopPlayback(context);
+          }
+        });
     });
     autocanonizer.setOnSelect((index) => {
       if (useAppStore.getState().playMode !== "autocanonizer") {
@@ -256,6 +208,11 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   }
 
   function setBringItHomeMode(enabled: boolean) {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { engine } = context;
     useAppStore.setState({ bringItHomeMode: enabled });
     engine.setBringItHomeMode(enabled);
     if (enabled && useAppStore.getState().shiftBranching) {
@@ -264,16 +221,22 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
   }
 
-  function handleShortUrlClick() {
-    void copyShortUrl();
-  }
-
-  function setCanonizerFinish(checked: boolean) {
-    localStorage.setItem(canonizerFinishKey, String(checked));
+export function setCanonizerFinish(checked: boolean): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { autocanonizer } = context;
+    localStorage.setItem(CANONIZER_FINISH_KEY, String(checked));
     autocanonizer.setFinishOutSong(checked);
   }
 
   function selectAdjacentBranch(direction: -1 | 1) {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { jukebox } = context;
     if (!useAppStore.getState().selectedEdge) {
       return;
     }
@@ -297,6 +260,11 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
   }
 
   function toggleSelectedAnchorBranch() {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return false;
+    }
+    const { engine, jukebox } = context;
     const edge = useAppStore.getState().selectedEdge;
     if (!edge || edge.deleted || edge.dest.which >= edge.src.which) {
       return false;
@@ -319,7 +287,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     return true;
   }
 
-  function handleKeydown(event: KeyboardEvent) {
+export function handleKeydown(event: KeyboardEvent): void {
     if (useAppStore.getState().activeTabId !== "play") {
       return;
     }
@@ -329,6 +297,11 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     if (isEditableTarget(event.target)) {
       return;
     }
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { engine } = context;
     if (event.code === "Space") {
       event.preventDefault();
       togglePlayback(context);
@@ -390,7 +363,12 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
   }
 
-  function handleKeyup(event: KeyboardEvent) {
+export function handleKeyup(event: KeyboardEvent): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { engine } = context;
     if (useAppStore.getState().playMode === "autocanonizer") {
       return;
     }
@@ -400,7 +378,12 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
   }
 
-  function handleBeatSelect(index: number) {
+export function handleBeatSelect(index: number): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { jukebox } = context;
     if (useAppStore.getState().playMode === "autocanonizer") {
       return;
     }
@@ -416,7 +399,12 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     jukebox.update(index, true, null);
   }
 
-  function handleEdgeSelect(edge: Edge | null) {
+export function handleEdgeSelect(edge: Edge | null): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { jukebox } = context;
     if (useAppStore.getState().playMode === "autocanonizer") {
       return;
     }
@@ -425,7 +413,15 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     syncExtrasPopup(edge);
   }
 
-  async function copyShortUrl() {
+export function copyShortUrl(): void {
+    void copyShortUrlInternal();
+  }
+
+  async function copyShortUrlInternal() {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
     const trackId = useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId;
     if (!trackId) {
       setAnalysisStatus(
@@ -456,7 +452,12 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
   }
 
-  function setActiveVisualization(index: number) {
+export function setActiveVisualization(index: number): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { jukebox } = context;
     const count = jukebox.getCount();
     if (index < 0 || index >= count) {
       return;
@@ -466,7 +467,7 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     useAppStore.setState({ activeVizIndex: index });
     jukebox.setActiveIndex(index);
-    localStorage.setItem(vizStorageKey, String(useAppStore.getState().activeVizIndex));
+    localStorage.setItem(VIZ_STORAGE_KEY, String(useAppStore.getState().activeVizIndex));
   }
 
   function getPlayModeFromUrl() {
@@ -474,11 +475,16 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     return params.get("mode") === "autocanonizer" ? "autocanonizer" : "jukebox";
   }
 
-  function applyModeFromUrl() {
+export function applyModeFromUrl(): void {
     setPlayMode(getPlayModeFromUrl());
   }
 
-  function setPlayMode(mode: "jukebox" | "autocanonizer") {
+export function setPlayMode(mode: "jukebox" | "autocanonizer"): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    const { autocanonizer, jukebox } = context;
     if (useAppStore.getState().playMode === mode) {
       return;
     }
@@ -511,19 +517,3 @@ export function createPlaybackUiHandlers(deps: PlaybackUiDeps) {
     }
     updateVizVisibility();
   }
-
-  return {
-    initializePlayback,
-    handleShortUrlClick,
-    handleKeydown,
-    handleKeyup,
-    handleBeatSelect,
-    handleEdgeSelect,
-    deleteSelectedBranch,
-    setActiveVisualization,
-    setCanonizerFinish,
-    applyModeFromUrl,
-    setPlayMode,
-    updateVizVisibility: () => updateVizVisibility(),
-  };
-}

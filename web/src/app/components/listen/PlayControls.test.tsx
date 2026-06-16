@@ -20,11 +20,11 @@ vi.mock("../../playback", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../playback")>()),
   togglePlayback: h.togglePlayback,
 }));
-vi.mock("../../wire/playlist", () => ({
+vi.mock("../../playlist-actions", () => ({
   playlistPrevious: h.playlistPrevious,
   playlistNext: h.playlistNext,
 }));
-vi.mock("../../wire/playback", () => ({
+vi.mock("../../playback-ui", () => ({
   setPlayMode: h.setPlayMode,
   setActiveVisualization: h.setActiveVisualization,
   setCanonizerFinish: h.setCanonizerFinish,

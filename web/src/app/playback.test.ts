@@ -26,7 +26,12 @@ import {
 import { setAppRuntime } from "./runtime";
 import { useAppStore } from "./store";
 import { showToast } from "./ui";
-import { createPlaybackUiHandlers } from "./wire/playback";
+import {
+  handleEdgeSelect,
+  handleKeydown,
+  handleKeyup,
+  resetPlaybackUiForTest,
+} from "./playback-ui";
 import { setWindowUrl } from "./__tests__/test-utils";
 
 vi.mock("./ui", async (importActual) => ({
@@ -1152,17 +1157,10 @@ describe("playback branch shortcuts", () => {
   });
 
   function makeHandlers(context: AppContext) {
+    resetPlaybackUiForTest();
+    setAppRuntime(context);
     return {
-      handlers: createPlaybackUiHandlers({
-        context,
-        player: context.player,
-        engine: context.engine,
-        jukebox: context.jukebox,
-        autocanonizer: context.autocanonizer,
-        vizStorageKey: "viz",
-        canonizerFinishKey: "finish",
-        getCurrentTrackId: () => null,
-      }),
+      handlers: { handleEdgeSelect, handleKeydown, handleKeyup },
       // `showToast` (./ui) and `syncDeletedEdgeState` (./playback) are module
       // mocks; the handlers call the same instances we assert on here.
       showToast: vi.mocked(showToast),

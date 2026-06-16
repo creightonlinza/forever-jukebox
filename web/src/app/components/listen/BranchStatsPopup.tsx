@@ -1,8 +1,8 @@
 import { useAppStore } from "../../store";
-import { deleteSelectedBranch } from "../../wire/playback";
+import { deleteSelectedBranch } from "../../playback-ui";
 
 // Branch-stats popup over the jukebox viz; renders from store state written
-// by the edge-select callbacks in wire/playback.
+// by the edge-select callbacks in playback-ui.
 export function BranchStatsPopup() {
   const stats = useAppStore((s) => s.branchStats);
   return (

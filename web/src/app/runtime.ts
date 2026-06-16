@@ -1,4 +1,5 @@
 import type { AppContext } from "./context";
+import type { PlaybackDeps } from "./playback";
 
 // Module-singleton access to the genuine runtime singletons (engine, player,
 // jukebox, autocanonizer, cowbellOverlay, defaultConfig). This is the keystone
@@ -29,6 +30,23 @@ export function getAppContext(): AppContext {
   return appContext;
 }
 
+export function getAttachedAppContext(): AppContext | null {
+  if (!appContext?.jukebox || !appContext.autocanonizer) {
+    return null;
+  }
+  return appContext;
+}
+
+let playbackDeps: PlaybackDeps | null = null;
+
+export function setPlaybackDeps(deps: PlaybackDeps): void {
+  playbackDeps = deps;
+}
+
+export function getPlaybackDeps(): PlaybackDeps | null {
+  return playbackDeps;
+}
+
 // <VizContainer>'s ref handoff. The construction logic lives in init (it
 // wires the viz controllers into the playback handlers and document listeners),
 // but components reach it through this singleton instead of the bridge prop.
@@ -39,13 +57,33 @@ export type AttachVizNodes = {
 };
 
 let attachVizFn: ((nodes: AttachVizNodes) => void) | null = null;
+let vizPanel: HTMLElement | null = null;
 
 export function setAttachViz(fn: (nodes: AttachVizNodes) => void): void {
   attachVizFn = fn;
 }
 
 export function attachViz(nodes: AttachVizNodes): void {
+  vizPanel = nodes.vizPanel;
   attachVizFn?.(nodes);
+}
+
+export function getVizPanel(): HTMLElement | null {
+  return vizPanel;
+}
+
+let advancePlaylistOnAutocanonizerEndedFn:
+  | (() => Promise<boolean>)
+  | null = null;
+
+export function setAdvancePlaylistOnAutocanonizerEnded(
+  fn: () => Promise<boolean>,
+): void {
+  advancePlaylistOnAutocanonizerEndedFn = fn;
+}
+
+export function advancePlaylistOnAutocanonizerEnded(): Promise<boolean> {
+  return advancePlaylistOnAutocanonizerEndedFn?.() ?? Promise.resolve(false);
 }
 
 // applyModeFromUrl + handleRouteChange — runs on initial load and browser

@@ -3,8 +3,7 @@ import {
   fetchFavoritesSync,
   updateFavoritesSync,
   type AnalysisComplete,
-} from "../api";
-import type { AppContext, TabId } from "../context";
+} from "./api";
 import {
   addFavorite,
   favoriteToPlaylistTrack,
@@ -16,91 +15,45 @@ import {
   saveFavoritesSyncCode,
   sortFavorites,
   type FavoriteTrack,
-} from "../favorites";
-import { isLikelyJobId } from "../identity";
-import type { PlaylistTrack } from "../playlist";
-import { useAppStore } from "../store";
-import { syncTuningParamsState, writeTuningParamsToUrl } from "../tuning";
-import { showToast } from "../ui";
+} from "./favorites";
+import { isLikelyJobId } from "./identity";
+import { loadTrackById, loadTrackByJobId } from "./playback";
+import { setPlayMode } from "./playback-ui";
+import { getAppContext, getPlaybackDeps } from "./runtime";
+import { useAppStore } from "./store";
+import { syncTuningParamsState, writeTuningParamsToUrl } from "./tuning";
+import { showToast } from "./ui";
 
-type FavoritesDeps = {
-  context: AppContext;
-  navigateToTabWithState: (
-    tabId: TabId,
-    options?: { replace?: boolean; trackId?: string | null },
-  ) => void;
-  loadTrackById: (
-    trackId: string,
-    options?: { selectedTrack?: PlaylistTrack | null },
-  ) => void;
-  loadTrackByJobId: (
-    jobId: string,
-    options?: { selectedTrack?: PlaylistTrack | null },
-  ) => void;
-  setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
+type FavoritesDelta = {
+  added: FavoriteTrack[];
+  removedIds: Set<string>;
 };
 
-export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
-
-// Module singleton so components reach the favorites flow without the bridge
-// prop. init registers the instance. See web/TECH_DEBT.md item 1 (Phase 2/3).
-let handlers: FavoritesHandlers | null = null;
-
-export function setFavoritesHandlers(next: FavoritesHandlers): void {
-  handlers = next;
-}
+let syncUpdateInFlight = false;
+let pendingSyncDelta: FavoritesDelta | null = null;
+let syncIdleWaiters: Array<() => void> = [];
 
 export function toggleFavorite(): void {
-  void handlers?.handleFavoriteToggle();
+  void handleFavoriteToggle();
 }
 
 export function selectFavorite(
   favoriteId: string,
   sourceType: FavoriteTrack["sourceType"],
 ): void {
-  handlers?.handleFavoriteSelect(favoriteId, sourceType);
-}
-
-export function removeFavoriteWithToast(favoriteId: string): void {
-  handlers?.removeFavoriteWithToast(favoriteId);
-}
-
-export function refreshFavoritesFromSync(): Promise<void> {
-  return handlers?.refreshFavoritesFromSync() ?? Promise.resolve();
-}
-
-export function enterSyncCode(
-  code: string,
-): Promise<"replaced" | "cancelled"> {
-  return handlers?.enterSyncCode(code) ?? Promise.resolve("cancelled");
-}
-
-export function createSyncCode(): Promise<string> {
-  return handlers?.createSyncCode() ?? Promise.resolve("");
+  handleFavoriteSelect(favoriteId, sourceType);
 }
 
 // Favorites state machine + the Listen-panel star button. The Top Tracks
 // panel (lists, sync menu, sync modals) is React; it renders from the store
 // and calls into these handlers directly.
-export function createFavoritesHandlers(deps: FavoritesDeps) {
-  const {
-    context,
-    navigateToTabWithState,
-    loadTrackById,
-    loadTrackByJobId,
-    setPlayMode,
-  } = deps;
+export function resetFavoritesActionsForTest(): void {
+  syncUpdateInFlight = false;
+  pendingSyncDelta = null;
+  syncIdleWaiters = [];
+}
 
-  type FavoritesDelta = {
-    added: FavoriteTrack[];
-    removedIds: Set<string>;
-  };
-
-  let syncUpdateInFlight = false;
-  let pendingSyncDelta: FavoritesDelta | null = null;
-  let syncIdleWaiters: Array<() => void> = [];
-
-  async function hydrateFavoritesFromSync() {
+export async function hydrateFavoritesFromSync() {
     if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
@@ -116,7 +69,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
   }
 
-  async function refreshFavoritesFromSync() {
+export async function refreshFavoritesFromSync() {
     if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
@@ -137,7 +90,9 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
 
   // Fetches the synced list, confirms with the user, then replaces local
   // favorites and stores the code. The React enter-modal renders statuses.
-  async function enterSyncCode(code: string): Promise<"replaced" | "cancelled"> {
+export async function enterSyncCode(
+  code: string,
+): Promise<"replaced" | "cancelled"> {
     const items = await fetchFavoritesSync(code);
     const favorites = normalizeFavoritesFromSync(items);
     const shouldReplace = window.confirm(
@@ -153,7 +108,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return "replaced";
   }
 
-  async function createSyncCode(): Promise<string> {
+export async function createSyncCode(): Promise<string> {
     const response = await createFavoritesSync(useAppStore.getState().favorites);
     const code = response.code;
     if (!code) {
@@ -213,7 +168,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
 
   // React renders the favorites list from the store, so updating state is
   // enough; only the Listen-panel star still needs an imperative sync.
-  function updateFavorites(
+export function updateFavorites(
     nextFavorites: FavoriteTrack[],
     options?: { sync?: boolean },
   ) {
@@ -393,7 +348,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (useAppStore.getState().playMode !== "jukebox") {
       return null;
     }
-    return syncTuningParamsState(context);
+    return syncTuningParamsState(getAppContext());
   }
 
   // The React play menu derives the star button from the store
@@ -402,7 +357,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     useAppStore.setState({ favoriteToggleBusy: busy });
   }
 
-  function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
+export function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
     migrateOlderFavoriteFromResponse(response);
     const provider =
       response.source_provider === "upload" ||
@@ -533,18 +488,31 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       sourceTypeRaw === "bandcamp"
         ? sourceTypeRaw
         : "youtube";
-    navigateToTabWithState("play", { trackId: favoriteId });
+    useAppStore
+      .getState()
+      .navigateToTabWithState("play", { trackId: favoriteId });
     const selectedTrack = favorite
       ? favoriteToPlaylistTrack(favorite, sourceType)
       : null;
-    if (sourceType === "upload" || isLikelyJobId(favoriteId)) {
-      loadTrackByJobId(favoriteId, { selectedTrack });
+    const deps = getPlaybackDeps();
+    if (!deps) {
       return;
     }
-    loadTrackById(favoriteId, { selectedTrack });
+    const context = getAppContext();
+    if (sourceType === "upload" || isLikelyJobId(favoriteId)) {
+      void loadTrackByJobId(context, deps, favoriteId, {
+        preserveUrlTuning: true,
+        selectedTrack,
+      });
+      return;
+    }
+    void loadTrackById(context, deps, favoriteId, {
+      preserveUrlTuning: true,
+      selectedTrack,
+    });
   }
 
-  function removeFavoriteWithToast(favoriteId: string) {
+export function removeFavoriteWithToast(favoriteId: string) {
     updateFavorites(removeFavorite(useAppStore.getState().favorites, favoriteId));
     showFavoriteToast("Removed from Favorites");
   }
@@ -624,16 +592,3 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       showToast(message);
     }
   }
-
-  return {
-    hydrateFavoritesFromSync,
-    refreshFavoritesFromSync,
-    enterSyncCode,
-    createSyncCode,
-    maybeAutoFavoriteUserSupplied,
-    handleFavoriteSelect,
-    removeFavoriteWithToast,
-    handleFavoriteToggle,
-    updateFavorites,
-  };
-}

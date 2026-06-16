@@ -29,9 +29,9 @@ import {
   refreshFavoritesFromSync,
   removeFavoriteWithToast,
   selectFavorite,
-} from "../wire/favorites";
-import { addToPlaylist } from "../wire/playlist";
-import { selectTrack } from "../wire/track-select";
+} from "../favorites-actions";
+import { addToPlaylist } from "../playlist-actions";
+import { selectTrack } from "../track-select";
 
 type TopSongsTabId = "top" | "trending" | "recent" | "favorites";
 type LazyTabId = Exclude<TopSongsTabId, "favorites">;
