@@ -48,19 +48,11 @@ export function updateTrackInfo(context: AppContext) {
   });
 }
 
-// Restarts the CSS pulse animation on the viz-bottom bar. Kept imperative:
-// the remove/reflow/add trick cannot be expressed as rendered state.
+// React renders this pulse marker onto #viz-stats.
 export function pulseVizStats() {
-  if (typeof document === "undefined" || !document.getElementById) {
-    return;
-  }
-  const vizStats = document.getElementById("viz-stats");
-  if (!vizStats) {
-    return;
-  }
-  vizStats.classList.remove("pulse");
-  void vizStats.offsetWidth;
-  vizStats.classList.add("pulse");
+  useAppStore.setState({
+    vizStatsPulseId: useAppStore.getState().vizStatsPulseId + 1,
+  });
 }
 
 // The React transport buttons derive icon/label/disabled from the store;

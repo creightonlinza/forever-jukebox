@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAppStore } from "../store";
-import { requestWakeLock } from "./wake-lock";
+import { releaseWakeLock, requestWakeLock } from "./wake-lock";
 
 function createLock() {
   return {
@@ -10,8 +9,6 @@ function createLock() {
 }
 
 type FakeLock = ReturnType<typeof createLock>;
-
-const initialStoreState = useAppStore.getState();
 
 async function flushMicrotasks(count = 5) {
   for (let idx = 0; idx < count; idx += 1) {
@@ -23,14 +20,13 @@ describe("requestWakeLock", () => {
   let request: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    useAppStore.setState(initialStoreState, true);
-    useAppStore.setState({ wakeLock: null });
     request = vi.fn();
     vi.stubGlobal("navigator", { wakeLock: { request } });
     vi.stubGlobal("document", { fullscreenElement: {} });
   });
 
   afterEach(() => {
+    releaseWakeLock();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -40,7 +36,6 @@ describe("requestWakeLock", () => {
     request.mockResolvedValue(lock);
     requestWakeLock();
     await flushMicrotasks();
-    expect(useAppStore.getState().wakeLock).toBe(lock);
     expect(lock.addEventListener).toHaveBeenCalledWith(
       "release",
       expect.any(Function),
@@ -55,7 +50,8 @@ describe("requestWakeLock", () => {
     requestWakeLock();
     expect(request).toHaveBeenCalledTimes(1);
     await flushMicrotasks();
-    expect(useAppStore.getState().wakeLock).toBe(lock);
+    releaseWakeLock();
+    expect(lock.release).toHaveBeenCalledOnce();
   });
 
   it("releases a grant that resolves after leaving fullscreen", async () => {
@@ -72,7 +68,6 @@ describe("requestWakeLock", () => {
       .document.fullscreenElement = null;
     resolveRequest(lock);
     await flushMicrotasks();
-    expect(useAppStore.getState().wakeLock).toBeNull();
     expect(lock.release).toHaveBeenCalled();
   });
 });

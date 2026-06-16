@@ -32,11 +32,15 @@ function setDocumentHidden(value: boolean) {
   });
 }
 
-function setupRuntime() {
+type TestAppContext = AppContext & {
+  jukebox: NonNullable<AppContext["jukebox"]>;
+};
+
+function setupRuntime(): TestAppContext {
   const context = {
     autocanonizer: {},
     jukebox: { resizeActive: vi.fn() },
-  } as unknown as AppContext;
+  } as unknown as TestAppContext;
   setAppRuntime(context);
   return context;
 }

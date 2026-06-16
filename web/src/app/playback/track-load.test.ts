@@ -26,6 +26,10 @@ import { tryLoadCachedAudio } from "./track-load";
 const initialStoreState = useAppStore.getState();
 const readCachedTrackMock = vi.mocked(readCachedTrack);
 
+type TestAppContext = AppContext & {
+  autocanonizer: NonNullable<AppContext["autocanonizer"]>;
+};
+
 function createContext() {
   const decodedBuffer = { duration: 12 } as AudioBuffer;
   const context = {
@@ -35,7 +39,7 @@ function createContext() {
       getContext: vi.fn(() => "audio-context"),
     },
     autocanonizer: { setAudio: vi.fn() },
-  } as unknown as AppContext;
+  } as unknown as TestAppContext;
   return { context, decodedBuffer };
 }
 

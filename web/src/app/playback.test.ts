@@ -9,6 +9,7 @@ import {
   resetExtrasDefaults,
   resetTuningDefaults,
   applyTuningChanges,
+  cancelPoll,
   loadAudioFromJob,
   loadTrackById,
   openExtras,
@@ -122,7 +123,12 @@ async function flushMicrotasks(count = 5) {
 
 
 
-function createContext(overrides?: Partial<AppContext>): AppContext {
+type TestAppContext = AppContext & {
+  autocanonizer: NonNullable<AppContext["autocanonizer"]>;
+  jukebox: NonNullable<AppContext["jukebox"]>;
+};
+
+function createContext(overrides?: Partial<AppContext>): TestAppContext {
   // the old plain-object harness defaulted the active tab to "play"
   useAppStore.setState({ activeTabId: "play" });
   const engineConfig = {
@@ -210,7 +216,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     setVolume: vi.fn(),
     dispose: vi.fn(),
   };
-  const context: AppContext = {
+  const context = {
     engine: engine as unknown as AppContext["engine"],
     player: player as unknown as AppContext["player"],
     autocanonizer: autocanonizer as unknown as AppContext["autocanonizer"],
@@ -218,7 +224,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     cowbellOverlay: cowbellOverlay as unknown as AppContext["cowbellOverlay"],
     defaultConfig: engineConfig as unknown as AppContext["defaultConfig"],
     ...overrides,
-  };
+  } as TestAppContext;
   // Flows that read the runtime singleton (e.g. setSleepTimer) resolve to this
   // test's context.
   setAppRuntime(context);
@@ -906,7 +912,7 @@ describe("playback timers", () => {
         endTimeMs: null,
         remainingMs: 0,
       });
-      expect(useAppStore.getState().sleepTimerTimeoutId).toBe(null);
+      expect(vi.getTimerCount()).toBe(0);
     }
   });
 
@@ -921,7 +927,7 @@ describe("playback timers", () => {
       endTimeMs: 905000,
       remainingMs: 15 * 60 * 1000,
     });
-    expect(useAppStore.getState().sleepTimerTimeoutId).not.toBe(null);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
   });
 
   it("replacing a sleep timer cancels the old expiry", () => {
@@ -1914,7 +1920,7 @@ describe("playback loading", () => {
     const deps = createLoadDeps();
     (fetch as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => {
       // a newer track load cancels this poll while its request is in flight
-      useAppStore.getState().pollController?.abort();
+      cancelPoll();
       const err = new Error("signal is aborted without reason");
       err.name = "AbortError";
       throw err;
@@ -1924,7 +1930,7 @@ describe("playback loading", () => {
 
     expect(deps.setAnalysisStatus).not.toHaveBeenCalled();
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
-    expect(useAppStore.getState().pollController).toBeNull();
+    expect(useAppStore.getState().analysisPollInFlight).toBe(false);
   });
 
   it("surfaces failed analysis status without applying stale analysis", async () => {

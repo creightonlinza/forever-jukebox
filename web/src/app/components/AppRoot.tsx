@@ -48,14 +48,14 @@ function useTabEffects() {
       .getState()
       .setPlayTabPulsing(useAppStore.getState().isRunning && activeTab !== "play");
     if (activeTab === "play") {
-      jukebox.resizeActive();
+      jukebox?.resizeActive();
     } else if (useAppStore.getState().shiftBranching) {
       useAppStore.setState({ shiftBranching: false });
       engine.setForceBranch(false);
     }
     if (activeTab !== "play" && useAppStore.getState().selectedEdge) {
       useAppStore.setState({ selectedEdge: null });
-      jukebox.setSelectedEdge(null);
+      jukebox?.setSelectedEdge(null);
     }
   }, [activeTab]);
 }

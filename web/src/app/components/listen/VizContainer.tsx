@@ -18,6 +18,7 @@ export function VizContainer() {
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const swingPreparing = useAppStore((s) => s.swingPreparing);
   const playMode = useAppStore((s) => s.playMode);
+  const vizStatsPulseId = useAppStore((s) => s.vizStatsPulseId);
   const vizPanelRef = useRef<HTMLDivElement | null>(null);
   const vizLayerRef = useRef<HTMLDivElement | null>(null);
   const canonizerLayerRef = useRef<HTMLDivElement | null>(null);
@@ -98,7 +99,11 @@ export function VizContainer() {
           className="canonizer-layer"
           ref={canonizerLayerRef}
         ></div>
-        <div className="viz-bottom" id="viz-stats">
+        <div
+          className={vizStatsPulseId > 0 ? "viz-bottom pulse" : "viz-bottom"}
+          id="viz-stats"
+          key={vizStatsPulseId}
+        >
           <div className="viz-bottom-left">
             <div className="viz-play-controls">
               <PlayControls />

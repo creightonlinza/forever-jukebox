@@ -24,7 +24,7 @@ export function applyTheme(context: AppContext, theme: ThemeName) {
   applyThemeVariables(theme);
   document.body.classList.toggle("theme-light", theme === "light");
   localStorage.setItem(themeStorageKey, theme);
-  jukebox.refresh();
+  jukebox?.refresh();
 }
 
 export function applyStoredTheme(context: AppContext) {

@@ -16,42 +16,13 @@ it was always 100% React"; the bar is "is this clean and maintainable."
 
 ---
 
-## 1. `null as unknown as ...` viz-controller casts  — *low*
+## Active migration debt
 
-`init.ts` seeds `context.autocanonizer`/`context.jukebox` as
-`null as unknown as AppContext[...]` because the controllers don't exist until
-`attachViz`. The type system is told they're always present when they aren't.
+None. The remaining React-migration leftovers have been cleared:
 
-- **Fix:** model the pre-attach state honestly — either `jukebox: JukeboxController | null`
-  on `AppContext` (and handle null at call sites), or split "pre-attach" vs
-  "attached" runtime types.
-
----
-
-## 2. Last UI-state DOM poke outside React  — *low*
-
-`playback/status-ui.ts` pulses the stats panel via
-`document.getElementById("viz-stats")` + `classList`. It's the only remaining
-*UI-state* DOM mutation outside the React tree (theme CSS-vars and the marquee
-hook are legitimate escape-hatches; leave those).
-
-- **Fix:** drive the pulse from store state → a `className` on the
-  already-React-rendered `#viz-stats` element in `VizContainer`.
-
----
-
-## 3. Non-serializable handles in the store  — *low / maybe accept*
-
-The zustand store holds `AbortController` (`pollController`), timer ids
-(`toastTimer`, `listenTimerId`, `sleepTimerTimeoutId`) and `wakeLock`. These were
-carried over verbatim from the pre-React mutable `AppState`/`context` object when
-it was ported into zustand — migration origin, not a fresh design choice. Works
-fine (no devtools/persist middleware serializes them) and `store.ts` notes it,
-but it's slightly unusual — a reviewer will pause on it.
-
-- **Option:** move the genuinely imperative handles into the `runtime.ts` module
-  or refs, keeping the store to serializable-ish UI/domain state.
-- **Or:** accept it and keep the existing note. Low value either way.
+- pre-attach viz controllers are modeled as nullable until `attachViz` runs;
+- the stats-panel pulse is driven by React-rendered store state;
+- imperative handles live in their owning modules instead of the zustand store.
 
 ---
 

@@ -1,4 +1,4 @@
-import type { AppContext } from "./context";
+import type { AppContext, AttachedAppContext } from "./context";
 import type { PlaybackDeps } from "./playback";
 
 // Module-singleton access to the genuine runtime singletons (engine, player,
@@ -28,11 +28,11 @@ export function getAppContext(): AppContext {
   return appContext;
 }
 
-export function getAttachedAppContext(): AppContext | null {
+export function getAttachedAppContext(): AttachedAppContext | null {
   if (!appContext?.jukebox || !appContext.autocanonizer) {
     return null;
   }
-  return appContext;
+  return appContext as AttachedAppContext;
 }
 
 let playbackDeps: PlaybackDeps | null = null;

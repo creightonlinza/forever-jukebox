@@ -248,7 +248,7 @@ export async function loadPlaylistIndex(
   function isPlaylistLoadBlocked() {
     return (
       useAppStore.getState().audioLoadInFlight ||
-      useAppStore.getState().pollController !== null ||
+      useAppStore.getState().analysisPollInFlight ||
       playlistLoadInFlight ||
       useAppStore.getState().swingPreparing
     );

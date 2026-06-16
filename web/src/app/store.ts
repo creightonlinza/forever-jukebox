@@ -60,6 +60,7 @@ type ShellSlice = {
   theme: ThemeName;
   navigationRequest: NavigationRequest | null;
   isPlayTabPulsing: boolean;
+  vizStatsPulseId: number;
   footerCredit: FooterCredit | null;
   toast: ToastState | null;
   searchQuery: string;
@@ -124,8 +125,6 @@ const SUBTAB_RESETS: Partial<Record<TabId, Partial<AppStoreState>>> = {
 
 // The store is flat (zustand slices pattern); slices group state by domain
 // (ui / playback / track / tuning / library / config).
-// Non-serializable handles (pollController, wakeLock, timer ids) are fine in
-// zustand; no devtools middleware is attached, so nothing serializes them.
 
 const createUiSlice: Slice<
   Pick<
@@ -134,11 +133,11 @@ const createUiSlice: Slice<
     | "topSongsTab"
     | "searchTab"
     | "activeVizIndex"
-    | "toastTimer"
     | "selectedEdge"
     | "theme"
     | "navigationRequest"
     | "isPlayTabPulsing"
+    | "vizStatsPulseId"
     | "footerCredit"
     | "toast"
     | "searchQuery"
@@ -174,11 +173,11 @@ const createUiSlice: Slice<
     topSongsTab: "top",
     searchTab: "search",
     activeVizIndex: DEFAULT_VISUALIZATION_INDEX,
-    toastTimer: null,
     selectedEdge: null,
     theme: "dark",
     navigationRequest: null,
     isPlayTabPulsing: false,
+    vizStatsPulseId: 0,
     footerCredit: null,
     toast: null,
     searchQuery: "",
@@ -267,9 +266,6 @@ const createPlaybackSlice: Slice<
     | "swingPreparing"
     | "swingRenderToken"
     | "sleepTimer"
-    | "sleepTimerTimeoutId"
-    | "wakeLock"
-    | "listenTimerId"
   >
 > = () => ({
   isRunning: false,
@@ -285,9 +281,6 @@ const createPlaybackSlice: Slice<
   swingPreparing: false,
   swingRenderToken: 0,
   sleepTimer: defaultSleepTimer,
-  sleepTimerTimeoutId: null,
-  wakeLock: null,
-  listenTimerId: null,
 });
 
 const createTrackSlice: Slice<
@@ -296,6 +289,7 @@ const createTrackSlice: Slice<
     | "audioLoaded"
     | "analysisLoaded"
     | "audioLoadInFlight"
+    | "analysisPollInFlight"
     | "lastJobId"
     | "lastTrackId"
     | "lastSourceId"
@@ -306,12 +300,12 @@ const createTrackSlice: Slice<
     | "lastPlayCountedJobId"
     | "deleteEligible"
     | "deleteEligibilityJobId"
-    | "pollController"
   >
 > = () => ({
   audioLoaded: false,
   analysisLoaded: false,
   audioLoadInFlight: false,
+  analysisPollInFlight: false,
   lastJobId: null,
   lastTrackId: null,
   lastSourceId: null,
@@ -322,7 +316,6 @@ const createTrackSlice: Slice<
   lastPlayCountedJobId: null,
   deleteEligible: false,
   deleteEligibilityJobId: null,
-  pollController: null,
 });
 
 const createTuningSlice: Slice<

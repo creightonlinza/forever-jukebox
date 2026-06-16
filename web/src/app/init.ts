@@ -96,8 +96,8 @@ export function initRuntime(): void {
   const context: AppContext = {
     engine,
     player,
-    autocanonizer: null as unknown as AppContext["autocanonizer"],
-    jukebox: null as unknown as AppContext["jukebox"],
+    autocanonizer: null,
+    jukebox: null,
     cowbellOverlay,
     defaultConfig,
   };

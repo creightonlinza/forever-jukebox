@@ -19,7 +19,7 @@ export function PlayControls() {
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const audioLoadInFlight = useAppStore((s) => s.audioLoadInFlight);
-  const pollController = useAppStore((s) => s.pollController);
+  const analysisPollInFlight = useAppStore((s) => s.analysisPollInFlight);
   const playlistLoadBusy = useAppStore((s) => s.playlistLoadBusy);
   const playlist = useAppStore((s) => s.playlist);
 
@@ -43,7 +43,7 @@ export function PlayControls() {
   const active = hasActivePlaylistControls(playlist);
   const playlistBusy =
     audioLoadInFlight ||
-    pollController !== null ||
+    analysisPollInFlight ||
     playlistLoadBusy ||
     swingPreparing;
 

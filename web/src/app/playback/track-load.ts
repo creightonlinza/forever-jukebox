@@ -63,6 +63,7 @@ import {
 
 const GENERIC_LOAD_ERROR_MESSAGE =
   "Something went wrong. Please try again or report an issue on GitHub.";
+let pollController: AbortController | null = null;
 
 export type PlaybackDeps = {
   setActiveTab: (tabId: TabId) => void;
@@ -156,7 +157,7 @@ export function resetForNewTrack(
   useAppStore.setState({ bringItHomeMode: false });
   engine.setBringItHomeMode(false);
   useAppStore.setState({ selectedEdge: null });
-  jukebox.setSelectedEdge(null);
+  jukebox?.setSelectedEdge(null);
   useAppStore.setState({ branchStats: null });
   engine.clearDeletedEdges();
   useAppStore.setState({ deletedEdgeIds: [] });
@@ -179,7 +180,7 @@ export function resetForNewTrack(
   if (useAppStore.getState().isRunning || useAppStore.getState().isPaused) {
     stopPlayback(context);
   }
-  autocanonizer.reset();
+  autocanonizer?.reset();
   useAppStore.setState({ autoComputedThreshold: null });
   if (shouldClearTuning) {
     useAppStore.setState({ tuningParams: null });
@@ -214,8 +215,8 @@ export function resetForNewTrack(
     anchorEdgeId: null,
     userAnchorEdgeId: null,
   };
-  jukebox.setData(emptyVizData);
-  jukebox.reset();
+  jukebox?.setData(emptyVizData);
+  jukebox?.reset();
 }
 
 export async function loadAudioFromJob(context: AppContext, jobId: string) {
@@ -233,7 +234,7 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     if (isStaleLoad(generation)) {
       return false;
     }
-    autocanonizer.setAudio(player.getBuffer(), player.getContext());
+    autocanonizer?.setAudio(player.getBuffer(), player.getContext());
     useAppStore.setState({ audioLoaded: true });
     useAppStore.setState({ audioLoadInFlight: false });
     updateVizVisibility();
@@ -264,6 +265,9 @@ export function applyAnalysisResult(
   }
   maybeUpdateDeleteEligibility(response, response.id);
   const { autocanonizer, cowbellOverlay, engine, jukebox } = context;
+  if (!autocanonizer || !jukebox) {
+    return false;
+  }
   applyTuningParamsFromUrl(context);
   const useAutoThreshold = engine.getConfig().currentThreshold === 0;
   engine.loadAnalysis(response.result);
@@ -339,8 +343,9 @@ export async function pollAnalysis(
 ) {
   const controller = new AbortController();
   const generation = getLoadGeneration();
-  useAppStore.getState().pollController?.abort();
-  useAppStore.setState({ pollController: controller });
+  pollController?.abort();
+  pollController = controller;
+  useAppStore.setState({ analysisPollInFlight: true });
   try {
     while (true) {
       if (controller.signal.aborted || isStaleLoad(generation)) {
@@ -415,8 +420,9 @@ export async function pollAnalysis(
       }
     }
   } finally {
-    if (useAppStore.getState().pollController === controller) {
-      useAppStore.setState({ pollController: null });
+    if (pollController === controller) {
+      pollController = null;
+      useAppStore.setState({ analysisPollInFlight: false });
     }
   }
 }
@@ -799,12 +805,12 @@ function syncActivePlaylistTrackFromLoaded() {
 }
 
 export function cancelPoll() {
-  const { pollController } = useAppStore.getState();
   if (!pollController) {
     return;
   }
   pollController.abort();
-  useAppStore.setState({ pollController: null });
+  pollController = null;
+  useAppStore.setState({ analysisPollInFlight: false });
 }
 
 export function delay(ms: number, signal?: AbortSignal) {
@@ -842,7 +848,7 @@ export async function tryLoadCachedAudio(
       return false;
     }
     useAppStore.setState({ lastJobId: cached.jobId ?? null });
-    autocanonizer.setAudio(player.getBuffer(), player.getContext());
+    autocanonizer?.setAudio(player.getBuffer(), player.getContext());
     useAppStore.setState({ audioLoaded: true });
     useAppStore.setState({ audioLoadInFlight: false });
     updateVizVisibility();

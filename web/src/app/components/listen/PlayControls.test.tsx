@@ -50,7 +50,7 @@ describe("PlayControls", () => {
         audioLoaded: true,
         analysisLoaded: true,
         audioLoadInFlight: false,
-        pollController: null,
+        analysisPollInFlight: false,
         playlistLoadBusy: false,
         playlist: { tracks: [], currentIndex: -1 },
       });
