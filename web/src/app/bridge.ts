@@ -1,13 +1,7 @@
 import type { AppContext } from "./context";
 import type { FavoriteTrack } from "./favorites";
-import type {
-  ExtrasApplyResult,
-  ExtrasFormValues,
-  TuningFormValues,
-} from "./playback";
 import type { PlaylistTrack } from "./playlist";
 import type { ThemeName } from "./themeConfig";
-import type { PendingDelete } from "./wire/delete-job";
 
 // Actions the React Top Tracks panel delegates to the imperative flow
 // modules (track loading, playlist, favorites sync state machine).
@@ -45,35 +39,6 @@ export type SearchPanelBridge = {
   uploadUrl: (raw: string, onAccepted?: () => void) => Promise<void>;
 };
 
-// Actions the React Listen-panel modals/menus delegate to playback.ts and
-// the remaining wire controllers.
-export type ListenPanelBridge = {
-  copyShortUrl: () => void;
-  toggleFavorite: () => void;
-  getPendingDelete: () => PendingDelete | null;
-  performDelete: (pending: PendingDelete) => Promise<void>;
-  getTuningForm: () => TuningFormValues;
-  applyTuning: (form: TuningFormValues) => TuningFormValues;
-  resetTuning: () => void;
-  getExtrasForm: () => ExtrasFormValues;
-  applyExtras: (values: ExtrasFormValues) => ExtrasApplyResult;
-  resetExtras: () => ExtrasApplyResult;
-  setVolume: (volumePct: number) => void;
-  toggleFullscreen: () => void;
-  togglePlayback: () => void;
-  setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
-  setActiveVisualization: (index: number) => void;
-  setCanonizerFinish: (checked: boolean) => void;
-  playlistPrevious: () => void;
-  playlistNext: () => void;
-  deleteSelectedBranch: () => void;
-  playlist: {
-    selectIndex: (index: number) => void;
-    removeIndex: (index: number) => void;
-    clear: () => void;
-  };
-};
-
 // Seam between the imperative bootstrap wiring and the React shell:
 // components dispatch through it instead of importing actions directly.
 // See web/TECH_DEBT.md for the plan to retire it.
@@ -91,12 +56,4 @@ export type AppBridge = {
   };
   topPanel: TopPanelBridge;
   searchPanel: SearchPanelBridge;
-  listenPanel: ListenPanelBridge;
-  // <VizContainer>'s ref handoff: constructs the viz controllers on these
-  // nodes exactly once.
-  attachViz: (nodes: {
-    vizPanel: HTMLElement;
-    vizLayer: HTMLDivElement;
-    canonizerLayer: HTMLDivElement;
-  }) => void;
 };

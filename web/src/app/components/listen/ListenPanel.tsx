@@ -1,4 +1,3 @@
-import type { AppBridge } from "../../bridge";
 import { useAppStore } from "../../store";
 import { PlayMenu } from "./PlayMenu";
 import { StatusPanel } from "./StatusPanel";
@@ -6,7 +5,7 @@ import { VizContainer } from "./VizContainer";
 
 // The Listen panel. It persists in the DOM permanently — visibility is
 // class-only, driven by the active tab.
-export function ListenPanel({ bridge }: { bridge: AppBridge }) {
+export function ListenPanel() {
   const activeTab = useAppStore((s) => s.activeTabId);
   return (
     <section
@@ -16,8 +15,8 @@ export function ListenPanel({ bridge }: { bridge: AppBridge }) {
       data-tab-panel="play"
     >
       <StatusPanel />
-      <PlayMenu bridge={bridge} />
-      <VizContainer bridge={bridge} />
+      <PlayMenu />
+      <VizContainer />
     </section>
   );
 }

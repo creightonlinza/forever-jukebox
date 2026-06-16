@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { AppBridge } from "../../bridge";
+import { attachViz, getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { BranchStatsPopup } from "./BranchStatsPopup";
 import { PlayControls } from "./PlayControls";
@@ -13,7 +13,7 @@ import { VizTop } from "./VizTop";
 // controllers hold canvas/WebGL state inside. The panel-level ref callback
 // hands the nodes to bootstrap's attachViz, which constructs the
 // controllers exactly once (StrictMode re-attaches are ignored there).
-export function VizContainer({ bridge }: { bridge: AppBridge }) {
+export function VizContainer() {
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const swingPreparing = useAppStore((s) => s.swingPreparing);
@@ -29,14 +29,14 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
     (node: HTMLDivElement | null) => {
       vizPanelRef.current = node;
       if (node && vizLayerRef.current && canonizerLayerRef.current) {
-        bridge.attachViz({
+        attachViz({
           vizPanel: node,
           vizLayer: vizLayerRef.current,
           canonizerLayer: canonizerLayerRef.current,
         });
       }
     },
-    [bridge],
+    [],
   );
 
   // Observe the panel and resize both controllers, with a window-resize
@@ -47,8 +47,8 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
       return;
     }
     const handleResize = () => {
-      bridge.context.jukebox?.resizeNow();
-      bridge.context.autocanonizer?.resizeNow();
+      getAppContext().jukebox?.resizeNow();
+      getAppContext().autocanonizer?.resizeNow();
     };
     if (
       typeof (globalThis as { ResizeObserver?: unknown }).ResizeObserver !==
@@ -62,7 +62,7 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [bridge]);
+  }, []);
 
   // Resize the active controller when the viz becomes visible.
   useEffect(() => {
@@ -70,11 +70,11 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
       return;
     }
     if (playMode === "autocanonizer") {
-      bridge.context.autocanonizer?.resizeNow();
+      getAppContext().autocanonizer?.resizeNow();
     } else {
-      bridge.context.jukebox?.resizeActive();
+      getAppContext().jukebox?.resizeActive();
     }
-  }, [visible, playMode, bridge]);
+  }, [visible, playMode]);
 
   return (
     <div
@@ -86,9 +86,9 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
         id="jukebox-viz"
         className={playMode === "autocanonizer" ? "viz is-canonizer" : "viz"}
       >
-        <BranchStatsPopup bridge={bridge} />
+        <BranchStatsPopup />
         <div className="viz-top">
-          <VizTop bridge={bridge} />
+          <VizTop />
         </div>
         <div id="viz-layer" className="viz-layer" ref={vizLayerRef}></div>
         <div
@@ -99,14 +99,14 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
         <div className="viz-bottom" id="viz-stats">
           <div className="viz-bottom-left">
             <div className="viz-play-controls">
-              <PlayControls bridge={bridge} />
+              <PlayControls />
             </div>
             <div className="viz-info">
               <VizInfo />
             </div>
           </div>
           <div className="viz-bottom-right">
-            <VizBottomRight bridge={bridge} />
+            <VizBottomRight />
           </div>
         </div>
       </div>

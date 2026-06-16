@@ -101,14 +101,14 @@ export function AppRoot({ bridge }: { bridge: AppBridge }) {
       <Hero />
       <TopTracksPanel bridge={bridge} />
       <SearchPanel bridge={bridge} />
-      <ListenPanel bridge={bridge} />
+      <ListenPanel />
       <FaqPanel />
       <Footer />
       <Toast />
-      <TuningModal bridge={bridge} />
+      <TuningModal />
       <SleepTimerModal />
       <InfoModal />
-      <PlaylistModal bridge={bridge} />
+      <PlaylistModal />
     </>
   );
 }

@@ -1,9 +1,9 @@
-import type { AppBridge } from "../../bridge";
 import { useAppStore } from "../../store";
+import { deleteSelectedBranch } from "../../wire/playback";
 
 // Branch-stats popup over the jukebox viz; renders from store state written
 // by the edge-select callbacks in wire/playback.
-export function BranchStatsPopup({ bridge }: { bridge: AppBridge }) {
+export function BranchStatsPopup() {
   const stats = useAppStore((s) => s.branchStats);
   return (
     <div
@@ -25,7 +25,7 @@ export function BranchStatsPopup({ bridge }: { bridge: AppBridge }) {
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            bridge.listenPanel.deleteSelectedBranch();
+            deleteSelectedBranch();
           }}
         >
           <span

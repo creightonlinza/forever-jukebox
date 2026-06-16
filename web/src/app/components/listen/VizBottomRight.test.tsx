@@ -1,18 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { AppBridge } from "../../bridge";
 import { useAppStore } from "../../store";
 import { VizBottomRight } from "./VizBottomRight";
 
-function createBridge() {
-  return {
-    listenPanel: {
-      setVolume: vi.fn(),
-      toggleFullscreen: vi.fn(),
-    },
-  } as unknown as AppBridge;
-}
+const h = vi.hoisted(() => ({
+  setMasterVolume: vi.fn(),
+  toggleFullscreen: vi.fn(),
+}));
+
+vi.mock("../../playback", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../playback")>()),
+  setMasterVolume: h.setMasterVolume,
+}));
+vi.mock("../../wire/fullscreen", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../wire/fullscreen")>()),
+  toggleFullscreen: h.toggleFullscreen,
+}));
+vi.mock("../../runtime", () => ({
+  getAppContext: vi.fn(() => ({})),
+}));
 
 describe("VizBottomRight", () => {
   beforeEach(() => {
@@ -31,8 +38,7 @@ describe("VizBottomRight", () => {
   });
 
   it("toggles the volume panel and applies volume changes", async () => {
-    const bridge = createBridge();
-    render(<VizBottomRight bridge={bridge} />);
+    render(<VizBottomRight />);
     const panel = document.getElementById("volume-control-panel")!;
     expect(panel.classList.contains("is-hidden")).toBe(true);
     await userEvent.click(document.getElementById("volume-button")!);
@@ -47,7 +53,7 @@ describe("VizBottomRight", () => {
       setter.call(slider, "80");
       slider.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    expect(bridge.listenPanel.setVolume).toHaveBeenCalledWith(80);
+    expect(h.setMasterVolume).toHaveBeenCalledWith(expect.anything(), 80);
     expect(document.getElementById("volume-val")?.textContent).toBe("80");
     // click-away closes
     await userEvent.click(document.body);
@@ -55,7 +61,7 @@ describe("VizBottomRight", () => {
   });
 
   it("reflects external volume sync from the store", () => {
-    render(<VizBottomRight bridge={createBridge()} />);
+    render(<VizBottomRight />);
     act(() => {
       useAppStore.setState({ volumePct: 25 });
     });
@@ -65,15 +71,14 @@ describe("VizBottomRight", () => {
   });
 
   it("renders the fullscreen state and toggles it", async () => {
-    const bridge = createBridge();
-    render(<VizBottomRight bridge={bridge} />);
+    render(<VizBottomRight />);
     const button = document.getElementById("fullscreen")!;
     expect(button.getAttribute("aria-label")).toBe("Fullscreen");
     expect(button.querySelector(".fullscreen-icon")?.textContent).toBe(
       "fullscreen",
     );
     await userEvent.click(button);
-    expect(bridge.listenPanel.toggleFullscreen).toHaveBeenCalled();
+    expect(h.toggleFullscreen).toHaveBeenCalled();
     act(() => {
       useAppStore.setState({ isFullscreen: true });
     });
@@ -84,7 +89,7 @@ describe("VizBottomRight", () => {
   });
 
   it("shows the playlist button only with tracks and opens the modal", async () => {
-    render(<VizBottomRight bridge={createBridge()} />);
+    render(<VizBottomRight />);
     const button = document.getElementById("playlist-open")!;
     expect(button.classList.contains("is-hidden")).toBe(true);
     act(() => {

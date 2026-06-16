@@ -25,6 +25,22 @@ export type PendingDelete = {
 
 export type DeleteJobHandlers = ReturnType<typeof createDeleteJobHandlers>;
 
+// Module singleton so PlayMenu reaches the delete flow without the bridge prop.
+// bootstrap registers the instance. See web/TECH_DEBT.md item 1 (Phase 2).
+let handlers: DeleteJobHandlers | null = null;
+
+export function setDeleteJobHandlers(next: DeleteJobHandlers): void {
+  handlers = next;
+}
+
+export function getPendingDelete(): PendingDelete | null {
+  return handlers?.getPendingDelete() ?? null;
+}
+
+export function performDelete(pending: PendingDelete): Promise<void> {
+  return handlers?.performDelete(pending) ?? Promise.resolve();
+}
+
 // Deletion flow only — the delete button + confirm modal render in React
 // (PlayMenu / DeleteConfirmModal) and call these.
 export function createDeleteJobHandlers(deps: DeleteJobDeps) {

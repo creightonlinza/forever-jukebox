@@ -1,14 +1,16 @@
-import type { AppBridge } from "../../bridge";
+import { togglePlayback } from "../../playback";
 import {
   canMovePlaylistNext,
   canMovePlaylistPrevious,
   hasActivePlaylistControls,
 } from "../../playlist";
+import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
+import { playlistNext, playlistPrevious } from "../../wire/playlist";
 
 // Transport cluster: playlist previous, play/pause toggle, playlist next.
 // Rendered into the .viz-play-controls container.
-export function PlayControls({ bridge }: { bridge: AppBridge }) {
+export function PlayControls() {
   const isRunning = useAppStore((s) => s.isRunning);
   const isPaused = useAppStore((s) => s.isPaused);
   const playMode = useAppStore((s) => s.playMode);
@@ -56,7 +58,7 @@ export function PlayControls({ bridge }: { bridge: AppBridge }) {
         aria-label="Previous playlist track"
         title="Previous playlist track"
         disabled={playlistBusy || !canMovePlaylistPrevious(playlist)}
-        onClick={() => bridge.listenPanel.playlistPrevious()}
+        onClick={() => playlistPrevious()}
       >
         <span
           className="material-symbols-outlined playlist-control-icon"
@@ -75,7 +77,7 @@ export function PlayControls({ bridge }: { bridge: AppBridge }) {
         aria-label={playLabel}
         title={playLabel}
         disabled={isBlocked}
-        onClick={() => bridge.listenPanel.togglePlayback()}
+        onClick={() => togglePlayback(getAppContext())}
       >
         <span
           className="material-symbols-outlined play-icon"
@@ -93,7 +95,7 @@ export function PlayControls({ bridge }: { bridge: AppBridge }) {
         aria-label="Next playlist track"
         title="Next playlist track"
         disabled={playlistBusy || !canMovePlaylistNext(playlist)}
-        onClick={() => bridge.listenPanel.playlistNext()}
+        onClick={() => playlistNext()}
       >
         <span
           className="material-symbols-outlined playlist-control-icon"

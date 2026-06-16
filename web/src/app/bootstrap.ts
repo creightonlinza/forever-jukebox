@@ -23,35 +23,37 @@ import { loadAppConfig, saveAppConfig } from "./cache";
 import { isLikelyJobId } from "./identity";
 import {
   applyAnalysisResult,
-  applyTuningChanges,
-  applyExtrasChanges,
-  resetExtrasDefaults,
-  resetTuningDefaults,
-  getExtrasFormValues,
-  getTuningFormValues,
   loadAudioFromJob,
   loadTrackByJobId,
   loadTrackById,
   pollAnalysis,
   resetForNewTrack,
-  setMasterVolume,
-  togglePlayback,
   updateVizVisibility,
-  type ExtrasFormValues,
-  type TuningFormValues,
 } from "./playback";
 import { runSearch, selectSpotifyMatch, selectYoutubeMatch } from "./search";
 import { uploadAudioFile, uploadFromUrl, type UploadDeps } from "./upload";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
-import { setAppRuntime } from "./runtime";
+import { setAppRuntime, setAttachViz, type AttachVizNodes } from "./runtime";
 import type { AppContext, TabId } from "./context";
 import type { AppConfig } from "./api";
-import { createFavoritesHandlers } from "./wire/favorites";
+import { createFavoritesHandlers, setFavoritesHandlers } from "./wire/favorites";
 import { createNavigationHandlers } from "./wire/navigation";
-import { createFullscreenHandlers, type FullscreenHandlers } from "./wire/fullscreen";
-import { createPlaybackUiHandlers, type PlaybackUiHandlers } from "./wire/playback";
-import { createPlaylistHandlers, type PlaylistHandlers } from "./wire/playlist";
-import { createDeleteJobHandlers } from "./wire/delete-job";
+import {
+  createFullscreenHandlers,
+  setFullscreenHandlers,
+  type FullscreenHandlers,
+} from "./wire/fullscreen";
+import {
+  createPlaybackUiHandlers,
+  setPlaybackUiHandlers,
+  type PlaybackUiHandlers,
+} from "./wire/playback";
+import {
+  createPlaylistHandlers,
+  setPlaylistHandlers,
+  type PlaylistHandlers,
+} from "./wire/playlist";
+import { createDeleteJobHandlers, setDeleteJobHandlers } from "./wire/delete-job";
 import { createAppConfigHandlers } from "./wire/app-config";
 import type { AppBridge } from "./bridge";
 import { useAppStore } from "./store";
@@ -147,6 +149,7 @@ export function bootstrap(): AppBridge {
       }),
     setPlayMode: (mode) => playbackHandlers?.setPlayMode(mode),
   });
+  setFavoritesHandlers(favoritesHandlers);
   playbackDeps.onAnalysisLoaded = (response) => {
     favoritesHandlers.maybeAutoFavoriteUserSupplied(response);
   };
@@ -187,6 +190,7 @@ export function bootstrap(): AppBridge {
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
     setPlayMode: (mode) => playbackHandlers?.setPlayMode(mode),
   });
+  setPlaylistHandlers(playlistHandlers);
   const appConfigHandlers = createAppConfigHandlers({
     favoritesHandlers,
   });
@@ -208,11 +212,12 @@ export function bootstrap(): AppBridge {
     favoritesHandlers,
     navigateToTabWithState: navigationHandlers.navigateToTabWithState,
   });
+  setDeleteJobHandlers(deleteJobHandlers);
   // Construct the viz controllers once <VizContainer> hands over its nodes
   // (ref phase — before any React effect runs). StrictMode re-attaches the
   // same nodes; the guard makes that a no-op.
   let vizAttached = false;
-  const attachViz: AppBridge["attachViz"] = (nodes) => {
+  const attachViz = (nodes: AttachVizNodes) => {
     if (vizAttached) {
       return;
     }
@@ -234,10 +239,12 @@ export function bootstrap(): AppBridge {
       advancePlaylistOnAutocanonizerEnded: () =>
         playlistHandlers?.advanceAutocanonizerOnEnded() ?? Promise.resolve(false),
     });
+    setPlaybackUiHandlers(playbackHandlers);
     fullscreenHandlers = createFullscreenHandlers({
       jukebox,
       getVizPanel: () => nodes.vizPanel,
     });
+    setFullscreenHandlers(fullscreenHandlers);
     jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
     playbackHandlers.initializePlayback();
     resetForNewTrack(context);
@@ -255,6 +262,7 @@ export function bootstrap(): AppBridge {
     jukebox.setOnSelect(playbackHandlers.handleBeatSelect);
     jukebox.setOnEdgeSelect(playbackHandlers.handleEdgeSelect);
   };
+  setAttachViz(attachViz);
 
   setAnalysisStatus(context, "No track selected.", false);
   loadAppConfig()
@@ -322,43 +330,6 @@ export function bootstrap(): AppBridge {
       uploadFromUrl(uploadDeps, raw, onAccepted),
   };
 
-  const listenPanel = {
-    copyShortUrl: () => playbackHandlers?.handleShortUrlClick(),
-    toggleFavorite: () => {
-      void favoritesHandlers.handleFavoriteToggle();
-    },
-    getPendingDelete: deleteJobHandlers.getPendingDelete,
-    performDelete: deleteJobHandlers.performDelete,
-    getTuningForm: () => getTuningFormValues(context),
-    applyTuning: (form: TuningFormValues) => applyTuningChanges(context, form),
-    resetTuning: () => {
-      resetTuningDefaults(context);
-    },
-    getExtrasForm: () => getExtrasFormValues(),
-    applyExtras: (values: ExtrasFormValues) =>
-      applyExtrasChanges(context, values),
-    resetExtras: () => resetExtrasDefaults(context),
-    togglePlayback: () => togglePlayback(context),
-    setPlayMode: (mode: "jukebox" | "autocanonizer") =>
-      playbackHandlers?.setPlayMode(mode),
-    setActiveVisualization: (index: number) =>
-      playbackHandlers?.setActiveVisualization(index),
-    setCanonizerFinish: (checked: boolean) =>
-      playbackHandlers?.setCanonizerFinish(checked),
-    deleteSelectedBranch: () => playbackHandlers?.deleteSelectedBranch(),
-    playlistPrevious: () => playlistHandlers!.handlePlaylistPrevious(),
-    playlistNext: () => playlistHandlers!.handlePlaylistNext(),
-    setVolume: (volumePct: number) => setMasterVolume(context, volumePct),
-    toggleFullscreen: () => fullscreenHandlers?.handleFullscreenToggle(),
-    playlist: {
-      selectIndex: (index: number) =>
-        playlistHandlers!.selectPlaylistIndex(index),
-      removeIndex: (index: number) =>
-        playlistHandlers!.removePlaylistIndex(index),
-      clear: () => playlistHandlers!.handleClearPlaylist(),
-    },
-  };
-
   return {
     context,
     handleRoute,
@@ -371,8 +342,6 @@ export function bootstrap(): AppBridge {
     },
     topPanel,
     searchPanel,
-    listenPanel,
-    attachViz,
   };
 }
 

@@ -45,6 +45,38 @@ type PlaylistDeps = {
 
 export type PlaylistHandlers = ReturnType<typeof createPlaylistHandlers>;
 
+// Module singleton so components reach the playlist flow without the bridge
+// prop. bootstrap registers the instance. See web/TECH_DEBT.md item 1 (Phase 2).
+let handlers: PlaylistHandlers | null = null;
+
+export function setPlaylistHandlers(next: PlaylistHandlers): void {
+  handlers = next;
+}
+
+export function playlistPrevious(): void {
+  handlers?.handlePlaylistPrevious();
+}
+
+export function playlistNext(): void {
+  handlers?.handlePlaylistNext();
+}
+
+export function selectPlaylistIndex(index: number): void {
+  handlers?.selectPlaylistIndex(index);
+}
+
+export function removePlaylistIndex(index: number): void {
+  handlers?.removePlaylistIndex(index);
+}
+
+export function clearPlaylist(): void {
+  handlers?.handleClearPlaylist();
+}
+
+export function addToPlaylist(track: PlaylistTrack): void {
+  handlers?.handleAddToPlaylist(track);
+}
+
 export function createPlaylistHandlers(deps: PlaylistDeps) {
   const {
     context,

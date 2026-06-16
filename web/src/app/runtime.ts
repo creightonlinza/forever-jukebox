@@ -28,3 +28,22 @@ export function getAppContext(): AppContext {
   }
   return appContext;
 }
+
+// <VizContainer>'s ref handoff. The construction logic lives in bootstrap (it
+// wires the viz controllers into the playback handlers and document listeners),
+// but components reach it through this singleton instead of the bridge prop.
+export type AttachVizNodes = {
+  vizPanel: HTMLElement;
+  vizLayer: HTMLDivElement;
+  canonizerLayer: HTMLDivElement;
+};
+
+let attachVizFn: ((nodes: AttachVizNodes) => void) | null = null;
+
+export function setAttachViz(fn: (nodes: AttachVizNodes) => void): void {
+  attachVizFn = fn;
+}
+
+export function attachViz(nodes: AttachVizNodes): void {
+  attachVizFn?.(nodes);
+}

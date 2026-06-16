@@ -1,13 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { AppBridge } from "../../bridge";
 import {
+  applyExtrasChanges,
+  applyTuningChanges,
+  getExtrasFormValues,
+  getTuningFormValues,
+  resetTuningDefaults,
   setSleepTimer,
   type ExtrasFormValues,
   type TuningFormValues,
 } from "../../playback";
 import { useAppStore } from "../../store";
+import {
+  clearPlaylist,
+  removePlaylistIndex,
+  selectPlaylistIndex,
+} from "../../wire/playlist";
 import { InfoModal } from "./InfoModal";
 import { PlaylistModal } from "./PlaylistModal";
 import { SleepTimerModal } from "./SleepTimerModal";
@@ -15,8 +24,25 @@ import { TuningModal } from "./TuningModal";
 
 vi.mock("../../playback", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../playback")>();
-  return { ...actual, setSleepTimer: vi.fn() };
+  return {
+    ...actual,
+    setSleepTimer: vi.fn(),
+    getTuningFormValues: vi.fn(),
+    applyTuningChanges: vi.fn(),
+    getExtrasFormValues: vi.fn(),
+    applyExtrasChanges: vi.fn(),
+    resetTuningDefaults: vi.fn(),
+    resetExtrasDefaults: vi.fn(),
+  };
 });
+vi.mock("../../wire/playlist", () => ({
+  selectPlaylistIndex: vi.fn(),
+  removePlaylistIndex: vi.fn(),
+  clearPlaylist: vi.fn(),
+}));
+vi.mock("../../runtime", () => ({
+  getAppContext: vi.fn(() => ({})),
+}));
 
 const TUNING_FORM: TuningFormValues = {
   threshold: 45,
@@ -36,39 +62,17 @@ const EXTRAS_FORM: ExtrasFormValues = {
   audioMode: "off",
 };
 
-function createBridge() {
-  return {
-    context: {},
-    listenPanel: {
-      copyShortUrl: vi.fn(),
-      toggleFavorite: vi.fn(),
-      getPendingDelete: vi.fn(),
-      performDelete: vi.fn(async () => {}),
-      getTuningForm: vi.fn(() => ({ ...TUNING_FORM })),
-      applyTuning: vi.fn((form: TuningFormValues) => ({
-        ...form,
-        computedThreshold: 47,
-      })),
-      resetTuning: vi.fn(),
-      getExtrasForm: vi.fn(() => ({ ...EXTRAS_FORM })),
-      applyExtras: vi.fn(() => ({
-        branchStatsChanged: false,
-        audioModeChanged: true,
-      })),
-      resetExtras: vi.fn(() => ({
-        branchStatsChanged: false,
-        audioModeChanged: false,
-      })),
-      playlist: {
-        selectIndex: vi.fn(),
-        removeIndex: vi.fn(),
-        clear: vi.fn(),
-      },
-    },
-  } as unknown as AppBridge;
-}
-
 beforeEach(() => {
+  (getTuningFormValues as Mock).mockReturnValue({ ...TUNING_FORM });
+  (getExtrasFormValues as Mock).mockReturnValue({ ...EXTRAS_FORM });
+  (applyTuningChanges as Mock).mockImplementation((_ctx, form) => ({
+    ...form,
+    computedThreshold: 47,
+  }));
+  (applyExtrasChanges as Mock).mockReturnValue({
+    branchStatsChanged: false,
+    audioModeChanged: true,
+  });
   act(() => {
     useAppStore.setState({
       tuningModalOpen: false,
@@ -94,12 +98,11 @@ afterEach(() => {
 
 describe("TuningModal", () => {
   it("snapshots the form on open and applies it", async () => {
-    const bridge = createBridge();
-    render(<TuningModal bridge={bridge} />);
+    render(<TuningModal />);
     act(() => {
       useAppStore.setState({ tuningModalOpen: true });
     });
-    expect(bridge.listenPanel.getTuningForm).toHaveBeenCalled();
+    expect(getTuningFormValues).toHaveBeenCalled();
     expect(document.getElementById("tuning-modal")?.className).toBe(
       "modal open",
     );
@@ -109,7 +112,8 @@ describe("TuningModal", () => {
     );
 
     await userEvent.click(document.getElementById("tuning-apply")!);
-    expect(bridge.listenPanel.applyTuning).toHaveBeenCalledWith(
+    expect(applyTuningChanges).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({ threshold: 45, minProbPct: 18 }),
     );
     // apply returns updated values which re-render the form
@@ -119,8 +123,7 @@ describe("TuningModal", () => {
   });
 
   it("switches header and panels between tuning and extras", async () => {
-    const bridge = createBridge();
-    render(<TuningModal bridge={bridge} />);
+    render(<TuningModal />);
     act(() => {
       useAppStore.setState({ tuningModalOpen: true });
     });
@@ -149,7 +152,6 @@ describe("TuningModal", () => {
   });
 
   it("hides the extras toggle and forces the tuning tab outside jukebox mode", () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         tuningModalOpen: true,
@@ -157,7 +159,7 @@ describe("TuningModal", () => {
         playMode: "autocanonizer",
       });
     });
-    render(<TuningModal bridge={bridge} />);
+    render(<TuningModal />);
     expect(
       document.getElementById("tuning-tab-toggle")?.classList.contains("hidden"),
     ).toBe(true);
@@ -167,33 +169,31 @@ describe("TuningModal", () => {
   });
 
   it("applies extras and closes", async () => {
-    const bridge = createBridge();
-    render(<TuningModal bridge={bridge} />);
+    render(<TuningModal />);
     act(() => {
       useAppStore.setState({ tuningModalOpen: true, tuningModalTab: "extras" });
     });
     await userEvent.click(screen.getByLabelText("Nightcore"));
     await userEvent.click(document.getElementById("tuning-apply")!);
-    expect(bridge.listenPanel.applyExtras).toHaveBeenCalledWith(
+    expect(applyExtrasChanges).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({ audioMode: "nightcore" }),
     );
     expect(useAppStore.getState().tuningModalOpen).toBe(false);
   });
 
   it("resets tuning and closes", async () => {
-    const bridge = createBridge();
-    render(<TuningModal bridge={bridge} />);
+    render(<TuningModal />);
     act(() => {
       useAppStore.setState({ tuningModalOpen: true });
     });
     await userEvent.click(document.getElementById("tuning-reset")!);
-    expect(bridge.listenPanel.resetTuning).toHaveBeenCalled();
+    expect(resetTuningDefaults).toHaveBeenCalled();
     expect(useAppStore.getState().tuningModalOpen).toBe(false);
   });
 
   it("opens the sleep timer from the header", async () => {
-    const bridge = createBridge();
-    render(<TuningModal bridge={bridge} />);
+    render(<TuningModal />);
     act(() => {
       useAppStore.setState({ tuningModalOpen: true });
     });
@@ -275,14 +275,13 @@ describe("PlaylistModal", () => {
   ];
 
   it("renders tracks and delegates select/remove/clear", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         playlistModalOpen: true,
         playlist: { tracks, currentIndex: 0 },
       });
     });
-    render(<PlaylistModal bridge={bridge} />);
+    render(<PlaylistModal />);
     const items = document.querySelectorAll(".playlist-item");
     expect(items).toHaveLength(2);
     expect(items[0].classList.contains("is-current")).toBe(true);
@@ -290,22 +289,21 @@ describe("PlaylistModal", () => {
       document.querySelectorAll<HTMLButtonElement>(".playlist-select");
     expect(selectButtons[0].disabled).toBe(true);
     await userEvent.click(selectButtons[1]);
-    expect(bridge.listenPanel.playlist.selectIndex).toHaveBeenCalledWith(1);
+    expect(selectPlaylistIndex).toHaveBeenCalledWith(1);
     await userEvent.click(screen.getByLabelText("Remove Song B"));
-    expect(bridge.listenPanel.playlist.removeIndex).toHaveBeenCalledWith(1);
+    expect(removePlaylistIndex).toHaveBeenCalledWith(1);
     await userEvent.click(document.getElementById("playlist-clear")!);
-    expect(bridge.listenPanel.playlist.clear).toHaveBeenCalled();
+    expect(clearPlaylist).toHaveBeenCalled();
   });
 
   it("shows the empty state and disables clear", () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         playlistModalOpen: true,
         playlist: { tracks: [], currentIndex: -1 },
       });
     });
-    render(<PlaylistModal bridge={bridge} />);
+    render(<PlaylistModal />);
     expect(document.getElementById("playlist-list")?.textContent).toBe(
       "No playlist yet.",
     );
@@ -315,14 +313,13 @@ describe("PlaylistModal", () => {
   });
 
   it("closes on Escape", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         playlistModalOpen: true,
         playlist: { tracks, currentIndex: 0 },
       });
     });
-    render(<PlaylistModal bridge={bridge} />);
+    render(<PlaylistModal />);
     await userEvent.keyboard("{Escape}");
     expect(useAppStore.getState().playlistModalOpen).toBe(false);
   });

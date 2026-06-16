@@ -42,9 +42,46 @@ type FavoritesDeps = {
 
 export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
 
+// Module singleton so components reach the favorites flow without the bridge
+// prop. bootstrap registers the instance. See web/TECH_DEBT.md item 1 (Phase 2/3).
+let handlers: FavoritesHandlers | null = null;
+
+export function setFavoritesHandlers(next: FavoritesHandlers): void {
+  handlers = next;
+}
+
+export function toggleFavorite(): void {
+  void handlers?.handleFavoriteToggle();
+}
+
+export function selectFavorite(
+  favoriteId: string,
+  sourceType: FavoriteTrack["sourceType"],
+): void {
+  handlers?.handleFavoriteSelect(favoriteId, sourceType);
+}
+
+export function removeFavoriteWithToast(favoriteId: string): void {
+  handlers?.removeFavoriteWithToast(favoriteId);
+}
+
+export function refreshFavoritesFromSync(): Promise<void> {
+  return handlers?.refreshFavoritesFromSync() ?? Promise.resolve();
+}
+
+export function enterSyncCode(
+  code: string,
+): Promise<"replaced" | "cancelled"> {
+  return handlers?.enterSyncCode(code) ?? Promise.resolve("cancelled");
+}
+
+export function createSyncCode(): Promise<string> {
+  return handlers?.createSyncCode() ?? Promise.resolve("");
+}
+
 // Favorites state machine + the Listen-panel star button. The Top Tracks
 // panel (lists, sync menu, sync modals) is React; it renders from the store
-// and calls into these handlers through bridge.topPanel.
+// and calls into these handlers directly.
 export function createFavoritesHandlers(deps: FavoritesDeps) {
   const {
     context,

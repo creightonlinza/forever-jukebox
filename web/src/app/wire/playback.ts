@@ -39,7 +39,34 @@ type PlaybackUiDeps = {
 
 export type PlaybackUiHandlers = ReturnType<typeof createPlaybackUiHandlers>;
 
+// Module singleton so components reach the playback-UI handlers without the
+// bridge prop. bootstrap registers the instance built in attachViz (it needs
+// the viz controllers). See web/TECH_DEBT.md item 1 (Phase 2).
+let handlers: PlaybackUiHandlers | null = null;
 
+export function setPlaybackUiHandlers(next: PlaybackUiHandlers): void {
+  handlers = next;
+}
+
+export function setPlayMode(mode: "jukebox" | "autocanonizer"): void {
+  handlers?.setPlayMode(mode);
+}
+
+export function setActiveVisualization(index: number): void {
+  handlers?.setActiveVisualization(index);
+}
+
+export function setCanonizerFinish(checked: boolean): void {
+  handlers?.setCanonizerFinish(checked);
+}
+
+export function copyShortUrl(): void {
+  handlers?.handleShortUrlClick();
+}
+
+export function deleteSelectedBranch(): void {
+  handlers?.deleteSelectedBranch();
+}
 
 function formatSignedDuration(seconds: number) {
   return `${seconds >= 0 ? "+" : "-"}${formatDuration(Math.abs(seconds))}`;

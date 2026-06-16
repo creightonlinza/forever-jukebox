@@ -120,7 +120,7 @@ Targets: **import** = direct module-fn import · **action** = zustand store acti
       bootstrap sets it; `attachViz` populates viz controllers through it. *(S, unblocks all)*
 - [x] **Phase 1 — leaf panels:** `Hero.onHeroHomeClick` → action ·
       `TabBar.onTabClick` → action · `SleepTimerModal.setSleepTimer` → import. *(S)*
-- [ ] **Phase 2 — Listen panel:** the template above; delete `ListenPanelBridge`. *(L)*
+- [x] **Phase 2 — Listen panel:** the template above; delete `ListenPanelBridge`. *(L)*
 - [ ] **Phase 3 — Top Tracks:** `selectTrack`, `selectFavorite`, `addToPlaylist`,
       `removeFavorite`, `refreshFavoritesFromSync`, `enterSyncCode`,
       `createSyncCode` → handler (relocate `wire/favorites` + `wire/playlist`);
