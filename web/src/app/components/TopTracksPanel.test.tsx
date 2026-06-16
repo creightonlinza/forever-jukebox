@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { AppBridge } from "../bridge";
 import { useAppStore } from "../store";
 import { TopTracksPanel } from "./TopTracksPanel";
 
@@ -21,19 +20,25 @@ vi.mock("../api", () => ({
   }),
 }));
 
-function createBridge() {
-  return {
-    topPanel: {
-      selectTrack: vi.fn(),
-      selectFavorite: vi.fn(),
-      addToPlaylist: vi.fn(),
-      removeFavorite: vi.fn(),
-      refreshFavoritesFromSync: vi.fn(async () => {}),
-      enterSyncCode: vi.fn(async () => "replaced" as const),
-      createSyncCode: vi.fn(async () => "alpha-bravo-charlie"),
-    },
-  } as unknown as AppBridge;
-}
+const h = vi.hoisted(() => ({
+  selectTrack: vi.fn(),
+  addToPlaylist: vi.fn(),
+  selectFavorite: vi.fn(),
+  removeFavoriteWithToast: vi.fn(),
+  refreshFavoritesFromSync: vi.fn(async () => {}),
+  enterSyncCode: vi.fn(async () => "replaced" as const),
+  createSyncCode: vi.fn(async () => "alpha-bravo-charlie"),
+}));
+
+vi.mock("../wire/track-select", () => ({ selectTrack: h.selectTrack }));
+vi.mock("../wire/playlist", () => ({ addToPlaylist: h.addToPlaylist }));
+vi.mock("../wire/favorites", () => ({
+  selectFavorite: h.selectFavorite,
+  removeFavoriteWithToast: h.removeFavoriteWithToast,
+  refreshFavoritesFromSync: h.refreshFavoritesFromSync,
+  enterSyncCode: h.enterSyncCode,
+  createSyncCode: h.createSyncCode,
+}));
 
 describe("TopTracksPanel", () => {
   beforeEach(() => {
@@ -54,14 +59,13 @@ describe("TopTracksPanel", () => {
   });
 
   it("loads the top list lazily and renders job-id links", async () => {
-    const bridge = createBridge();
-    render(<TopTracksPanel bridge={bridge} />);
+    render(<TopTracksPanel />);
     const link = await screen.findByText("Song — Artist");
     expect(link.getAttribute("href")).toBe(
       "/listen/a3f3c0dc73c6476c9db95c227f9206f2",
     );
     await userEvent.click(link);
-    expect(bridge.topPanel.selectTrack).toHaveBeenCalledWith(
+    expect(h.selectTrack).toHaveBeenCalledWith(
       "a3f3c0dc73c6476c9db95c227f9206f2",
       expect.objectContaining({
         id: "a3f3c0dc73c6476c9db95c227f9206f2",
@@ -72,19 +76,17 @@ describe("TopTracksPanel", () => {
   });
 
   it("adds rows to the playlist", async () => {
-    const bridge = createBridge();
-    render(<TopTracksPanel bridge={bridge} />);
+    render(<TopTracksPanel />);
     await screen.findByText("Song — Artist");
     await userEvent.click(screen.getByLabelText("Add Song to playlist"));
-    expect(bridge.topPanel.addToPlaylist).toHaveBeenCalledWith(
+    expect(h.addToPlaylist).toHaveBeenCalledWith(
       expect.objectContaining({ id: "a3f3c0dc73c6476c9db95c227f9206f2" }),
     );
-    expect(bridge.topPanel.selectTrack).not.toHaveBeenCalled();
+    expect(h.selectTrack).not.toHaveBeenCalled();
   });
 
   it("updates the title and refresh control per subtab", async () => {
-    const bridge = createBridge();
-    render(<TopTracksPanel bridge={bridge} />);
+    render(<TopTracksPanel />);
     const title = document.getElementById("top-list-title");
     const refresh = document.getElementById("top-list-refresh");
     expect(title?.textContent).toBe("Top 25");
@@ -108,8 +110,7 @@ describe("TopTracksPanel", () => {
   });
 
   it("shows an error message when a list fails to load", async () => {
-    const bridge = createBridge();
-    render(<TopTracksPanel bridge={bridge} />);
+    render(<TopTracksPanel />);
     act(() => {
       useAppStore.setState({ topSongsTab: "recent" });
     });
@@ -122,8 +123,7 @@ describe("TopTracksPanel", () => {
 
   it("refreshes the active list on demand", async () => {
     const api = await import("../api");
-    const bridge = createBridge();
-    render(<TopTracksPanel bridge={bridge} />);
+    render(<TopTracksPanel />);
     await screen.findByText("Song — Artist");
     expect(api.fetchTopSongs).toHaveBeenCalledTimes(1);
     await userEvent.click(document.getElementById("top-list-refresh")!);
@@ -133,7 +133,6 @@ describe("TopTracksPanel", () => {
   });
 
   it("renders, filters, sorts and removes favorites", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         topSongsTab: "favorites",
@@ -156,7 +155,7 @@ describe("TopTracksPanel", () => {
         ],
       });
     });
-    render(<TopTracksPanel bridge={bridge} />);
+    render(<TopTracksPanel />);
     const rows = () =>
       Array.from(document.querySelectorAll(".favorite-row")).map(
         (row) => row.querySelector("a")?.textContent?.trim(),
@@ -177,7 +176,7 @@ describe("TopTracksPanel", () => {
 
     // select a row
     await userEvent.click(screen.getByText("Alpha"));
-    expect(bridge.topPanel.selectFavorite).toHaveBeenCalledWith(
+    expect(h.selectFavorite).toHaveBeenCalledWith(
       "fav1",
       "youtube",
     );
@@ -186,11 +185,10 @@ describe("TopTracksPanel", () => {
     await userEvent.click(
       screen.getByLabelText("Remove Alpha from Favorites"),
     );
-    expect(bridge.topPanel.removeFavorite).toHaveBeenCalledWith("fav1");
+    expect(h.removeFavoriteWithToast).toHaveBeenCalledWith("fav1");
   });
 
   it("shows sync controls only on favorites with sync allowed", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         topSongsTab: "favorites",
@@ -198,7 +196,7 @@ describe("TopTracksPanel", () => {
         favoritesSyncCode: null,
       });
     });
-    render(<TopTracksPanel bridge={bridge} />);
+    render(<TopTracksPanel />);
     const syncButton = document.getElementById("favorites-sync-button")!;
     expect(syncButton.classList.contains("hidden")).toBe(false);
     expect(syncButton.querySelector(".favorites-sync-icon")?.textContent).toBe(
@@ -233,7 +231,6 @@ describe("TopTracksPanel", () => {
   });
 
   it("submits a sync code through the enter modal", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         topSongsTab: "favorites",
@@ -241,7 +238,7 @@ describe("TopTracksPanel", () => {
         favoritesSyncCode: "old-code-here",
       });
     });
-    render(<TopTracksPanel bridge={bridge} />);
+    render(<TopTracksPanel />);
     await userEvent.click(document.getElementById("favorites-sync-button")!);
     await userEvent.click(
       document.querySelector('[data-favorites-sync="enter"]')!,
@@ -256,7 +253,7 @@ describe("TopTracksPanel", () => {
       document.getElementById("favorites-sync-enter-button")!,
     );
     await waitFor(() => {
-      expect(bridge.topPanel.enterSyncCode).toHaveBeenCalledWith(
+      expect(h.enterSyncCode).toHaveBeenCalledWith(
         "alpha-bravo-charlie",
       );
       expect(enterModal.classList.contains("open")).toBe(false);

@@ -1,22 +1,5 @@
 import type { AppContext } from "./context";
-import type { FavoriteTrack } from "./favorites";
-import type { PlaylistTrack } from "./playlist";
 import type { ThemeName } from "./themeConfig";
-
-// Actions the React Top Tracks panel delegates to the imperative flow
-// modules (track loading, playlist, favorites sync state machine).
-export type TopPanelBridge = {
-  selectTrack: (trackId: string, selectedTrack: PlaylistTrack | null) => void;
-  selectFavorite: (
-    favoriteId: string,
-    sourceType: FavoriteTrack["sourceType"],
-  ) => void;
-  addToPlaylist: (track: PlaylistTrack) => void;
-  removeFavorite: (favoriteId: string) => void;
-  refreshFavoritesFromSync: () => Promise<void>;
-  enterSyncCode: (code: string) => Promise<"replaced" | "cancelled">;
-  createSyncCode: () => Promise<string>;
-};
 
 // Actions the React Search/Upload panel delegates to the search/upload flows.
 export type SearchPanelBridge = {
@@ -54,6 +37,5 @@ export type AppBridge = {
     keydown: Array<(event: KeyboardEvent) => void>;
     keyup: Array<(event: KeyboardEvent) => void>;
   };
-  topPanel: TopPanelBridge;
   searchPanel: SearchPanelBridge;
 };

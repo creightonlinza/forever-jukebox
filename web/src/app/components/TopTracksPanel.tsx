@@ -6,7 +6,6 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
-import type { AppBridge } from "../bridge";
 import { fetchRecentSongs, fetchTopSongs, fetchTrendingSongs } from "../api";
 import { TOP_SONGS_LIMIT } from "../constants";
 import { formatErrorForDisplay } from "../errorDisplay";
@@ -24,6 +23,15 @@ import { Modal, ModalHeader } from "./Modal";
 import { useAppStore } from "../store";
 import { urlForTrack } from "../tabs";
 import { blurMouseActivatedControl } from "../ui";
+import {
+  createSyncCode,
+  enterSyncCode,
+  refreshFavoritesFromSync,
+  removeFavoriteWithToast,
+  selectFavorite,
+} from "../wire/favorites";
+import { addToPlaylist } from "../wire/playlist";
+import { selectTrack } from "../wire/track-select";
 
 type TopSongsTabId = "top" | "trending" | "recent" | "favorites";
 type LazyTabId = Exclude<TopSongsTabId, "favorites">;
@@ -114,12 +122,10 @@ function SongList({
   tabId,
   state,
   hidden,
-  bridge,
 }: {
   tabId: LazyTabId;
   state: ListState;
   hidden: boolean;
-  bridge: AppBridge;
 }) {
   const config = LIST_CONFIG[tabId];
   const className = hidden ? "top-list hidden" : "top-list";
@@ -162,15 +168,12 @@ function SongList({
               data-track-artist={artist}
               onClick={(event) => {
                 event.preventDefault();
-                bridge.topPanel.selectTrack(listenId, playlistTrack);
+                selectTrack(listenId, playlistTrack);
               }}
             >
               {label}
             </a>
-            <PlaylistAddButton
-              track={playlistTrack}
-              onAdd={bridge.topPanel.addToPlaylist}
-            />
+            <PlaylistAddButton track={playlistTrack} onAdd={addToPlaylist} />
           </li>
         );
       })}
@@ -178,13 +181,7 @@ function SongList({
   );
 }
 
-function FavoritesList({
-  query,
-  bridge,
-}: {
-  query: string;
-  bridge: AppBridge;
-}) {
+function FavoritesList({ query }: { query: string }) {
   const favorites = useAppStore((s) => s.favorites);
   const [sort, setSort] = useState<FavoritesDisplaySort>({
     key: "title",
@@ -200,10 +197,7 @@ function FavoritesList({
   };
 
   const select = (item: FavoriteTrack) => {
-    bridge.topPanel.selectFavorite(
-      item.uniqueSongId,
-      item.sourceType ?? "youtube",
-    );
+    selectFavorite(item.uniqueSongId, item.sourceType ?? "youtube");
   };
 
   const trimmedQuery = query.trim();
@@ -326,7 +320,7 @@ function FavoritesList({
               <td className="favorite-remove-cell">
                 <PlaylistAddButton
                   track={favoriteToPlaylistTrack(item, sourceType)}
-                  onAdd={bridge.topPanel.addToPlaylist}
+                  onAdd={addToPlaylist}
                 />
                 <button
                   type="button"
@@ -336,7 +330,7 @@ function FavoritesList({
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    bridge.topPanel.removeFavorite(item.uniqueSongId);
+                    removeFavoriteWithToast(item.uniqueSongId);
                   }}
                 >
                   <span
@@ -358,11 +352,9 @@ function FavoritesList({
 function FavoritesSyncEnterModal({
   open,
   onClose,
-  bridge,
 }: {
   open: boolean;
   onClose: () => void;
-  bridge: AppBridge;
 }) {
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(
@@ -389,7 +381,7 @@ function FavoritesSyncEnterModal({
     setBusy(true);
     setStatus({ text: "Syncing favorites...", error: false });
     try {
-      const result = await bridge.topPanel.enterSyncCode(code);
+      const result = await enterSyncCode(code);
       if (result === "replaced") {
         setStatus({ text: "Favorites updated.", error: false });
         onClose();
@@ -463,11 +455,9 @@ function FavoritesSyncEnterModal({
 function FavoritesSyncCreateModal({
   open,
   onClose,
-  bridge,
 }: {
   open: boolean;
   onClose: () => void;
-  bridge: AppBridge;
 }) {
   const existingCode = useAppStore((s) => s.favoritesSyncCode);
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(
@@ -495,7 +485,7 @@ function FavoritesSyncCreateModal({
     setButtonHidden(true);
     setStatus({ text: "Creating sync code...", error: false });
     try {
-      const code = await bridge.topPanel.createSyncCode();
+      const code = await createSyncCode();
       setOutput(code);
       setStatus(null);
     } catch (err) {
@@ -553,13 +543,7 @@ function FavoritesSyncCreateModal({
   );
 }
 
-function FavoritesSyncControls({
-  bridge,
-  visible,
-}: {
-  bridge: AppBridge;
-  visible: boolean;
-}) {
+function FavoritesSyncControls({ visible }: { visible: boolean }) {
   const syncCode = useAppStore((s) => s.favoritesSyncCode);
   const [menuOpen, setMenuOpen] = useState(false);
   const [enterOpen, setEnterOpen] = useState(false);
@@ -592,7 +576,7 @@ function FavoritesSyncControls({
   const handleItem = (action: "refresh" | "create" | "enter") => {
     setMenuOpen(false);
     if (action === "refresh") {
-      void bridge.topPanel.refreshFavoritesFromSync();
+      void refreshFavoritesFromSync();
     } else if (action === "create") {
       setEnterOpen(false);
       setCreateOpen(true);
@@ -664,18 +648,16 @@ function FavoritesSyncControls({
       <FavoritesSyncEnterModal
         open={enterOpen}
         onClose={() => setEnterOpen(false)}
-        bridge={bridge}
       />
       <FavoritesSyncCreateModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        bridge={bridge}
       />
     </>
   );
 }
 
-export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
+export function TopTracksPanel() {
   const activeTab = useAppStore((s) => s.activeTabId);
   const subtab = useAppStore((s) => s.topSongsTab);
   const allowSync = useAppStore((s) =>
@@ -817,7 +799,6 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
           </span>
         </button>
         <FavoritesSyncControls
-          bridge={bridge}
           visible={subtab === "favorites" && allowSync}
         />
         <div
@@ -840,23 +821,16 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
           />
         </div>
       </div>
-      <SongList
-        tabId="top"
-        state={lists.top}
-        hidden={subtab !== "top"}
-        bridge={bridge}
-      />
+      <SongList tabId="top" state={lists.top} hidden={subtab !== "top"} />
       <SongList
         tabId="trending"
         state={lists.trending}
         hidden={subtab !== "trending"}
-        bridge={bridge}
       />
       <SongList
         tabId="recent"
         state={lists.recent}
         hidden={subtab !== "recent"}
-        bridge={bridge}
       />
       <div
         className={
@@ -864,7 +838,7 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
         }
         id="favorites-list"
       >
-        <FavoritesList query={query} bridge={bridge} />
+        <FavoritesList query={query} />
       </div>
     </section>
   );

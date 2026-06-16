@@ -54,6 +54,7 @@ import {
   type PlaylistHandlers,
 } from "./wire/playlist";
 import { createDeleteJobHandlers, setDeleteJobHandlers } from "./wire/delete-job";
+import { setSelectTrack } from "./wire/track-select";
 import { createAppConfigHandlers } from "./wire/app-config";
 import type { AppBridge } from "./bridge";
 import { useAppStore } from "./store";
@@ -295,24 +296,14 @@ export function bootstrap(): AppBridge {
     });
   };
 
-  const topPanel = {
-    selectTrack: (trackId: string, selectedTrack: PlaylistTrack | null) => {
-      navigationHandlers.navigateToTabWithState("play", { trackId });
-      if (isLikelyJobId(trackId)) {
-        void loadTrackByJobId(context, playbackDeps, trackId, { selectedTrack });
-        return;
-      }
-      void loadTrackById(context, playbackDeps, trackId, { selectedTrack });
-    },
-    selectFavorite: favoritesHandlers.handleFavoriteSelect,
-    addToPlaylist: (track: PlaylistTrack) => {
-      playlistHandlers?.handleAddToPlaylist(track);
-    },
-    removeFavorite: favoritesHandlers.removeFavoriteWithToast,
-    refreshFavoritesFromSync: favoritesHandlers.refreshFavoritesFromSync,
-    enterSyncCode: favoritesHandlers.enterSyncCode,
-    createSyncCode: favoritesHandlers.createSyncCode,
-  };
+  setSelectTrack((trackId, selectedTrack) => {
+    navigationHandlers.navigateToTabWithState("play", { trackId });
+    if (isLikelyJobId(trackId)) {
+      void loadTrackByJobId(context, playbackDeps, trackId, { selectedTrack });
+      return;
+    }
+    void loadTrackById(context, playbackDeps, trackId, { selectedTrack });
+  });
 
   const searchPanel = {
     runSearch: () => runSearch(context, searchDeps),
@@ -340,7 +331,6 @@ export function bootstrap(): AppBridge {
     applyTheme: (theme) => {
       applyTheme(context, theme);
     },
-    topPanel,
     searchPanel,
   };
 }

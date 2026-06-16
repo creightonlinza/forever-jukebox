@@ -121,7 +121,7 @@ Targets: **import** = direct module-fn import · **action** = zustand store acti
 - [x] **Phase 1 — leaf panels:** `Hero.onHeroHomeClick` → action ·
       `TabBar.onTabClick` → action · `SleepTimerModal.setSleepTimer` → import. *(S)*
 - [x] **Phase 2 — Listen panel:** the template above; delete `ListenPanelBridge`. *(L)*
-- [ ] **Phase 3 — Top Tracks:** `selectTrack`, `selectFavorite`, `addToPlaylist`,
+- [x] **Phase 3 — Top Tracks:** `selectTrack`, `selectFavorite`, `addToPlaylist`,
       `removeFavorite`, `refreshFavoritesFromSync`, `enterSyncCode`,
       `createSyncCode` → handler (relocate `wire/favorites` + `wire/playlist`);
       delete `TopPanelBridge`. *(M)*
