@@ -44,6 +44,7 @@ import {
 import { runSearch, selectSpotifyMatch, selectYoutubeMatch } from "./search";
 import { uploadAudioFile, uploadFromUrl, type UploadDeps } from "./upload";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
+import { setAppRuntime } from "./runtime";
 import type { AppContext, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers } from "./wire/favorites";
@@ -106,6 +107,11 @@ export function bootstrap(): AppBridge {
     cowbellOverlay,
     defaultConfig,
   };
+  // Expose the runtime singletons via the module-singleton keystone so flows
+  // and components can reach them without the bridge prop. attachViz (below)
+  // mutates this same `context`, so the viz controllers become visible through
+  // getAppContext() once they're attached. See web/TECH_DEBT.md item 1.
+  setAppRuntime(context);
   let playlistHandlers: PlaylistHandlers | null = null;
   const handleNormalTrackSelected = (track: PlaylistTrack) => {
     playlistHandlers?.handleNormalTrackSelected(track);
