@@ -1,13 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AppBridge } from "../../bridge";
-import type { ExtrasFormValues, TuningFormValues } from "../../playback";
+import {
+  setSleepTimer,
+  type ExtrasFormValues,
+  type TuningFormValues,
+} from "../../playback";
 import { useAppStore } from "../../store";
 import { InfoModal } from "./InfoModal";
 import { PlaylistModal } from "./PlaylistModal";
 import { SleepTimerModal } from "./SleepTimerModal";
 import { TuningModal } from "./TuningModal";
+
+vi.mock("../../playback", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../playback")>();
+  return { ...actual, setSleepTimer: vi.fn() };
+});
 
 const TUNING_FORM: TuningFormValues = {
   threshold: 45,
@@ -50,7 +59,6 @@ function createBridge() {
         branchStatsChanged: false,
         audioModeChanged: false,
       })),
-      setSleepTimer: vi.fn(),
       playlist: {
         selectIndex: vi.fn(),
         removeIndex: vi.fn(),
@@ -196,8 +204,8 @@ describe("TuningModal", () => {
 
 describe("SleepTimerModal", () => {
   it("shows the countdown and sets a pending duration", async () => {
-    const bridge = createBridge();
-    render(<SleepTimerModal bridge={bridge} />);
+    (setSleepTimer as Mock).mockClear();
+    render(<SleepTimerModal />);
     act(() => {
       useAppStore.setState({
         sleepTimerModalOpen: true,
@@ -216,12 +224,11 @@ describe("SleepTimerModal", () => {
       "1800000",
     );
     await userEvent.click(document.getElementById("sleep-timer-set")!);
-    expect(bridge.listenPanel.setSleepTimer).toHaveBeenCalledWith(1800000);
+    expect(setSleepTimer).toHaveBeenCalledWith(1800000);
     expect(useAppStore.getState().sleepTimerModalOpen).toBe(false);
   });
 
   it("renders the remaining countdown from the store", () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         sleepTimerModalOpen: true,
@@ -232,7 +239,7 @@ describe("SleepTimerModal", () => {
         },
       });
     });
-    render(<SleepTimerModal bridge={bridge} />);
+    render(<SleepTimerModal />);
     expect(document.getElementById("sleep-timer-current")?.textContent).toBe(
       "Current countdown: 00:01:05",
     );

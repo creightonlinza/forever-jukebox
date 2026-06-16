@@ -1,5 +1,6 @@
 import type { AppContext, SleepTimerState } from "../context";
 import { useAppStore } from "../store";
+import { getAppContext } from "../runtime";
 import {
   backgroundClearTimeout,
   backgroundSetTimeout,
@@ -105,10 +106,8 @@ function scheduleSleepTimerTick(context: AppContext, expectedEndTimeMs: number) 
   useAppStore.setState({ sleepTimerTimeoutId: timeoutId });
 }
 
-export function setSleepTimer(
-  context: AppContext,
-  durationMs: number | null,
-) {
+export function setSleepTimer(durationMs: number | null) {
+  const context = getAppContext();
   clearSleepTimerTimeout();
   if (
     durationMs === null ||

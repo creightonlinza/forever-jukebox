@@ -118,7 +118,7 @@ Targets: **import** = direct module-fn import · **action** = zustand store acti
 
 - [x] **Phase 0 — keystone:** `runtime.ts` (`setAppRuntime`/`getAppContext`);
       bootstrap sets it; `attachViz` populates viz controllers through it. *(S, unblocks all)*
-- [ ] **Phase 1 — leaf panels:** `Hero.onHeroHomeClick` → action ·
+- [x] **Phase 1 — leaf panels:** `Hero.onHeroHomeClick` → action ·
       `TabBar.onTabClick` → action · `SleepTimerModal.setSleepTimer` → import. *(S)*
 - [ ] **Phase 2 — Listen panel:** the template above; delete `ListenPanelBridge`. *(L)*
 - [ ] **Phase 3 — Top Tracks:** `selectTrack`, `selectFavorite`, `addToPlaylist`,

@@ -35,7 +35,6 @@ import {
   pollAnalysis,
   resetForNewTrack,
   setMasterVolume,
-  setSleepTimer,
   togglePlayback,
   updateVizVisibility,
   type ExtrasFormValues,
@@ -288,16 +287,6 @@ export function bootstrap(): AppBridge {
     });
   };
 
-  const onTabClick = (tabId: TabId) => {
-    if (tabId === "top") {
-      useAppStore.setState({ topSongsTab: "top" });
-    }
-    if (tabId === "search") {
-      useAppStore.setState({ searchTab: "search" });
-    }
-    navigationHandlers.navigateToTabWithState(tabId);
-  };
-
   const topPanel = {
     selectTrack: (trackId: string, selectedTrack: PlaylistTrack | null) => {
       navigationHandlers.navigateToTabWithState("play", { trackId });
@@ -349,8 +338,6 @@ export function bootstrap(): AppBridge {
     applyExtras: (values: ExtrasFormValues) =>
       applyExtrasChanges(context, values),
     resetExtras: () => resetExtrasDefaults(context),
-    setSleepTimer: (durationMs: number | null) =>
-      setSleepTimer(context, durationMs),
     togglePlayback: () => togglePlayback(context),
     setPlayMode: (mode: "jukebox" | "autocanonizer") =>
       playbackHandlers?.setPlayMode(mode),
@@ -375,13 +362,9 @@ export function bootstrap(): AppBridge {
   return {
     context,
     handleRoute,
-    onTabClick,
     hotkeys: {
       keydown: [(event) => playbackHandlers?.handleKeydown(event)],
       keyup: [(event) => playbackHandlers?.handleKeyup(event)],
-    },
-    onHeroHomeClick: () => {
-      navigationHandlers.navigateToTabWithState("top");
     },
     applyTheme: (theme) => {
       applyTheme(context, theme);

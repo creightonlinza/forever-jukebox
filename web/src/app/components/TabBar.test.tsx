@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useAppStore } from "../store";
@@ -16,7 +16,7 @@ describe("TabBar", () => {
   });
 
   it("renders the four tabs and the offline link", () => {
-    render(<TabBar bridge={{ onTabClick: vi.fn() }} />);
+    render(<TabBar />);
     expect(screen.getByText("Top Tracks")).toBeTruthy();
     expect(screen.getByText("Search")).toBeTruthy();
     expect(screen.getByText("Listen")).toBeTruthy();
@@ -27,7 +27,7 @@ describe("TabBar", () => {
   });
 
   it("marks the active tab from the store", () => {
-    render(<TabBar bridge={{ onTabClick: vi.fn() }} />);
+    render(<TabBar />);
     const topButton = screen.getByText("Top Tracks").closest("button");
     const searchButton = screen.getByText("Search").closest("button");
     expect(topButton?.className).toContain("active");
@@ -40,7 +40,7 @@ describe("TabBar", () => {
   });
 
   it("pulses the Listen tab while audio runs on other tabs", () => {
-    render(<TabBar bridge={{ onTabClick: vi.fn() }} />);
+    render(<TabBar />);
     const playButton = screen.getByText("Listen").closest("button");
     expect(playButton?.className).not.toContain("is-playing");
     act(() => {
@@ -49,12 +49,13 @@ describe("TabBar", () => {
     expect(playButton?.className).toContain("is-playing");
   });
 
-  it("delegates clicks to the bridge", async () => {
-    const onTabClick = vi.fn();
-    render(<TabBar bridge={{ onTabClick }} />);
+  it("navigates via the store's selectTab action on click", async () => {
+    render(<TabBar />);
     await userEvent.click(screen.getByText("Search"));
-    expect(onTabClick).toHaveBeenCalledWith("search");
+    expect(useAppStore.getState().activeTabId).toBe("search");
+    expect(window.location.pathname).toBe("/search");
     await userEvent.click(screen.getByText("FAQ"));
-    expect(onTabClick).toHaveBeenCalledWith("faq");
+    expect(useAppStore.getState().activeTabId).toBe("faq");
+    expect(window.location.pathname).toBe("/faq");
   });
 });

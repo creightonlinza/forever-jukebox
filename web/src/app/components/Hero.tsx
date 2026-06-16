@@ -1,4 +1,3 @@
-import type { AppBridge } from "../bridge";
 import { useAppStore } from "../store";
 import { TabBar } from "./TabBar";
 
@@ -97,7 +96,8 @@ function HeroSocials() {
   );
 }
 
-export function Hero({ bridge }: { bridge: Pick<AppBridge, "onTabClick" | "onHeroHomeClick"> }) {
+export function Hero() {
+  const goHome = useAppStore((s) => s.goHome);
   return (
     <header className="hero">
       <div className="hero-actions">
@@ -110,13 +110,13 @@ export function Hero({ bridge }: { bridge: Pick<AppBridge, "onTabClick" | "onHer
           className="hero-title"
           type="button"
           aria-label="Go to Top Tracks"
-          onClick={() => bridge.onHeroHomeClick()}
+          onClick={() => goHome()}
         >
           <h1 className="hero-title-neon">
             THE FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
           </h1>
         </button>
-        <TabBar bridge={bridge} />
+        <TabBar />
       </div>
     </header>
   );

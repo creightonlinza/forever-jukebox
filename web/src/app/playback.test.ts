@@ -23,6 +23,7 @@ import {
   updateListenTimeDisplay,
   type TuningFormValues,
 } from "./playback";
+import { setAppRuntime } from "./runtime";
 import { useAppStore } from "./store";
 import { showToast } from "./ui";
 import { createPlaybackUiHandlers } from "./wire/playback";
@@ -204,7 +205,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     setVolume: vi.fn(),
     dispose: vi.fn(),
   };
-  return {
+  const context: AppContext = {
     engine: engine as unknown as AppContext["engine"],
     player: player as unknown as AppContext["player"],
     autocanonizer: autocanonizer as unknown as AppContext["autocanonizer"],
@@ -213,6 +214,10 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     defaultConfig: engineConfig as unknown as AppContext["defaultConfig"],
     ...overrides,
   };
+  // Flows that read the runtime singleton (e.g. setSleepTimer) resolve to this
+  // test's context.
+  setAppRuntime(context);
+  return context;
 }
 
 function formValues(
@@ -885,11 +890,11 @@ describe("playback timers", () => {
 
   it("maps null, zero, negative, and unknown sleep timer durations to off", () => {
     setupSleepTimerClock();
-    const context = createContext();
+    createContext();
 
     for (const durationMs of [null, 0, -1, Number.NaN]) {
-      setSleepTimer(context, 30 * 60 * 1000);
-      setSleepTimer(context, durationMs);
+      setSleepTimer(30 * 60 * 1000);
+      setSleepTimer(durationMs);
 
       expect(useAppStore.getState().sleepTimer).toEqual({
         configuredDurationMs: null,
@@ -902,9 +907,9 @@ describe("playback timers", () => {
 
   it("sets sleep timer state from monotonic time", () => {
     setupSleepTimerClock(5000);
-    const context = createContext();
+    createContext();
 
-    setSleepTimer(context, 15 * 60 * 1000);
+    setSleepTimer(15 * 60 * 1000);
 
     expect(useAppStore.getState().sleepTimer).toEqual({
       configuredDurationMs: 15 * 60 * 1000,
@@ -919,8 +924,8 @@ describe("playback timers", () => {
     const context = createContext();
     useAppStore.setState({ isRunning: true });
 
-    setSleepTimer(context, 1000);
-    setSleepTimer(context, 5000);
+    setSleepTimer(1000);
+    setSleepTimer(5000);
     clock.setNow(2000);
     vi.advanceTimersByTime(1000);
 
@@ -942,7 +947,7 @@ describe("playback timers", () => {
     useAppStore.setState({ playTimerMs: 1234 });
     useAppStore.setState({ beatsPlayedText: "8" });
 
-    setSleepTimer(context, 1000);
+    setSleepTimer(1000);
     clock.setNow(2000);
     vi.advanceTimersByTime(1000);
 
@@ -963,7 +968,7 @@ describe("playback timers", () => {
     const context = createContext();
     useAppStore.setState({ isRunning: true });
 
-    setSleepTimer(context, 1500);
+    setSleepTimer(1500);
     clock.setNow(2000);
     vi.advanceTimersByTime(1000);
 

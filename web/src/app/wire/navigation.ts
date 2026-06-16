@@ -1,10 +1,12 @@
 import type { TabId } from "../context";
 import { useAppStore } from "../store";
-import { navigateToTab } from "../tabs";
-import { getTuningParamsStringFromUrl } from "../tuning";
 
 export type NavigationHandlers = ReturnType<typeof createNavigationHandlers>;
 
+// Thin shim over the store's navigation actions, kept so the imperative flows
+// (wire/*) can keep receiving navigation as injected deps until they're folded.
+// The single implementation now lives in the store (see store.ts navigation
+// actions / web/TECH_DEBT.md item 1).
 export function createNavigationHandlers() {
 
   function getCurrentTrackId() {
@@ -15,19 +17,9 @@ export function createNavigationHandlers() {
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
   ) {
-    setActiveTabWithRefresh(tabId);
-    const tuningParams = useAppStore.getState().tuningParams ?? getTuningParamsStringFromUrl();
-    navigateToTab(
-      tabId,
-      options,
-      getCurrentTrackId(),
-      tuningParams,
-      useAppStore.getState().playMode,
-    );
+    useAppStore.getState().navigateToTabWithState(tabId, options);
   }
 
-  // Tab visibility side effects now run in the React shell, keyed on the
-  // store's activeTab (see AppRoot's useTabEffects).
   function setActiveTabWithRefresh(tabId: TabId) {
     useAppStore.getState().setActiveTab(tabId);
   }

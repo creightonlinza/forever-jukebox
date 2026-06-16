@@ -4,6 +4,8 @@ import type { AppState, SleepTimerState, TabId } from "./context";
 import type { ThemeName } from "./themeConfig";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
 import { emptyPlaylist } from "./playlist";
+import { navigateToTab } from "./tabs";
+import { getTuningParamsStringFromUrl } from "./tuning";
 
 export type FooterCredit = {
   hostedByName: string | null;
@@ -83,6 +85,16 @@ type Actions = {
   setTheme: (theme: ThemeName) => void;
   setPlayTabPulsing: (pulsing: boolean) => void;
   setFooterCredit: (credit: FooterCredit | null) => void;
+  // Navigation drives react-router (via tabs.ts) and the activeTab store state
+  // together, so components dispatch navigation as a store action instead of
+  // through the bridge. wire/navigation delegates to these. See
+  // web/TECH_DEBT.md item 1 (Phase 1).
+  navigateToTabWithState: (
+    tabId: TabId,
+    options?: { replace?: boolean; trackId?: string | null },
+  ) => void;
+  selectTab: (tabId: TabId) => void;
+  goHome: () => void;
 };
 
 export type AppStoreState = AppState & ShellSlice & Actions;
@@ -129,7 +141,7 @@ const createUiSlice: Slice<
     | "branchStats"
   > &
     Actions
-> = (set) => ({
+> = (set, get) => ({
   activeTabId: "top",
   topSongsTab: "top",
   searchTab: "search",
@@ -169,6 +181,24 @@ const createUiSlice: Slice<
   setTheme: (theme) => set({ theme }),
   setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),
   setFooterCredit: (footerCredit) => set({ footerCredit }),
+  navigateToTabWithState: (tabId, options) => {
+    get().setActiveTab(tabId);
+    const state = get();
+    const tuningParams = state.tuningParams ?? getTuningParamsStringFromUrl();
+    navigateToTab(
+      tabId,
+      options,
+      state.lastTrackId ?? state.lastJobId,
+      tuningParams,
+      state.playMode,
+    );
+  },
+  selectTab: (tabId) => {
+    if (tabId === "top") set({ topSongsTab: "top" });
+    if (tabId === "search") set({ searchTab: "search" });
+    get().navigateToTabWithState(tabId);
+  },
+  goHome: () => get().navigateToTabWithState("top"),
 });
 
 const defaultSleepTimer: SleepTimerState = {

@@ -98,7 +98,7 @@ export function AppRoot({ bridge }: { bridge: AppBridge }) {
   usePlaylistAddEnabled();
   return (
     <>
-      <Hero bridge={bridge} />
+      <Hero />
       <TopTracksPanel bridge={bridge} />
       <SearchPanel bridge={bridge} />
       <ListenPanel bridge={bridge} />
@@ -106,7 +106,7 @@ export function AppRoot({ bridge }: { bridge: AppBridge }) {
       <Footer />
       <Toast />
       <TuningModal bridge={bridge} />
-      <SleepTimerModal bridge={bridge} />
+      <SleepTimerModal />
       <InfoModal />
       <PlaylistModal bridge={bridge} />
     </>

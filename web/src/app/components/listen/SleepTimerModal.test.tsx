@@ -1,18 +1,17 @@
 import { Profiler } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { AppBridge } from "../../bridge";
+import { setSleepTimer } from "../../playback";
 import { useAppStore } from "../../store";
 import { SleepTimerModal } from "./SleepTimerModal";
 
-const FIFTEEN_MIN = 15 * 60 * 1000;
+vi.mock("../../playback", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../playback")>();
+  return { ...actual, setSleepTimer: vi.fn() };
+});
 
-function createBridge() {
-  return {
-    listenPanel: { setSleepTimer: vi.fn() },
-  } as unknown as AppBridge;
-}
+const FIFTEEN_MIN = 15 * 60 * 1000;
 
 function select() {
   return document.getElementById("sleep-timer-select") as HTMLSelectElement;
@@ -46,7 +45,7 @@ describe("SleepTimerModal", () => {
         },
       });
     });
-    render(<SleepTimerModal bridge={createBridge()} />);
+    render(<SleepTimerModal />);
     act(() => {
       useAppStore.setState({ sleepTimerModalOpen: true });
     });
@@ -54,7 +53,7 @@ describe("SleepTimerModal", () => {
   });
 
   it("resets the pending select when the configured timer changes externally while open", () => {
-    render(<SleepTimerModal bridge={createBridge()} />);
+    render(<SleepTimerModal />);
     act(() => {
       useAppStore.setState({ sleepTimerModalOpen: true });
     });
@@ -86,7 +85,7 @@ describe("SleepTimerModal", () => {
   });
 
   it("keeps an unsaved selection when only the countdown ticks", () => {
-    render(<SleepTimerModal bridge={createBridge()} />);
+    render(<SleepTimerModal />);
     act(() => {
       useAppStore.setState({
         sleepTimerModalOpen: true,
@@ -122,7 +121,7 @@ describe("SleepTimerModal", () => {
     let renders = 0;
     render(
       <Profiler id="sleep-timer" onRender={() => (renders += 1)}>
-        <SleepTimerModal bridge={createBridge()} />
+        <SleepTimerModal />
       </Profiler>,
     );
     // Configuring the timer is allowed to re-render once (configured changed).
@@ -149,15 +148,15 @@ describe("SleepTimerModal", () => {
     expect(renders).toBe(afterConfigure);
   });
 
-  it("sets the chosen timer through the bridge", async () => {
-    const bridge = createBridge();
-    render(<SleepTimerModal bridge={bridge} />);
+  it("sets the chosen timer via the playback action", async () => {
+    (setSleepTimer as Mock).mockClear();
+    render(<SleepTimerModal />);
     act(() => {
       useAppStore.setState({ sleepTimerModalOpen: true });
     });
     await userEvent.selectOptions(select(), String(FIFTEEN_MIN));
     await userEvent.click(document.getElementById("sleep-timer-set")!);
-    expect(bridge.listenPanel.setSleepTimer).toHaveBeenCalledWith(FIFTEEN_MIN);
+    expect(setSleepTimer).toHaveBeenCalledWith(FIFTEEN_MIN);
     expect(useAppStore.getState().sleepTimerModalOpen).toBe(false);
   });
 });

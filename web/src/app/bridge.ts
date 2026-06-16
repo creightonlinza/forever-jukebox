@@ -1,4 +1,4 @@
-import type { AppContext, TabId } from "./context";
+import type { AppContext } from "./context";
 import type { FavoriteTrack } from "./favorites";
 import type {
   ExtrasApplyResult,
@@ -58,7 +58,6 @@ export type ListenPanelBridge = {
   getExtrasForm: () => ExtrasFormValues;
   applyExtras: (values: ExtrasFormValues) => ExtrasApplyResult;
   resetExtras: () => ExtrasApplyResult;
-  setSleepTimer: (durationMs: number | null) => void;
   setVolume: (volumePct: number) => void;
   toggleFullscreen: () => void;
   togglePlayback: () => void;
@@ -83,8 +82,6 @@ export type AppBridge = {
   // applyModeFromUrl + handleRouteChange — runs on initial load and browser
   // back/forward (POP) navigations.
   handleRoute: (pathname: string) => void;
-  onTabClick: (tabId: TabId) => void;
-  onHeroHomeClick: () => void;
   applyTheme: (theme: ThemeName) => void;
   // Window-level hotkey handlers (playback shortcuts, delete-confirm,
   // playlist-modal Escape) registered once by useGlobalHotkeys in AppRoot.
