@@ -30,8 +30,8 @@ import {
   resetForNewTrack,
   updateVizVisibility,
 } from "./playback";
-import { runSearch, selectSpotifyMatch, selectYoutubeMatch } from "./search";
-import { uploadAudioFile, uploadFromUrl, type UploadDeps } from "./upload";
+import { setSearchRuntime, type SearchDeps } from "./search";
+import { setUploadRuntime, type UploadDeps } from "./upload";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
 import { setAppRuntime, setAttachViz, type AttachVizNodes } from "./runtime";
 import type { AppContext, TabId } from "./context";
@@ -68,8 +68,6 @@ const vizStorageKey = "fj-viz";
 const canonizerFinishKey = "fj-canonizer-finish";
 
 type PlaybackDeps = Parameters<typeof pollAnalysis>[1];
-
-type SearchDeps = Parameters<typeof runSearch>[1];
 
 export function bootstrap(): AppBridge {
   initBackgroundTimer();
@@ -305,21 +303,8 @@ export function bootstrap(): AppBridge {
     void loadTrackById(context, playbackDeps, trackId, { selectedTrack });
   });
 
-  const searchPanel = {
-    runSearch: () => runSearch(context, searchDeps),
-    selectSpotify: (selection: { name: string; artist: string; duration: number }) =>
-      selectSpotifyMatch(context, searchDeps, selection),
-    selectYoutube: (selection: {
-      youtubeId: string | null | undefined;
-      name: string;
-      artist: string;
-      duration: number;
-    }) => selectYoutubeMatch(context, searchDeps, selection),
-    uploadFile: (file: File | null | undefined, onAccepted?: () => void) =>
-      uploadAudioFile(uploadDeps, file, onAccepted),
-    uploadUrl: (raw: string, onAccepted?: () => void) =>
-      uploadFromUrl(uploadDeps, raw, onAccepted),
-  };
+  setSearchRuntime(context, searchDeps);
+  setUploadRuntime(uploadDeps);
 
   return {
     context,
@@ -331,7 +316,6 @@ export function bootstrap(): AppBridge {
     applyTheme: (theme) => {
       applyTheme(context, theme);
     },
-    searchPanel,
   };
 }
 

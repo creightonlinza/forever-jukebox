@@ -324,3 +324,28 @@ export async function uploadFromUrl(
     );
   }
 }
+
+// Module singleton: bootstrap registers the upload flow's deps so SearchPanel
+// calls these without the bridge prop. (Phase 4)
+let uploadDeps: UploadDeps | null = null;
+
+export function setUploadRuntime(deps: UploadDeps): void {
+  uploadDeps = deps;
+}
+
+export function uploadFile(
+  file: File | null | undefined,
+  onAccepted?: () => void,
+): Promise<void> {
+  if (!uploadDeps) {
+    return Promise.resolve();
+  }
+  return uploadAudioFile(uploadDeps, file, onAccepted);
+}
+
+export function uploadUrl(raw: string, onAccepted?: () => void): Promise<void> {
+  if (!uploadDeps) {
+    return Promise.resolve();
+  }
+  return uploadFromUrl(uploadDeps, raw, onAccepted);
+}

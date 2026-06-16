@@ -125,7 +125,7 @@ Targets: **import** = direct module-fn import · **action** = zustand store acti
       `removeFavorite`, `refreshFavoritesFromSync`, `enterSyncCode`,
       `createSyncCode` → handler (relocate `wire/favorites` + `wire/playlist`);
       delete `TopPanelBridge`. *(M)*
-- [ ] **Phase 4 — Search/Upload:** `runSearch`, `selectSpotify`, `selectYoutube`
+- [x] **Phase 4 — Search/Upload:** `runSearch`, `selectSpotify`, `selectYoutube`
       → import (`search.ts`) · `uploadFile`, `uploadUrl` → import (`upload.ts`);
       delete `SearchPanelBridge`. *(M)*
 - [ ] **Phase 5 — shell + teardown:** move `handleRoute`/`applyTheme`/`hotkeys`

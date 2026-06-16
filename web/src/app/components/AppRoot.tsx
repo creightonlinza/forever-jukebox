@@ -100,7 +100,7 @@ export function AppRoot({ bridge }: { bridge: AppBridge }) {
     <>
       <Hero />
       <TopTracksPanel />
-      <SearchPanel bridge={bridge} />
+      <SearchPanel />
       <ListenPanel />
       <FaqPanel />
       <Footer />

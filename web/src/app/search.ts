@@ -354,3 +354,43 @@ export function selectSpotifyMatch(
     void showYoutubeMatches(context, deps, name, artist, duration);
   });
 }
+
+// Module singleton: bootstrap registers the search flow's runtime (context +
+// deps) so SearchPanel calls these without the bridge prop. (Phase 4)
+let searchContext: AppContext | null = null;
+let searchDeps: SearchDeps | null = null;
+
+export function setSearchRuntime(context: AppContext, deps: SearchDeps): void {
+  searchContext = context;
+  searchDeps = deps;
+}
+
+export function submitSearch(): Promise<void> {
+  if (!searchContext || !searchDeps) {
+    return Promise.resolve();
+  }
+  return runSearch(searchContext, searchDeps);
+}
+
+export function selectSpotify(selection: {
+  name: string;
+  artist: string;
+  duration: number;
+}): void {
+  if (!searchContext || !searchDeps) {
+    return;
+  }
+  selectSpotifyMatch(searchContext, searchDeps, selection);
+}
+
+export function selectYoutube(selection: {
+  youtubeId: string | null | undefined;
+  name: string;
+  artist: string;
+  duration: number;
+}): void {
+  if (!searchContext || !searchDeps) {
+    return;
+  }
+  selectYoutubeMatch(searchContext, searchDeps, selection);
+}
