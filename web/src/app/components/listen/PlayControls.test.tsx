@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { CANONIZER_FINISH_KEY } from "../../constants";
 import { useAppStore } from "../../store";
 import { PlayControls } from "./PlayControls";
 import { VizTop } from "./VizTop";
@@ -115,7 +116,7 @@ describe("PlayControls", () => {
 
 describe("VizTop", () => {
   beforeEach(() => {
-    localStorage.removeItem("fj-canonizer-finish");
+    localStorage.removeItem(CANONIZER_FINISH_KEY);
     act(() => {
       useAppStore.setState({
         playMode: "jukebox",

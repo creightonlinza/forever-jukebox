@@ -86,9 +86,8 @@ type Actions = {
   setPlayTabPulsing: (pulsing: boolean) => void;
   setFooterCredit: (credit: FooterCredit | null) => void;
   // Navigation drives react-router (via tabs.ts) and the activeTab store state
-  // together, so components dispatch navigation as a store action instead of
-  // through the bridge. wire/navigation delegates to these. See
-  // web/TECH_DEBT.md item 1 (Phase 1).
+  // together, so components and flows dispatch navigation as a store action
+  // instead of through the bridge. See web/TECH_DEBT.md item 1 (Phase 1).
   navigateToTabWithState: (
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
@@ -100,6 +99,13 @@ type Actions = {
 export type AppStoreState = AppState & ShellSlice & Actions;
 
 type Slice<T> = StateCreator<AppStoreState, [], [], T>;
+
+// Tabs whose own subtab selection resets to its default when navigated to,
+// kept as a table so adding a tab's reset is a data edit, not another branch.
+const SUBTAB_RESETS: Partial<Record<TabId, Partial<AppStoreState>>> = {
+  top: { topSongsTab: "top" },
+  search: { searchTab: "search" },
+};
 
 // The store is flat (zustand slices pattern); slices group state by domain
 // (ui / playback / track / tuning / library / config).
@@ -188,14 +194,16 @@ const createUiSlice: Slice<
     navigateToTab(
       tabId,
       options,
-      state.lastTrackId ?? state.lastJobId,
+      getCurrentTrackId(),
       tuningParams,
       state.playMode,
     );
   },
   selectTab: (tabId) => {
-    if (tabId === "top") set({ topSongsTab: "top" });
-    if (tabId === "search") set({ searchTab: "search" });
+    const reset = SUBTAB_RESETS[tabId];
+    if (reset) {
+      set(reset);
+    }
     get().navigateToTabWithState(tabId);
   },
   goHome: () => get().navigateToTabWithState("top"),
@@ -325,3 +333,11 @@ export const useAppStore = create<AppStoreState>()((...args) => ({
   ...createLibrarySlice(...args),
   ...createConfigSlice(...args),
 }));
+
+// The id of the track currently in context: the loaded track id, falling back
+// to the analysis job id. Single source of truth for navigation/URL state and
+// the imperative flows that need "what's playing now".
+export function getCurrentTrackId(): string | null {
+  const state = useAppStore.getState();
+  return state.lastTrackId ?? state.lastJobId;
+}

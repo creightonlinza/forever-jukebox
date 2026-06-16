@@ -47,8 +47,9 @@ export function VizContainer() {
       return;
     }
     const handleResize = () => {
-      getAppContext().jukebox?.resizeNow();
-      getAppContext().autocanonizer?.resizeNow();
+      const ctx = getAppContext();
+      ctx.jukebox?.resizeNow();
+      ctx.autocanonizer?.resizeNow();
     };
     if (
       typeof (globalThis as { ResizeObserver?: unknown }).ResizeObserver !==
@@ -69,10 +70,11 @@ export function VizContainer() {
     if (!visible) {
       return;
     }
+    const ctx = getAppContext();
     if (playMode === "autocanonizer") {
-      getAppContext().autocanonizer?.resizeNow();
+      ctx.autocanonizer?.resizeNow();
     } else {
-      getAppContext().jukebox?.resizeActive();
+      ctx.jukebox?.resizeActive();
     }
   }, [visible, playMode]);
 

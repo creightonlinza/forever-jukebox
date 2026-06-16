@@ -66,6 +66,40 @@ describe("performDelete", () => {
     expect(showToast).toHaveBeenCalledWith("Deleted track");
   });
 
+  it("removes only the favorite matching the deleted id, leaving others", async () => {
+    const { handlers, favoritesHandlers } = createHarness();
+    useAppStore.setState({
+      favorites: [favorite("track1"), favorite("other")],
+    });
+
+    await handlers.performDelete({
+      jobId: "job1",
+      trackId: "track1",
+      adminKey: null,
+    });
+
+    // favoriteId = trackId ?? jobId = "track1"; only that favorite is removed.
+    expect(favoritesHandlers.updateFavorites).toHaveBeenCalledWith([
+      favorite("other"),
+    ]);
+  });
+
+  it("matches the favorite by job id when there is no track id", async () => {
+    const { handlers, favoritesHandlers } = createHarness();
+    useAppStore.setState({ favorites: [favorite("job1"), favorite("other")] });
+
+    await handlers.performDelete({
+      jobId: "job1",
+      trackId: null,
+      adminKey: null,
+    });
+
+    // favoriteId falls back to jobId, so the job's favorite is the one removed.
+    expect(favoritesHandlers.updateFavorites).toHaveBeenCalledWith([
+      favorite("other"),
+    ]);
+  });
+
   it("falls back to the job id for cache delete when no track id", async () => {
     const { handlers, favoritesHandlers } = createHarness();
     useAppStore.setState({ favorites: [] });

@@ -14,11 +14,7 @@ import {
 import { updateTrackUrl } from "./tabs";
 import { handleRouteChange } from "./routing";
 import { initBackgroundTimer } from "@forever-jukebox/engine/background";
-import {
-  fetchAppConfig,
-  startUrlAnalysis,
-  uploadAudio,
-} from "./api";
+import { fetchAppConfig } from "./api";
 import { loadAppConfig, saveAppConfig } from "./cache";
 import { isLikelyJobId } from "./identity";
 import {
@@ -32,7 +28,11 @@ import {
 } from "./playback";
 import { setSearchRuntime, type SearchDeps } from "./search";
 import { setUploadRuntime, type UploadDeps } from "./upload";
-import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
+import {
+  CANONIZER_FINISH_KEY,
+  DEFAULT_VISUALIZATION_INDEX,
+  VIZ_STORAGE_KEY,
+} from "./constants";
 import {
   setAppRuntime,
   setAttachViz,
@@ -42,7 +42,6 @@ import {
 import type { AppContext, TabId } from "./context";
 import type { AppConfig } from "./api";
 import { createFavoritesHandlers, setFavoritesHandlers } from "./wire/favorites";
-import { createNavigationHandlers } from "./wire/navigation";
 import {
   createFullscreenHandlers,
   setFullscreenHandlers,
@@ -61,15 +60,12 @@ import {
 import { createDeleteJobHandlers, setDeleteJobHandlers } from "./wire/delete-job";
 import { setSelectTrack } from "./wire/track-select";
 import { createAppConfigHandlers } from "./wire/app-config";
-import { useAppStore } from "./store";
+import { getCurrentTrackId, useAppStore } from "./store";
 import {
   loadFavorites,
   loadFavoritesSyncCode,
 } from "./favorites";
 import { loadPlaylist, type PlaylistTrack } from "./playlist";
-
-const vizStorageKey = "fj-viz";
-const canonizerFinishKey = "fj-canonizer-finish";
 
 type PlaybackDeps = Parameters<typeof pollAnalysis>[1];
 
@@ -121,15 +117,20 @@ export function initRuntime(): void {
     playlistHandlers?.handleNormalTrackSelected(track);
   };
 
-  const navigationHandlers = createNavigationHandlers();
   let playbackHandlers: PlaybackUiHandlers | null = null;
   let fullscreenHandlers: FullscreenHandlers | null = null;
-  const playbackDeps: PlaybackDeps = {
-    setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
-    navigateToTab: (
-      tabId: TabId,
-      options?: { replace?: boolean; trackId?: string | null },
-    ) => navigationHandlers.navigateToTabWithState(tabId, options),
+  // Navigation lives in the store now; the flows still take it as a dep (so
+  // they stay unit-testable), resolved at call time via these thin wrappers.
+  const navigateToTabWithState = (
+    tabId: TabId,
+    options?: { replace?: boolean; trackId?: string | null },
+  ) => useAppStore.getState().navigateToTabWithState(tabId, options);
+  const setActiveTabWithRefresh = (tabId: TabId) =>
+    useAppStore.getState().setActiveTab(tabId);
+  // Navigation + status closures shared by the playback and search flows.
+  const sharedFlowDeps = {
+    setActiveTab: setActiveTabWithRefresh,
+    navigateToTab: navigateToTabWithState,
     updateTrackUrl: (trackId: string, replace?: boolean) =>
       updateTrackUrl(trackId, replace, useAppStore.getState().tuningParams, useAppStore.getState().playMode),
     setAnalysisStatus: (message: string, spinning: boolean) =>
@@ -137,9 +138,10 @@ export function initRuntime(): void {
     setLoadingProgress: (progress: number | null, message?: string | null) =>
       setLoadingProgress(context, progress, message),
   };
+  const playbackDeps: PlaybackDeps = { ...sharedFlowDeps };
   const favoritesHandlers = createFavoritesHandlers({
     context,
-    navigateToTabWithState: navigationHandlers.navigateToTabWithState,
+    navigateToTabWithState,
     loadTrackById: (trackId, options) =>
       loadTrackById(context, playbackDeps, trackId, {
         preserveUrlTuning: true,
@@ -157,18 +159,8 @@ export function initRuntime(): void {
     favoritesHandlers.maybeAutoFavoriteUserSupplied(response);
   };
   const searchDeps: SearchDeps = {
-    setActiveTab: (tabId: TabId) => navigationHandlers.setActiveTabWithRefresh(tabId),
-    navigateToTab: (
-      tabId: TabId,
-      options?: { replace?: boolean; trackId?: string | null },
-    ) => navigationHandlers.navigateToTabWithState(tabId, options),
-    updateTrackUrl: (trackId: string, replace?: boolean) =>
-      updateTrackUrl(trackId, replace, useAppStore.getState().tuningParams, useAppStore.getState().playMode),
-    setAnalysisStatus: (message: string, spinning: boolean) =>
-      setAnalysisStatus(context, message, spinning),
+    ...sharedFlowDeps,
     showToast: (message, options) => showToast(message, options),
-    setLoadingProgress: (progress: number | null, message?: string | null) =>
-      setLoadingProgress(context, progress, message),
     pollAnalysis: (jobId: string) => pollAnalysis(context, playbackDeps, jobId),
     applyAnalysisResult: (response) =>
       applyAnalysisResult(
@@ -190,7 +182,7 @@ export function initRuntime(): void {
       loadTrackById(context, playbackDeps, trackId, options),
     loadTrackByJobId: (jobId, options) =>
       loadTrackByJobId(context, playbackDeps, jobId, options),
-    navigateToTabWithState: navigationHandlers.navigateToTabWithState,
+    navigateToTabWithState,
     setPlayMode: (mode) => playbackHandlers?.setPlayMode(mode),
   });
   setPlaylistHandlers(playlistHandlers);
@@ -199,13 +191,6 @@ export function initRuntime(): void {
   });
   const uploadDeps: UploadDeps = {
     context,
-    showToast,
-    uploadAudio,
-    startUrlAnalysis,
-    resetForNewTrack,
-    setActiveTabWithRefresh: navigationHandlers.setActiveTabWithRefresh,
-    setLoadingProgress,
-    updateTrackUrl,
     pollAnalysisJob: (jobId: string) =>
       pollAnalysis(context, playbackDeps, jobId),
     onNormalTrackSelected: handleNormalTrackSelected,
@@ -213,7 +198,7 @@ export function initRuntime(): void {
   const deleteJobHandlers = createDeleteJobHandlers({
     context,
     favoritesHandlers,
-    navigateToTabWithState: navigationHandlers.navigateToTabWithState,
+    navigateToTabWithState,
   });
   setDeleteJobHandlers(deleteJobHandlers);
   // Construct the viz controllers once <VizContainer> hands over its nodes
@@ -236,9 +221,9 @@ export function initRuntime(): void {
       engine,
       jukebox,
       autocanonizer,
-      vizStorageKey,
-      canonizerFinishKey,
-      getCurrentTrackId: navigationHandlers.getCurrentTrackId,
+      vizStorageKey: VIZ_STORAGE_KEY,
+      canonizerFinishKey: CANONIZER_FINISH_KEY,
+      getCurrentTrackId,
       advancePlaylistOnAutocanonizerEnded: () =>
         playlistHandlers?.advanceAutocanonizerOnEnded() ?? Promise.resolve(false),
     });
@@ -299,7 +284,7 @@ export function initRuntime(): void {
   });
 
   setSelectTrack((trackId, selectedTrack) => {
-    navigationHandlers.navigateToTabWithState("play", { trackId });
+    navigateToTabWithState("play", { trackId });
     if (isLikelyJobId(trackId)) {
       void loadTrackByJobId(context, playbackDeps, trackId, { selectedTrack });
       return;

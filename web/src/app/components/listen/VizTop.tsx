@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { VISUALIZATION_LABELS } from "../../constants";
+import { CANONIZER_FINISH_KEY, VISUALIZATION_LABELS } from "../../constants";
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import {
@@ -7,8 +7,6 @@ import {
   setCanonizerFinish,
   setPlayMode,
 } from "../../wire/playback";
-
-const CANONIZER_FINISH_KEY = "fj-canonizer-finish";
 
 function getVisualizationLabel(index: number) {
   return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
