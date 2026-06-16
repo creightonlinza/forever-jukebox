@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { setAppRouter } from "../router";
 import { useAppStore } from "../store";
 import { FaqPanel } from "./FaqPanel";
 
@@ -17,7 +16,6 @@ function renderFaqPanel(initialPath = "/faq") {
     { initialEntries: [initialPath] },
   );
   render(<RouterProvider router={router} />);
-  setAppRouter(router);
   return { router };
 }
 
@@ -29,7 +27,6 @@ describe("FaqPanel", () => {
   });
 
   afterEach(() => {
-    setAppRouter(null);
     cleanup();
   });
 

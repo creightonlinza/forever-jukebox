@@ -17,7 +17,6 @@ import {
   getAttachedAppContext,
 } from "./runtime";
 import { getCurrentTrackId, useAppStore } from "./store";
-import { navigateToTab, updateTrackUrl } from "./tabs";
 import {
   getTuningParamsFromEngine,
   serializeParams,
@@ -504,15 +503,13 @@ export function setPlayMode(mode: "jukebox" | "autocanonizer"): void {
     if (useAppStore.getState().activeTabId === "play") {
       const currentId = getCurrentTrackId();
       if (currentId) {
-        updateTrackUrl(currentId, true, useAppStore.getState().tuningParams, useAppStore.getState().playMode);
+        useAppStore
+          .getState()
+          .navigateToTrackWithState(currentId, { replace: true });
       } else {
-        navigateToTab(
-          "play",
-          { replace: true },
-          null,
-          useAppStore.getState().tuningParams,
-          useAppStore.getState().playMode,
-        );
+        useAppStore.getState().navigateToTabWithState("play", {
+          replace: true,
+        });
       }
     }
     updateVizVisibility();

@@ -2,11 +2,9 @@ import type { AppContext } from "./context";
 import type { PlaybackDeps } from "./playback";
 
 // Module-singleton access to the genuine runtime singletons (engine, player,
-// jukebox, autocanonizer, cowbellOverlay, defaultConfig). This is the keystone
-// for retiring the AppBridge + init + wire/* seam: once it's in place,
-// flow modules and components can reach the runtime via getAppContext() instead
-// of receiving an injected `context` arg or the `bridge` prop. See
-// web/TECH_DEBT.md item 1 (Phase 0).
+// jukebox, autocanonizer, cowbellOverlay, defaultConfig). initRuntime owns
+// construction; flow modules and components read the runtime via
+// getAppContext() instead of receiving an injected `context` arg or bridge prop.
 //
 // initRuntime() owns construction and calls setAppRuntime(context) before any
 // React effect can run. The viz controllers (jukebox/autocanonizer) don't exist

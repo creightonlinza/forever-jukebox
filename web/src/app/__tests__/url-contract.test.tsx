@@ -1,31 +1,37 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { appNavigate, setAppRouter, type AppRouter } from "../router";
+import { NavigationDriver } from "../components/NavigationDriver";
+import { useAppStore } from "../store";
 import {
-  navigateToFaqSubtab,
-  navigateToTab,
   pathForFaqSubtab,
   pathForTab,
+  pathForTrack,
   tabFromPathname,
-  updateTrackUrl,
   urlForTrack,
 } from "../tabs";
 
 // The frozen URL contract (see e2e/README.md and git history of the
-// migration plan). These tests replace
-// tabs.test.ts and pin the exact paths/search strings the router receives.
+// migration plan). These tests pin the exact paths/search strings queued for
+// React Router plus the pure URL helpers used for links.
 
-function spyRouter() {
-  const navigate = vi.fn();
-  setAppRouter({ navigate } as unknown as AppRouter);
-  return navigate;
-}
+const initialStoreState = useAppStore.getState();
+
+beforeEach(() => {
+  useAppStore.setState(initialStoreState, true);
+});
 
 afterEach(() => {
-  setAppRouter(null);
   cleanup();
 });
+
+function expectNavigationRequest(to: string, replace?: boolean) {
+  expect(useAppStore.getState().navigationRequest).toEqual({
+    id: 1,
+    to,
+    replace,
+  });
+}
 
 describe("URL contract", () => {
   it("builds paths for tabs", () => {
@@ -51,34 +57,41 @@ describe("URL contract", () => {
     expect(tabFromPathname("/unknown")).toBe("top");
   });
 
-  it("strips search params when navigating to non-play tabs", () => {
-    const navigate = spyRouter();
-    navigateToTab("top", { replace: true });
-    expect(navigate).toHaveBeenCalledWith("/", { replace: true });
+  it("queues non-play tab navigation without search params", () => {
+    useAppStore.setState({ tuningParams: "jb=1&thresh=20" });
+    useAppStore.getState().navigateToTabWithState("top", { replace: true });
+    expect(useAppStore.getState().activeTabId).toBe("top");
+    expectNavigationRequest("/", true);
   });
 
-  it("preserves tuning params when navigating to play", () => {
-    const navigate = spyRouter();
-    navigateToTab(
-      "play",
-      { replace: true, trackId: "abc123" },
-      null,
-      "jb=1&thresh=20",
-      "jukebox",
-    );
-    expect(navigate).toHaveBeenCalledWith("/listen/abc123?jb=1&thresh=20", {
-      replace: true,
+  it("queues play tab navigation with tuning params", () => {
+    useAppStore.setState({
+      playMode: "jukebox",
+      tuningParams: "jb=1&thresh=20",
     });
+    useAppStore
+      .getState()
+      .navigateToTabWithState("play", { replace: true, trackId: "abc123" });
+    expect(useAppStore.getState().activeTabId).toBe("play");
+    expectNavigationRequest("/listen/abc123?jb=1&thresh=20", true);
   });
 
-  it("updates track URL with tuning params, replace vs push", () => {
-    const navigate = spyRouter();
-    updateTrackUrl("xyz", true, "lg=1", "jukebox");
-    expect(navigate).toHaveBeenLastCalledWith("/listen/xyz?lg=1", {
-      replace: true,
+  it("queues track URL updates with tuning params, replace vs push", () => {
+    useAppStore.setState({
+      playMode: "jukebox",
+      tuningParams: "lg=1",
     });
-    updateTrackUrl("xyz", false, "lg=1", "jukebox");
-    expect(navigate).toHaveBeenLastCalledWith("/listen/xyz?lg=1", {
+    useAppStore
+      .getState()
+      .navigateToTrackWithState("xyz", { replace: true });
+    expectNavigationRequest("/listen/xyz?lg=1", true);
+
+    useAppStore
+      .getState()
+      .navigateToTrackWithState("xyz", { replace: false });
+    expect(useAppStore.getState().navigationRequest).toEqual({
+      id: 2,
+      to: "/listen/xyz?lg=1",
       replace: false,
     });
   });
@@ -96,59 +109,54 @@ describe("URL contract", () => {
   });
 
   it("builds track URLs without search when tuning is absent", () => {
-    expect(urlForTrack("abc123", "https://example.test/top", null, "jukebox")).toBe(
-      "https://example.test/listen/abc123",
-    );
+    expect(
+      urlForTrack("abc123", "https://example.test/top", null, "jukebox"),
+    ).toBe("https://example.test/listen/abc123");
   });
 
   it("carries the audio-mode tuning param", () => {
-    const navigate = spyRouter();
-    updateTrackUrl("xyz", true, "am=nightcore", "jukebox");
-    expect(navigate).toHaveBeenCalledWith("/listen/xyz?am=nightcore", {
-      replace: true,
-    });
+    expect(pathForTrack("xyz", "am=nightcore", "jukebox")).toBe(
+      "/listen/xyz?am=nightcore",
+    );
   });
 
   it("adds the mode param for autocanonizer and drops tuning params", () => {
-    const navigate = spyRouter();
-    updateTrackUrl("xyz", true, "lg=1", "autocanonizer");
-    expect(navigate).toHaveBeenCalledWith("/listen/xyz?mode=autocanonizer", {
-      replace: true,
+    useAppStore.setState({
+      playMode: "autocanonizer",
+      tuningParams: "lg=1",
     });
-  });
-
-  it("navigates FAQ subtabs with empty search", () => {
-    const navigate = spyRouter();
-    navigateToFaqSubtab("whats-new", { replace: true });
-    expect(navigate).toHaveBeenCalledWith("/whats-new", { replace: true });
-    navigateToFaqSubtab("faq");
-    expect(navigate).toHaveBeenLastCalledWith("/faq", { replace: undefined });
+    useAppStore
+      .getState()
+      .navigateToTrackWithState("xyz", { replace: true });
+    expectNavigationRequest("/listen/xyz?mode=autocanonizer", true);
   });
 
   it("encodes track ids in listen paths", () => {
     expect(pathForTab("play", "a b/c")).toBe("/listen/a%20b%2Fc");
   });
 
-  it("routes appNavigate through a mounted router", () => {
-    const router = createMemoryRouter([{ path: "*", element: <div /> }], {
-      initialEntries: ["/listen/abc?jb=1"],
-    });
-    render(<RouterProvider router={router} />);
-    setAppRouter(router);
-    appNavigate("/search", { replace: true });
-    expect(router.state.location.pathname).toBe("/search");
-    expect(router.state.location.search).toBe("");
-  });
-
-  it("falls back to history when no router is mounted", () => {
-    setAppRouter(null);
-    const replaceState = vi.spyOn(window.history, "replaceState");
-    appNavigate("/listen/abc?jb=1", { replace: true });
-    expect(replaceState).toHaveBeenCalledWith(
-      {},
-      "",
-      expect.stringContaining("/listen/abc?jb=1"),
+  it("drives React Router from queued navigation requests", async () => {
+    const router = createMemoryRouter(
+      [{ path: "*", element: <NavigationDriver /> }],
+      {
+        initialEntries: ["/listen/abc?jb=1"],
+      },
     );
-    replaceState.mockRestore();
+    render(<RouterProvider router={router} />);
+
+    act(() => {
+      useAppStore
+        .getState()
+        .navigateToTrackWithState("xyz", {
+          replace: true,
+          tuningParams: "lg=1",
+          playMode: "jukebox",
+        });
+    });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/listen/xyz");
+      expect(router.state.location.search).toBe("?lg=1");
+    });
   });
 });

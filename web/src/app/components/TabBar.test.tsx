@@ -1,12 +1,36 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { useAppStore } from "../store";
+import { NavigationDriver } from "./NavigationDriver";
 import { TabBar } from "./TabBar";
+
+const initialStoreState = useAppStore.getState();
+
+function renderTabBar() {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "*",
+        element: (
+          <>
+            <NavigationDriver />
+            <TabBar />
+          </>
+        ),
+      },
+    ],
+    { initialEntries: ["/"] },
+  );
+  render(<RouterProvider router={router} />);
+  return { router };
+}
 
 describe("TabBar", () => {
   beforeEach(() => {
     act(() => {
+      useAppStore.setState(initialStoreState, true);
       useAppStore.setState({ activeTabId: "top", isPlayTabPulsing: false });
     });
   });
@@ -16,7 +40,7 @@ describe("TabBar", () => {
   });
 
   it("renders the four tabs and the offline link", () => {
-    render(<TabBar />);
+    renderTabBar();
     expect(screen.getByText("Top Tracks")).toBeTruthy();
     expect(screen.getByText("Search")).toBeTruthy();
     expect(screen.getByText("Listen")).toBeTruthy();
@@ -27,7 +51,7 @@ describe("TabBar", () => {
   });
 
   it("marks the active tab from the store", () => {
-    render(<TabBar />);
+    renderTabBar();
     const topButton = screen.getByText("Top Tracks").closest("button");
     const searchButton = screen.getByText("Search").closest("button");
     expect(topButton?.className).toContain("active");
@@ -40,7 +64,7 @@ describe("TabBar", () => {
   });
 
   it("pulses the Listen tab while audio runs on other tabs", () => {
-    render(<TabBar />);
+    renderTabBar();
     const playButton = screen.getByText("Listen").closest("button");
     expect(playButton?.className).not.toContain("is-playing");
     act(() => {
@@ -50,12 +74,16 @@ describe("TabBar", () => {
   });
 
   it("navigates via the store's selectTab action on click", async () => {
-    render(<TabBar />);
+    const { router } = renderTabBar();
     await userEvent.click(screen.getByText("Search"));
     expect(useAppStore.getState().activeTabId).toBe("search");
-    expect(window.location.pathname).toBe("/search");
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/search");
+    });
     await userEvent.click(screen.getByText("FAQ"));
     expect(useAppStore.getState().activeTabId).toBe("faq");
-    expect(window.location.pathname).toBe("/faq");
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/faq");
+    });
   });
 });

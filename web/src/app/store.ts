@@ -4,7 +4,7 @@ import type { AppState, SleepTimerState, TabId } from "./context";
 import type { ThemeName } from "./themeConfig";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
 import { emptyPlaylist } from "./playlist";
-import { navigateToTab } from "./tabs";
+import { buildSearchParams, pathForTab, pathForTrack } from "./tabs";
 import { getTuningParamsStringFromUrl } from "./tuning";
 
 export type FooterCredit = {
@@ -35,6 +35,12 @@ export type TrackInfoState = {
   deletedCount: number;
 };
 
+export type NavigationRequest = {
+  id: number;
+  to: string;
+  replace?: boolean;
+};
+
 export type SearchResultsState =
   | { kind: "message"; text: string }
   | { kind: "spotify"; items: SpotifySearchItem[] }
@@ -52,6 +58,7 @@ export const DEFAULT_SEARCH_RESULTS: SearchResultsState = {
 // Shell/panel UI state that has no AppState counterpart.
 type ShellSlice = {
   theme: ThemeName;
+  navigationRequest: NavigationRequest | null;
   isPlayTabPulsing: boolean;
   footerCredit: FooterCredit | null;
   toast: ToastState | null;
@@ -85,12 +92,20 @@ type Actions = {
   setTheme: (theme: ThemeName) => void;
   setPlayTabPulsing: (pulsing: boolean) => void;
   setFooterCredit: (credit: FooterCredit | null) => void;
-  // Navigation drives react-router (via tabs.ts) and the activeTab store state
-  // together, so components and flows dispatch navigation as a store action
-  // instead of through the bridge. See web/TECH_DEBT.md item 1 (Phase 1).
+  // Navigation requests are consumed by the React router boundary in
+  // <NavigationDriver>; non-React flows enqueue requests here instead of
+  // reaching into react-router directly.
   navigateToTabWithState: (
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
+  ) => void;
+  navigateToTrackWithState: (
+    trackId: string,
+    options?: {
+      replace?: boolean;
+      tuningParams?: string | null;
+      playMode?: AppState["playMode"];
+    },
   ) => void;
   selectTab: (tabId: TabId) => void;
   goHome: () => void;
@@ -122,6 +137,7 @@ const createUiSlice: Slice<
     | "toastTimer"
     | "selectedEdge"
     | "theme"
+    | "navigationRequest"
     | "isPlayTabPulsing"
     | "footerCredit"
     | "toast"
@@ -147,67 +163,87 @@ const createUiSlice: Slice<
     | "branchStats"
   > &
     Actions
-> = (set, get) => ({
-  activeTabId: "top",
-  topSongsTab: "top",
-  searchTab: "search",
-  activeVizIndex: DEFAULT_VISUALIZATION_INDEX,
-  toastTimer: null,
-  selectedEdge: null,
-  theme: "dark",
-  isPlayTabPulsing: false,
-  footerCredit: null,
-  toast: null,
-  searchQuery: "",
-  searchHint: DEFAULT_SEARCH_HINT,
-  searchResults: DEFAULT_SEARCH_RESULTS,
-  tuningModalOpen: false,
-  tuningModalTab: "tuning",
-  infoModalOpen: false,
-  sleepTimerModalOpen: false,
-  playlistModalOpen: false,
-  deleteConfirmOpen: false,
-  trackInfo: {
-    durationText: "00:00:00",
-    totalBeats: 0,
-    branchCount: 0,
-    deletedCount: 0,
-  },
-  favoriteToggleBusy: false,
-  volumePct: 50,
-  isFullscreen: false,
-  analysisStatusText: "No track selected.",
-  analysisSpinning: false,
-  analysisProgressText: "",
-  listenTimeText: "00:00:00",
-  beatsPlayedText: "0",
-  playlistLoadBusy: false,
-  branchStats: null,
-  setActiveTab: (activeTabId) => set({ activeTabId }),
-  setTheme: (theme) => set({ theme }),
-  setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),
-  setFooterCredit: (footerCredit) => set({ footerCredit }),
-  navigateToTabWithState: (tabId, options) => {
-    get().setActiveTab(tabId);
-    const state = get();
-    const tuningParams = state.tuningParams ?? getTuningParamsStringFromUrl();
-    navigateToTab(
-      tabId,
-      options,
-      getCurrentTrackId(),
-      tuningParams,
-      state.playMode,
-    );
-  },
-  selectTab: (tabId) => {
-    const reset = SUBTAB_RESETS[tabId];
-    if (reset) {
-      set(reset);
-    }
-    get().navigateToTabWithState(tabId);
-  },
-  goHome: () => get().navigateToTabWithState("top"),
-});
+> = (set, get) => {
+  const queueNavigation = (to: string, replace?: boolean) => {
+    const id = (get().navigationRequest?.id ?? 0) + 1;
+    set({ navigationRequest: { id, to, replace } });
+  };
+
+  return {
+    activeTabId: "top",
+    topSongsTab: "top",
+    searchTab: "search",
+    activeVizIndex: DEFAULT_VISUALIZATION_INDEX,
+    toastTimer: null,
+    selectedEdge: null,
+    theme: "dark",
+    navigationRequest: null,
+    isPlayTabPulsing: false,
+    footerCredit: null,
+    toast: null,
+    searchQuery: "",
+    searchHint: DEFAULT_SEARCH_HINT,
+    searchResults: DEFAULT_SEARCH_RESULTS,
+    tuningModalOpen: false,
+    tuningModalTab: "tuning",
+    infoModalOpen: false,
+    sleepTimerModalOpen: false,
+    playlistModalOpen: false,
+    deleteConfirmOpen: false,
+    trackInfo: {
+      durationText: "00:00:00",
+      totalBeats: 0,
+      branchCount: 0,
+      deletedCount: 0,
+    },
+    favoriteToggleBusy: false,
+    volumePct: 50,
+    isFullscreen: false,
+    analysisStatusText: "No track selected.",
+    analysisSpinning: false,
+    analysisProgressText: "",
+    listenTimeText: "00:00:00",
+    beatsPlayedText: "0",
+    playlistLoadBusy: false,
+    branchStats: null,
+    setActiveTab: (activeTabId) => set({ activeTabId }),
+    setTheme: (theme) => set({ theme }),
+    setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),
+    setFooterCredit: (footerCredit) => set({ footerCredit }),
+    navigateToTabWithState: (tabId, options) => {
+      get().setActiveTab(tabId);
+      const state = get();
+      const trackId =
+        options && "trackId" in options ? options.trackId : getCurrentTrackId();
+      const tuningParams = state.tuningParams ?? getTuningParamsStringFromUrl();
+      const path = pathForTab(tabId, trackId);
+      const search =
+        tabId === "play" ? buildSearchParams(tuningParams, state.playMode) : "";
+      queueNavigation(`${path}${search}`, options?.replace);
+    },
+    navigateToTrackWithState: (trackId, options) => {
+      const state = get();
+      queueNavigation(
+        pathForTrack(
+          trackId,
+          options && "tuningParams" in options
+            ? options.tuningParams
+            : state.tuningParams,
+          options?.playMode ?? state.playMode,
+        ),
+        options?.replace,
+      );
+    },
+    selectTab: (tabId) => {
+      const reset = SUBTAB_RESETS[tabId];
+      if (reset) {
+        set(reset);
+      }
+      get().navigateToTabWithState(tabId);
+    },
+    goHome: () => get().navigateToTabWithState("top"),
+  };
+};
 
 const defaultSleepTimer: SleepTimerState = {
   configuredDurationMs: null,

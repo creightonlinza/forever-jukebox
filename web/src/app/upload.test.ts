@@ -4,7 +4,6 @@ import { startUrlAnalysis } from "./api";
 import type { AppContext } from "./context";
 import { bumpLoadGeneration, resetForNewTrack } from "./playback";
 import { useAppStore } from "./store";
-import { updateTrackUrl } from "./tabs";
 import { showToast } from "./ui";
 import {
   normalizeSupportedSourceUrl,
@@ -12,7 +11,7 @@ import {
   type UploadDeps,
 } from "./upload";
 
-// upload.ts imports its static helpers directly now (toast, api, reset, url),
+// upload.ts imports its static helpers directly now (toast, api, reset),
 // so the test mocks the modules rather than injecting them as deps. The load
 // generation helpers stay real so the stale-load guard exercises real state.
 vi.mock("./ui", async (importActual) => ({
@@ -24,10 +23,6 @@ vi.mock("./api", async (importActual) => ({
   ...(await importActual<typeof import("./api")>()),
   uploadAudio: vi.fn(),
   startUrlAnalysis: vi.fn(),
-}));
-vi.mock("./tabs", async (importActual) => ({
-  ...(await importActual<typeof import("./tabs")>()),
-  updateTrackUrl: vi.fn(),
 }));
 vi.mock("./playback", async (importActual) => ({
   ...(await importActual<typeof import("./playback")>()),
@@ -67,7 +62,7 @@ describe("uploadFromUrl", () => {
     );
 
     expect(resetForNewTrack).not.toHaveBeenCalled();
-    expect(updateTrackUrl).not.toHaveBeenCalled();
+    expect(useAppStore.getState().navigationRequest).toBeNull();
     expect(harness.pollAnalysisJob).not.toHaveBeenCalled();
   });
 
@@ -138,7 +133,11 @@ describe("uploadFromUrl", () => {
 
     expect(useAppStore.getState().lastTrackId).toBe(jobId);
     expect(useAppStore.getState().pendingAutoFavoriteId).toBe(jobId);
-    expect(updateTrackUrl).toHaveBeenCalledWith(jobId, true, null, "jukebox");
+    expect(useAppStore.getState().navigationRequest).toEqual({
+      id: 1,
+      to: `/listen/${jobId}`,
+      replace: true,
+    });
     expect(pollAnalysisJob).toHaveBeenCalledWith(jobId);
     expect(onAccepted).toHaveBeenCalled();
     expect(onNormalTrackSelected).toHaveBeenCalledWith(

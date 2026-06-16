@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { clearCachedAudio, getCachedAudioBytes } from "../cache";
 import { useAppStore } from "../store";
-import { navigateToFaqSubtab, type FaqSubtabId } from "../tabs";
+import { pathForFaqSubtab, type FaqSubtabId } from "../tabs";
 import { showToast } from "../ui";
 
 function formatMegabytes(bytes: number) {
@@ -69,12 +69,13 @@ function CachedAudioClearButton() {
 export function FaqPanel() {
   const activeTab = useAppStore((s) => s.activeTabId);
   const location = useLocation();
+  const navigate = useNavigate();
   const subtab: FaqSubtabId = location.pathname.startsWith("/whats-new")
     ? "whats-new"
     : "faq";
 
   const handleSubtabClick = (subtabId: FaqSubtabId) => {
-    navigateToFaqSubtab(subtabId);
+    navigate(pathForFaqSubtab(subtabId));
   };
 
   return (

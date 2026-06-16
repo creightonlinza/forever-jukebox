@@ -11,7 +11,6 @@ import {
   setLoadingProgress,
   showToast,
 } from "./ui";
-import { updateTrackUrl } from "./tabs";
 import { handleRouteChange } from "./routing";
 import { initBackgroundTimer } from "@forever-jukebox/engine/background";
 import { fetchAppConfig } from "./api";
@@ -105,7 +104,7 @@ export function initRuntime(): void {
   // Expose the runtime singletons via the module-singleton keystone so flows
   // and components can reach them without the bridge prop. attachViz (below)
   // mutates this same `context`, so the viz controllers become visible through
-  // getAppContext() once they're attached. See web/TECH_DEBT.md item 1.
+  // getAppContext() once they're attached.
   setAppRuntime(context);
   // Navigation lives in the store now; the flows still take it as a dep (so
   // they stay unit-testable), resolved at call time via these thin wrappers.
@@ -120,7 +119,11 @@ export function initRuntime(): void {
     setActiveTab: setActiveTabWithRefresh,
     navigateToTab: navigateToTabWithState,
     updateTrackUrl: (trackId: string, replace?: boolean) =>
-      updateTrackUrl(trackId, replace, useAppStore.getState().tuningParams, useAppStore.getState().playMode),
+      useAppStore.getState().navigateToTrackWithState(trackId, {
+        replace,
+        tuningParams: useAppStore.getState().tuningParams,
+        playMode: useAppStore.getState().playMode,
+      }),
     setAnalysisStatus: (message: string, spinning: boolean) =>
       setAnalysisStatus(context, message, spinning),
     setLoadingProgress: (progress: number | null, message?: string | null) =>

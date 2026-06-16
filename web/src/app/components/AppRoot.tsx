@@ -11,6 +11,7 @@ import {
 import { FaqPanel } from "./FaqPanel";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
+import { NavigationDriver } from "./NavigationDriver";
 import { SearchPanel } from "./SearchPanel";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
@@ -101,6 +102,7 @@ export function AppRoot() {
   usePlaylistAddEnabled();
   return (
     <>
+      <NavigationDriver />
       <Hero />
       <TopTracksPanel />
       <SearchPanel />

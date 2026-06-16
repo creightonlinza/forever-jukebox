@@ -2,7 +2,6 @@ import type { AppContext } from "./context";
 import { startUrlAnalysis, uploadAudio } from "./api";
 import { getLoadGeneration, isStaleLoad, resetForNewTrack } from "./playback";
 import { useAppStore } from "./store";
-import { updateTrackUrl } from "./tabs";
 import {
   formatErrorForDisplay,
   inferSourceProviderFromUrl,
@@ -161,7 +160,9 @@ export async function uploadAudioFile(
     useAppStore.setState({ lastSourceProvider: "upload" });
     useAppStore.setState({ audioLoaded: false });
     useAppStore.setState({ analysisLoaded: false });
-    updateTrackUrl(response.id, true, useAppStore.getState().tuningParams, useAppStore.getState().playMode);
+    useAppStore.getState().navigateToTrackWithState(response.id, {
+      replace: true,
+    });
     onAccepted?.();
     useAppStore.getState().setActiveTab("play");
     setLoadingProgress(context, null, "Queued");
@@ -267,7 +268,9 @@ export async function uploadFromUrl(
     useAppStore.setState({ lastSourceProvider: sourceProvider });
     useAppStore.setState({ pendingAutoFavoriteId: listenId });
     onAccepted?.();
-    updateTrackUrl(listenId, true, useAppStore.getState().tuningParams, useAppStore.getState().playMode);
+    useAppStore.getState().navigateToTrackWithState(listenId, {
+      replace: true,
+    });
     useAppStore.getState().setActiveTab("play");
     setLoadingProgress(context, null, "Fetching audio");
     await deps.pollAnalysisJob(response.id);

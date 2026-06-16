@@ -16,23 +16,7 @@ it was always 100% React"; the bar is "is this clean and maintainable."
 
 ---
 
-## 1. Parallel routing system  — *medium*
-
-`router.ts` stashes the react-router instance in a module singleton
-(`setAppRouter`/`getAppRouter`) so non-React modules can call `appNavigate()`,
-and `tabs.ts` builds URLs by hand (`updateTrackUrl`, `navigateToTab`). This is a
-second navigation path alongside react-router: navigation logic still lives
-outside React in a few places and calls back in.
-
-- **Fix:** move remaining navigation decisions toward React hooks/components or
-  store actions with a single router boundary instead of scattered `appNavigate`
-  calls.
-- **Risk if ignored:** two sources of truth for navigation; `appNavigate`'s
-  raw-`history` fallback path is easy to forget.
-
----
-
-## 2. `null as unknown as ...` viz-controller casts  — *low*
+## 1. `null as unknown as ...` viz-controller casts  — *low*
 
 `init.ts` seeds `context.autocanonizer`/`context.jukebox` as
 `null as unknown as AppContext[...]` because the controllers don't exist until
@@ -44,7 +28,7 @@ outside React in a few places and calls back in.
 
 ---
 
-## 3. Last UI-state DOM poke outside React  — *low*
+## 2. Last UI-state DOM poke outside React  — *low*
 
 `playback/status-ui.ts` pulses the stats panel via
 `document.getElementById("viz-stats")` + `classList`. It's the only remaining
@@ -56,7 +40,7 @@ hook are legitimate escape-hatches; leave those).
 
 ---
 
-## 4. Non-serializable handles in the store  — *low / maybe accept*
+## 3. Non-serializable handles in the store  — *low / maybe accept*
 
 The zustand store holds `AbortController` (`pollController`), timer ids
 (`toastTimer`, `listenTimerId`, `sleepTimerTimeoutId`) and `wakeLock`. These were
