@@ -79,7 +79,11 @@ vi.mock("@/core/infrastructure/analysis/AnalysisWorkerClient", () => ({
 
 vi.mock("@/core/infrastructure/audio/AudioDecoder", () => ({
   AudioDecoder: class AudioDecoder {
-    constructor(_context: unknown) {}
+    readonly context: unknown;
+
+    constructor(context: unknown) {
+      this.context = context;
+    }
   },
 }));
 
@@ -89,7 +93,11 @@ vi.mock("@/core/infrastructure/cache/analysisCache", () => ({
 
 vi.mock("@/core/application/usecases/analyzeAudio", () => ({
   AnalyzeAudioUseCase: class AnalyzeAudioUseCase {
-    constructor(_port: unknown, _cache: unknown, _decoder: unknown) {}
+    readonly dependencies: unknown[];
+
+    constructor(port: unknown, cache: unknown, decoder: unknown) {
+      this.dependencies = [port, cache, decoder];
+    }
 
     async execute({ onProgress }: { onProgress?: (value: any) => void }) {
       onProgress?.({ stage: "loading", progress: 0, message: "Loading file" });
@@ -111,7 +119,7 @@ vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
     constructor() {
       playerInstances.push(this);
     }
-    async loadBuffer(_buffer: AudioBuffer) {}
+    loadBuffer = vi.fn(async (_buffer: AudioBuffer) => undefined);
     getContext() {
       return {
         destination: {},
@@ -131,8 +139,8 @@ vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
     getSourceBuffer() {
       return {} as AudioBuffer;
     }
-    stop() {}
-    seek(_time: number) {}
+    stop = vi.fn();
+    seek = vi.fn((_time: number) => undefined);
     isPlaying() {
       return false;
     }
@@ -148,7 +156,9 @@ vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
     getJukeboxAudioMode() {
       return this.audioMode;
     }
-    setRenderedJukeboxAudioBuffer(_mode: string, _buffer: AudioBuffer) {}
+    setRenderedJukeboxAudioBuffer = vi.fn(
+      (_mode: string, _buffer: AudioBuffer) => undefined,
+    );
     getRenderedJukeboxAudioBuffer(_mode: string) {
       return null;
     }
@@ -161,7 +171,7 @@ vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
     getAudioMode() {
       return this.audioMode;
     }
-    async dispose() {}
+    dispose = vi.fn(async () => undefined);
   },
 }));
 
@@ -274,20 +284,22 @@ vi.mock("@forever-jukebox/engine/viz/JukeboxController", () => ({
     constructor(_layer: HTMLElement) {
       jukeboxControllerInstances.push(this);
     }
-    setActiveIndex(_index: number) {}
-    setVisible(_visible: boolean) {}
-    setAnchorHighlightEnabled(_enabled: boolean) {}
-    resizeActive() {}
-    reset() {}
-    setData = vi.fn((_data: unknown) => {});
-    setOnSelect(_handler: (index: number) => void) {}
+    setActiveIndex = vi.fn((_index: number) => undefined);
+    setVisible = vi.fn((_visible: boolean) => undefined);
+    setAnchorHighlightEnabled = vi.fn((_enabled: boolean) => undefined);
+    resizeActive = vi.fn();
+    reset = vi.fn();
+    setData = vi.fn((_data: unknown) => undefined);
+    setOnSelect = vi.fn((_handler: (index: number) => void) => undefined);
     setOnEdgeSelect(handler: (edge: unknown) => void) {
       this.onEdgeSelect = handler;
     }
-    setSelectedEdge(_edge: unknown) {}
-    setSelectedEdgeActive = vi.fn((_edge: unknown) => {});
-    update = vi.fn((_index: number, _animate: boolean, _jumpFrom: number | null) => {});
-    destroy() {}
+    setSelectedEdge = vi.fn((_edge: unknown) => undefined);
+    setSelectedEdgeActive = vi.fn((_edge: unknown) => undefined);
+    update = vi.fn(
+      (_index: number, _animate: boolean, _jumpFrom: number | null) => undefined,
+    );
+    destroy = vi.fn();
     getCount() {
       return 2;
     }
@@ -301,23 +313,27 @@ vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => (
   AutocanonizerController: class AutocanonizerController {
     private onBeat: ((index: number) => void) | null = null;
     private onEnded: (() => void) | null = null;
-    setFinishOutSong = vi.fn((_enabled: boolean) => {});
+    setFinishOutSong = vi.fn((_enabled: boolean) => undefined);
     constructor(_layer: HTMLElement) {
       autocanonizerInstances.push(this);
     }
-    setVisible(_visible: boolean) {}
-    resizeNow() {}
+    setVisible = vi.fn((_visible: boolean) => undefined);
+    resizeNow = vi.fn();
     setOnBeat(handler: ((index: number) => void) | null) {
       this.onBeat = handler;
     }
     setOnEnded(handler: (() => void) | null) {
       this.onEnded = handler;
     }
-    setOnSelect(_handler: ((index: number) => void) | null) {}
-    setVolume(_volume: number) {}
-    setAudio(_buffer: AudioBuffer | null, _context: AudioContext | null) {}
-    setAnalysis(_analysis: unknown, _durationOverride?: number | null) {}
-    resetVisualization() {}
+    setOnSelect = vi.fn((_handler: ((index: number) => void) | null) => undefined);
+    setVolume = vi.fn((_volume: number) => undefined);
+    setAudio = vi.fn(
+      (_buffer: AudioBuffer | null, _context: AudioContext | null) => undefined,
+    );
+    setAnalysis = vi.fn(
+      (_analysis: unknown, _durationOverride?: number | null) => undefined,
+    );
+    resetVisualization = vi.fn();
     isReady() {
       return true;
     }
@@ -325,9 +341,9 @@ vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => (
       this.onBeat?.(index);
       this.onEnded?.();
     }
-    stop() {}
-    reset() {}
-    destroy() {}
+    stop = vi.fn();
+    reset = vi.fn();
+    destroy = vi.fn();
   },
 }));
 
@@ -342,9 +358,9 @@ vi.mock("@/ui/components/SymbolIcon", () => ({
 }));
 
 class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
 }
 
 type RenderedListen = {
@@ -471,7 +487,7 @@ describe("Listen route behavior", () => {
         1 as unknown as ReturnType<typeof window.setInterval>) as unknown) as typeof window.setInterval
     );
     vi.spyOn(window, "clearInterval").mockImplementation(
-      ((_id: ReturnType<typeof window.setInterval>) => {}) as typeof window.clearInterval
+      ((_id: ReturnType<typeof window.setInterval>) => undefined) as typeof window.clearInterval
     );
     vi.stubGlobal(
       "requestAnimationFrame",

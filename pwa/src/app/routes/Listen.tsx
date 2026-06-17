@@ -212,6 +212,66 @@ function AudioModeRadio({
   );
 }
 
+function AudioModeSectionGroup({
+  section,
+  selectedAudioMode,
+  disabled,
+  onChange,
+}: {
+  section: AudioModeSection;
+  selectedAudioMode: JukeboxAudioMode;
+  disabled: boolean;
+  onChange: (mode: JukeboxAudioMode) => void;
+}) {
+  return (
+    <div className="audio-mode-section">
+      <div className="audio-mode-section-title">{section.title}</div>
+      <div className="audio-mode-section-options">
+        {section.options.map((option) => (
+          <AudioModeRadio
+            key={option.value}
+            option={option}
+            checked={selectedAudioMode === option.value}
+            disabled={disabled}
+            onChange={() => onChange(option.value)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AudioModeOptions({
+  selectedAudioMode,
+  disabled,
+  onChange,
+}: {
+  selectedAudioMode: JukeboxAudioMode;
+  disabled: boolean;
+  onChange: (mode: JukeboxAudioMode) => void;
+}) {
+  return (
+    <div className="audio-mode-options" role="radiogroup" aria-label="Audio mode">
+      <AudioModeRadio
+        option={AUDIO_MODE_DEFAULT_OPTION}
+        className="audio-mode-default-option"
+        checked={selectedAudioMode === AUDIO_MODE_DEFAULT_OPTION.value}
+        disabled={disabled}
+        onChange={() => onChange(AUDIO_MODE_DEFAULT_OPTION.value)}
+      />
+      {AUDIO_MODE_SECTIONS.map((section) => (
+        <AudioModeSectionGroup
+          key={section.title}
+          section={section}
+          selectedAudioMode={selectedAudioMode}
+          disabled={disabled}
+          onChange={onChange}
+        />
+      ))}
+    </div>
+  );
+}
+
 function getVisualizationLabel(index: number) {
   return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
 }
@@ -2540,41 +2600,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </div>
                 <div id="jukebox-audio-mode-group" className="audio-mode-group">
                   <div className="label-line">Audio Mode</div>
-                  <div className="audio-mode-options" role="radiogroup" aria-label="Audio mode">
-                    <AudioModeRadio
-                      option={AUDIO_MODE_DEFAULT_OPTION}
-                      className="audio-mode-default-option"
-                      checked={extrasForm.audioMode === AUDIO_MODE_DEFAULT_OPTION.value}
-                      disabled={playMode !== "jukebox"}
-                      onChange={() =>
-                        setExtrasForm((prev) => ({
-                          ...prev,
-                          audioMode: AUDIO_MODE_DEFAULT_OPTION.value,
-                        }))
-                      }
-                    />
-                    {AUDIO_MODE_SECTIONS.map((section) => (
-                      <div className="audio-mode-section" key={section.title}>
-                        <div className="audio-mode-section-title">{section.title}</div>
-                        <div className="audio-mode-section-options">
-                          {section.options.map((option) => (
-                            <AudioModeRadio
-                              key={option.value}
-                              option={option}
-                              checked={extrasForm.audioMode === option.value}
-                              disabled={playMode !== "jukebox"}
-                              onChange={() =>
-                                setExtrasForm((prev) => ({
-                                  ...prev,
-                                  audioMode: option.value,
-                                }))
-                              }
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <AudioModeOptions
+                    selectedAudioMode={extrasForm.audioMode}
+                    disabled={playMode !== "jukebox"}
+                    onChange={(audioMode) =>
+                      setExtrasForm((prev) => ({ ...prev, audioMode }))
+                    }
+                  />
                 </div>
               </div>
             </div>
