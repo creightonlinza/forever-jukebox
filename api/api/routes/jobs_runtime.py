@@ -137,10 +137,6 @@ def _provider_from_info(info: dict, source_url: str) -> str | None:
     return _provider_for_host(urlsplit(source_url).hostname)
 
 
-def _source_id_for_provider(provider: str, raw_id: str) -> str:
-    return raw_id
-
-
 def source_info_is_live(info: dict) -> bool:
     live_status = info.get("live_status")
     if isinstance(live_status, str) and live_status.lower() == "is_live":
@@ -177,10 +173,9 @@ def resolve_source_info(source_url: str) -> SourceInfo:
     raw_id = info.get("id")
     if not isinstance(raw_id, str) or not raw_id.strip():
         raise ValueError("Unable to resolve source id")
-    source_id = _source_id_for_provider(provider, raw_id.strip())
     return SourceInfo(
         provider=provider,
-        source_id=source_id,
+        source_id=raw_id.strip(),
         source_url=canonical_url,
         duration_s=_coerce_duration(info.get("duration")),
     )

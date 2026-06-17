@@ -23,12 +23,11 @@ def main() -> None:
         print(f"PROGRESS:{percent}:{stage}", flush=True)
 
     progress_cb = progress_printer if os.environ.get("ENGINE_PROGRESS") == "true" else None
-    analysis_progress = progress_cb
 
     try:
         from .analysis import AnalysisError, analyze_audio
 
-        data = analyze_audio(args.input, progress_cb=analysis_progress)
+        data = analyze_audio(args.input, progress_cb=progress_cb)
         output_path = Path(args.output) if args.output else None
         payload = json.dumps(data, sort_keys=True, indent=None, separators=(",", ":"))
 

@@ -165,8 +165,7 @@ def analyze_audio(
     duration = len(audio) / sample_rate if sample_rate else 0.0
 
     report(10, "beats")
-    def beat_progress(percent: int, stage: str, message: str) -> None:
-        del message
+    def beat_progress(percent: int, stage: str, _message: str) -> None:
         clamped = max(0, min(100, int(percent)))
         mapped = 10 + int((clamped / 100.0) * 75.0)
         stage_name = f"beats.{stage}" if stage else "beats"

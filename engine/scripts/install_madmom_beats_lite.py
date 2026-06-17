@@ -40,18 +40,6 @@ class InstallOutcome:
         }
 
 
-class ProgressEmitter:
-    def __init__(self) -> None:
-        self._last_percent = -1
-
-    def emit(self, percent: int, stage: str, message: str) -> None:
-        clamped = max(0, min(100, int(percent)))
-        if clamped < self._last_percent:
-            clamped = self._last_percent
-        self._last_percent = clamped
-        return
-
-
 def pick_best_wheel(assets: list[dict[str, Any]]) -> dict[str, Any]:
     rank = {tag: i for i, tag in enumerate(sys_tags())}
     best: dict[str, Any] | None = None
@@ -93,35 +81,20 @@ def _fetch_latest_release() -> dict[str, Any]:
 def _download_wheel(
     url: str,
     destination: Path,
-    total_size: int | None,
-    progress: ProgressEmitter,
 ) -> None:
     request = urllib.request.Request(
         url,
         headers={"User-Agent": "forever-jukebox-madmom-beats-lite-updater"},
     )
-    downloaded = 0
     with urllib.request.urlopen(request, timeout=60) as response, destination.open("wb") as handle:
         while True:
             chunk = response.read(CHUNK_SIZE)
             if not chunk:
                 break
             handle.write(chunk)
-            downloaded += len(chunk)
-
-            if total_size and total_size > 0:
-                ratio = downloaded / float(total_size)
-                ratio = min(max(ratio, 0.0), 1.0)
-                stage_percent = 20 + int(ratio * 50)
-                message_percent = int(ratio * 100)
-                progress.emit(stage_percent, "download", f"downloading wheel ({message_percent}%)")
-            else:
-                progress.emit(45, "download", f"downloading wheel ({downloaded} bytes)")
-
-    progress.emit(70, "download", "wheel download complete")
 
 
-def _verify_sha256(path: Path, expected_hex: str, progress: ProgressEmitter) -> None:
+def _verify_sha256(path: Path, expected_hex: str) -> None:
     hasher = hashlib.sha256()
     with path.open("rb") as handle:
         while True:
@@ -132,7 +105,6 @@ def _verify_sha256(path: Path, expected_hex: str, progress: ProgressEmitter) -> 
     actual = hasher.hexdigest()
     if actual.lower() != expected_hex.lower():
         raise RuntimeError(f"ChecksumMismatch expected={expected_hex} actual={actual}")
-    progress.emit(75, "verify", "sha256 verified")
 
 
 def _installed_version() -> str | None:
@@ -175,7 +147,7 @@ def _pip_install(python_executable: str, wheel_path: Path) -> None:
     )
 
 
-def run_install(python_executable: str, download_dir: Path, progress: ProgressEmitter) -> InstallOutcome:
+def run_install(python_executable: str, download_dir: Path) -> InstallOutcome:
     release_tag: str | None = None
     asset_name: str | None = None
     try:
@@ -184,7 +156,6 @@ def run_install(python_executable: str, download_dir: Path, progress: ProgressEm
         assets = release.get("assets") or []
         if not isinstance(assets, list):
             raise RuntimeError("InvalidReleaseAssets")
-        progress.emit(5, "release", "fetched latest release metadata")
         wheel_assets = [asset for asset in assets if str(asset.get("name", "")).endswith(".whl")]
         if not wheel_assets:
             raise RuntimeError("NoWheelAssets")
@@ -194,7 +165,6 @@ def run_install(python_executable: str, download_dir: Path, progress: ProgressEm
         download_url = str(chosen.get("browser_download_url") or "")
         if not download_url:
             raise RuntimeError("MissingBrowserDownloadURL")
-        progress.emit(12, "release", f"selected wheel {asset_name}")
 
         release_version = _release_version_from_tag(release_tag)
         installed_before = _installed_version()
@@ -203,7 +173,6 @@ def run_install(python_executable: str, download_dir: Path, progress: ProgressEm
             and installed_before == release_version
             and _is_package_importable()
         ):
-            progress.emit(100, "done", "already up to date")
             return InstallOutcome(
                 ok=True,
                 release_tag=release_tag,
@@ -215,20 +184,14 @@ def run_install(python_executable: str, download_dir: Path, progress: ProgressEm
 
         download_dir.mkdir(parents=True, exist_ok=True)
         wheel_path = download_dir / asset_name
-        total_size = chosen.get("size")
-        total_size = int(total_size) if isinstance(total_size, int) else None
-        _download_wheel(download_url, wheel_path, total_size, progress)
+        _download_wheel(download_url, wheel_path)
 
         digest = str(chosen.get("digest") or "")
         if digest.startswith("sha256:"):
-            _verify_sha256(wheel_path, digest.split(":", 1)[1], progress)
-        else:
-            progress.emit(75, "verify", "sha256 digest missing; skipped verification")
+            _verify_sha256(wheel_path, digest.split(":", 1)[1])
 
-        progress.emit(95, "install", "pip install running")
         _pip_install(python_executable, wheel_path)
         version = _installed_version()
-        progress.emit(100, "done", "installation complete")
         return InstallOutcome(
             ok=True,
             release_tag=release_tag,
@@ -238,7 +201,6 @@ def run_install(python_executable: str, download_dir: Path, progress: ProgressEm
             error=None,
         )
     except Exception as exc:
-        progress.emit(100, "done", "installation failed")
         return InstallOutcome(
             ok=False,
             release_tag=release_tag,
@@ -266,11 +228,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    progress = ProgressEmitter()
     outcome = run_install(
         python_executable=str(args.python),
         download_dir=Path(args.download_dir),
-        progress=progress,
     )
     print(json.dumps(outcome.to_dict(), separators=(",", ":")), flush=True)
     return 0 if outcome.ok else 1

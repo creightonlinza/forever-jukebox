@@ -7,17 +7,14 @@ body {
   font-family: "Barlow", "Avenir Next", "Noto Sans", sans-serif;
   background: var(--bg);
   color: var(--text);
-  transition:
-    opacity 0.2s ease,
-    background-color 0.22s ease,
-    color 0.22s ease;
-}
-
-body {
   display: flex;
   flex-direction: column;
   min-width: 425px;
   min-height: 100vh;
+  transition:
+    opacity 0.2s ease,
+    background-color 0.22s ease,
+    color 0.22s ease;
 }
 
 #app {
@@ -1479,10 +1476,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   line-height: 1;
 }
 
-.favorite-remove {
-  background: transparent;
-}
-
 .favorite-remove .favorite-remove-icon {
   font-variation-settings:
     "FILL" 0,
@@ -2051,6 +2044,8 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .viz-bottom {
@@ -2166,11 +2161,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.viz-actions {
   font-size: 12px;
   color: var(--muted);
 }
