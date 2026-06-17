@@ -2,20 +2,18 @@ import { expect, test } from "@playwright/test";
 import { getFixtureTrack, loadTrackByDeepLink } from "./helpers";
 
 test.describe("tab navigation + URL contract", () => {
-  test("home shows Top Tracks; all four panels persist in the DOM", async ({
+  test("home shows Top Tracks; only Listen stays mounted while hidden", async ({
     page,
   }) => {
     await page.goto("/");
     await expect(page.locator('[data-tab-panel="top"]')).toBeVisible();
-    for (const panel of ["top", "search", "play", "faq"]) {
-      await expect(page.locator(`[data-tab-panel="${panel}"]`)).toBeAttached();
-    }
-    // only top visible
-    for (const panel of ["search", "play", "faq"]) {
-      await expect(page.locator(`[data-tab-panel="${panel}"]`)).toHaveClass(
-        /\bhidden\b/,
-      );
-    }
+    await expect(page.locator('[data-tab-panel="play"]')).toBeAttached();
+    await expect(page.locator("#viz-layer")).toBeAttached();
+    await expect(page.locator('[data-tab-panel="play"]')).toHaveClass(
+      /\bhidden\b/,
+    );
+    await expect(page.locator('[data-tab-panel="search"]')).toHaveCount(0);
+    await expect(page.locator('[data-tab-panel="faq"]')).toHaveCount(0);
     await expect(page.locator('[data-tab-button="top"]')).toHaveClass(
       /\bactive\b/,
     );
@@ -134,7 +132,7 @@ test.describe("tab navigation + URL contract", () => {
     await expect(page).toHaveURL(/\/listen\//);
     await expect(page.locator("#viz-panel")).not.toHaveClass(/\bhidden\b/);
 
-    // the canvas-holding node must be the SAME node (panels persist)
+    // the canvas-holding node must be the SAME node (Listen/viz persists)
     const sameNode = await page.evaluate(
       (el) => el === document.getElementById("viz-layer"),
       layerHandle,
@@ -144,7 +142,7 @@ test.describe("tab navigation + URL contract", () => {
     );
   });
 
-  test("viz-layer node identity survives tab switching (panels-persist invariant)", async ({
+  test("viz-layer node identity survives tab switching (Listen keep-alive invariant)", async ({
     page,
     request,
     baseURL,
