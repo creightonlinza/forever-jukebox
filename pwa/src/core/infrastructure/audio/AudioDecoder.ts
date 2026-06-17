@@ -5,7 +5,7 @@ import type {
 import { prepareAudioWithFfmpeg } from "./ffmpegAudio";
 
 export class AudioDecoder implements AudioDecoderPort {
-  private context: AudioContext;
+  private readonly context: AudioContext;
 
   constructor(context?: AudioContext) {
     this.context = context ?? new AudioContext();

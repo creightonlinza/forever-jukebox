@@ -62,7 +62,7 @@ export function makeQuanta(starts: number[], duration: number, confidences?: num
       start: starts[i],
       duration: Math.max(0, end - starts[i]),
     };
-    if (confidences && confidences[i] !== undefined) {
+    if (confidences?.[i] !== undefined) {
       q.confidence = confidences[i];
     }
     out.push(q);
