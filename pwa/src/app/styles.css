@@ -1027,7 +1027,7 @@ textarea:focus-visible {
   border-radius: 8px;
   background: rgba(227, 90, 90, 0.1);
   border: 1px solid rgba(227, 90, 90, 0.3);
-  color: #ffd6d6;
+  color: #ffffff;
 }
 
 .shortcut-toast {

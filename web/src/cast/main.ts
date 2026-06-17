@@ -343,7 +343,7 @@ async function loadAnalysis(
 ): Promise<Awaited<ReturnType<typeof fetchAnalysis>>> {
   setStatus(statusEl, "Loading analysis");
   const analysis = await pollAnalysis(jobId, statusEl, token, state);
-  if (!analysis || analysis.status !== "complete" || !analysis.id) {
+  if (analysis?.status !== "complete" || !analysis.id) {
     throw new Error("Analysis lookup failed");
   }
   return analysis;

@@ -131,8 +131,6 @@ export function planJukeboxPath(options: PlanJukeboxPathOptions): PlannedJukebox
       }
       if (jumped) {
         jumpFromIndex = selection.jumped ? seed.which : currentBeatIndex;
-      } else {
-        jumpFromIndex = null;
       }
     }
 

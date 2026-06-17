@@ -237,13 +237,12 @@ function FavoritesList({ query }: { query: string }) {
 
   const sortHeader = (key: FavoritesDisplaySort["key"], label: string) => {
     const active = sort.key === key;
+    let ariaSort: "ascending" | "descending" | "none" = "none";
+    if (active) {
+      ariaSort = sort.direction === "asc" ? "ascending" : "descending";
+    }
     return (
-      <th
-        scope="col"
-        aria-sort={
-          active ? (sort.direction === "asc" ? "ascending" : "descending") : "none"
-        }
-      >
+      <th scope="col" aria-sort={ariaSort}>
         <button
           type="button"
           className="favorites-sort-button"

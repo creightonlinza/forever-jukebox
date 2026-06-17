@@ -481,7 +481,7 @@ class CanvasViz {
     return this.theme.beatHighlight;
   }
 
-  private handleCanvasClick = (event: MouseEvent) => {
+  private readonly handleCanvasClick = (event: MouseEvent) => {
     if (!this.data || !this.visible) {
       return;
     }

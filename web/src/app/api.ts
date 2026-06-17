@@ -135,12 +135,12 @@ function parseAnalysisResponse(data: unknown): AnalysisResponse | null {
   }
   const status = typeof data.status === "string" ? data.status : null;
   const id = typeof data.id === "string" ? data.id : undefined;
-  const sourceId =
-    typeof data.source_id === "string"
-      ? data.source_id
-      : typeof data.youtube_id === "string"
-        ? data.youtube_id
-        : undefined;
+  let sourceId: string | undefined;
+  if (typeof data.source_id === "string") {
+    sourceId = data.source_id;
+  } else if (typeof data.youtube_id === "string") {
+    sourceId = data.youtube_id;
+  }
   const sourceProvider =
     typeof data.source_provider === "string" ? data.source_provider : undefined;
   const createdAt =

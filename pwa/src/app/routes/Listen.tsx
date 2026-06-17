@@ -1366,8 +1366,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const sourceBuffer = player?.getSourceBuffer();
     const beats = analysisRef.current?.beats;
     if (
-      !player ||
-      player.getJukeboxAudioMode() !== "swing" ||
+      player?.getJukeboxAudioMode() !== "swing" ||
       !sourceBuffer ||
       !beats?.length
     ) {

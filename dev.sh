@@ -274,10 +274,11 @@ ensure_api_env() {
   if ! command -v deno >/dev/null 2>&1 && ! try_deno_install_with_package_manager; then
     print_deno_install_hint
   fi
-  if is_true "$UPDATE_DENO" && command -v deno >/dev/null 2>&1; then
-    if ! deno upgrade && ! try_deno_upgrade_with_package_manager; then
-      print_deno_upgrade_hint
-    fi
+  if is_true "$UPDATE_DENO" &&
+    command -v deno >/dev/null 2>&1 &&
+    ! deno upgrade &&
+    ! try_deno_upgrade_with_package_manager; then
+    print_deno_upgrade_hint
   fi
   if ! command -v deno >/dev/null 2>&1; then
     echo "Warning: deno not found in PATH (yt-dlp EJS may fail)."
@@ -299,14 +300,13 @@ ensure_engine_env() {
   if "$ENGINE_VENV/bin/python" -c "import madmom_beats_lite" >/dev/null 2>&1; then
     has_madmom_beats_lite=1
   fi
-  if is_true "$UPDATE_MADMOM_BEATS_LITE" || [[ "$has_madmom_beats_lite" == "0" ]]; then
-    if ! "$ENGINE_VENV/bin/python" "$ROOT/engine/scripts/install_madmom_beats_lite.py" --python "$ENGINE_VENV/bin/python"; then
-      if [[ "$has_madmom_beats_lite" == "1" ]]; then
-        echo "Warning: could not auto-update madmom-beats-lite; continuing with installed version."
-      else
-        echo "Error: madmom-beats-lite installation failed." >&2
-        exit 1
-      fi
+  if { is_true "$UPDATE_MADMOM_BEATS_LITE" || [[ "$has_madmom_beats_lite" == "0" ]]; } &&
+    ! "$ENGINE_VENV/bin/python" "$ROOT/engine/scripts/install_madmom_beats_lite.py" --python "$ENGINE_VENV/bin/python"; then
+    if [[ "$has_madmom_beats_lite" == "1" ]]; then
+      echo "Warning: could not auto-update madmom-beats-lite; continuing with installed version."
+    else
+      echo "Error: madmom-beats-lite installation failed." >&2
+      exit 1
     fi
   fi
   if "$ENGINE_VENV/bin/python" -m pip show madmom >/dev/null 2>&1; then
