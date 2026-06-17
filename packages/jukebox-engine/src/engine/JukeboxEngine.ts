@@ -48,6 +48,11 @@ type PendingAdvance = {
   sourceBoundaryTime: number | null;
 };
 
+type JumpEvent = {
+  sourceStartTime: number;
+  targetTime: number;
+};
+
 export interface JukeboxEngineOptions {
   randomMode?: RandomMode;
   seed?: number;
@@ -61,6 +66,7 @@ export interface JukeboxPlayer {
   seek: (time: number) => void;
   scheduleJump: (targetTime: number, sourceStartTime: number) => boolean;
   cancelScheduledJump: () => void;
+  consumeJumpEvent?: () => JumpEvent | null;
   setAnchorJump?: (targetTime: number, sourceStartTime: number) => boolean;
   clearAnchorJump?: () => void;
   getCurrentTime: () => number;
@@ -84,6 +90,7 @@ export class JukeboxEngine {
   private lastJumped = false;
   private lastJumpTime: number | null = null;
   private lastJumpFromIndex: number | null = null;
+  private lastJumpToIndex: number | null = null;
   private forceBranch = false;
   private bringItHomeMode = false;
   private pendingAdvance: PendingAdvance | null = null;
@@ -123,6 +130,7 @@ export class JukeboxEngine {
     this.lastJumped = false;
     this.lastJumpTime = null;
     this.lastJumpFromIndex = null;
+    this.lastJumpToIndex = null;
     this.clearPendingAdvance(true);
   }
 
@@ -263,6 +271,7 @@ export class JukeboxEngine {
     this.lastJumped = false;
     this.lastJumpTime = null;
     this.lastJumpFromIndex = null;
+    this.lastJumpToIndex = null;
     this.clearPendingAdvance(true);
   }
 
@@ -461,6 +470,7 @@ export class JukeboxEngine {
     this.lastJumped = false;
     this.lastJumpTime = null;
     this.lastJumpFromIndex = null;
+    this.lastJumpToIndex = null;
     this.clearPendingAdvance(true);
   }
 
@@ -492,6 +502,7 @@ export class JukeboxEngine {
       return;
     }
     this.ensureSyncedToPlaybackPosition(audioTime);
+    this.consumePromotedJumpEvent();
 
     this.emitState(this.lastJumped);
     this.lastJumped = false;
@@ -518,6 +529,7 @@ export class JukeboxEngine {
       this.lastJumped = false;
       this.lastJumpTime = null;
       this.lastJumpFromIndex = null;
+      this.lastJumpToIndex = null;
       this.clearPendingAdvance(false);
       return;
     }
@@ -648,10 +660,12 @@ export class JukeboxEngine {
       this.lastJumped = true;
       this.lastJumpTime = advance.targetTime;
       this.lastJumpFromIndex = advance.jumpFromIndex;
+      this.lastJumpToIndex = advance.chosenIndex;
     } else {
       this.lastJumped = false;
       this.lastJumpTime = null;
       this.lastJumpFromIndex = null;
+      this.lastJumpToIndex = null;
     }
 
     this.currentBeatIndex = advance.chosenIndex;
@@ -708,8 +722,30 @@ export class JukeboxEngine {
     this.lastJumped = false;
     this.lastJumpTime = null;
     this.lastJumpFromIndex = null;
+    this.lastJumpToIndex = null;
     this.branchState.lastDestBySource = null;
     this.clearPendingAdvance(true);
+  }
+
+  private consumePromotedJumpEvent() {
+    const event = this.player.consumeJumpEvent?.();
+    if (!event) {
+      return;
+    }
+    const sourceIndex = this.findBeatIndexByTime(event.sourceStartTime);
+    const targetIndex = this.findBeatIndexByTime(event.targetTime);
+    if (
+      sourceIndex < 0 ||
+      sourceIndex >= this.beats.length ||
+      targetIndex < 0 ||
+      targetIndex >= this.beats.length
+    ) {
+      return;
+    }
+    this.lastJumped = true;
+    this.lastJumpTime = event.targetTime;
+    this.lastJumpFromIndex = sourceIndex;
+    this.lastJumpToIndex = targetIndex;
   }
 
   private clearPendingAdvance(cancelScheduledJump: boolean) {
@@ -777,6 +813,7 @@ export class JukeboxEngine {
         lastJumped: jumped,
         lastJumpTime: this.lastJumpTime,
         lastJumpFromIndex: this.lastJumpFromIndex,
+        lastJumpToIndex: this.lastJumpToIndex,
         currentThreshold: this.graph.currentThreshold,
         lastBranchPoint: this.graph.lastBranchPoint,
         curRandomBranchChance: this.curRandomBranchChance,

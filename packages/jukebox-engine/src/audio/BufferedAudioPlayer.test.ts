@@ -466,6 +466,24 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.stop).toHaveBeenCalledWith(11);
   });
 
+  it("publishes an explicit jump event only after source promotion", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+
+    expect(player.scheduleJump(2, 1)).toBe(true);
+    expect(player.consumeJumpEvent()).toBeNull();
+
+    context.currentTime = 1.05;
+    expect(player.consumeJumpEvent()).toEqual({
+      sourceStartTime: 1,
+      targetTime: 2,
+    });
+    expect(player.consumeJumpEvent()).toBeNull();
+  });
+
   it("pre-schedules an anchor fallback jump on the audio clock", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
@@ -480,6 +498,23 @@ describe("BufferedAudioPlayer", () => {
 
     context.currentTime = 5.25;
     expect(player.getCurrentTime()).toBeCloseTo(2.25, 5);
+  });
+
+  it("publishes an anchor fallback jump event only after source promotion", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+
+    expect(player.setAnchorJump(2, 5)).toBe(true);
+    expect(player.consumeJumpEvent()).toBeNull();
+
+    context.currentTime = 5.25;
+    expect(player.consumeJumpEvent()).toEqual({
+      sourceStartTime: 5,
+      targetTime: 2,
+    });
+    expect(player.consumeJumpEvent()).toBeNull();
   });
 
   it("does not stop a due anchor fallback while clearing anchor state", async () => {
@@ -562,6 +597,38 @@ describe("BufferedAudioPlayer", () => {
 
     expect(pending?.stop).toHaveBeenCalled();
     expect(pending?.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not publish canceled or stale jump events", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+    expect(player.scheduleJump(2, 1)).toBe(true);
+
+    player.cancelScheduledJump();
+    context.currentTime = 1.05;
+    expect(player.consumeJumpEvent()).toBeNull();
+
+    context.currentTime = 2.01;
+    expect(player.scheduleJump(4, 2)).toBe(false);
+    expect(player.consumeJumpEvent()).toBeNull();
+  });
+
+  it("clears promoted jump events when seeking before consumption", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+    expect(player.scheduleJump(2, 1)).toBe(true);
+
+    context.currentTime = 1.05;
+    expect(player.getCurrentTime()).toBeCloseTo(2.05, 5);
+    player.seek(0);
+
+    expect(player.consumeJumpEvent()).toBeNull();
   });
 
   it("keeps a live source when canceling a future scheduled jump", async () => {

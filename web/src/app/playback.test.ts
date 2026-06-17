@@ -31,6 +31,7 @@ import {
   handleEdgeSelect,
   handleKeydown,
   handleKeyup,
+  initializePlayback,
   resetPlaybackUiForTest,
 } from "./playback-ui";
 import { setWindowUrl } from "./__tests__/test-utils";
@@ -169,11 +170,13 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     }),
     getUserAnchorEdgeId: vi.fn(() => userAnchorEdgeId),
     getSectionStartBeatIndices: vi.fn(() => []),
+    onUpdate: vi.fn(),
   };
   const player = {
     getVolume: vi.fn(() => 0.5),
     getDuration: vi.fn(() => null),
     setVolume: vi.fn(),
+    setOnEnded: vi.fn(),
     play: vi.fn(),
     isPlaying: vi.fn(() => true),
     pause: vi.fn(),
@@ -187,12 +190,14 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     setAnalysis: vi.fn(),
     setAudio: vi.fn(),
     setVolume: vi.fn(),
+    setFinishOutSong: vi.fn(),
     reset: vi.fn(),
     stop: vi.fn(),
     start: vi.fn(),
     isReady: vi.fn(() => false),
     setOnBeat: vi.fn(),
     setOnEnded: vi.fn(),
+    setOnSelect: vi.fn(),
     setVisible: vi.fn(),
     resizeNow: vi.fn(),
   };
@@ -1153,6 +1158,45 @@ describe("playback controls", () => {
     expect(context.engine.seekToBeat).toHaveBeenCalledWith(0);
     expect(context.engine.play).not.toHaveBeenCalled();
     expect(context.engine.startJukebox).not.toHaveBeenCalled();
+  });
+
+  it("draws the promoted jump target before moving a caught-up cursor", () => {
+    const context = createContext();
+    useAppStore.setState({ lastBeatIndex: 9 });
+
+    initializePlayback();
+    const onUpdate = context.engine.onUpdate as ReturnType<typeof vi.fn>;
+    const listener = onUpdate.mock.calls[0]?.[0] as
+      | ((state: {
+          beatsPlayed: number;
+          currentBeatIndex: number;
+          currentTime: number;
+          lastJumped: boolean;
+          lastJumpTime: number | null;
+          lastJumpFromIndex: number | null;
+          lastJumpToIndex: number | null;
+          currentThreshold: number;
+          lastBranchPoint: number;
+          curRandomBranchChance: number;
+        }) => void)
+      | undefined;
+
+    listener?.({
+      beatsPlayed: 12,
+      currentBeatIndex: 2,
+      currentTime: 1.2,
+      lastJumped: true,
+      lastJumpTime: 0,
+      lastJumpFromIndex: 1,
+      lastJumpToIndex: 0,
+      currentThreshold: 20,
+      lastBranchPoint: 1,
+      curRandomBranchChance: 0.2,
+    });
+
+    expect(context.jukebox.update).toHaveBeenNthCalledWith(1, 0, true, 1);
+    expect(context.jukebox.update).toHaveBeenNthCalledWith(2, 2, false, 0);
+    expect(useAppStore.getState().lastBeatIndex).toBe(2);
   });
 });
 

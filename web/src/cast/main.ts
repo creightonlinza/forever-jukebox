@@ -659,11 +659,14 @@ async function bootstrap() {
         engineState.lastJumped && engineState.lastJumpFromIndex !== null
           ? engineState.lastJumpFromIndex
           : state.lastBeatIndex;
-      viz.update(
-        engineState.currentBeatIndex,
-        engineState.lastJumped,
-        jumpFrom,
-      );
+      const jumpTo =
+        engineState.lastJumped && typeof engineState.lastJumpToIndex === "number"
+          ? engineState.lastJumpToIndex
+          : engineState.currentBeatIndex;
+      viz.update(jumpTo, engineState.lastJumped, jumpFrom);
+      if (jumpTo !== engineState.currentBeatIndex) {
+        viz.update(engineState.currentBeatIndex, false, jumpTo);
+      }
       state.lastBeatIndex = engineState.currentBeatIndex;
     });
   };

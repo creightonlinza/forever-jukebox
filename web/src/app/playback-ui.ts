@@ -192,15 +192,19 @@ export function initializePlayback(): void {
             );
           }
         }
+        const lastBeatIndex = useAppStore.getState().lastBeatIndex;
         const jumpFrom =
           engineState.lastJumped && engineState.lastJumpFromIndex !== null
             ? engineState.lastJumpFromIndex
-            : useAppStore.getState().lastBeatIndex;
-        jukebox.update(
-          engineState.currentBeatIndex,
-          engineState.lastJumped,
-          jumpFrom,
-        );
+            : lastBeatIndex;
+        const jumpTo =
+          engineState.lastJumped && typeof engineState.lastJumpToIndex === "number"
+            ? engineState.lastJumpToIndex
+            : engineState.currentBeatIndex;
+        jukebox.update(jumpTo, engineState.lastJumped, jumpFrom);
+        if (jumpTo !== engineState.currentBeatIndex) {
+          jukebox.update(engineState.currentBeatIndex, false, jumpTo);
+        }
         useAppStore.setState({ lastBeatIndex: engineState.currentBeatIndex });
       }
     });

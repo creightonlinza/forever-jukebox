@@ -31,6 +31,7 @@ type MockJukeboxControllerInstance = {
   emitEdgeSelect: (edge: unknown) => void;
   setData: ReturnType<typeof vi.fn>;
   setSelectedEdgeActive: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
 };
 const jukeboxControllerInstances: MockJukeboxControllerInstance[] = [];
 type MockEngineInstance = {
@@ -41,6 +42,7 @@ type MockEngineInstance = {
   play: ReturnType<typeof vi.fn>;
   setUserAnchorEdge: ReturnType<typeof vi.fn>;
   getUserAnchorEdgeId: ReturnType<typeof vi.fn>;
+  emitUpdate: (state: any) => void;
 };
 const engineInstances: MockEngineInstance[] = [];
 
@@ -200,6 +202,7 @@ vi.mock("@/shared/utils/exportJson", () => ({
 
 vi.mock("@forever-jukebox/engine", () => ({
   JukeboxEngine: class JukeboxEngine {
+    private updateListener: ((state: any) => void) | null = null;
     private config = {
       maxBranches: 4,
       maxBranchThreshold: 80,
@@ -233,7 +236,12 @@ vi.mock("@forever-jukebox/engine", () => ({
     loadAnalysis(data: typeof mockAnalysis) {
       this.analysis = data;
     }
-    onUpdate(_listener: (state: any) => void) {}
+    onUpdate(listener: (state: any) => void) {
+      this.updateListener = listener;
+    }
+    emitUpdate(state: any) {
+      this.updateListener?.(state);
+    }
     updateConfig(partial: Partial<typeof this.config>) {
       this.config = { ...this.config, ...partial };
     }
@@ -278,7 +286,7 @@ vi.mock("@forever-jukebox/engine/viz/JukeboxController", () => ({
     }
     setSelectedEdge(_edge: unknown) {}
     setSelectedEdgeActive = vi.fn((_edge: unknown) => {});
-    update(_index: number, _animate: boolean, _jumpFrom: number | null) {}
+    update = vi.fn((_index: number, _animate: boolean, _jumpFrom: number | null) => {});
     destroy() {}
     getCount() {
       return 2;
@@ -700,6 +708,28 @@ describe("Listen route behavior", () => {
     await click(playButton);
     expect(playButton.getAttribute("aria-label")).toBe("Pause");
 
+    rendered.unmount();
+  });
+
+  it("draws the promoted jump target before moving a caught-up cursor", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    const jukebox = jukeboxControllerInstances[0];
+    jukebox?.update.mockClear();
+
+    await act(async () => {
+      engine?.emitUpdate({
+        beatsPlayed: 12,
+        currentBeatIndex: 2,
+        lastJumped: true,
+        lastJumpFromIndex: 1,
+        lastJumpToIndex: 0,
+      });
+    });
+
+    expect(jukebox?.update).toHaveBeenNthCalledWith(1, 0, true, 1);
+    expect(jukebox?.update).toHaveBeenNthCalledWith(2, 2, false, 0);
     rendered.unmount();
   });
 

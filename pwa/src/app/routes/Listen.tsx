@@ -1132,7 +1132,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           state.lastJumped && state.lastJumpFromIndex !== null
             ? state.lastJumpFromIndex
             : lastBeatRef.current;
-        vizControllerRef.current?.update(state.currentBeatIndex, state.lastJumped, jumpFrom);
+        const jumpTo =
+          state.lastJumped && typeof state.lastJumpToIndex === "number"
+            ? state.lastJumpToIndex
+            : state.currentBeatIndex;
+        vizControllerRef.current?.update(jumpTo, state.lastJumped, jumpFrom);
+        if (jumpTo !== state.currentBeatIndex) {
+          vizControllerRef.current?.update(state.currentBeatIndex, false, jumpTo);
+        }
         lastBeatRef.current = state.currentBeatIndex;
       }
     });

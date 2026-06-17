@@ -16,6 +16,11 @@ type AnchorJump = {
   sourceStartTime: number;
 };
 
+export type JumpEvent = {
+  targetTime: number;
+  sourceStartTime: number;
+};
+
 export class BufferedAudioPlayer {
   private context: AudioContext;
   private originalBuffer: AudioBuffer | null = null;
@@ -24,11 +29,14 @@ export class BufferedAudioPlayer {
   private pendingSource: AudioBufferSourceNode | null = null;
   private pendingSwapAt: number | null = null;
   private pendingStartAt = 0;
+  private pendingJumpEvent: JumpEvent | null = null;
   private anchorPendingSource: AudioBufferSourceNode | null = null;
   private anchorPendingSwapAt: number | null = null;
   private anchorPendingStartAt = 0;
+  private anchorPendingJumpEvent: JumpEvent | null = null;
   private anchorStopSource: AudioBufferSourceNode | null = null;
   private anchorJump: AnchorJump | null = null;
+  private promotedJumpEvent: JumpEvent | null = null;
   private masterGain: GainNode;
   private sourceChainInput: GainNode;
   private sourceChainOutput: GainNode;
@@ -158,6 +166,7 @@ export class BufferedAudioPlayer {
     if (!this.buffer) {
       return;
     }
+    this.promotedJumpEvent = null;
     const clamped = Math.max(0, Math.min(this.buffer.duration, time));
     this.offset = clamped;
     if (this.playing) {
@@ -306,6 +315,13 @@ export class BufferedAudioPlayer {
     return this.playbackRate;
   }
 
+  consumeJumpEvent(): JumpEvent | null {
+    this.maybePromotePending();
+    const event = this.promotedJumpEvent;
+    this.promotedJumpEvent = null;
+    return event;
+  }
+
   scheduleJump(targetTime: number, sourceStartTime: number) {
     if (!this.buffer || !this.playing) {
       return false;
@@ -357,6 +373,7 @@ export class BufferedAudioPlayer {
     this.pendingSource = source;
     this.pendingStartAt = startTime - targetTime / this.playbackRate;
     this.pendingSwapAt = startTime;
+    this.pendingJumpEvent = { targetTime, sourceStartTime };
     this.armAnchorPendingSwap(targetTime, startTime, source);
     return true;
   }
@@ -404,6 +421,7 @@ export class BufferedAudioPlayer {
       this.source.disconnect();
       this.source = null;
     }
+    this.promotedJumpEvent = null;
   }
 
   private clearPendingSwap(options: { restartCurrentSource?: boolean } = {}) {
@@ -418,6 +436,7 @@ export class BufferedAudioPlayer {
       ? this.getCurrentTime()
       : null;
     this.pendingSwapAt = null;
+    this.pendingJumpEvent = null;
     if (!this.pendingSource) {
       return;
     }
@@ -448,8 +467,10 @@ export class BufferedAudioPlayer {
     }
     this.source = source;
     this.startAt = this.pendingStartAt;
+    this.promotedJumpEvent = this.pendingJumpEvent;
     this.pendingSource = null;
     this.pendingSwapAt = null;
+    this.pendingJumpEvent = null;
     this.maybePromoteAnchorPending();
   }
 
@@ -466,8 +487,10 @@ export class BufferedAudioPlayer {
     }
     this.source = source;
     this.startAt = this.anchorPendingStartAt;
+    this.promotedJumpEvent = this.anchorPendingJumpEvent;
     this.anchorPendingSource = null;
     this.anchorPendingSwapAt = null;
+    this.anchorPendingJumpEvent = null;
     this.anchorStopSource = null;
     if (options.syncAnchor !== false) {
       this.syncAnchorPendingSwap();
@@ -594,6 +617,7 @@ export class BufferedAudioPlayer {
     this.anchorPendingSource = source;
     this.anchorPendingStartAt = startTime - targetTime / this.playbackRate;
     this.anchorPendingSwapAt = startTime;
+    this.anchorPendingJumpEvent = { targetTime, sourceStartTime };
     this.anchorStopSource = sourceToStop;
     return true;
   }
@@ -630,6 +654,7 @@ export class BufferedAudioPlayer {
       ? this.getCurrentTimeFromClock()
       : null;
     this.anchorPendingSwapAt = null;
+    this.anchorPendingJumpEvent = null;
     this.anchorStopSource = null;
     if (!this.anchorPendingSource) {
       if (restartOffset !== null) {

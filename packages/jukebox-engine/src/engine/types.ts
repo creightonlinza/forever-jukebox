@@ -81,6 +81,7 @@ export interface JukeboxState {
   lastJumped: boolean;
   lastJumpTime: number | null;
   lastJumpFromIndex: number | null;
+  lastJumpToIndex: number | null;
   currentThreshold: number;
   lastBranchPoint: number;
   curRandomBranchChance: number;

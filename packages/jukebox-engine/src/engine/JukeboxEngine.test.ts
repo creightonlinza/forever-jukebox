@@ -487,6 +487,7 @@ describe("JukeboxEngine playback loop", () => {
       nextAudioTime: number;
       curRandomBranchChance: number;
       lastJumpFromIndex: number | null;
+      lastJumpToIndex: number | null;
       ticking: boolean;
       preparePendingAdvance: (audioTime: number) => void;
       tick: () => void;
@@ -508,6 +509,7 @@ describe("JukeboxEngine playback loop", () => {
     expect(engineAny.currentBeatIndex).toBe(1);
     expect(engineAny.nextAudioTime).toBeCloseTo(2, 5);
     expect(engineAny.lastJumpFromIndex).toBe(null);
+    expect(engineAny.lastJumpToIndex).toBe(null);
     engine.stopJukebox();
   });
 
