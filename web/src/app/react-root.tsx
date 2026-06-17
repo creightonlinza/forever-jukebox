@@ -3,10 +3,13 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AppRoot } from "./components/AppRoot";
+import { useAppStore } from "./store";
+import { tabFromPathname } from "./tabs";
 
-// Panels persist in the DOM; routes only select visibility. One catch-all
-// route renders the whole shell — React Router never mounts/unmounts panels.
+// One catch-all route renders the shell. Regular tab panels mount only while
+// active; the Listen/viz panel is the explicit keep-alive exception.
 export function mountReactApp(container: HTMLElement) {
+  useAppStore.getState().setActiveTab(tabFromPathname(window.location.pathname));
   const router = createBrowserRouter([
     {
       path: "*",

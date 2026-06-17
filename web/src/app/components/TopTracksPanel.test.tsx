@@ -50,6 +50,7 @@ describe("TopTracksPanel", () => {
         favoritesSyncCode: null,
         appConfig: null,
       });
+      useAppStore.getState().resetTopSongsCache();
     });
   });
 
@@ -130,6 +131,17 @@ describe("TopTracksPanel", () => {
     await waitFor(() => {
       expect(api.fetchTopSongs).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("keeps loaded list data across unmount and remount", async () => {
+    const api = await import("../api");
+    const { unmount } = render(<TopTracksPanel />);
+    await screen.findByText("Song — Artist");
+    unmount();
+
+    render(<TopTracksPanel />);
+    expect(screen.getByText("Song — Artist")).toBeTruthy();
+    expect(api.fetchTopSongs).toHaveBeenCalledTimes(1);
   });
 
   it("renders, filters, sorts and removes favorites", async () => {

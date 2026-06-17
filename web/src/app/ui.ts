@@ -1,8 +1,9 @@
 import type { AppContext } from "./context";
+import type { MaterialSymbolIconName } from "./material-icons";
 import { useAppStore } from "./store";
 
 export type ToastOptions = {
-  icon?: string;
+  icon?: MaterialSymbolIconName;
   tone?: "default" | "error";
 };
 

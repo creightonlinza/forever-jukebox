@@ -78,15 +78,6 @@ describe("FaqPanel", () => {
     expect(router.state.location.pathname).toBe("/faq");
   });
 
-  it("hides the panel when another tab is active", () => {
-    act(() => {
-      useAppStore.setState({ activeTabId: "top" });
-    });
-    renderFaqPanel("/");
-    const section = document.querySelector('[data-tab-panel="faq"]');
-    expect(section?.classList.contains("hidden")).toBe(true);
-  });
-
   it("shows the cached-audio size and clears it", async () => {
     const cache = await import("../cache");
     renderFaqPanel("/faq");

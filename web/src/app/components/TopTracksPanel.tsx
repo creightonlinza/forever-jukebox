@@ -20,7 +20,12 @@ import {
 } from "../favorites";
 import type { PlaylistTrack } from "../playlist";
 import { Modal, ModalHeader } from "./Modal";
-import { useAppStore } from "../store";
+import {
+  useAppStore,
+  type TopSongsItem,
+  type TopSongsListState,
+  type TopSongsListTabId,
+} from "../store";
 import { urlForTrack } from "../tabs";
 import { blurMouseActivatedControl } from "../ui";
 import {
@@ -34,28 +39,15 @@ import { addToPlaylist } from "../playlist-actions";
 import { selectTrack } from "../track-select";
 
 type TopSongsTabId = "top" | "trending" | "recent" | "favorites";
-type LazyTabId = Exclude<TopSongsTabId, "favorites">;
-
-type SongItem = {
-  id?: string;
-  title?: string;
-  artist?: string;
-  source_id?: string;
-  source_provider?: string;
-};
-
-type ListState =
-  | { kind: "message"; text: string }
-  | { kind: "loaded"; items: SongItem[] };
 
 const LIST_CONFIG: Record<
-  LazyTabId,
+  TopSongsListTabId,
   {
     loadingText: string;
     emptyText: string;
     errorPrefix: string;
     listId: string;
-    fetchItems: () => Promise<SongItem[]>;
+    fetchItems: () => Promise<TopSongsItem[]>;
   }
 > = {
   top: {
@@ -123,8 +115,8 @@ function SongList({
   state,
   hidden,
 }: {
-  tabId: LazyTabId;
-  state: ListState;
+  tabId: TopSongsListTabId;
+  state: TopSongsListState;
   hidden: boolean;
 }) {
   const config = LIST_CONFIG[tabId];
@@ -658,7 +650,6 @@ function FavoritesSyncControls({ visible }: { visible: boolean }) {
 }
 
 export function TopTracksPanel() {
-  const activeTab = useAppStore((s) => s.activeTabId);
   const subtab = useAppStore((s) => s.topSongsTab);
   const allowSync = useAppStore((s) =>
     Boolean(s.appConfig?.allow_favorites_sync),
@@ -666,52 +657,46 @@ export function TopTracksPanel() {
   const favoritesCount = useAppStore((s) => s.favorites.length);
   const maxFavoritesValue =
     useAppStore((s) => s.appConfig?.max_favorites) ?? maxFavorites();
+  const lists = useAppStore((s) => s.topSongsLists);
   const [query, setQuery] = useState("");
-  const [lists, setLists] = useState<Record<LazyTabId, ListState>>({
-    top: { kind: "message", text: LIST_CONFIG.top.loadingText },
-    trending: { kind: "message", text: LIST_CONFIG.trending.loadingText },
-    recent: { kind: "message", text: LIST_CONFIG.recent.loadingText },
-  });
-  const loadedTabsRef = useRef(new Set<LazyTabId>());
-  const inFlightTabsRef = useRef(new Set<LazyTabId>());
-  const loadList = useCallback(async (tabId: LazyTabId, force = false) => {
-    if (!force && loadedTabsRef.current.has(tabId)) {
-      return;
-    }
-    // Dedupes StrictMode's double-invoked mount effect (and rapid subtab
-    // flips) without giving up retry-on-error semantics.
-    if (inFlightTabsRef.current.has(tabId)) {
-      return;
-    }
-    inFlightTabsRef.current.add(tabId);
-    const config = LIST_CONFIG[tabId];
-    setLists((prev) => ({
-      ...prev,
-      [tabId]: { kind: "message", text: config.loadingText },
-    }));
-    try {
-      const items = await config.fetchItems();
-      setLists((prev) => ({
-        ...prev,
-        [tabId]:
+  const loadList = useCallback(
+    async (tabId: TopSongsListTabId, force = false) => {
+      const state = useAppStore.getState();
+      if (!force && state.topSongsLoadedTabs.includes(tabId)) {
+        return;
+      }
+      // Dedupes StrictMode's double-invoked mount effect, rapid subtab flips,
+      // and unmount/remount cycles while a request is still pending.
+      if (state.topSongsInFlightTabs.includes(tabId)) {
+        return;
+      }
+      const config = LIST_CONFIG[tabId];
+      state.setTopSongsTabInFlight(tabId, true);
+      state.setTopSongsListState(tabId, {
+        kind: "message",
+        text: config.loadingText,
+      });
+      try {
+        const items = await config.fetchItems();
+        useAppStore.getState().setTopSongsListState(
+          tabId,
           items.length === 0
             ? { kind: "message", text: config.emptyText }
             : { kind: "loaded", items },
-      }));
-      loadedTabsRef.current.add(tabId);
-    } catch (err) {
-      setLists((prev) => ({
-        ...prev,
-        [tabId]: {
+        );
+        useAppStore.getState().setTopSongsTabLoaded(tabId, true);
+      } catch (err) {
+        useAppStore.getState().setTopSongsListState(tabId, {
           kind: "message",
           text: `${config.errorPrefix} unavailable: ${formatErrorForDisplay(err)}`,
-        },
-      }));
-      console.warn(`${config.errorPrefix} load failed: ${String(err)}`);
-    } finally {
-      inFlightTabsRef.current.delete(tabId);
-    }
-  }, []);
+        });
+        console.warn(`${config.errorPrefix} load failed: ${String(err)}`);
+      } finally {
+        useAppStore.getState().setTopSongsTabInFlight(tabId, false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (subtab !== "favorites") {
@@ -739,12 +724,7 @@ export function TopTracksPanel() {
   );
 
   return (
-    <section
-      className={
-        activeTab === "top" ? "panel tab-panel" : "panel tab-panel hidden"
-      }
-      data-tab-panel="top"
-    >
+    <section className="panel tab-panel" data-tab-panel="top">
       <div className="subtabs" id="top-subtabs">
         {subtabButton("top", "All Time")}
         {subtabButton("trending", "Trending")}

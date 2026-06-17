@@ -4,6 +4,7 @@ import { getAppContext, handleRoute } from "../runtime";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
 import { applyTheme } from "../theme";
+import { titleForAppView } from "../document-title";
 import {
   handleKeydown as playbackHandleKeydown,
   handleKeyup as playbackHandleKeyup,
@@ -38,8 +39,8 @@ function useRouteSync() {
   }, [location, navigationType]);
 }
 
-// Side effects keyed on the derived activeTab. Panels stay in the DOM
-// permanently (each derives its own hidden class from activeTabId).
+// Side effects keyed on the derived activeTab. Listen stays DOM-mounted;
+// regular tab panels mount only while active.
 function useTabEffects() {
   const activeTab = useAppStore((s) => s.activeTabId);
   useEffect(() => {
@@ -58,6 +59,21 @@ function useTabEffects() {
       jukebox?.setSelectedEdge(null);
     }
   }, [activeTab]);
+}
+
+function useDocumentTitle() {
+  const location = useLocation();
+  const activeTab = useAppStore((s) => s.activeTabId);
+  const trackTitle = useAppStore((s) => s.trackTitle);
+  const trackArtist = useAppStore((s) => s.trackArtist);
+  useEffect(() => {
+    document.title = titleForAppView({
+      activeTabId: activeTab,
+      pathname: location.pathname,
+      trackTitle,
+      trackArtist,
+    });
+  }, [activeTab, location.pathname, trackTitle, trackArtist]);
 }
 
 // Body-level flag CSS uses to reveal playlist-add buttons.
@@ -95,19 +111,21 @@ function useGlobalHotkeys() {
 }
 
 export function AppRoot() {
+  const activeTab = useAppStore((s) => s.activeTabId);
   useRouteSync();
   useTabEffects();
   useThemeEffect();
   useGlobalHotkeys();
   usePlaylistAddEnabled();
+  useDocumentTitle();
   return (
     <>
       <NavigationDriver />
       <Hero />
-      <TopTracksPanel />
-      <SearchPanel />
-      <ListenPanel />
-      <FaqPanel />
+      {activeTab === "top" ? <TopTracksPanel /> : null}
+      {activeTab === "search" ? <SearchPanel /> : null}
+      <ListenPanel visible={activeTab === "play"} />
+      {activeTab === "faq" ? <FaqPanel /> : null}
       <Footer />
       <Toast />
       <TuningModal />

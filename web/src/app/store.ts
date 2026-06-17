@@ -2,6 +2,7 @@ import { create, type StateCreator } from "zustand";
 import type { SpotifySearchItem, YoutubeSearchItem } from "./api";
 import type { AppState, SleepTimerState, TabId } from "./context";
 import type { ThemeName } from "./themeConfig";
+import type { MaterialSymbolIconName } from "./material-icons";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
 import { emptyPlaylist } from "./playlist";
 import { buildSearchParams, pathForTab, pathForTrack } from "./tabs";
@@ -14,7 +15,7 @@ export type FooterCredit = {
 
 export type ToastState = {
   message: string;
-  icon?: string;
+  icon?: MaterialSymbolIconName;
   tone: "default" | "error";
 };
 
@@ -49,11 +50,36 @@ export type SearchResultsState =
       items: Array<{ item: YoutubeSearchItem; name: string; artist: string }>;
     };
 
+export type TopSongsListTabId = "top" | "trending" | "recent";
+
+export type TopSongsItem = {
+  id?: string;
+  title?: string;
+  artist?: string;
+  source_id?: string;
+  source_provider?: string;
+};
+
+export type TopSongsListState =
+  | { kind: "message"; text: string }
+  | { kind: "loaded"; items: TopSongsItem[] };
+
 export const DEFAULT_SEARCH_HINT = "Step 1: Find a Spotify track.";
 export const DEFAULT_SEARCH_RESULTS: SearchResultsState = {
   kind: "message",
   text: "Search results will appear here.",
 };
+
+function createDefaultTopSongsLists(): Record<
+  TopSongsListTabId,
+  TopSongsListState
+> {
+  return {
+    top: { kind: "message", text: "Loading top tracks..." },
+    trending: { kind: "message", text: "Loading trending tracks..." },
+    recent: { kind: "message", text: "Loading recent plays..." },
+  };
+}
 
 // Shell/panel UI state that has no AppState counterpart.
 type ShellSlice = {
@@ -66,6 +92,9 @@ type ShellSlice = {
   searchQuery: string;
   searchHint: string;
   searchResults: SearchResultsState;
+  topSongsLists: Record<TopSongsListTabId, TopSongsListState>;
+  topSongsLoadedTabs: TopSongsListTabId[];
+  topSongsInFlightTabs: TopSongsListTabId[];
   // Listen-panel modal/menu state. Open flags live here so the imperative
   // flows (openExtras hotkey, playlist buttons, resetForNewTrack) can drive
   // the React modals.
@@ -110,6 +139,16 @@ type Actions = {
   ) => void;
   selectTab: (tabId: TabId) => void;
   goHome: () => void;
+  setTopSongsListState: (
+    tabId: TopSongsListTabId,
+    listState: TopSongsListState,
+  ) => void;
+  setTopSongsTabLoaded: (tabId: TopSongsListTabId, loaded: boolean) => void;
+  setTopSongsTabInFlight: (
+    tabId: TopSongsListTabId,
+    inFlight: boolean,
+  ) => void;
+  resetTopSongsCache: () => void;
 };
 
 export type AppStoreState = AppState & ShellSlice & Actions;
@@ -143,6 +182,9 @@ const createUiSlice: Slice<
     | "searchQuery"
     | "searchHint"
     | "searchResults"
+    | "topSongsLists"
+    | "topSongsLoadedTabs"
+    | "topSongsInFlightTabs"
     | "tuningModalOpen"
     | "tuningModalTab"
     | "infoModalOpen"
@@ -168,6 +210,17 @@ const createUiSlice: Slice<
     set({ navigationRequest: { id, to, replace } });
   };
 
+  const updateTabList = (
+    current: TopSongsListTabId[],
+    tabId: TopSongsListTabId,
+    included: boolean,
+  ) => {
+    if (included) {
+      return current.includes(tabId) ? current : [...current, tabId];
+    }
+    return current.filter((currentTabId) => currentTabId !== tabId);
+  };
+
   return {
     activeTabId: "top",
     topSongsTab: "top",
@@ -183,6 +236,9 @@ const createUiSlice: Slice<
     searchQuery: "",
     searchHint: DEFAULT_SEARCH_HINT,
     searchResults: DEFAULT_SEARCH_RESULTS,
+    topSongsLists: createDefaultTopSongsLists(),
+    topSongsLoadedTabs: [],
+    topSongsInFlightTabs: [],
     tuningModalOpen: false,
     tuningModalTab: "tuning",
     infoModalOpen: false,
@@ -241,6 +297,35 @@ const createUiSlice: Slice<
       get().navigateToTabWithState(tabId);
     },
     goHome: () => get().navigateToTabWithState("top"),
+    setTopSongsListState: (tabId, listState) =>
+      set((state) => ({
+        topSongsLists: {
+          ...state.topSongsLists,
+          [tabId]: listState,
+        },
+      })),
+    setTopSongsTabLoaded: (tabId, loaded) =>
+      set((state) => ({
+        topSongsLoadedTabs: updateTabList(
+          state.topSongsLoadedTabs,
+          tabId,
+          loaded,
+        ),
+      })),
+    setTopSongsTabInFlight: (tabId, inFlight) =>
+      set((state) => ({
+        topSongsInFlightTabs: updateTabList(
+          state.topSongsInFlightTabs,
+          tabId,
+          inFlight,
+        ),
+      })),
+    resetTopSongsCache: () =>
+      set({
+        topSongsLists: createDefaultTopSongsLists(),
+        topSongsLoadedTabs: [],
+        topSongsInFlightTabs: [],
+      }),
   };
 };
 

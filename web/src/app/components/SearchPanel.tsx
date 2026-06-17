@@ -128,7 +128,6 @@ function SearchResults() {
 }
 
 export function SearchPanel() {
-  const activeTab = useAppStore((s) => s.activeTabId);
   const searchTab = useAppStore((s) => s.searchTab);
   const appConfig = useAppStore((s) => s.appConfig);
   const query = useAppStore((s) => s.searchQuery);
@@ -191,10 +190,7 @@ export function SearchPanel() {
   };
 
   return (
-    <section
-      className={setOf("panel", "tab-panel", activeTab !== "search" && "hidden")}
-      data-tab-panel="search"
-    >
+    <section className="panel tab-panel" data-tab-panel="search">
       <div
         className={setOf("subtabs", !showUpload && "hidden")}
         id="search-subtabs"
