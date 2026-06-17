@@ -209,6 +209,13 @@ export function removePlaylistTrack(
   return { tracks: nextTracks, currentIndex: nextCurrentIndex };
 }
 
+function parseStoredPlaylistTracks(parsed: PlaylistTrack[] | { tracks?: PlaylistTrack[] }) {
+  if (Array.isArray(parsed)) {
+    return parsed;
+  }
+  return Array.isArray(parsed.tracks) ? parsed.tracks : [];
+}
+
 export function loadPlaylist(): PlaylistState {
   const raw = localStorage.getItem(PLAYLIST_STORAGE_KEY);
   if (!raw) {
@@ -216,11 +223,7 @@ export function loadPlaylist(): PlaylistState {
   }
   try {
     const parsed = JSON.parse(raw) as { tracks?: PlaylistTrack[] };
-    const rawTracks = Array.isArray(parsed)
-      ? parsed
-      : Array.isArray(parsed.tracks)
-        ? parsed.tracks
-        : [];
+    const rawTracks = parseStoredPlaylistTracks(parsed);
     const tracks = normalizePlaylistTracks(rawTracks).slice(0, PLAYLIST_MAX_TRACKS);
     if (tracks.length < 2) {
       localStorage.removeItem(PLAYLIST_STORAGE_KEY);

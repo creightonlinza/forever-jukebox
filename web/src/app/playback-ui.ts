@@ -42,6 +42,16 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
   return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
 }
 
+function branchDirection(edge: Edge) {
+  if (edge.dest.which < edge.src.which) {
+    return "Backward";
+  }
+  if (edge.dest.which > edge.src.which) {
+    return "Forward";
+  }
+  return "Same beat";
+}
+
   function syncExtrasPopup(edge: Edge | null) {
     const context = getAttachedAppContext();
     if (!context) {
@@ -60,12 +70,6 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
     const endSeconds = Math.max(0, edge.dest.start);
     const startDisplaySeconds = Math.floor(startSeconds);
     const endDisplaySeconds = Math.floor(endSeconds);
-    const direction =
-      edge.dest.which < edge.src.which
-        ? "Backward"
-        : edge.dest.which > edge.src.which
-          ? "Forward"
-          : "Same beat";
     const maxDistance = Math.max(1, engine.getConfig().maxBranchThreshold);
     useAppStore.setState({
       branchStats: {
@@ -73,7 +77,7 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
         startText: formatDuration(startDisplaySeconds),
         endText: formatDuration(endDisplaySeconds),
         deltaText: formatSignedDuration(endDisplaySeconds - startDisplaySeconds),
-        direction,
+        direction: branchDirection(edge),
         similarityText: `${toSimilarityPercent(edge.distance, maxDistance)}%`,
         deleteDisabled: edge.deleted,
       },
@@ -250,12 +254,12 @@ export function setCanonizerFinish(checked: boolean): void {
     const currentIndex = edges.findIndex(
       (edge) => edge.id === useAppStore.getState().selectedEdge?.id,
     );
-    const nextIndex =
-      currentIndex >= 0
-        ? (currentIndex + direction + edges.length) % edges.length
-        : direction > 0
-          ? 0
-          : edges.length - 1;
+    let nextIndex: number;
+    if (currentIndex >= 0) {
+      nextIndex = (currentIndex + direction + edges.length) % edges.length;
+    } else {
+      nextIndex = direction > 0 ? 0 : edges.length - 1;
+    }
     const nextEdge = edges[nextIndex];
     useAppStore.setState({ selectedEdge: nextEdge });
     jukebox.setSelectedEdgeActive(nextEdge);

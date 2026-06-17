@@ -8,6 +8,24 @@ function setOf(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+function spotifyResultKey(
+  item: { id?: string; name?: string; artist?: string; duration?: number },
+  name: string,
+  artist: string,
+  duration: number,
+) {
+  return item.id ?? `${name}\u0000${artist}\u0000${duration}`;
+}
+
+function youtubeResultKey(
+  item: { id?: string; title?: string; duration?: number },
+  name: string,
+  artist: string,
+  duration: number,
+) {
+  return item.id ?? `${name}\u0000${artist}\u0000${item.title ?? ""}\u0000${duration}`;
+}
+
 function SearchResults() {
   const results = useAppStore((s) => s.searchResults);
   if (results.kind === "message") {
@@ -20,33 +38,25 @@ function SearchResults() {
   if (results.kind === "spotify") {
     return (
       <div className="search-results" id="search-results">
-        <ol className="search-list" role="listbox" aria-label="Search results">
-          {results.items.map((item, index) => {
+        <ol className="search-list" aria-label="Search results">
+          {results.items.map((item) => {
             const name = typeof item.name === "string" ? item.name : "Untitled";
             const artist = typeof item.artist === "string" ? item.artist : "";
             const title = artist ? `${name} — ${artist}` : name;
             const duration =
               typeof item.duration === "number" ? item.duration : 0;
             return (
-              <li
-                key={index}
-                className="search-item"
-                role="option"
-                tabIndex={0}
-                data-track-name={name}
-                data-track-artist={artist}
-                onClick={() =>
-                  selectSpotify({ name, artist, duration })
-                }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    selectSpotify({ name, artist, duration });
-                  }
-                }}
-              >
-                <strong>{title}</strong>
-                <span>{formatTrackDuration(item.duration)}</span>
+              <li key={spotifyResultKey(item, name, artist, duration)}>
+                <button
+                  type="button"
+                  className="search-item"
+                  data-track-name={name}
+                  data-track-artist={artist}
+                  onClick={() => selectSpotify({ name, artist, duration })}
+                >
+                  <strong>{title}</strong>
+                  <span>{formatTrackDuration(item.duration)}</span>
+                </button>
               </li>
             );
           })}
@@ -56,69 +66,55 @@ function SearchResults() {
   }
   return (
     <div className="search-results" id="search-results">
-      <ol className="search-list" role="listbox" aria-label="Search results">
-        {results.items.map(({ item, name, artist }, index) => {
+      <ol className="search-list" aria-label="Search results">
+        {results.items.map(({ item, name, artist }) => {
           const title = typeof item.title === "string" ? item.title : "Untitled";
           const ytDuration =
             typeof item.duration === "number" ? item.duration : 0;
           const youtubeId = item.id ? String(item.id) : "";
           return (
-            <li
-              key={index}
-              className="search-item"
-              role="option"
-              tabIndex={0}
-              data-youtube-id={youtubeId}
-              data-track-name={name}
-              data-track-artist={artist}
-              onClick={() =>
-                selectYoutube({
-                  youtubeId,
-                  name,
-                  artist,
-                  duration: ytDuration,
-                })
-              }
-              onKeyDown={(event) => {
-                // Enter on the nested open-on-YouTube link must keep its
-                // native behavior, not select the result.
-                if (event.target !== event.currentTarget) {
-                  return;
-                }
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  selectYoutube({
-                    youtubeId,
-                    name,
-                    artist,
-                    duration: ytDuration,
-                  });
-                }
-              }}
-            >
-              <strong>{title}</strong>
-              <span className="search-meta">
-                <span>{formatTrackDuration(item.duration)}</span>
-                {item.id ? (
-                  <a
-                    className="search-open"
-                    href={`https://www.youtube.com/watch?v=${encodeURIComponent(String(item.id))}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Open on YouTube"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                    }}
-                  >
-                    <span
-                      className="material-symbols-outlined search-open-icon"
-                      aria-hidden="true"
+            <li key={youtubeResultKey(item, name, artist, ytDuration)}>
+              <div className="search-item">
+                <button
+                  type="button"
+                  className="search-select"
+                  data-youtube-id={youtubeId}
+                  data-track-name={name}
+                  data-track-artist={artist}
+                  onClick={() =>
+                    selectYoutube({
+                      youtubeId,
+                      name,
+                      artist,
+                      duration: ytDuration,
+                    })
+                  }
+                >
+                  <strong>{title}</strong>
+                  <span>{formatTrackDuration(item.duration)}</span>
+                </button>
+                <span className="search-meta">
+                  {item.id ? (
+                    <a
+                      className="search-open"
+                      href={`https://www.youtube.com/watch?v=${encodeURIComponent(String(item.id))}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open on YouTube"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                      }}
                     >
-                      open_in_new
-                    </span>
-                  </a>
-                ) : null}
-              </span>
+                      <span
+                        className="material-symbols-outlined search-open-icon"
+                        aria-hidden="true"
+                      >
+                        open_in_new
+                      </span>
+                    </a>
+                  ) : null}
+                </span>
+              </div>
             </li>
           );
         })}

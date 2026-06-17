@@ -260,7 +260,7 @@ export function applyAnalysisResult(
   response: AnalysisComplete,
   onAnalysisLoaded?: (response: AnalysisComplete) => void,
 ): boolean {
-  if (!response || response.status !== "complete" || !response.result) {
+  if (response?.status !== "complete" || !response.result) {
     return false;
   }
   maybeUpdateDeleteEligibility(response, response.id);
@@ -433,7 +433,7 @@ async function continueTrackLoadWithResponse(
   response: AnalysisResponse | null,
 ): Promise<boolean> {
   const generation = getLoadGeneration();
-  if (!response || !response.id) {
+  if (!response?.id) {
     deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
     return false;
   }

@@ -113,7 +113,7 @@ export function sortFavoritesForDisplay(
 export function sortFavorites(items: FavoriteTrack[]) {
   const seen = new Set<string>();
   const deduped = items.filter((item) => {
-    if (!item || !item.uniqueSongId || seen.has(item.uniqueSongId)) {
+    if (!item?.uniqueSongId || seen.has(item.uniqueSongId)) {
       return false;
     }
     seen.add(item.uniqueSongId);

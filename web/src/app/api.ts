@@ -65,8 +65,6 @@ export type TopSongItem = {
   source_provider?: string;
 };
 
-export type RecentSongItem = TopSongItem;
-
 export type AppConfig = {
   allow_user_upload: boolean;
   allow_user_url: boolean;
@@ -140,7 +138,9 @@ function parseAnalysisResponse(data: unknown): AnalysisResponse | null {
   const sourceId =
     typeof data.source_id === "string"
       ? data.source_id
-      : (typeof data.youtube_id === "string" ? data.youtube_id : undefined);
+      : typeof data.youtube_id === "string"
+        ? data.youtube_id
+        : undefined;
   const sourceProvider =
     typeof data.source_provider === "string" ? data.source_provider : undefined;
   const createdAt =
@@ -289,7 +289,7 @@ export async function fetchTrendingSongs() {
 
 export async function fetchRecentSongs(limit: number) {
   const data = await fetchJson(`/api/recent?limit=${encodeURIComponent(limit)}`);
-  return Array.isArray(data?.items) ? (data.items as RecentSongItem[]) : [];
+  return Array.isArray(data?.items) ? (data.items as TopSongItem[]) : [];
 }
 
 export async function fetchAppConfig(): Promise<AppConfig> {

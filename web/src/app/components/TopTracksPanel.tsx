@@ -80,6 +80,43 @@ function normalizePlaylistSourceType(value: string): PlaylistTrack["sourceType"]
   return "youtube";
 }
 
+function topSongKey(item: TopSongsItem, label: string) {
+  if (typeof item.id === "string" && item.id) {
+    return item.id;
+  }
+  return `${item.source_provider ?? ""}\u0000${item.source_id ?? ""}\u0000${label}`;
+}
+
+function modalStatusClassName(status: { error?: boolean } | null) {
+  if (!status) {
+    return "modal-status hidden";
+  }
+  return status.error ? "modal-status error" : "modal-status";
+}
+
+function topSongsTitle(subtab: TopSongsTabId) {
+  switch (subtab) {
+    case "top":
+      return `Top ${TOP_SONGS_LIMIT}`;
+    case "trending":
+      return "Trending";
+    case "recent":
+      return `Last ${TOP_SONGS_LIMIT} Played`;
+    case "favorites":
+      return "Favorites";
+  }
+}
+
+function nextFavoritesSort(
+  prev: FavoritesDisplaySort,
+  key: FavoritesDisplaySort["key"],
+): FavoritesDisplaySort {
+  if (prev.key !== key) {
+    return { key, direction: "asc" };
+  }
+  return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+}
+
 function PlaylistAddButton({
   track,
   onAdd,
@@ -130,7 +167,7 @@ function SongList({
   }
   return (
     <ol className={className} id={config.listId}>
-      {state.items.slice(0, TOP_SONGS_LIMIT).map((item, index) => {
+      {state.items.slice(0, TOP_SONGS_LIMIT).map((item) => {
         const title = typeof item.title === "string" ? item.title : "Untitled";
         const artist = typeof item.artist === "string" ? item.artist : "";
         const jobId = typeof item.id === "string" ? item.id : "";
@@ -139,8 +176,9 @@ function SongList({
         const sourceType = normalizePlaylistSourceType(sourceProvider);
         const listenId = jobId;
         const label = artist ? `${title} — ${artist}` : title;
+        const key = topSongKey(item, label);
         if (!listenId) {
-          return <li key={index}>{label}</li>;
+          return <li key={key}>{label}</li>;
         }
         const playlistTrack: PlaylistTrack = {
           id: jobId || listenId,
@@ -150,7 +188,7 @@ function SongList({
           duration: null,
         };
         return (
-          <li key={`${listenId}-${index}`} className="top-list-item">
+          <li key={key} className="top-list-item">
             <a
               href={`/listen/${encodeURIComponent(listenId)}`}
               data-track-id={listenId}
@@ -181,11 +219,7 @@ function FavoritesList({ query }: { query: string }) {
   });
 
   const handleSortClick = (key: FavoritesDisplaySort["key"]) => {
-    setSort((prev) =>
-      prev.key === key
-        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
-        : { key, direction: "asc" },
-    );
+    setSort((prev) => nextFavoritesSort(prev, key));
   };
 
   const select = (item: FavoriteTrack) => {
@@ -425,13 +459,7 @@ function FavoritesSyncEnterModal({
           />
           <p
             id="favorites-sync-enter-status"
-            className={
-              status
-                ? status.error
-                  ? "modal-status error"
-                  : "modal-status"
-                : "modal-status hidden"
-            }
+            className={modalStatusClassName(status)}
             role="status"
             aria-live="polite"
           >
@@ -524,13 +552,7 @@ function FavoritesSyncCreateModal({
           </div>
           <p
             id="favorites-sync-create-status"
-            className={
-              status
-                ? status.error
-                  ? "modal-status error"
-                  : "modal-status"
-                : "modal-status hidden"
-            }
+            className={modalStatusClassName(status)}
             role="status"
             aria-live="polite"
           >
@@ -724,14 +746,7 @@ export function TopTracksPanel() {
     }
   }, [subtab, loadList]);
 
-  const title =
-    subtab === "top"
-      ? `Top ${TOP_SONGS_LIMIT}`
-      : subtab === "trending"
-        ? "Trending"
-        : subtab === "recent"
-          ? `Last ${TOP_SONGS_LIMIT} Played`
-          : "Favorites";
+  const title = topSongsTitle(subtab);
 
   const subtabButton = (tabId: TopSongsTabId, content: React.ReactNode) => (
     <button
