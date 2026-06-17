@@ -8,6 +8,7 @@ import httpx
 
 from ..http_client import get_client
 from ..models import SearchResponse, SpotifyItem, SpotifySearchResponse
+from ..route_responses import error_responses
 from ..settings import load_settings
 from ..spotify import search_spotify_tracks
 from ..youtube import search_youtube_api, search_youtube_ytdlp
@@ -25,7 +26,7 @@ def _normalize_search_query(raw: str) -> str:
     return cleaned[:MAX_SEARCH_QUERY_CHARS]
 
 
-@router.get("/api/search/youtube")
+@router.get("/api/search/youtube", responses=error_responses(400, 500, 502))
 def search_youtube(
     q: str = Query(..., min_length=1),
     target_duration: float | None = Query(None, ge=0),
@@ -51,7 +52,7 @@ def search_youtube(
         return JSONResponse(payload.model_dump(), status_code=200)
 
 
-@router.get("/api/search/spotify")
+@router.get("/api/search/spotify", responses=error_responses(400, 502))
 def search_spotify(q: str = Query(..., min_length=1)) -> JSONResponse:
     query = _normalize_search_query(q)
     try:

@@ -9,13 +9,14 @@ from fastapi import APIRouter, Header, HTTPException
 from ..admin_auth import ADMIN_KEY_HEADER, require_admin_key
 from ..models import StorageCleanupRequest, StorageCleanupResponse
 from ..paths import DB_PATH, STORAGE_ROOT
+from ..route_responses import error_responses
 from ..storage_cleanup import build_cleanup_preview, execute_cleanup
 
 router = APIRouter()
 _storage_cleanup_lock = Lock()
 
 
-@router.post("/api/admin/storage-cleanup")
+@router.post("/api/admin/storage-cleanup", responses=error_responses(400, 403, 409))
 def run_storage_cleanup(
     payload: StorageCleanupRequest,
     admin_key: str | None = Header(None, alias=ADMIN_KEY_HEADER),

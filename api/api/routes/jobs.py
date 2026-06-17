@@ -42,6 +42,7 @@ from ..models import (
     TopSongsResponse,
 )
 from ..paths import DB_PATH, STORAGE_ROOT
+from ..route_responses import error_responses
 from ..utils import abs_storage_path
 from .jobs_runtime import (
     ALLOWED_UPLOAD_EXTS,
@@ -76,6 +77,7 @@ TRENDING_MIN_PLAY_COUNT = 3
 DELETE_WITHOUT_ADMIN_SECONDS = 1800
 SUPPORTED_USER_SOURCE_PROVIDERS = {"youtube", "soundcloud", "bandcamp"}
 SUPPORTED_SOURCE_PROVIDERS = {"youtube", "soundcloud", "bandcamp", "upload"}
+JOB_NOT_FOUND_DETAIL = "Job not found"
 
 
 def _allow_user_url() -> bool:
@@ -406,15 +408,15 @@ def _job_response(job) -> JSONResponse:
     return JSONResponse(payload.model_dump(), status_code=200)
 
 
-@router.get("/api/analysis/{job_id}")
+@router.get("/api/analysis/{job_id}", responses=error_responses(404))
 def get_analysis(job_id: str, background_tasks: BackgroundTasks) -> JSONResponse:
     job = get_job(DB_PATH, job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     return _response_with_auto_repair(job, background_tasks)
 
 
-@router.post("/api/analysis/youtube")
+@router.post("/api/analysis/youtube", responses=error_responses(400, 422))
 def create_analysis_youtube(
     background_tasks: BackgroundTasks,
     payload: AnalysisYoutubeRequest,
@@ -446,7 +448,7 @@ def create_analysis_youtube(
     )
 
 
-@router.post("/api/analysis/url")
+@router.post("/api/analysis/url", responses=error_responses(400, 403, 422, 500))
 def create_analysis_url(
     background_tasks: BackgroundTasks,
     payload: AnalysisUrlRequest,
@@ -513,7 +515,7 @@ def create_analysis_url(
     )
 
 
-@router.post("/api/upload")
+@router.post("/api/upload", responses=error_responses(400, 403, 413, 422, 500))
 async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
     if not env_flag("ALLOW_USER_UPLOAD"):
         raise HTTPException(status_code=403, detail="User uploads are disabled")
@@ -593,16 +595,16 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
     return JSONResponse(response_payload.model_dump(), status_code=202)
 
 
-@router.post("/api/plays/{job_id}")
+@router.post("/api/plays/{job_id}", responses=error_responses(404))
 def increment_play_count(job_id: str) -> JSONResponse:
     play_count = increment_job_plays(DB_PATH, job_id)
     if play_count is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     payload = PlayCountResponse(id=job_id, play_count=play_count)
     return JSONResponse(payload.model_dump(), status_code=200)
 
 
-@router.patch("/api/plays/{job_id}")
+@router.patch("/api/plays/{job_id}", responses=error_responses(403, 404))
 def set_play_count(
     job_id: str,
     payload: PlayCountUpdate,
@@ -611,7 +613,7 @@ def set_play_count(
     require_admin_key(admin_key)
     play_count = set_job_play_count(DB_PATH, job_id, payload.play_count)
     if play_count is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     response = PlayCountResponse(id=job_id, play_count=play_count)
     return JSONResponse(response.model_dump(), status_code=200)
 
@@ -650,7 +652,10 @@ def get_recent_songs(limit: int = Query(10, ge=1, le=50)) -> JSONResponse:
     return JSONResponse(payload.model_dump(), status_code=200)
 
 
-@router.get("/api/jobs/by-source/{source_provider}/{source_id:path}")
+@router.get(
+    "/api/jobs/by-source/{source_provider}/{source_id:path}",
+    responses=error_responses(400, 404),
+)
 def get_job_by_source_route(
     source_provider: str,
     source_id: str,
@@ -664,10 +669,10 @@ def get_job_by_source_route(
         raise HTTPException(status_code=400, detail="source_id is required")
     job = get_job_by_source(DB_PATH, provider, source_key)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     if should_recycle_job(job):
         recycle_job(job)
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     if _is_retryable_failed_job(job):
         log_event(
             "job_retry_lookup_miss",
@@ -676,11 +681,11 @@ def get_job_by_source_route(
             match="by_source_lookup",
             error_code=error_code_for(job.error),
         )
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     return _response_with_auto_repair(job, background_tasks)
 
 
-@router.get("/api/jobs/by-track")
+@router.get("/api/jobs/by-track", responses=error_responses(404))
 def get_job_by_track_match(
     background_tasks: BackgroundTasks,
     title: str = Query(..., min_length=1),
@@ -689,10 +694,10 @@ def get_job_by_track_match(
     log_event("spotify_selection", title=title, artist=artist)
     job = get_job_by_track(DB_PATH, title, artist)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     if should_recycle_job(job):
         recycle_job(job)
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     if _is_retryable_failed_job(job):
         log_event(
             "job_retry_lookup_miss",
@@ -701,7 +706,7 @@ def get_job_by_track_match(
             match="by_track_lookup",
             error_code=error_code_for(job.error),
         )
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     log_event(
         "job_reused",
         job_id=job.id,
@@ -711,14 +716,14 @@ def get_job_by_track_match(
     return _response_with_auto_repair(job, background_tasks)
 
 
-@router.delete("/api/jobs/{job_id}")
+@router.delete("/api/jobs/{job_id}", responses=error_responses(403, 404))
 def delete_job_by_id(
     job_id: str,
     admin_key: str | None = Header(None, alias=ADMIN_KEY_HEADER),
 ) -> JSONResponse:
     job = get_job(DB_PATH, job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
 
     is_admin_delete = admin_key_matches(admin_key)
     if not is_admin_delete:
