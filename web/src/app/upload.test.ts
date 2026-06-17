@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppConfig } from "./api";
-import { startUrlAnalysis } from "./api";
+import { startUrlAnalysis, uploadAudio } from "./api";
 import type { AppContext } from "./context";
 import { bumpLoadGeneration, resetForNewTrack } from "./playback";
 import { useAppStore } from "./store";
@@ -118,6 +118,7 @@ describe("uploadFromUrl", () => {
   it("uses job id as the listen id for successful YouTube URL uploads", async () => {
     const { deps, onNormalTrackSelected, pollAnalysisJob } = createHarness();
     const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    useAppStore.setState({ tuningParams: "jb=1&thresh=25" });
     vi.mocked(startUrlAnalysis).mockResolvedValue({
       id: jobId,
       status: "downloading",
@@ -144,6 +145,31 @@ describe("uploadFromUrl", () => {
       expect.objectContaining({
         id: jobId,
         sourceType: "youtube",
+        tuningParams: null,
+      }),
+    );
+  });
+
+  it("does not carry current tuning into newly uploaded files", async () => {
+    const { deps, onNormalTrackSelected } = createHarness();
+    useAppStore.setState({
+      appConfig: { allow_user_upload: true } as AppConfig,
+      tuningParams: "jb=1&thresh=25",
+    });
+    vi.mocked(uploadAudio).mockResolvedValue({
+      id: "upload-job",
+      status: "queued",
+    });
+
+    await import("./upload").then(({ uploadAudioFile }) =>
+      uploadAudioFile(deps, new File(["abc"], "clip.mp3")),
+    );
+
+    expect(onNormalTrackSelected).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "upload-job",
+        sourceType: "upload",
+        tuningParams: null,
       }),
     );
   });

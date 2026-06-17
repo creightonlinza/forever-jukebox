@@ -127,7 +127,11 @@ type Actions = {
   // reaching into react-router directly.
   navigateToTabWithState: (
     tabId: TabId,
-    options?: { replace?: boolean; trackId?: string | null },
+    options?: {
+      replace?: boolean;
+      trackId?: string | null;
+      tuningParams?: string | null;
+    },
   ) => void;
   navigateToTrackWithState: (
     trackId: string,
@@ -270,7 +274,10 @@ const createUiSlice: Slice<
       const state = get();
       const trackId =
         options && "trackId" in options ? options.trackId : getCurrentTrackId();
-      const tuningParams = state.tuningParams ?? getTuningParamsStringFromUrl();
+      const tuningParams =
+        options && "tuningParams" in options
+          ? options.tuningParams
+          : (state.tuningParams ?? getTuningParamsStringFromUrl());
       const path = pathForTab(tabId, trackId);
       const search =
         tabId === "play" ? buildSearchParams(tuningParams, state.playMode) : "";

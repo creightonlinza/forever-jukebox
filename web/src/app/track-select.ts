@@ -13,7 +13,9 @@ export function selectTrack(
     return;
   }
   const context = getAppContext();
-  useAppStore.getState().navigateToTabWithState("play", { trackId });
+  useAppStore
+    .getState()
+    .navigateToTabWithState("play", { trackId, tuningParams: null });
   if (isLikelyJobId(trackId)) {
     void loadTrackByJobId(context, deps, trackId, { selectedTrack });
     return;

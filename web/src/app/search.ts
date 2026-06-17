@@ -219,7 +219,7 @@ export async function tryLoadExistingTrackByName(
       title,
       artist,
       duration: null,
-      tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
+      tuningParams: null,
     });
     deps.resetForNewTrack({ clearTuning: true });
     const generation = getLoadGeneration();

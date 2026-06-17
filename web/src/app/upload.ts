@@ -150,7 +150,7 @@ export async function uploadAudioFile(
       title: file.name || "Untitled",
       artist: "",
       duration: null,
-      tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
+      tuningParams: null,
     });
     resetForNewTrack(context);
     useAppStore.setState({ lastJobId: response.id });
@@ -162,6 +162,7 @@ export async function uploadAudioFile(
     useAppStore.setState({ analysisLoaded: false });
     useAppStore.getState().navigateToTrackWithState(response.id, {
       replace: true,
+      tuningParams: null,
     });
     onAccepted?.();
     useAppStore.getState().setActiveTab("play");
@@ -256,7 +257,7 @@ export async function uploadFromUrl(
       title: "Untitled",
       artist: "",
       duration: null,
-      tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
+      tuningParams: null,
     });
     resetForNewTrack(context);
     useAppStore.setState({ lastTrackId: listenId });
@@ -270,6 +271,7 @@ export async function uploadFromUrl(
     onAccepted?.();
     useAppStore.getState().navigateToTrackWithState(listenId, {
       replace: true,
+      tuningParams: null,
     });
     useAppStore.getState().setActiveTab("play");
     setLoadingProgress(context, null, "Fetching audio");

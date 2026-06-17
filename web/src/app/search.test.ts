@@ -103,6 +103,28 @@ describe("search flows", () => {
     expect(deps.applyAnalysisResult).toHaveBeenCalled();
   });
 
+  it("does not carry current tuning into a newly selected existing track", async () => {
+    const context = createContext();
+    const deps = createDeps();
+    deps.onNormalTrackSelected = vi.fn();
+    useAppStore.setState({ tuningParams: "jb=1&thresh=30" });
+    (api.fetchJobByTrack as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "complete",
+      id: "job-with-analysis",
+      source_id: "yt-existing",
+      result: {},
+    });
+
+    await tryLoadExistingTrackByName(context, deps, "Song", "Artist");
+
+    expect(deps.onNormalTrackSelected).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "job-with-analysis",
+        tuningParams: null,
+      }),
+    );
+  });
+
   it("returns false for missing existing analysis so caller can continue to YouTube matching", async () => {
     const context = createContext();
     const deps = createDeps();
