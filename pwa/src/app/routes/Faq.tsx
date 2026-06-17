@@ -32,7 +32,9 @@ export function Faq() {
   }, []);
 
   useEffect(() => {
-    void refreshUsage();
+    refreshUsage().catch((err) => {
+      console.warn(`Failed to refresh cache usage: ${String(err)}`);
+    });
   }, [refreshUsage]);
 
   const onClearCache = useCallback(async () => {

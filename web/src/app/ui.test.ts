@@ -23,16 +23,19 @@ function createContext(): AppContext {
 }
 
 class MockElement {
-  constructor(
-    public tagName: string,
-    public isContentEditable = false,
-  ) {}
-  blur() {}
-  addEventListener() {}
+  tagName: string;
+  isContentEditable: boolean;
+
+  constructor(tagName: string, isContentEditable = false) {
+    this.tagName = tagName;
+    this.isContentEditable = isContentEditable;
+  }
+  blur = vi.fn();
+  addEventListener = vi.fn();
   dispatchEvent() {
     return true;
   }
-  removeEventListener() {}
+  removeEventListener = vi.fn();
 }
 
 describe("ui helpers", () => {

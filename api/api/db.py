@@ -21,6 +21,7 @@ SQLITE_CONNECT_TIMEOUT_S = 30.0
 SQLITE_BUSY_TIMEOUT_MS = 30_000
 CLAIM_BUSY_TIMEOUT_MS = 250
 CLAIM_RETRY_DELAYS_S = (0.05, 0.1, 0.2, 0.4)
+SELECT_JOB_SOURCE_REF_SQL = "SELECT source_ref FROM jobs WHERE id = ?"
 
 
 @dataclass
@@ -424,7 +425,7 @@ def recover_stalled_processing_jobs(db_path: Path) -> int:
 
 def delete_job(db_path: Path, job_id: str) -> None:
     with _connect(db_path) as conn:
-        row = conn.execute("SELECT source_ref FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        row = conn.execute(SELECT_JOB_SOURCE_REF_SQL, (job_id,)).fetchone()
         source_ref = row[0] if row else None
         conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
         if source_ref:
@@ -551,7 +552,7 @@ def get_job_by_track(db_path: Path, title: str, artist: str) -> Optional[Job]:
 def increment_job_plays(db_path: Path, job_id: str) -> Optional[int]:
     now = _utc_now()
     with _connect(db_path) as conn:
-        row = conn.execute("SELECT source_ref FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        row = conn.execute(SELECT_JOB_SOURCE_REF_SQL, (job_id,)).fetchone()
         if not row:
             return None
         source_ref = row[0]
@@ -578,7 +579,7 @@ def set_job_play_count(db_path: Path, job_id: str, play_count: int) -> Optional[
     now = _utc_now()
     clamped = max(0, int(play_count))
     with _connect(db_path) as conn:
-        row = conn.execute("SELECT source_ref FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        row = conn.execute(SELECT_JOB_SOURCE_REF_SQL, (job_id,)).fetchone()
         if not row:
             return None
         source_ref = row[0]
@@ -624,7 +625,7 @@ def update_job_track_metadata(
     db_path: Path, job_id: str, track_title: Optional[str], track_artist: Optional[str]
 ) -> None:
     with _connect(db_path) as conn:
-        row = conn.execute("SELECT source_ref FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        row = conn.execute(SELECT_JOB_SOURCE_REF_SQL, (job_id,)).fetchone()
         if not row:
             return
         source_ref = row[0]

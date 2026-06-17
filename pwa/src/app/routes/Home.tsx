@@ -42,7 +42,9 @@ export function Home() {
     if (location.pathname !== "/") {
       return;
     }
-    void refreshCachedTracks();
+    refreshCachedTracks().catch((err) => {
+      console.warn(`Failed to refresh cached tracks: ${String(err)}`);
+    });
   }, [location.pathname, refreshCachedTracks]);
 
   const onDeleteCachedTrack = useCallback(async (fingerprint: string) => {
@@ -58,6 +60,15 @@ export function Home() {
       setDeletingFingerprint((current) => (current === fingerprint ? null : current));
     }
   }, []);
+
+  const handleDeleteCachedTrack = useCallback(
+    (fingerprint: string) => {
+      onDeleteCachedTrack(fingerprint).catch((err) => {
+        console.warn(`Failed to delete cached analysis: ${String(err)}`);
+      });
+    },
+    [onDeleteCachedTrack],
+  );
 
   return (
     <section className="panel home-panel">
@@ -100,7 +111,7 @@ export function Home() {
                   <button
                     className="cached-tracks__delete"
                     type="button"
-                    onClick={() => void onDeleteCachedTrack(track.fingerprint)}
+                    onClick={() => handleDeleteCachedTrack(track.fingerprint)}
                     disabled={isDeleting}
                     aria-label={`Delete cached analysis for ${label}`}
                     title="Delete cached analysis"

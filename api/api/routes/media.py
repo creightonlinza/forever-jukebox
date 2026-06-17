@@ -7,12 +7,13 @@ from fastapi.responses import FileResponse
 
 from ..db import get_job
 from ..paths import DB_PATH, STORAGE_ROOT
+from ..route_responses import NOT_FOUND
 from ..utils import abs_storage_path
 
 router = APIRouter()
 
 
-@router.get("/api/audio/{job_id}")
+@router.get("/api/audio/{job_id}", responses=NOT_FOUND)
 def get_audio(job_id: str):
     job = get_job(DB_PATH, job_id)
     if not job:
@@ -23,7 +24,7 @@ def get_audio(job_id: str):
     return FileResponse(path=str(input_path))
 
 
-@router.get("/api/logs/{job_id}")
+@router.get("/api/logs/{job_id}", responses=NOT_FOUND)
 def get_job_log(job_id: str):
     job = get_job(DB_PATH, job_id)
     if not job:

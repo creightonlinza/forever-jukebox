@@ -15,17 +15,23 @@ from ..favorites_db import (
 )
 from ..models import FavoritesSyncPayload, FavoritesSyncRequest, FavoritesSyncResponse
 from ..paths import FAVORITES_DB_PATH
+from ..route_responses import error_responses
 from ..utils import get_logger
 
 router = APIRouter()
 logger = get_logger()
+
 
 def _ensure_sync_enabled() -> None:
     if not env_flag("ALLOW_FAVORITES_SYNC"):
         raise HTTPException(status_code=403, detail="Favorites sync disabled.")
 
 
-@router.post("/api/favorites/sync", response_model=FavoritesSyncResponse)
+@router.post(
+    "/api/favorites/sync",
+    response_model=FavoritesSyncResponse,
+    responses=error_responses(400, 403, 500),
+)
 def create_favorites_sync(payload: FavoritesSyncRequest) -> JSONResponse:
     _ensure_sync_enabled()
     favorites = [item.model_dump() for item in payload.favorites]
@@ -38,8 +44,8 @@ def create_favorites_sync(payload: FavoritesSyncRequest) -> JSONResponse:
     try:
         code = create_unique_code(FAVORITES_DB_PATH)
         save_favorites(FAVORITES_DB_PATH, code, favorites)
-    except RuntimeError as exc:
-        logger.error("Failed to create favorites sync code: %s", exc)
+    except RuntimeError:
+        logger.exception("Failed to create favorites sync code")
         raise HTTPException(status_code=500, detail="Failed to create sync code.")
     response = FavoritesSyncResponse(
         code=code, count=len(favorites), favorites=payload.favorites
@@ -47,7 +53,11 @@ def create_favorites_sync(payload: FavoritesSyncRequest) -> JSONResponse:
     return JSONResponse(response.model_dump())
 
 
-@router.get("/api/favorites/sync/{code}", response_model=FavoritesSyncPayload)
+@router.get(
+    "/api/favorites/sync/{code}",
+    response_model=FavoritesSyncPayload,
+    responses=error_responses(400, 403, 404),
+)
 def get_favorites_sync(code: str) -> JSONResponse:
     _ensure_sync_enabled()
     normalized = code.strip().lower()
@@ -60,7 +70,11 @@ def get_favorites_sync(code: str) -> JSONResponse:
     return JSONResponse(response.model_dump())
 
 
-@router.put("/api/favorites/sync/{code}", response_model=FavoritesSyncResponse)
+@router.put(
+    "/api/favorites/sync/{code}",
+    response_model=FavoritesSyncResponse,
+    responses=error_responses(400, 403, 404),
+)
 def update_favorites_sync(code: str, payload: FavoritesSyncRequest) -> JSONResponse:
     _ensure_sync_enabled()
     normalized = code.strip().lower()

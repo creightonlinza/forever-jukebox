@@ -525,6 +525,15 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -561,6 +570,12 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -569,7 +584,10 @@
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation error or unprocessable content"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         },
         "summary": "Create Analysis Url"
@@ -597,6 +615,9 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "description": "Bad request"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -605,7 +626,7 @@
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation error or unprocessable content"
           }
         },
         "summary": "Create Analysis Youtube"
@@ -633,6 +654,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -687,6 +711,9 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "description": "Not found"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -725,6 +752,12 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -734,6 +767,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         },
         "summary": "Create Favorites Sync"
@@ -763,6 +799,15 @@
               }
             },
             "description": "Successful Response"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -811,6 +856,15 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -856,6 +910,12 @@
               }
             },
             "description": "Successful Response"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -904,6 +964,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -958,6 +1021,12 @@
             },
             "description": "Successful Response"
           },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -994,6 +1063,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -1058,6 +1130,12 @@
             },
             "description": "Successful Response"
           },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1092,6 +1170,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -1171,6 +1252,9 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "description": "Bad request"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1180,6 +1264,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "502": {
+            "description": "Bad gateway"
           }
         },
         "summary": "Search Spotify"
@@ -1226,6 +1313,9 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "description": "Bad request"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1235,6 +1325,12 @@
               }
             },
             "description": "Validation Error"
+          },
+          "500": {
+            "description": "Internal server error"
+          },
+          "502": {
+            "description": "Bad gateway"
           }
         },
         "summary": "Search Youtube"
@@ -1342,6 +1438,15 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "413": {
+            "description": "Payload too large"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1350,7 +1455,10 @@
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Validation error or unprocessable content"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         },
         "summary": "Upload Audio"
@@ -1378,6 +1486,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "Not found"
           },
           "422": {
             "content": {

@@ -212,6 +212,66 @@ function AudioModeRadio({
   );
 }
 
+function AudioModeSectionGroup({
+  section,
+  selectedAudioMode,
+  disabled,
+  onChange,
+}: {
+  section: AudioModeSection;
+  selectedAudioMode: JukeboxAudioMode;
+  disabled: boolean;
+  onChange: (mode: JukeboxAudioMode) => void;
+}) {
+  return (
+    <div className="audio-mode-section">
+      <div className="audio-mode-section-title">{section.title}</div>
+      <div className="audio-mode-section-options">
+        {section.options.map((option) => (
+          <AudioModeRadio
+            key={option.value}
+            option={option}
+            checked={selectedAudioMode === option.value}
+            disabled={disabled}
+            onChange={() => onChange(option.value)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AudioModeOptions({
+  selectedAudioMode,
+  disabled,
+  onChange,
+}: {
+  selectedAudioMode: JukeboxAudioMode;
+  disabled: boolean;
+  onChange: (mode: JukeboxAudioMode) => void;
+}) {
+  return (
+    <div className="audio-mode-options" role="radiogroup" aria-label="Audio mode">
+      <AudioModeRadio
+        option={AUDIO_MODE_DEFAULT_OPTION}
+        className="audio-mode-default-option"
+        checked={selectedAudioMode === AUDIO_MODE_DEFAULT_OPTION.value}
+        disabled={disabled}
+        onChange={() => onChange(AUDIO_MODE_DEFAULT_OPTION.value)}
+      />
+      {AUDIO_MODE_SECTIONS.map((section) => (
+        <AudioModeSectionGroup
+          key={section.title}
+          section={section}
+          selectedAudioMode={selectedAudioMode}
+          disabled={disabled}
+          onChange={onChange}
+        />
+      ))}
+    </div>
+  );
+}
+
 function getVisualizationLabel(index: number) {
   return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
 }
@@ -481,6 +541,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setShortcutToast(message);
   }, []);
 
+  const requestWakeLockSafely = React.useCallback(() => {
+    requestWakeLock().catch((err) => {
+      console.warn(`Wake lock request failed: ${String(err)}`);
+    });
+  }, [requestWakeLock]);
+
+  const releaseWakeLockSafely = React.useCallback(() => {
+    releaseWakeLock().catch((err) => {
+      console.warn(`Wake lock release failed: ${String(err)}`);
+    });
+  }, [releaseWakeLock]);
+
   function setSwingPreparingState(preparing: boolean) {
     swingPreparingRef.current = preparing;
     setSwingPreparing(preparing);
@@ -624,7 +696,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     return () => {
       cowbellOverlayRef.current?.dispose();
       cowbellOverlayRef.current = null;
-      void playerRef.current?.dispose();
+      const activePlayer = playerRef.current;
+      if (activePlayer) {
+        activePlayer.dispose().catch((err) => {
+          console.warn(`Audio player dispose failed: ${String(err)}`);
+        });
+      }
       playerRef.current = null;
     };
   }, []);
@@ -991,19 +1068,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         vizControllerRef.current?.resizeActive();
       }
       if (active) {
-        void requestWakeLock();
+        requestWakeLockSafely();
       } else {
-        void releaseWakeLock();
+        releaseWakeLockSafely();
       }
     };
 
     const onVisibility = () => {
       if (document.hidden) {
-        void releaseWakeLock();
+        releaseWakeLockSafely();
         return;
       }
       if (document.fullscreenElement === vizPanelRef.current) {
-        void requestWakeLock();
+        requestWakeLockSafely();
       }
     };
 
@@ -1013,7 +1090,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       document.removeEventListener("fullscreenchange", onFullscreen);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [releaseWakeLockSafely, requestWakeLockSafely]);
 
   React.useEffect(() => {
     if (!isVolumeOpen) {
@@ -1256,7 +1333,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setSwingPreparingState(true);
     setSwingProgress(0);
 
-    void getOrCreateSwingBuffer(sourceBuffer, getCurrentSwingSourceIdentity(), () =>
+    getOrCreateSwingBuffer(sourceBuffer, getCurrentSwingSourceIdentity(), () =>
       renderSwingBuffer(sourceBuffer, beats, {
         onProgress: (progress) => {
           if (
@@ -1376,7 +1453,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setIsRunning(true);
     setIsPaused(false);
     if (document.fullscreenElement === vizPanelRef.current) {
-      void requestWakeLock();
+      requestWakeLockSafely();
     }
   };
 
@@ -1432,7 +1509,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       setIsRunning(true);
       setIsPaused(false);
       if (document.fullscreenElement === vizPanelRef.current) {
-        void requestWakeLock();
+        requestWakeLockSafely();
       }
       return;
     }
@@ -1466,7 +1543,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setIsRunning(true);
     setIsPaused(false);
     if (document.fullscreenElement === vizPanelRef.current) {
-      void requestWakeLock();
+      requestWakeLockSafely();
     }
     return true;
   };
@@ -1818,6 +1895,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleExportJukeboxAudio = () => {
+    onExportJukeboxAudio().catch((err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      setExportError(message || "Audio export failed.");
+      setIsExporting(false);
+    });
   };
 
   const onToggleFullscreen = async () => {
@@ -2293,7 +2378,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <button
                 className="tab-btn"
                 type="button"
-                onClick={() => void onExportJukeboxAudio()}
+                onClick={handleExportJukeboxAudio}
                 disabled={isExporting}
               >
                 {isExporting ? "Exporting..." : "Export Audio"}
@@ -2515,41 +2600,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </div>
                 <div id="jukebox-audio-mode-group" className="audio-mode-group">
                   <div className="label-line">Audio Mode</div>
-                  <div className="audio-mode-options" role="radiogroup" aria-label="Audio mode">
-                    <AudioModeRadio
-                      option={AUDIO_MODE_DEFAULT_OPTION}
-                      className="audio-mode-default-option"
-                      checked={extrasForm.audioMode === AUDIO_MODE_DEFAULT_OPTION.value}
-                      disabled={playMode !== "jukebox"}
-                      onChange={() =>
-                        setExtrasForm((prev) => ({
-                          ...prev,
-                          audioMode: AUDIO_MODE_DEFAULT_OPTION.value,
-                        }))
-                      }
-                    />
-                    {AUDIO_MODE_SECTIONS.map((section) => (
-                      <div className="audio-mode-section" key={section.title}>
-                        <div className="audio-mode-section-title">{section.title}</div>
-                        <div className="audio-mode-section-options">
-                          {section.options.map((option) => (
-                            <AudioModeRadio
-                              key={option.value}
-                              option={option}
-                              checked={extrasForm.audioMode === option.value}
-                              disabled={playMode !== "jukebox"}
-                              onChange={() =>
-                                setExtrasForm((prev) => ({
-                                  ...prev,
-                                  audioMode: option.value,
-                                }))
-                              }
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <AudioModeOptions
+                    selectedAudioMode={extrasForm.audioMode}
+                    disabled={playMode !== "jukebox"}
+                    onChange={(audioMode) =>
+                      setExtrasForm((prev) => ({ ...prev, audioMode }))
+                    }
+                  />
                 </div>
               </div>
             </div>

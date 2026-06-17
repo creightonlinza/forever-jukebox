@@ -15,6 +15,7 @@ from .db import init_db
 from .favorites_db import init_favorites_db
 from .http_client import close_client
 from .paths import DB_PATH, FAVORITES_DB_PATH, STORAGE_ROOT, WEB_DIST
+from .route_responses import NOT_FOUND
 
 load_dotenv()
 
@@ -106,7 +107,7 @@ if WEB_DIST.exists():
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-    @app.get("/{full_path:path}")
+    @app.get("/{full_path:path}", responses=NOT_FOUND)
     def spa_fallback(full_path: str):
         if full_path.startswith("api"):
             raise HTTPException(status_code=404, detail="Not found")
