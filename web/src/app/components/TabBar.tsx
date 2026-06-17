@@ -1,4 +1,3 @@
-import type { AppBridge } from "../bridge";
 import type { TabId } from "../context";
 import { useAppStore } from "../store";
 
@@ -9,10 +8,11 @@ function tabClass(active: boolean, pulsing = false) {
   return cls;
 }
 
-export function TabBar({ bridge }: { bridge: Pick<AppBridge, "onTabClick"> }) {
+export function TabBar() {
   const activeTab = useAppStore((s) => s.activeTabId);
   const isPlayTabPulsing = useAppStore((s) => s.isPlayTabPulsing);
-  const onClick = (tabId: TabId) => () => bridge.onTabClick(tabId);
+  const selectTab = useAppStore((s) => s.selectTab);
+  const onClick = (tabId: TabId) => () => selectTab(tabId);
   return (
     <nav className="tabs" aria-label="Primary">
       <button

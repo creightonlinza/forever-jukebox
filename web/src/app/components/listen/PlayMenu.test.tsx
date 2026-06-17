@@ -2,30 +2,41 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ADMIN_KEY_STORAGE_KEY } from "../../admin";
-import type { AppBridge } from "../../bridge";
 import { useAppStore } from "../../store";
 import { PlayMenu } from "./PlayMenu";
 
-function createBridge() {
-  return {
-    context: {},
-    listenPanel: {
-      copyShortUrl: vi.fn(),
-      toggleFavorite: vi.fn(),
-      getPendingDelete: vi.fn(() => ({
-        jobId: "job1",
-        trackId: "track1",
-        adminKey: null,
-      })),
-      performDelete: vi.fn(async () => {}),
-      playlist: { selectIndex: vi.fn(), removeIndex: vi.fn(), clear: vi.fn() },
-    },
-  } as unknown as AppBridge;
-}
+const h = vi.hoisted(() => ({
+  getPendingDelete: vi.fn(),
+  performDelete: vi.fn(),
+  toggleFavorite: vi.fn(),
+  copyShortUrl: vi.fn(),
+}));
+
+vi.mock("../../delete-job", () => ({
+  getPendingDelete: h.getPendingDelete,
+  performDelete: h.performDelete,
+}));
+vi.mock("../../favorites-actions", () => ({ toggleFavorite: h.toggleFavorite }));
+vi.mock("../../playback-ui", () => ({ copyShortUrl: h.copyShortUrl }));
+vi.mock("../../playback", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../playback")>()),
+  openTuning: vi.fn(),
+  openInfo: vi.fn(),
+}));
+vi.mock("../../runtime", () => ({ getAppContext: vi.fn(() => ({})) }));
 
 describe("PlayMenu", () => {
   beforeEach(() => {
     localStorage.removeItem(ADMIN_KEY_STORAGE_KEY);
+    h.getPendingDelete.mockReturnValue({
+      jobId: "job1",
+      trackId: "track1",
+      adminKey: null,
+    });
+    h.performDelete.mockReset();
+    h.performDelete.mockResolvedValue(undefined);
+    h.toggleFavorite.mockReset();
+    h.copyShortUrl.mockReset();
     act(() => {
       useAppStore.setState({
         audioLoaded: true,
@@ -56,7 +67,7 @@ describe("PlayMenu", () => {
     act(() => {
       useAppStore.setState({ audioLoaded: false });
     });
-    render(<PlayMenu bridge={createBridge()} />);
+    render(<PlayMenu />);
     expect(
       document.getElementById("play-menu")?.classList.contains("hidden"),
     ).toBe(true);
@@ -72,14 +83,14 @@ describe("PlayMenu", () => {
     act(() => {
       useAppStore.setState({ jukeboxAudioMode: "nightcore" });
     });
-    render(<PlayMenu bridge={createBridge()} />);
+    render(<PlayMenu />);
     expect(document.getElementById("play-title")?.textContent).toBe(
       "Song (nightcore) — Artist",
     );
   });
 
   it("shows the bring-it-home note only in jukebox mode with the mode on", () => {
-    render(<PlayMenu bridge={createBridge()} />);
+    render(<PlayMenu />);
     const label = document.getElementById("bring-home-label");
     expect(label?.classList.contains("is-hidden")).toBe(true);
     act(() => {
@@ -92,7 +103,7 @@ describe("PlayMenu", () => {
     act(() => {
       useAppStore.setState({ playMode: "autocanonizer" });
     });
-    render(<PlayMenu bridge={createBridge()} />);
+    render(<PlayMenu />);
     expect(
       document.getElementById("tuning")?.classList.contains("is-hidden"),
     ).toBe(true);
@@ -115,14 +126,14 @@ describe("PlayMenu", () => {
         ],
       });
     });
-    render(<PlayMenu bridge={createBridge()} />);
+    render(<PlayMenu />);
     const star = document.getElementById("favorite-toggle");
     expect(star?.classList.contains("active")).toBe(true);
     expect(star?.getAttribute("aria-label")).toBe("Remove from Favorites");
   });
 
   it("shows the delete button only when eligible or admin", () => {
-    render(<PlayMenu bridge={createBridge()} />);
+    render(<PlayMenu />);
     const button = () => document.getElementById("delete-job");
     expect(button()?.classList.contains("hidden")).toBe(true);
     act(() => {
@@ -135,16 +146,15 @@ describe("PlayMenu", () => {
   });
 
   it("opens the confirm modal and performs the delete", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({ deleteEligible: true });
     });
-    render(<PlayMenu bridge={bridge} />);
+    render(<PlayMenu />);
     await userEvent.click(document.getElementById("delete-job")!);
     expect(useAppStore.getState().deleteConfirmOpen).toBe(true);
     await userEvent.click(document.getElementById("delete-confirm-delete")!);
     await waitFor(() => {
-      expect(bridge.listenPanel.performDelete).toHaveBeenCalledWith({
+      expect(h.performDelete).toHaveBeenCalledWith({
         jobId: "job1",
         trackId: "track1",
         adminKey: null,
@@ -154,31 +164,27 @@ describe("PlayMenu", () => {
   });
 
   it("bails out of delete when the job changes under the open modal", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({ deleteEligible: true });
     });
-    render(<PlayMenu bridge={bridge} />);
+    render(<PlayMenu />);
     await userEvent.click(document.getElementById("delete-job")!);
     expect(useAppStore.getState().deleteConfirmOpen).toBe(true);
 
     // The track auto-advanced while the modal was open; the live pending job
     // no longer matches the snapshot frozen at modal-open.
-    (
-      bridge.listenPanel.getPendingDelete as ReturnType<typeof vi.fn>
-    ).mockReturnValue({ jobId: "job2", trackId: "track2", adminKey: null });
+    h.getPendingDelete.mockReturnValue({ jobId: "job2", trackId: "track2", adminKey: null });
 
     await userEvent.click(document.getElementById("delete-confirm-delete")!);
     await waitFor(() => {
       expect(useAppStore.getState().deleteConfirmOpen).toBe(false);
     });
-    expect(bridge.listenPanel.performDelete).not.toHaveBeenCalled();
+    expect(h.performDelete).not.toHaveBeenCalled();
   });
 
   it("guards against double-clicking delete while a delete is in flight", async () => {
-    const bridge = createBridge();
     let resolveDelete!: () => void;
-    (bridge.listenPanel.performDelete as ReturnType<typeof vi.fn>).mockReturnValue(
+    h.performDelete.mockReturnValue(
       new Promise<void>((resolve) => {
         resolveDelete = resolve;
       }),
@@ -186,14 +192,14 @@ describe("PlayMenu", () => {
     act(() => {
       useAppStore.setState({ deleteEligible: true });
     });
-    render(<PlayMenu bridge={bridge} />);
+    render(<PlayMenu />);
     await userEvent.click(document.getElementById("delete-job")!);
     const deleteButton = document.getElementById("delete-confirm-delete")!;
 
     await userEvent.click(deleteButton);
     // Second click while the first delete is still pending must be ignored.
     await userEvent.click(deleteButton);
-    expect(bridge.listenPanel.performDelete).toHaveBeenCalledTimes(1);
+    expect(h.performDelete).toHaveBeenCalledTimes(1);
     expect((deleteButton as HTMLButtonElement).disabled).toBe(true);
 
     await act(async () => {
@@ -203,23 +209,21 @@ describe("PlayMenu", () => {
   });
 
   it("cancels the confirm modal with Escape", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({ deleteEligible: true });
     });
-    render(<PlayMenu bridge={bridge} />);
+    render(<PlayMenu />);
     await userEvent.click(document.getElementById("delete-job")!);
     await userEvent.keyboard("{Escape}");
     expect(useAppStore.getState().deleteConfirmOpen).toBe(false);
-    expect(bridge.listenPanel.performDelete).not.toHaveBeenCalled();
+    expect(h.performDelete).not.toHaveBeenCalled();
   });
 
   it("delegates copy link and favorite toggle", async () => {
-    const bridge = createBridge();
-    render(<PlayMenu bridge={bridge} />);
+    render(<PlayMenu />);
     await userEvent.click(document.getElementById("short-url")!);
-    expect(bridge.listenPanel.copyShortUrl).toHaveBeenCalled();
+    expect(h.copyShortUrl).toHaveBeenCalled();
     await userEvent.click(document.getElementById("favorite-toggle")!);
-    expect(bridge.listenPanel.toggleFavorite).toHaveBeenCalled();
+    expect(h.toggleFavorite).toHaveBeenCalled();
   });
 });

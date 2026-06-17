@@ -9,6 +9,7 @@ import {
   resetExtrasDefaults,
   resetTuningDefaults,
   applyTuningChanges,
+  cancelPoll,
   loadAudioFromJob,
   loadTrackById,
   openExtras,
@@ -17,14 +18,35 @@ import {
   setSleepTimer,
   startJukeboxFromBeat,
   stopPlayback,
+  syncDeletedEdgeState,
   togglePlayback,
   updateVizVisibility,
   updateListenTimeDisplay,
   type TuningFormValues,
 } from "./playback";
+import { setAppRuntime } from "./runtime";
 import { useAppStore } from "./store";
-import { createPlaybackUiHandlers } from "./wire/playback";
+import { showToast } from "./ui";
+import {
+  handleEdgeSelect,
+  handleKeydown,
+  handleKeyup,
+  resetPlaybackUiForTest,
+} from "./playback-ui";
 import { setWindowUrl } from "./__tests__/test-utils";
+
+vi.mock("./ui", async (importActual) => ({
+  ...(await importActual<typeof import("./ui")>()),
+  showToast: vi.fn(),
+  // The real isEditableTarget references HTMLElement, undefined in this
+  // DOM-less test env; the keyboard handlers only need a falsy result.
+  isEditableTarget: vi.fn(() => false),
+}));
+vi.mock("./playback", async (importActual) => ({
+  ...(await importActual<typeof import("./playback")>()),
+  syncDeletedEdgeState: vi.fn(),
+  updateTrackInfo: vi.fn(),
+}));
 import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
 import { ADMIN_KEY_STORAGE_KEY } from "./admin";
@@ -101,7 +123,12 @@ async function flushMicrotasks(count = 5) {
 
 
 
-function createContext(overrides?: Partial<AppContext>): AppContext {
+type TestAppContext = AppContext & {
+  autocanonizer: NonNullable<AppContext["autocanonizer"]>;
+  jukebox: NonNullable<AppContext["jukebox"]>;
+};
+
+function createContext(overrides?: Partial<AppContext>): TestAppContext {
   // the old plain-object harness defaulted the active tab to "play"
   useAppStore.setState({ activeTabId: "play" });
   const engineConfig = {
@@ -189,7 +216,7 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     setVolume: vi.fn(),
     dispose: vi.fn(),
   };
-  return {
+  const context = {
     engine: engine as unknown as AppContext["engine"],
     player: player as unknown as AppContext["player"],
     autocanonizer: autocanonizer as unknown as AppContext["autocanonizer"],
@@ -197,7 +224,11 @@ function createContext(overrides?: Partial<AppContext>): AppContext {
     cowbellOverlay: cowbellOverlay as unknown as AppContext["cowbellOverlay"],
     defaultConfig: engineConfig as unknown as AppContext["defaultConfig"],
     ...overrides,
-  };
+  } as TestAppContext;
+  // Flows that read the runtime singleton (e.g. setSleepTimer) resolve to this
+  // test's context.
+  setAppRuntime(context);
+  return context;
 }
 
 function formValues(
@@ -870,33 +901,33 @@ describe("playback timers", () => {
 
   it("maps null, zero, negative, and unknown sleep timer durations to off", () => {
     setupSleepTimerClock();
-    const context = createContext();
+    createContext();
 
     for (const durationMs of [null, 0, -1, Number.NaN]) {
-      setSleepTimer(context, 30 * 60 * 1000);
-      setSleepTimer(context, durationMs);
+      setSleepTimer(30 * 60 * 1000);
+      setSleepTimer(durationMs);
 
       expect(useAppStore.getState().sleepTimer).toEqual({
         configuredDurationMs: null,
         endTimeMs: null,
         remainingMs: 0,
       });
-      expect(useAppStore.getState().sleepTimerTimeoutId).toBe(null);
+      expect(vi.getTimerCount()).toBe(0);
     }
   });
 
   it("sets sleep timer state from monotonic time", () => {
     setupSleepTimerClock(5000);
-    const context = createContext();
+    createContext();
 
-    setSleepTimer(context, 15 * 60 * 1000);
+    setSleepTimer(15 * 60 * 1000);
 
     expect(useAppStore.getState().sleepTimer).toEqual({
       configuredDurationMs: 15 * 60 * 1000,
       endTimeMs: 905000,
       remainingMs: 15 * 60 * 1000,
     });
-    expect(useAppStore.getState().sleepTimerTimeoutId).not.toBe(null);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
   });
 
   it("replacing a sleep timer cancels the old expiry", () => {
@@ -904,8 +935,8 @@ describe("playback timers", () => {
     const context = createContext();
     useAppStore.setState({ isRunning: true });
 
-    setSleepTimer(context, 1000);
-    setSleepTimer(context, 5000);
+    setSleepTimer(1000);
+    setSleepTimer(5000);
     clock.setNow(2000);
     vi.advanceTimersByTime(1000);
 
@@ -927,7 +958,7 @@ describe("playback timers", () => {
     useAppStore.setState({ playTimerMs: 1234 });
     useAppStore.setState({ beatsPlayedText: "8" });
 
-    setSleepTimer(context, 1000);
+    setSleepTimer(1000);
     clock.setNow(2000);
     vi.advanceTimersByTime(1000);
 
@@ -948,7 +979,7 @@ describe("playback timers", () => {
     const context = createContext();
     useAppStore.setState({ isRunning: true });
 
-    setSleepTimer(context, 1500);
+    setSleepTimer(1500);
     clock.setNow(2000);
     vi.advanceTimersByTime(1000);
 
@@ -1131,45 +1162,15 @@ describe("playback branch shortcuts", () => {
     setWindowUrl("http://localhost/listen/abc");
   });
 
-  function makeHandlers(context: AppContext, showToast = vi.fn()) {
-    const writeTuningParamsToUrl = vi.fn();
-    const syncDeletedEdgeState = vi.fn();
+  function makeHandlers(context: AppContext) {
+    resetPlaybackUiForTest();
+    setAppRuntime(context);
     return {
-      handlers: createPlaybackUiHandlers({
-        context,
-        player: context.player,
-        engine: context.engine,
-        jukebox: context.jukebox,
-        autocanonizer: context.autocanonizer,
-        vizStorageKey: "viz",
-        canonizerFinishKey: "finish",
-        setAnalysisStatus: vi.fn(),
-        showToast,
-        stopPlayback: vi.fn(),
-        togglePlayback: vi.fn(),
-        startJukeboxFromBeat: vi.fn(),
-        startAutocanonizerPlayback: vi.fn(),
-        updateTrackUrl: vi.fn(),
-        navigateToTab: vi.fn(),
-        updateVizVisibility: vi.fn(),
-        openExtras: vi.fn(),
-        getTuningParamsFromEngine: vi.fn(() => {
-          const params = new URLSearchParams();
-          const anchorId = context.engine.getUserAnchorEdgeId();
-          if (anchorId !== null) {
-            params.set("ab", `${anchorId}`);
-          }
-          return params;
-        }),
-        writeTuningParamsToUrl,
-        syncDeletedEdgeState,
-        updateTrackInfo: vi.fn(),
-        isEditableTarget: vi.fn(() => false),
-        getCurrentTrackId: vi.fn(() => null),
-      }),
-      showToast,
-      writeTuningParamsToUrl,
-      syncDeletedEdgeState,
+      handlers: { handleEdgeSelect, handleKeydown, handleKeyup },
+      // `showToast` (./ui) and `syncDeletedEdgeState` (./playback) are module
+      // mocks; the handlers call the same instances we assert on here.
+      showToast: vi.mocked(showToast),
+      syncDeletedEdgeState: vi.mocked(syncDeletedEdgeState),
     };
   }
 
@@ -1208,7 +1209,7 @@ describe("playback branch shortcuts", () => {
     (
       context.engine.getVisualizationData as ReturnType<typeof vi.fn>
     ).mockReturnValue(nextVizData);
-    const { handlers, showToast, writeTuningParamsToUrl } = makeHandlers(context);
+    const { handlers, showToast } = makeHandlers(context);
     const setEvent = keyEvent("A");
 
     handlers.handleKeydown(setEvent);
@@ -1218,7 +1219,10 @@ describe("playback branch shortcuts", () => {
     expect(context.jukebox.setData).toHaveBeenCalledWith(nextVizData);
     expect(context.jukebox.setSelectedEdgeActive).toHaveBeenCalledWith(edge);
     expect(showToast).toHaveBeenCalledWith("Anchor branch set");
-    expect(writeTuningParamsToUrl).toHaveBeenCalledWith("ab=7", true);
+    // The folded writeTuningParamsToUrl runs for real; assert the serialized
+    // anchor it persists to the store (and thus the URL).
+    expect(useAppStore.getState().tuningParams).toBe("ab=7");
+    expect(window.location.search).toBe("?ab=7");
 
     const resetEvent = keyEvent("a");
     handlers.handleKeydown(resetEvent);
@@ -1226,7 +1230,8 @@ describe("playback branch shortcuts", () => {
     expect(resetEvent.preventDefault).toHaveBeenCalledTimes(1);
     expect(context.engine.setUserAnchorEdge).toHaveBeenLastCalledWith(null);
     expect(showToast).toHaveBeenLastCalledWith("Anchor branch reset");
-    expect(writeTuningParamsToUrl).toHaveBeenLastCalledWith(null, true);
+    expect(useAppStore.getState().tuningParams).toBeNull();
+    expect(window.location.search).toBe("");
   });
 
   it("ignores A for a selected forward branch", () => {
@@ -1915,7 +1920,7 @@ describe("playback loading", () => {
     const deps = createLoadDeps();
     (fetch as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => {
       // a newer track load cancels this poll while its request is in flight
-      useAppStore.getState().pollController?.abort();
+      cancelPoll();
       const err = new Error("signal is aborted without reason");
       err.name = "AbortError";
       throw err;
@@ -1925,7 +1930,7 @@ describe("playback loading", () => {
 
     expect(deps.setAnalysisStatus).not.toHaveBeenCalled();
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
-    expect(useAppStore.getState().pollController).toBeNull();
+    expect(useAppStore.getState().analysisPollInFlight).toBe(false);
   });
 
   it("surfaces failed analysis status without applying stale analysis", async () => {

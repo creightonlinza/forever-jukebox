@@ -31,6 +31,7 @@ export type AppState = {
   audioLoaded: boolean;
   analysisLoaded: boolean;
   audioLoadInFlight: boolean;
+  analysisPollInFlight: boolean;
   autoComputedThreshold: number | null;
   lastJobId: string | null;
   lastTrackId: string | null;
@@ -48,15 +49,10 @@ export type AppState = {
   trackDurationSec: number | null;
   trackTitle: string | null;
   trackArtist: string | null;
-  toastTimer: number | null;
   deleteEligible: boolean;
   deleteEligibilityJobId: string | null;
   appConfig: AppConfig | null;
-  pollController: AbortController | null;
-  listenTimerId: number | null;
   sleepTimer: SleepTimerState;
-  sleepTimerTimeoutId: number | null;
-  wakeLock: WakeLockSentinel | null;
   tuningParams: string | null;
   deletedEdgeIds: number[];
   highlightAnchorBranch: boolean;
@@ -71,8 +67,13 @@ export type SleepTimerState = {
 export type AppContext = {
   engine: JukeboxEngine;
   player: BufferedAudioPlayer;
-  autocanonizer: AutocanonizerController;
-  jukebox: JukeboxController;
+  autocanonizer: AutocanonizerController | null;
+  jukebox: JukeboxController | null;
   cowbellOverlay: CowbellOverlayService;
   defaultConfig: ReturnType<JukeboxEngine["getConfig"]>;
+};
+
+export type AttachedAppContext = AppContext & {
+  autocanonizer: AutocanonizerController;
+  jukebox: JukeboxController;
 };

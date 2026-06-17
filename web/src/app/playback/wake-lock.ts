@@ -1,16 +1,15 @@
-import { useAppStore } from "../store";
-
 let wakeLockRequestInFlight = false;
+let wakeLock: WakeLockSentinel | null = null;
 
 export function requestWakeLock() {
   if (!("wakeLock" in navigator)) {
     return;
   }
-  // The store grant is set asynchronously, so the null check alone lets two
+  // The grant is set asynchronously, so the null check alone lets two
   // near-simultaneous calls both proceed and leak the first lock. Gate on an
   // in-flight flag too.
   if (
-    useAppStore.getState().wakeLock ||
+    wakeLock ||
     wakeLockRequestInFlight ||
     !document.fullscreenElement
   ) {
@@ -23,15 +22,15 @@ export function requestWakeLock() {
       wakeLockRequestInFlight = false;
       // The request can resolve after we've left fullscreen (or after another
       // grant landed); a lock nobody will release. Drop it immediately.
-      if (!document.fullscreenElement || useAppStore.getState().wakeLock) {
+      if (!document.fullscreenElement || wakeLock) {
         lock.release().catch(() => {
           console.warn("Failed to release wake lock");
         });
         return;
       }
-      useAppStore.setState({ wakeLock: lock });
+      wakeLock = lock;
       function onRelease() {
-        if (useAppStore.getState().wakeLock === lock) {
+        if (wakeLock === lock) {
           handleWakeLockRelease();
         }
       }
@@ -44,15 +43,15 @@ export function requestWakeLock() {
 }
 
 function handleWakeLockRelease() {
-  useAppStore.setState({ wakeLock: null });
+  wakeLock = null;
 }
 
 export function releaseWakeLock() {
-  const lock = useAppStore.getState().wakeLock;
+  const lock = wakeLock;
   if (!lock) {
     return;
   }
-  useAppStore.setState({ wakeLock: null });
+  wakeLock = null;
   lock.release().catch(() => {
     console.warn("Failed to release wake lock");
   });

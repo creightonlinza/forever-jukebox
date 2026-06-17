@@ -1,8 +1,12 @@
-import type { AppBridge } from "../../bridge";
 import { useAppStore } from "../../store";
+import {
+  clearPlaylist,
+  removePlaylistIndex,
+  selectPlaylistIndex,
+} from "../../playlist-actions";
 import { Modal } from "../Modal";
 
-export function PlaylistModal({ bridge }: { bridge: AppBridge }) {
+export function PlaylistModal() {
   const open = useAppStore((s) => s.playlistModalOpen);
   const playlist = useAppStore((s) => s.playlist);
   const close = () => useAppStore.setState({ playlistModalOpen: false });
@@ -52,7 +56,7 @@ export function PlaylistModal({ bridge }: { bridge: AppBridge }) {
                       data-playlist-index={index}
                       disabled={isCurrent}
                       onClick={() =>
-                        bridge.listenPanel.playlist.selectIndex(index)
+                        selectPlaylistIndex(index)
                       }
                     >
                       <span className="playlist-item-title">
@@ -71,7 +75,7 @@ export function PlaylistModal({ bridge }: { bridge: AppBridge }) {
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        bridge.listenPanel.playlist.removeIndex(index);
+                        removePlaylistIndex(index);
                       }}
                     >
                       <span
@@ -93,7 +97,7 @@ export function PlaylistModal({ bridge }: { bridge: AppBridge }) {
           id="playlist-clear"
           type="button"
           disabled={isEmpty}
-          onClick={() => bridge.listenPanel.playlist.clear()}
+          onClick={() => clearPlaylist()}
         >
           Clear Playlist
         </button>

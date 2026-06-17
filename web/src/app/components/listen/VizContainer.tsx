@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { AppBridge } from "../../bridge";
+import { attachViz, getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { BranchStatsPopup } from "./BranchStatsPopup";
 import { PlayControls } from "./PlayControls";
@@ -11,13 +11,14 @@ import { VizTop } from "./VizTop";
 // stable JSX nodes — React renders them once and NEVER remounts them (no
 // keys, no conditional unmount; visibility is class-only), because the
 // controllers hold canvas/WebGL state inside. The panel-level ref callback
-// hands the nodes to bootstrap's attachViz, which constructs the
+// hands the nodes to init's attachViz, which constructs the
 // controllers exactly once (StrictMode re-attaches are ignored there).
-export function VizContainer({ bridge }: { bridge: AppBridge }) {
+export function VizContainer() {
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const swingPreparing = useAppStore((s) => s.swingPreparing);
   const playMode = useAppStore((s) => s.playMode);
+  const vizStatsPulseId = useAppStore((s) => s.vizStatsPulseId);
   const vizPanelRef = useRef<HTMLDivElement | null>(null);
   const vizLayerRef = useRef<HTMLDivElement | null>(null);
   const canonizerLayerRef = useRef<HTMLDivElement | null>(null);
@@ -29,27 +30,27 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
     (node: HTMLDivElement | null) => {
       vizPanelRef.current = node;
       if (node && vizLayerRef.current && canonizerLayerRef.current) {
-        bridge.attachViz({
+        attachViz({
           vizPanel: node,
           vizLayer: vizLayerRef.current,
           canonizerLayer: canonizerLayerRef.current,
         });
       }
     },
-    [bridge],
+    [],
   );
 
-  // attachVisualizationResize equivalent: observe the panel and resize both
-  // controllers (window-resize fallback for browsers without
-  // ResizeObserver, matching the legacy chrome 63 path).
+  // Observe the panel and resize both controllers, with a window-resize
+  // fallback for older browsers without ResizeObserver.
   useEffect(() => {
     const panel = vizPanelRef.current;
     if (!panel) {
       return;
     }
     const handleResize = () => {
-      bridge.context.jukebox?.resizeNow();
-      bridge.context.autocanonizer?.resizeNow();
+      const ctx = getAppContext();
+      ctx.jukebox?.resizeNow();
+      ctx.autocanonizer?.resizeNow();
     };
     if (
       typeof (globalThis as { ResizeObserver?: unknown }).ResizeObserver !==
@@ -63,19 +64,20 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [bridge]);
+  }, []);
 
-  // updateVizVisibility's resize-on-reveal, now reactive.
+  // Resize the active controller when the viz becomes visible.
   useEffect(() => {
     if (!visible) {
       return;
     }
+    const ctx = getAppContext();
     if (playMode === "autocanonizer") {
-      bridge.context.autocanonizer?.resizeNow();
+      ctx.autocanonizer?.resizeNow();
     } else {
-      bridge.context.jukebox?.resizeActive();
+      ctx.jukebox?.resizeActive();
     }
-  }, [visible, playMode, bridge]);
+  }, [visible, playMode]);
 
   return (
     <div
@@ -87,9 +89,9 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
         id="jukebox-viz"
         className={playMode === "autocanonizer" ? "viz is-canonizer" : "viz"}
       >
-        <BranchStatsPopup bridge={bridge} />
+        <BranchStatsPopup />
         <div className="viz-top">
-          <VizTop bridge={bridge} />
+          <VizTop />
         </div>
         <div id="viz-layer" className="viz-layer" ref={vizLayerRef}></div>
         <div
@@ -97,17 +99,21 @@ export function VizContainer({ bridge }: { bridge: AppBridge }) {
           className="canonizer-layer"
           ref={canonizerLayerRef}
         ></div>
-        <div className="viz-bottom" id="viz-stats">
+        <div
+          className={vizStatsPulseId > 0 ? "viz-bottom pulse" : "viz-bottom"}
+          id="viz-stats"
+          key={vizStatsPulseId}
+        >
           <div className="viz-bottom-left">
             <div className="viz-play-controls">
-              <PlayControls bridge={bridge} />
+              <PlayControls />
             </div>
             <div className="viz-info">
               <VizInfo />
             </div>
           </div>
           <div className="viz-bottom-right">
-            <VizBottomRight bridge={bridge} />
+            <VizBottomRight />
           </div>
         </div>
       </div>

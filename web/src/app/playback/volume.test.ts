@@ -35,7 +35,7 @@ describe("setMasterVolume", () => {
 
   it("tolerates the autocanonizer not yet being attached", () => {
     const context = createContext({
-      autocanonizer: null as unknown as AppContext["autocanonizer"],
+      autocanonizer: null,
     });
 
     expect(() => setMasterVolume(context, 70)).not.toThrow();

@@ -6,7 +6,6 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
-import type { AppBridge } from "../bridge";
 import { fetchRecentSongs, fetchTopSongs, fetchTrendingSongs } from "../api";
 import { TOP_SONGS_LIMIT } from "../constants";
 import { formatErrorForDisplay } from "../errorDisplay";
@@ -21,33 +20,34 @@ import {
 } from "../favorites";
 import type { PlaylistTrack } from "../playlist";
 import { Modal, ModalHeader } from "./Modal";
-import { useAppStore } from "../store";
+import {
+  useAppStore,
+  type TopSongsItem,
+  type TopSongsListState,
+  type TopSongsListTabId,
+} from "../store";
 import { urlForTrack } from "../tabs";
 import { blurMouseActivatedControl } from "../ui";
+import {
+  createSyncCode,
+  enterSyncCode,
+  refreshFavoritesFromSync,
+  removeFavoriteWithToast,
+  selectFavorite,
+} from "../favorites-actions";
+import { addToPlaylist } from "../playlist-actions";
+import { selectTrack } from "../track-select";
 
 type TopSongsTabId = "top" | "trending" | "recent" | "favorites";
-type LazyTabId = Exclude<TopSongsTabId, "favorites">;
-
-type SongItem = {
-  id?: string;
-  title?: string;
-  artist?: string;
-  source_id?: string;
-  source_provider?: string;
-};
-
-type ListState =
-  | { kind: "message"; text: string }
-  | { kind: "loaded"; items: SongItem[] };
 
 const LIST_CONFIG: Record<
-  LazyTabId,
+  TopSongsListTabId,
   {
     loadingText: string;
     emptyText: string;
     errorPrefix: string;
     listId: string;
-    fetchItems: () => Promise<SongItem[]>;
+    fetchItems: () => Promise<TopSongsItem[]>;
   }
 > = {
   top: {
@@ -114,12 +114,10 @@ function SongList({
   tabId,
   state,
   hidden,
-  bridge,
 }: {
-  tabId: LazyTabId;
-  state: ListState;
+  tabId: TopSongsListTabId;
+  state: TopSongsListState;
   hidden: boolean;
-  bridge: AppBridge;
 }) {
   const config = LIST_CONFIG[tabId];
   const className = hidden ? "top-list hidden" : "top-list";
@@ -162,15 +160,12 @@ function SongList({
               data-track-artist={artist}
               onClick={(event) => {
                 event.preventDefault();
-                bridge.topPanel.selectTrack(listenId, playlistTrack);
+                selectTrack(listenId, playlistTrack);
               }}
             >
               {label}
             </a>
-            <PlaylistAddButton
-              track={playlistTrack}
-              onAdd={bridge.topPanel.addToPlaylist}
-            />
+            <PlaylistAddButton track={playlistTrack} onAdd={addToPlaylist} />
           </li>
         );
       })}
@@ -178,13 +173,7 @@ function SongList({
   );
 }
 
-function FavoritesList({
-  query,
-  bridge,
-}: {
-  query: string;
-  bridge: AppBridge;
-}) {
+function FavoritesList({ query }: { query: string }) {
   const favorites = useAppStore((s) => s.favorites);
   const [sort, setSort] = useState<FavoritesDisplaySort>({
     key: "title",
@@ -200,10 +189,7 @@ function FavoritesList({
   };
 
   const select = (item: FavoriteTrack) => {
-    bridge.topPanel.selectFavorite(
-      item.uniqueSongId,
-      item.sourceType ?? "youtube",
-    );
+    selectFavorite(item.uniqueSongId, item.sourceType ?? "youtube");
   };
 
   const trimmedQuery = query.trim();
@@ -326,7 +312,7 @@ function FavoritesList({
               <td className="favorite-remove-cell">
                 <PlaylistAddButton
                   track={favoriteToPlaylistTrack(item, sourceType)}
-                  onAdd={bridge.topPanel.addToPlaylist}
+                  onAdd={addToPlaylist}
                 />
                 <button
                   type="button"
@@ -336,7 +322,7 @@ function FavoritesList({
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    bridge.topPanel.removeFavorite(item.uniqueSongId);
+                    removeFavoriteWithToast(item.uniqueSongId);
                   }}
                 >
                   <span
@@ -358,11 +344,9 @@ function FavoritesList({
 function FavoritesSyncEnterModal({
   open,
   onClose,
-  bridge,
 }: {
   open: boolean;
   onClose: () => void;
-  bridge: AppBridge;
 }) {
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(
@@ -389,7 +373,7 @@ function FavoritesSyncEnterModal({
     setBusy(true);
     setStatus({ text: "Syncing favorites...", error: false });
     try {
-      const result = await bridge.topPanel.enterSyncCode(code);
+      const result = await enterSyncCode(code);
       if (result === "replaced") {
         setStatus({ text: "Favorites updated.", error: false });
         onClose();
@@ -463,11 +447,9 @@ function FavoritesSyncEnterModal({
 function FavoritesSyncCreateModal({
   open,
   onClose,
-  bridge,
 }: {
   open: boolean;
   onClose: () => void;
-  bridge: AppBridge;
 }) {
   const existingCode = useAppStore((s) => s.favoritesSyncCode);
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(
@@ -482,7 +464,7 @@ function FavoritesSyncCreateModal({
       setOutput(existingCode || null);
       setButtonHidden(false);
     }
-    // The legacy modal snapshots the existing code at open time only.
+    // Snapshot the existing code at open time only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -495,7 +477,7 @@ function FavoritesSyncCreateModal({
     setButtonHidden(true);
     setStatus({ text: "Creating sync code...", error: false });
     try {
-      const code = await bridge.topPanel.createSyncCode();
+      const code = await createSyncCode();
       setOutput(code);
       setStatus(null);
     } catch (err) {
@@ -553,13 +535,7 @@ function FavoritesSyncCreateModal({
   );
 }
 
-function FavoritesSyncControls({
-  bridge,
-  visible,
-}: {
-  bridge: AppBridge;
-  visible: boolean;
-}) {
+function FavoritesSyncControls({ visible }: { visible: boolean }) {
   const syncCode = useAppStore((s) => s.favoritesSyncCode);
   const [menuOpen, setMenuOpen] = useState(false);
   const [enterOpen, setEnterOpen] = useState(false);
@@ -582,8 +558,7 @@ function FavoritesSyncControls({
     return () => document.removeEventListener("click", onDocumentClick);
   }, [menuOpen]);
 
-  // Menu closes whenever the subtab changes / controls hide (legacy
-  // setTopSongsTab called closeFavoritesSyncMenu).
+  // Menu closes whenever the subtab changes / controls hide.
   useEffect(() => {
     if (!visible) {
       setMenuOpen(false);
@@ -593,7 +568,7 @@ function FavoritesSyncControls({
   const handleItem = (action: "refresh" | "create" | "enter") => {
     setMenuOpen(false);
     if (action === "refresh") {
-      void bridge.topPanel.refreshFavoritesFromSync();
+      void refreshFavoritesFromSync();
     } else if (action === "create") {
       setEnterOpen(false);
       setCreateOpen(true);
@@ -665,19 +640,16 @@ function FavoritesSyncControls({
       <FavoritesSyncEnterModal
         open={enterOpen}
         onClose={() => setEnterOpen(false)}
-        bridge={bridge}
       />
       <FavoritesSyncCreateModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        bridge={bridge}
       />
     </>
   );
 }
 
-export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
-  const activeTab = useAppStore((s) => s.activeTabId);
+export function TopTracksPanel() {
   const subtab = useAppStore((s) => s.topSongsTab);
   const allowSync = useAppStore((s) =>
     Boolean(s.appConfig?.allow_favorites_sync),
@@ -685,52 +657,46 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
   const favoritesCount = useAppStore((s) => s.favorites.length);
   const maxFavoritesValue =
     useAppStore((s) => s.appConfig?.max_favorites) ?? maxFavorites();
+  const lists = useAppStore((s) => s.topSongsLists);
   const [query, setQuery] = useState("");
-  const [lists, setLists] = useState<Record<LazyTabId, ListState>>({
-    top: { kind: "message", text: LIST_CONFIG.top.loadingText },
-    trending: { kind: "message", text: LIST_CONFIG.trending.loadingText },
-    recent: { kind: "message", text: LIST_CONFIG.recent.loadingText },
-  });
-  const loadedTabsRef = useRef(new Set<LazyTabId>());
-  const inFlightTabsRef = useRef(new Set<LazyTabId>());
-  const loadList = useCallback(async (tabId: LazyTabId, force = false) => {
-    if (!force && loadedTabsRef.current.has(tabId)) {
-      return;
-    }
-    // Dedupes StrictMode's double-invoked mount effect (and rapid subtab
-    // flips) without giving up retry-on-error semantics.
-    if (inFlightTabsRef.current.has(tabId)) {
-      return;
-    }
-    inFlightTabsRef.current.add(tabId);
-    const config = LIST_CONFIG[tabId];
-    setLists((prev) => ({
-      ...prev,
-      [tabId]: { kind: "message", text: config.loadingText },
-    }));
-    try {
-      const items = await config.fetchItems();
-      setLists((prev) => ({
-        ...prev,
-        [tabId]:
+  const loadList = useCallback(
+    async (tabId: TopSongsListTabId, force = false) => {
+      const state = useAppStore.getState();
+      if (!force && state.topSongsLoadedTabs.includes(tabId)) {
+        return;
+      }
+      // Dedupes StrictMode's double-invoked mount effect, rapid subtab flips,
+      // and unmount/remount cycles while a request is still pending.
+      if (state.topSongsInFlightTabs.includes(tabId)) {
+        return;
+      }
+      const config = LIST_CONFIG[tabId];
+      state.setTopSongsTabInFlight(tabId, true);
+      state.setTopSongsListState(tabId, {
+        kind: "message",
+        text: config.loadingText,
+      });
+      try {
+        const items = await config.fetchItems();
+        useAppStore.getState().setTopSongsListState(
+          tabId,
           items.length === 0
             ? { kind: "message", text: config.emptyText }
             : { kind: "loaded", items },
-      }));
-      loadedTabsRef.current.add(tabId);
-    } catch (err) {
-      setLists((prev) => ({
-        ...prev,
-        [tabId]: {
+        );
+        useAppStore.getState().setTopSongsTabLoaded(tabId, true);
+      } catch (err) {
+        useAppStore.getState().setTopSongsListState(tabId, {
           kind: "message",
           text: `${config.errorPrefix} unavailable: ${formatErrorForDisplay(err)}`,
-        },
-      }));
-      console.warn(`${config.errorPrefix} load failed: ${String(err)}`);
-    } finally {
-      inFlightTabsRef.current.delete(tabId);
-    }
-  }, []);
+        });
+        console.warn(`${config.errorPrefix} load failed: ${String(err)}`);
+      } finally {
+        useAppStore.getState().setTopSongsTabInFlight(tabId, false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (subtab !== "favorites") {
@@ -758,12 +724,7 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
   );
 
   return (
-    <section
-      className={
-        activeTab === "top" ? "panel tab-panel" : "panel tab-panel hidden"
-      }
-      data-tab-panel="top"
-    >
+    <section className="panel tab-panel" data-tab-panel="top">
       <div className="subtabs" id="top-subtabs">
         {subtabButton("top", "All Time")}
         {subtabButton("trending", "Trending")}
@@ -818,7 +779,6 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
           </span>
         </button>
         <FavoritesSyncControls
-          bridge={bridge}
           visible={subtab === "favorites" && allowSync}
         />
         <div
@@ -841,23 +801,16 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
           />
         </div>
       </div>
-      <SongList
-        tabId="top"
-        state={lists.top}
-        hidden={subtab !== "top"}
-        bridge={bridge}
-      />
+      <SongList tabId="top" state={lists.top} hidden={subtab !== "top"} />
       <SongList
         tabId="trending"
         state={lists.trending}
         hidden={subtab !== "trending"}
-        bridge={bridge}
       />
       <SongList
         tabId="recent"
         state={lists.recent}
         hidden={subtab !== "recent"}
-        bridge={bridge}
       />
       <div
         className={
@@ -865,7 +818,7 @@ export function TopTracksPanel({ bridge }: { bridge: AppBridge }) {
         }
         id="favorites-list"
       >
-        <FavoritesList query={query} bridge={bridge} />
+        <FavoritesList query={query} />
       </div>
     </section>
   );

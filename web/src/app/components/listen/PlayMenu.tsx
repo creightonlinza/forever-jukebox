@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { isAdminMode } from "../../admin";
-import type { AppBridge } from "../../bridge";
 import { findCurrentFavorite } from "../../favorites";
 import { formatPlaybackTitle } from "../../format";
 import { useMarquee } from "../../hooks/useMarquee";
 import { openInfo, openTuning } from "../../playback";
+import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
-import type { PendingDelete } from "../../wire/delete-job";
+import {
+  getPendingDelete,
+  performDelete,
+  type PendingDelete,
+} from "../../delete-job";
+import { toggleFavorite } from "../../favorites-actions";
+import { copyShortUrl } from "../../playback-ui";
 import { Modal } from "../Modal";
 
 function DeleteConfirmModal({
-  bridge,
   pending,
   onClosed,
 }: {
-  bridge: AppBridge;
   pending: PendingDelete | null;
   onClosed: () => void;
 }) {
@@ -44,7 +48,7 @@ function DeleteConfirmModal({
     // underneath us (e.g. autocanonizer playlist auto-advance) the frozen job
     // no longer matches the current session. Re-read and bail rather than
     // delete the right job but reset/navigate the wrong session.
-    const current = bridge.listenPanel.getPendingDelete();
+    const current = getPendingDelete();
     if (!current || current.jobId !== pending.jobId) {
       useAppStore.setState({ deleteConfirmOpen: false });
       onClosed();
@@ -52,7 +56,7 @@ function DeleteConfirmModal({
     }
     setBusy(true);
     try {
-      await bridge.listenPanel.performDelete(current);
+      await performDelete(current);
     } finally {
       setBusy(false);
       useAppStore.setState({ deleteConfirmOpen: false });
@@ -95,7 +99,7 @@ function DeleteConfirmModal({
   );
 }
 
-export function PlayMenu({ bridge }: { bridge: AppBridge }) {
+export function PlayMenu() {
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const swingPreparing = useAppStore((s) => s.swingPreparing);
@@ -149,7 +153,7 @@ export function PlayMenu({ bridge }: { bridge: AppBridge }) {
     : "Delete within 30 minutes of creation";
 
   const handleDeleteClick = () => {
-    const pending = bridge.listenPanel.getPendingDelete();
+    const pending = getPendingDelete();
     if (!pending) {
       return;
     }
@@ -202,7 +206,7 @@ export function PlayMenu({ bridge }: { bridge: AppBridge }) {
             disabled={isCanonizer}
             aria-label="Tune"
             title="Tune"
-            onClick={() => openTuning(bridge.context)}
+            onClick={() => openTuning(getAppContext())}
           >
             <span
               className="material-symbols-outlined tune-icon"
@@ -216,7 +220,7 @@ export function PlayMenu({ bridge }: { bridge: AppBridge }) {
             className={isCanonizer ? "info-toggle is-hidden" : "info-toggle"}
             aria-label="Info"
             title="Info"
-            onClick={() => openInfo(bridge.context)}
+            onClick={() => openInfo(getAppContext())}
           >
             <span
               className="material-symbols-outlined info-icon"
@@ -230,7 +234,7 @@ export function PlayMenu({ bridge }: { bridge: AppBridge }) {
             className="copy-toggle"
             aria-label="Copy URL"
             title="Copy URL"
-            onClick={() => bridge.listenPanel.copyShortUrl()}
+            onClick={() => copyShortUrl()}
           >
             <span
               className="material-symbols-outlined copy-icon"
@@ -249,7 +253,7 @@ export function PlayMenu({ bridge }: { bridge: AppBridge }) {
             aria-busy={favoriteToggleBusy}
             aria-label={favoriteLabel}
             title={favoriteLabel}
-            onClick={() => bridge.listenPanel.toggleFavorite()}
+            onClick={() => toggleFavorite()}
           >
             <span
               className="material-symbols-outlined favorite-icon"
@@ -261,7 +265,6 @@ export function PlayMenu({ bridge }: { bridge: AppBridge }) {
         </div>
       </div>
       <DeleteConfirmModal
-        bridge={bridge}
         pending={pendingDelete}
         onClosed={() => {
           setPendingDelete(null);

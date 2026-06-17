@@ -1,41 +1,21 @@
-import type { AppContext, TabId } from "./context";
-import { getLoadGeneration, isStaleLoad } from "./playback";
+import type { AppContext } from "./context";
+import { startUrlAnalysis, uploadAudio } from "./api";
+import { getLoadGeneration, isStaleLoad, resetForNewTrack } from "./playback";
 import { useAppStore } from "./store";
 import {
   formatErrorForDisplay,
   inferSourceProviderFromUrl,
 } from "./errorDisplay";
 import type { PlaylistTrack } from "./playlist";
-import type { ToastOptions } from "./ui";
+import { setLoadingProgress, showToast } from "./ui";
 
-// Upload flows extracted from wire/search.ts. The React Search panel owns
-// the inputs/busy state and calls these with values; `onAccepted` fires at
-// the point the legacy flow cleared the input (job accepted, before poll).
+// Upload flows. The React Search panel owns the inputs/busy state and calls
+// these with values; `onAccepted` fires when the job is accepted (before
+// polling) — the point at which the input should be cleared. Static helpers
+// (toast, api, reset, url) are imported directly; only the runtime-bound
+// context and job/track callbacks are injected.
 export type UploadDeps = {
   context: AppContext;
-  showToast: (message: string, options?: ToastOptions) => void;
-  uploadAudio: (file: File) => Promise<{ id?: string } | null>;
-  startUrlAnalysis: (payload: { url: string }) => Promise<{
-    id?: string;
-    source_id?: string;
-    source_provider?: string;
-    status?: string;
-    error?: string;
-    error_code?: string;
-  } | null>;
-  resetForNewTrack: (context: AppContext) => void;
-  setActiveTabWithRefresh: (tabId: TabId) => void;
-  setLoadingProgress: (
-    context: AppContext,
-    progress: number | null,
-    message?: string | null,
-  ) => void;
-  updateTrackUrl: (
-    trackId: string,
-    replace?: boolean,
-    tuningParams?: string | null,
-    playMode?: "jukebox" | "autocanonizer",
-  ) => void;
   pollAnalysisJob: (jobId: string) => Promise<void>;
   onNormalTrackSelected?: (track: PlaylistTrack) => void;
 };
@@ -118,7 +98,7 @@ export async function uploadAudioFile(
   file: File | null | undefined,
   onAccepted?: () => void,
 ) {
-  const { context, showToast } = deps;
+  const { context } = deps;
   const config = useAppStore.getState().appConfig;
   if (!config?.allow_user_upload) {
     showToast("Uploads are disabled.");
@@ -155,7 +135,7 @@ export async function uploadAudioFile(
   }
   try {
     const generation = getLoadGeneration();
-    const response = await deps.uploadAudio(file);
+    const response = await uploadAudio(file);
     // The user moved on to another track while the upload ran; the job is
     // accepted server-side but must not hijack the newer session.
     if (isStaleLoad(generation)) {
@@ -172,7 +152,7 @@ export async function uploadAudioFile(
       duration: null,
       tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
     });
-    deps.resetForNewTrack(context);
+    resetForNewTrack(context);
     useAppStore.setState({ lastJobId: response.id });
     useAppStore.setState({ pendingAutoFavoriteId: response.id });
     useAppStore.setState({ lastTrackId: response.id });
@@ -180,10 +160,12 @@ export async function uploadAudioFile(
     useAppStore.setState({ lastSourceProvider: "upload" });
     useAppStore.setState({ audioLoaded: false });
     useAppStore.setState({ analysisLoaded: false });
-    deps.updateTrackUrl(response.id, true, useAppStore.getState().tuningParams, useAppStore.getState().playMode);
+    useAppStore.getState().navigateToTrackWithState(response.id, {
+      replace: true,
+    });
     onAccepted?.();
-    deps.setActiveTabWithRefresh("play");
-    deps.setLoadingProgress(context, null, "Queued");
+    useAppStore.getState().setActiveTab("play");
+    setLoadingProgress(context, null, "Queued");
     await deps.pollAnalysisJob(response.id);
   } catch (err) {
     const trackTooLong =
@@ -220,7 +202,7 @@ export async function uploadFromUrl(
   raw: string,
   onAccepted?: () => void,
 ) {
-  const { context, showToast } = deps;
+  const { context } = deps;
   const config = useAppStore.getState().appConfig;
   const allowUserUrl = Boolean(config?.allow_user_url);
   if (!allowUserUrl) {
@@ -240,7 +222,7 @@ export async function uploadFromUrl(
   const requestedSourceProvider = inferSourceProviderFromUrl(sourceUrl);
   try {
     const generation = getLoadGeneration();
-    const response = await deps.startUrlAnalysis({
+    const response = await startUrlAnalysis({
       url: sourceUrl,
     });
     if (isStaleLoad(generation)) {
@@ -276,7 +258,7 @@ export async function uploadFromUrl(
       duration: null,
       tuningParams: useAppStore.getState().playMode === "jukebox" ? useAppStore.getState().tuningParams : null,
     });
-    deps.resetForNewTrack(context);
+    resetForNewTrack(context);
     useAppStore.setState({ lastTrackId: listenId });
     useAppStore.setState({ lastJobId: response.id });
     useAppStore.setState({
@@ -286,9 +268,11 @@ export async function uploadFromUrl(
     useAppStore.setState({ lastSourceProvider: sourceProvider });
     useAppStore.setState({ pendingAutoFavoriteId: listenId });
     onAccepted?.();
-    deps.updateTrackUrl(listenId, true, useAppStore.getState().tuningParams, useAppStore.getState().playMode);
-    deps.setActiveTabWithRefresh("play");
-    deps.setLoadingProgress(context, null, "Fetching audio");
+    useAppStore.getState().navigateToTrackWithState(listenId, {
+      replace: true,
+    });
+    useAppStore.getState().setActiveTab("play");
+    setLoadingProgress(context, null, "Fetching audio");
     await deps.pollAnalysisJob(response.id);
   } catch (err) {
     const trackTooLong =
@@ -323,4 +307,29 @@ export async function uploadFromUrl(
       { icon: "error", tone: "error" },
     );
   }
+}
+
+// Module singleton: init registers the upload flow's deps so SearchPanel
+// calls these without the bridge prop. (Phase 4)
+let uploadDeps: UploadDeps | null = null;
+
+export function setUploadRuntime(deps: UploadDeps): void {
+  uploadDeps = deps;
+}
+
+export function uploadFile(
+  file: File | null | undefined,
+  onAccepted?: () => void,
+): Promise<void> {
+  if (!uploadDeps) {
+    return Promise.resolve();
+  }
+  return uploadAudioFile(uploadDeps, file, onAccepted);
+}
+
+export function uploadUrl(raw: string, onAccepted?: () => void): Promise<void> {
+  if (!uploadDeps) {
+    return Promise.resolve();
+  }
+  return uploadFromUrl(uploadDeps, raw, onAccepted);
 }

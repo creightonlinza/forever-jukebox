@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { AppBridge } from "../bridge";
 import {
   DEFAULT_SEARCH_HINT,
   DEFAULT_SEARCH_RESULTS,
@@ -9,17 +8,23 @@ import {
 } from "../store";
 import { SearchPanel } from "./SearchPanel";
 
-function createBridge() {
-  return {
-    searchPanel: {
-      runSearch: vi.fn(async () => {}),
-      selectSpotify: vi.fn(),
-      selectYoutube: vi.fn(),
-      uploadFile: vi.fn(async () => {}),
-      uploadUrl: vi.fn(async () => {}),
-    },
-  } as unknown as AppBridge;
-}
+const h = vi.hoisted(() => ({
+  submitSearch: vi.fn(async () => {}),
+  selectSpotify: vi.fn(),
+  selectYoutube: vi.fn(),
+  uploadFile: vi.fn(async () => {}),
+  uploadUrl: vi.fn(async () => {}),
+}));
+
+vi.mock("../search", () => ({
+  submitSearch: h.submitSearch,
+  selectSpotify: h.selectSpotify,
+  selectYoutube: h.selectYoutube,
+}));
+vi.mock("../upload", () => ({
+  uploadFile: h.uploadFile,
+  uploadUrl: h.uploadUrl,
+}));
 
 describe("SearchPanel", () => {
   beforeEach(() => {
@@ -41,7 +46,7 @@ describe("SearchPanel", () => {
   });
 
   it("renders the default hint and results message", () => {
-    render(<SearchPanel bridge={createBridge()} />);
+    render(<SearchPanel />);
     expect(document.getElementById("search-hint")?.textContent).toBe(
       "Step 1: Find a Spotify track.",
     );
@@ -55,18 +60,16 @@ describe("SearchPanel", () => {
   });
 
   it("runs a search on Enter and button click", async () => {
-    const bridge = createBridge();
-    render(<SearchPanel bridge={bridge} />);
+    render(<SearchPanel />);
     const input = document.getElementById("search-input") as HTMLInputElement;
     await userEvent.type(input, "daft punk{Enter}");
     expect(useAppStore.getState().searchQuery).toBe("daft punk");
-    expect(bridge.searchPanel.runSearch).toHaveBeenCalledTimes(1);
+    expect(h.submitSearch).toHaveBeenCalledTimes(1);
     await userEvent.click(document.getElementById("search-button")!);
-    expect(bridge.searchPanel.runSearch).toHaveBeenCalledTimes(2);
+    expect(h.submitSearch).toHaveBeenCalledTimes(2);
   });
 
   it("renders spotify results and forwards selection", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -75,9 +78,9 @@ describe("SearchPanel", () => {
         },
       });
     });
-    render(<SearchPanel bridge={bridge} />);
+    render(<SearchPanel />);
     await userEvent.click(screen.getByText("Song — Artist"));
-    expect(bridge.searchPanel.selectSpotify).toHaveBeenCalledWith({
+    expect(h.selectSpotify).toHaveBeenCalledWith({
       name: "Song",
       artist: "Artist",
       duration: 200,
@@ -85,7 +88,6 @@ describe("SearchPanel", () => {
   });
 
   it("selects results via keyboard (Enter on the focused item)", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -94,12 +96,12 @@ describe("SearchPanel", () => {
         },
       });
     });
-    render(<SearchPanel bridge={bridge} />);
+    render(<SearchPanel />);
     const item = document.querySelector(".search-item") as HTMLElement;
     expect(item.getAttribute("tabindex")).toBe("0");
     item.focus();
     await userEvent.keyboard("{Enter}");
-    expect(bridge.searchPanel.selectSpotify).toHaveBeenCalledWith({
+    expect(h.selectSpotify).toHaveBeenCalledWith({
       name: "Song",
       artist: "Artist",
       duration: 200,
@@ -107,7 +109,6 @@ describe("SearchPanel", () => {
   });
 
   it("Enter on a result's open-on-YouTube link does not select it", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -122,19 +123,18 @@ describe("SearchPanel", () => {
         },
       });
     });
-    render(<SearchPanel bridge={bridge} />);
+    render(<SearchPanel />);
     const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
     openLink.focus();
     await userEvent.keyboard("{Enter}");
-    expect(bridge.searchPanel.selectYoutube).not.toHaveBeenCalled();
+    expect(h.selectYoutube).not.toHaveBeenCalled();
     const item = document.querySelector(".search-item") as HTMLElement;
     item.focus();
     await userEvent.keyboard("{Enter}");
-    expect(bridge.searchPanel.selectYoutube).toHaveBeenCalledTimes(1);
+    expect(h.selectYoutube).toHaveBeenCalledTimes(1);
   });
 
   it("renders youtube results with open links that do not select", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -149,15 +149,15 @@ describe("SearchPanel", () => {
         },
       });
     });
-    render(<SearchPanel bridge={bridge} />);
+    render(<SearchPanel />);
     const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
     expect(openLink.href).toBe("https://www.youtube.com/watch?v=yt-match");
     // no playlist add controls in search results
     expect(document.querySelectorAll(".playlist-add-button")).toHaveLength(0);
     await userEvent.click(openLink);
-    expect(bridge.searchPanel.selectYoutube).not.toHaveBeenCalled();
+    expect(h.selectYoutube).not.toHaveBeenCalled();
     await userEvent.click(screen.getByText("Match"));
-    expect(bridge.searchPanel.selectYoutube).toHaveBeenCalledWith({
+    expect(h.selectYoutube).toHaveBeenCalledWith({
       youtubeId: "yt-match",
       name: "Song",
       artist: "Artist",
@@ -166,7 +166,6 @@ describe("SearchPanel", () => {
   });
 
   it("shows upload sections per app config and submits a URL", async () => {
-    const bridge = createBridge();
     act(() => {
       useAppStore.setState({
         appConfig: {
@@ -178,7 +177,7 @@ describe("SearchPanel", () => {
         searchTab: "upload",
       });
     });
-    render(<SearchPanel bridge={bridge} />);
+    render(<SearchPanel />);
     expect(
       document.getElementById("search-subtabs")?.classList.contains("hidden"),
     ).toBe(false);
@@ -193,7 +192,7 @@ describe("SearchPanel", () => {
     ) as HTMLInputElement;
     await userEvent.type(urlInput, "https://www.youtube.com/watch?v=abc123def45");
     await userEvent.click(document.getElementById("upload-youtube-button")!);
-    expect(bridge.searchPanel.uploadUrl).toHaveBeenCalledWith(
+    expect(h.uploadUrl).toHaveBeenCalledWith(
       "https://www.youtube.com/watch?v=abc123def45",
       expect.any(Function),
     );

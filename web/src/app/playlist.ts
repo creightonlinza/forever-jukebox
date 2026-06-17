@@ -8,7 +8,7 @@ export type PlaylistTrack = {
   duration: number | null;
   tuningParams?: string | null;
   // Play mode to load this track in. Absent means jukebox (the default), so
-  // legacy saved playlists and search/top tracks need no migration.
+  // previously saved playlists and search/top tracks need no data migration.
   playMode?: "jukebox" | "autocanonizer";
 };
 

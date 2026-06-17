@@ -1,5 +1,4 @@
 import type { TabId } from "./context";
-import { appNavigate } from "./router";
 import { serializeParams } from "./tuning";
 
 export type FaqSubtabId = "faq" | "whats-new";
@@ -39,8 +38,7 @@ export function urlForTrack(
   tuningParams?: string | null,
   playMode?: "jukebox" | "autocanonizer",
 ) {
-  const url = new URL(pathForTab("play", trackId), baseUrl);
-  url.search = buildSearchParams(tuningParams, playMode);
+  const url = new URL(pathForTrack(trackId, tuningParams, playMode), baseUrl);
   return url.toString();
 }
 
@@ -48,40 +46,15 @@ export function pathForFaqSubtab(subtabId: FaqSubtabId) {
   return subtabId === "whats-new" ? "/whats-new" : "/faq";
 }
 
-export function navigateToTab(
-  tabId: TabId,
-  options?: { replace?: boolean; trackId?: string | null },
-  lastTrackId?: string | null,
-  tuningParams?: string | null,
-  playMode?: "jukebox" | "autocanonizer"
-) {
-  const path = pathForTab(
-    tabId,
-    options && "trackId" in options ? options.trackId : lastTrackId,
-  );
-  const url = new URL(window.location.href);
-  url.pathname = path;
-  url.search = tabId === "play" ? buildSearchParams(tuningParams, playMode) : "";
-  appNavigate(url.pathname + url.search, { replace: options?.replace });
-}
-
-export function navigateToFaqSubtab(
-  subtabId: FaqSubtabId,
-  options?: { replace?: boolean },
-) {
-  appNavigate(pathForFaqSubtab(subtabId), { replace: options?.replace });
-}
-
-export function updateTrackUrl(
+export function pathForTrack(
   trackId: string,
-  replace = false,
   tuningParams?: string | null,
-  playMode?: "jukebox" | "autocanonizer"
+  playMode?: "jukebox" | "autocanonizer",
 ) {
-  const url = new URL(
-    urlForTrack(trackId, window.location.href, tuningParams, playMode),
-  );
-  appNavigate(url.pathname + url.search, { replace });
+  return `${pathForTab("play", trackId)}${buildSearchParams(
+    tuningParams,
+    playMode,
+  )}`;
 }
 
 export function buildSearchParams(

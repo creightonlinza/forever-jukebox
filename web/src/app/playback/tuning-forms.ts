@@ -64,7 +64,7 @@ export function applyDeletedEdgesFromUrl(context: AppContext) {
     const vizData = context.engine.getVisualizationData();
     useAppStore.setState({ vizData });
     if (vizData) {
-      context.jukebox.setData(vizData);
+      context.jukebox?.setData(vizData);
     }
   }
 }
@@ -279,12 +279,12 @@ export function applyTuningChanges(
   });
   useAppStore.setState({ highlightAnchorBranch: form.highlightAnchorBranch });
   storeAnchorHighlight(useAppStore.getState().highlightAnchorBranch);
-  jukebox.setAnchorHighlightEnabled(useAppStore.getState().highlightAnchorBranch);
+  jukebox?.setAnchorHighlightEnabled(useAppStore.getState().highlightAnchorBranch);
   engine.rebuildGraph();
   useAppStore.setState({ vizData: engine.getVisualizationData() });
   const data = useAppStore.getState().vizData;
   if (data) {
-    jukebox.setData(data);
+    jukebox?.setData(data);
   }
   const graph = engine.getGraphState();
   updateTrackInfo(context);
@@ -320,7 +320,7 @@ export function resetTuningDefaults(context: AppContext) {
   useAppStore.setState({ vizData: engine.getVisualizationData() });
   const data = useAppStore.getState().vizData;
   if (data) {
-    jukebox.setData(data);
+    jukebox?.setData(data);
   }
   syncDeletedEdgeState(context);
   const graph = engine.getGraphState();
@@ -337,7 +337,7 @@ export function resetTuningDefaults(context: AppContext) {
   });
   writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   player.setVolume(DEFAULT_VOLUME);
-  autocanonizer.setVolume(DEFAULT_VOLUME);
+  autocanonizer?.setVolume(DEFAULT_VOLUME);
   cowbellOverlay.setVolume(DEFAULT_VOLUME);
   syncVolumeUI(context);
   updateTrackInfo(context);

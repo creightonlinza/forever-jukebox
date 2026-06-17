@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { clearCachedAudio, getCachedAudioBytes } from "../cache";
-import { useAppStore } from "../store";
-import { navigateToFaqSubtab, type FaqSubtabId } from "../tabs";
+import { pathForFaqSubtab, type FaqSubtabId } from "../tabs";
 import { showToast } from "../ui";
 
 function formatMegabytes(bytes: number) {
@@ -15,7 +14,6 @@ function CachedAudioClearButton() {
   const [label, setLabel] = useState("Clear 0MB");
   const [disabled, setDisabled] = useState(false);
   const location = useLocation();
-  const activeTab = useAppStore((s) => s.activeTabId);
 
   const refresh = useCallback(async () => {
     try {
@@ -29,16 +27,11 @@ function CachedAudioClearButton() {
     }
   }, []);
 
-  // Matches the legacy refresh triggers: once at startup, and on every
-  // navigation that lands on (or within) the FAQ tab.
+  // This component only mounts inside the FAQ tab, so refresh once on mount
+  // and again when moving between FAQ subtabs.
   useEffect(() => {
     void refresh();
-  }, [refresh]);
-  useEffect(() => {
-    if (activeTab === "faq") {
-      void refresh();
-    }
-  }, [activeTab, location, refresh]);
+  }, [location, refresh]);
 
   const handleClear = async () => {
     setDisabled(true);
@@ -67,21 +60,18 @@ function CachedAudioClearButton() {
 }
 
 export function FaqPanel() {
-  const activeTab = useAppStore((s) => s.activeTabId);
   const location = useLocation();
+  const navigate = useNavigate();
   const subtab: FaqSubtabId = location.pathname.startsWith("/whats-new")
     ? "whats-new"
     : "faq";
 
   const handleSubtabClick = (subtabId: FaqSubtabId) => {
-    navigateToFaqSubtab(subtabId);
+    navigate(pathForFaqSubtab(subtabId));
   };
 
   return (
-    <section
-      className={activeTab === "faq" ? "panel tab-panel" : "panel tab-panel hidden"}
-      data-tab-panel="faq"
-    >
+    <section className="panel tab-panel" data-tab-panel="faq">
       <div className="subtabs" id="faq-subtabs">
         <button
           className={subtab === "faq" ? "subtab-btn active" : "subtab-btn"}

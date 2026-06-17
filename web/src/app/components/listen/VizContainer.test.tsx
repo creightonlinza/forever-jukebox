@@ -1,32 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StrictMode } from "react";
 import { act, cleanup, render } from "@testing-library/react";
-import type { AppBridge } from "../../bridge";
 import { useAppStore } from "../../store";
 import { VizContainer } from "./VizContainer";
 
-function createBridge() {
-  const attachViz = vi.fn();
-  const bridge = {
-    attachViz,
-    context: {
-      jukebox: { getCount: vi.fn(() => 6), resizeNow: vi.fn(), resizeActive: vi.fn() },
-      autocanonizer: { resizeNow: vi.fn() },
-    },
-    listenPanel: {
-      togglePlayback: vi.fn(),
-      setPlayMode: vi.fn(),
-      setActiveVisualization: vi.fn(),
-      setCanonizerFinish: vi.fn(),
-      playlistPrevious: vi.fn(),
-      playlistNext: vi.fn(),
-      deleteSelectedBranch: vi.fn(),
-      setVolume: vi.fn(),
-      toggleFullscreen: vi.fn(),
-    },
-  } as unknown as AppBridge;
-  return { bridge, attachViz };
-}
+const h = vi.hoisted(() => ({
+  attachViz: vi.fn(),
+  jukebox: {
+    getCount: vi.fn(() => 6),
+    resizeNow: vi.fn(),
+    resizeActive: vi.fn(),
+  },
+  autocanonizer: { resizeNow: vi.fn() },
+}));
+
+vi.mock("../../runtime", () => ({
+  attachViz: h.attachViz,
+  getAppContext: vi.fn(() => ({
+    jukebox: h.jukebox,
+    autocanonizer: h.autocanonizer,
+  })),
+}));
 
 class StubResizeObserver {
   static instances: StubResizeObserver[] = [];
@@ -45,6 +39,7 @@ class StubResizeObserver {
 
 describe("VizContainer", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     act(() => {
       useAppStore.setState({
         audioLoaded: false,
@@ -66,27 +61,25 @@ describe("VizContainer", () => {
   });
 
   it("hands the panel and layer nodes to attachViz under StrictMode", () => {
-    const { bridge, attachViz } = createBridge();
     render(
       <StrictMode>
-        <VizContainer bridge={bridge} />
+        <VizContainer />
       </StrictMode>,
     );
-    expect(attachViz).toHaveBeenCalled();
-    const nodes = attachViz.mock.calls[0][0];
+    expect(h.attachViz).toHaveBeenCalled();
+    const nodes = h.attachViz.mock.calls[0][0];
     expect(nodes.vizPanel.id).toBe("viz-panel");
     expect(nodes.vizLayer.id).toBe("viz-layer");
     expect(nodes.canonizerLayer.id).toBe("canonizer-layer");
     // every (re-)attach passes the SAME nodes — the layers never remount
-    for (const call of attachViz.mock.calls) {
+    for (const call of h.attachViz.mock.calls) {
       expect(call[0].vizLayer).toBe(nodes.vizLayer);
       expect(call[0].canonizerLayer).toBe(nodes.canonizerLayer);
     }
   });
 
   it("keeps the layer nodes identical across state-driven re-renders", () => {
-    const { bridge } = createBridge();
-    render(<VizContainer bridge={bridge} />);
+    render(<VizContainer />);
     const layer = document.getElementById("viz-layer");
     const canonizer = document.getElementById("canonizer-layer");
     act(() => {
@@ -107,8 +100,7 @@ describe("VizContainer", () => {
   });
 
   it("hides the panel until loaded and resizes on reveal", () => {
-    const { bridge } = createBridge();
-    render(<VizContainer bridge={bridge} />);
+    render(<VizContainer />);
     expect(
       document.getElementById("viz-panel")?.classList.contains("hidden"),
     ).toBe(true);
@@ -118,14 +110,13 @@ describe("VizContainer", () => {
     expect(
       document.getElementById("viz-panel")?.classList.contains("hidden"),
     ).toBe(false);
-    expect(bridge.context.jukebox.resizeActive).toHaveBeenCalled();
+    expect(h.jukebox.resizeActive).toHaveBeenCalled();
   });
 
   it("observes the panel with ResizeObserver and resizes both controllers", () => {
     StubResizeObserver.instances = [];
     vi.stubGlobal("ResizeObserver", StubResizeObserver);
-    const { bridge } = createBridge();
-    const { unmount } = render(<VizContainer bridge={bridge} />);
+    const { unmount } = render(<VizContainer />);
 
     // An effect remount (StrictMode-style) can create then disconnect an
     // earlier observer; the last one is the live subscription.
@@ -137,8 +128,8 @@ describe("VizContainer", () => {
     );
 
     act(() => observer.trigger());
-    expect(bridge.context.jukebox.resizeNow).toHaveBeenCalled();
-    expect(bridge.context.autocanonizer.resizeNow).toHaveBeenCalled();
+    expect(h.jukebox.resizeNow).toHaveBeenCalled();
+    expect(h.autocanonizer.resizeNow).toHaveBeenCalled();
 
     unmount();
     expect(observer.disconnect).toHaveBeenCalled();
@@ -148,16 +139,15 @@ describe("VizContainer", () => {
     vi.stubGlobal("ResizeObserver", undefined);
     const addSpy = vi.spyOn(window, "addEventListener");
     const removeSpy = vi.spyOn(window, "removeEventListener");
-    const { bridge } = createBridge();
-    const { unmount } = render(<VizContainer bridge={bridge} />);
+    const { unmount } = render(<VizContainer />);
 
     expect(addSpy).toHaveBeenCalledWith("resize", expect.any(Function));
 
     act(() => {
       window.dispatchEvent(new Event("resize"));
     });
-    expect(bridge.context.jukebox.resizeNow).toHaveBeenCalled();
-    expect(bridge.context.autocanonizer.resizeNow).toHaveBeenCalled();
+    expect(h.jukebox.resizeNow).toHaveBeenCalled();
+    expect(h.autocanonizer.resizeNow).toHaveBeenCalled();
 
     unmount();
     expect(removeSpy).toHaveBeenCalledWith("resize", expect.any(Function));

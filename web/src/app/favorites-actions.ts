@@ -1,90 +1,59 @@
-import type { AppContext, TabId } from "../context";
 import {
+  createFavoritesSync,
+  fetchFavoritesSync,
+  updateFavoritesSync,
+  type AnalysisComplete,
+} from "./api";
+import {
+  addFavorite,
   favoriteToPlaylistTrack,
   findCurrentFavorite,
+  isFavorite,
+  maxFavorites,
+  removeFavorite,
+  saveFavorites,
+  saveFavoritesSyncCode,
+  sortFavorites,
   type FavoriteTrack,
-} from "../favorites";
-import type { AnalysisComplete } from "../api";
-import { isLikelyJobId } from "../identity";
-import { useAppStore } from "../store";
-import type { ToastOptions } from "../ui";
-import type { PlaylistTrack } from "../playlist";
+} from "./favorites";
+import { isLikelyJobId } from "./identity";
+import { loadTrackById, loadTrackByJobId } from "./playback";
+import { setPlayMode } from "./playback-ui";
+import { getAppContext, getPlaybackDeps } from "./runtime";
+import { useAppStore } from "./store";
+import { syncTuningParamsState, writeTuningParamsToUrl } from "./tuning";
+import { showToast } from "./ui";
 
-type FavoritesDeps = {
-  context: AppContext;
-  showToast: (message: string, options?: ToastOptions) => void;
-  addFavorite: (
-    items: FavoriteTrack[],
-    track: FavoriteTrack,
-  ) => { favorites: FavoriteTrack[]; status: "added" | "duplicate" | "limit" };
-  removeFavorite: (items: FavoriteTrack[], uniqueSongId: string) => FavoriteTrack[];
-  isFavorite: (items: FavoriteTrack[], uniqueSongId: string) => boolean;
-  sortFavorites: (items: FavoriteTrack[]) => FavoriteTrack[];
-  maxFavorites: () => number;
-  saveFavorites: (items: FavoriteTrack[]) => void;
-  saveFavoritesSyncCode: (code: string) => void;
-  fetchFavoritesSync: (code: string) => Promise<FavoriteTrack[]>;
-  createFavoritesSync: (favorites: FavoriteTrack[]) => Promise<{
-    code?: string;
-    favorites?: FavoriteTrack[];
-  }>;
-  updateFavoritesSync: (code: string, favorites: FavoriteTrack[]) => Promise<{
-    favorites?: FavoriteTrack[];
-  }>;
-  navigateToTabWithState: (
-    tabId: TabId,
-    options?: { replace?: boolean; trackId?: string | null },
-  ) => void;
-  loadTrackById: (
-    trackId: string,
-    options?: { selectedTrack?: PlaylistTrack | null },
-  ) => void;
-  loadTrackByJobId: (
-    jobId: string,
-    options?: { selectedTrack?: PlaylistTrack | null },
-  ) => void;
-  writeTuningParamsToUrl: (tuningParams: string | null, replace?: boolean) => void;
-  syncTuningParamsState: (context: AppContext) => string | null;
-  setPlayMode: (mode: "jukebox" | "autocanonizer") => void;
+type FavoritesDelta = {
+  added: FavoriteTrack[];
+  removedIds: Set<string>;
 };
 
-export type FavoritesHandlers = ReturnType<typeof createFavoritesHandlers>;
+let syncUpdateInFlight = false;
+let pendingSyncDelta: FavoritesDelta | null = null;
+let syncIdleWaiters: Array<() => void> = [];
+
+export function toggleFavorite(): void {
+  void handleFavoriteToggle();
+}
+
+export function selectFavorite(
+  favoriteId: string,
+  sourceType: FavoriteTrack["sourceType"],
+): void {
+  handleFavoriteSelect(favoriteId, sourceType);
+}
 
 // Favorites state machine + the Listen-panel star button. The Top Tracks
 // panel (lists, sync menu, sync modals) is React; it renders from the store
-// and calls into these handlers through bridge.topPanel.
-export function createFavoritesHandlers(deps: FavoritesDeps) {
-  const {
-    context,
-    showToast,
-    addFavorite,
-    removeFavorite,
-    isFavorite,
-    sortFavorites,
-    maxFavorites,
-    saveFavorites,
-    saveFavoritesSyncCode,
-    fetchFavoritesSync,
-    createFavoritesSync,
-    updateFavoritesSync,
-    navigateToTabWithState,
-    loadTrackById,
-    loadTrackByJobId,
-    writeTuningParamsToUrl,
-    syncTuningParamsState,
-    setPlayMode,
-  } = deps;
+// and calls into these handlers directly.
+export function resetFavoritesActionsForTest(): void {
+  syncUpdateInFlight = false;
+  pendingSyncDelta = null;
+  syncIdleWaiters = [];
+}
 
-  type FavoritesDelta = {
-    added: FavoriteTrack[];
-    removedIds: Set<string>;
-  };
-
-  let syncUpdateInFlight = false;
-  let pendingSyncDelta: FavoritesDelta | null = null;
-  let syncIdleWaiters: Array<() => void> = [];
-
-  async function hydrateFavoritesFromSync() {
+export async function hydrateFavoritesFromSync() {
     if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
@@ -100,7 +69,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
   }
 
-  async function refreshFavoritesFromSync() {
+export async function refreshFavoritesFromSync() {
     if (!useAppStore.getState().appConfig?.allow_favorites_sync) {
       return;
     }
@@ -121,7 +90,9 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
 
   // Fetches the synced list, confirms with the user, then replaces local
   // favorites and stores the code. The React enter-modal renders statuses.
-  async function enterSyncCode(code: string): Promise<"replaced" | "cancelled"> {
+export async function enterSyncCode(
+  code: string,
+): Promise<"replaced" | "cancelled"> {
     const items = await fetchFavoritesSync(code);
     const favorites = normalizeFavoritesFromSync(items);
     const shouldReplace = window.confirm(
@@ -137,7 +108,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     return "replaced";
   }
 
-  async function createSyncCode(): Promise<string> {
+export async function createSyncCode(): Promise<string> {
     const response = await createFavoritesSync(useAppStore.getState().favorites);
     const code = response.code;
     if (!code) {
@@ -197,7 +168,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
 
   // React renders the favorites list from the store, so updating state is
   // enough; only the Listen-panel star still needs an imperative sync.
-  function updateFavorites(
+export function updateFavorites(
     nextFavorites: FavoriteTrack[],
     options?: { sync?: boolean },
   ) {
@@ -377,7 +348,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     if (useAppStore.getState().playMode !== "jukebox") {
       return null;
     }
-    return syncTuningParamsState(context);
+    return syncTuningParamsState(getAppContext());
   }
 
   // The React play menu derives the star button from the store
@@ -386,8 +357,8 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     useAppStore.setState({ favoriteToggleBusy: busy });
   }
 
-  function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
-    migrateLegacyFavoriteFromResponse(response);
+export function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
+    migrateOlderFavoriteFromResponse(response);
     const provider =
       response.source_provider === "upload" ||
       response.source_provider === "youtube" ||
@@ -420,18 +391,18 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     }
   }
 
-  function migrateLegacyFavoriteFromResponse(response: AnalysisComplete) {
+  function migrateOlderFavoriteFromResponse(response: AnalysisComplete) {
     const jobId = response.id;
-    const legacyId = legacyFavoriteIdFromResponse(response);
-    if (!jobId || !legacyId) {
+    const olderId = olderFavoriteIdFromResponse(response);
+    if (!jobId || !olderId) {
       return;
     }
-    const legacyFavorite = useAppStore.getState().favorites.find(
+    const olderFavorite = useAppStore.getState().favorites.find(
       (item) =>
-        item.uniqueSongId === legacyId &&
+        item.uniqueSongId === olderId &&
         (item.sourceType ?? "youtube") === "youtube",
     );
-    if (!legacyFavorite) {
+    if (!olderFavorite) {
       return;
     }
     const existingJobFavorite = useAppStore.getState().favorites.find(
@@ -439,26 +410,26 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     );
     if (existingJobFavorite) {
       updateFavorites(
-        useAppStore.getState().favorites.filter((item) => item.uniqueSongId !== legacyId),
+        useAppStore.getState().favorites.filter((item) => item.uniqueSongId !== olderId),
       );
       return;
     }
     const migrated: FavoriteTrack = {
-      ...legacyFavorite,
+      ...olderFavorite,
       uniqueSongId: jobId,
-      sourceType: sourceTypeFromAnalysis(response) ?? legacyFavorite.sourceType ?? "youtube",
-      title: useAppStore.getState().trackTitle || legacyFavorite.title || "Untitled",
-      artist: useAppStore.getState().trackArtist || legacyFavorite.artist || "",
-      duration: useAppStore.getState().trackDurationSec ?? legacyFavorite.duration,
+      sourceType: sourceTypeFromAnalysis(response) ?? olderFavorite.sourceType ?? "youtube",
+      title: useAppStore.getState().trackTitle || olderFavorite.title || "Untitled",
+      artist: useAppStore.getState().trackArtist || olderFavorite.artist || "",
+      duration: useAppStore.getState().trackDurationSec ?? olderFavorite.duration,
     };
     updateFavorites(
       useAppStore.getState().favorites.map((item) =>
-        item.uniqueSongId === legacyId ? migrated : item,
+        item.uniqueSongId === olderId ? migrated : item,
       ),
     );
   }
 
-  function legacyFavoriteIdFromResponse(response: AnalysisComplete) {
+  function olderFavoriteIdFromResponse(response: AnalysisComplete) {
     if (
       response.source_provider &&
       response.source_provider !== "youtube"
@@ -496,7 +467,7 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
     const favorite = useAppStore.getState().favorites.find(
       (item) => item.uniqueSongId === favoriteId,
     );
-    // Restore the mode the track was favorited in (legacy favorites have no
+    // Restore the mode the track was favorited in (older favorites have no
     // playMode and fall back to jukebox). setPlayMode runs before the play-tab
     // navigation below, so navigateToTabWithState serializes the right mode.
     const desiredMode =
@@ -517,18 +488,31 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       sourceTypeRaw === "bandcamp"
         ? sourceTypeRaw
         : "youtube";
-    navigateToTabWithState("play", { trackId: favoriteId });
+    useAppStore
+      .getState()
+      .navigateToTabWithState("play", { trackId: favoriteId });
     const selectedTrack = favorite
       ? favoriteToPlaylistTrack(favorite, sourceType)
       : null;
-    if (sourceType === "upload" || isLikelyJobId(favoriteId)) {
-      loadTrackByJobId(favoriteId, { selectedTrack });
+    const deps = getPlaybackDeps();
+    if (!deps) {
       return;
     }
-    loadTrackById(favoriteId, { selectedTrack });
+    const context = getAppContext();
+    if (sourceType === "upload" || isLikelyJobId(favoriteId)) {
+      void loadTrackByJobId(context, deps, favoriteId, {
+        preserveUrlTuning: true,
+        selectedTrack,
+      });
+      return;
+    }
+    void loadTrackById(context, deps, favoriteId, {
+      preserveUrlTuning: true,
+      selectedTrack,
+    });
   }
 
-  function removeFavoriteWithToast(favoriteId: string) {
+export function removeFavoriteWithToast(favoriteId: string) {
     updateFavorites(removeFavorite(useAppStore.getState().favorites, favoriteId));
     showFavoriteToast("Removed from Favorites");
   }
@@ -608,16 +592,3 @@ export function createFavoritesHandlers(deps: FavoritesDeps) {
       showToast(message);
     }
   }
-
-  return {
-    hydrateFavoritesFromSync,
-    refreshFavoritesFromSync,
-    enterSyncCode,
-    createSyncCode,
-    maybeAutoFavoriteUserSupplied,
-    handleFavoriteSelect,
-    removeFavoriteWithToast,
-    handleFavoriteToggle,
-    updateFavorites,
-  };
-}

@@ -1,14 +1,16 @@
-import type { AppBridge } from "../../bridge";
+import { togglePlayback } from "../../playback";
 import {
   canMovePlaylistNext,
   canMovePlaylistPrevious,
   hasActivePlaylistControls,
 } from "../../playlist";
+import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
+import { playlistNext, playlistPrevious } from "../../playlist-actions";
 
 // Transport cluster: playlist previous, play/pause toggle, playlist next.
-// Renders via portal into the legacy .viz-play-controls container.
-export function PlayControls({ bridge }: { bridge: AppBridge }) {
+// Rendered into the .viz-play-controls container.
+export function PlayControls() {
   const isRunning = useAppStore((s) => s.isRunning);
   const isPaused = useAppStore((s) => s.isPaused);
   const playMode = useAppStore((s) => s.playMode);
@@ -17,11 +19,11 @@ export function PlayControls({ bridge }: { bridge: AppBridge }) {
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const audioLoadInFlight = useAppStore((s) => s.audioLoadInFlight);
-  const pollController = useAppStore((s) => s.pollController);
+  const analysisPollInFlight = useAppStore((s) => s.analysisPollInFlight);
   const playlistLoadBusy = useAppStore((s) => s.playlistLoadBusy);
   const playlist = useAppStore((s) => s.playlist);
 
-  // updatePlayButton derivation (playback.ts), now rendered.
+  // Derive the play button's label, icon and visibility from playback state.
   const isBlocked =
     playMode === "jukebox" && audioMode === "swing" && swingPreparing;
   const playLabel = isBlocked
@@ -41,7 +43,7 @@ export function PlayControls({ bridge }: { bridge: AppBridge }) {
   const active = hasActivePlaylistControls(playlist);
   const playlistBusy =
     audioLoadInFlight ||
-    pollController !== null ||
+    analysisPollInFlight ||
     playlistLoadBusy ||
     swingPreparing;
 
@@ -56,7 +58,7 @@ export function PlayControls({ bridge }: { bridge: AppBridge }) {
         aria-label="Previous playlist track"
         title="Previous playlist track"
         disabled={playlistBusy || !canMovePlaylistPrevious(playlist)}
-        onClick={() => bridge.listenPanel.playlistPrevious()}
+        onClick={() => playlistPrevious()}
       >
         <span
           className="material-symbols-outlined playlist-control-icon"
@@ -75,7 +77,7 @@ export function PlayControls({ bridge }: { bridge: AppBridge }) {
         aria-label={playLabel}
         title={playLabel}
         disabled={isBlocked}
-        onClick={() => bridge.listenPanel.togglePlayback()}
+        onClick={() => togglePlayback(getAppContext())}
       >
         <span
           className="material-symbols-outlined play-icon"
@@ -93,7 +95,7 @@ export function PlayControls({ bridge }: { bridge: AppBridge }) {
         aria-label="Next playlist track"
         title="Next playlist track"
         disabled={playlistBusy || !canMovePlaylistNext(playlist)}
-        onClick={() => bridge.listenPanel.playlistNext()}
+        onClick={() => playlistNext()}
       >
         <span
           className="material-symbols-outlined playlist-control-icon"

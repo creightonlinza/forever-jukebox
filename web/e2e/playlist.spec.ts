@@ -4,6 +4,7 @@ import {
   getNthFixtureTrack,
   getSecondFixtureTrack,
   loadFirstTopTrack,
+  loadTrackByDeepLink,
   waitForTrackLoaded,
 } from "./helpers";
 
@@ -72,6 +73,46 @@ test.describe("playlists", () => {
     await expect(open).toHaveAttribute("title", "Playlist (1/2)");
   });
 
+  test("playlist skips preserve active playback in both directions", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    const second = await getSecondFixtureTrack(request, baseURL!);
+    const firstId = await loadFirstTopTrack(page);
+
+    await page.locator('[data-tab-button="top"]').click();
+    const secondRow = page
+      .locator(`a[data-track-id="${second.id}"]`)
+      .locator("..");
+    await secondRow.hover();
+    await secondRow.locator(".playlist-add-button").click();
+    await expectToast(page, "Added to playlist");
+
+    await page.locator('[data-tab-button="play"]').click();
+    await page.locator("#viz-play").click();
+    await expect(page.locator("#viz-play")).toHaveAttribute(
+      "aria-label",
+      "Pause",
+    );
+
+    await page.locator("#playlist-next").click();
+    await waitForTrackLoaded(page);
+    await expect(page).toHaveURL(new RegExp(second.id));
+    await expect(page.locator("#viz-play")).toHaveAttribute(
+      "aria-label",
+      "Pause",
+    );
+
+    await page.locator("#playlist-previous").click();
+    await waitForTrackLoaded(page);
+    await expect(page).toHaveURL(new RegExp(firstId));
+    await expect(page.locator("#viz-play")).toHaveAttribute(
+      "aria-label",
+      "Pause",
+    );
+  });
+
   test("playlist preserves per-track play mode across prev/next", async ({
     page,
     request,
@@ -87,7 +128,9 @@ test.describe("playlists", () => {
     await expect(page).toHaveURL(/[?&]mode=autocanonizer/);
 
     await page.locator('[data-tab-button="top"]').click();
-    const secondRow = page.locator(`a[data-track-id="${second.id}"]`).locator("..");
+    const secondRow = page
+      .locator(`a[data-track-id="${second.id}"]`)
+      .locator("..");
     await secondRow.hover();
     await secondRow.locator(".playlist-add-button").click();
     await expectToast(page, "Added to playlist");
@@ -106,6 +149,47 @@ test.describe("playlists", () => {
     await waitForTrackLoaded(page);
     await expect(page.locator("#play-mode-select")).toHaveValue("autocanonizer");
     await expect(page).toHaveURL(/[?&]mode=autocanonizer/);
+  });
+
+  test("playlist applies saved favorite tuning and extras when skipping to that track", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    const second = await getSecondFixtureTrack(request, baseURL!);
+
+    await loadTrackByDeepLink(
+      page,
+      second.id,
+      "?jb=1&thresh=42&am=daycore",
+    );
+    await expect(page.locator("#viz-now-playing")).toContainText("(daycore)");
+    await page.locator("#favorite-toggle").click();
+    await expectToast(page, "Added to Favorites");
+    const favorites = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("fj-favorites") ?? "[]"),
+    );
+    expect(favorites[0].tuningParams).toContain("jb=1");
+    expect(favorites[0].tuningParams).toContain("thresh=42");
+    expect(favorites[0].tuningParams).toContain("am=daycore");
+
+    await loadFirstTopTrack(page);
+    await page.locator('[data-tab-button="top"]').click();
+    await page.locator('[data-top-subtab="favorites"]').click();
+    const favoriteRow = page.locator(".favorite-row").first();
+    await expect(favoriteRow.locator(".favorite-tune-icon")).toBeAttached();
+    await favoriteRow.hover();
+    await favoriteRow.locator(".playlist-add-button").click();
+    await expectToast(page, "Added to playlist");
+
+    await page.locator('[data-tab-button="play"]').click();
+    await page.locator("#playlist-next").click();
+    await waitForTrackLoaded(page);
+    await expect(page).toHaveURL(new RegExp(second.id));
+    await expect(page).toHaveURL(/[?&]jb=1/);
+    await expect(page).toHaveURL(/[?&]thresh=42/);
+    await expect(page).toHaveURL(/[?&]am=daycore/);
+    await expect(page.locator("#viz-now-playing")).toContainText("(daycore)");
   });
 
   test("playlist modal: Escape closes, remove disabled for current, clear empties", async ({

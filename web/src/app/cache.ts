@@ -4,7 +4,7 @@ const appConfigStore = "app-config";
 
 export type CachedTrack = {
   trackId: string;
-  // Legacy IndexedDB keyPath. Keep writing this until the object store is migrated.
+  // Previous IndexedDB keyPath. Keep writing this until the object store is migrated.
   youtubeId: string;
   audio?: ArrayBuffer;
   jobId?: string;

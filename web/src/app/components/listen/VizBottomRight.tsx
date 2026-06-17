@@ -1,22 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import type { AppBridge } from "../../bridge";
+import { setMasterVolume } from "../../playback";
 import {
   hasActivePlaylistControls,
   hasPlaylistControls,
 } from "../../playlist";
+import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
+import { toggleFullscreen } from "../../fullscreen";
 
 // The right-hand cluster of the viz bottom bar: playlist-open button,
-// volume panel, fullscreen toggle. Renders via portal into the legacy
-// .viz-bottom-right flex container (which React exclusively owns).
-export function VizBottomRight({ bridge }: { bridge: AppBridge }) {
+// volume panel, fullscreen toggle. Rendered into the .viz-bottom-right
+// container.
+export function VizBottomRight() {
   const playlist = useAppStore((s) => s.playlist);
   const volumePct = useAppStore((s) => s.volumePct);
   const isFullscreen = useAppStore((s) => s.isFullscreen);
   const [volumeOpen, setVolumeOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
-  // Click-away closes the volume panel (legacy handleVolumeDocumentClick).
+  // Click-away closes the volume panel.
   useEffect(() => {
     if (!volumeOpen) {
       return;
@@ -41,7 +43,7 @@ export function VizBottomRight({ bridge }: { bridge: AppBridge }) {
 
   const handleVolumeChange = (pct: number) => {
     useAppStore.setState({ volumePct: pct });
-    bridge.listenPanel.setVolume(pct);
+    setMasterVolume(getAppContext(), pct);
   };
 
   return (
@@ -112,7 +114,7 @@ export function VizBottomRight({ bridge }: { bridge: AppBridge }) {
         className="fullscreen-toggle"
         aria-label={fullscreenLabel}
         title={fullscreenLabel}
-        onClick={() => bridge.listenPanel.toggleFullscreen()}
+        onClick={() => toggleFullscreen()}
       >
         <span
           className="material-symbols-outlined fullscreen-icon"

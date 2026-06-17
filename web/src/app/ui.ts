@@ -1,10 +1,13 @@
 import type { AppContext } from "./context";
+import type { MaterialSymbolIconName } from "./material-icons";
 import { useAppStore } from "./store";
 
 export type ToastOptions = {
-  icon?: string;
+  icon?: MaterialSymbolIconName;
   tone?: "default" | "error";
 };
+
+let toastTimer: number | null = null;
 
 // The React status panel renders these store values.
 export function setAnalysisStatus(
@@ -72,12 +75,11 @@ export function showToast(message: string, options?: ToastOptions) {
       tone: options?.tone === "error" ? "error" : "default",
     },
   });
-  const { toastTimer } = useAppStore.getState();
   if (toastTimer !== null) {
     window.clearTimeout(toastTimer);
   }
-  const nextToastTimer = window.setTimeout(() => {
-    useAppStore.setState({ toast: null, toastTimer: null });
+  toastTimer = window.setTimeout(() => {
+    useAppStore.setState({ toast: null });
+    toastTimer = null;
   }, 2000);
-  useAppStore.setState({ toastTimer: nextToastTimer });
 }

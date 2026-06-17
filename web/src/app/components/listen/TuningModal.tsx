@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
-import type { AppBridge } from "../../bridge";
-import type { ExtrasFormValues, TuningFormValues } from "../../playback";
+import {
+  applyExtrasChanges,
+  applyTuningChanges,
+  getExtrasFormValues,
+  getTuningFormValues,
+  resetExtrasDefaults,
+  resetTuningDefaults,
+  type ExtrasFormValues,
+  type TuningFormValues,
+} from "../../playback";
+import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { Modal } from "../Modal";
 
@@ -71,7 +80,7 @@ function RangeRow({
   );
 }
 
-export function TuningModal({ bridge }: { bridge: AppBridge }) {
+export function TuningModal() {
   const open = useAppStore((s) => s.tuningModalOpen);
   const storedTab = useAppStore((s) => s.tuningModalTab);
   const playMode = useAppStore((s) => s.playMode);
@@ -85,10 +94,10 @@ export function TuningModal({ bridge }: { bridge: AppBridge }) {
   // half of the old syncTuningUI/syncExtrasUI).
   useEffect(() => {
     if (open) {
-      setForm(bridge.listenPanel.getTuningForm());
-      setExtras(bridge.listenPanel.getExtrasForm());
+      setForm(getTuningFormValues(getAppContext()));
+      setExtras(getExtrasFormValues());
     }
-  }, [open, bridge]);
+  }, [open]);
 
   const close = () => useAppStore.setState({ tuningModalOpen: false });
 
@@ -103,23 +112,23 @@ export function TuningModal({ bridge }: { bridge: AppBridge }) {
       if (!extras) {
         return;
       }
-      bridge.listenPanel.applyExtras(extras);
+      applyExtrasChanges(getAppContext(), extras);
       close();
       return;
     }
     if (!form) {
       return;
     }
-    setForm(bridge.listenPanel.applyTuning(form));
+    setForm(applyTuningChanges(getAppContext(), form));
   };
 
   const handleReset = () => {
     if (tab === "extras") {
-      bridge.listenPanel.resetExtras();
+      resetExtrasDefaults(getAppContext());
       close();
       return;
     }
-    bridge.listenPanel.resetTuning();
+    resetTuningDefaults(getAppContext());
     close();
   };
 

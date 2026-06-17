@@ -93,10 +93,10 @@ describe("ui helpers", () => {
     vi.useFakeTimers();
     (globalThis.window as any).setTimeout = setTimeout;
     (globalThis.window as any).clearTimeout = clearTimeout;
-    showToast("Hi", { icon: "check" });
+    showToast("Hi", { icon: "cloud_done" });
     expect(useAppStore.getState().toast).toEqual({
       message: "Hi",
-      icon: "check",
+      icon: "cloud_done",
       tone: "default",
     });
     vi.runAllTimers();

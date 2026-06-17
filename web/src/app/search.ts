@@ -74,8 +74,7 @@ function isTrackLengthAllowed(deps: SearchDeps, duration: number): boolean {
   return true;
 }
 
-// The search panel renders these store values; React replaced the manual
-// list-DOM building that used to live here.
+// The search panel renders these store values.
 function setSearchResults(results: SearchResultsState) {
   useAppStore.setState({ searchResults: results });
 }
@@ -354,4 +353,44 @@ export function selectSpotifyMatch(
     }
     void showYoutubeMatches(context, deps, name, artist, duration);
   });
+}
+
+// Module singleton: init registers the search flow's runtime (context +
+// deps) so SearchPanel calls these without the bridge prop. (Phase 4)
+let searchContext: AppContext | null = null;
+let searchDeps: SearchDeps | null = null;
+
+export function setSearchRuntime(context: AppContext, deps: SearchDeps): void {
+  searchContext = context;
+  searchDeps = deps;
+}
+
+export function submitSearch(): Promise<void> {
+  if (!searchContext || !searchDeps) {
+    return Promise.resolve();
+  }
+  return runSearch(searchContext, searchDeps);
+}
+
+export function selectSpotify(selection: {
+  name: string;
+  artist: string;
+  duration: number;
+}): void {
+  if (!searchContext || !searchDeps) {
+    return;
+  }
+  selectSpotifyMatch(searchContext, searchDeps, selection);
+}
+
+export function selectYoutube(selection: {
+  youtubeId: string | null | undefined;
+  name: string;
+  artist: string;
+  duration: number;
+}): void {
+  if (!searchContext || !searchDeps) {
+    return;
+  }
+  selectYoutubeMatch(searchContext, searchDeps, selection);
 }

@@ -1,34 +1,25 @@
-import type { AppConfig } from "../api";
-import { configureMaxFavorites, maxFavorites } from "../favorites";
-import { useAppStore } from "../store";
-import type { FavoritesHandlers } from "./favorites";
-
-type AppConfigDeps = {
-  favoritesHandlers: Pick<
-    FavoritesHandlers,
-    "updateFavorites" | "hydrateFavoritesFromSync"
-  >;
-};
+import type { AppConfig } from "./api";
+import {
+  hydrateFavoritesFromSync,
+  updateFavorites,
+} from "./favorites-actions";
+import { configureMaxFavorites, maxFavorites } from "./favorites";
+import { useAppStore } from "./store";
 
 type ApplyAppConfigOptions = {
   hydrateFavorites?: boolean;
 };
 
-export type AppConfigHandlers = ReturnType<typeof createAppConfigHandlers>;
-
-export function createAppConfigHandlers(deps: AppConfigDeps) {
-  const { favoritesHandlers } = deps;
-
   // Upload-section visibility/hints and the footer credit render in React
   // from appConfig/footerCredit store state.
-  function applyAppConfig(
+export function applyAppConfig(
     config: AppConfig,
     options: ApplyAppConfigOptions = {},
   ) {
     useAppStore.setState({ appConfig: config });
     configureMaxFavorites(config.max_favorites);
     if (useAppStore.getState().favorites.length > maxFavorites()) {
-      favoritesHandlers.updateFavorites(useAppStore.getState().favorites, { sync: false });
+      updateFavorites(useAppStore.getState().favorites, { sync: false });
     }
     useAppStore.getState().setFooterCredit({
       hostedByName: config.hosted_by_name?.trim() || null,
@@ -41,9 +32,6 @@ export function createAppConfigHandlers(deps: AppConfigDeps) {
       useAppStore.setState({ searchTab: "search" });
     }
     if (options.hydrateFavorites !== false && config.allow_favorites_sync) {
-      favoritesHandlers.hydrateFavoritesFromSync();
+      void hydrateFavoritesFromSync();
     }
   }
-
-  return { applyAppConfig };
-}

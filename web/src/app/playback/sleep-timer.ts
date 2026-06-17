@@ -1,5 +1,6 @@
 import type { AppContext, SleepTimerState } from "../context";
 import { useAppStore } from "../store";
+import { getAppContext } from "../runtime";
 import {
   backgroundClearTimeout,
   backgroundSetTimeout,
@@ -21,6 +22,7 @@ export const SLEEP_TIMER_OPTIONS: SleepTimerOption[] = [
 ];
 
 const sleepTimerListeners = new WeakMap<AppContext, Set<() => void>>();
+let sleepTimerTimeoutId: number | null = null;
 
 export function isSleepTimerActive(state: SleepTimerState) {
   return state.endTimeMs !== null && state.remainingMs > 0;
@@ -46,12 +48,11 @@ function publishSleepTimerState(context: AppContext) {
 }
 
 function clearSleepTimerTimeout() {
-  const { sleepTimerTimeoutId } = useAppStore.getState();
   if (sleepTimerTimeoutId === null) {
     return;
   }
   backgroundClearTimeout(sleepTimerTimeoutId);
-  useAppStore.setState({ sleepTimerTimeoutId: null });
+  sleepTimerTimeoutId = null;
 }
 
 function publishInactiveSleepTimer(context: AppContext) {
@@ -83,7 +84,7 @@ function scheduleSleepTimerTick(context: AppContext, expectedEndTimeMs: number) 
   clearSleepTimerTimeout();
   const remainingMs = Math.max(0, expectedEndTimeMs - performance.now());
   const nextDelayMs = remainingMs > 1000 ? 1000 : remainingMs;
-  const timeoutId = backgroundSetTimeout(() => {
+  sleepTimerTimeoutId = backgroundSetTimeout(() => {
     if (useAppStore.getState().sleepTimer.endTimeMs !== expectedEndTimeMs) {
       return;
     }
@@ -102,13 +103,10 @@ function scheduleSleepTimerTick(context: AppContext, expectedEndTimeMs: number) 
     }
     scheduleSleepTimerTick(context, expectedEndTimeMs);
   }, nextDelayMs);
-  useAppStore.setState({ sleepTimerTimeoutId: timeoutId });
 }
 
-export function setSleepTimer(
-  context: AppContext,
-  durationMs: number | null,
-) {
+export function setSleepTimer(durationMs: number | null) {
+  const context = getAppContext();
   clearSleepTimerTimeout();
   if (
     durationMs === null ||

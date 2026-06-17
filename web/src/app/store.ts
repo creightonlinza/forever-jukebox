@@ -2,8 +2,11 @@ import { create, type StateCreator } from "zustand";
 import type { SpotifySearchItem, YoutubeSearchItem } from "./api";
 import type { AppState, SleepTimerState, TabId } from "./context";
 import type { ThemeName } from "./themeConfig";
+import type { MaterialSymbolIconName } from "./material-icons";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
 import { emptyPlaylist } from "./playlist";
+import { buildSearchParams, pathForTab, pathForTrack } from "./tabs";
+import { getTuningParamsStringFromUrl } from "./tuning";
 
 export type FooterCredit = {
   hostedByName: string | null;
@@ -12,7 +15,7 @@ export type FooterCredit = {
 
 export type ToastState = {
   message: string;
-  icon?: string;
+  icon?: MaterialSymbolIconName;
   tone: "default" | "error";
 };
 
@@ -33,6 +36,12 @@ export type TrackInfoState = {
   deletedCount: number;
 };
 
+export type NavigationRequest = {
+  id: number;
+  to: string;
+  replace?: boolean;
+};
+
 export type SearchResultsState =
   | { kind: "message"; text: string }
   | { kind: "spotify"; items: SpotifySearchItem[] }
@@ -41,24 +50,54 @@ export type SearchResultsState =
       items: Array<{ item: YoutubeSearchItem; name: string; artist: string }>;
     };
 
+export type TopSongsListTabId = "top" | "trending" | "recent";
+
+export type TopSongsItem = {
+  id?: string;
+  title?: string;
+  artist?: string;
+  source_id?: string;
+  source_provider?: string;
+};
+
+export type TopSongsListState =
+  | { kind: "message"; text: string }
+  | { kind: "loaded"; items: TopSongsItem[] };
+
 export const DEFAULT_SEARCH_HINT = "Step 1: Find a Spotify track.";
 export const DEFAULT_SEARCH_RESULTS: SearchResultsState = {
   kind: "message",
   text: "Search results will appear here.",
 };
 
+function createDefaultTopSongsLists(): Record<
+  TopSongsListTabId,
+  TopSongsListState
+> {
+  return {
+    top: { kind: "message", text: "Loading top tracks..." },
+    trending: { kind: "message", text: "Loading trending tracks..." },
+    recent: { kind: "message", text: "Loading recent plays..." },
+  };
+}
+
 // Shell/panel UI state that has no AppState counterpart.
 type ShellSlice = {
   theme: ThemeName;
+  navigationRequest: NavigationRequest | null;
   isPlayTabPulsing: boolean;
+  vizStatsPulseId: number;
   footerCredit: FooterCredit | null;
   toast: ToastState | null;
   searchQuery: string;
   searchHint: string;
   searchResults: SearchResultsState;
-  // Listen-panel modal/menu state (checkpoint 8a). Open flags live here so
-  // legacy flows (openExtras hotkey, playlist buttons, resetForNewTrack)
-  // can drive the React modals.
+  topSongsLists: Record<TopSongsListTabId, TopSongsListState>;
+  topSongsLoadedTabs: TopSongsListTabId[];
+  topSongsInFlightTabs: TopSongsListTabId[];
+  // Listen-panel modal/menu state. Open flags live here so the imperative
+  // flows (openExtras hotkey, playlist buttons, resetForNewTrack) can drive
+  // the React modals.
   tuningModalOpen: boolean;
   tuningModalTab: "tuning" | "extras";
   infoModalOpen: boolean;
@@ -83,17 +122,48 @@ type Actions = {
   setTheme: (theme: ThemeName) => void;
   setPlayTabPulsing: (pulsing: boolean) => void;
   setFooterCredit: (credit: FooterCredit | null) => void;
+  // Navigation requests are consumed by the React router boundary in
+  // <NavigationDriver>; non-React flows enqueue requests here instead of
+  // reaching into react-router directly.
+  navigateToTabWithState: (
+    tabId: TabId,
+    options?: { replace?: boolean; trackId?: string | null },
+  ) => void;
+  navigateToTrackWithState: (
+    trackId: string,
+    options?: {
+      replace?: boolean;
+      tuningParams?: string | null;
+      playMode?: AppState["playMode"];
+    },
+  ) => void;
+  selectTab: (tabId: TabId) => void;
+  goHome: () => void;
+  setTopSongsListState: (
+    tabId: TopSongsListTabId,
+    listState: TopSongsListState,
+  ) => void;
+  setTopSongsTabLoaded: (tabId: TopSongsListTabId, loaded: boolean) => void;
+  setTopSongsTabInFlight: (
+    tabId: TopSongsListTabId,
+    inFlight: boolean,
+  ) => void;
+  resetTopSongsCache: () => void;
 };
 
 export type AppStoreState = AppState & ShellSlice & Actions;
 
 type Slice<T> = StateCreator<AppStoreState, [], [], T>;
 
-// Slice layout follows the migration plan's ui/playback/track/tuning/library/
-// config mapping. The store is
-// flat (zustand slices pattern) so legacy field names survive unchanged.
-// Non-serializable handles (pollController, wakeLock, timer ids) are fine in
-// zustand; no devtools middleware is attached, so nothing serializes them.
+// Tabs whose own subtab selection resets to its default when navigated to,
+// kept as a table so adding a tab's reset is a data edit, not another branch.
+const SUBTAB_RESETS: Partial<Record<TabId, Partial<AppStoreState>>> = {
+  top: { topSongsTab: "top" },
+  search: { searchTab: "search" },
+};
+
+// The store is flat (zustand slices pattern); slices group state by domain
+// (ui / playback / track / tuning / library / config).
 
 const createUiSlice: Slice<
   Pick<
@@ -102,15 +172,19 @@ const createUiSlice: Slice<
     | "topSongsTab"
     | "searchTab"
     | "activeVizIndex"
-    | "toastTimer"
     | "selectedEdge"
     | "theme"
+    | "navigationRequest"
     | "isPlayTabPulsing"
+    | "vizStatsPulseId"
     | "footerCredit"
     | "toast"
     | "searchQuery"
     | "searchHint"
     | "searchResults"
+    | "topSongsLists"
+    | "topSongsLoadedTabs"
+    | "topSongsInFlightTabs"
     | "tuningModalOpen"
     | "tuningModalTab"
     | "infoModalOpen"
@@ -130,47 +204,130 @@ const createUiSlice: Slice<
     | "branchStats"
   > &
     Actions
-> = (set) => ({
-  activeTabId: "top",
-  topSongsTab: "top",
-  searchTab: "search",
-  activeVizIndex: DEFAULT_VISUALIZATION_INDEX,
-  toastTimer: null,
-  selectedEdge: null,
-  theme: "dark",
-  isPlayTabPulsing: false,
-  footerCredit: null,
-  toast: null,
-  searchQuery: "",
-  searchHint: DEFAULT_SEARCH_HINT,
-  searchResults: DEFAULT_SEARCH_RESULTS,
-  tuningModalOpen: false,
-  tuningModalTab: "tuning",
-  infoModalOpen: false,
-  sleepTimerModalOpen: false,
-  playlistModalOpen: false,
-  deleteConfirmOpen: false,
-  trackInfo: {
-    durationText: "00:00:00",
-    totalBeats: 0,
-    branchCount: 0,
-    deletedCount: 0,
-  },
-  favoriteToggleBusy: false,
-  volumePct: 50,
-  isFullscreen: false,
-  analysisStatusText: "No track selected.",
-  analysisSpinning: false,
-  analysisProgressText: "",
-  listenTimeText: "00:00:00",
-  beatsPlayedText: "0",
-  playlistLoadBusy: false,
-  branchStats: null,
-  setActiveTab: (activeTabId) => set({ activeTabId }),
-  setTheme: (theme) => set({ theme }),
-  setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),
-  setFooterCredit: (footerCredit) => set({ footerCredit }),
-});
+> = (set, get) => {
+  const queueNavigation = (to: string, replace?: boolean) => {
+    const id = (get().navigationRequest?.id ?? 0) + 1;
+    set({ navigationRequest: { id, to, replace } });
+  };
+
+  const updateTabList = (
+    current: TopSongsListTabId[],
+    tabId: TopSongsListTabId,
+    included: boolean,
+  ) => {
+    if (included) {
+      return current.includes(tabId) ? current : [...current, tabId];
+    }
+    return current.filter((currentTabId) => currentTabId !== tabId);
+  };
+
+  return {
+    activeTabId: "top",
+    topSongsTab: "top",
+    searchTab: "search",
+    activeVizIndex: DEFAULT_VISUALIZATION_INDEX,
+    selectedEdge: null,
+    theme: "dark",
+    navigationRequest: null,
+    isPlayTabPulsing: false,
+    vizStatsPulseId: 0,
+    footerCredit: null,
+    toast: null,
+    searchQuery: "",
+    searchHint: DEFAULT_SEARCH_HINT,
+    searchResults: DEFAULT_SEARCH_RESULTS,
+    topSongsLists: createDefaultTopSongsLists(),
+    topSongsLoadedTabs: [],
+    topSongsInFlightTabs: [],
+    tuningModalOpen: false,
+    tuningModalTab: "tuning",
+    infoModalOpen: false,
+    sleepTimerModalOpen: false,
+    playlistModalOpen: false,
+    deleteConfirmOpen: false,
+    trackInfo: {
+      durationText: "00:00:00",
+      totalBeats: 0,
+      branchCount: 0,
+      deletedCount: 0,
+    },
+    favoriteToggleBusy: false,
+    volumePct: 50,
+    isFullscreen: false,
+    analysisStatusText: "No track selected.",
+    analysisSpinning: false,
+    analysisProgressText: "",
+    listenTimeText: "00:00:00",
+    beatsPlayedText: "0",
+    playlistLoadBusy: false,
+    branchStats: null,
+    setActiveTab: (activeTabId) => set({ activeTabId }),
+    setTheme: (theme) => set({ theme }),
+    setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),
+    setFooterCredit: (footerCredit) => set({ footerCredit }),
+    navigateToTabWithState: (tabId, options) => {
+      get().setActiveTab(tabId);
+      const state = get();
+      const trackId =
+        options && "trackId" in options ? options.trackId : getCurrentTrackId();
+      const tuningParams = state.tuningParams ?? getTuningParamsStringFromUrl();
+      const path = pathForTab(tabId, trackId);
+      const search =
+        tabId === "play" ? buildSearchParams(tuningParams, state.playMode) : "";
+      queueNavigation(`${path}${search}`, options?.replace);
+    },
+    navigateToTrackWithState: (trackId, options) => {
+      const state = get();
+      queueNavigation(
+        pathForTrack(
+          trackId,
+          options && "tuningParams" in options
+            ? options.tuningParams
+            : state.tuningParams,
+          options?.playMode ?? state.playMode,
+        ),
+        options?.replace,
+      );
+    },
+    selectTab: (tabId) => {
+      const reset = SUBTAB_RESETS[tabId];
+      if (reset) {
+        set(reset);
+      }
+      get().navigateToTabWithState(tabId);
+    },
+    goHome: () => get().navigateToTabWithState("top"),
+    setTopSongsListState: (tabId, listState) =>
+      set((state) => ({
+        topSongsLists: {
+          ...state.topSongsLists,
+          [tabId]: listState,
+        },
+      })),
+    setTopSongsTabLoaded: (tabId, loaded) =>
+      set((state) => ({
+        topSongsLoadedTabs: updateTabList(
+          state.topSongsLoadedTabs,
+          tabId,
+          loaded,
+        ),
+      })),
+    setTopSongsTabInFlight: (tabId, inFlight) =>
+      set((state) => ({
+        topSongsInFlightTabs: updateTabList(
+          state.topSongsInFlightTabs,
+          tabId,
+          inFlight,
+        ),
+      })),
+    resetTopSongsCache: () =>
+      set({
+        topSongsLists: createDefaultTopSongsLists(),
+        topSongsLoadedTabs: [],
+        topSongsInFlightTabs: [],
+      }),
+  };
+};
 
 const defaultSleepTimer: SleepTimerState = {
   configuredDurationMs: null,
@@ -194,9 +351,6 @@ const createPlaybackSlice: Slice<
     | "swingPreparing"
     | "swingRenderToken"
     | "sleepTimer"
-    | "sleepTimerTimeoutId"
-    | "wakeLock"
-    | "listenTimerId"
   >
 > = () => ({
   isRunning: false,
@@ -212,9 +366,6 @@ const createPlaybackSlice: Slice<
   swingPreparing: false,
   swingRenderToken: 0,
   sleepTimer: defaultSleepTimer,
-  sleepTimerTimeoutId: null,
-  wakeLock: null,
-  listenTimerId: null,
 });
 
 const createTrackSlice: Slice<
@@ -223,6 +374,7 @@ const createTrackSlice: Slice<
     | "audioLoaded"
     | "analysisLoaded"
     | "audioLoadInFlight"
+    | "analysisPollInFlight"
     | "lastJobId"
     | "lastTrackId"
     | "lastSourceId"
@@ -233,12 +385,12 @@ const createTrackSlice: Slice<
     | "lastPlayCountedJobId"
     | "deleteEligible"
     | "deleteEligibilityJobId"
-    | "pollController"
   >
 > = () => ({
   audioLoaded: false,
   analysisLoaded: false,
   audioLoadInFlight: false,
+  analysisPollInFlight: false,
   lastJobId: null,
   lastTrackId: null,
   lastSourceId: null,
@@ -249,7 +401,6 @@ const createTrackSlice: Slice<
   lastPlayCountedJobId: null,
   deleteEligible: false,
   deleteEligibilityJobId: null,
-  pollController: null,
 });
 
 const createTuningSlice: Slice<
@@ -296,3 +447,11 @@ export const useAppStore = create<AppStoreState>()((...args) => ({
   ...createLibrarySlice(...args),
   ...createConfigSlice(...args),
 }));
+
+// The id of the track currently in context: the loaded track id, falling back
+// to the analysis job id. Single source of truth for navigation/URL state and
+// the imperative flows that need "what's playing now".
+export function getCurrentTrackId(): string | null {
+  const state = useAppStore.getState();
+  return state.lastTrackId ?? state.lastJobId;
+}

@@ -1,11 +1,18 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
-import type { AppBridge } from "../bridge";
+import { getAppContext, handleRoute } from "../runtime";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
+import { applyTheme } from "../theme";
+import { titleForAppView } from "../document-title";
+import {
+  handleKeydown as playbackHandleKeydown,
+  handleKeyup as playbackHandleKeyup,
+} from "../playback-ui";
 import { FaqPanel } from "./FaqPanel";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
+import { NavigationDriver } from "./NavigationDriver";
 import { SearchPanel } from "./SearchPanel";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
@@ -16,10 +23,10 @@ import { SleepTimerModal } from "./listen/SleepTimerModal";
 import { TuningModal } from "./listen/TuningModal";
 
 // Derives activeTab from the URL on every location change and runs the
-// legacy route handler (mode-from-URL, track loading, FAQ subtab sync) on
+// route handler (mode-from-URL, track loading, FAQ subtab sync) on
 // initial load and browser back/forward. The location.key guard keeps
 // StrictMode's double-invoked effects from loading a track twice.
-function useRouteSync(bridge: AppBridge) {
+function useRouteSync() {
   const location = useLocation();
   const navigationType = useNavigationType();
   const handledKeyRef = useRef<string | null>(null);
@@ -27,36 +34,49 @@ function useRouteSync(bridge: AppBridge) {
     useAppStore.getState().setActiveTab(tabFromPathname(location.pathname));
     if (navigationType === "POP" && handledKeyRef.current !== location.key) {
       handledKeyRef.current = location.key;
-      bridge.handleRoute(location.pathname);
+      handleRoute(location.pathname);
     }
-  }, [location, navigationType, bridge]);
+  }, [location, navigationType]);
 }
 
-// Side effects formerly in tabs.ts setActiveTab, keyed on the derived
-// activeTab. Panels stay in the DOM permanently (each derives its own
-// hidden class from activeTabId).
-function useTabEffects(bridge: AppBridge) {
+// Side effects keyed on the derived activeTab. Listen stays DOM-mounted;
+// regular tab panels mount only while active.
+function useTabEffects() {
   const activeTab = useAppStore((s) => s.activeTabId);
   useEffect(() => {
-    const { jukebox, engine } = bridge.context;
+    const { jukebox, engine } = getAppContext();
     useAppStore
       .getState()
       .setPlayTabPulsing(useAppStore.getState().isRunning && activeTab !== "play");
     if (activeTab === "play") {
-      jukebox.resizeActive();
+      jukebox?.resizeActive();
     } else if (useAppStore.getState().shiftBranching) {
       useAppStore.setState({ shiftBranching: false });
       engine.setForceBranch(false);
     }
     if (activeTab !== "play" && useAppStore.getState().selectedEdge) {
       useAppStore.setState({ selectedEdge: null });
-      jukebox.setSelectedEdge(null);
+      jukebox?.setSelectedEdge(null);
     }
-  }, [activeTab, bridge]);
+  }, [activeTab]);
 }
 
-// Body-level flag CSS uses to reveal playlist-add buttons (formerly part
-// of wire/playlist's syncPlaylistUi).
+function useDocumentTitle() {
+  const location = useLocation();
+  const activeTab = useAppStore((s) => s.activeTabId);
+  const trackTitle = useAppStore((s) => s.trackTitle);
+  const trackArtist = useAppStore((s) => s.trackArtist);
+  useEffect(() => {
+    document.title = titleForAppView({
+      activeTabId: activeTab,
+      pathname: location.pathname,
+      trackTitle,
+      trackArtist,
+    });
+  }, [activeTab, location.pathname, trackTitle, trackArtist]);
+}
+
+// Body-level flag CSS uses to reveal playlist-add buttons.
 function usePlaylistAddEnabled() {
   const lastTrackId = useAppStore((s) => s.lastTrackId);
   const lastJobId = useAppStore((s) => s.lastJobId);
@@ -69,49 +89,49 @@ function usePlaylistAddEnabled() {
   }, [enabled]);
 }
 
-function useThemeEffect(bridge: AppBridge) {
+function useThemeEffect() {
   const theme = useAppStore((s) => s.theme);
   useEffect(() => {
-    bridge.applyTheme(theme);
-  }, [theme, bridge]);
+    applyTheme(getAppContext(), theme);
+  }, [theme]);
 }
 
-// Window-level hotkeys (playback shortcuts, delete-confirm, playlist modal),
-// formerly registered by wire/ui.ts. Handlers themselves stay legacy until
-// their panels convert. Registration order is preserved.
-function useGlobalHotkeys(bridge: AppBridge) {
+// Window-level hotkeys (playback shortcuts, delete-confirm, playlist modal).
+function useGlobalHotkeys() {
   useEffect(() => {
-    const { keydown, keyup } = bridge.hotkeys;
-    keydown.forEach((handler) => window.addEventListener("keydown", handler));
-    keyup.forEach((handler) => window.addEventListener("keyup", handler));
+    const onKeydown = (event: KeyboardEvent) => playbackHandleKeydown(event);
+    const onKeyup = (event: KeyboardEvent) => playbackHandleKeyup(event);
+    window.addEventListener("keydown", onKeydown);
+    window.addEventListener("keyup", onKeyup);
     return () => {
-      keydown.forEach((handler) =>
-        window.removeEventListener("keydown", handler),
-      );
-      keyup.forEach((handler) => window.removeEventListener("keyup", handler));
+      window.removeEventListener("keydown", onKeydown);
+      window.removeEventListener("keyup", onKeyup);
     };
-  }, [bridge]);
+  }, []);
 }
 
-export function AppRoot({ bridge }: { bridge: AppBridge }) {
-  useRouteSync(bridge);
-  useTabEffects(bridge);
-  useThemeEffect(bridge);
-  useGlobalHotkeys(bridge);
+export function AppRoot() {
+  const activeTab = useAppStore((s) => s.activeTabId);
+  useRouteSync();
+  useTabEffects();
+  useThemeEffect();
+  useGlobalHotkeys();
   usePlaylistAddEnabled();
+  useDocumentTitle();
   return (
     <>
-      <Hero bridge={bridge} />
-      <TopTracksPanel bridge={bridge} />
-      <SearchPanel bridge={bridge} />
-      <ListenPanel bridge={bridge} />
-      <FaqPanel />
+      <NavigationDriver />
+      <Hero />
+      {activeTab === "top" ? <TopTracksPanel /> : null}
+      {activeTab === "search" ? <SearchPanel /> : null}
+      <ListenPanel visible={activeTab === "play"} />
+      {activeTab === "faq" ? <FaqPanel /> : null}
       <Footer />
       <Toast />
-      <TuningModal bridge={bridge} />
-      <SleepTimerModal bridge={bridge} />
+      <TuningModal />
+      <SleepTimerModal />
       <InfoModal />
-      <PlaylistModal bridge={bridge} />
+      <PlaylistModal />
     </>
   );
 }

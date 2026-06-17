@@ -36,7 +36,7 @@ describe("anchor highlight preference", () => {
     expect(resolveStoredAnchorHighlight()).toBe(true);
   });
 
-  it("supports legacy true values", () => {
+  it("supports older true values", () => {
     localStorage.setItem("fj-highlight-anchor-branch", "true");
     expect(resolveStoredAnchorHighlight()).toBe(true);
   });

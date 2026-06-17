@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { AppBridge } from "../../bridge";
 import { formatDuration } from "../../format";
-import { SLEEP_TIMER_OPTIONS } from "../../playback";
+import { SLEEP_TIMER_OPTIONS, setSleepTimer } from "../../playback";
 import { useAppStore } from "../../store";
 import { Modal } from "../Modal";
 
@@ -28,7 +27,7 @@ function resolveConfiguredDuration(configuredDurationMs: number | null) {
     : null;
 }
 
-export function SleepTimerModal({ bridge }: { bridge: AppBridge }) {
+export function SleepTimerModal() {
   const open = useAppStore((s) => s.sleepTimerModalOpen);
   // sleepTimer is replaced every second while a countdown runs (up to 2h), so
   // subscribing to the whole object would re-render this modal every tick even
@@ -54,8 +53,8 @@ export function SleepTimerModal({ bridge }: { bridge: AppBridge }) {
     }
   }, [open]);
 
-  // Mirrors the legacy syncSleepTimerUi: when the applied timer changes
-  // externally (set/expired), the select resets to it.
+  // When the applied timer changes externally (set/expired), the select
+  // resets to it.
   useEffect(() => {
     const applied = resolveConfiguredDuration(configuredDurationMs);
     if (applied !== appliedRef.current) {
@@ -135,7 +134,7 @@ export function SleepTimerModal({ bridge }: { bridge: AppBridge }) {
           id="sleep-timer-set"
           type="button"
           onClick={() => {
-            bridge.listenPanel.setSleepTimer(durationFromValue(pendingValue));
+            setSleepTimer(durationFromValue(pendingValue));
             close();
           }}
         >

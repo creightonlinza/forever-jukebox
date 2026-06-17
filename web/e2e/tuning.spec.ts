@@ -56,18 +56,21 @@ test.describe("tuning modal", () => {
     await expect(page.locator("#remove-seq")).toBeChecked();
   });
 
-  test("reset restores defaults and clears tuning params from the URL", async ({
+  test("reset restores tuning defaults while preserving extras params", async ({
     page,
     request,
     baseURL,
   }) => {
     const track = await getFixtureTrack(request, baseURL!);
-    await loadTrackByDeepLink(page, track.id, "?jb=1&thresh=50");
+    await loadTrackByDeepLink(page, track.id, "?jb=1&thresh=50&am=daycore");
+    await expect(page.locator("#viz-now-playing")).toContainText("(daycore)");
     await page.locator("#tuning").click();
     await page.locator("#tuning-reset").click();
     await expect(page.locator("#tuning-modal")).not.toHaveClass(/\bopen\b/);
     await expect(page).not.toHaveURL(/thresh/);
     await expect(page).not.toHaveURL(/jb=1/);
+    await expect(page).toHaveURL(/[?&]am=daycore/);
+    await expect(page.locator("#viz-now-playing")).toContainText("(daycore)");
   });
 
   test("backdrop click and Escape both close; focus returns to the opener", async ({
@@ -185,18 +188,19 @@ test.describe("extras", () => {
     await expect(page.locator("#tuning-title-text")).toHaveText("Tuning");
   });
 
-  test("extras reset turns audio mode off and strips am from the URL", async ({
+  test("extras reset clears extras while preserving tuning params", async ({
     page,
     request,
     baseURL,
   }) => {
     const track = await getFixtureTrack(request, baseURL!);
-    await loadTrackByDeepLink(page, track.id, "?am=daycore");
+    await loadTrackByDeepLink(page, track.id, "?thresh=50&am=daycore");
     await expect(page.locator("#viz-now-playing")).toContainText("(daycore)");
     await page.keyboard.press("e");
     await page.locator("#tuning-reset").click();
     await expect(page.locator("#tuning-modal")).not.toHaveClass(/\bopen\b/);
     await expect(page).not.toHaveURL(/am=/);
+    await expect(page).toHaveURL(/[?&]thresh=50/);
     await expect(page.locator("#viz-now-playing")).not.toContainText(
       "(daycore)",
     );

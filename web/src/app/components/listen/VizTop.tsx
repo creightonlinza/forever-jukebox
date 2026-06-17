@@ -1,9 +1,12 @@
 import { useState } from "react";
-import type { AppBridge } from "../../bridge";
-import { VISUALIZATION_LABELS } from "../../constants";
+import { CANONIZER_FINISH_KEY, VISUALIZATION_LABELS } from "../../constants";
+import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
-
-const CANONIZER_FINISH_KEY = "fj-canonizer-finish";
+import {
+  setActiveVisualization,
+  setCanonizerFinish,
+  setPlayMode,
+} from "../../playback-ui";
 
 function getVisualizationLabel(index: number) {
   return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
@@ -19,9 +22,8 @@ function getVisualizationSelectEntries(count: number) {
 }
 
 // The viz-top controls: play-mode select, visualization select and the
-// autocanonizer finish-out checkbox. Renders via portal into the legacy
-// .viz-top container.
-export function VizTop({ bridge }: { bridge: AppBridge }) {
+// autocanonizer finish-out checkbox. Rendered into the .viz-top container.
+export function VizTop() {
   const playMode = useAppStore((s) => s.playMode);
   const activeVizIndex = useAppStore((s) => s.activeVizIndex);
   const audioLoaded = useAppStore((s) => s.audioLoaded);
@@ -38,7 +40,7 @@ export function VizTop({ bridge }: { bridge: AppBridge }) {
   // On the very first render the controllers are not constructed yet (the
   // ref handoff happens at commit); fall back to the static label count.
   const entries = getVisualizationSelectEntries(
-    bridge.context.jukebox?.getCount() ?? VISUALIZATION_LABELS.length,
+    getAppContext().jukebox?.getCount() ?? VISUALIZATION_LABELS.length,
   );
 
   return (
@@ -52,7 +54,7 @@ export function VizTop({ bridge }: { bridge: AppBridge }) {
               aria-label="Mode"
               value={playMode}
               onChange={(event) =>
-                bridge.listenPanel.setPlayMode(
+                setPlayMode(
                   event.target.value === "autocanonizer"
                     ? "autocanonizer"
                     : "jukebox",
@@ -83,7 +85,7 @@ export function VizTop({ bridge }: { bridge: AppBridge }) {
               onChange={(event) => {
                 const idx = Number(event.target.value);
                 if (Number.isFinite(idx)) {
-                  bridge.listenPanel.setActiveVisualization(idx);
+                  setActiveVisualization(idx);
                 }
               }}
             >
@@ -109,7 +111,7 @@ export function VizTop({ bridge }: { bridge: AppBridge }) {
           checked={finishOutSong}
           onChange={(event) => {
             setFinishOutSong(event.target.checked);
-            bridge.listenPanel.setCanonizerFinish(event.target.checked);
+            setCanonizerFinish(event.target.checked);
           }}
         />
         <span>Finish out the track</span>

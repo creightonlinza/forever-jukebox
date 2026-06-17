@@ -9,6 +9,8 @@ import {
 } from "./status-ui";
 import { requestWakeLock } from "./wake-lock";
 
+let listenTimerId: number | null = null;
+
 export function isPlaybackBlockedForSwing() {
   const { playMode, jukeboxAudioMode, swingPreparing } =
     useAppStore.getState();
@@ -18,22 +20,20 @@ export function isPlaybackBlockedForSwing() {
 }
 
 export function startListenTimer() {
-  if (useAppStore.getState().listenTimerId !== null) {
+  if (listenTimerId !== null) {
     return;
   }
-  const listenTimerId = window.setInterval(() => {
+  listenTimerId = window.setInterval(() => {
     updateListenTimeDisplay();
   }, LISTEN_TIMER_INTERVAL_MS);
-  useAppStore.setState({ listenTimerId });
 }
 
 export function stopListenTimer() {
-  const { listenTimerId } = useAppStore.getState();
   if (listenTimerId === null) {
     return;
   }
   window.clearInterval(listenTimerId);
-  useAppStore.setState({ listenTimerId: null });
+  listenTimerId = null;
 }
 
 export function stopPlayback(context: AppContext) {
@@ -46,9 +46,9 @@ export function stopPlayback(context: AppContext) {
   } = context;
   cowbellOverlay.cancelScheduledHits();
   if (useAppStore.getState().playMode === "autocanonizer") {
-    autocanonizer.stop();
+    autocanonizer?.stop();
     player.stop();
-    autocanonizer.resetVisualization();
+    autocanonizer?.resetVisualization();
   }
   engine.stopJukebox();
   engine.resetStats();
@@ -56,7 +56,7 @@ export function stopPlayback(context: AppContext) {
   useAppStore.setState({ lastPlayStamp: null });
   useAppStore.setState({ lastBeatIndex: null });
   useAppStore.setState({ beatsPlayedText: "0" });
-  jukebox.reset();
+  jukebox?.reset();
   useAppStore.setState({ isRunning: false });
   useAppStore.setState({ isPaused: false });
   useAppStore.setState({ shiftBranching: false });
@@ -77,7 +77,7 @@ export function pausePlayback(context: AppContext) {
   }
   cowbellOverlay.cancelScheduledHits();
   if (useAppStore.getState().playMode === "autocanonizer") {
-    autocanonizer.stop();
+    autocanonizer?.stop();
     player.stop();
   } else {
     engine.pauseJukebox();
@@ -101,6 +101,9 @@ export function pausePlayback(context: AppContext) {
 
 export function startJukeboxPlayback(context: AppContext, resetSession: boolean) {
   const { cowbellOverlay, engine, jukebox, player } = context;
+  if (!jukebox) {
+    return;
+  }
   if (isPlaybackBlockedForSwing()) {
     showToast("Preparing Swing mode...", { icon: "hourglass_top" });
     updatePlayButton();
@@ -209,6 +212,9 @@ export function startAutocanonizerPlayback(
   options?: { resetSession?: boolean },
 ) {
   const { autocanonizer, cowbellOverlay, engine, player } = context;
+  if (!autocanonizer) {
+    return false;
+  }
   if (!autocanonizer.isReady()) {
     console.warn("Autocanonizer not ready");
     return false;

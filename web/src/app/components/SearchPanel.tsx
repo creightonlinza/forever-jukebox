@@ -1,13 +1,14 @@
 import { useRef, useState } from "react";
-import type { AppBridge } from "../bridge";
 import { formatTrackDuration } from "../format";
+import { selectSpotify, selectYoutube, submitSearch } from "../search";
 import { useAppStore } from "../store";
+import { uploadFile, uploadUrl } from "../upload";
 
 function setOf(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function SearchResults({ bridge }: { bridge: AppBridge }) {
+function SearchResults() {
   const results = useAppStore((s) => s.searchResults);
   if (results.kind === "message") {
     return (
@@ -35,12 +36,12 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
                 data-track-name={name}
                 data-track-artist={artist}
                 onClick={() =>
-                  bridge.searchPanel.selectSpotify({ name, artist, duration })
+                  selectSpotify({ name, artist, duration })
                 }
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    bridge.searchPanel.selectSpotify({ name, artist, duration });
+                    selectSpotify({ name, artist, duration });
                   }
                 }}
               >
@@ -71,7 +72,7 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
               data-track-name={name}
               data-track-artist={artist}
               onClick={() =>
-                bridge.searchPanel.selectYoutube({
+                selectYoutube({
                   youtubeId,
                   name,
                   artist,
@@ -86,7 +87,7 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
                 }
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  bridge.searchPanel.selectYoutube({
+                  selectYoutube({
                     youtubeId,
                     name,
                     artist,
@@ -126,8 +127,7 @@ function SearchResults({ bridge }: { bridge: AppBridge }) {
   );
 }
 
-export function SearchPanel({ bridge }: { bridge: AppBridge }) {
-  const activeTab = useAppStore((s) => s.activeTabId);
+export function SearchPanel() {
   const searchTab = useAppStore((s) => s.searchTab);
   const appConfig = useAppStore((s) => s.appConfig);
   const query = useAppStore((s) => s.searchQuery);
@@ -152,7 +152,7 @@ export function SearchPanel({ bridge }: { bridge: AppBridge }) {
     }
     setSearchBusy(true);
     try {
-      await bridge.searchPanel.runSearch();
+      await submitSearch();
     } finally {
       setSearchBusy(false);
     }
@@ -164,7 +164,7 @@ export function SearchPanel({ bridge }: { bridge: AppBridge }) {
     }
     setFileBusy(true);
     try {
-      await bridge.searchPanel.uploadFile(
+      await uploadFile(
         fileInputRef.current?.files?.[0] ?? null,
         () => {
           if (fileInputRef.current) {
@@ -183,17 +183,14 @@ export function SearchPanel({ bridge }: { bridge: AppBridge }) {
     }
     setUrlBusy(true);
     try {
-      await bridge.searchPanel.uploadUrl(urlValue, () => setUrlValue(""));
+      await uploadUrl(urlValue, () => setUrlValue(""));
     } finally {
       setUrlBusy(false);
     }
   };
 
   return (
-    <section
-      className={setOf("panel", "tab-panel", activeTab !== "search" && "hidden")}
-      data-tab-panel="search"
-    >
+    <section className="panel tab-panel" data-tab-panel="search">
       <div
         className={setOf("subtabs", !showUpload && "hidden")}
         id="search-subtabs"
@@ -260,7 +257,7 @@ export function SearchPanel({ bridge }: { bridge: AppBridge }) {
             </span>
           </button>
         </div>
-        <SearchResults bridge={bridge} />
+        <SearchResults />
       </div>
       <div
         className={setOf("upload-panel", searchTab !== "upload" && "hidden")}
