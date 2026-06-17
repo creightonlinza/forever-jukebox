@@ -618,6 +618,34 @@ describe("buildJumpGraph", () => {
     expect(Math.max(...analysis.beats.map((beat) => beat.neighbors.length))).toBe(2);
   });
 
+  it("keeps reverse plus long filters a subset of long filters with auto threshold", () => {
+    const longOnlyAnalysis = normalizeAnalysis(happyPathAnalysis());
+    const reverseLongAnalysis = normalizeAnalysis(happyPathAnalysis());
+    const longOnlyGraph = buildJumpGraph(
+      longOnlyAnalysis,
+      defaultConfig({
+        currentThreshold: 0,
+        justLongBranches: true,
+        minLongBranch: 4,
+      }),
+    );
+    const reverseLongGraph = buildJumpGraph(
+      reverseLongAnalysis,
+      defaultConfig({
+        currentThreshold: 0,
+        justBackwards: true,
+        justLongBranches: true,
+        minLongBranch: 4,
+      }),
+    );
+    const longOnlyEdges = new Set(collectEdgeKeys(longOnlyAnalysis));
+    const reverseLongEdges = collectEdgeKeys(reverseLongAnalysis);
+
+    expect(reverseLongGraph.currentThreshold).toBe(longOnlyGraph.currentThreshold);
+    expect(reverseLongEdges.length).toBeLessThanOrEqual(longOnlyEdges.size);
+    expect(reverseLongEdges.every((edge) => longOnlyEdges.has(edge))).toBe(true);
+  });
+
   it("locks combined backwards, long-branch, and sequential filters", () => {
     const analysis = normalizeAnalysis(happyPathAnalysis());
     const graph = buildJumpGraph(
@@ -693,6 +721,22 @@ describe("buildJumpGraph", () => {
 
     expect(edges.includes("8->0")).toBe(true);
     expect(graph.lastBranchPoint).toBe(8);
+  });
+
+  it("does not insert above-threshold anchors when branch-type filters are active", () => {
+    const analysis = makeInsertionWithoutExistingAnchorScenario();
+    const graph = buildJumpGraph(
+      analysis,
+      defaultConfig({
+        currentThreshold: 20,
+        justBackwards: true,
+        minLongBranch: 2,
+      }),
+    );
+    const edges = collectEdgeKeys(analysis);
+
+    expect(edges.includes("8->1")).toBe(false);
+    expect(graph.lastBranchPoint).toBe(-1);
   });
 
   it("prefers a later long branch even when it needs one extra hop", () => {

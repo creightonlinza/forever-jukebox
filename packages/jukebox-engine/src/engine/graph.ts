@@ -878,8 +878,13 @@ function computeDefaultThreshold(
   config: JukeboxConfig,
 ): number {
   const targetBranchCount = quanta.length / 6;
+  const densityConfig = {
+    ...config,
+    justBackwards: false,
+    justLongBranches: false,
+  };
   for (let t = 10; t < config.maxBranchThreshold; t += 5) {
-    const count = collectNearestNeighbors(quanta, t, config);
+    const count = collectNearestNeighbors(quanta, t, densityConfig);
     if (count >= targetBranchCount) {
       return t;
     }
@@ -902,6 +907,9 @@ function addAnchorBranch(
   );
   if (existingAnchorSource !== null && existingAnchorSource >= preferredLateStart) {
     // Existing end-of-track branch already reaches the early target zone.
+    return existingAnchorSource;
+  }
+  if (config.justBackwards || config.justLongBranches) {
     return existingAnchorSource;
   }
   const lateInsertedSource = insertBestBackwardBranch(
