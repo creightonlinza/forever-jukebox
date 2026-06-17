@@ -163,6 +163,18 @@ vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
   },
 }));
 
+vi.mock("@forever-jukebox/engine/audio/CowbellOverlayService", () => ({
+  CowbellOverlayService: class CowbellOverlayService {
+    enable = vi.fn();
+    disable = vi.fn();
+    setVolume = vi.fn();
+    setSectionStartBeatIndices = vi.fn();
+    cancelScheduledHits = vi.fn();
+    handleBeatEnter = vi.fn();
+    dispose = vi.fn();
+  },
+}));
+
 vi.mock("@forever-jukebox/engine/audio/swingBufferCache", () => ({
   getOrCreateSwingBuffer: vi.fn(
     (
@@ -508,7 +520,8 @@ describe("Listen route behavior", () => {
     const beatsLabelHidden = Array.from(
       rendered.container.querySelectorAll(".viz-meta span")
     ).some(
-      (span) => span.textContent === "Total Beats:" && span.classList.contains("is-hidden")
+      (span) =>
+        span.textContent === "Total Beats:" && span.classList.contains("is-hidden")
     );
     expect(beatsLabelHidden).toBe(true);
 
@@ -517,6 +530,24 @@ describe("Listen route behavior", () => {
     expect(tuningButton.classList.contains("is-hidden")).toBe(false);
     expect(infoButton.classList.contains("is-hidden")).toBe(false);
     expect(playTitle?.textContent).toBe("song.wav");
+    rendered.unmount();
+  });
+
+  it("renames the beats counter in cowbell mode", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(
+      getRequired<HTMLInputElement>(rendered.container, "#audio-mode-cowbell")
+    );
+    const footerButtons = Array.from(
+      rendered.container.querySelectorAll<HTMLButtonElement>(".tuning-footer .tab-btn")
+    );
+    await click(footerButtons[1] as HTMLButtonElement);
+
+    expect(rendered.container.textContent).toContain("Total Cowbells:");
     rendered.unmount();
   });
 

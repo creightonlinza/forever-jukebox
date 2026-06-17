@@ -135,6 +135,7 @@ type CastElements = {
   vizPanel: HTMLElement;
   title: HTMLElement;
   listenTime: HTMLElement;
+  beatsLabel: HTMLElement;
   beatsPlayed: HTMLElement;
   status: HTMLElement;
 };
@@ -175,6 +176,9 @@ function getElements(): CastElements {
     listenTime: require(document.querySelector(
       "#cast-listen-time",
     ), "#cast-listen-time"),
+    beatsLabel: require(document.querySelector(
+      "#cast-beats-label",
+    ), "#cast-beats-label"),
     beatsPlayed: require(document.querySelector(
       "#cast-beats-played",
     ), "#cast-beats-played"),
@@ -437,6 +441,11 @@ async function bootstrap() {
     elements.title.textContent = artist ? `${title} — ${artist}` : title;
   }
 
+  function updateBeatsLabel() {
+    elements.beatsLabel.textContent =
+      state.audioMode === "cowbell" ? "Total Cowbells:" : "Total Beats:";
+  }
+
   function setAudioMode(mode: JukeboxAudioMode) {
     state.audioMode = mode;
     if (mode === "cowbell") {
@@ -446,6 +455,7 @@ async function bootstrap() {
     }
     player?.setJukeboxAudioMode(mode);
     updateDisplayedTitle();
+    updateBeatsLabel();
   }
 
   function applyVisualizationIndex(nextIndex: number) {
@@ -760,6 +770,7 @@ async function bootstrap() {
     state.trackDurationSeconds = null;
     state.tuningParams = null;
     state.audioMode = "off";
+    updateBeatsLabel();
     isTrackPaused = false;
     playStartAtMs = null;
     listenAccumulatedMs = 0;
@@ -811,6 +822,7 @@ async function bootstrap() {
     state.trackDurationSeconds = null;
     state.tuningParams = null;
     state.audioMode = "off";
+    updateBeatsLabel();
     state.lastBeatIndex = null;
     state.vizData = null;
     isTrackPaused = false;

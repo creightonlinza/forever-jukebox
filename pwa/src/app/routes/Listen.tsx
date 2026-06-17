@@ -1871,6 +1871,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       : isPaused
         ? "Resume"
         : "Play";
+  const beatsLabel =
+    jukeboxAudioMode === "cowbell" ? "Total Cowbells:" : "Total Beats:";
   const branchStats =
     branchStatsEnabled && playMode === "jukebox" && selectedEdge
       ? (() => {
@@ -2118,7 +2120,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     <span>Listen Time:</span>
                     <span>{formatDuration(listenSeconds)}</span>
                     <span className={`viz-divider ${playMode === "autocanonizer" ? "is-hidden" : ""}`}>·</span>
-                    <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>Total Beats:</span>
+                    <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsLabel}</span>
                     <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsPlayed}</span>
                   </span>
                   {playMode === "jukebox" && bringItHomeMode ? (

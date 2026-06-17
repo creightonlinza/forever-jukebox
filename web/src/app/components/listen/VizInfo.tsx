@@ -59,6 +59,8 @@ export function VizInfo() {
 
   const isCanonizer = playMode === "autocanonizer";
   const bringHomeVisible = playMode === "jukebox" && bringItHomeMode;
+  const beatsLabel =
+    audioMode === "cowbell" ? "Total Cowbells:" : "Total Beats:";
 
   return (
     <>
@@ -77,7 +79,7 @@ export function VizInfo() {
             id="viz-beats-label"
             className={isCanonizer ? "is-hidden" : undefined}
           >
-            Total Beats:
+            {beatsLabel}
           </span>
           <span
             id="beats-played"

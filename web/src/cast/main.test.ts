@@ -240,6 +240,7 @@ function setupCastHarness(pathname = "/"): CastHarness {
   const vizPanel = createElement();
   const title = createElement();
   const listenTime = createElement();
+  const beatsLabel = createElement();
   const beatsPlayed = createElement();
   const status = createElement();
   const statusMeta = createElement();
@@ -259,6 +260,7 @@ function setupCastHarness(pathname = "/"): CastHarness {
     ["#viz-panel", vizPanel],
     ["#cast-title", title],
     ["#cast-listen-time", listenTime],
+    ["#cast-beats-label", beatsLabel],
     ["#cast-beats-played", beatsPlayed],
     ["#cast-status", status],
   ]);
@@ -678,6 +680,9 @@ describe("cast receiver main", () => {
     expect(cowbell?.enable).toHaveBeenCalledTimes(1);
     expect(cowbell?.disable).not.toHaveBeenCalled();
     expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("cowbell");
+    expect(document.querySelector("#cast-beats-label")?.textContent).toBe(
+      "Total Cowbells:",
+    );
     expect(engine?.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
     expect(viz?.setData).not.toHaveBeenCalled();
     const statusCall =

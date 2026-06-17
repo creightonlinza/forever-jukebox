@@ -57,6 +57,9 @@ describe("VizInfo", () => {
       "00:01:30",
     );
     expect(document.getElementById("beats-played")?.textContent).toBe("42");
+    expect(document.getElementById("viz-beats-label")?.textContent).toBe(
+      "Total Beats:",
+    );
     expect(
       document.getElementById("viz-beats-label")?.classList.contains(
         "is-hidden",
@@ -75,6 +78,16 @@ describe("VizInfo", () => {
         "is-hidden",
       ),
     ).toBe(true);
+  });
+
+  it("renames the beats counter in cowbell mode", () => {
+    act(() => {
+      useAppStore.setState({ jukeboxAudioMode: "cowbell" });
+    });
+    render(<VizInfo />);
+    expect(document.getElementById("viz-beats-label")?.textContent).toBe(
+      "Total Cowbells:",
+    );
   });
 
   it("updates the live counters via direct DOM writes without re-rendering", () => {
