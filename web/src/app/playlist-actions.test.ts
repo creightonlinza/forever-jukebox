@@ -222,6 +222,109 @@ describe("playlist handlers", () => {
     expect(loadTrackById).toHaveBeenCalledTimes(1);
   });
 
+  it("saves active track tuning before skipping and restores it when returning", async () => {
+    createDeps({
+      playMode: "jukebox",
+      tuningParams: "jb=1&thresh=25",
+      playlist: {
+        tracks: [track("a"), { ...track("b"), tuningParams: "lg=1" }],
+        currentIndex: 0,
+      },
+    } as Partial<AppState>);
+
+    await loadPlaylistIndex(1);
+
+    expect(useAppStore.getState().playlist.tracks[0]?.tuningParams).toBe(
+      "jb=1&thresh=25",
+    );
+    expect(useAppStore.getState().tuningParams).toBe("lg=1");
+    expect(window.location.search).toBe("?lg=1");
+
+    await loadPlaylistIndex(0);
+
+    expect(useAppStore.getState().tuningParams).toBe("jb=1&thresh=25");
+    expect(window.location.search).toBe("?jb=1&thresh=25");
+  });
+
+  it("uses defaults when skipping to a playlist track without saved tuning", async () => {
+    createDeps({
+      playMode: "jukebox",
+      tuningParams: "jb=1&thresh=25",
+      playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
+    } as Partial<AppState>);
+
+    await loadPlaylistIndex(1);
+
+    expect(useAppStore.getState().playlist.tracks[0]?.tuningParams).toBe(
+      "jb=1&thresh=25",
+    );
+    expect(useAppStore.getState().tuningParams).toBeNull();
+    expect(window.location.search).toBe("");
+  });
+
+  it("does not snapshot temporary tuning over a favorite's saved tuning", async () => {
+    createDeps({
+      playMode: "jukebox",
+      tuningParams: "thresh=50",
+      favorites: [
+        {
+          uniqueSongId: "a",
+          sourceType: "youtube",
+          title: "Track a",
+          artist: "Artist",
+          duration: null,
+          tuningParams: "jb=1",
+        },
+      ],
+      playlist: {
+        tracks: [{ ...track("a"), tuningParams: "jb=1" }, track("b")],
+        currentIndex: 0,
+      },
+    } as Partial<AppState>);
+
+    await loadPlaylistIndex(1);
+
+    expect(useAppStore.getState().playlist.tracks[0]?.tuningParams).toBe(
+      "jb=1",
+    );
+
+    await loadPlaylistIndex(0);
+
+    expect(useAppStore.getState().tuningParams).toBe("jb=1");
+    expect(window.location.search).toBe("?jb=1");
+  });
+
+  it("does not snapshot temporary jukebox tuning over an autocanonizer favorite mode", async () => {
+    createDeps({
+      playMode: "jukebox",
+      tuningParams: "thresh=50",
+      favorites: [
+        {
+          uniqueSongId: "a",
+          sourceType: "youtube",
+          title: "Track a",
+          artist: "Artist",
+          duration: null,
+          playMode: "autocanonizer",
+        },
+      ],
+      playlist: {
+        tracks: [
+          { ...track("a"), playMode: "autocanonizer" as const },
+          track("b"),
+        ],
+        currentIndex: 0,
+      },
+    } as Partial<AppState>);
+
+    await loadPlaylistIndex(1);
+
+    expect(useAppStore.getState().playlist.tracks[0]?.tuningParams).toBeUndefined();
+    expect(useAppStore.getState().playlist.tracks[0]?.playMode).toBe(
+      "autocanonizer",
+    );
+  });
+
   it("rolls back playlist activation when a playlist item load fails", async () => {
     createDeps({
       playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },

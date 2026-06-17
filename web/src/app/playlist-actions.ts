@@ -1,4 +1,5 @@
 import type { AppState } from "./context";
+import type { FavoriteTrack } from "./favorites";
 import { isLikelyJobId } from "./identity";
 import { loadTrackById, loadTrackByJobId, togglePlayback } from "./playback";
 import { setPlayMode } from "./playback-ui";
@@ -184,7 +185,7 @@ export async function loadPlaylistIndex(
     if (options?.closeModal) {
       handleClosePlaylist();
     }
-    const previousPlaylist = useAppStore.getState().playlist;
+    const previousPlaylist = syncActivePlaylistTrackTuning();
     playlistLoadInFlight = true;
     useAppStore.setState({ playlistLoadBusy: true });
     const activatedPlaylist = activatePlaylistTrack(
@@ -239,6 +240,67 @@ export async function loadPlaylistIndex(
   function updatePlaylist(nextPlaylist: AppState["playlist"]) {
     useAppStore.setState({ playlist: nextPlaylist });
     savePlaylist(nextPlaylist);
+  }
+
+  function syncActivePlaylistTrackTuning(): AppState["playlist"] {
+    const playlist = useAppStore.getState().playlist ?? emptyPlaylist();
+    useAppStore.setState({ playlist });
+    if (!isPlaylistActive(playlist)) {
+      return playlist;
+    }
+    const track = playlist.tracks[playlist.currentIndex];
+    if (!track) {
+      return playlist;
+    }
+    const playMode = useAppStore.getState().playMode;
+    const tuningParams = playMode === "jukebox" ? getCurrentTuningParams() : null;
+    const favorite = findFavoriteForPlaylistTrack(track);
+    if (favorite) {
+      const favoritePlayMode = favorite.playMode ?? "jukebox";
+      const favoriteTuningParams =
+        favoritePlayMode === "jukebox"
+          ? normalizeStoredTuningParams(favorite.tuningParams)
+          : null;
+      if (
+        playMode !== favoritePlayMode ||
+        tuningParams !== favoriteTuningParams
+      ) {
+        updatePlaylist(
+          replaceActivePlaylistTrack(playlist, {
+            ...track,
+            tuningParams: favoriteTuningParams,
+            playMode: favorite.playMode,
+          }),
+        );
+        return useAppStore.getState().playlist;
+      }
+    }
+    updatePlaylist(
+      replaceActivePlaylistTrack(playlist, {
+        ...track,
+        tuningParams,
+        playMode,
+      }),
+    );
+    return useAppStore.getState().playlist;
+  }
+
+  function findFavoriteForPlaylistTrack(track: PlaylistTrack): FavoriteTrack | null {
+    return (
+      useAppStore
+        .getState()
+        .favorites.find(
+          (favorite) =>
+            favorite.uniqueSongId === track.id &&
+            favorite.sourceType === track.sourceType,
+        ) ?? null
+    );
+  }
+
+  function normalizeStoredTuningParams(tuningParams: string | null | undefined) {
+    return typeof tuningParams === "string" && tuningParams.trim()
+      ? tuningParams
+      : null;
   }
 
 
