@@ -160,30 +160,24 @@ ensure_venv() {
 }
 
 try_deno_upgrade_with_package_manager() {
-  if command -v brew >/dev/null 2>&1; then
-    if brew list --versions deno >/dev/null 2>&1; then
-      echo "Trying Homebrew upgrade for deno..."
-      if brew upgrade deno; then
-        return 0
-      fi
+  if command -v brew >/dev/null 2>&1 && brew list --versions deno >/dev/null 2>&1; then
+    echo "Trying Homebrew upgrade for deno..."
+    if brew upgrade deno; then
+      return 0
     fi
   fi
 
-  if command -v scoop >/dev/null 2>&1; then
-    if scoop list deno >/dev/null 2>&1; then
-      echo "Trying Scoop upgrade for deno..."
-      if scoop update deno; then
-        return 0
-      fi
+  if command -v scoop >/dev/null 2>&1 && scoop list deno >/dev/null 2>&1; then
+    echo "Trying Scoop upgrade for deno..."
+    if scoop update deno; then
+      return 0
     fi
   fi
 
-  if command -v choco >/dev/null 2>&1; then
-    if choco list --local-only deno >/dev/null 2>&1; then
-      echo "Trying Chocolatey upgrade for deno..."
-      if choco upgrade -y deno; then
-        return 0
-      fi
+  if command -v choco >/dev/null 2>&1 && choco list --local-only deno >/dev/null 2>&1; then
+    echo "Trying Chocolatey upgrade for deno..."
+    if choco upgrade -y deno; then
+      return 0
     fi
   fi
 
@@ -274,21 +268,15 @@ ensure_api_env() {
   if ! "$API_VENV/bin/python" -c "import fastapi, yt_dlp, httpx, dotenv" >/dev/null 2>&1; then
     "$API_VENV/bin/python" -m pip install -r "$ROOT/api/requirements.txt"
   fi
-  if is_true "$UPDATE_YTDLP"; then
-    if ! "$API_VENV/bin/python" -m pip install --upgrade "yt-dlp[default]"; then
-      echo "Warning: could not auto-upgrade yt-dlp; continuing with installed version."
-    fi
+  if is_true "$UPDATE_YTDLP" && ! "$API_VENV/bin/python" -m pip install --upgrade "yt-dlp[default]"; then
+    echo "Warning: could not auto-upgrade yt-dlp; continuing with installed version."
   fi
-  if ! command -v deno >/dev/null 2>&1; then
-    if ! try_deno_install_with_package_manager; then
-      print_deno_install_hint
-    fi
+  if ! command -v deno >/dev/null 2>&1 && ! try_deno_install_with_package_manager; then
+    print_deno_install_hint
   fi
   if is_true "$UPDATE_DENO" && command -v deno >/dev/null 2>&1; then
-    if ! deno upgrade; then
-      if ! try_deno_upgrade_with_package_manager; then
-        print_deno_upgrade_hint
-      fi
+    if ! deno upgrade && ! try_deno_upgrade_with_package_manager; then
+      print_deno_upgrade_hint
     fi
   fi
   if ! command -v deno >/dev/null 2>&1; then
@@ -316,7 +304,7 @@ ensure_engine_env() {
       if [[ "$has_madmom_beats_lite" == "1" ]]; then
         echo "Warning: could not auto-update madmom-beats-lite; continuing with installed version."
       else
-        echo "Error: madmom-beats-lite installation failed."
+        echo "Error: madmom-beats-lite installation failed." >&2
         exit 1
       fi
     fi
@@ -324,7 +312,7 @@ ensure_engine_env() {
   if "$ENGINE_VENV/bin/python" -m pip show madmom >/dev/null 2>&1; then
     "$ENGINE_VENV/bin/python" -m pip uninstall -y madmom
     if ! "$ENGINE_VENV/bin/python" "$ROOT/engine/scripts/install_madmom_beats_lite.py" --python "$ENGINE_VENV/bin/python"; then
-      echo "Error: madmom-beats-lite reinstall failed after removing legacy madmom."
+      echo "Error: madmom-beats-lite reinstall failed after removing legacy madmom." >&2
       exit 1
     fi
   fi

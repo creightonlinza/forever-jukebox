@@ -22,7 +22,7 @@ export type JumpEvent = {
 };
 
 export class BufferedAudioPlayer {
-  private context: AudioContext;
+  private readonly context: AudioContext;
   private originalBuffer: AudioBuffer | null = null;
   private buffer: AudioBuffer | null = null;
   private source: AudioBufferSourceNode | null = null;
@@ -37,12 +37,12 @@ export class BufferedAudioPlayer {
   private anchorStopSource: AudioBufferSourceNode | null = null;
   private anchorJump: AnchorJump | null = null;
   private promotedJumpEvent: JumpEvent | null = null;
-  private masterGain: GainNode;
-  private sourceChainInput: GainNode;
-  private sourceChainOutput: GainNode;
+  private readonly masterGain: GainNode;
+  private readonly sourceChainInput: GainNode;
+  private readonly sourceChainOutput: GainNode;
   private stereoPanner: StereoPannerNode | null = null;
   private chainNodes: AudioNode[] = [];
-  private reverbImpulseBuffers = new Map<string, AudioBuffer>();
+  private readonly reverbImpulseBuffers = new Map<string, AudioBuffer>();
   private volume = 0.5;
   private startAt = 0;
   private offset = 0;

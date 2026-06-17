@@ -36,11 +36,11 @@ const OTHER_CURSOR_CENTER_OFFSET = SECTION_HEIGHT - CURSOR_SIZE / 2;
 const CONNECTION_LINE_WIDTH = 3;
 
 export class AutocanonizerViz {
-  private container: HTMLElement;
-  private baseCanvas: HTMLCanvasElement;
-  private overlayCanvas: HTMLCanvasElement;
-  private baseCtx: CanvasRenderingContext2D;
-  private overlayCtx: CanvasRenderingContext2D;
+  private readonly container: HTMLElement;
+  private readonly baseCanvas: HTMLCanvasElement;
+  private readonly overlayCanvas: HTMLCanvasElement;
+  private readonly baseCtx: CanvasRenderingContext2D;
+  private readonly overlayCtx: CanvasRenderingContext2D;
   private beats: CanonizerBeat[] = [];
   private sections: CanonizerSections = [];
   private trackDuration = 0;
@@ -50,7 +50,7 @@ export class AutocanonizerViz {
   private maxDelta = 1;
   private onSelect: ((index: number) => void) | null = null;
   private connections: Array<ConnectionPath | null> = [];
-  private tileColorOverrides = new Map<number, string>();
+  private readonly tileColorOverrides = new Map<number, string>();
   private otherAnim: {
     path: ConnectionPath;
     start: number;
@@ -577,7 +577,7 @@ export class AutocanonizerViz {
     this.drawBase();
   }
 
-  private handleClick = (event: MouseEvent) => {
+  private readonly handleClick = (event: MouseEvent) => {
     if (!this.visible || !this.onSelect || !this.layouts.length) {
       return;
     }

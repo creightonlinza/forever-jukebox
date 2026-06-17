@@ -20,11 +20,11 @@ const CONFIDENCE_WEIGHT = 1;
 const VOLUME_WINDOW = 20;
 
 class AutocanonizerPlayer {
-  private context: AudioContext;
+  private readonly context: AudioContext;
   private buffer: AudioBuffer;
-  private mainGain: GainNode;
-  private otherGain: GainNode;
-  private masterBlend: number;
+  private readonly mainGain: GainNode;
+  private readonly otherGain: GainNode;
+  private readonly masterBlend: number;
   private baseVolume = 0.5;
 
   private currentBeat: CanonizerBeat | null = null;
@@ -33,7 +33,7 @@ class AutocanonizerPlayer {
   private deltaTime = 0;
   private otherDeltaTime = 0;
   private skewDelta = 0;
-  private maxSkewDelta = 0.05;
+  private readonly maxSkewDelta = 0.05;
 
   constructor(context: AudioContext, buffer: AudioBuffer, masterBlend = 0.55) {
     this.context = context;
@@ -101,7 +101,7 @@ class AutocanonizerPlayer {
     if (this.context.state === "suspended") {
       void this.context.resume();
     }
-    if (!this.currentBeat || this.currentBeat.next !== beat) {
+    if (this.currentBeat?.next !== beat) {
       if (this.mainSource) {
         this.mainSource.stop();
       }
@@ -117,8 +117,7 @@ class AutocanonizerPlayer {
     this.otherGain.gain.value =
       this.baseVolume * (1 - this.masterBlend) * clampedOtherGain;
     if (
-      !this.currentBeat ||
-      this.currentBeat.other.next !== beat.other ||
+      this.currentBeat?.other.next !== beat.other ||
       Math.abs(this.skewDelta) > this.maxSkewDelta
     ) {
       this.skewDelta = 0;
@@ -145,7 +144,7 @@ class AutocanonizerPlayer {
     const clampedOtherGain = Math.max(0, Math.min(1, beat.otherGain));
     this.otherGain.gain.value =
       this.baseVolume * (1 - this.masterBlend) * clampedOtherGain;
-    if (!this.currentBeat || this.currentBeat.other.next !== beat) {
+    if (this.currentBeat?.other.next !== beat) {
       if (this.otherSource) {
         this.otherSource.stop();
       }
@@ -174,7 +173,7 @@ class AutocanonizerPlayer {
 }
 
 export class AutocanonizerController {
-  private viz: AutocanonizerViz;
+  private readonly viz: AutocanonizerViz;
   private beats: BeatWithSim[] = [];
   private player: AutocanonizerPlayer | null = null;
   private running = false;

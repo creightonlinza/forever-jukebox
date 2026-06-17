@@ -139,15 +139,16 @@ function applyBeatBoundaryFades(
   const beatFrameCount = segments[0].outputFrameCount + segments[1].outputFrameCount;
   const previousSegments = beatSegments[beatIndex - 1];
   const nextSegments = beatSegments[beatIndex + 1];
+  const previousBeatEndFrame =
+    previousSegments === undefined
+      ? null
+      : previousSegments[0].outputStartFrame +
+        previousSegments[0].outputFrameCount +
+        previousSegments[1].outputFrameCount;
   const hasContiguousPreviousBeat =
-    previousSegments !== undefined &&
-    previousSegments[0].outputStartFrame +
-      previousSegments[0].outputFrameCount +
-      previousSegments[1].outputFrameCount ===
-      beatStartFrame;
+    previousBeatEndFrame === beatStartFrame;
   const hasContiguousNextBeat =
-    nextSegments !== undefined &&
-    beatStartFrame + beatFrameCount === nextSegments[0].outputStartFrame;
+    beatStartFrame + beatFrameCount === nextSegments?.[0].outputStartFrame;
 
   if (hasContiguousPreviousBeat) {
     applyJoinFade(
