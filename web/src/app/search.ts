@@ -150,13 +150,12 @@ export async function startYoutubeAnalysisFlow(
 }
 
 export async function showYoutubeMatches(
-  context: AppContext,
+  _context: AppContext,
   deps: SearchDeps,
   name: string,
   artist: string,
   duration: number
 ) {
-  void context;
   const query = artist ? `${artist} - ${name}` : name;
   deps.navigateToTab("search", { replace: true });
   setSearchMessage("Searching YouTube for matches...");
@@ -270,9 +269,7 @@ export async function tryLoadExistingTrackByName(
   }
 }
 
-export async function runSearch(context: AppContext, deps: SearchDeps) {
-  void context;
-  void deps;
+export async function runSearch(_context: AppContext, _deps: SearchDeps) {
   const query = useAppStore.getState().searchQuery.trim().slice(0, 100);
   if (useAppStore.getState().searchQuery !== query) {
     useAppStore.setState({ searchQuery: query });
@@ -295,8 +292,7 @@ export async function runSearch(context: AppContext, deps: SearchDeps) {
   }
 }
 
-export function resetSearchUI(context: AppContext) {
-  void context;
+export function resetSearchUI(_context: AppContext) {
   useAppStore.setState({
     searchQuery: "",
     searchResults: DEFAULT_SEARCH_RESULTS,
@@ -351,7 +347,12 @@ export function selectSpotifyMatch(
       deps.setAnalysisStatus("No duration available for this track.", false);
       return;
     }
-    void showYoutubeMatches(context, deps, name, artist, duration);
+    showYoutubeMatches(context, deps, name, artist, duration).catch((err) => {
+      setSearchMessage(`YouTube search failed: ${formatErrorForDisplay(err)}`);
+      setSearchHint(DEFAULT_SEARCH_HINT);
+    });
+  }).catch((err) => {
+    setSearchMessage(`Lookup failed: ${formatErrorForDisplay(err)}`);
   });
 }
 

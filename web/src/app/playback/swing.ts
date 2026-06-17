@@ -50,7 +50,7 @@ export function prepareSwingMode(context: AppContext) {
   updatePlayButton();
 
   const sourceIdentity = getCurrentSwingSourceIdentity();
-  void getOrCreateSwingBuffer(sourceBuffer, sourceIdentity, () =>
+  getOrCreateSwingBuffer(sourceBuffer, sourceIdentity, () =>
     renderSwingBuffer(sourceBuffer, beats, {
       onProgress: (progress) => {
         if (

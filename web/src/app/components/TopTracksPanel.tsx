@@ -388,6 +388,14 @@ function FavoritesSyncEnterModal({
     }
   };
 
+  const handleSubmit = () => {
+    submit().catch((err) => {
+      setStatus({ text: "Unable to sync favorites.", error: true });
+      console.warn(`Favorites sync failed: ${String(err)}`);
+      setBusy(false);
+    });
+  };
+
   return (
     <Modal id="favorites-sync-enter-modal" open={open} onClose={onClose}>
       <ModalHeader
@@ -411,7 +419,7 @@ function FavoritesSyncEnterModal({
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                void submit();
+                handleSubmit();
               }
             }}
           />
@@ -435,7 +443,7 @@ function FavoritesSyncEnterModal({
           id="favorites-sync-enter-button"
           type="button"
           disabled={busy}
-          onClick={() => void submit()}
+          onClick={handleSubmit}
         >
           {busy ? "Syncing..." : "Sync favorites"}
         </button>
@@ -487,6 +495,14 @@ function FavoritesSyncCreateModal({
     }
   };
 
+  const handleSubmit = () => {
+    submit().catch((err) => {
+      setStatus({ text: "Unable to create sync code.", error: true });
+      setButtonHidden(false);
+      console.warn(`Favorites sync create failed: ${String(err)}`);
+    });
+  };
+
   return (
     <Modal id="favorites-sync-create-modal" open={open} onClose={onClose}>
       <ModalHeader
@@ -526,7 +542,7 @@ function FavoritesSyncCreateModal({
           id="favorites-sync-create-button"
           type="button"
           className={buttonHidden ? "hidden" : undefined}
-          onClick={() => void submit()}
+          onClick={handleSubmit}
         >
           {buttonLabel}
         </button>
@@ -568,7 +584,9 @@ function FavoritesSyncControls({ visible }: { visible: boolean }) {
   const handleItem = (action: "refresh" | "create" | "enter") => {
     setMenuOpen(false);
     if (action === "refresh") {
-      void refreshFavoritesFromSync();
+      refreshFavoritesFromSync().catch((err) => {
+        console.warn(`Favorites refresh failed: ${String(err)}`);
+      });
     } else if (action === "create") {
       setEnterOpen(false);
       setCreateOpen(true);
@@ -700,7 +718,9 @@ export function TopTracksPanel() {
 
   useEffect(() => {
     if (subtab !== "favorites") {
-      void loadList(subtab);
+      loadList(subtab).catch((err) => {
+        console.warn(`Top tracks load failed: ${String(err)}`);
+      });
     }
   }, [subtab, loadList]);
 
@@ -767,7 +787,9 @@ export function TopTracksPanel() {
           title="Refresh"
           onClick={() => {
             if (subtab !== "favorites") {
-              void loadList(subtab, true);
+              loadList(subtab, true).catch((err) => {
+                console.warn(`Top tracks refresh failed: ${String(err)}`);
+              });
             }
           }}
         >

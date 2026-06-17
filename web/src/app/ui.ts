@@ -11,11 +11,10 @@ let toastTimer: number | null = null;
 
 // The React status panel renders these store values.
 export function setAnalysisStatus(
-  context: AppContext,
+  _context: AppContext,
   message: string,
   spinning: boolean
 ) {
-  void context;
   useAppStore.setState(
     spinning
       ? { analysisStatusText: message, analysisSpinning: true }
@@ -28,11 +27,10 @@ export function setAnalysisStatus(
 }
 
 export function setLoadingProgress(
-  context: AppContext,
+  _context: AppContext,
   progress: number | null,
   message?: string | null
 ) {
-  void context;
   useAppStore.setState({
     analysisStatusText: message?.trim() || "Loading",
     analysisSpinning: true,

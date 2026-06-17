@@ -481,6 +481,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setShortcutToast(message);
   }, []);
 
+  const requestWakeLockSafely = React.useCallback(() => {
+    requestWakeLock().catch((err) => {
+      console.warn(`Wake lock request failed: ${String(err)}`);
+    });
+  }, [requestWakeLock]);
+
+  const releaseWakeLockSafely = React.useCallback(() => {
+    releaseWakeLock().catch((err) => {
+      console.warn(`Wake lock release failed: ${String(err)}`);
+    });
+  }, [releaseWakeLock]);
+
   function setSwingPreparingState(preparing: boolean) {
     swingPreparingRef.current = preparing;
     setSwingPreparing(preparing);
@@ -624,7 +636,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     return () => {
       cowbellOverlayRef.current?.dispose();
       cowbellOverlayRef.current = null;
-      void playerRef.current?.dispose();
+      const activePlayer = playerRef.current;
+      if (activePlayer) {
+        activePlayer.dispose().catch((err) => {
+          console.warn(`Audio player dispose failed: ${String(err)}`);
+        });
+      }
       playerRef.current = null;
     };
   }, []);
@@ -991,19 +1008,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         vizControllerRef.current?.resizeActive();
       }
       if (active) {
-        void requestWakeLock();
+        requestWakeLockSafely();
       } else {
-        void releaseWakeLock();
+        releaseWakeLockSafely();
       }
     };
 
     const onVisibility = () => {
       if (document.hidden) {
-        void releaseWakeLock();
+        releaseWakeLockSafely();
         return;
       }
       if (document.fullscreenElement === vizPanelRef.current) {
-        void requestWakeLock();
+        requestWakeLockSafely();
       }
     };
 
@@ -1013,7 +1030,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       document.removeEventListener("fullscreenchange", onFullscreen);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [releaseWakeLockSafely, requestWakeLockSafely]);
 
   React.useEffect(() => {
     if (!isVolumeOpen) {
@@ -1256,7 +1273,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setSwingPreparingState(true);
     setSwingProgress(0);
 
-    void getOrCreateSwingBuffer(sourceBuffer, getCurrentSwingSourceIdentity(), () =>
+    getOrCreateSwingBuffer(sourceBuffer, getCurrentSwingSourceIdentity(), () =>
       renderSwingBuffer(sourceBuffer, beats, {
         onProgress: (progress) => {
           if (
@@ -1376,7 +1393,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setIsRunning(true);
     setIsPaused(false);
     if (document.fullscreenElement === vizPanelRef.current) {
-      void requestWakeLock();
+      requestWakeLockSafely();
     }
   };
 
@@ -1432,7 +1449,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       setIsRunning(true);
       setIsPaused(false);
       if (document.fullscreenElement === vizPanelRef.current) {
-        void requestWakeLock();
+        requestWakeLockSafely();
       }
       return;
     }
@@ -1466,7 +1483,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setIsRunning(true);
     setIsPaused(false);
     if (document.fullscreenElement === vizPanelRef.current) {
-      void requestWakeLock();
+      requestWakeLockSafely();
     }
     return true;
   };
@@ -1818,6 +1835,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleExportJukeboxAudio = () => {
+    onExportJukeboxAudio().catch((err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      setExportError(message || "Audio export failed.");
+      setIsExporting(false);
+    });
   };
 
   const onToggleFullscreen = async () => {
@@ -2293,7 +2318,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <button
                 className="tab-btn"
                 type="button"
-                onClick={() => void onExportJukeboxAudio()}
+                onClick={handleExportJukeboxAudio}
                 disabled={isExporting}
               >
                 {isExporting ? "Exporting..." : "Export Audio"}

@@ -30,7 +30,9 @@ function CachedAudioClearButton() {
   // This component only mounts inside the FAQ tab, so refresh once on mount
   // and again when moving between FAQ subtabs.
   useEffect(() => {
-    void refresh();
+    refresh().catch((err) => {
+      console.warn(`Cache size refresh failed: ${String(err)}`);
+    });
   }, [location, refresh]);
 
   const handleClear = async () => {
@@ -43,8 +45,17 @@ function CachedAudioClearButton() {
       console.warn(`Cache clear failed: ${String(err)}`);
       showToast("Unable to clear cached audio.");
     } finally {
-      void refresh();
+      refresh().catch((err) => {
+        console.warn(`Cache size refresh failed: ${String(err)}`);
+      });
     }
+  };
+
+  const handleClearClick = () => {
+    handleClear().catch((err) => {
+      console.warn(`Cache clear failed: ${String(err)}`);
+      showToast("Unable to clear cached audio.");
+    });
   };
 
   return (
@@ -52,7 +63,7 @@ function CachedAudioClearButton() {
       id="cached-audio-clear"
       type="button"
       disabled={disabled}
-      onClick={() => void handleClear()}
+      onClick={handleClearClick}
     >
       {label}
     </button>
