@@ -32,6 +32,15 @@ function maxTrackLengthMessage(minutes: number): string {
   return `The maximum track length for this server is ${formatMinutes(minutes)} minutes.`;
 }
 
+function normalizeUploadedSourceType(
+  sourceProvider: string,
+): PlaylistTrack["sourceType"] {
+  if (sourceProvider === "soundcloud" || sourceProvider === "bandcamp") {
+    return sourceProvider;
+  }
+  return sourceProvider === "youtube" ? "youtube" : "upload";
+}
+
 async function probeAudioDurationSeconds(file: File): Promise<number | null> {
   if (typeof window === "undefined" || typeof Audio === "undefined") {
     return null;
@@ -141,7 +150,7 @@ export async function uploadAudioFile(
     if (isStaleLoad(generation)) {
       return;
     }
-    if (!response || !response.id) {
+    if (!response?.id) {
       throw new Error("Upload failed");
     }
     deps.onNormalTrackSelected?.({
@@ -241,16 +250,11 @@ export async function uploadFromUrl(
       );
       return;
     }
-    if (!response || !response.id || !sourceProvider) {
+    if (!response?.id || !sourceProvider) {
       throw new Error("Upload failed");
     }
     const listenId = response.id;
-    const playlistSourceType =
-      sourceProvider === "soundcloud" || sourceProvider === "bandcamp"
-        ? sourceProvider
-        : sourceProvider === "youtube"
-          ? "youtube"
-          : "upload";
+    const playlistSourceType = normalizeUploadedSourceType(sourceProvider);
     deps.onNormalTrackSelected?.({
       id: listenId,
       sourceType: playlistSourceType,

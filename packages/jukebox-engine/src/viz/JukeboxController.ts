@@ -2,7 +2,7 @@ import type { Edge } from "../engine/types";
 import { JukeboxViz } from "./JukeboxViz";
 
 export class JukeboxController {
-  private viz: JukeboxViz;
+  private readonly viz: JukeboxViz;
 
   constructor(vizLayer: HTMLElement) {
     this.viz = new JukeboxViz(vizLayer);

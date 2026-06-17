@@ -1685,15 +1685,35 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   justify-content: space-between;
   gap: 12px;
   align-items: baseline;
+  width: 100%;
   padding: 6px 8px;
   color: var(--text);
-  cursor: pointer;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-align: left;
 }
 
 .search-item span {
   color: var(--muted);
   font-size: 12px;
   white-space: nowrap;
+}
+
+.search-select {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .search-meta {

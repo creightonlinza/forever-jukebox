@@ -289,7 +289,7 @@ export function applyTuningChanges(
   const graph = engine.getGraphState();
   updateTrackInfo(context);
   let nextThreshold = threshold;
-  let nextComputed = computed;
+  let nextComputed: number | null;
   if (graph) {
     const resolved = Math.max(0, Math.round(graph.currentThreshold));
     if (useAutoThreshold) {

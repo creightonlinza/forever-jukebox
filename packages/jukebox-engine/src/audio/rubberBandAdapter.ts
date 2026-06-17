@@ -28,7 +28,7 @@ type PendingRequest = {
 export class RubberBandWorkerAdapter implements TimeStretchAdapter {
   private worker: Worker | null = null;
   private nextRequestId = 1;
-  private pending = new Map<number, PendingRequest>();
+  private readonly pending = new Map<number, PendingRequest>();
 
   stretchSegment(
     channels: Float32Array[],

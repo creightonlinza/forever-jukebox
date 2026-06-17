@@ -129,7 +129,11 @@ export function planJukeboxPath(options: PlanJukeboxPathOptions): PlannedJukebox
       if (wrappedToStart) {
         jumped = true;
       }
-      jumpFromIndex = jumped ? (selection.jumped ? seed.which : currentBeatIndex) : null;
+      if (jumped) {
+        jumpFromIndex = selection.jumped ? seed.which : currentBeatIndex;
+      } else {
+        jumpFromIndex = null;
+      }
     }
 
     const beat = beats[chosenIndex];

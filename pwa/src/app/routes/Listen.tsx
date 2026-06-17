@@ -424,6 +424,55 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
   return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
 }
 
+function nextEdgeIndex(currentIndex: number, direction: number, edgeCount: number) {
+  if (currentIndex >= 0) {
+    return (currentIndex + direction + edgeCount) % edgeCount;
+  }
+  return direction > 0 ? 0 : edgeCount - 1;
+}
+
+function progressStepStatus(index: number, activeIndex: number): ProgressStep["status"] {
+  if (index < activeIndex) {
+    return "done";
+  }
+  return index === activeIndex ? "active" : "pending";
+}
+
+function playControlText({
+  swingPreparing,
+  isRunning,
+  isPaused,
+}: {
+  swingPreparing: boolean;
+  isRunning: boolean;
+  isPaused: boolean;
+}) {
+  if (swingPreparing) {
+    return "Preparing Swing mode";
+  }
+  if (isRunning) {
+    return "Pause";
+  }
+  return isPaused ? "Resume" : "Play";
+}
+
+function playControlIcon(swingPreparing: boolean, isRunning: boolean) {
+  if (swingPreparing) {
+    return "hourglass_top";
+  }
+  return isRunning ? "pause" : "play_arrow";
+}
+
+function branchDirection(edge: Edge) {
+  if (edge.dest.which < edge.src.which) {
+    return "Backward";
+  }
+  if (edge.dest.which > edge.src.which) {
+    return "Forward";
+  }
+  return "Same beat";
+}
+
 export function Listen({ isActive = true }: { isActive?: boolean }) {
   const { file, setIsListenLoading } = useAppState();
   const initialAudioMode = React.useMemo(() => resolveAudioModeFromUrl(), []);
@@ -1572,12 +1621,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     const currentIndex = edges.findIndex((edge) => edge.id === selectedEdge.id);
-    const nextIndex =
-      currentIndex >= 0
-        ? (currentIndex + direction + edges.length) % edges.length
-        : direction > 0
-          ? 0
-          : edges.length - 1;
+    const nextIndex = nextEdgeIndex(currentIndex, direction, edges.length);
     const nextEdge = edges[nextIndex];
     setSelectedEdge(nextEdge);
     vizControllerRef.current?.setSelectedEdgeActive(nextEdge);
@@ -1941,7 +1985,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     return STEP_ORDER.map((step, idx) => ({
       id: step.id,
       label: step.label,
-      status: idx < stageIndex ? "done" : idx === stageIndex ? "active" : "pending",
+      status: progressStepStatus(idx, stageIndex),
     }));
   }, [progressStage]);
 
@@ -1956,13 +2000,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     !isAnalyzing &&
     !swingPreparing &&
     readyFileKey === currentFileKey;
-  const playControlLabel = swingPreparing
-    ? "Preparing Swing mode"
-    : isRunning
-      ? "Pause"
-      : isPaused
-        ? "Resume"
-        : "Play";
+  const playControlLabel = playControlText({
+    swingPreparing,
+    isRunning,
+    isPaused,
+  });
+  const playIcon = playControlIcon(swingPreparing, isRunning);
   const beatsLabel =
     jukeboxAudioMode === "cowbell" ? "Total Cowbells:" : "Total Beats:";
   const branchStats =
@@ -1973,12 +2016,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           const startDisplaySeconds = Math.floor(startSeconds);
           const endDisplaySeconds = Math.floor(endSeconds);
           const deltaSeconds = endDisplaySeconds - startDisplaySeconds;
-          const direction =
-            selectedEdge.dest.which < selectedEdge.src.which
-              ? "Backward"
-              : selectedEdge.dest.which > selectedEdge.src.which
-                ? "Forward"
-                : "Same beat";
           const maxDistance = Math.max(
             1,
             engineRef.current?.getConfig().maxBranchThreshold ?? 80,
@@ -1990,7 +2027,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             start: formatDuration(startDisplaySeconds),
             end: formatDuration(endDisplaySeconds),
             delta: signedDelta,
-            direction,
+            direction: branchDirection(selectedEdge),
             similarity: `${toSimilarityPercent(selectedEdge.distance, maxDistance)}%`,
           };
         })()
@@ -2202,7 +2239,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               >
                 <SymbolIcon
                   className="play-icon"
-                  name={swingPreparing ? "hourglass_top" : isRunning ? "pause" : "play_arrow"}
+                  name={playIcon}
                 />
               </button>
               <div className="viz-info">

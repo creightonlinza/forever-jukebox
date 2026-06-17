@@ -16,6 +16,8 @@ type LastUpdate = {
   previousIndex: number | null;
 };
 
+type Point = { x: number; y: number };
+
 interface VisualizationData {
   beats: QuantumBase[];
   edges: Edge[];
@@ -60,17 +62,17 @@ type VisualizationDefinition = {
 };
 
 class CanvasViz {
-  private container: HTMLElement;
-  private baseCanvas: HTMLCanvasElement;
-  private overlayCanvas: HTMLCanvasElement;
-  private baseCtx: CanvasRenderingContext2D;
-  private overlayCtx: CanvasRenderingContext2D;
+  private readonly container: HTMLElement;
+  private readonly baseCanvas: HTMLCanvasElement;
+  private readonly overlayCanvas: HTMLCanvasElement;
+  private readonly baseCtx: CanvasRenderingContext2D;
+  private readonly overlayCtx: CanvasRenderingContext2D;
 
   private size = { width: 0, height: 0 };
   private data: VisualizationData | null = null;
   private positions: Array<{ x: number; y: number }> = [];
   private center = { x: 0, y: 0 };
-  private bendCache = new Map<string, boolean>();
+  private readonly bendCache = new Map<string, boolean>();
 
   private currentIndex = -1;
   private jumpLine: JumpLine | null = null;
@@ -80,9 +82,9 @@ class CanvasViz {
   private onSelect: ((index: number) => void) | null = null;
   private onEdgeSelect: ((edge: Edge | null) => void) | null = null;
 
-  private positioner: Positioner;
-  private forceBendEdges: boolean;
-  private edgeControlPointResolver: EdgeControlPointResolver | null;
+  private readonly positioner: Positioner;
+  private readonly forceBendEdges: boolean;
+  private readonly edgeControlPointResolver: EdgeControlPointResolver | null;
   private visible = true;
   private anchorHighlightEnabled = false;
 
@@ -90,7 +92,7 @@ class CanvasViz {
     Edge,
     { bend: boolean; control: [number, number] | null }
   >();
-  private theme = {
+  private readonly theme = {
     edgeStroke: "rgba(74, 199, 255, 0.12)",
     beatFill: "rgba(255, 215, 130, 0.55)",
     edgeSelected: "#ff5b5b",
@@ -528,13 +530,10 @@ class CanvasViz {
         const dist =
           geometry.bend && geometry.control
             ? distanceToQuadratic(
-                x,
-                y,
-                from.x,
-                from.y,
-                ...geometry.control,
-                to.x,
-                to.y
+                { x, y },
+                from,
+                { x: geometry.control[0], y: geometry.control[1] },
+                to,
               )
             : distanceToSegment(x, y, from.x, from.y, to.x, to.y);
         if (dist < bestEdgeDist) {
@@ -777,7 +776,7 @@ function createGridPositioner(): Positioner {
       const seenParents = new Set<object>();
       for (const beat of data.beats) {
         const parent = beat.parent;
-        if (!parent || !parent.children) {
+        if (!parent?.children) {
           continue;
         }
         if (!seenParents.has(parent)) {
@@ -1174,23 +1173,19 @@ function distanceToSegment(
 }
 
 function distanceToQuadratic(
-  px: number,
-  py: number,
-  x1: number,
-  y1: number,
-  cx: number,
-  cy: number,
-  x2: number,
-  y2: number
+  point: Point,
+  start: Point,
+  control: Point,
+  end: Point,
 ) {
   let closest = Infinity;
   const steps = 20;
   for (let i = 0; i <= steps; i += 1) {
     const t = i / steps;
     const it = 1 - t;
-    const qx = it * it * x1 + 2 * it * t * cx + t * t * x2;
-    const qy = it * it * y1 + 2 * it * t * cy + t * t * y2;
-    const d = Math.hypot(px - qx, py - qy);
+    const qx = it * it * start.x + 2 * it * t * control.x + t * t * end.x;
+    const qy = it * it * start.y + 2 * it * t * control.y + t * t * end.y;
+    const d = Math.hypot(point.x - qx, point.y - qy);
     if (d < closest) {
       closest = d;
     }

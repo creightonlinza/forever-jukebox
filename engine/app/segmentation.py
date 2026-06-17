@@ -39,7 +39,7 @@ def segment_from_novelty(frame_times: np.ndarray,
     # Snap boundaries to nearest beat to keep segments beat-aware.
     snapped = [0.0]
     for t in boundaries[1:-1]:
-        nearest = min(beats, key=lambda b: abs(b - t)) if beats else t
+        nearest = min(beats, key=lambda b, target=t: abs(b - target)) if beats else t
         if abs(nearest - t) <= config.beat_snap_tolerance:
             snapped.append(float(nearest))
         else:

@@ -65,9 +65,7 @@ function calculateNearestNeighborsForQuantum(
       let distance = 100;
       if (j < q2.overlappingSegments.length) {
         const seg2 = q2.overlappingSegments[j];
-        if (seg1.which === seg2.which) {
-          distance = 100;
-        } else {
+        if (seg1.which !== seg2.which) {
           distance = getSegmentDistance(seg1, seg2);
         }
       }
@@ -93,9 +91,7 @@ function calculateNearestNeighborsForQuantum(
     }
   }
 
-  edges.sort((a, b) =>
-    a.distance > b.distance ? 1 : a.distance < b.distance ? -1 : 0,
-  );
+  edges.sort((a, b) => a.distance - b.distance);
 
   q1.allNeighbors = [];
   for (let i = 0; i < maxNeighbors && i < edges.length; i += 1) {

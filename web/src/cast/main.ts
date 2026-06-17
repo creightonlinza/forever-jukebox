@@ -560,15 +560,16 @@ async function bootstrap() {
       }
       return null;
     })();
-    const playbackState = error
-      ? "error"
-      : !hasTrack
-        ? "idle"
-        : isLoading
-          ? "loading"
-          : isPlaying
-            ? "playing"
-            : "paused";
+    let playbackState: CastStatus["playbackState"];
+    if (error) {
+      playbackState = "error";
+    } else if (!hasTrack) {
+      playbackState = "idle";
+    } else if (isLoading) {
+      playbackState = "loading";
+    } else {
+      playbackState = isPlaying ? "playing" : "paused";
+    }
     const tuning =
       playbackState === "loading" || playbackState === "error"
         ? null
@@ -609,7 +610,7 @@ async function bootstrap() {
   function scheduleIdleStop() {
     clearIdleStopTimer();
     idleStopTimer = window.setTimeout(() => {
-      if (state.currentJobId || (player && player.isPlaying())) {
+      if (state.currentJobId || player?.isPlaying()) {
         return;
       }
       castContext?.stop?.();
@@ -943,7 +944,7 @@ async function bootstrap() {
       if (token !== state.loadToken) {
         return;
       }
-      if (!analysis || analysis.status !== "complete") {
+      if (analysis?.status !== "complete") {
         throw new Error("Analysis unavailable");
       }
       state.currentJobId = analysis.id;
@@ -1227,9 +1228,9 @@ async function bootstrap() {
   }
 
   function initCastReceiver(): boolean {
-    const framework = window.cast && window.cast.framework;
-    const ctx = framework && framework.CastReceiverContext;
-    const messages = framework && framework.messages;
+    const framework = window.cast?.framework;
+    const ctx = framework?.CastReceiverContext;
+    const messages = framework?.messages;
     if (!framework || !ctx || !messages?.MessageType) {
       return false;
     }

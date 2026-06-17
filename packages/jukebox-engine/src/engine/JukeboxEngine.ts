@@ -76,7 +76,7 @@ export interface JukeboxPlayer {
 }
 
 export class JukeboxEngine {
-  private player: JukeboxPlayer;
+  private readonly player: JukeboxPlayer;
   private analysis: TrackAnalysis | null = null;
   private graph: JukeboxGraphState | null = null;
   private config: JukeboxConfig;
@@ -94,11 +94,11 @@ export class JukeboxEngine {
   private forceBranch = false;
   private bringItHomeMode = false;
   private pendingAdvance: PendingAdvance | null = null;
-  private deletedEdgeKeys = new Set<string>();
+  private readonly deletedEdgeKeys = new Set<string>();
   private userAnchorEdgeId: number | null = null;
-  private rng: () => number;
+  private readonly rng: () => number;
   private listener: UpdateListener | null = null;
-  private branchState: BranchState = {
+  private readonly branchState: BranchState = {
     curRandomBranchChance: 0,
     lastDestBySource: null,
   };
@@ -616,8 +616,6 @@ export class JukeboxEngine {
         }
         if (shouldJump) {
           jumpFromIndex = selection.jumped ? seed.which : currentIndex;
-        } else {
-          jumpFromIndex = null;
         }
       }
     }

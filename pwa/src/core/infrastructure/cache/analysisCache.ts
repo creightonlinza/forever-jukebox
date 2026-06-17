@@ -47,7 +47,7 @@ export async function listCachedAnalysisTracks(): Promise<CachedAnalysisTrack[]>
 }
 
 export class MemoryAnalysisCache implements AnalysisCachePort {
-  private store = new Map<string, AnalysisOutput>();
+  private readonly store = new Map<string, AnalysisOutput>();
 
   async get(fingerprint: string) {
     return this.store.get(fingerprint) ?? null;

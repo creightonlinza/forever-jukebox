@@ -8,6 +8,31 @@ import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { playlistNext, playlistPrevious } from "../../playlist-actions";
 
+function playButtonLabel({
+  isBlocked,
+  isRunning,
+  isPaused,
+}: {
+  isBlocked: boolean;
+  isRunning: boolean;
+  isPaused: boolean;
+}) {
+  if (isBlocked) {
+    return "Preparing Swing mode";
+  }
+  if (isRunning) {
+    return "Pause";
+  }
+  return isPaused ? "Resume" : "Play";
+}
+
+function playButtonIcon(isBlocked: boolean, isRunning: boolean) {
+  if (isBlocked) {
+    return "hourglass_top";
+  }
+  return isRunning ? "pause" : "play_arrow";
+}
+
 // Transport cluster: playlist previous, play/pause toggle, playlist next.
 // Rendered into the .viz-play-controls container.
 export function PlayControls() {
@@ -26,18 +51,8 @@ export function PlayControls() {
   // Derive the play button's label, icon and visibility from playback state.
   const isBlocked =
     playMode === "jukebox" && audioMode === "swing" && swingPreparing;
-  const playLabel = isBlocked
-    ? "Preparing Swing mode"
-    : isRunning
-      ? "Pause"
-      : isPaused
-        ? "Resume"
-        : "Play";
-  const playIcon = isBlocked
-    ? "hourglass_top"
-    : isRunning
-      ? "pause"
-      : "play_arrow";
+  const playLabel = playButtonLabel({ isBlocked, isRunning, isPaused });
+  const playIcon = playButtonIcon(isBlocked, isRunning);
   const playHidden = !(audioLoaded && analysisLoaded) || swingPreparing;
 
   const active = hasActivePlaylistControls(playlist);

@@ -97,9 +97,9 @@ describe("SearchPanel", () => {
       });
     });
     render(<SearchPanel />);
-    const item = document.querySelector(".search-item") as HTMLElement;
-    expect(item.getAttribute("tabindex")).toBe("0");
-    item.focus();
+    const select = document.querySelector(".search-item") as HTMLButtonElement;
+    expect(select.tagName).toBe("BUTTON");
+    select.focus();
     await userEvent.keyboard("{Enter}");
     expect(h.selectSpotify).toHaveBeenCalledWith({
       name: "Song",
@@ -128,8 +128,8 @@ describe("SearchPanel", () => {
     openLink.focus();
     await userEvent.keyboard("{Enter}");
     expect(h.selectYoutube).not.toHaveBeenCalled();
-    const item = document.querySelector(".search-item") as HTMLElement;
-    item.focus();
+    const select = document.querySelector(".search-select") as HTMLButtonElement;
+    select.focus();
     await userEvent.keyboard("{Enter}");
     expect(h.selectYoutube).toHaveBeenCalledTimes(1);
   });

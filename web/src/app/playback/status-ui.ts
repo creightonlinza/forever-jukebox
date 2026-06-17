@@ -29,11 +29,10 @@ export function updateTrackInfo(context: AppContext) {
     typeof resolvedDuration === "number" && Number.isFinite(resolvedDuration)
       ? formatDuration(resolvedDuration)
       : "00:00:00";
-  const branchCount = vizData
-    ? vizData.edges.length
-    : graph
-      ? graph.allEdges.filter((edge) => !edge.deleted).length
-      : 0;
+  const branchCount =
+    vizData?.edges.length ??
+    graph?.allEdges.filter((edge) => !edge.deleted).length ??
+    0;
   const deletedCount = graph
     ? graph.allEdges.filter((edge) => edge.deleted).length
     : deletedEdgeIds.length;

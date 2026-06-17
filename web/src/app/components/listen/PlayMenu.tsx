@@ -49,7 +49,7 @@ function DeleteConfirmModal({
     // no longer matches the current session. Re-read and bail rather than
     // delete the right job but reset/navigate the wrong session.
     const current = getPendingDelete();
-    if (!current || current.jobId !== pending.jobId) {
+    if (current?.jobId !== pending.jobId) {
       useAppStore.setState({ deleteConfirmOpen: false });
       onClosed();
       return;

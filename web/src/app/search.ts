@@ -116,7 +116,7 @@ export async function startYoutubeAnalysisFlow(
   if (isStaleLoad(generation)) {
     return;
   }
-  if (!response || !response.id) {
+  if (!response?.id) {
     throw new Error("Invalid job response");
   }
   const jobId = response.id;
@@ -195,7 +195,7 @@ export async function tryLoadExistingTrackByName(
     if (isStaleLoad(entryGeneration)) {
       return true;
     }
-    if (!response || !response.id) {
+    if (!response?.id) {
       return false;
     }
     const jobId = response.id;
