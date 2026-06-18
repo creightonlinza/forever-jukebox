@@ -23,6 +23,7 @@ from ..db import (
     get_recent_tracks,
     get_top_tracks,
     increment_job_plays,
+    restart_failed_job,
     set_job_play_count,
     set_job_progress,
     set_job_status,
@@ -53,10 +54,11 @@ from .jobs_runtime import (
     download_source_audio,
     error_code_for,
     fallback_source_url_for_source_id,
+    is_retryable_download_error,
     log_event,
     message_for_progress,
-    normalize_user_source_url,
     normalize_job_error,
+    normalize_user_source_url,
     parse_timestamp,
     probe_audio_duration_seconds,
     recycle_job,
@@ -64,7 +66,6 @@ from .jobs_runtime import (
     sanitize_title,
     source_url_from_source_id,
     should_recycle_job,
-    is_retryable_download_error,
     track_too_long_detail,
 )
 
@@ -137,17 +138,51 @@ def _is_retryable_failed_job(job) -> bool:
     return job.status == "failed" and is_retryable_download_error(job.error)
 
 
-def _skip_retryable_failed_job(job, *, match: str) -> bool:
+def _restart_retryable_failed_job(
+    job,
+    background_tasks: BackgroundTasks,
+    *,
+    match: str,
+):
     if job.status != "failed" or not is_retryable_download_error(job.error):
-        return False
+        return job
+    source_url = _source_url_for_job(job)
+    if not source_url:
+        log_event(
+            "job_retry_skipped",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            match=match,
+            reason="missing_source_url",
+        )
+        return job
+    retry_claimed = restart_failed_job(DB_PATH, job.id, job.updated_at)
+    if retry_claimed:
+        delete_job_artifacts(job.id, job, storage_root=STORAGE_ROOT)
+        background_tasks.add_task(
+            download_source_audio,
+            job.id,
+            source_url,
+            job.source_id,
+            job.source_provider,
+        )
+        log_event(
+            "job_retry_started",
+            job_id=job.id,
+            source=job.source_provider or "unknown",
+            match=match,
+            previous_error_code=error_code_for(job.error),
+        )
+    refreshed_job = get_job(DB_PATH, job.id)
+    if refreshed_job:
+        return refreshed_job
     log_event(
-        "job_retry_new_job",
+        "job_retry_refresh_failed",
         job_id=job.id,
         source=job.source_provider or "unknown",
         match=match,
-        error_code=error_code_for(job.error),
     )
-    return True
+    return job
 
 
 def _create_source_job(
@@ -169,9 +204,12 @@ def _create_source_job(
         if existing_by_track and should_recycle_job(existing_by_track):
             recycle_job(existing_by_track)
             existing_by_track = None
-        if existing_by_track and _skip_retryable_failed_job(existing_by_track, match="by_track"):
-            existing_by_track = None
         if existing_by_track:
+            existing_by_track = _restart_retryable_failed_job(
+                existing_by_track,
+                background_tasks,
+                match="by_track",
+            )
             log_event(
                 "job_reused",
                 job_id=existing_by_track.id,
@@ -188,9 +226,12 @@ def _create_source_job(
     if existing and should_recycle_job(existing):
         recycle_job(existing)
         existing = None
-    if existing and _skip_retryable_failed_job(existing, match="by_source"):
-        existing = None
     if existing:
+        existing = _restart_retryable_failed_job(
+            existing,
+            background_tasks,
+            match="by_source",
+        )
         log_event(
             "job_reused",
             job_id=existing.id,
@@ -463,15 +504,15 @@ def create_analysis_url(
         raise HTTPException(status_code=400, detail="Invalid or unsupported URL")
     preflight_provider, preflight_source_id = _source_identity_from_url(normalized_url)
     existing = _find_existing_source_job(preflight_provider, preflight_source_id, normalized_url)
-    retryable_existing_skipped = False
     if existing and should_recycle_job(existing):
         recycle_job(existing)
         existing = None
     if existing:
-        if _skip_retryable_failed_job(existing, match="by_url_preflight"):
-            existing = None
-            retryable_existing_skipped = True
-    if existing:
+        existing = _restart_retryable_failed_job(
+            existing,
+            background_tasks,
+            match="by_url_preflight",
+        )
         log_event(
             "job_reused",
             job_id=existing.id,
@@ -479,16 +520,6 @@ def create_analysis_url(
             match="by_url_preflight",
         )
         return _job_response(existing)
-    if retryable_existing_skipped and preflight_provider in SUPPORTED_USER_SOURCE_PROVIDERS:
-        return _create_source_job(
-            background_tasks,
-            source_id=preflight_source_id or "",
-            source_url=normalized_url,
-            source_provider=preflight_provider,
-            track_title=payload.title,
-            track_artist=payload.artist,
-            require_user_url_enabled=True,
-        )
     try:
         source_info = resolve_source_info(normalized_url)
     except RuntimeError as exc:
@@ -674,14 +705,11 @@ def get_job_by_source_route(
         recycle_job(job)
         raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     if _is_retryable_failed_job(job):
-        log_event(
-            "job_retry_lookup_miss",
-            job_id=job.id,
-            source=job.source_provider or "unknown",
+        job = _restart_retryable_failed_job(
+            job,
+            background_tasks,
             match="by_source_lookup",
-            error_code=error_code_for(job.error),
         )
-        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     return _response_with_auto_repair(job, background_tasks)
 
 
@@ -699,14 +727,11 @@ def get_job_by_track_match(
         recycle_job(job)
         raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     if _is_retryable_failed_job(job):
-        log_event(
-            "job_retry_lookup_miss",
-            job_id=job.id,
-            source=job.source_provider or "unknown",
+        job = _restart_retryable_failed_job(
+            job,
+            background_tasks,
             match="by_track_lookup",
-            error_code=error_code_for(job.error),
         )
-        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
     log_event(
         "job_reused",
         job_id=job.id,

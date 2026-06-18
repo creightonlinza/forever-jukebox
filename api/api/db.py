@@ -411,6 +411,28 @@ def set_job_status(db_path: Path, job_id: str, status: str, error: Optional[str]
         conn.commit()
 
 
+def restart_failed_job(db_path: Path, job_id: str, expected_updated_at: str) -> bool:
+    now = _utc_now()
+    with _connect(db_path) as conn:
+        cur = conn.execute(
+            """
+            UPDATE jobs
+            SET status = 'downloading',
+                input_path = '',
+                error = NULL,
+                progress = 0,
+                created_at = ?,
+                updated_at = ?
+            WHERE id = ?
+              AND status = 'failed'
+              AND updated_at = ?
+            """,
+            (now, now, job_id, expected_updated_at),
+        )
+        conn.commit()
+    return int(cur.rowcount or 0) == 1
+
+
 def recover_stalled_processing_jobs(db_path: Path) -> int:
     now = _utc_now()
     with _connect(db_path) as conn:
