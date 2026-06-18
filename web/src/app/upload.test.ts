@@ -115,13 +115,14 @@ describe("uploadFromUrl", () => {
     );
   });
 
-  it("uses job id as the listen id for successful YouTube URL uploads", async () => {
+  it("polls the same job id when a YouTube URL restarts an existing job", async () => {
     const { deps, onNormalTrackSelected, pollAnalysisJob } = createHarness();
     const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
     useAppStore.setState({ tuningParams: "jb=1&thresh=25" });
     vi.mocked(startUrlAnalysis).mockResolvedValue({
       id: jobId,
       status: "downloading",
+      source_id: "abc123def45",
       source_provider: "youtube",
     });
     const onAccepted = vi.fn();

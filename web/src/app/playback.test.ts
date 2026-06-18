@@ -1609,6 +1609,129 @@ describe("playback loading", () => {
     );
   });
 
+  it("retries a failed job once through the generic POST flow", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "failed",
+          id: jobId,
+          source_provider: "soundcloud",
+          error: "ERROR: Unable to download video data.",
+          error_code: "download_unavailable",
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: async () => ({
+          status: "downloading",
+          id: jobId,
+          source_provider: "soundcloud",
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "failed",
+          id: jobId,
+          source_provider: "soundcloud",
+          error: "ERROR: Unable to download video data.",
+          error_code: "download_unavailable",
+        }),
+      } as Response);
+
+    await loadTrackById(context, deps, jobId);
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`/api/analysis/${jobId}`);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/jobs/${jobId}/retry`);
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(`/api/analysis/${jobId}`);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(deps.setAnalysisStatus).toHaveBeenLastCalledWith(
+      "SoundCloud fetch failed.",
+      false,
+    );
+  });
+
+  it("lets the backend reject a non-retryable job restart", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    const jobId = "b3f3c0dc73c6476c9db95c227f9206f2";
+    const failedResponse = {
+      status: "failed",
+      id: jobId,
+      source_id: "abc123def45",
+      source_provider: "youtube",
+      error: "ERROR: No beats or downbeats were detected in this audio.",
+      error_code: "no_beats_detected",
+    };
+    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => failedResponse,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => failedResponse,
+      } as Response);
+
+    await loadTrackById(context, deps, jobId);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/jobs/${jobId}/retry`);
+    expect(deps.setAnalysisStatus).toHaveBeenLastCalledWith(
+      "No beats or downbeats were detected in this audio.",
+      false,
+    );
+  });
+
+  it("retries a failed job without exposing source metadata", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    const jobId = "c3f3c0dc73c6476c9db95c227f9206f2";
+    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    const failedResponse = {
+      status: "failed",
+      id: jobId,
+      error: "Engine exited with status 1",
+      error_code: "engine_error",
+    };
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => failedResponse,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => failedResponse,
+      } as Response);
+
+    await loadTrackById(context, deps, jobId);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/jobs/${jobId}/retry`);
+    expect(deps.setAnalysisStatus).toHaveBeenLastCalledWith(
+      "Engine exited with status 1",
+      false,
+    );
+  });
+
   it("marks the matching saved playlist item current on preserved route loads", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const context = createContext();

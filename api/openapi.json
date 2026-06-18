@@ -1041,6 +1041,46 @@
         "summary": "Delete Job By Id"
       }
     },
+    "/api/jobs/{job_id}/retry": {
+      "post": {
+        "operationId": "retry_job_by_id_api_jobs__job_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Job By Id"
+      }
+    },
     "/api/logs/{job_id}": {
       "get": {
         "operationId": "get_job_log_api_logs__job_id__get",

@@ -385,14 +385,22 @@ def parse_timestamp(value: str | None) -> datetime | None:
 def should_recycle_job(job) -> bool:
     if job.status != "downloading":
         return False
+    updated_at = parse_timestamp(job.updated_at)
+    if updated_at is not None and updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=timezone.utc)
     log_path = STORAGE_ROOT / "logs" / f"{job.id}.log"
     if log_path.exists():
-        return True
-    updated_at = parse_timestamp(job.updated_at)
+        if updated_at is None:
+            return True
+        try:
+            log_updated_at = datetime.fromtimestamp(log_path.stat().st_mtime, tz=timezone.utc)
+        except FileNotFoundError:
+            pass
+        else:
+            if log_updated_at >= updated_at:
+                return True
     if updated_at is None:
         return False
-    if updated_at.tzinfo is None:
-        updated_at = updated_at.replace(tzinfo=timezone.utc)
     age_s = (datetime.now(timezone.utc) - updated_at).total_seconds()
     return job.progress >= 25 and age_s > 30
 

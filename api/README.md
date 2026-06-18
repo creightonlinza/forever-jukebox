@@ -93,7 +93,16 @@ Responses:
 
 - `202` for `downloading`, `queued`, or `processing` (includes `progress`)
 - `200` with `complete` + `result` JSON
-- `200` with `failed` + `error` (failed jobs are retained with logs for inspection/repair; retryable download failures are replaced by a new job on the next source request)
+- `200` with `failed` + `error` (failed jobs are retained with logs for inspection/repair; retryable download failures restart with the same job ID on the next source request)
+
+Retry a failed job:
+
+```bash
+curl -X POST /api/jobs/<id>/retry
+```
+
+The backend restarts retryable source failures in place and otherwise returns
+the job's current state unchanged.
 
 Search Spotify:
 

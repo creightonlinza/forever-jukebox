@@ -216,6 +216,13 @@ export async function fetchAnalysis(jobId: string, signal?: AbortSignal) {
   return parseAnalysisResponse(data);
 }
 
+export async function retryJob(jobId: string) {
+  const data = await fetchJson(`/api/jobs/${encodeURIComponent(jobId)}/retry`, {
+    method: "POST",
+  });
+  return parseAnalysisResponse(data);
+}
+
 export async function fetchAudio(jobId: string, signal?: AbortSignal) {
   const response = await fetch(`/api/audio/${encodeURIComponent(jobId)}`, {
     signal,

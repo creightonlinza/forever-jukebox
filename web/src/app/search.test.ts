@@ -217,6 +217,30 @@ describe("search flows", () => {
     expect(deps.pollAnalysis).toHaveBeenCalledWith("job2");
   });
 
+  it("polls the same job id when YouTube selection restarts an existing job", async () => {
+    const context = createContext();
+    const deps = createDeps();
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    (api.startYoutubeAnalysis as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: jobId,
+      status: "downloading",
+      source_id: "yt-retry",
+      source_provider: "youtube",
+    });
+
+    await startYoutubeAnalysisFlow(
+      context,
+      deps,
+      "yt-retry",
+      "Song",
+      "Artist",
+    );
+
+    expect(useAppStore.getState().lastJobId).toBe(jobId);
+    expect(deps.updateTrackUrl).toHaveBeenCalledWith(jobId);
+    expect(deps.pollAnalysis).toHaveBeenCalledWith(jobId);
+  });
+
   it("publishes youtube matches to the search results store", async () => {
     const context = createContext();
     const deps = createDeps();

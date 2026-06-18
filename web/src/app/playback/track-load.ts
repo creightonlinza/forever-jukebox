@@ -4,6 +4,7 @@ import {
   fetchAudio,
   fetchJobBySource,
   recordPlay,
+  retryJob,
   type AnalysisComplete,
   type AnalysisResponse,
 } from "../api";
@@ -578,7 +579,7 @@ async function loadTrack(
     return false;
   }
   try {
-    const response =
+    let response =
       source.type === "source"
         ? await fetchJobBySource(source.provider, source.id)
         : await fetchAnalysis(source.id);
@@ -586,6 +587,12 @@ async function loadTrack(
     // flight; its response must not rewrite identity, URL, or status.
     if (isStaleLoad(generation)) {
       return false;
+    }
+    if (source.type === "job" && isAnalysisFailed(response)) {
+      response = await retryJob(source.id);
+      if (isStaleLoad(generation)) {
+        return false;
+      }
     }
     return await continueTrackLoadWithResponse(context, deps, response);
   } catch (err) {

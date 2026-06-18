@@ -22,10 +22,12 @@ from api.db import (
     get_top_tracks,
     init_db,
     recover_stalled_processing_jobs,
+    restart_failed_job,
     set_job_status,
+    update_job_input_path,
 )
 from api.models import AnalysisUrlRequest
-from api.routes import jobs
+from api.routes import jobs, jobs_runtime as jobs_runtime_module
 from api.routes.jobs import _create_source_job, _should_attempt_auto_repair
 from api.routes.jobs_runtime import ANALYSIS_MISSING_MESSAGE, ERROR_YOUTUBE_LIVE
 from worker import worker as worker_module
@@ -194,6 +196,265 @@ class JobRecoveryTests(unittest.TestCase):
             self.assertEqual(errored.status, "processing")
             self.assertEqual(errored.error, "Engine exited with status 1")
 
+    def test_restart_failed_job_atomically_resets_retry_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            init_db(db_path)
+            create_job(
+                db_path,
+                "retryable",
+                "audio/retryable.m4a",
+                "analysis/retryable.json",
+                status="queued",
+            )
+            set_job_status(db_path, "retryable", "failed", "Download failed")
+            failed = get_job(db_path, "retryable")
+
+            self.assertTrue(restart_failed_job(db_path, failed.id, failed.updated_at))
+            self.assertFalse(restart_failed_job(db_path, failed.id, failed.updated_at))
+
+            restarted = get_job(db_path, failed.id)
+            self.assertEqual(restarted.status, "downloading")
+            self.assertEqual(restarted.input_path, "")
+            self.assertIsNone(restarted.error)
+            self.assertEqual(restarted.progress, 0)
+            self.assertEqual(restarted.created_at, restarted.updated_at)
+            self.assertNotEqual(restarted.updated_at, failed.updated_at)
+            with sqlite3.connect(db_path) as conn:
+                row = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
+            self.assertEqual(row[0], 1)
+
+    def test_stale_failure_log_only_recycles_when_newer_than_job_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            storage_root = Path(temp_dir)
+            log_path = storage_root / "logs" / "downloading.log"
+            log_path.parent.mkdir(parents=True)
+            log_path.write_text("Job failed", encoding="utf-8")
+            updated_at = datetime.now(timezone.utc)
+            job = SimpleNamespace(
+                id="downloading",
+                status="downloading",
+                progress=0,
+                updated_at=updated_at.isoformat(),
+            )
+
+            old_log_time = (updated_at - timedelta(seconds=60)).timestamp()
+            os.utime(log_path, (old_log_time, old_log_time))
+            with patch.object(jobs_runtime_module, "STORAGE_ROOT", storage_root):
+                self.assertFalse(jobs_runtime_module.should_recycle_job(job))
+
+            new_log_time = (updated_at + timedelta(seconds=1)).timestamp()
+            os.utime(log_path, (new_log_time, new_log_time))
+            with patch.object(jobs_runtime_module, "STORAGE_ROOT", storage_root):
+                self.assertTrue(jobs_runtime_module.should_recycle_job(job))
+
+    def test_retry_job_route_restarts_supported_source_providers(self) -> None:
+        providers = (
+            (
+                "youtube",
+                "yt-retry-id",
+                "https://www.youtube.com/watch?v=yt-retry-id",
+            ),
+            (
+                "soundcloud",
+                None,
+                "https://soundcloud.com/artist/retry-track",
+            ),
+            (
+                "bandcamp",
+                None,
+                "https://artist.bandcamp.com/track/retry-track",
+            ),
+        )
+        for provider, source_id, source_url in providers:
+            with self.subTest(provider=provider), tempfile.TemporaryDirectory() as temp_dir:
+                db_path = Path(temp_dir) / "jobs.db"
+                storage_root = Path(temp_dir) / "storage"
+                init_db(db_path)
+                original_db_path = jobs.DB_PATH
+                jobs.DB_PATH = db_path
+                try:
+                    job_id = f"{provider}-retry-job"
+                    create_job(
+                        db_path,
+                        job_id,
+                        "",
+                        f"analysis/{job_id}.json",
+                        status="queued",
+                        source_id=source_id,
+                        source_provider=provider,
+                        source_url=source_url,
+                    )
+                    set_job_status(
+                        db_path,
+                        job_id,
+                        "failed",
+                        "ERROR: Unable to download video data.",
+                    )
+                    background_tasks = BackgroundTasks()
+
+                    with patch.object(jobs, "STORAGE_ROOT", storage_root):
+                        response = jobs.retry_job_by_id(job_id, background_tasks)
+
+                    self.assertEqual(response.status_code, 202)
+                    payload = json.loads(response.body)
+                    self.assertEqual(payload["id"], job_id)
+                    self.assertEqual(payload["status"], "downloading")
+                    self.assertEqual(payload["source_provider"], provider)
+                    self.assertEqual(len(background_tasks.tasks), 1)
+                    task = background_tasks.tasks[0]
+                    self.assertEqual(task.args[0], job_id)
+                    self.assertEqual(task.args[1], source_url)
+                    self.assertEqual(task.args[3], provider)
+                finally:
+                    jobs.DB_PATH = original_db_path
+
+    def test_retry_job_route_returns_non_retryable_failure_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            init_db(db_path)
+            original_db_path = jobs.DB_PATH
+            jobs.DB_PATH = db_path
+            try:
+                create_job(
+                    db_path,
+                    "permanent-failure",
+                    "audio/permanent.m4a",
+                    "analysis/permanent.json",
+                    status="queued",
+                    source_id="yt-permanent",
+                    source_provider="youtube",
+                    source_url="https://www.youtube.com/watch?v=yt-permanent",
+                )
+                set_job_status(
+                    db_path,
+                    "permanent-failure",
+                    "failed",
+                    "ERROR: No beats or downbeats were detected in this audio.",
+                )
+                background_tasks = BackgroundTasks()
+
+                response = jobs.retry_job_by_id("permanent-failure", background_tasks)
+
+                self.assertEqual(response.status_code, 200)
+                payload = json.loads(response.body)
+                self.assertEqual(payload["status"], "failed")
+                self.assertEqual(payload["error_code"], "no_beats_detected")
+                self.assertEqual(len(background_tasks.tasks), 0)
+            finally:
+                jobs.DB_PATH = original_db_path
+
+    def test_retry_job_route_returns_active_and_complete_jobs_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
+            init_db(db_path)
+            original_db_path = jobs.DB_PATH
+            jobs.DB_PATH = db_path
+            try:
+                create_job(
+                    db_path,
+                    "active-job",
+                    "",
+                    "analysis/active-job.json",
+                    status="downloading",
+                    source_id="yt-active",
+                    source_provider="youtube",
+                )
+                active_tasks = BackgroundTasks()
+                active_response = jobs.retry_job_by_id("active-job", active_tasks)
+
+                analysis_path = storage_root / "analysis" / "complete-job.json"
+                analysis_path.parent.mkdir(parents=True, exist_ok=True)
+                analysis_path.write_text(
+                    json.dumps({"track": {"title": "Complete"}}),
+                    encoding="utf-8",
+                )
+                create_job(
+                    db_path,
+                    "complete-job",
+                    "audio/complete-job.m4a",
+                    "analysis/complete-job.json",
+                    status="complete",
+                    source_url="https://soundcloud.com/artist/complete",
+                    source_provider="soundcloud",
+                )
+                complete_tasks = BackgroundTasks()
+                with patch.object(jobs, "STORAGE_ROOT", storage_root):
+                    complete_response = jobs.retry_job_by_id(
+                        "complete-job",
+                        complete_tasks,
+                    )
+
+                self.assertEqual(active_response.status_code, 202)
+                self.assertEqual(json.loads(active_response.body)["status"], "downloading")
+                self.assertEqual(len(active_tasks.tasks), 0)
+                self.assertEqual(complete_response.status_code, 200)
+                self.assertEqual(json.loads(complete_response.body)["status"], "complete")
+                self.assertEqual(len(complete_tasks.tasks), 0)
+            finally:
+                jobs.DB_PATH = original_db_path
+
+    def test_retry_job_route_returns_not_found_for_missing_job(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            init_db(db_path)
+            original_db_path = jobs.DB_PATH
+            jobs.DB_PATH = db_path
+            try:
+                with self.assertRaises(jobs.HTTPException) as raised:
+                    jobs.retry_job_by_id("missing", BackgroundTasks())
+
+                self.assertEqual(raised.exception.status_code, 404)
+            finally:
+                jobs.DB_PATH = original_db_path
+
+    def test_concurrent_retry_job_requests_schedule_one_download(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
+            init_db(db_path)
+            original_db_path = jobs.DB_PATH
+            jobs.DB_PATH = db_path
+            try:
+                create_job(
+                    db_path,
+                    "retry-route-race",
+                    "",
+                    "analysis/retry-route-race.json",
+                    status="queued",
+                    source_provider="bandcamp",
+                    source_url="https://artist.bandcamp.com/track/retry-race",
+                )
+                set_job_status(
+                    db_path,
+                    "retry-route-race",
+                    "failed",
+                    "ERROR: Unable to download video data.",
+                )
+
+                def retry_job() -> tuple[dict, int]:
+                    background_tasks = BackgroundTasks()
+                    response = jobs.retry_job_by_id(
+                        "retry-route-race",
+                        background_tasks,
+                    )
+                    return json.loads(response.body), len(background_tasks.tasks)
+
+                with (
+                    patch.object(jobs, "STORAGE_ROOT", storage_root),
+                    ThreadPoolExecutor(max_workers=2) as executor,
+                ):
+                    results = list(executor.map(lambda _: retry_job(), range(2)))
+
+                self.assertEqual(
+                    [payload["status"] for payload, _ in results],
+                    ["downloading", "downloading"],
+                )
+                self.assertEqual(sum(task_count for _, task_count in results), 1)
+            finally:
+                jobs.DB_PATH = original_db_path
+
     def test_failed_jobs_do_not_auto_repair(self) -> None:
         job = SimpleNamespace(status="failed", error=ANALYSIS_MISSING_MESSAGE)
 
@@ -303,17 +564,24 @@ class JobRecoveryTests(unittest.TestCase):
             finally:
                 jobs.DB_PATH = original_db_path
 
-    def test_create_source_job_replaces_retryable_failed_job_by_source(self) -> None:
+    def test_create_source_job_restarts_retryable_failed_job_by_source(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
             init_db(db_path)
             original_db_path = jobs.DB_PATH
             jobs.DB_PATH = db_path
             try:
+                audio_path = storage_root / "audio" / "retryable-source.m4a"
+                analysis_path = storage_root / "analysis" / "retryable-source.json"
+                log_path = storage_root / "logs" / "retryable-source-job.log"
+                for path in (audio_path, analysis_path, log_path):
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("stale", encoding="utf-8")
                 create_job(
                     db_path,
                     "retryable-source-job",
-                    "",
+                    "audio/retryable-source.m4a",
                     "analysis/retryable-source.json",
                     status="queued",
                     track_title="Original Title",
@@ -330,31 +598,41 @@ class JobRecoveryTests(unittest.TestCase):
                 )
 
                 background_tasks = BackgroundTasks()
-                response = _create_source_job(
-                    background_tasks,
-                    source_id="yt-retry",
-                    source_url="https://www.youtube.com/watch?v=yt-retry",
-                    source_provider="youtube",
-                    track_title="Different Title",
-                    track_artist="Different Artist",
-                )
+                with patch.object(jobs, "STORAGE_ROOT", storage_root):
+                    response = _create_source_job(
+                        background_tasks,
+                        source_id="yt-retry",
+                        source_url="https://www.youtube.com/watch?v=yt-retry",
+                        source_provider="youtube",
+                        track_title="Different Title",
+                        track_artist="Different Artist",
+                    )
 
                 self.assertEqual(response.status_code, 202)
                 payload = json.loads(response.body)
-                self.assertNotEqual(payload["id"], "retryable-source-job")
+                self.assertEqual(payload["id"], "retryable-source-job")
                 self.assertEqual(payload["status"], "downloading")
                 self.assertEqual(len(background_tasks.tasks), 1)
-                original = get_job(db_path, "retryable-source-job")
-                self.assertEqual(original.status, "failed")
+                restarted = get_job(db_path, "retryable-source-job")
+                self.assertEqual(restarted.status, "downloading")
+                self.assertEqual(restarted.input_path, "")
+                self.assertIsNone(restarted.error)
+                self.assertEqual(restarted.progress, 0)
+                self.assertFalse(audio_path.exists())
+                self.assertFalse(analysis_path.exists())
+                self.assertFalse(log_path.exists())
+                with patch.object(jobs_runtime_module, "STORAGE_ROOT", storage_root):
+                    self.assertFalse(jobs_runtime_module.should_recycle_job(restarted))
                 with sqlite3.connect(db_path) as conn:
                     row = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
-                self.assertEqual(row[0], 2)
+                self.assertEqual(row[0], 1)
             finally:
                 jobs.DB_PATH = original_db_path
 
-    def test_create_source_job_replaces_retryable_failed_job_by_track(self) -> None:
+    def test_create_source_job_restarts_retryable_failed_job_by_track(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
             init_db(db_path)
             original_db_path = jobs.DB_PATH
             jobs.DB_PATH = db_path
@@ -379,31 +657,89 @@ class JobRecoveryTests(unittest.TestCase):
                 )
 
                 background_tasks = BackgroundTasks()
-                response = _create_source_job(
-                    background_tasks,
-                    source_id="yt-track",
-                    source_url="https://www.youtube.com/watch?v=yt-track",
-                    source_provider="youtube",
-                    track_title="Song",
-                    track_artist="Artist",
-                )
+                with patch.object(jobs, "STORAGE_ROOT", storage_root):
+                    response = _create_source_job(
+                        background_tasks,
+                        source_id="yt-track",
+                        source_url="https://www.youtube.com/watch?v=yt-track",
+                        source_provider="youtube",
+                        track_title="Song",
+                        track_artist="Artist",
+                    )
 
                 self.assertEqual(response.status_code, 202)
                 payload = json.loads(response.body)
-                self.assertNotEqual(payload["id"], "retryable-track-job")
+                self.assertEqual(payload["id"], "retryable-track-job")
                 self.assertEqual(payload["status"], "downloading")
                 self.assertEqual(len(background_tasks.tasks), 1)
-                original = get_job(db_path, "retryable-track-job")
-                self.assertEqual(original.status, "failed")
+                restarted = get_job(db_path, "retryable-track-job")
+                self.assertEqual(restarted.status, "downloading")
                 with sqlite3.connect(db_path) as conn:
                     row = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
-                self.assertEqual(row[0], 2)
+                self.assertEqual(row[0], 1)
             finally:
                 jobs.DB_PATH = original_db_path
 
-    def test_by_source_lookup_treats_retryable_failed_job_as_missing(self) -> None:
+    def test_concurrent_source_retries_schedule_one_download(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
+            init_db(db_path)
+            original_db_path = jobs.DB_PATH
+            jobs.DB_PATH = db_path
+            try:
+                create_job(
+                    db_path,
+                    "retryable-race-job",
+                    "",
+                    "analysis/retryable-race.json",
+                    status="queued",
+                    source_id="yt-race-retry",
+                    source_provider="youtube",
+                    source_url="https://www.youtube.com/watch?v=yt-race-retry",
+                )
+                set_job_status(
+                    db_path,
+                    "retryable-race-job",
+                    "failed",
+                    "ERROR: Unable to download video data.",
+                )
+
+                def retry_job() -> tuple[dict, int]:
+                    background_tasks = BackgroundTasks()
+                    response = _create_source_job(
+                        background_tasks,
+                        source_id="yt-race-retry",
+                        source_url="https://www.youtube.com/watch?v=yt-race-retry",
+                        source_provider="youtube",
+                        track_title=None,
+                        track_artist=None,
+                    )
+                    return json.loads(response.body), len(background_tasks.tasks)
+
+                with (
+                    patch.object(jobs, "STORAGE_ROOT", storage_root),
+                    ThreadPoolExecutor(max_workers=2) as executor,
+                ):
+                    results = list(executor.map(lambda _: retry_job(), range(2)))
+
+                self.assertEqual(
+                    [payload["id"] for payload, _ in results],
+                    ["retryable-race-job", "retryable-race-job"],
+                )
+                self.assertEqual([payload["status"] for payload, _ in results], ["downloading"] * 2)
+                self.assertEqual(sum(task_count for _, task_count in results), 1)
+                self.assertEqual(get_job(db_path, "retryable-race-job").status, "downloading")
+                with sqlite3.connect(db_path) as conn:
+                    row = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
+                self.assertEqual(row[0], 1)
+            finally:
+                jobs.DB_PATH = original_db_path
+
+    def test_by_source_lookup_restarts_retryable_failed_job(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
             init_db(db_path)
             original_db_path = jobs.DB_PATH
             jobs.DB_PATH = db_path
@@ -426,11 +762,18 @@ class JobRecoveryTests(unittest.TestCase):
                 )
 
                 background_tasks = BackgroundTasks()
-                with self.assertRaises(jobs.HTTPException) as raised:
-                    jobs.get_job_by_source_route("youtube", "yt-lookup", background_tasks)
+                with patch.object(jobs, "STORAGE_ROOT", storage_root):
+                    response = jobs.get_job_by_source_route(
+                        "youtube",
+                        "yt-lookup",
+                        background_tasks,
+                    )
 
-                self.assertEqual(raised.exception.status_code, 404)
-                self.assertEqual(len(background_tasks.tasks), 0)
+                self.assertEqual(response.status_code, 202)
+                payload = json.loads(response.body)
+                self.assertEqual(payload["id"], "retryable-lookup-job")
+                self.assertEqual(payload["status"], "downloading")
+                self.assertEqual(len(background_tasks.tasks), 1)
             finally:
                 jobs.DB_PATH = original_db_path
 
@@ -492,9 +835,10 @@ class JobRecoveryTests(unittest.TestCase):
                 self.assertEqual(item["source_id"], "yt-top-id")
                 self.assertEqual(item["source_provider"], "youtube")
 
-    def test_by_track_lookup_treats_retryable_failed_job_as_missing(self) -> None:
+    def test_by_track_lookup_restarts_retryable_failed_job(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
             init_db(db_path)
             original_db_path = jobs.DB_PATH
             jobs.DB_PATH = db_path
@@ -519,17 +863,25 @@ class JobRecoveryTests(unittest.TestCase):
                 )
 
                 background_tasks = BackgroundTasks()
-                with self.assertRaises(jobs.HTTPException) as raised:
-                    jobs.get_job_by_track_match(background_tasks, title="Song", artist="Artist")
+                with patch.object(jobs, "STORAGE_ROOT", storage_root):
+                    response = jobs.get_job_by_track_match(
+                        background_tasks,
+                        title="Song",
+                        artist="Artist",
+                    )
 
-                self.assertEqual(raised.exception.status_code, 404)
-                self.assertEqual(len(background_tasks.tasks), 0)
+                self.assertEqual(response.status_code, 202)
+                payload = json.loads(response.body)
+                self.assertEqual(payload["id"], "retryable-track-lookup-job")
+                self.assertEqual(payload["status"], "downloading")
+                self.assertEqual(len(background_tasks.tasks), 1)
             finally:
                 jobs.DB_PATH = original_db_path
 
-    def test_url_start_replaces_retryable_failed_youtube_job_without_metadata_probe(self) -> None:
+    def test_url_start_restarts_retryable_failed_youtube_job_without_metadata_probe(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
             init_db(db_path)
             original_db_path = jobs.DB_PATH
             jobs.DB_PATH = db_path
@@ -554,6 +906,7 @@ class JobRecoveryTests(unittest.TestCase):
                 background_tasks = BackgroundTasks()
                 with (
                     patch.dict(os.environ, {"ALLOW_USER_URL": "true"}),
+                    patch.object(jobs, "STORAGE_ROOT", storage_root),
                     patch.object(jobs, "resolve_source_info", side_effect=AssertionError),
                 ):
                     response = jobs.create_analysis_url(
@@ -563,14 +916,81 @@ class JobRecoveryTests(unittest.TestCase):
 
                 self.assertEqual(response.status_code, 202)
                 payload = json.loads(response.body)
-                self.assertNotEqual(payload["id"], "retryable-url-job")
+                self.assertEqual(payload["id"], "retryable-url-job")
                 self.assertEqual(payload["status"], "downloading")
                 self.assertEqual(len(background_tasks.tasks), 1)
-                original = get_job(db_path, "retryable-url-job")
-                self.assertEqual(original.status, "failed")
+                restarted = get_job(db_path, "retryable-url-job")
+                self.assertEqual(restarted.status, "downloading")
                 with sqlite3.connect(db_path) as conn:
                     row = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()
-                self.assertEqual(row[0], 2)
+                self.assertEqual(row[0], 1)
+            finally:
+                jobs.DB_PATH = original_db_path
+
+    def test_original_job_id_poll_observes_retry_then_completion(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
+            init_db(db_path)
+            original_db_path = jobs.DB_PATH
+            jobs.DB_PATH = db_path
+            try:
+                create_job(
+                    db_path,
+                    "durable-job-id",
+                    "",
+                    "analysis/durable-job-id.json",
+                    status="queued",
+                    source_id="yt-durable",
+                    source_provider="youtube",
+                    source_url="https://www.youtube.com/watch?v=yt-durable",
+                )
+                set_job_status(
+                    db_path,
+                    "durable-job-id",
+                    "failed",
+                    "ERROR: Unable to download video data.",
+                )
+
+                retry_tasks = BackgroundTasks()
+                with patch.object(jobs, "STORAGE_ROOT", storage_root):
+                    retry_response = _create_source_job(
+                        retry_tasks,
+                        source_id="yt-durable",
+                        source_url="https://www.youtube.com/watch?v=yt-durable",
+                        source_provider="youtube",
+                        track_title=None,
+                        track_artist=None,
+                    )
+                    poll_tasks = BackgroundTasks()
+                    polling_response = jobs.get_analysis("durable-job-id", poll_tasks)
+
+                    audio_path = storage_root / "audio" / "durable-job-id.m4a"
+                    analysis_path = storage_root / "analysis" / "durable-job-id.json"
+                    audio_path.parent.mkdir(parents=True, exist_ok=True)
+                    analysis_path.parent.mkdir(parents=True, exist_ok=True)
+                    audio_path.write_bytes(b"audio")
+                    analysis_path.write_text(
+                        json.dumps({"track": {"title": "Durable"}}),
+                        encoding="utf-8",
+                    )
+                    update_job_input_path(
+                        db_path,
+                        "durable-job-id",
+                        "audio/durable-job-id.m4a",
+                    )
+                    set_job_status(db_path, "durable-job-id", "complete", None)
+                    completed_response = jobs.get_analysis(
+                        "durable-job-id",
+                        BackgroundTasks(),
+                    )
+
+                self.assertEqual(json.loads(retry_response.body)["id"], "durable-job-id")
+                self.assertEqual(json.loads(polling_response.body)["status"], "downloading")
+                self.assertEqual(len(poll_tasks.tasks), 0)
+                completed_payload = json.loads(completed_response.body)
+                self.assertEqual(completed_payload["id"], "durable-job-id")
+                self.assertEqual(completed_payload["status"], "complete")
             finally:
                 jobs.DB_PATH = original_db_path
 
