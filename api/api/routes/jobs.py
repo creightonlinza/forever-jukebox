@@ -457,6 +457,19 @@ def get_analysis(job_id: str, background_tasks: BackgroundTasks) -> JSONResponse
     return _response_with_auto_repair(job, background_tasks)
 
 
+@router.post("/api/jobs/{job_id}/retry", responses=error_responses(404))
+def retry_job_by_id(job_id: str, background_tasks: BackgroundTasks) -> JSONResponse:
+    job = get_job(DB_PATH, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND_DETAIL)
+    job = _restart_retryable_failed_job(
+        job,
+        background_tasks,
+        match="by_job_id",
+    )
+    return _response_with_auto_repair(job, background_tasks)
+
+
 @router.post("/api/analysis/youtube", responses=error_responses(400, 422))
 def create_analysis_youtube(
     background_tasks: BackgroundTasks,

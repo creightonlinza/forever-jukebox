@@ -10,6 +10,7 @@ import {
   fetchRecentSongs,
   fetchAppConfig,
   fetchFavoritesSync,
+  retryJob,
   updateFavoritesSync,
   fetchJobByTrack,
   fetchJobBySource,
@@ -89,6 +90,24 @@ describe("api", () => {
   it("throws on non-ok response", async () => {
     (fetch as any).mockResolvedValue(createResponse(500, {}, false));
     await expect(fetchAnalysis("err")).rejects.toThrow("Request failed");
+  });
+
+  it("retries a job by id", async () => {
+    (fetch as any).mockResolvedValue(
+      createResponse(202, {
+        status: "downloading",
+        id: "job-retry",
+        source_provider: "soundcloud",
+      }),
+    );
+
+    const result = await retryJob("job-retry");
+
+    expect(result?.status).toBe("downloading");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/jobs/job-retry/retry",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("fetches top songs", async () => {

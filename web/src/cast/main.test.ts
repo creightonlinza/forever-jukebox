@@ -4,6 +4,7 @@ const doubles = vi.hoisted(() => {
   const fetchAnalysisMock = vi.fn();
   const fetchAudioMock = vi.fn();
   const recordPlayMock = vi.fn();
+  const retryJobMock = vi.fn();
   const parseCastTuningParamsMock = vi.fn();
   const applyCastTuningToEngineMock = vi.fn();
   const castAudioModeCapabilities = [
@@ -127,6 +128,7 @@ const doubles = vi.hoisted(() => {
     fetchAnalysisMock,
     fetchAudioMock,
     recordPlayMock,
+    retryJobMock,
     parseCastTuningParamsMock,
     applyCastTuningToEngineMock,
     castAudioModeCapabilities,
@@ -180,6 +182,7 @@ vi.mock("../app/api", () => ({
   fetchAnalysis: doubles.fetchAnalysisMock,
   fetchAudio: doubles.fetchAudioMock,
   recordPlay: doubles.recordPlayMock,
+  retryJob: doubles.retryJobMock,
 }));
 
 vi.mock("../app/format", () => ({
@@ -345,6 +348,7 @@ describe("cast receiver main", () => {
     doubles.fetchAnalysisMock.mockReset();
     doubles.fetchAudioMock.mockReset();
     doubles.recordPlayMock.mockReset();
+    doubles.retryJobMock.mockReset();
     doubles.parseCastTuningParamsMock.mockReset();
     doubles.parseCastTuningParamsMock.mockReturnValue(null);
     doubles.applyCastTuningToEngineMock.mockReset();
@@ -448,6 +452,124 @@ describe("cast receiver main", () => {
         highlightAnchorBranch: false,
         audioMode: "off",
       },
+    });
+  });
+
+  it("retries an initially failed job once, then polls passively to playback", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock
+      .mockResolvedValueOnce({
+        status: "failed",
+        id: jobId,
+        error: "Initial failure",
+      })
+      .mockResolvedValueOnce({
+        status: "complete",
+        id: jobId,
+        result: { track: { duration: 123 } },
+        track: { title: "Track", artist: "Artist", duration: 123 },
+      });
+    doubles.retryJobMock.mockResolvedValue({
+      status: "processing",
+      id: jobId,
+      progress: 10,
+      message: "Restarted",
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks(20);
+
+    expect(doubles.fetchAnalysisMock).toHaveBeenCalledTimes(1);
+    expect(doubles.retryJobMock).toHaveBeenCalledTimes(1);
+    expect(doubles.retryJobMock).toHaveBeenCalledWith(jobId);
+    expect(document.querySelector("#cast-status")?.textContent).toBe(
+      "Restarted (10%)",
+    );
+
+    await vi.advanceTimersByTimeAsync(5100);
+    await flushMicrotasks();
+
+    expect(doubles.fetchAnalysisMock).toHaveBeenCalledTimes(2);
+    expect(doubles.retryJobMock).toHaveBeenCalledTimes(1);
+    expect(doubles.fetchAudioMock).toHaveBeenCalledWith(jobId);
+    expect(doubles.engineInstances[0]?.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits the existing error when the backend rejects the retry", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "failed",
+      id: jobId,
+      error: "Retry is not allowed",
+      error_code: "retry_rejected",
+    });
+    doubles.retryJobMock.mockResolvedValue({
+      status: "failed",
+      id: jobId,
+      error: "Retry is not allowed",
+      error_code: "retry_rejected",
+    });
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks(30);
+
+    expect(doubles.fetchAnalysisMock).toHaveBeenCalledTimes(1);
+    expect(doubles.retryJobMock).toHaveBeenCalledTimes(1);
+    expect(doubles.fetchAudioMock).not.toHaveBeenCalled();
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[
+        harness.sendCustomMessage.mock.calls.length - 1
+      ];
+    expect(statusCall?.[2]).toMatchObject({
+      type: "status",
+      jobId: null,
+      error: "Retry is not allowed",
+      errorCode: "retry_rejected",
+      playbackState: "error",
+    });
+  });
+
+  it("does not retry a failure returned by passive polling", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock
+      .mockResolvedValueOnce({
+        status: "processing",
+        id: jobId,
+        progress: 25,
+      })
+      .mockResolvedValueOnce({
+        status: "failed",
+        id: jobId,
+        error: "Polling failed",
+        error_code: "analysis_failed",
+      });
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(3000);
+    await flushMicrotasks(30);
+
+    expect(doubles.fetchAnalysisMock).toHaveBeenCalledTimes(2);
+    expect(doubles.retryJobMock).not.toHaveBeenCalled();
+    expect(doubles.fetchAudioMock).not.toHaveBeenCalled();
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[
+        harness.sendCustomMessage.mock.calls.length - 1
+      ];
+    expect(statusCall?.[2]).toMatchObject({
+      type: "status",
+      jobId: null,
+      error: "Polling failed",
+      errorCode: "analysis_failed",
+      playbackState: "error",
     });
   });
 

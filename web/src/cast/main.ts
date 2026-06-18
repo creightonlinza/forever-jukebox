@@ -7,7 +7,7 @@ import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOver
 import { JukeboxEngine } from "@forever-jukebox/engine";
 import type { JukeboxConfig } from "@forever-jukebox/engine/types";
 import { JukeboxViz } from "@forever-jukebox/engine/viz/JukeboxViz";
-import { fetchAnalysis, fetchAudio, recordPlay } from "../app/api";
+import { fetchAnalysis, fetchAudio, recordPlay, retryJob } from "../app/api";
 import { formatErrorForDisplay } from "../app/errorDisplay";
 import { formatDuration } from "../app/format";
 import {
@@ -297,13 +297,17 @@ async function pollAnalysis(
   statusEl: HTMLElement,
   token: number,
   state: CastState,
+  initialResponse?: Awaited<ReturnType<typeof fetchAnalysis>>,
 ) {
   const intervalMs = 3000;
+  let response = initialResponse;
   while (true) {
     if (token !== state.loadToken) {
       throw new Error("Load cancelled");
     }
-    const response = await fetchAnalysis(jobId);
+    if (response === undefined) {
+      response = await fetchAnalysis(jobId);
+    }
     if (!response) {
       throw new Error("Analysis not found");
     }
@@ -332,6 +336,7 @@ async function pollAnalysis(
       progress === null ? message : `${message} (${progress}%)`,
     );
     await sleep(intervalMs);
+    response = undefined;
   }
 }
 
@@ -342,7 +347,20 @@ async function loadAnalysis(
   state: CastState,
 ): Promise<Awaited<ReturnType<typeof fetchAnalysis>>> {
   setStatus(statusEl, "Loading analysis");
-  const analysis = await pollAnalysis(jobId, statusEl, token, state);
+  let initialResponse = await fetchAnalysis(jobId);
+  if (token !== state.loadToken) {
+    throw new Error("Load cancelled");
+  }
+  if (initialResponse?.status === "failed") {
+    initialResponse = await retryJob(jobId);
+  }
+  const analysis = await pollAnalysis(
+    jobId,
+    statusEl,
+    token,
+    state,
+    initialResponse,
+  );
   if (analysis?.status !== "complete" || !analysis.id) {
     throw new Error("Analysis lookup failed");
   }
