@@ -30,7 +30,8 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
     "--border-control": "#3B465B",
 
     // Visualizer
-    "--viz-bg": "radial-gradient(circle at 50% 50%, #232B3D 0%, #0F1115 70%)",
+    "--viz-bg":
+      "radial-gradient(circle closest-side at 50% 50%, #232B3D 0%, #0F1115 100%)",
     "--viz-shadow": "rgba(74, 199, 255, 0.14)",
     "--viz-overlay": "rgba(10, 12, 16, 0.6)",
 
@@ -69,7 +70,8 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
     "--border-control": "rgba(96, 56, 152, 0.34)",
 
     // Visualizer
-    "--viz-bg": "radial-gradient(circle at 50% 50%, #D9C3FF 0%, #F6F1FF 70%)",
+    "--viz-bg":
+      "radial-gradient(circle closest-side at 50% 50%, #D9C3FF 0%, #F6F1FF 100%)",
     "--viz-shadow": "rgba(101, 52, 168, 0.24)",
     "--viz-overlay": "rgba(250, 246, 255, 0.74)",
 
