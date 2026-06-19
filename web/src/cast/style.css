@@ -31,7 +31,7 @@ body {
   --border-panel: #283142;
   --border-hero: #2b3442;
   --border-control: #3b465b;
-  --viz-bg: radial-gradient(circle at 50% 50%, #232b3d 0%, #0f1115 70%);
+  --viz-bg: radial-gradient(circle closest-side at 50% 50%, #232b3d 0%, #0f1115 100%);
   --viz-shadow: rgba(74, 199, 255, 0.14);
   --viz-overlay: rgba(10, 12, 16, 0.6);
   --edge-stroke: rgba(74, 199, 255, 0.5);
