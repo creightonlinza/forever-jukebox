@@ -177,7 +177,7 @@ export function initializePlayback(): void {
       if (useAppStore.getState().playMode !== "autocanonizer") {
         return;
       }
-      startAutocanonizerPlayback(context, index);
+      startAutocanonizerPlayback(context, index, { resetSession: false });
     });
 
     engine.onUpdate((engineState) => {

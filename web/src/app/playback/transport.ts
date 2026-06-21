@@ -241,7 +241,9 @@ export function startAutocanonizerPlayback(
     autocanonizer.resetVisualization();
   }
   autocanonizer.startAtIndex(index);
-  useAppStore.setState({ lastPlayStamp: performance.now() });
+  if (resetSession || !useAppStore.getState().isRunning) {
+    useAppStore.setState({ lastPlayStamp: performance.now() });
+  }
   useAppStore.setState({ isRunning: true });
   useAppStore.setState({ isPaused: false });
   startListenTimer();

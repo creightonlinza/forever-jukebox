@@ -813,7 +813,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (playModeRef.current !== "autocanonizer") {
         return;
       }
-      startAutocanonizerPlayback(index);
+      startAutocanonizerPlayback(index, { resetSession: false });
     });
 
     const resizeObserver = new ResizeObserver(() => {
@@ -1609,7 +1609,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       autocanonizer.resetVisualization();
     }
     autocanonizer.startAtIndex(index);
-    lastPlayStampRef.current = performance.now();
+    if (resetSession || !isRunningRef.current) {
+      lastPlayStampRef.current = performance.now();
+    }
     isRunningRef.current = true;
     isPausedRef.current = false;
     setIsRunning(true);
