@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   DEFAULT_SEARCH_HINT,
@@ -79,6 +79,7 @@ describe("SearchPanel", () => {
       });
     });
     render(<SearchPanel />);
+    expect(screen.getByText("3:20")).toBeTruthy();
     await userEvent.click(screen.getByText("Song — Artist"));
     expect(h.selectSpotify).toHaveBeenCalledWith({
       name: "Song",
@@ -152,6 +153,9 @@ describe("SearchPanel", () => {
     render(<SearchPanel />);
     const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
     expect(openLink.href).toBe("https://www.youtube.com/watch?v=yt-match");
+    expect(openLink.rel).toBe("noreferrer");
+    expect(openLink.getAttribute("aria-label")).toBe("Open on YouTube");
+    expect(screen.getByText("2:03")).toBeTruthy();
     // no playlist add controls in search results
     expect(document.querySelectorAll(".playlist-add-button")).toHaveLength(0);
     await userEvent.click(openLink);
@@ -163,6 +167,70 @@ describe("SearchPanel", () => {
       artist: "Artist",
       duration: 123,
     });
+  });
+
+  it("loads the youtube thumbnail only while the open link is hovered", async () => {
+    act(() => {
+      useAppStore.setState({
+        searchResults: {
+          kind: "youtube",
+          items: [
+            {
+              item: { id: "yt-match", title: "Match", duration: 123 },
+              name: "Song",
+              artist: "Artist",
+            },
+          ],
+        },
+      });
+    });
+    render(<SearchPanel />);
+    const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
+
+    expect(document.querySelector(".search-thumbnail img")).toBeNull();
+    await userEvent.hover(openLink);
+
+    const thumbnail = document.querySelector(
+      ".search-thumbnail img",
+    ) as HTMLImageElement;
+    expect(thumbnail.src).toBe(
+      "https://i.ytimg.com/vi/yt-match/hqdefault.jpg",
+    );
+    expect(thumbnail.getAttribute("referrerpolicy")).toBe("no-referrer");
+
+    await userEvent.unhover(openLink);
+    expect(document.querySelector(".search-thumbnail img")).toBeNull();
+  });
+
+  it("shows the youtube thumbnail on keyboard focus and hides failed images", async () => {
+    act(() => {
+      useAppStore.setState({
+        searchResults: {
+          kind: "youtube",
+          items: [
+            {
+              item: { id: "yt-match", title: "Match", duration: 123 },
+              name: "Song",
+              artist: "Artist",
+            },
+          ],
+        },
+      });
+    });
+    render(<SearchPanel />);
+    const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
+
+    fireEvent.focus(openLink);
+    const thumbnail = document.querySelector(
+      ".search-thumbnail img",
+    ) as HTMLImageElement;
+    expect(thumbnail).not.toBeNull();
+
+    fireEvent.error(thumbnail);
+    expect(document.querySelector(".search-thumbnail img")).toBeNull();
+
+    fireEvent.blur(openLink);
+    expect(document.querySelector(".search-thumbnail img")).toBeNull();
   });
 
   it("shows upload sections per app config and submits a URL", async () => {

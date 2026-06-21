@@ -16,7 +16,14 @@ export function formatTrackDuration(seconds: unknown) {
   if (typeof seconds !== "number" || Number.isNaN(seconds)) {
     return "-";
   }
-  return formatDuration(seconds);
+  const totalSeconds = Math.floor(seconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = String(totalSeconds % 60).padStart(2, "0");
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${secs}`;
+  }
+  return `${minutes}:${secs}`;
 }
 
 export function formatAudioModeLabel(audioMode: JukeboxAudioMode) {

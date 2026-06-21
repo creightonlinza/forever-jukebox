@@ -1846,6 +1846,7 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 }
 
 .search-open {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1865,6 +1866,29 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
     "opsz" 20;
   font-size: 18px;
   line-height: 1;
+}
+
+.search-thumbnail {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 10;
+  display: block;
+  width: min(320px, 70vw);
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--surface);
+  border: 1px solid var(--border-panel);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 28%);
+}
+
+.search-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .play-title {

@@ -26,6 +26,58 @@ function youtubeResultKey(
   return item.id ?? `${name}\u0000${artist}\u0000${item.title ?? ""}\u0000${duration}`;
 }
 
+function YoutubeOpenLink({ youtubeId }: { youtubeId: string }) {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+  const showThumbnail = (hovered || focused) && !thumbnailFailed;
+
+  const showPreview = () => {
+    setThumbnailFailed(false);
+  };
+
+  return (
+    <a
+      className="search-open"
+      href={`https://www.youtube.com/watch?v=${encodeURIComponent(youtubeId)}`}
+      target="_blank"
+      rel="noreferrer"
+      title="Open on YouTube"
+      aria-label="Open on YouTube"
+      onMouseEnter={() => {
+        showPreview();
+        setHovered(true);
+      }}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => {
+        showPreview();
+        setFocused(true);
+      }}
+      onBlur={() => setFocused(false)}
+      onClick={(event) => {
+        event.stopPropagation();
+      }}
+    >
+      <span
+        className="material-symbols-outlined search-open-icon"
+        aria-hidden="true"
+      >
+        open_in_new
+      </span>
+      {showThumbnail ? (
+        <span className="search-thumbnail" aria-hidden="true">
+          <img
+            src={`https://i.ytimg.com/vi/${encodeURIComponent(youtubeId)}/hqdefault.jpg`}
+            alt=""
+            referrerPolicy="no-referrer"
+            onError={() => setThumbnailFailed(true)}
+          />
+        </span>
+      ) : null}
+    </a>
+  );
+}
+
 function SearchResults() {
   const results = useAppStore((s) => s.searchResults);
   if (results.kind === "message") {
@@ -94,25 +146,7 @@ function SearchResults() {
                   <span>{formatTrackDuration(item.duration)}</span>
                 </button>
                 <span className="search-meta">
-                  {item.id ? (
-                    <a
-                      className="search-open"
-                      href={`https://www.youtube.com/watch?v=${encodeURIComponent(String(item.id))}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Open on YouTube"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                      }}
-                    >
-                      <span
-                        className="material-symbols-outlined search-open-icon"
-                        aria-hidden="true"
-                      >
-                        open_in_new
-                      </span>
-                    </a>
-                  ) : null}
+                  {item.id ? <YoutubeOpenLink youtubeId={youtubeId} /> : null}
                 </span>
               </div>
             </li>
