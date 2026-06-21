@@ -19,6 +19,11 @@ const DURATION_WEIGHT = 100;
 const CONFIDENCE_WEIGHT = 1;
 const VOLUME_WINDOW = 20;
 
+export type AutocanonizerCursorTimes = {
+  mainSeconds: number;
+  otherSeconds: number;
+};
+
 class AutocanonizerPlayer {
   private readonly context: AudioContext;
   private buffer: AudioBuffer;
@@ -26,6 +31,9 @@ class AutocanonizerPlayer {
   private readonly otherGain: GainNode;
   private readonly masterBlend: number;
   private baseVolume = 0.5;
+  private mainStreamVolume = 1;
+  private otherStreamVolume = 1;
+  private otherBeatGain = 1;
 
   private currentBeat: CanonizerBeat | null = null;
   private mainSource: AudioBufferSourceNode | null = null;
@@ -52,6 +60,12 @@ class AutocanonizerPlayer {
 
   setVolume(volume: number) {
     this.baseVolume = Math.max(0, Math.min(1, volume));
+    this.applyGains();
+  }
+
+  setStreamVolumes(main: number, other: number) {
+    this.mainStreamVolume = clampVolume(main);
+    this.otherStreamVolume = clampVolume(other);
     this.applyGains();
   }
 
@@ -114,8 +128,8 @@ class AutocanonizerPlayer {
     const delta = now - beat.start;
     const clampedOtherGain = Math.max(0, Math.min(1, beat.otherGain));
 
-    this.otherGain.gain.value =
-      this.baseVolume * (1 - this.masterBlend) * clampedOtherGain;
+    this.otherBeatGain = clampedOtherGain;
+    this.applyOtherGain();
     if (
       this.currentBeat?.other.next !== beat.other ||
       Math.abs(this.skewDelta) > this.maxSkewDelta
@@ -142,8 +156,8 @@ class AutocanonizerPlayer {
       void this.context.resume();
     }
     const clampedOtherGain = Math.max(0, Math.min(1, beat.otherGain));
-    this.otherGain.gain.value =
-      this.baseVolume * (1 - this.masterBlend) * clampedOtherGain;
+    this.otherBeatGain = clampedOtherGain;
+    this.applyOtherGain();
     if (this.currentBeat?.other.next !== beat) {
       if (this.otherSource) {
         this.otherSource.stop();
@@ -167,8 +181,17 @@ class AutocanonizerPlayer {
   }
 
   private applyGains() {
-    this.mainGain.gain.value = this.baseVolume * this.masterBlend;
-    this.otherGain.gain.value = this.baseVolume * (1 - this.masterBlend);
+    this.mainGain.gain.value =
+      this.baseVolume * this.masterBlend * this.mainStreamVolume;
+    this.applyOtherGain();
+  }
+
+  private applyOtherGain() {
+    this.otherGain.gain.value =
+      this.baseVolume *
+      (1 - this.masterBlend) *
+      this.otherStreamVolume *
+      this.otherBeatGain;
   }
 }
 
@@ -182,7 +205,15 @@ export class AutocanonizerController {
   private secondaryIndex = 0;
   private finishOutSong = false;
   private currentIndex = 0;
-  private onBeat: ((index: number, beat: CanonizerBeat) => void) | null = null;
+  private mainStreamVolume = 1;
+  private otherStreamVolume = 1;
+  private onBeat:
+    | ((
+        index: number,
+        beat: CanonizerBeat,
+        cursorTimes: AutocanonizerCursorTimes,
+      ) => void)
+    | null = null;
   private onEnded: (() => void) | null = null;
   private onSelect: ((index: number) => void) | null = null;
 
@@ -202,7 +233,15 @@ export class AutocanonizerController {
     this.viz.resizeNow();
   }
 
-  setOnBeat(handler: ((index: number, beat: CanonizerBeat) => void) | null) {
+  setOnBeat(
+    handler:
+      | ((
+          index: number,
+          beat: CanonizerBeat,
+          cursorTimes: AutocanonizerCursorTimes,
+        ) => void)
+      | null,
+  ) {
     this.onBeat = handler;
   }
 
@@ -224,10 +263,23 @@ export class AutocanonizerController {
     }
   }
 
+  setStreamVolumes(main: number, other: number) {
+    this.mainStreamVolume = clampVolume(main);
+    this.otherStreamVolume = clampVolume(other);
+    this.player?.setStreamVolumes(
+      this.mainStreamVolume,
+      this.otherStreamVolume,
+    );
+  }
+
   setAudio(buffer: AudioBuffer | null, context: AudioContext | null) {
     if (buffer && context) {
       if (!this.player) {
         this.player = new AutocanonizerPlayer(context, buffer);
+        this.player.setStreamVolumes(
+          this.mainStreamVolume,
+          this.otherStreamVolume,
+        );
       } else {
         this.player.setBuffer(buffer);
       }
@@ -358,7 +410,10 @@ export class AutocanonizerController {
     const isFinal = this.currentIndex === this.beats.length - 1;
     const delay = this.player.playBeat(beat);
     this.viz.update(this.currentIndex);
-    this.onBeat?.(this.currentIndex, beat);
+    this.onBeat?.(this.currentIndex, beat, {
+      mainSeconds: beat.start,
+      otherSeconds: beat.other.start,
+    });
     if (isFinal) {
       if (this.finishOutSong) {
         this.secondaryOnly = true;
@@ -390,11 +445,21 @@ export class AutocanonizerController {
     const beat = this.beats[this.secondaryIndex];
     const delay = this.player.playOtherOnly(beat);
     this.viz.setOtherIndex(this.secondaryIndex);
-    this.onBeat?.(this.secondaryIndex, beat);
+    this.onBeat?.(this.secondaryIndex, beat, {
+      mainSeconds: this.beats[this.beats.length - 1]?.start ?? 0,
+      otherSeconds: beat.start,
+    });
     this.secondaryIndex += 1;
     const nextDelayMs = Math.max(0, delay * 1000);
     this.timerId = backgroundSetTimeout(() => this.tickSecondary(), nextDelayMs);
   }
+}
+
+function clampVolume(volume: number) {
+  if (!Number.isFinite(volume)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, volume));
 }
 
 function getSectionIndex(beat: QuantumBase) {

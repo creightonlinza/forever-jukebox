@@ -54,8 +54,12 @@ export function stopPlayback(context: AppContext) {
   engine.resetStats();
   useAppStore.setState({ playTimerMs: 0 });
   useAppStore.setState({ lastPlayStamp: null });
-  useAppStore.setState({ lastBeatIndex: null });
-  useAppStore.setState({ beatsPlayedText: "0" });
+  useAppStore.setState({
+    lastBeatIndex: null,
+    beatsPlayedText: "0",
+    autocanonizerMainSeconds: 0,
+    autocanonizerOtherSeconds: 0,
+  });
   jukebox?.reset();
   useAppStore.setState({ isRunning: false });
   useAppStore.setState({ isPaused: false });
@@ -125,6 +129,10 @@ export function startJukeboxPlayback(context: AppContext, resetSession: boolean)
     updateListenTimeDisplay();
     useAppStore.setState({ beatsPlayedText: "0" });
     useAppStore.setState({ lastBeatIndex: null });
+    useAppStore.setState({
+      autocanonizerMainSeconds: 0,
+      autocanonizerOtherSeconds: 0,
+    });
     jukebox.reset();
     pulseVizStats();
   } else {

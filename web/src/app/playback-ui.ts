@@ -148,9 +148,13 @@ export function initializePlayback(): void {
       stopPlayback(context);
     });
 
-    autocanonizer.setOnBeat((index) => {
-      useAppStore.setState({ beatsPlayedText: `${index + 1}` });
-      useAppStore.setState({ lastBeatIndex: index });
+    autocanonizer.setOnBeat((index, _beat, cursorTimes) => {
+      useAppStore.setState({
+        beatsPlayedText: `${index + 1}`,
+        lastBeatIndex: index,
+        autocanonizerMainSeconds: cursorTimes.mainSeconds,
+        autocanonizerOtherSeconds: cursorTimes.otherSeconds,
+      });
     });
     autocanonizer.setOnEnded(() => {
       if (!useAppStore.getState().isRunning) {
@@ -499,7 +503,11 @@ export function setPlayMode(mode: "jukebox" | "autocanonizer"): void {
       stopPlayback(context);
     }
     context.cowbellOverlay.cancelScheduledHits();
-    useAppStore.setState({ playMode: mode });
+    useAppStore.setState({
+      playMode: mode,
+      autocanonizerMainSeconds: 0,
+      autocanonizerOtherSeconds: 0,
+    });
     if (mode !== "jukebox") {
       // The extras tab disappears outside jukebox mode, so force the stored
       // tab back to "tuning".

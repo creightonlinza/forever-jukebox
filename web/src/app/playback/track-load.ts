@@ -173,7 +173,11 @@ export function resetForNewTrack(
   updateVizVisibility();
   useAppStore.setState({ playTimerMs: 0 });
   useAppStore.setState({ lastPlayStamp: null });
-  useAppStore.setState({ lastBeatIndex: null });
+  useAppStore.setState({
+    lastBeatIndex: null,
+    autocanonizerMainSeconds: 0,
+    autocanonizerOtherSeconds: 0,
+  });
   updateListenTimeDisplay();
   useAppStore.setState({ beatsPlayedText: "0" });
   closeTuning();

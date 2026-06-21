@@ -19,6 +19,11 @@ const mockAppState = {
 
 type MockAutocanonizerInstance = {
   setFinishOutSong: ReturnType<typeof vi.fn>;
+  setStreamVolumes: ReturnType<typeof vi.fn>;
+  emitBeat: (
+    index: number,
+    cursorTimes: { mainSeconds: number; otherSeconds: number },
+  ) => void;
 };
 
 const autocanonizerInstances: MockAutocanonizerInstance[] = [];
@@ -311,7 +316,13 @@ vi.mock("@forever-jukebox/engine/viz/JukeboxController", () => ({
 
 vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => ({
   AutocanonizerController: class AutocanonizerController {
-    private onBeat: ((index: number) => void) | null = null;
+    private onBeat:
+      | ((
+          index: number,
+          beat: unknown,
+          cursorTimes: { mainSeconds: number; otherSeconds: number },
+        ) => void)
+      | null = null;
     private onEnded: (() => void) | null = null;
     setFinishOutSong = vi.fn((_enabled: boolean) => undefined);
     constructor(_layer: HTMLElement) {
@@ -319,7 +330,15 @@ vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => (
     }
     setVisible = vi.fn((_visible: boolean) => undefined);
     resizeNow = vi.fn();
-    setOnBeat(handler: ((index: number) => void) | null) {
+    setOnBeat(
+      handler:
+        | ((
+            index: number,
+            beat: unknown,
+            cursorTimes: { mainSeconds: number; otherSeconds: number },
+          ) => void)
+        | null,
+    ) {
       this.onBeat = handler;
     }
     setOnEnded(handler: (() => void) | null) {
@@ -327,6 +346,9 @@ vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => (
     }
     setOnSelect = vi.fn((_handler: ((index: number) => void) | null) => undefined);
     setVolume = vi.fn((_volume: number) => undefined);
+    setStreamVolumes = vi.fn(
+      (_mainVolume: number, _otherVolume: number) => undefined,
+    );
     setAudio = vi.fn(
       (_buffer: AudioBuffer | null, _context: AudioContext | null) => undefined,
     );
@@ -338,8 +360,14 @@ vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => (
       return true;
     }
     startAtIndex(index: number) {
-      this.onBeat?.(index);
+      this.onBeat?.(index, {}, { mainSeconds: index, otherSeconds: index });
       this.onEnded?.();
+    }
+    emitBeat(
+      index: number,
+      cursorTimes: { mainSeconds: number; otherSeconds: number },
+    ) {
+      this.onBeat?.(index, {}, cursorTimes);
     }
     stop = vi.fn();
     reset = vi.fn();
@@ -414,6 +442,17 @@ async function changeSelect(element: HTMLSelectElement, value: string) {
   await act(async () => {
     element.value = value;
     element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function changeRange(element: HTMLInputElement, value: string) {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(element, value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -548,12 +587,70 @@ describe("Listen route behavior", () => {
         span.textContent === "Total Beats:" && span.classList.contains("is-hidden")
     );
     expect(beatsLabelHidden).toBe(true);
+    const autocanonizer = autocanonizerInstances[0];
+    await act(async () => {
+      autocanonizer.emitBeat(1, {
+        mainSeconds: 62,
+        otherSeconds: 125,
+      });
+    });
+    expect(
+      getRequired(rendered.container, "#autocanonizer-main-time").textContent,
+    ).toBe("1:02");
+    expect(
+      getRequired(rendered.container, "#autocanonizer-other-time").textContent,
+    ).toBe("2:05");
+    expect(
+      getRequired(rendered.container, "#autocanonizer-total-time").textContent,
+    ).toBe("0:04");
 
     await changeSelect(modeSelect, "jukebox");
 
     expect(tuningButton.classList.contains("is-hidden")).toBe(false);
     expect(infoButton.classList.contains("is-hidden")).toBe(false);
     expect(playTitle?.textContent).toBe("song.wav");
+    await changeSelect(modeSelect, "autocanonizer");
+    expect(
+      getRequired(rendered.container, "#autocanonizer-main-time").textContent,
+    ).toBe("0:00");
+    expect(
+      getRequired(rendered.container, "#autocanonizer-other-time").textContent,
+    ).toBe("0:00");
+    rendered.unmount();
+  });
+
+  it("shows independent autocanonizer stream volumes in the volume popover", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    await changeSelect(
+      getRequired<HTMLSelectElement>(rendered.container, "#play-mode-select"),
+      "autocanonizer",
+    );
+    await click(getRequired(rendered.container, "#volume-button"));
+
+    const mainSlider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#autocanonizer-main-volume",
+    );
+    const otherSlider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#autocanonizer-other-volume",
+    );
+    expect(mainSlider.value).toBe("100");
+    expect(otherSlider.value).toBe("100");
+
+    await changeRange(mainSlider, "40");
+
+    expect(autocanonizerInstances[0].setStreamVolumes).toHaveBeenLastCalledWith(
+      0.4,
+      1,
+    );
+    expect(
+      getRequired(
+        rendered.container,
+        "#autocanonizer-main-volume-val",
+      ).textContent,
+    ).toBe("40");
     rendered.unmount();
   });
 

@@ -351,6 +351,10 @@ const createPlaybackSlice: Slice<
     | "playTimerMs"
     | "lastPlayStamp"
     | "lastBeatIndex"
+    | "autocanonizerMainSeconds"
+    | "autocanonizerOtherSeconds"
+    | "autocanonizerMainVolumePct"
+    | "autocanonizerOtherVolumePct"
     | "vizData"
     | "shiftBranching"
     | "bringItHomeMode"
@@ -366,6 +370,10 @@ const createPlaybackSlice: Slice<
   playTimerMs: 0,
   lastPlayStamp: null,
   lastBeatIndex: null,
+  autocanonizerMainSeconds: 0,
+  autocanonizerOtherSeconds: 0,
+  autocanonizerMainVolumePct: 100,
+  autocanonizerOtherVolumePct: 100,
   vizData: null,
   shiftBranching: false,
   bringItHomeMode: false,

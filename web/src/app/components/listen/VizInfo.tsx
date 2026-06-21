@@ -1,5 +1,9 @@
 import { useLayoutEffect, useRef } from "react";
-import { formatPlaybackTitle } from "../../format";
+import {
+  AUTOCANONIZER_MAIN_COLOR,
+  AUTOCANONIZER_OTHER_COLOR,
+} from "@forever-jukebox/engine/autocanonizer/AutocanonizerViz";
+import { formatCursorTime, formatPlaybackTitle } from "../../format";
 import { useMarquee } from "../../hooks/useMarquee";
 import { useAppStore } from "../../store";
 
@@ -11,9 +15,12 @@ export function VizInfo() {
   const playMode = useAppStore((s) => s.playMode);
   const audioMode = useAppStore((s) => s.jukeboxAudioMode);
   const bringItHomeMode = useAppStore((s) => s.bringItHomeMode);
+  const trackDurationSec = useAppStore((s) => s.trackDurationSec);
   const titleRef = useRef<HTMLDivElement | null>(null);
   const listenTimeRef = useRef<HTMLSpanElement | null>(null);
   const beatsPlayedRef = useRef<HTMLSpanElement | null>(null);
+  const mainCursorTimeRef = useRef<HTMLSpanElement | null>(null);
+  const otherCursorTimeRef = useRef<HTMLSpanElement | null>(null);
 
   // listenTimeText (~5Hz) and beatsPlayedText (engine-rate) change far too
   // often to drive React renders — each would re-run the title/marquee work
@@ -28,6 +35,16 @@ export function VizInfo() {
     if (beatsPlayedRef.current) {
       beatsPlayedRef.current.textContent = seed.beatsPlayedText;
     }
+    if (mainCursorTimeRef.current) {
+      mainCursorTimeRef.current.textContent = formatCursorTime(
+        seed.autocanonizerMainSeconds,
+      );
+    }
+    if (otherCursorTimeRef.current) {
+      otherCursorTimeRef.current.textContent = formatCursorTime(
+        seed.autocanonizerOtherSeconds,
+      );
+    }
     return useAppStore.subscribe((state, prev) => {
       if (
         state.listenTimeText !== prev.listenTimeText &&
@@ -40,6 +57,22 @@ export function VizInfo() {
         beatsPlayedRef.current
       ) {
         beatsPlayedRef.current.textContent = state.beatsPlayedText;
+      }
+      if (
+        state.autocanonizerMainSeconds !== prev.autocanonizerMainSeconds &&
+        mainCursorTimeRef.current
+      ) {
+        mainCursorTimeRef.current.textContent = formatCursorTime(
+          state.autocanonizerMainSeconds,
+        );
+      }
+      if (
+        state.autocanonizerOtherSeconds !== prev.autocanonizerOtherSeconds &&
+        otherCursorTimeRef.current
+      ) {
+        otherCursorTimeRef.current.textContent = formatCursorTime(
+          state.autocanonizerOtherSeconds,
+        );
       }
     });
   }, []);
@@ -66,6 +99,28 @@ export function VizInfo() {
     <>
       <div className="viz-title" id="viz-now-playing" ref={titleRef}></div>
       <div className="viz-meta">
+        <span
+          id="autocanonizer-times"
+          className={
+            isCanonizer ? "autocanonizer-times" : "autocanonizer-times is-hidden"
+          }
+        >
+          <span
+            id="autocanonizer-main-time"
+            ref={mainCursorTimeRef}
+            style={{ color: AUTOCANONIZER_MAIN_COLOR }}
+          ></span>
+          <span aria-hidden="true">–</span>
+          <span
+            id="autocanonizer-other-time"
+            ref={otherCursorTimeRef}
+            style={{ color: AUTOCANONIZER_OTHER_COLOR }}
+          ></span>
+          <span aria-hidden="true">/</span>
+          <span id="autocanonizer-total-time">
+            {formatCursorTime(trackDurationSec ?? 0)}
+          </span>
+        </span>
         <span className="viz-meta-stats">
           <span>Listen Time:</span>
           <span id="listen-time" ref={listenTimeRef}></span>
