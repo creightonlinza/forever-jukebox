@@ -46,7 +46,10 @@ test.describe("loading tracks into the Listen panel", () => {
     await expect(page.locator("#tuning-modal")).toHaveClass(/\bopen\b/);
     await expect(page.locator("#threshold")).toHaveValue("37");
     await expect(page.locator("#just-backwards")).toBeChecked();
-    await expect(page.locator("#just-long")).not.toBeChecked();
+    await expect(page.locator("#min-jump-distance")).toHaveValue("0");
+    await expect(page.locator("#min-jump-distance-val")).toHaveText(
+      "Any distance",
+    );
   });
 
   test("deep link by source id rewrites the URL to the job id", async ({

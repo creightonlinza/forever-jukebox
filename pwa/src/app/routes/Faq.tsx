@@ -104,7 +104,10 @@ export function Faq() {
           <li>
             Open the Tune panel to adjust thresholds and branch probability.
           </li>
-          <li>Use the checkboxes to allow or restrict certain branch types.</li>
+          <li>
+            Set a minimum jump distance to filter branches by beat distance
+            across the track, and use the checkboxes for other branch types.
+          </li>
           <li>Select a branch in the visualization and delete it.</li>
         </ul>
 

@@ -14,6 +14,19 @@ const LOUD_MAX_WEIGHT = 1;
 const DURATION_WEIGHT = 100;
 const CONFIDENCE_WEIGHT = 1;
 
+export const DEFAULT_MIN_LONG_BRANCH_PERCENT = 20;
+
+export function calculateMinLongBranch(
+  totalBeats: number,
+  percent = DEFAULT_MIN_LONG_BRANCH_PERCENT,
+): number {
+  const resolvedPercent =
+    Number.isFinite(percent) && percent > 0
+      ? Math.min(percent, 100)
+      : DEFAULT_MIN_LONG_BRANCH_PERCENT;
+  return Math.floor((Math.max(0, totalBeats) * resolvedPercent) / 100);
+}
+
 function euclideanDistance(v1: number[], v2: number[]): number {
   let sum = 0;
   for (let i = 0; i < v1.length; i += 1) {

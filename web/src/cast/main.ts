@@ -59,6 +59,7 @@ type CastStatus = {
 type CastTuningStatus = {
   justBackwards: boolean;
   justLongBranches: boolean;
+  minLongBranchPercent: number;
   removeSequentialBranches: boolean;
   threshold: number | null;
   computedThreshold: number | null;
@@ -504,6 +505,9 @@ async function bootstrap() {
     return {
       justBackwards: config.justBackwards,
       justLongBranches: config.justLongBranches,
+      minLongBranchPercent: config.justLongBranches
+        ? (config.minLongBranchPercent ?? 20)
+        : 0,
       removeSequentialBranches: config.removeSequentialBranches,
       threshold,
       computedThreshold,

@@ -1,5 +1,10 @@
 import { normalizeAnalysis } from "./analysis";
-import { buildJumpGraph, selectExistingAnchorSource } from "./graph";
+import {
+  buildJumpGraph,
+  calculateMinLongBranch,
+  DEFAULT_MIN_LONG_BRANCH_PERCENT,
+  selectExistingAnchorSource,
+} from "./graph";
 import { createRng, RandomMode } from "./random";
 import {
   backgroundClearTimeout,
@@ -31,6 +36,7 @@ export const DEFAULT_JUKEBOX_CONFIG: JukeboxConfig = {
   maxRandomBranchChance: 0.5,
   randomBranchChanceDelta: 0.02,
   minLongBranch: 0,
+  minLongBranchPercent: DEFAULT_MIN_LONG_BRANCH_PERCENT,
 };
 
 const TICK_INTERVAL_MS = 50;
@@ -138,7 +144,7 @@ export class JukeboxEngine {
     this.deletedEdgeKeys.clear();
     this.userAnchorEdgeId = null;
     this.analysis = normalizeAnalysis(data);
-    this.config.minLongBranch = Math.floor(this.analysis.beats.length / 5);
+    this.resolveMinLongBranch();
     this.graph = buildJumpGraph(this.analysis, this.config);
     this.applyDeletedEdges();
     this.beats = this.analysis.beats;
@@ -174,7 +180,7 @@ export class JukeboxEngine {
     }
     this.clearPendingAdvance(true);
     this.clearEdgeDeletionFlags();
-    this.config.minLongBranch = Math.floor(this.analysis.beats.length / 5);
+    this.resolveMinLongBranch();
     this.graph = buildJumpGraph(this.analysis, this.config);
     this.curRandomBranchChance = this.config.minRandomBranchChance;
     this.branchState.curRandomBranchChance = this.curRandomBranchChance;
@@ -413,6 +419,16 @@ export class JukeboxEngine {
       this.config.minLongBranch,
     );
     this.graph.lastBranchPoint = refreshedAnchorSource ?? -1;
+  }
+
+  private resolveMinLongBranch() {
+    if (!this.analysis) {
+      return;
+    }
+    this.config.minLongBranch = calculateMinLongBranch(
+      this.analysis.beats.length,
+      this.config.minLongBranchPercent,
+    );
   }
 
   private clearEdgeDeletionFlags() {

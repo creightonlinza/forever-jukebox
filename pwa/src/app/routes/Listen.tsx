@@ -21,7 +21,12 @@ import {
 import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
-import { Edge, JukeboxConfig, JukeboxEngine } from "@forever-jukebox/engine";
+import {
+  DEFAULT_MIN_LONG_BRANCH_PERCENT,
+  Edge,
+  JukeboxConfig,
+  JukeboxEngine,
+} from "@forever-jukebox/engine";
 import {
   DEFAULT_VISUALIZATION_INDEX,
   VISUALIZATION_LABELS,
@@ -61,6 +66,7 @@ const DEFAULT_CONFIG: JukeboxConfig = {
   maxRandomBranchChance: 0.5,
   randomBranchChanceDelta: 0.02,
   minLongBranch: 0,
+  minLongBranchPercent: DEFAULT_MIN_LONG_BRANCH_PERCENT,
 };
 
 const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
@@ -72,6 +78,7 @@ const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const DEFAULT_PLAYBACK_VOLUME = 0.5;
+const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
 
 type PlayMode = "jukebox" | "autocanonizer";
 type TuningModalTab = "tuning" | "extras";
@@ -373,9 +380,13 @@ type TuneFormState = {
   volume: number;
   highlightAnchorBranch: boolean;
   justBackwards: boolean;
-  justLongBranches: boolean;
+  minLongBranchPercent: number;
   removeSequentialBranches: boolean;
 };
+
+function formatMinJumpDistance(percent: number) {
+  return percent === 0 ? "Any distance" : `>${percent}% of track`;
+}
 
 type ExportFormState = {
   durationSeconds: number;
@@ -541,7 +552,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     volume: 50,
     highlightAnchorBranch,
     justBackwards: DEFAULT_CONFIG.justBackwards,
-    justLongBranches: DEFAULT_CONFIG.justLongBranches,
+    minLongBranchPercent: 0,
     removeSequentialBranches: DEFAULT_CONFIG.removeSequentialBranches,
   });
   const [extrasForm, setExtrasForm] = React.useState<ExtrasFormState>({
@@ -1318,7 +1329,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       volume: Math.round(player.getVolume() * 100),
       highlightAnchorBranch: nextHighlightAnchorBranch,
       justBackwards: config.justBackwards,
-      justLongBranches: config.justLongBranches,
+      minLongBranchPercent: config.justLongBranches
+        ? (config.minLongBranchPercent ?? DEFAULT_MIN_LONG_BRANCH_PERCENT)
+        : 0,
       removeSequentialBranches: config.removeSequentialBranches,
     });
   };
@@ -1660,7 +1673,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       maxRandomBranchChance: maxProb / 100,
       randomBranchChanceDelta: tuneForm.ramp / RANDOM_BRANCH_DELTA_PERCENT_SCALE,
       justBackwards: tuneForm.justBackwards,
-      justLongBranches: tuneForm.justLongBranches,
+      justLongBranches: tuneForm.minLongBranchPercent > 0,
+      minLongBranchPercent:
+        tuneForm.minLongBranchPercent > 0
+          ? tuneForm.minLongBranchPercent
+          : DEFAULT_MIN_LONG_BRANCH_PERCENT,
       removeSequentialBranches: tuneForm.removeSequentialBranches,
     });
     setHighlightAnchorBranch(tuneForm.highlightAnchorBranch);
@@ -2555,6 +2572,40 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     }
                   />
                 </label>
+                <label>
+                  <div className="label-line">
+                    <span>Minimum Jump Distance:</span>
+                    <span>
+                      {formatMinJumpDistance(tuneForm.minLongBranchPercent)}
+                    </span>
+                  </div>
+                  <div className="hint">
+                    Filters jumps by beat distance across the track.
+                  </div>
+                  <input
+                    id="min-jump-distance"
+                    type="range"
+                    min={0}
+                    max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
+                    step={1}
+                    value={Math.max(
+                      0,
+                      MIN_JUMP_DISTANCE_OPTIONS.indexOf(
+                        tuneForm.minLongBranchPercent as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
+                      ),
+                    )}
+                    aria-label="Minimum jump distance"
+                    onChange={(event) =>
+                      setTuneForm((prev) => ({
+                        ...prev,
+                        minLongBranchPercent:
+                          MIN_JUMP_DISTANCE_OPTIONS[
+                            Number(event.target.value)
+                          ] ?? 0,
+                      }))
+                    }
+                  />
+                </label>
                 <div className="checkbox-row">
                   <label>
                     <input
@@ -2565,16 +2616,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       }
                     />
                     <span>Allow only reverse branches</span>
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={tuneForm.justLongBranches}
-                      onChange={(event) =>
-                        setTuneForm((prev) => ({ ...prev, justLongBranches: event.target.checked }))
-                      }
-                    />
-                    <span>Allow only long branches</span>
                   </label>
                   <label>
                     <input

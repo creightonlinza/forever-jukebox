@@ -58,6 +58,7 @@ const doubles = vi.hoisted(() => {
       maxRandomBranchChance: 0.5,
       randomBranchChanceDelta: 0.02,
       minLongBranch: 2,
+      minLongBranchPercent: 20,
     };
     const engine: any = {
       running: false,
@@ -440,6 +441,7 @@ describe("cast receiver main", () => {
       tuning: {
         justBackwards: false,
         justLongBranches: false,
+        minLongBranchPercent: 0,
         removeSequentialBranches: false,
         threshold: 20,
         computedThreshold: 18,
@@ -1257,6 +1259,7 @@ describe("cast receiver main", () => {
       tuning: {
         justBackwards: false,
         justLongBranches: false,
+        minLongBranchPercent: 0,
         removeSequentialBranches: false,
         threshold: 20,
         computedThreshold: 18,
