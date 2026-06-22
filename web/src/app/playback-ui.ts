@@ -34,6 +34,10 @@ function formatSignedDuration(seconds: number) {
   return `${seconds >= 0 ? "+" : "-"}${formatDuration(Math.abs(seconds))}`;
 }
 
+function formatPlayVelocity(velocity: number) {
+  return velocity > 0 ? `+${velocity}` : `${velocity}`;
+}
+
 function toSimilarityPercent(distance: number, maxDistance: number) {
   if (!Number.isFinite(distance) || maxDistance <= 0) {
     return 0;
@@ -197,15 +201,17 @@ export function initializePlayback(): void {
           }
         }
         const lastBeatIndex = useAppStore.getState().lastBeatIndex;
+        const highlightJump =
+          engineState.lastJumped && engine.getLastJumpWasBranch();
         const jumpFrom =
-          engineState.lastJumped && engineState.lastJumpFromIndex !== null
+          highlightJump && engineState.lastJumpFromIndex !== null
             ? engineState.lastJumpFromIndex
             : lastBeatIndex;
         const jumpTo =
-          engineState.lastJumped && typeof engineState.lastJumpToIndex === "number"
+          highlightJump && typeof engineState.lastJumpToIndex === "number"
             ? engineState.lastJumpToIndex
             : engineState.currentBeatIndex;
-        jukebox.update(jumpTo, engineState.lastJumped, jumpFrom);
+        jukebox.update(jumpTo, highlightJump, jumpFrom);
         if (jumpTo !== engineState.currentBeatIndex) {
           jukebox.update(engineState.currentBeatIndex, false, jumpTo);
         }
@@ -341,6 +347,33 @@ export function handleKeydown(event: KeyboardEvent): void {
       }
       return;
     }
+    if (event.key === "[" || event.key === "]") {
+      event.preventDefault();
+      const direction = event.key === "]" ? 1 : -1;
+      const velocity = engine.getPlayVelocity() + direction;
+      engine.setPlayVelocity(velocity);
+      showToast(
+        `Play velocity: ${formatPlayVelocity(engine.getPlayVelocity())}`,
+      );
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      engine.setPlayVelocity(0);
+      showToast("Play velocity: 0");
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      engine.setPlayVelocity(1);
+      showToast("Play velocity: +1");
+      return;
+    }
+    if (event.key === "Control") {
+      event.preventDefault();
+      engine.setFreezeCurrentBeat(true);
+      return;
+    }
     if (
       (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
       useAppStore.getState().selectedEdge
@@ -376,12 +409,27 @@ export function handleKeyup(event: KeyboardEvent): void {
       return;
     }
     const { engine } = context;
+    if (event.key === "Control") {
+      engine.setFreezeCurrentBeat(false);
+    }
     if (useAppStore.getState().playMode === "autocanonizer") {
       return;
     }
     if (event.key === "Shift" && useAppStore.getState().shiftBranching) {
       useAppStore.setState({ shiftBranching: false });
       engine.setForceBranch(false);
+    }
+  }
+
+export function handleWindowBlur(): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    context.engine.setFreezeCurrentBeat(false);
+    if (useAppStore.getState().shiftBranching) {
+      useAppStore.setState({ shiftBranching: false });
+      context.engine.setForceBranch(false);
     }
   }
 

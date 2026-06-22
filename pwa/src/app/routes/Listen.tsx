@@ -463,6 +463,10 @@ function playControlIcon(swingPreparing: boolean, isRunning: boolean) {
   return isRunning ? "pause" : "play_arrow";
 }
 
+function formatPlayVelocity(velocity: number) {
+  return velocity > 0 ? `+${velocity}` : `${velocity}`;
+}
+
 function branchDirection(edge: Edge) {
   if (edge.dest.which < edge.src.which) {
     return "Backward";
@@ -911,6 +915,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const usecase = new AnalyzeAudioUseCase(analysisPort, cache, decoder);
 
     engineRef.current?.stopJukebox();
+    engineRef.current?.setFreezeCurrentBeat(false);
+    engineRef.current?.setPlayVelocity(1);
     engineRef.current?.setBringItHomeMode(false);
     autocanonizerRef.current?.stop();
     resetPlaybackSessionMetrics();
@@ -1005,6 +1011,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   React.useEffect(() => {
     if (!isActive) {
       engineRef.current?.setForceBranch(false);
+      engineRef.current?.setFreezeCurrentBeat(false);
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1075,6 +1082,40 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       }
       if (
         playMode === "jukebox" &&
+        (event.key === "[" || event.key === "]")
+      ) {
+        event.preventDefault();
+        const engine = engineRef.current;
+        if (!engine) {
+          return;
+        }
+        const direction = event.key === "]" ? 1 : -1;
+        const velocity = engine.getPlayVelocity() + direction;
+        engine.setPlayVelocity(velocity);
+        showShortcutToast(
+          `Play velocity: ${formatPlayVelocity(engine.getPlayVelocity())}`,
+        );
+        return;
+      }
+      if (playMode === "jukebox" && event.key === "ArrowDown") {
+        event.preventDefault();
+        engineRef.current?.setPlayVelocity(0);
+        showShortcutToast("Play velocity: 0");
+        return;
+      }
+      if (playMode === "jukebox" && event.key === "ArrowUp") {
+        event.preventDefault();
+        engineRef.current?.setPlayVelocity(1);
+        showShortcutToast("Play velocity: +1");
+        return;
+      }
+      if (playMode === "jukebox" && event.key === "Control") {
+        event.preventDefault();
+        engineRef.current?.setFreezeCurrentBeat(true);
+        return;
+      }
+      if (
+        playMode === "jukebox" &&
         event.key === "Shift" &&
         isRunning &&
         !bringItHomeModeRef.current
@@ -1084,16 +1125,26 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Control") {
+        engineRef.current?.setFreezeCurrentBeat(false);
+      }
       if (playMode === "jukebox" && event.key === "Shift") {
         engineRef.current?.setForceBranch(false);
       }
     };
+    const onBlur = () => {
+      engineRef.current?.setFreezeCurrentBeat(false);
+      engineRef.current?.setForceBranch(false);
+    };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+      engineRef.current?.setFreezeCurrentBeat(false);
     };
   }, [
     selectedEdge,
@@ -1254,15 +1305,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             );
           }
         }
+        const highlightJump =
+          state.lastJumped && engine.getLastJumpWasBranch();
         const jumpFrom =
-          state.lastJumped && state.lastJumpFromIndex !== null
+          highlightJump && state.lastJumpFromIndex !== null
             ? state.lastJumpFromIndex
             : lastBeatRef.current;
         const jumpTo =
-          state.lastJumped && typeof state.lastJumpToIndex === "number"
+          highlightJump && typeof state.lastJumpToIndex === "number"
             ? state.lastJumpToIndex
             : state.currentBeatIndex;
-        vizControllerRef.current?.update(jumpTo, state.lastJumped, jumpFrom);
+        vizControllerRef.current?.update(jumpTo, highlightJump, jumpFrom);
         if (jumpTo !== state.currentBeatIndex) {
           vizControllerRef.current?.update(state.currentBeatIndex, false, jumpTo);
         }
@@ -2781,6 +2834,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="info-row">
                 <span className="info-label">Left/Right:</span>
                 <span>Cycle selected branch</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">[ / ]:</span>
+                <span>Decrease/increase play velocity</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Down/Up:</span>
+                <span>Set play velocity to 0/+1</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Control (hold):</span>
+                <span>Freeze on the current beat</span>
               </div>
               <div className="info-row">
                 <span className="info-label">A:</span>

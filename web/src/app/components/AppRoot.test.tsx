@@ -50,6 +50,7 @@ vi.mock("../theme", () => ({
 vi.mock("../playback-ui", () => ({
   handleKeydown: vi.fn(),
   handleKeyup: vi.fn(),
+  handleWindowBlur: vi.fn(),
 }));
 
 vi.mock("../api", () => ({
