@@ -1,3 +1,5 @@
+import i18n from "./i18n";
+
 export type PlaylistSourceType = "youtube" | "soundcloud" | "bandcamp" | "upload";
 
 export type PlaylistTrack = {
@@ -72,7 +74,7 @@ export function normalizePlaylistTrack(track: PlaylistTrack): PlaylistTrack | nu
   const title =
     typeof track.title === "string" && track.title.trim()
       ? track.title.trim()
-      : "Untitled";
+      : i18n.t("common.untitled");
   const artist = typeof track.artist === "string" ? track.artist.trim() : "";
   const duration =
     typeof track.duration === "number" && Number.isFinite(track.duration)

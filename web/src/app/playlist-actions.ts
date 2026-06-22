@@ -20,6 +20,7 @@ import { getAppContext, getPlaybackDeps } from "./runtime";
 import { useAppStore } from "./store";
 import { syncTuningParamsState, writeTuningParamsToUrl } from "./tuning";
 import { showToast } from "./ui";
+import i18n from "./i18n";
 
 let playlistLoadInFlight = false;
 
@@ -61,7 +62,7 @@ export function resetPlaylistActionsForTest(): void {
     return {
       id,
       sourceType,
-      title: useAppStore.getState().trackTitle || "Untitled",
+      title: useAppStore.getState().trackTitle || i18n.t("common.untitled"),
       artist: useAppStore.getState().trackArtist || "",
       duration: useAppStore.getState().trackDurationSec,
       tuningParams,
@@ -118,19 +119,19 @@ export function handleNormalTrackSelected(track: PlaylistTrack) {
       track,
     );
     if (result.status === "duplicate") {
-      showToast("Already in playlist");
+      showToast(i18n.t("playlist.alreadyAdded"));
       return;
     }
     if (result.status === "full") {
-      showToast("Playlist is full.");
+      showToast(i18n.t("playlist.full"));
       return;
     }
     if (result.status === "invalid") {
-      showToast("Track cannot be added to playlist.");
+      showToast(i18n.t("playlist.cannotAdd"));
       return;
     }
     updatePlaylist(result.playlist);
-    showToast("Added to playlist", { icon: "playlist_add_check" });
+    showToast(i18n.t("playlist.added"), { icon: "playlist_add_check" });
   }
 
   function handleClosePlaylist() {

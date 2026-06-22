@@ -1,4 +1,5 @@
 import type { PlaylistTrack } from "./playlist";
+import i18n from "./i18n";
 
 export type FavoriteTrack = {
   uniqueSongId: string;
@@ -135,9 +136,13 @@ function compareFavoriteDisplayValue(
   key: FavoritesDisplaySort["key"],
 ) {
   const valueA =
-    key === "title" ? (a.title || "Untitled").trim() : favoriteDisplayArtist(a);
+    key === "title"
+      ? (a.title || i18n.t("common.untitled")).trim()
+      : favoriteDisplayArtist(a);
   const valueB =
-    key === "title" ? (b.title || "Untitled").trim() : favoriteDisplayArtist(b);
+    key === "title"
+      ? (b.title || i18n.t("common.untitled")).trim()
+      : favoriteDisplayArtist(b);
   return valueA.toLowerCase().localeCompare(valueB.toLowerCase());
 }
 
@@ -169,7 +174,7 @@ export function favoriteToPlaylistTrack(
   return {
     id: item.uniqueSongId,
     sourceType,
-    title: item.title || "Untitled",
+    title: item.title || i18n.t("common.untitled"),
     artist: item.artist || "",
     duration: item.duration,
     tuningParams: item.tuningParams ?? null,

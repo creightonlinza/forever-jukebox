@@ -20,7 +20,9 @@ import {
 } from "../cache";
 import { ANALYSIS_POLL_INTERVAL_MS } from "../constants";
 import { formatErrorForDisplay } from "../errorDisplay";
+import i18n from "../i18n";
 import { isLikelyJobId } from "../identity";
+import { translateJobProgress } from "../job-progress";
 import {
   activatePlaylistTrack,
   emptyPlaylist,
@@ -62,8 +64,7 @@ import {
   syncDeletedEdgeState,
 } from "./tuning-forms";
 
-const GENERIC_LOAD_ERROR_MESSAGE =
-  "Something went wrong. Please try again or report an issue on GitHub.";
+const GENERIC_LOAD_ERROR_MESSAGE = i18n.t("errors.generic");
 let pollController: AbortController | null = null;
 
 export type PlaybackDeps = {
@@ -190,7 +191,7 @@ export function resetForNewTrack(
   engine.updateConfig({ ...defaultConfig });
   syncVolumeUI(context);
   useAppStore.setState({
-    analysisStatusText: "No track selected.",
+    analysisStatusText: i18n.t("status.noTrack"),
     analysisSpinning: false,
     analysisProgressText: "",
   });
@@ -376,7 +377,10 @@ export async function pollAnalysis(
       if (isAnalysisInProgress(response)) {
         const progress =
           typeof response.progress === "number" ? response.progress : null;
-        deps.setLoadingProgress(progress, response.message);
+        deps.setLoadingProgress(
+          progress,
+          translateJobProgress(response.status, progress, response.message),
+        );
         if (
           response.status !== "downloading" &&
           !useAppStore.getState().audioLoaded &&
@@ -393,7 +397,7 @@ export async function pollAnalysis(
           formatErrorForDisplay(response.error, {
             sourceProvider: response.source_provider,
             errorCode: response.error_code,
-            fallback: "Loading failed.",
+            fallback: i18n.t("status.loadingFailed"),
           }),
           false,
         );
@@ -409,7 +413,7 @@ export async function pollAnalysis(
             continue;
           }
         }
-        deps.setLoadingProgress(100, "Calculating pathways");
+        deps.setLoadingProgress(100, i18n.t("status.calculatingPathways"));
         if (applyAnalysisResult(context, response, deps.onAnalysisLoaded)) {
           deps.setActiveTab("play");
           return;
@@ -453,7 +457,7 @@ async function continueTrackLoadWithResponse(
       formatErrorForDisplay(response.error, {
         sourceProvider: response.source_provider,
         errorCode: response.error_code,
-        fallback: "Loading failed.",
+        fallback: i18n.t("status.loadingFailed"),
       }),
       false,
     );
@@ -556,7 +560,7 @@ async function loadTrack(
   handlePlaylistForNormalTrackLoad(deps, source, options);
   resetForNewTrack(context, { clearTuning: shouldClear });
   deps.setActiveTab("play");
-  deps.setLoadingProgress(null, "Fetching audio");
+  deps.setLoadingProgress(null, i18n.t("common.fetchingAudio"));
   if (source.type === "source") {
     useAppStore.setState({ lastSourceProvider: source.provider });
     useAppStore.setState({ lastSourceId: source.id });
@@ -597,7 +601,10 @@ async function loadTrack(
     return await continueTrackLoadWithResponse(context, deps, response);
   } catch (err) {
     if (!isStaleLoad(generation)) {
-      deps.setAnalysisStatus(`Load failed: ${formatErrorForDisplay(err)}`, false);
+      deps.setAnalysisStatus(
+        i18n.t("status.loadFailed", { error: formatErrorForDisplay(err) }),
+        false,
+      );
     }
     return false;
   }
@@ -746,7 +753,7 @@ function playlistTrackFromLoadSource(
   const identity = playlistTrackIdentityFromLoadSource(source);
   return {
     ...identity,
-    title: "Untitled",
+    title: i18n.t("common.untitled"),
     artist: "",
     duration: null,
     tuningParams,
@@ -803,7 +810,7 @@ function syncActivePlaylistTrackFromLoaded() {
       sourceType: playlistSourceTypeFromProvider(
         lastSourceProvider ?? track.sourceType,
       ),
-      title: trackTitle || track.title || "Untitled",
+      title: trackTitle || track.title || i18n.t("common.untitled"),
       artist: trackArtist || track.artist || "",
       duration: trackDurationSec,
       tuningParams: playMode === "jukebox" ? tuningParams : null,

@@ -22,6 +22,8 @@ import {
   useAppStore,
   type SearchResultsState,
 } from "./store";
+import i18n from "./i18n";
+import { translateJobProgress } from "./job-progress";
 
 export type SearchDeps = {
   setActiveTab: (tabId: TabId) => void;
@@ -66,7 +68,9 @@ function isTrackLengthAllowed(deps: SearchDeps, duration: number): boolean {
     duration > maxTrackLengthMinutes * 60
   ) {
     deps.showToast(
-      `The maximum track length for this server is ${formatMinutes(maxTrackLengthMinutes)} minutes.`,
+      i18n.t("search.maxTrackLength", {
+        minutes: formatMinutes(maxTrackLengthMinutes),
+      }),
       { icon: "error", tone: "error" },
     );
     return false;
@@ -101,7 +105,7 @@ export async function startYoutubeAnalysisFlow(
   useAppStore.setState({ analysisLoaded: false });
   deps.updateVizVisibility();
   deps.setActiveTab("play");
-  deps.setLoadingProgress(null, "Fetching audio");
+  deps.setLoadingProgress(null, i18n.t("common.fetchingAudio"));
   useAppStore.setState({ lastTrackId: youtubeId });
   useAppStore.setState({ lastSourceId: youtubeId });
   useAppStore.setState({ lastSourceProvider: "youtube" });
@@ -144,7 +148,10 @@ export async function startYoutubeAnalysisFlow(
   if (isAnalysisInProgress(response)) {
     const progress =
       typeof response.progress === "number" ? response.progress : null;
-    deps.setLoadingProgress(progress, response.message);
+    deps.setLoadingProgress(
+      progress,
+      translateJobProgress(response.status, progress, response.message),
+    );
   }
   await deps.pollAnalysis(jobId);
 }
@@ -158,12 +165,12 @@ export async function showYoutubeMatches(
 ) {
   const query = artist ? `${artist} - ${name}` : name;
   deps.navigateToTab("search", { replace: true });
-  setSearchMessage("Searching YouTube for matches...");
-  setSearchHint("Step 2: Choose the closest YouTube match.");
+  setSearchMessage(i18n.t("search.youtubeSearching"));
+  setSearchHint(i18n.t("search.hintStep2"));
   try {
     const ytItems = await searchYoutube(query, duration);
     if (ytItems.length === 0) {
-      setSearchMessage("No YouTube matches found.");
+      setSearchMessage(i18n.t("search.youtubeNone"));
       setSearchHint(DEFAULT_SEARCH_HINT);
       return;
     }
@@ -172,7 +179,11 @@ export async function showYoutubeMatches(
       items: ytItems.map((item) => ({ item, name, artist })),
     });
   } catch (err) {
-    setSearchMessage(`YouTube search failed: ${formatErrorForDisplay(err)}`);
+    setSearchMessage(
+      i18n.t("search.youtubeSearchFailed", {
+        error: formatErrorForDisplay(err),
+      }),
+    );
     setSearchHint(DEFAULT_SEARCH_HINT);
   }
 }
@@ -186,8 +197,8 @@ export async function tryLoadExistingTrackByName(
   if (!artist) {
     return false;
   }
-  setSearchMessage("Checking existing analysis...");
-  setSearchHint("Step 2: Choose the closest YouTube match.");
+  setSearchMessage(i18n.t("search.checkingExisting"));
+  setSearchHint(i18n.t("search.hintStep2"));
   const entryGeneration = getLoadGeneration();
   try {
     const response = await fetchJobByTrack(title, artist);
@@ -227,7 +238,7 @@ export async function tryLoadExistingTrackByName(
     useAppStore.setState({ analysisLoaded: false });
     deps.updateVizVisibility();
     deps.setActiveTab("play");
-    deps.setLoadingProgress(null, "Fetching audio");
+    deps.setLoadingProgress(null, i18n.t("common.fetchingAudio"));
     useAppStore.setState({ lastTrackId: jobId });
     deps.onTrackChange?.(jobId);
     deps.updateTrackUrl(jobId);
@@ -241,7 +252,7 @@ export async function tryLoadExistingTrackByName(
         formatErrorForDisplay(response.error, {
           sourceProvider: response.source_provider,
           errorCode: response.error_code,
-          fallback: "Loading failed.",
+          fallback: i18n.t("status.loadingFailed"),
         }),
         false,
       );
@@ -264,7 +275,9 @@ export async function tryLoadExistingTrackByName(
     await deps.pollAnalysis(jobId);
     return true;
   } catch (err) {
-    setSearchMessage(`Lookup failed: ${formatErrorForDisplay(err)}`);
+    setSearchMessage(
+      i18n.t("search.lookupFailed", { error: formatErrorForDisplay(err) }),
+    );
     return false;
   }
 }
@@ -275,20 +288,22 @@ export async function runSearch(_context: AppContext, _deps: SearchDeps) {
     useAppStore.setState({ searchQuery: query });
   }
   if (!query) {
-    setSearchMessage("Enter a search query.");
+    setSearchMessage(i18n.t("search.enterQuery"));
     return;
   }
-  setSearchMessage("Searching Spotify...");
+  setSearchMessage(i18n.t("search.spotifySearching"));
   setSearchHint(DEFAULT_SEARCH_HINT);
   try {
     const items = await searchSpotify(query);
     if (items.length === 0) {
-      setSearchMessage("No Spotify results found.");
+      setSearchMessage(i18n.t("search.spotifyNone"));
       return;
     }
     setSearchResults({ kind: "spotify", items });
   } catch (err) {
-    setSearchMessage(`Search failed: ${formatErrorForDisplay(err)}`);
+    setSearchMessage(
+      i18n.t("search.searchFailed", { error: formatErrorForDisplay(err) }),
+    );
   }
 }
 
@@ -313,7 +328,7 @@ export function selectYoutubeMatch(
 ) {
   const { youtubeId, name, artist, duration } = selection;
   if (!youtubeId) {
-    deps.setAnalysisStatus("No YouTube id available.", false);
+    deps.setAnalysisStatus(i18n.t("search.noYoutubeId"), false);
     return;
   }
   if (!isTrackLengthAllowed(deps, duration)) {
@@ -321,7 +336,9 @@ export function selectYoutubeMatch(
   }
   startYoutubeAnalysisFlow(context, deps, youtubeId, name, artist).catch((err) => {
     deps.setAnalysisStatus(
-      `YouTube analysis failed: ${formatErrorForDisplay(err, { sourceProvider: "youtube" })}`,
+      i18n.t("search.youtubeAnalysisFailed", {
+        error: formatErrorForDisplay(err, { sourceProvider: "youtube" }),
+      }),
       false,
     );
   });
@@ -344,15 +361,21 @@ export function selectSpotifyMatch(
       return;
     }
     if (!Number.isFinite(duration)) {
-      deps.setAnalysisStatus("No duration available for this track.", false);
+      deps.setAnalysisStatus(i18n.t("search.noDuration"), false);
       return;
     }
     showYoutubeMatches(context, deps, name, artist, duration).catch((err) => {
-      setSearchMessage(`YouTube search failed: ${formatErrorForDisplay(err)}`);
+      setSearchMessage(
+        i18n.t("search.youtubeSearchFailed", {
+          error: formatErrorForDisplay(err),
+        }),
+      );
       setSearchHint(DEFAULT_SEARCH_HINT);
     });
   }).catch((err) => {
-    setSearchMessage(`Lookup failed: ${formatErrorForDisplay(err)}`);
+    setSearchMessage(
+      i18n.t("search.lookupFailed", { error: formatErrorForDisplay(err) }),
+    );
   });
 }
 

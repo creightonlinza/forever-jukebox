@@ -1,5 +1,6 @@
 import "./polyfills";
 import "./style.css";
+import "./app/i18n";
 import { initRuntime } from "./app/init";
 import { mountReactApp } from "./app/react-root";
 

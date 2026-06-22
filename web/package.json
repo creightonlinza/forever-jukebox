@@ -18,8 +18,10 @@
     "@forever-jukebox/engine": "*",
     "abortcontroller-polyfill": "^1.7.5",
     "core-js": "^3.38.1",
+    "i18next": "^26.3.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.8",
     "react-router-dom": "^6.30.4",
     "regenerator-runtime": "^0.14.1",
     "zustand": "^5.0.14"

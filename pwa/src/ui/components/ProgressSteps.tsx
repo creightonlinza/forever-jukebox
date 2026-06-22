@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 export type ProgressStep = {
   id: string;
   label: string;
@@ -15,12 +17,16 @@ export function ProgressSteps({
   currentMessage,
   currentProgress,
 }: ProgressStepsProps) {
+  const { t } = useTranslation();
   return (
     <div className="progress">
       <div className="progress__header">
         <p className="progress__title">
-          Analysis Progress
-          {typeof currentProgress === "number" ? `: ${Math.round(currentProgress)}%` : ""}
+          {typeof currentProgress === "number"
+            ? t("analysis.progressPercent", {
+                percent: Math.round(currentProgress),
+              })
+            : t("analysis.progress")}
         </p>
         {currentMessage ? <p className="progress__message">{currentMessage}</p> : null}
       </div>

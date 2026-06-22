@@ -6,6 +6,7 @@ import { syncTuningParamsState, writeTuningParamsToUrl } from "../tuning";
 import { showToast } from "../ui";
 import { updatePlayButton, updateVizVisibility } from "./status-ui";
 import { pausePlayback, startJukeboxPlayback } from "./transport";
+import i18n from "../i18n";
 
 function getCurrentSwingSourceIdentity(): string | null {
   const { lastTrackId, lastJobId } = useAppStore.getState();
@@ -42,7 +43,7 @@ export function prepareSwingMode(context: AppContext) {
   useAppStore.setState({ swingRenderToken: renderToken });
   useAppStore.setState({ swingPreparing: true });
   useAppStore.setState({
-    analysisStatusText: "Adding swing to the track...",
+    analysisStatusText: i18n.t("playback.swingAdding"),
     analysisSpinning: true,
     analysisProgressText: "0%",
   });
@@ -75,7 +76,7 @@ export function prepareSwingMode(context: AppContext) {
       context.player.setRenderedJukeboxAudioBuffer("swing", buffer);
       context.player.setJukeboxAudioMode("swing");
       useAppStore.setState({
-        analysisStatusText: "Swing mode ready.",
+        analysisStatusText: i18n.t("playback.swingReady"),
         analysisSpinning: false,
         analysisProgressText: "",
       });
@@ -103,7 +104,7 @@ export function prepareSwingMode(context: AppContext) {
       useAppStore.setState({ jukeboxAudioMode: "off" });
       context.player.setJukeboxAudioMode("off");
       useAppStore.setState({
-        analysisStatusText: "Swing mode failed.",
+        analysisStatusText: i18n.t("playback.swingFailedStatus"),
         analysisSpinning: false,
         analysisProgressText: "",
       });
@@ -111,7 +112,7 @@ export function prepareSwingMode(context: AppContext) {
       syncTuningParamsState(context);
       writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
       updatePlayButton();
-      showToast("Swing mode failed. Using Normal mode.", {
+      showToast(i18n.t("playback.swingFailed"), {
         icon: "error",
         tone: "error",
       });

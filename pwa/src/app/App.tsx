@@ -8,6 +8,7 @@ import { Home } from "./routes/Home";
 import { Listen } from "./routes/Listen";
 import { Faq } from "./routes/Faq";
 import { useInstallPrompt } from "./hooks/useInstallPrompt";
+import { useTranslation } from "react-i18next";
 
 type InstallGateProps = {
   canInstall: boolean;
@@ -15,6 +16,7 @@ type InstallGateProps = {
 };
 
 function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
+  const { t } = useTranslation();
   return (
     <div className="install-gate">
       <section className="install-gate__panel">
@@ -24,12 +26,12 @@ function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
           </h1>
         </div>
         <p className="install-gate__subtitle">
-          Install to use the offline app.
+          {t("install.subtitle")}
         </p>
         <p className="install-gate__hint">
           {canInstall
-            ? "After installing, open it from your desktop or app launcher."
-            : "Use your browser menu (Install app/Add to Home Screen), then open the installed app."}
+            ? t("install.afterInstall")
+            : t("install.browserMenu")}
         </p>
         {canInstall ? (
           <button
@@ -37,7 +39,7 @@ function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
             type="button"
             onClick={() => void promptInstall()}
           >
-            Install
+            {t("install.action")}
           </button>
         ) : null}
       </section>
@@ -46,6 +48,7 @@ function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
 }
 
 function AppLayout() {
+  const { t } = useTranslation();
   const location = useLocation();
   const { isListenLoading } = useAppState();
   const { canInstall, isGateUnlocked, promptInstall } = useInstallPrompt();
@@ -72,27 +75,27 @@ function AppLayout() {
                 THE FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
               </h1>
             </div>
-            <span className="hero-subtitle">Offline App</span>
+            <span className="hero-subtitle">{t("navigation.offlineApp")}</span>
           </div>
           {!hideTabsWhileLoading ? (
-            <nav className="tabs" aria-label="Primary">
+            <nav className="tabs" aria-label={t("navigation.primary")}>
               <Link
                 className={`tab-btn ${isHomeRoute ? "active" : ""}`}
                 to="/"
               >
-                Home
+                {t("common.home")}
               </Link>
               <Link
                 className={`tab-btn ${isListenRoute ? "active" : ""}`}
                 to="/listen"
               >
-                Listen
+                {t("common.listen")}
               </Link>
               <Link
                 className={`tab-btn ${isFaqRoute ? "active" : ""}`}
                 to="/faq"
               >
-                FAQ
+                {t("common.faq")}
               </Link>
             </nav>
           ) : null}

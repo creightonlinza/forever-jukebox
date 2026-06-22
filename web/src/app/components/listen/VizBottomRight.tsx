@@ -7,11 +7,13 @@ import {
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { toggleFullscreen } from "../../fullscreen";
+import { useTranslation } from "react-i18next";
 
 // The right-hand cluster of the viz bottom bar: playlist-open button,
 // volume panel, fullscreen toggle. Rendered into the .viz-bottom-right
 // container.
 export function VizBottomRight() {
+  const { t } = useTranslation();
   const playlist = useAppStore((s) => s.playlist);
   const volumePct = useAppStore((s) => s.volumePct);
   const isFullscreen = useAppStore((s) => s.isFullscreen);
@@ -37,9 +39,14 @@ export function VizBottomRight() {
   const hasTracks = hasPlaylistControls(playlist);
   const active = hasActivePlaylistControls(playlist);
   const playlistTitle = active
-    ? `Playlist (${playlist.currentIndex + 1}/${playlist.tracks.length})`
-    : "Saved Playlist";
-  const fullscreenLabel = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
+    ? t("playlist.savedWithPosition", {
+        current: playlist.currentIndex + 1,
+        total: playlist.tracks.length,
+      })
+    : t("playlist.saved");
+  const fullscreenLabel = isFullscreen
+    ? t("playback.exitFullscreen")
+    : t("playback.fullscreen");
 
   const handleVolumeChange = (pct: number) => {
     useAppStore.setState({ volumePct: pct });
@@ -81,7 +88,7 @@ export function VizBottomRight() {
               className="volume-slider"
               id="volume"
               type="range"
-              aria-label="Volume"
+              aria-label={t("playback.volume")}
               min={0}
               max={100}
               step={1}
@@ -98,7 +105,7 @@ export function VizBottomRight() {
         <button
           id="volume-button"
           className="volume-button"
-          aria-label="Volume"
+          aria-label={t("playback.volume")}
           onClick={() => setVolumeOpen((prev) => !prev)}
         >
           <span

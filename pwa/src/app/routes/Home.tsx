@@ -9,8 +9,10 @@ import { formatDuration } from "@/shared/utils/format";
 import { DropZone } from "@/ui/components/DropZone";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useAppState } from "../state/AppState";
+import { useTranslation } from "react-i18next";
 
 export function Home() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { setFile } = useAppState();
@@ -31,12 +33,12 @@ export function Home() {
       const tracks = await listCachedAnalysisTracks();
       setCachedTracks(tracks);
     } catch {
-      setCachedTrackError("Unable to load cached analysis tracks.");
+      setCachedTrackError(t("home.loadFailed"));
       setCachedTracks([]);
     } finally {
       setIsLoadingCachedTracks(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (location.pathname !== "/") {
@@ -55,11 +57,11 @@ export function Home() {
       await cache.clear(fingerprint);
       setCachedTracks((prev) => prev.filter((track) => track.fingerprint !== fingerprint));
     } catch {
-      setCachedTrackError("Unable to delete cached analysis.");
+      setCachedTrackError(t("home.deleteFailed"));
     } finally {
       setDeletingFingerprint((current) => (current === fingerprint ? null : current));
     }
-  }, []);
+  }, [t]);
 
   const handleDeleteCachedTrack = useCallback(
     (fingerprint: string) => {
@@ -75,24 +77,29 @@ export function Home() {
       <DropZone onFile={handleFile} accept="audio/*" />
       <div className="cached-tracks">
         <h2 className="cached-tracks__title">
-          <span>Cached analysis</span>
+          <span>{t("home.cachedAnalysis")}</span>
           <span className="cached-tracks__title-hint">
-            Pick the original audio file to load its cached analysis instantly.
+            {t("home.cachedHint")}
           </span>
         </h2>
-        {isLoadingCachedTracks ? <p>Loading cached tracks...</p> : null}
+        {isLoadingCachedTracks ? <p>{t("home.loadingCached")}</p> : null}
         {!isLoadingCachedTracks && cachedTrackError ? (
           <p>{cachedTrackError}</p>
         ) : null}
         {!isLoadingCachedTracks && !cachedTrackError && cachedTracks.length === 0 ? (
-          <p>No cached local analyses yet.</p>
+          <p>{t("home.noCached")}</p>
         ) : null}
         {!isLoadingCachedTracks && !cachedTrackError && cachedTracks.length > 0 ? (
           <ul className="cached-tracks__list">
             {cachedTracks.map((track) => {
+              const title =
+                track.title ??
+                t("home.cachedTrack", {
+                  id: track.fingerprint.slice(0, 8),
+                });
               const label = track.artist
-                ? `${track.title} — ${track.artist}`
-                : track.title;
+                ? `${title} — ${track.artist}`
+                : title;
               const details = track.durationSeconds
                 ? formatDuration(Math.round(track.durationSeconds))
                 : null;
@@ -113,8 +120,8 @@ export function Home() {
                     type="button"
                     onClick={() => handleDeleteCachedTrack(track.fingerprint)}
                     disabled={isDeleting}
-                    aria-label={`Delete cached analysis for ${label}`}
-                    title="Delete cached analysis"
+                    aria-label={t("home.deleteNamed", { label })}
+                    title={t("home.deleteTitle")}
                   >
                     <SymbolIcon className="cached-tracks__delete-icon" name="close" />
                   </button>

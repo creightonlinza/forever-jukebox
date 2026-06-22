@@ -1,6 +1,7 @@
 import type { TabId } from "./context";
+import i18n from "./i18n";
 
-export const BASE_DOCUMENT_TITLE = "The Forever Jukebox";
+export const BASE_DOCUMENT_TITLE = i18n.t("common.appName");
 
 export function titleForAppView({
   activeTabId,
@@ -21,15 +22,20 @@ export function titleForAppView({
     if (cleanTrackTitle && cleanTrackArtist) {
       pageTitle = `${cleanTrackTitle} - ${cleanTrackArtist}`;
     } else {
-      pageTitle = cleanTrackTitle || "Listen";
+      pageTitle = cleanTrackTitle || i18n.t("common.listen");
     }
   } else if (activeTabId === "search") {
-    pageTitle = "Search";
+    pageTitle = i18n.t("common.search");
   } else if (activeTabId === "faq") {
-    pageTitle = pathname.startsWith("/whats-new") ? "What's New" : "FAQ";
+    pageTitle = pathname.startsWith("/whats-new")
+      ? i18n.t("documentTitle.whatsNew")
+      : i18n.t("common.faq");
   } else {
-    pageTitle = "Top Tracks";
+    pageTitle = i18n.t("navigation.topTracks");
   }
 
-  return `${pageTitle} | ${BASE_DOCUMENT_TITLE}`;
+  return i18n.t("documentTitle.separator", {
+    page: pageTitle,
+    app: BASE_DOCUMENT_TITLE,
+  });
 }

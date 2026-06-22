@@ -60,6 +60,7 @@ import {
   loadFavoritesSyncCode,
 } from "./favorites";
 import { loadPlaylist } from "./playlist";
+import i18n from "./i18n";
 
 type PlaybackDeps = Parameters<typeof pollAnalysis>[1];
 
@@ -190,7 +191,7 @@ export function initRuntime(): void {
   };
   setAttachViz(attachViz);
 
-  setAnalysisStatus(context, "No track selected.", false);
+  setAnalysisStatus(context, i18n.t("status.noTrack"), false);
   loadAppConfig()
     .then((config) => {
       if (config) {

@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import pkg from "./package.json";
 import { fileURLToPath } from "node:url";
+import en from "./src/app/locales/en.json";
 
 export default defineConfig(({ command }) => {
   const isDev = command === "serve";
@@ -54,9 +55,9 @@ export default defineConfig(({ command }) => {
           suppressWarnings: command === "serve",
         },
         manifest: {
-          name: "The Forever Jukebox",
-          short_name: "The Forever Jukebox",
-          description: "Offline-first Forever Jukebox for local audio.",
+          name: en.common.appName,
+          short_name: en.common.appName,
+          description: en.manifest.description,
           id: appBase,
           start_url: appBase,
           scope: appBase,

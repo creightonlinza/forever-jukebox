@@ -1,7 +1,9 @@
 import { useAppStore } from "../store";
 import { TabBar } from "./TabBar";
+import { useTranslation } from "react-i18next";
 
 function ThemeToggle() {
+  const { t } = useTranslation();
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   return (
@@ -12,7 +14,7 @@ function ThemeToggle() {
         data-theme="light"
         onClick={() => setTheme("light")}
       >
-        Light
+        {t("common.light")}
       </button>
       <span className="theme-sep" aria-hidden="true"></span>
       <button
@@ -21,21 +23,22 @@ function ThemeToggle() {
         data-theme="dark"
         onClick={() => setTheme("dark")}
       >
-        Dark
+        {t("common.dark")}
       </button>
     </div>
   );
 }
 
 function HeroSocials() {
+  const { t } = useTranslation();
   return (
-    <span className="hero-socials" aria-label="Community links">
+    <span className="hero-socials" aria-label={t("hero.communityLinks")}>
       <a
         className="hero-social-link"
         href="https://www.reddit.com/r/infinitejukebox/"
         target="_blank"
         rel="noreferrer"
-        aria-label="Reddit community"
+        aria-label={t("hero.reddit")}
         title="Reddit"
       >
         <svg
@@ -55,7 +58,7 @@ function HeroSocials() {
         href="https://discord.com/invite/KWN5BfD"
         target="_blank"
         rel="noreferrer"
-        aria-label="Discord server"
+        aria-label={t("hero.discord")}
         title="Discord"
       >
         <svg
@@ -77,7 +80,7 @@ function HeroSocials() {
         href="https://github.com/creightonlinza/forever-jukebox/"
         target="_blank"
         rel="noreferrer"
-        aria-label="GitHub repository"
+        aria-label={t("hero.github")}
         title="GitHub"
       >
         <svg
@@ -97,6 +100,7 @@ function HeroSocials() {
 }
 
 export function Hero() {
+  const { t } = useTranslation();
   const goHome = useAppStore((s) => s.goHome);
   return (
     <header className="hero">
@@ -109,7 +113,7 @@ export function Hero() {
           id="hero-title-home"
           className="hero-title"
           type="button"
-          aria-label="Go to Top Tracks"
+          aria-label={t("navigation.goToTopTracks")}
           onClick={() => goHome()}
         >
           <h1 className="hero-title-neon">

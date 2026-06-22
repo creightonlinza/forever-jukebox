@@ -3,6 +3,7 @@ import { formatTrackDuration } from "../format";
 import { selectSpotify, selectYoutube, submitSearch } from "../search";
 import { useAppStore } from "../store";
 import { uploadFile, uploadUrl } from "../upload";
+import { useTranslation } from "react-i18next";
 
 function setOf(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -27,6 +28,7 @@ function youtubeResultKey(
 }
 
 function SearchResults() {
+  const { t } = useTranslation();
   const results = useAppStore((s) => s.searchResults);
   if (results.kind === "message") {
     return (
@@ -38,9 +40,10 @@ function SearchResults() {
   if (results.kind === "spotify") {
     return (
       <div className="search-results" id="search-results">
-        <ol className="search-list" aria-label="Search results">
+        <ol className="search-list" aria-label={t("search.resultsLabel")}>
           {results.items.map((item) => {
-            const name = typeof item.name === "string" ? item.name : "Untitled";
+            const name =
+              typeof item.name === "string" ? item.name : t("common.untitled");
             const artist = typeof item.artist === "string" ? item.artist : "";
             const title = artist ? `${name} — ${artist}` : name;
             const duration =
@@ -66,9 +69,10 @@ function SearchResults() {
   }
   return (
     <div className="search-results" id="search-results">
-      <ol className="search-list" aria-label="Search results">
+      <ol className="search-list" aria-label={t("search.resultsLabel")}>
         {results.items.map(({ item, name, artist }) => {
-          const title = typeof item.title === "string" ? item.title : "Untitled";
+          const title =
+            typeof item.title === "string" ? item.title : t("common.untitled");
           const ytDuration =
             typeof item.duration === "number" ? item.duration : 0;
           const youtubeId = item.id ? String(item.id) : "";
@@ -100,7 +104,7 @@ function SearchResults() {
                       href={`https://www.youtube.com/watch?v=${encodeURIComponent(String(item.id))}`}
                       target="_blank"
                       rel="noreferrer"
-                      title="Open on YouTube"
+                      title={t("search.openYoutube")}
                       onClick={(event) => {
                         event.stopPropagation();
                       }}
@@ -124,6 +128,7 @@ function SearchResults() {
 }
 
 export function SearchPanel() {
+  const { t } = useTranslation();
   const searchTab = useAppStore((s) => s.searchTab);
   const appConfig = useAppStore((s) => s.appConfig);
   const query = useAppStore((s) => s.searchQuery);
@@ -140,7 +145,7 @@ export function SearchPanel() {
   const extList = (appConfig?.allowed_upload_exts || []).join(", ");
   const maxSize = appConfig?.max_upload_size
     ? `${Math.round(appConfig.max_upload_size / (1024 * 1024))} MB`
-    : "unknown";
+    : t("common.unknown").toLowerCase();
 
   const triggerSearch = async () => {
     if (searchBusy) {
@@ -196,7 +201,7 @@ export function SearchPanel() {
           data-search-subtab="search"
           onClick={() => useAppStore.setState({ searchTab: "search" })}
         >
-          Search
+          {t("common.search")}
         </button>
         <span className="subtab-spacer" aria-hidden="true"></span>
         <button
@@ -204,11 +209,11 @@ export function SearchPanel() {
           data-search-subtab="upload"
           onClick={() => useAppStore.setState({ searchTab: "upload" })}
         >
-          Upload
+          {t("common.upload")}
         </button>
       </div>
       <div className="panel-title" id="search-panel-title">
-        {searchTab === "search" ? "Search" : "Upload"}
+        {searchTab === "search" ? t("common.search") : t("common.upload")}
       </div>
       <div
         className={setOf("search-panel", searchTab !== "search" && "hidden")}
@@ -222,7 +227,7 @@ export function SearchPanel() {
             id="search-input"
             className="search-input"
             type="search"
-            placeholder="Search by artist or track"
+            placeholder={t("search.placeholder")}
             maxLength={100}
             autoComplete="off"
             value={query}
@@ -240,7 +245,7 @@ export function SearchPanel() {
             id="search-button"
             className={setOf("search-inline-action", searchBusy && "is-loading")}
             type="button"
-            aria-label="Search"
+            aria-label={t("common.search")}
             aria-busy={searchBusy}
             disabled={searchBusy}
             onClick={() => void triggerSearch()}
@@ -263,9 +268,14 @@ export function SearchPanel() {
           className={setOf("upload-section", !allowUpload && "hidden")}
           id="upload-file-section"
         >
-          <div className="upload-title">Upload by File</div>
+          <div className="upload-title">{t("search.uploadFile")}</div>
           <div className="upload-hint" id="upload-file-hint">
-            {allowUpload ? `Max file size: ${maxSize}. Allowed: ${extList}` : ""}
+            {allowUpload
+              ? t("search.maxFileSize", {
+                  size: maxSize,
+                  extensions: extList,
+                })
+              : ""}
           </div>
           <div className="search-bar">
             <input
@@ -286,7 +296,7 @@ export function SearchPanel() {
               disabled={fileBusy}
               onClick={() => void handleUploadFile()}
             >
-              Load
+              {t("search.load")}
             </button>
           </div>
         </div>
@@ -294,8 +304,8 @@ export function SearchPanel() {
           className={setOf("upload-section", !allowUrl && "hidden")}
           id="upload-youtube-section"
         >
-          <div className="upload-title">Upload by URL</div>
-          <div className="upload-hint">Supported: YouTube, SoundCloud, Bandcamp</div>
+          <div className="upload-title">{t("search.uploadUrl")}</div>
+          <div className="upload-hint">{t("search.supportedSources")}</div>
           <form
             className="search-bar"
             id="upload-youtube-form"
@@ -309,7 +319,7 @@ export function SearchPanel() {
               id="upload-youtube-input"
               className="search-input"
               type="url"
-              placeholder="https://www.youtube.com/watch?v=... or https://soundcloud.com/... or https://artist.bandcamp.com/track/..."
+              placeholder={t("search.urlPlaceholder")}
               autoComplete="off"
               value={urlValue}
               onChange={(event) => setUrlValue(event.target.value)}
@@ -321,7 +331,7 @@ export function SearchPanel() {
               disabled={urlBusy}
               type="submit"
             >
-              Load
+              {t("search.load")}
             </button>
           </form>
         </div>

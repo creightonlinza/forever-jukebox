@@ -1,4 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import "../i18n";
+import { useTranslation } from "react-i18next";
 
 // Modals can stack (sleep timer opens over the tuning modal); Escape and the
 // focus trap only act on the topmost open modal.
@@ -171,6 +173,7 @@ export function ModalHeader({
   onClose: () => void;
   children?: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="modal-header">
       {title !== undefined ? <h2>{title}</h2> : null}
@@ -178,7 +181,7 @@ export function ModalHeader({
       <button
         id={closeId}
         className="modal-close"
-        aria-label="Close"
+        aria-label={t("common.close")}
         onClick={onClose}
       >
         <span

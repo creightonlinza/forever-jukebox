@@ -7,23 +7,27 @@ import {
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { playlistNext, playlistPrevious } from "../../playlist-actions";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 function playButtonLabel({
   isBlocked,
   isRunning,
   isPaused,
+  t,
 }: {
   isBlocked: boolean;
   isRunning: boolean;
   isPaused: boolean;
+  t: TFunction;
 }) {
   if (isBlocked) {
-    return "Preparing Swing mode";
+    return t("playback.preparingSwing");
   }
   if (isRunning) {
-    return "Pause";
+    return t("playback.pause");
   }
-  return isPaused ? "Resume" : "Play";
+  return isPaused ? t("playback.resume") : t("playback.play");
 }
 
 function playButtonIcon(isBlocked: boolean, isRunning: boolean) {
@@ -36,6 +40,7 @@ function playButtonIcon(isBlocked: boolean, isRunning: boolean) {
 // Transport cluster: playlist previous, play/pause toggle, playlist next.
 // Rendered into the .viz-play-controls container.
 export function PlayControls() {
+  const { t } = useTranslation();
   const isRunning = useAppStore((s) => s.isRunning);
   const isPaused = useAppStore((s) => s.isPaused);
   const playMode = useAppStore((s) => s.playMode);
@@ -51,7 +56,7 @@ export function PlayControls() {
   // Derive the play button's label, icon and visibility from playback state.
   const isBlocked =
     playMode === "jukebox" && audioMode === "swing" && swingPreparing;
-  const playLabel = playButtonLabel({ isBlocked, isRunning, isPaused });
+  const playLabel = playButtonLabel({ isBlocked, isRunning, isPaused, t });
   const playIcon = playButtonIcon(isBlocked, isRunning);
   const playHidden = !(audioLoaded && analysisLoaded) || swingPreparing;
 
@@ -70,8 +75,8 @@ export function PlayControls() {
           active ? "playlist-control" : "playlist-control is-hidden"
         }
         type="button"
-        aria-label="Previous playlist track"
-        title="Previous playlist track"
+        aria-label={t("playlist.previous")}
+        title={t("playlist.previous")}
         disabled={playlistBusy || !canMovePlaylistPrevious(playlist)}
         onClick={() => playlistPrevious()}
       >
@@ -107,8 +112,8 @@ export function PlayControls() {
           active ? "playlist-control" : "playlist-control is-hidden"
         }
         type="button"
-        aria-label="Next playlist track"
-        title="Next playlist track"
+        aria-label={t("playlist.next")}
+        title={t("playlist.next")}
         disabled={playlistBusy || !canMovePlaylistNext(playlist)}
         onClick={() => playlistNext()}
       >

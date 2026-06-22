@@ -7,6 +7,7 @@ import { resetForNewTrack } from "./playback";
 import { getAppContext } from "./runtime";
 import { useAppStore } from "./store";
 import { showToast } from "./ui";
+import i18n from "./i18n";
 
 export type PendingDelete = {
   jobId: string;
@@ -42,14 +43,14 @@ export async function performDelete(pending: PendingDelete): Promise<void> {
       }
       resetForNewTrack(getAppContext());
       useAppStore.getState().navigateToTabWithState("top", { replace: true });
-      showToast("Deleted track");
+      showToast(i18n.t("delete.deleted"));
     } catch {
       useAppStore.setState({ deleteEligibilityJobId: jobId });
       if (adminKey) {
-        showToast("Unable to delete track");
+        showToast(i18n.t("delete.failed"));
       } else {
         useAppStore.setState({ deleteEligible: false });
-        showToast("Track can no longer be deleted");
+        showToast(i18n.t("delete.expired"));
       }
     }
   }

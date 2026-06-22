@@ -1,4 +1,5 @@
 import { create, type StateCreator } from "zustand";
+import i18n from "./i18n";
 import type { SpotifySearchItem, YoutubeSearchItem } from "./api";
 import type { AppState, SleepTimerState, TabId } from "./context";
 import type { ThemeName } from "./themeConfig";
@@ -64,10 +65,10 @@ export type TopSongsListState =
   | { kind: "message"; text: string }
   | { kind: "loaded"; items: TopSongsItem[] };
 
-export const DEFAULT_SEARCH_HINT = "Step 1: Find a Spotify track.";
+export const DEFAULT_SEARCH_HINT = i18n.t("search.hintStep1");
 export const DEFAULT_SEARCH_RESULTS: SearchResultsState = {
   kind: "message",
-  text: "Search results will appear here.",
+  text: i18n.t("search.resultsEmpty"),
 };
 
 function createDefaultTopSongsLists(): Record<
@@ -75,9 +76,9 @@ function createDefaultTopSongsLists(): Record<
   TopSongsListState
 > {
   return {
-    top: { kind: "message", text: "Loading top tracks..." },
-    trending: { kind: "message", text: "Loading trending tracks..." },
-    recent: { kind: "message", text: "Loading recent plays..." },
+    top: { kind: "message", text: i18n.t("topTracks.loadingTop") },
+    trending: { kind: "message", text: i18n.t("topTracks.loadingTrending") },
+    recent: { kind: "message", text: i18n.t("topTracks.loadingRecent") },
   };
 }
 
@@ -258,7 +259,7 @@ const createUiSlice: Slice<
     favoriteToggleBusy: false,
     volumePct: 50,
     isFullscreen: false,
-    analysisStatusText: "No track selected.",
+    analysisStatusText: i18n.t("status.noTrack"),
     analysisSpinning: false,
     analysisProgressText: "",
     listenTimeText: "00:00:00",

@@ -2,10 +2,12 @@ import { useLayoutEffect, useRef } from "react";
 import { formatPlaybackTitle } from "../../format";
 import { useMarquee } from "../../hooks/useMarquee";
 import { useAppStore } from "../../store";
+import { useTranslation } from "react-i18next";
 
 // Viz-bottom track info: marquee title, listen time and beat counters.
 // Rendered into the .viz-info container.
 export function VizInfo() {
+  const { t } = useTranslation();
   const trackTitle = useAppStore((s) => s.trackTitle);
   const trackArtist = useAppStore((s) => s.trackArtist);
   const playMode = useAppStore((s) => s.playMode);
@@ -48,26 +50,28 @@ export function VizInfo() {
     trackTitle || trackArtist
       ? (() => {
           const withSuffix = formatPlaybackTitle(
-            trackTitle ?? "Unknown",
+            trackTitle ?? t("common.unknown"),
             playMode,
             audioMode,
           );
           return trackArtist ? `${withSuffix} — ${trackArtist}` : withSuffix;
         })()
-      : "The Forever Jukebox";
+      : t("common.appName");
   useMarquee(titleRef, displayTitle);
 
   const isCanonizer = playMode === "autocanonizer";
   const bringHomeVisible = playMode === "jukebox" && bringItHomeMode;
   const beatsLabel =
-    audioMode === "cowbell" ? "Total Cowbells:" : "Total Beats:";
+    audioMode === "cowbell"
+      ? t("playback.totalCowbells")
+      : t("playback.totalBeats");
 
   return (
     <>
       <div className="viz-title" id="viz-now-playing" ref={titleRef}></div>
       <div className="viz-meta">
         <span className="viz-meta-stats">
-          <span>Listen Time:</span>
+          <span>{t("playback.listenTime")}</span>
           <span id="listen-time" ref={listenTimeRef}></span>
           <span
             id="viz-beats-divider"
@@ -95,7 +99,7 @@ export function VizInfo() {
               : "bring-home-fullscreen-note is-hidden"
           }
         >
-          · Bringing it on home
+          · {t("playback.bringingHome")}
         </span>
       </div>
     </>

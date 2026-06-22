@@ -3,6 +3,8 @@ import { formatDuration } from "../../format";
 import { SLEEP_TIMER_OPTIONS, setSleepTimer } from "../../playback";
 import { useAppStore } from "../../store";
 import { Modal } from "../Modal";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 function valueForDuration(durationMs: number | null) {
   return durationMs === null ? "off" : String(durationMs);
@@ -27,7 +29,21 @@ function resolveConfiguredDuration(configuredDurationMs: number | null) {
     : null;
 }
 
+function sleepTimerLabel(durationMs: number | null, t: TFunction) {
+  if (durationMs === null) {
+    return t("sleepTimer.off");
+  }
+  if (durationMs === 60 * 60 * 1000) {
+    return t("sleepTimer.oneHour");
+  }
+  if (durationMs === 2 * 60 * 60 * 1000) {
+    return t("sleepTimer.twoHours");
+  }
+  return t("sleepTimer.minutes", { count: durationMs / 60_000 });
+}
+
 export function SleepTimerModal() {
+  const { t } = useTranslation();
   const open = useAppStore((s) => s.sleepTimerModalOpen);
   // sleepTimer is replaced every second while a countdown runs (up to 2h), so
   // subscribing to the whole object would re-render this modal every tick even
@@ -67,10 +83,12 @@ export function SleepTimerModal() {
 
   const countdown =
     remainingMs > 0
-      ? `Current countdown: ${formatDuration(
-          Math.ceil(Math.max(0, remainingMs) / 1000),
-        )}`
-      : "Off";
+      ? t("sleepTimer.currentCountdown", {
+          time: formatDuration(
+            Math.ceil(Math.max(0, remainingMs) / 1000),
+          ),
+        })
+      : t("sleepTimer.off");
 
   return (
     <Modal
@@ -80,11 +98,11 @@ export function SleepTimerModal() {
       panelClassName="sleep-timer-panel"
     >
       <div className="modal-header">
-        <h2>Sleep Timer</h2>
+        <h2>{t("sleepTimer.title")}</h2>
         <button
           id="sleep-timer-close"
           className="modal-close"
-          aria-label="Close"
+          aria-label={t("common.close")}
           onClick={close}
         >
           <span
@@ -100,7 +118,7 @@ export function SleepTimerModal() {
           {countdown}
         </div>
         <label className="sleep-timer-select-group" htmlFor="sleep-timer-select">
-          <span className="label-line">Timer</span>
+          <span className="label-line">{t("sleepTimer.timer")}</span>
           <span className="viz-select-wrap sleep-timer-select-wrap">
             <select
               id="sleep-timer-select"
@@ -110,10 +128,10 @@ export function SleepTimerModal() {
             >
               {SLEEP_TIMER_OPTIONS.map((option) => (
                 <option
-                  key={option.label}
+                  key={valueForDuration(option.durationMs)}
                   value={valueForDuration(option.durationMs)}
                 >
-                  {option.label}
+                  {sleepTimerLabel(option.durationMs, t)}
                 </option>
               ))}
             </select>
@@ -128,7 +146,7 @@ export function SleepTimerModal() {
       </div>
       <div className="modal-footer sleep-timer-footer">
         <button id="sleep-timer-cancel" type="button" onClick={close}>
-          Close
+          {t("common.close")}
         </button>
         <button
           id="sleep-timer-set"
@@ -138,7 +156,7 @@ export function SleepTimerModal() {
             close();
           }}
         >
-          Set
+          {t("common.set")}
         </button>
       </div>
     </Modal>

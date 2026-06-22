@@ -1,4 +1,5 @@
 import React from "react";
+import "@/app/i18n";
 import { Link } from "react-router-dom";
 import { AnalysisWorkerClient } from "@/core/infrastructure/analysis/AnalysisWorkerClient";
 import { AudioDecoder } from "@/core/infrastructure/audio/AudioDecoder";
@@ -40,14 +41,16 @@ import { useAppState } from "../state/AppState";
 import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useWakeLock } from "./listen/useWakeLock";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
-const STEP_ORDER: Array<{ id: AnalyzeStage; label: string }> = [
-  { id: "loading", label: "Loading file" },
-  { id: "decoding", label: "Decoding audio" },
-  { id: "beats", label: "Detecting beats" },
-  { id: "features", label: "Extracting features" },
-  { id: "building", label: "Building analysis" },
-  { id: "ready", label: "Ready" },
+const STEP_ORDER: AnalyzeStage[] = [
+  "loading",
+  "decoding",
+  "beats",
+  "features",
+  "building",
+  "ready",
 ];
 
 const DEFAULT_CONFIG: JukeboxConfig = {
@@ -78,7 +81,6 @@ type TuningModalTab = "tuning" | "extras";
 type AudioExportFormat = "mp3" | "wav";
 
 type SleepTimerOption = {
-  label: string;
   durationMs: number | null;
 };
 
@@ -89,12 +91,12 @@ type SleepTimerState = {
 };
 
 const SLEEP_TIMER_OPTIONS: SleepTimerOption[] = [
-  { label: "Off", durationMs: null },
-  { label: "15 minutes", durationMs: 15 * 60 * 1000 },
-  { label: "30 minutes", durationMs: 30 * 60 * 1000 },
-  { label: "45 minutes", durationMs: 45 * 60 * 1000 },
-  { label: "1 hour", durationMs: 60 * 60 * 1000 },
-  { label: "2 hours", durationMs: 2 * 60 * 60 * 1000 },
+  { durationMs: null },
+  { durationMs: 15 * 60 * 1000 },
+  { durationMs: 30 * 60 * 1000 },
+  { durationMs: 45 * 60 * 1000 },
+  { durationMs: 60 * 60 * 1000 },
+  { durationMs: 2 * 60 * 60 * 1000 },
 ];
 
 function getSleepTimerOptionValue(durationMs: number | null) {
@@ -122,57 +124,180 @@ function formatSleepTimerRemaining(remainingMs: number) {
   return formatDuration(Math.ceil(Math.max(0, remainingMs) / 1000));
 }
 
+function exportProgressMessage(
+  message: JukeboxExportProgress["message"],
+  t: TFunction,
+) {
+  switch (message.kind) {
+    case "initializing":
+      return t("export.initializing");
+    case "preparingSwing":
+      return t("listen.preparingSwing");
+    case "planning":
+      return t("export.planning");
+    case "renderingChunk":
+      return t("export.renderingChunk", message);
+    case "encodingChunk":
+      return t("export.encodingChunk", message);
+    case "combiningChunks":
+      return t("export.combiningChunks");
+    case "renderingAudio":
+      return t("export.renderingAudio");
+    case "encodingFormat":
+      return t("export.encodingFormat", message);
+    case "finalizing":
+      return t("export.finalizing");
+  }
+}
+
+function exportErrorMessage(error: unknown, t: TFunction) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (
+    message ===
+    "WAV export is too large for browser memory at this duration. Use MP3 for long exports."
+  ) {
+    return t("export.wavTooLarge");
+  }
+  if (message === "Swing export requires beat analysis.") {
+    return t("export.swingNeedsBeats");
+  }
+  return t("export.failed");
+}
+
+function sleepTimerOptionLabel(durationMs: number | null, t: TFunction) {
+  if (durationMs === null) {
+    return t("sleepTimer.off");
+  }
+  if (durationMs === 60 * 60 * 1000) {
+    return t("sleepTimer.oneHour");
+  }
+  if (durationMs === 2 * 60 * 60 * 1000) {
+    return t("sleepTimer.twoHours");
+  }
+  return t("sleepTimer.minutes", { count: durationMs / 60_000 });
+}
+
 type ExtrasFormState = {
   branchStatsEnabled: boolean;
   bringItHomeMode: boolean;
   audioMode: JukeboxAudioMode;
 };
 
-type AudioModeOption = {
-  value: JukeboxAudioMode;
-  label: string;
-  tooltip?: string;
-};
-
 type AudioModeSection = {
-  title: string;
-  options: AudioModeOption[];
+  titleKey: "audioModes.playbackStyles" | "audioModes.remixToys";
+  options: JukeboxAudioMode[];
 };
-
-const AUDIO_MODE_DEFAULT_OPTION: AudioModeOption = { value: "off", label: "Off" };
 
 const AUDIO_MODE_SECTIONS: AudioModeSection[] = [
   {
-    title: "Playback Styles",
+    titleKey: "audioModes.playbackStyles",
     options: [
-      { value: "nightcore", label: "Nightcore", tooltip: "Fast & Bright" },
-      { value: "daycore", label: "Daycore", tooltip: "Slow & Deep" },
-      { value: "vaporwave", label: "Vaporwave", tooltip: "Muffled & Slow" },
-      { value: "eight_d", label: "8D Audio", tooltip: "Spinning/Spatial" },
-      { value: "lofi", label: "Lofi", tooltip: "Radio Filter" },
-      { value: "eight_bit", label: "8-Bit", tooltip: "Bitcrushed & Filtered" },
-      { value: "underwater", label: "Underwater", tooltip: "Heavy Low-Pass" },
-      { value: "cathedral", label: "Cathedral", tooltip: "Cathedral Reverb" },
+      "nightcore",
+      "daycore",
+      "vaporwave",
+      "eight_d",
+      "lofi",
+      "eight_bit",
+      "underwater",
+      "cathedral",
     ],
   },
   {
-    title: "Remix Toys",
-    options: [
-      { value: "cowbell", label: "More Cowbell", tooltip: "More Cowbell" },
-      {
-        value: "swing",
-        label: "Swing",
-        tooltip: "Adds a loping swung feel to each beat",
-      },
-    ],
+    titleKey: "audioModes.remixToys",
+    options: ["cowbell", "swing"],
   },
 ];
 
-function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
-  if (audioMode === "cowbell") {
-    return "more cowbell";
-  }
-  return audioMode === "swing" ? "swing" : audioMode;
+function audioModeLabel(audioMode: JukeboxAudioMode, t: TFunction) {
+  const keys: Record<
+    JukeboxAudioMode,
+    | "common.off"
+    | "audioModes.nightcore"
+    | "audioModes.daycore"
+    | "audioModes.vaporwave"
+    | "audioModes.eightD"
+    | "audioModes.lofi"
+    | "audioModes.eightBit"
+    | "audioModes.underwater"
+    | "audioModes.cathedral"
+    | "audioModes.cowbell"
+    | "audioModes.swing"
+  > = {
+    off: "common.off",
+    nightcore: "audioModes.nightcore",
+    daycore: "audioModes.daycore",
+    vaporwave: "audioModes.vaporwave",
+    eight_d: "audioModes.eightD",
+    lofi: "audioModes.lofi",
+    eight_bit: "audioModes.eightBit",
+    underwater: "audioModes.underwater",
+    cathedral: "audioModes.cathedral",
+    cowbell: "audioModes.cowbell",
+    swing: "audioModes.swing",
+  };
+  return t(keys[audioMode]);
+}
+
+function audioModeTooltip(audioMode: JukeboxAudioMode, t: TFunction) {
+  const keys: Partial<
+    Record<
+      JukeboxAudioMode,
+      | "audioModes.nightcoreTooltip"
+      | "audioModes.daycoreTooltip"
+      | "audioModes.vaporwaveTooltip"
+      | "audioModes.eightDTooltip"
+      | "audioModes.lofiTooltip"
+      | "audioModes.eightBitTooltip"
+      | "audioModes.underwaterTooltip"
+      | "audioModes.cathedralTooltip"
+      | "audioModes.cowbell"
+      | "audioModes.swingTooltip"
+    >
+  > = {
+    nightcore: "audioModes.nightcoreTooltip",
+    daycore: "audioModes.daycoreTooltip",
+    vaporwave: "audioModes.vaporwaveTooltip",
+    eight_d: "audioModes.eightDTooltip",
+    lofi: "audioModes.lofiTooltip",
+    eight_bit: "audioModes.eightBitTooltip",
+    underwater: "audioModes.underwaterTooltip",
+    cathedral: "audioModes.cathedralTooltip",
+    cowbell: "audioModes.cowbell",
+    swing: "audioModes.swingTooltip",
+  };
+  const key = keys[audioMode];
+  return key ? t(key) : undefined;
+}
+
+function formatAudioModeTitleLabel(audioMode: JukeboxAudioMode, t: TFunction) {
+  const keys: Partial<
+    Record<
+      JukeboxAudioMode,
+      | "listen.audioModeTitleNightcore"
+      | "listen.audioModeTitleDaycore"
+      | "listen.audioModeTitleVaporwave"
+      | "listen.audioModeTitleEightD"
+      | "listen.audioModeTitleLofi"
+      | "listen.audioModeTitleEightBit"
+      | "listen.audioModeTitleUnderwater"
+      | "listen.audioModeTitleCathedral"
+      | "listen.audioModeTitleCowbell"
+      | "listen.audioModeTitleSwing"
+    >
+  > = {
+    nightcore: "listen.audioModeTitleNightcore",
+    daycore: "listen.audioModeTitleDaycore",
+    vaporwave: "listen.audioModeTitleVaporwave",
+    eight_d: "listen.audioModeTitleEightD",
+    lofi: "listen.audioModeTitleLofi",
+    eight_bit: "listen.audioModeTitleEightBit",
+    underwater: "listen.audioModeTitleUnderwater",
+    cathedral: "listen.audioModeTitleCathedral",
+    cowbell: "listen.audioModeTitleCowbell",
+    swing: "listen.audioModeTitleSwing",
+  };
+  const key = keys[audioMode];
+  return key ? t(key) : "";
 }
 
 function getAudioModeInputId(mode: JukeboxAudioMode) {
@@ -186,28 +311,30 @@ function AudioModeRadio({
   onChange,
   className = "",
 }: {
-  option: AudioModeOption;
+  option: JukeboxAudioMode;
   checked: boolean;
   disabled: boolean;
   onChange: () => void;
   className?: string;
 }) {
+  const { t } = useTranslation();
+  const tooltip = audioModeTooltip(option, t);
   return (
     <label
       className={`audio-mode-option ${className}`.trim()}
-      title={option.tooltip}
+      title={tooltip}
     >
       <input
-        id={getAudioModeInputId(option.value)}
+        id={getAudioModeInputId(option)}
         type="radio"
         name="audio-mode"
-        value={option.value}
+        value={option}
         checked={checked}
         onChange={onChange}
-        title={option.tooltip}
+        title={tooltip}
         disabled={disabled}
       />
-      <span>{option.label}</span>
+      <span>{audioModeLabel(option, t)}</span>
     </label>
   );
 }
@@ -223,17 +350,18 @@ function AudioModeSectionGroup({
   disabled: boolean;
   onChange: (mode: JukeboxAudioMode) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="audio-mode-section">
-      <div className="audio-mode-section-title">{section.title}</div>
+      <div className="audio-mode-section-title">{t(section.titleKey)}</div>
       <div className="audio-mode-section-options">
         {section.options.map((option) => (
           <AudioModeRadio
-            key={option.value}
+            key={option}
             option={option}
-            checked={selectedAudioMode === option.value}
+            checked={selectedAudioMode === option}
             disabled={disabled}
-            onChange={() => onChange(option.value)}
+            onChange={() => onChange(option)}
           />
         ))}
       </div>
@@ -250,18 +378,23 @@ function AudioModeOptions({
   disabled: boolean;
   onChange: (mode: JukeboxAudioMode) => void;
 }) {
+  const { t } = useTranslation();
   return (
-    <div className="audio-mode-options" role="radiogroup" aria-label="Audio mode">
+    <div
+      className="audio-mode-options"
+      role="radiogroup"
+      aria-label={t("audioModes.label")}
+    >
       <AudioModeRadio
-        option={AUDIO_MODE_DEFAULT_OPTION}
+        option="off"
         className="audio-mode-default-option"
-        checked={selectedAudioMode === AUDIO_MODE_DEFAULT_OPTION.value}
+        checked={selectedAudioMode === "off"}
         disabled={disabled}
-        onChange={() => onChange(AUDIO_MODE_DEFAULT_OPTION.value)}
+        onChange={() => onChange("off")}
       />
       {AUDIO_MODE_SECTIONS.map((section) => (
         <AudioModeSectionGroup
-          key={section.title}
+          key={section.titleKey}
           section={section}
           selectedAudioMode={selectedAudioMode}
           disabled={disabled}
@@ -272,8 +405,9 @@ function AudioModeOptions({
   );
 }
 
-function getVisualizationLabel(index: number) {
-  return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
+function getVisualizationLabel(index: number, t: TFunction) {
+  return VISUALIZATION_LABELS[index] ??
+    t("listen.visualizationNumber", { number: index + 1 });
 }
 
 function coerceVisualizationIndex(index: number) {
@@ -354,12 +488,17 @@ function writeAudioModeToUrl(mode: JukeboxAudioMode, replace = true) {
   window.history.pushState({}, "", url.toString());
 }
 
-function formatTrackTitle(baseTitle: string, playMode: PlayMode, audioMode: JukeboxAudioMode) {
+function formatTrackTitle(
+  baseTitle: string,
+  playMode: PlayMode,
+  audioMode: JukeboxAudioMode,
+  t: TFunction,
+) {
   if (playMode === "autocanonizer") {
-    return `${baseTitle} (autocanonized)`;
+    return `${baseTitle} (${t("listen.autocanonized")})`;
   }
   if (audioMode !== "off") {
-    return `${baseTitle} (${formatAudioModeLabel(audioMode)})`;
+    return `${baseTitle} (${formatAudioModeTitleLabel(audioMode, t)})`;
   }
   return baseTitle;
 }
@@ -438,22 +577,48 @@ function progressStepStatus(index: number, activeIndex: number): ProgressStep["s
   return index === activeIndex ? "active" : "pending";
 }
 
+function analysisStageLabel(stage: AnalyzeStage, t: TFunction) {
+  const keys: Record<
+    Exclude<AnalyzeStage, "cached">,
+    | "analysis.loading"
+    | "analysis.decoding"
+    | "analysis.beats"
+    | "analysis.features"
+    | "analysis.segments"
+    | "analysis.building"
+    | "analysis.ready"
+  > = {
+    loading: "analysis.loading",
+    decoding: "analysis.decoding",
+    beats: "analysis.beats",
+    features: "analysis.features",
+    segments: "analysis.segments",
+    building: "analysis.building",
+    ready: "analysis.ready",
+  };
+  const normalizedStage: Exclude<AnalyzeStage, "cached"> =
+    stage === "cached" ? "ready" : stage;
+  return t(keys[normalizedStage]);
+}
+
 function playControlText({
   swingPreparing,
   isRunning,
   isPaused,
+  t,
 }: {
   swingPreparing: boolean;
   isRunning: boolean;
   isPaused: boolean;
+  t: TFunction;
 }) {
   if (swingPreparing) {
-    return "Preparing Swing mode";
+    return t("listen.preparingSwing");
   }
   if (isRunning) {
-    return "Pause";
+    return t("listen.pause");
   }
-  return isPaused ? "Resume" : "Play";
+  return isPaused ? t("listen.resume") : t("listen.play");
 }
 
 function playControlIcon(swingPreparing: boolean, isRunning: boolean) {
@@ -463,17 +628,18 @@ function playControlIcon(swingPreparing: boolean, isRunning: boolean) {
   return isRunning ? "pause" : "play_arrow";
 }
 
-function branchDirection(edge: Edge) {
+function branchDirection(edge: Edge, t: TFunction) {
   if (edge.dest.which < edge.src.which) {
-    return "Backward";
+    return t("listen.backward");
   }
   if (edge.dest.which > edge.src.which) {
-    return "Forward";
+    return t("listen.forward");
   }
-  return "Same beat";
+  return t("listen.sameBeat");
 }
 
 export function Listen({ isActive = true }: { isActive?: boolean }) {
+  const { t } = useTranslation();
   const { file, setIsListenLoading } = useAppState();
   const initialAudioMode = React.useMemo(() => resolveAudioModeFromUrl(), []);
   const [analysis, setAnalysis] = React.useState<AnalysisOutput | null>(null);
@@ -945,9 +1111,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             setProgressStage(progress.stage);
           }
           setProgressPercent(progress.progress);
-          if (progress.message) {
-            setProgressMessage(progress.message);
-          }
+          setProgressMessage(analysisStageLabel(progress.stage, t));
         },
       })
       .then(async (result) => {
@@ -975,7 +1139,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         if (cancelled) {
           return;
         }
-        setError(err instanceof Error ? err.message : String(err));
+        console.warn(`Audio analysis failed: ${String(err)}`);
+        setError(t("analysis.failed"));
       })
       .finally(() => {
         if (!cancelled) {
@@ -986,7 +1151,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [file]);
+  }, [file, t]);
 
   React.useEffect(() => {
     const id = window.setInterval(() => {
@@ -1060,7 +1225,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         if (nextValue) {
           engineRef.current?.setForceBranch(false);
         }
-        showShortcutToast(`Bring It Home ${nextValue ? "enabled" : "disabled"}`);
+        showShortcutToast(
+          nextValue
+            ? t("listen.bringHomeEnabled")
+            : t("listen.bringHomeDisabled"),
+        );
         return;
       }
       if (
@@ -1431,7 +1600,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         setExtrasForm((prev) => ({ ...prev, audioMode: "off" }));
         player.setJukeboxAudioMode("off");
         writeAudioModeToUrl("off", true);
-        showShortcutToast("Swing mode failed. Using Normal mode.");
+        showShortcutToast(t("listen.swingFailed"));
       });
   }
 
@@ -1476,7 +1645,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     if (isPlaybackBlockedForSwing()) {
-      showShortcutToast("Preparing Swing mode...");
+      showShortcutToast(t("listen.preparingSwingEllipsis"));
       return;
     }
     if (!player.getBuffer()) {
@@ -1534,7 +1703,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     if (isPlaybackBlockedForSwing()) {
-      showShortcutToast("Preparing Swing mode...");
+      showShortcutToast(t("listen.preparingSwingEllipsis"));
       return;
     }
     const beat = activeAnalysis.beats[index];
@@ -1636,7 +1805,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engine.setUserAnchorEdge(nextAnchor);
     syncVizDataFromEngine();
     vizControllerRef.current?.setSelectedEdgeActive(edge);
-    showShortcutToast(nextAnchor ? "Anchor branch set" : "Anchor branch reset");
+    showShortcutToast(
+      nextAnchor ? t("listen.anchorSet") : t("listen.anchorReset"),
+    );
     return true;
   };
 
@@ -1722,7 +1893,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (canPrepareSwingMode()) {
         prepareSwingMode();
       } else {
-        showShortcutToast("Swing mode will prepare once audio is loaded");
+        showShortcutToast(t("listen.swingWhenLoaded"));
       }
     } else {
       swingRenderTokenRef.current += 1;
@@ -1810,26 +1981,28 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
     const sourceBuffer = player.getSourceBuffer() ?? player.getBuffer();
     if (!sourceBuffer) {
-      setExportError("Playback buffer is not ready yet.");
+      setExportError(t("export.bufferUnavailable"));
       return;
     }
 
     const durationSeconds = Number(exportForm.durationSeconds);
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-      setExportError("Export duration must be a positive number of seconds.");
+      setExportError(t("export.positiveDuration"));
       return;
     }
     if (durationSeconds > MAX_EXPORT_DURATION_SECONDS) {
-      setExportError(
-        `Export duration is capped at ${MAX_EXPORT_DURATION_SECONDS / 60} minutes.`,
-      );
+      setExportError(t("export.durationCap", {
+        minutes: MAX_EXPORT_DURATION_SECONDS / 60,
+      }));
       return;
     }
 
     const requestedExtension = exportForm.format;
     const requestedFilename = buildAudioExportName(file.name, requestedExtension);
     const requestedDescription =
-      requestedExtension === "mp3" ? "MP3 Audio" : "WAV Audio";
+      requestedExtension === "mp3"
+        ? t("export.mp3Description")
+        : t("export.wavDescription");
     const requestedMimeType =
       requestedExtension === "mp3" ? "audio/mpeg" : "audio/wav";
 
@@ -1845,14 +2018,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (name === "AbortError") {
         return;
       }
-      setExportError("Unable to open the file save dialog.");
+      console.warn(`Unable to open export save dialog: ${String(err)}`);
+      setExportError(t("export.saveDialogFailed"));
       return;
     }
 
     setExportError(null);
     setExportProgress({
       stage: "planning",
-      message: "Initializing export",
+      message: { kind: "initializing" },
       percent: 0,
     });
     setIsExporting(true);
@@ -1867,7 +2041,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         } else if (activeAnalysis.beats.length > 0) {
           setExportProgress({
             stage: "rendering",
-            message: "Preparing Swing mode",
+            message: { kind: "preparingSwing" },
             percent: 2,
           });
           swingBuffer = await getOrCreateSwingBuffer(
@@ -1878,7 +2052,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 onProgress: (progress) => {
                   setExportProgress({
                     stage: "rendering",
-                    message: "Preparing Swing mode",
+                    message: { kind: "preparingSwing" },
                     percent: 2 + Math.max(0, Math.min(1, progress)) * 6,
                   });
                 },
@@ -1916,7 +2090,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       const extension = result.extension;
       const filename = buildAudioExportName(file.name, extension);
       const description =
-        extension === "mp3" ? "MP3 Audio" : "WAV Audio";
+        extension === "mp3"
+          ? t("export.mp3Description")
+          : t("export.wavDescription");
       await saveExportBinary(
         filename,
         result.bytes,
@@ -1933,8 +2109,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (name === "AbortError") {
         return;
       }
-      const message = err instanceof Error ? err.message : String(err);
-      setExportError(message || "Audio export failed.");
+      console.warn(`Audio export failed: ${String(err)}`);
+      setExportError(exportErrorMessage(err, t));
     } finally {
       setIsExporting(false);
     }
@@ -1942,8 +2118,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
   const handleExportJukeboxAudio = () => {
     onExportJukeboxAudio().catch((err) => {
-      const message = err instanceof Error ? err.message : String(err);
-      setExportError(message || "Audio export failed.");
+      console.warn(`Audio export failed: ${String(err)}`);
+      setExportError(exportErrorMessage(err, t));
       setIsExporting(false);
     });
   };
@@ -1980,13 +2156,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   };
 
   const steps = React.useMemo<ProgressStep[]>(() => {
-    const stageIndex = STEP_ORDER.findIndex((step) => step.id === progressStage);
+    const stageIndex = STEP_ORDER.findIndex((step) => step === progressStage);
     return STEP_ORDER.map((step, idx) => ({
-      id: step.id,
-      label: step.label,
+      id: step,
+      label: analysisStageLabel(step, t),
       status: progressStepStatus(idx, stageIndex),
     }));
-  }, [progressStage]);
+  }, [progressStage, t]);
 
   const graph = engineRef.current?.getGraphState();
   const totalBeats = graph?.totalBeats ?? analysis?.beats.length ?? 0;
@@ -2003,10 +2179,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     swingPreparing,
     isRunning,
     isPaused,
+    t,
   });
   const playIcon = playControlIcon(swingPreparing, isRunning);
   const beatsLabel =
-    jukeboxAudioMode === "cowbell" ? "Total Cowbells:" : "Total Beats:";
+    jukeboxAudioMode === "cowbell"
+      ? t("listen.totalCowbells")
+      : t("listen.totalBeats");
   const branchStats =
     branchStatsEnabled && playMode === "jukebox" && selectedEdge
       ? (() => {
@@ -2026,7 +2205,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             start: formatDuration(startDisplaySeconds),
             end: formatDuration(endDisplaySeconds),
             delta: signedDelta,
-            direction: branchDirection(selectedEdge),
+            direction: branchDirection(selectedEdge, t),
             similarity: `${toSimilarityPercent(selectedEdge.distance, maxDistance)}%`,
           };
         })()
@@ -2035,12 +2214,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   if (!file) {
     return (
       <section className="panel panel--center">
-        <p>No file selected.</p>
-        <Link className="tab-btn" to="/">Go back</Link>
+        <p>{t("listen.noFile")}</p>
+        <Link className="tab-btn" to="/">{t("listen.goBack")}</Link>
       </section>
     );
   }
-  const displayTitle = formatTrackTitle(file.name, playMode, jukeboxAudioMode);
+  const displayTitle = formatTrackTitle(
+    file.name,
+    playMode,
+    jukeboxAudioMode,
+    t,
+  );
 
   return (
     <section className="listen-page">
@@ -2057,8 +2241,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         <div className="panel" id="play-status">
           <div className="progress">
             <div className="progress__header">
-              <p className="progress__title">Preparing Swing mode: {swingProgress}%</p>
-              <p className="progress__message">Adding swing to the track...</p>
+              <p className="progress__title">
+                {t("listen.preparingSwingPercent", { percent: swingProgress })}
+              </p>
+              <p className="progress__message">{t("listen.addingSwing")}</p>
             </div>
             <div className="progress-bar" aria-hidden="true">
               <div
@@ -2077,7 +2263,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           <div className="menu-left">
             <div className="play-title">{displayTitle}</div>
             {playMode === "jukebox" && bringItHomeMode ? (
-              <span className="bring-home-note">Bringing it on home</span>
+              <span className="bring-home-note">{t("listen.bringingHome")}</span>
             ) : null}
           </div>
           <div className="menu-right">
@@ -2087,8 +2273,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               type="button"
               onClick={() => openTuningModalTab("tuning")}
               disabled={!analysis || playMode === "autocanonizer"}
-              title="Tune"
-              aria-label="Tune"
+              title={t("listen.tune")}
+              aria-label={t("listen.tune")}
             >
               <SymbolIcon className="tune-icon" name="tune" />
             </button>
@@ -2098,8 +2284,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               type="button"
               onClick={() => setIsInfoOpen(true)}
               disabled={!analysis || playMode === "autocanonizer"}
-              title="Info"
-              aria-label="Info"
+              title={t("listen.info")}
+              aria-label={t("listen.info")}
             >
               <SymbolIcon className="info-icon" name="info" />
             </button>
@@ -2113,8 +2299,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 setIsExportOpen(true);
               }}
               disabled={!analysis || isExporting || playMode === "autocanonizer"}
-              title="Export jukebox audio"
-              aria-label="Export jukebox audio"
+              title={t("listen.exportAudio")}
+              aria-label={t("listen.exportAudio")}
             >
               <SymbolIcon className="copy-icon" name="download" />
             </button>
@@ -2134,8 +2320,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   id="branch-stats-delete"
                   className="branch-stats-delete"
                   type="button"
-                  aria-label="Delete selected branch"
-                  title="Delete selected branch"
+                  aria-label={t("listen.deleteBranch")}
+                  title={t("listen.deleteBranch")}
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
@@ -2147,23 +2333,23 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </button>
               </div>
               <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">Direction:</span>
+                <span className="branch-stats-popup-label">{t("listen.direction")}</span>
                 <span className="branch-stats-popup-value">{branchStats.direction}</span>
               </div>
               <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">Start:</span>
+                <span className="branch-stats-popup-label">{t("listen.start")}</span>
                 <span className="branch-stats-popup-value">{branchStats.start}</span>
               </div>
               <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">End:</span>
+                <span className="branch-stats-popup-label">{t("listen.end")}</span>
                 <span className="branch-stats-popup-value">{branchStats.end}</span>
               </div>
               <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">Difference:</span>
+                <span className="branch-stats-popup-label">{t("listen.difference")}</span>
                 <span className="branch-stats-popup-value">{branchStats.delta}</span>
               </div>
               <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">Branch Match:</span>
+                <span className="branch-stats-popup-label">{t("listen.branchMatch")}</span>
                 <span className="branch-stats-popup-value">{branchStats.similarity}</span>
               </div>
             </div>
@@ -2175,7 +2361,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   <select
                     id="play-mode-select"
                     className="viz-select"
-                    aria-label="Mode"
+                    aria-label={t("listen.mode")}
                     value={playMode}
                     onChange={(event) =>
                       onSetPlayMode(
@@ -2185,8 +2371,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       )
                     }
                   >
-                    <option value="autocanonizer">Autocanonizer</option>
-                    <option value="jukebox">Jukebox</option>
+                    <option value="autocanonizer">{t("listen.autocanonizer")}</option>
+                    <option value="jukebox">{t("listen.jukebox")}</option>
                   </select>
                   <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
                 </span>
@@ -2198,14 +2384,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   <select
                     id="viz-select"
                     className="viz-select"
-                    aria-label="Visualization"
+                    aria-label={t("listen.visualization")}
                     value={String(activeVizIndex)}
                     onChange={(event) => onSetActiveViz(Number(event.target.value))}
                     disabled={playMode === "autocanonizer"}
                   >
                     {Array.from({ length: vizCount }, (_, index) => (
                       <option key={index} value={index}>
-                        {getVisualizationLabel(index)}
+                        {getVisualizationLabel(index, t)}
                       </option>
                     ))}
                   </select>
@@ -2220,7 +2406,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 checked={finishOutSong}
                 onChange={(event) => setFinishOutSong(event.target.checked)}
               />
-              <span>Finish out the track</span>
+              <span>{t("listen.finishTrack")}</span>
             </div>
           </div>
           <div id="viz-layer" className="viz-layer" ref={vizLayerRef} />
@@ -2245,7 +2431,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <div className="viz-title" id="viz-now-playing">{displayTitle}</div>
                 <div className="viz-meta">
                   <span className="viz-meta-stats">
-                    <span>Listen Time:</span>
+                    <span>{t("listen.listenTime")}</span>
                     <span>{formatDuration(listenSeconds)}</span>
                     <span className={`viz-divider ${playMode === "autocanonizer" ? "is-hidden" : ""}`}>·</span>
                     <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsLabel}</span>
@@ -2267,7 +2453,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     <input
                       className="volume-slider"
                       type="range"
-                      aria-label="Volume"
+                      aria-label={t("listen.volume")}
                       min={0}
                       max={100}
                       step={1}
@@ -2275,7 +2461,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       onChange={(event) => onVolumeChange(Number(event.target.value))}
                     />
                     <div className="label-line">
-                      <span>Volume:</span>
+                      <span>{t("listen.volumeValue")}</span>
                       <span className="volume-value">{tuneForm.volume}</span>
                     </div>
                   </label>
@@ -2286,8 +2472,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   type="button"
                   ref={volumeButtonRef}
                   onClick={() => setIsVolumeOpen((prev) => !prev)}
-                  title="Volume"
-                  aria-label="Volume"
+                  title={t("listen.volume")}
+                  aria-label={t("listen.volume")}
                 >
                   <SymbolIcon className="volume-icon" name="volume_up" />
                 </button>
@@ -2297,8 +2483,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 className="fullscreen-toggle"
                 type="button"
                 onClick={onToggleFullscreen}
-                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                title={
+                  isFullscreen
+                    ? t("listen.exitFullscreen")
+                    : t("listen.fullscreen")
+                }
+                aria-label={
+                  isFullscreen
+                    ? t("listen.exitFullscreen")
+                    : t("listen.fullscreen")
+                }
               >
                 <SymbolIcon className="fullscreen-icon" name={isFullscreen ? "fullscreen_exit" : "fullscreen"} />
               </button>
@@ -2313,17 +2507,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             className="modal-backdrop"
             type="button"
             onClick={() => setIsExportOpen(false)}
-            aria-label="Close export dialog"
+            aria-label={t("listen.closeExportDialog")}
             disabled={isExporting}
           />
           <div className="modal-panel">
             <div className="modal-header">
-              <h2>Export Jukebox Audio</h2>
+              <h2>{t("export.title")}</h2>
               <button
                 className="modal-close"
                 type="button"
                 onClick={() => setIsExportOpen(false)}
-                aria-label="Close"
+                aria-label={t("common.close")}
                 disabled={isExporting}
               >
                 <SymbolIcon className="modal-close-icon" name="close" />
@@ -2331,17 +2525,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             </div>
             <div className="modal-body export-body">
               <p className="export-note">
-                Exports using current tuning and deleted branches.
+                {t("export.note")}
               </p>
               <label>
                 <div className="label-line">
-                  <span>Export Duration:</span>
+                  <span>{t("export.duration")}</span>
                   <span>{formatDuration(exportForm.durationSeconds)}</span>
                 </div>
                 <input
                   className="field-input"
                   type="number"
-                  aria-label="Export duration"
+                  aria-label={t("export.durationLabel")}
                   min={5}
                   max={MAX_EXPORT_DURATION_SECONDS}
                   step={5}
@@ -2356,7 +2550,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 />
               </label>
               <label>
-                <div className="label-line">Format:</div>
+                <div className="label-line">{t("export.format")}</div>
                 <select
                   className="field-input"
                   value={exportForm.format}
@@ -2368,19 +2562,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     }))
                   }
                 >
-                  <option value="mp3">MP3 (compressed)</option>
-                  <option value="wav">WAV (lossless)</option>
+                  <option value="mp3">{t("export.mp3")}</option>
+                  <option value="wav">{t("export.wav")}</option>
                 </select>
               </label>
               {exportForm.format === "mp3" ? (
                 <label>
                   <div className="label-line">
-                    <span>MP3 Bitrate:</span>
+                    <span>{t("export.bitrate")}</span>
                     <span>{exportForm.bitrateKbps} kbps</span>
                   </div>
                   <input
                     type="range"
-                    aria-label="MP3 bitrate"
+                    aria-label={t("export.bitrateLabel")}
                     min={64}
                     max={320}
                     step={32}
@@ -2397,7 +2591,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               ) : null}
               {exportProgress ? (
                 <div className="export-status">
-                  {exportProgress.message} ({Math.round(exportProgress.percent)}%)
+                  {exportProgressMessage(exportProgress.message, t)} (
+                  {Math.round(exportProgress.percent)}%)
                 </div>
               ) : null}
               {exportError ? <div className="error">{exportError}</div> : null}
@@ -2409,7 +2604,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 onClick={() => setIsExportOpen(false)}
                 disabled={isExporting}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 className="tab-btn"
@@ -2417,7 +2612,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 onClick={handleExportJukeboxAudio}
                 disabled={isExporting}
               >
-                {isExporting ? "Exporting..." : "Export Audio"}
+                {isExporting ? t("export.exporting") : t("export.action")}
               </button>
             </div>
           </div>
@@ -2430,7 +2625,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             className="modal-backdrop"
             type="button"
             onClick={() => setIsTuningOpen(false)}
-            aria-label="Close tuning dialog"
+            aria-label={t("listen.closeTuningDialog")}
           />
           <div className="modal-panel">
             <div className="modal-header">
@@ -2440,10 +2635,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   className={tuningActiveTab === "extras" ? "is-extras-active" : ""}
                 >
                   <span id="tuning-title-text">
-                    {tuningActiveTab === "tuning" ? "Tuning" : "Extras"}
+                    {tuningActiveTab === "tuning"
+                      ? t("tuning.title")
+                      : t("tuning.extras")}
                   </span>
                 </h2>
-                <div className="modal-tabs" aria-label="Tune sections">
+                <div className="modal-tabs" aria-label={t("tuning.sections")}>
                   <button
                     id="tuning-tab-toggle"
                     className={`modal-tab ${playMode !== "jukebox" ? "hidden" : ""}`}
@@ -2452,7 +2649,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       setTuningActiveTab(tuningActiveTab === "tuning" ? "extras" : "tuning")
                     }
                     aria-label={
-                      tuningActiveTab === "tuning" ? "Switch to Extras" : "Switch to Tuning"
+                      tuningActiveTab === "tuning"
+                        ? t("tuning.switchToExtras")
+                        : t("tuning.switchToTuning")
                     }
                   >
                     <SymbolIcon
@@ -2460,7 +2659,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       name={tuningActiveTab === "tuning" ? "science" : "tune"}
                     />
                     <span id="tuning-tab-toggle-label">
-                      {tuningActiveTab === "tuning" ? "Extras" : "Tuning"}
+                      {tuningActiveTab === "tuning"
+                        ? t("tuning.extras")
+                        : t("tuning.title")}
                     </span>
                   </button>
                 </div>
@@ -2471,12 +2672,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   className="modal-icon-button"
                   type="button"
                   onClick={openSleepTimer}
-                  aria-label="Sleep Timer"
-                  title="Sleep Timer"
+                  aria-label={t("tuning.sleepTimer")}
+                  title={t("tuning.sleepTimer")}
                 >
                   <SymbolIcon className="modal-icon-button-icon" name="timer" />
                 </button>
-                <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label="Close">
+                <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label={t("common.close")}>
                   <SymbolIcon className="modal-close-icon" name="close" />
                 </button>
               </div>
@@ -2485,16 +2686,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div id="tuning-panel-tuning" className={tuningActiveTab === "tuning" ? "" : "hidden"}>
                 <label>
                   <div className="label-line">
-                    <span>Branch Similarity Threshold:</span>
+                    <span>{t("tuning.similarityThreshold")}</span>
                     <span>{tuneForm.threshold}</span>
                   </div>
                   <div className="hint">
-                    <span>Computed default threshold:</span>
+                    <span>{t("tuning.computedThreshold")}</span>
                     <span>{tuneForm.computedThreshold}</span>
                   </div>
                   <input
                     type="range"
-                    aria-label="Branch similarity threshold"
+                    aria-label={t("tuning.similarityThresholdLabel")}
                     min={2}
                     max={80}
                     step={1}
@@ -2506,7 +2707,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </label>
                 <label>
                   <div className="label-line">
-                    <span>Branch Probability Min:</span>
+                    <span>{t("tuning.probabilityMin")}</span>
                     <span>{tuneForm.minProb}%</span>
                   </div>
                   <input
@@ -2515,7 +2716,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     max={100}
                     step={2}
                     value={tuneForm.minProb}
-                    aria-label="Branch probability minimum"
+                    aria-label={t("tuning.probabilityMinLabel")}
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, minProb: Number(event.target.value) }))
                     }
@@ -2523,7 +2724,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </label>
                 <label>
                   <div className="label-line">
-                    <span>Branch Probability Max:</span>
+                    <span>{t("tuning.probabilityMax")}</span>
                     <span>{tuneForm.maxProb}%</span>
                   </div>
                   <input
@@ -2532,7 +2733,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     max={100}
                     step={2}
                     value={tuneForm.maxProb}
-                    aria-label="Branch probability maximum"
+                    aria-label={t("tuning.probabilityMaxLabel")}
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, maxProb: Number(event.target.value) }))
                     }
@@ -2540,7 +2741,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </label>
                 <label>
                   <div className="label-line">
-                    <span>Branch Ramp Speed:</span>
+                    <span>{t("tuning.rampSpeed")}</span>
                     <span>{tuneForm.ramp}%</span>
                   </div>
                   <input
@@ -2549,7 +2750,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     max={100}
                     step={2}
                     value={tuneForm.ramp}
-                    aria-label="Branch ramp speed"
+                    aria-label={t("tuning.rampSpeedLabel")}
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, ramp: Number(event.target.value) }))
                     }
@@ -2564,7 +2765,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         setTuneForm((prev) => ({ ...prev, justBackwards: event.target.checked }))
                       }
                     />
-                    <span>Allow only reverse branches</span>
+                    <span>{t("tuning.onlyReverse")}</span>
                   </label>
                   <label>
                     <input
@@ -2574,7 +2775,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         setTuneForm((prev) => ({ ...prev, justLongBranches: event.target.checked }))
                       }
                     />
-                    <span>Allow only long branches</span>
+                    <span>{t("tuning.onlyLong")}</span>
                   </label>
                   <label>
                     <input
@@ -2584,7 +2785,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         setTuneForm((prev) => ({ ...prev, removeSequentialBranches: event.target.checked }))
                       }
                     />
-                    <span>Remove sequential branches</span>
+                    <span>{t("tuning.removeSequential")}</span>
                   </label>
                   <label>
                     <input
@@ -2597,7 +2798,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         }))
                       }
                     />
-                    <span>Highlight forced anchor jump</span>
+                    <span>{t("tuning.highlightAnchor")}</span>
                   </label>
                 </div>
               </div>
@@ -2616,7 +2817,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       }
                       disabled={playMode !== "jukebox"}
                     />
-                    <span>Show selected branch stats</span>
+                    <span>{t("tuning.showBranchStats")}</span>
                   </label>
                   <label>
                     <input
@@ -2631,11 +2832,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       }
                       disabled={playMode !== "jukebox"}
                     />
-                    <span>Bring It Home mode</span>
+                    <span>{t("tuning.bringItHome")}</span>
                   </label>
                 </div>
                 <div id="jukebox-audio-mode-group" className="audio-mode-group">
-                  <div className="label-line">Audio Mode</div>
+                  <div className="label-line">{t("tuning.audioMode")}</div>
                   <AudioModeOptions
                     selectedAudioMode={extrasForm.audioMode}
                     disabled={playMode !== "jukebox"}
@@ -2647,8 +2848,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               </div>
             </div>
             <div className="modal-footer tuning-footer">
-              <button className="tab-btn" type="button" onClick={onResetTuningModal}>Reset</button>
-              <button className="tab-btn" type="button" onClick={onApplyTuningModal}>Apply</button>
+              <button className="tab-btn" type="button" onClick={onResetTuningModal}>{t("common.reset")}</button>
+              <button className="tab-btn" type="button" onClick={onApplyTuningModal}>{t("common.apply")}</button>
             </div>
           </div>
         </div>
@@ -2663,17 +2864,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             className="modal-backdrop"
             type="button"
             onClick={() => setIsSleepTimerOpen(false)}
-            aria-label="Close sleep timer dialog"
+            aria-label={t("listen.closeSleepTimerDialog")}
           />
           <div className="modal-panel sleep-timer-panel">
             <div className="modal-header">
-              <h2>Sleep Timer</h2>
+              <h2>{t("sleepTimer.title")}</h2>
               <button
                 id="sleep-timer-close"
                 className="modal-close"
                 type="button"
                 onClick={() => setIsSleepTimerOpen(false)}
-                aria-label="Close"
+                aria-label={t("common.close")}
               >
                 <SymbolIcon className="modal-close-icon" name="close" />
               </button>
@@ -2681,13 +2882,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             <div className="modal-body sleep-timer-body">
               <div id="sleep-timer-current" className="sleep-timer-current">
                 {sleepTimer.remainingMs > 0
-                  ? `Current countdown: ${formatSleepTimerRemaining(
-                      sleepTimer.remainingMs,
-                    )}`
-                  : "Off"}
+                  ? t("sleepTimer.currentCountdown", {
+                      time: formatSleepTimerRemaining(sleepTimer.remainingMs),
+                    })
+                  : t("sleepTimer.off")}
               </div>
               <label className="sleep-timer-select-group" htmlFor="sleep-timer-select">
-                <span className="label-line">Timer</span>
+                <span className="label-line">{t("sleepTimer.timer")}</span>
                 <span className="viz-select-wrap sleep-timer-select-wrap">
                   <select
                     id="sleep-timer-select"
@@ -2704,7 +2905,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         key={getSleepTimerOptionValue(option.durationMs)}
                         value={getSleepTimerOptionValue(option.durationMs)}
                       >
-                        {option.label}
+                        {sleepTimerOptionLabel(option.durationMs, t)}
                       </option>
                     ))}
                   </select>
@@ -2719,7 +2920,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 type="button"
                 onClick={() => setIsSleepTimerOpen(false)}
               >
-                Close
+                {t("common.close")}
               </button>
               <button
                 id="sleep-timer-set"
@@ -2730,7 +2931,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   setIsSleepTimerOpen(false);
                 }}
               >
-                Set
+                {t("common.set")}
               </button>
             </div>
           </div>
@@ -2743,60 +2944,60 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             className="modal-backdrop"
             type="button"
             onClick={() => setIsInfoOpen(false)}
-            aria-label="Close track info dialog"
+            aria-label={t("listen.closeTrackInfoDialog")}
           />
           <div className="modal-panel">
             <div className="modal-header">
-              <h2>Track Info</h2>
-              <button className="modal-close" type="button" onClick={() => setIsInfoOpen(false)} aria-label="Close">
+              <h2>{t("info.title")}</h2>
+              <button className="modal-close" type="button" onClick={() => setIsInfoOpen(false)} aria-label={t("common.close")}>
                 <SymbolIcon className="modal-close-icon" name="close" />
               </button>
             </div>
             <div className="modal-body info-body">
               <div className="info-row">
-                <span className="info-label">Track length:</span>
+                <span className="info-label">{t("info.trackLength")}</span>
                 <span>{formatDuration(analysis?.track?.duration ?? 0)}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">Total beats:</span>
+                <span className="info-label">{t("info.totalBeats")}</span>
                 <span>{totalBeats}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">Total branches:</span>
+                <span className="info-label">{t("info.totalBranches")}</span>
                 <span>{totalBranches}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">Deleted branches:</span>
+                <span className="info-label">{t("info.deletedBranches")}</span>
                 <span>{deletedBranches}</span>
               </div>
-              <h4>Keyboard commands</h4>
+              <h4>{t("info.keyboardCommands")}</h4>
               <div className="info-row">
-                <span className="info-label">Space:</span>
-                <span>Play/pause playback</span>
+                <span className="info-label">{t("info.space")}</span>
+                <span>{t("info.spaceAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">Shift (hold):</span>
-                <span>Force branching while playing</span>
+                <span className="info-label">{t("info.shift")}</span>
+                <span>{t("info.shiftAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">Left/Right:</span>
-                <span>Cycle selected branch</span>
+                <span className="info-label">{t("info.arrows")}</span>
+                <span>{t("info.arrowsAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">A:</span>
-                <span>Set/reset selected anchor branch</span>
+                <span className="info-label">{t("info.anchor")}</span>
+                <span>{t("info.anchorAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">Delete:</span>
-                <span>Remove selected branch</span>
+                <span className="info-label">{t("info.delete")}</span>
+                <span>{t("info.deleteAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">E:</span>
-                <span>Open the Extras menu</span>
+                <span className="info-label">{t("info.extras")}</span>
+                <span>{t("info.extrasAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">H:</span>
-                <span>Toggle Bring It Home mode</span>
+                <span className="info-label">{t("info.home")}</span>
+                <span>{t("info.homeAction")}</span>
               </div>
             </div>
           </div>
