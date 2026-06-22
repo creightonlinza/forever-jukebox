@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import "@/app/i18n";
 import { Link } from "react-router-dom";
 import { AnalysisWorkerClient } from "@/core/infrastructure/analysis/AnalysisWorkerClient";
@@ -43,6 +44,11 @@ import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useWakeLock } from "./listen/useWakeLock";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import {
+  resolveSupportedLanguage,
+  supportedLanguageOptions,
+} from "../i18n";
+import { applyTheme, resolveStoredTheme, type ThemeName } from "../theme";
 
 const STEP_ORDER: AnalyzeStage[] = [
   "loading",
@@ -639,8 +645,13 @@ function branchDirection(edge: Edge, t: TFunction) {
 }
 
 export function Listen({ isActive = true }: { isActive?: boolean }) {
-  const { t } = useTranslation();
-  const { file, setIsListenLoading } = useAppState();
+  const { t, i18n } = useTranslation();
+  const {
+    file,
+    setIsListenLoading,
+    isSettingsOpen,
+    setIsSettingsOpen,
+  } = useAppState();
   const initialAudioMode = React.useMemo(() => resolveAudioModeFromUrl(), []);
   const [analysis, setAnalysis] = React.useState<AnalysisOutput | null>(null);
   const [readyFileKey, setReadyFileKey] = React.useState<string | null>(null);
@@ -656,7 +667,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [listenSeconds, setListenSeconds] = React.useState(0);
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
-  const [isSleepTimerOpen, setIsSleepTimerOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
   const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -667,6 +677,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   });
   const [pendingSleepTimerDurationMs, setPendingSleepTimerDurationMs] =
     React.useState<number | null>(null);
+  const [theme, setTheme] = React.useState<ThemeName>(() =>
+    resolveStoredTheme(),
+  );
   const [bringItHomeMode, setBringItHomeMode] = React.useState(false);
   const [branchStatsEnabled, setBranchStatsEnabled] = React.useState<boolean>(
     () => resolveStoredBranchStatsEnabled(),
@@ -870,13 +883,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     scheduleSleepTimerTick(endTimeMs);
   }
 
-  function openSleepTimer() {
-    setPendingSleepTimerDurationMs(
-      resolveSleepTimerDuration(sleepTimer.configuredDurationMs),
-    );
-    setIsSleepTimerOpen(true);
-  }
-
   function syncVizDataFromEngine() {
     const data = engineRef.current?.getVisualizationData();
     if (data) {
@@ -1020,6 +1026,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       resolveSleepTimerDuration(sleepTimer.configuredDurationMs),
     );
   }, [sleepTimer.configuredDurationMs]);
+
+  React.useEffect(() => {
+    if (isSettingsOpen) {
+      setPendingSleepTimerDurationMs(
+        resolveSleepTimerDuration(sleepTimer.configuredDurationMs),
+      );
+    }
+  }, [isSettingsOpen, sleepTimer.configuredDurationMs]);
 
   React.useEffect(() => {
     return () => {
@@ -2211,12 +2225,163 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         })()
       : null;
 
+  const closeSettings = () => setIsSettingsOpen(false);
+  const settingsModal = isSettingsOpen
+    ? createPortal(
+        <div
+          id="settings-modal"
+          className="modal open"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settings-title"
+        >
+          <button
+            className="modal-backdrop"
+            type="button"
+            onClick={closeSettings}
+            aria-label={t("common.close")}
+          />
+          <div className="modal-panel settings-panel">
+            <div className="modal-header">
+              <h2 id="settings-title">{t("settings.title")}</h2>
+              <button
+                id="settings-close"
+                className="modal-close"
+                type="button"
+                onClick={closeSettings}
+                aria-label={t("common.close")}
+              >
+                <SymbolIcon className="modal-close-icon" name="close" />
+              </button>
+            </div>
+            <div className="modal-body settings-body">
+              <section className="settings-section">
+                <label className="settings-field" htmlFor="settings-language">
+                  <span className="label-line">{t("settings.language")}</span>
+                  <span className="viz-select-wrap settings-select-wrap">
+                    <select
+                      id="settings-language"
+                      className="viz-select settings-select"
+                      value={resolveSupportedLanguage(i18n.resolvedLanguage)}
+                      onChange={(event) => {
+                        void i18n.changeLanguage(event.target.value);
+                      }}
+                    >
+                      {supportedLanguageOptions.map((option) => (
+                        <option key={option.code} value={option.code}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <SymbolIcon
+                      className="viz-select-arrow"
+                      name="arrow_drop_down"
+                    />
+                  </span>
+                </label>
+              </section>
+
+              <section className="settings-section">
+                <fieldset className="settings-fieldset">
+                  <legend className="label-line">{t("settings.theme")}</legend>
+                  <div className="settings-theme-options">
+                    {(["light", "dark"] as const).map((option) => (
+                      <label key={option} className="settings-theme-option">
+                        <input
+                          type="radio"
+                          name="settings-theme"
+                          value={option}
+                          checked={theme === option}
+                          onChange={() => {
+                            setTheme(option);
+                            applyTheme(option);
+                            vizControllerRef.current?.refresh();
+                          }}
+                        />
+                        <span>{t(`common.${option}`)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </section>
+
+              <section className="settings-section">
+                <div className="label-line">{t("settings.sleepTimer")}</div>
+                <div id="sleep-timer-current" className="sleep-timer-current">
+                  {sleepTimer.remainingMs > 0
+                    ? t("sleepTimer.currentCountdown", {
+                        time: formatSleepTimerRemaining(sleepTimer.remainingMs),
+                      })
+                    : t("sleepTimer.off")}
+                </div>
+                <label className="settings-field" htmlFor="sleep-timer-select">
+                  <span className="label-line">{t("sleepTimer.timer")}</span>
+                  <span className="viz-select-wrap settings-select-wrap">
+                    <select
+                      id="sleep-timer-select"
+                      className="viz-select settings-select"
+                      value={getSleepTimerOptionValue(
+                        pendingSleepTimerDurationMs,
+                      )}
+                      onChange={(event) =>
+                        setPendingSleepTimerDurationMs(
+                          getSleepTimerDurationFromValue(event.target.value),
+                        )
+                      }
+                    >
+                      {SLEEP_TIMER_OPTIONS.map((option) => (
+                        <option
+                          key={getSleepTimerOptionValue(option.durationMs)}
+                          value={getSleepTimerOptionValue(option.durationMs)}
+                        >
+                          {sleepTimerOptionLabel(option.durationMs, t)}
+                        </option>
+                      ))}
+                    </select>
+                    <SymbolIcon
+                      className="viz-select-arrow"
+                      name="arrow_drop_down"
+                    />
+                  </span>
+                </label>
+              </section>
+            </div>
+            <div className="modal-footer settings-footer">
+              <button
+                id="settings-cancel"
+                className="tab-btn"
+                type="button"
+                onClick={closeSettings}
+              >
+                {t("common.close")}
+              </button>
+              <button
+                id="sleep-timer-set"
+                className="tab-btn"
+                type="button"
+                onClick={() => {
+                  setSleepTimer(pendingSleepTimerDurationMs);
+                  closeSettings();
+                }}
+              >
+                {t("common.set")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
+
   if (!file) {
     return (
-      <section className="panel panel--center">
-        <p>{t("listen.noFile")}</p>
-        <Link className="tab-btn" to="/">{t("listen.goBack")}</Link>
-      </section>
+      <>
+        <section className="panel panel--center">
+          <p>{t("listen.noFile")}</p>
+          <Link className="tab-btn" to="/">{t("listen.goBack")}</Link>
+        </section>
+        {settingsModal}
+      </>
     );
   }
   const displayTitle = formatTrackTitle(
@@ -2227,7 +2392,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   );
 
   return (
-    <section className="listen-page">
+    <>
+      <section className="listen-page">
       {isAnalyzing ? (
         <div className="panel" id="play-status">
           <ProgressSteps
@@ -2667,16 +2833,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </div>
               </div>
               <div className="modal-header-actions">
-                <button
-                  id="sleep-timer-open"
-                  className="modal-icon-button"
-                  type="button"
-                  onClick={openSleepTimer}
-                  aria-label={t("tuning.sleepTimer")}
-                  title={t("tuning.sleepTimer")}
-                >
-                  <SymbolIcon className="modal-icon-button-icon" name="timer" />
-                </button>
                 <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label={t("common.close")}>
                   <SymbolIcon className="modal-close-icon" name="close" />
                 </button>
@@ -2855,89 +3011,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         </div>
       ) : null}
 
-      {isSleepTimerOpen ? (
-        <div
-          id="sleep-timer-modal"
-          className="modal open"
-        >
-          <button
-            className="modal-backdrop"
-            type="button"
-            onClick={() => setIsSleepTimerOpen(false)}
-            aria-label={t("listen.closeSleepTimerDialog")}
-          />
-          <div className="modal-panel sleep-timer-panel">
-            <div className="modal-header">
-              <h2>{t("sleepTimer.title")}</h2>
-              <button
-                id="sleep-timer-close"
-                className="modal-close"
-                type="button"
-                onClick={() => setIsSleepTimerOpen(false)}
-                aria-label={t("common.close")}
-              >
-                <SymbolIcon className="modal-close-icon" name="close" />
-              </button>
-            </div>
-            <div className="modal-body sleep-timer-body">
-              <div id="sleep-timer-current" className="sleep-timer-current">
-                {sleepTimer.remainingMs > 0
-                  ? t("sleepTimer.currentCountdown", {
-                      time: formatSleepTimerRemaining(sleepTimer.remainingMs),
-                    })
-                  : t("sleepTimer.off")}
-              </div>
-              <label className="sleep-timer-select-group" htmlFor="sleep-timer-select">
-                <span className="label-line">{t("sleepTimer.timer")}</span>
-                <span className="viz-select-wrap sleep-timer-select-wrap">
-                  <select
-                    id="sleep-timer-select"
-                    className="viz-select sleep-timer-select"
-                    value={getSleepTimerOptionValue(pendingSleepTimerDurationMs)}
-                    onChange={(event) =>
-                      setPendingSleepTimerDurationMs(
-                        getSleepTimerDurationFromValue(event.target.value),
-                      )
-                    }
-                  >
-                    {SLEEP_TIMER_OPTIONS.map((option) => (
-                      <option
-                        key={getSleepTimerOptionValue(option.durationMs)}
-                        value={getSleepTimerOptionValue(option.durationMs)}
-                      >
-                        {sleepTimerOptionLabel(option.durationMs, t)}
-                      </option>
-                    ))}
-                  </select>
-                  <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
-                </span>
-              </label>
-            </div>
-            <div className="modal-footer sleep-timer-footer">
-              <button
-                id="sleep-timer-cancel"
-                className="tab-btn"
-                type="button"
-                onClick={() => setIsSleepTimerOpen(false)}
-              >
-                {t("common.close")}
-              </button>
-              <button
-                id="sleep-timer-set"
-                className="tab-btn"
-                type="button"
-                onClick={() => {
-                  setSleepTimer(pendingSleepTimerDurationMs);
-                  setIsSleepTimerOpen(false);
-                }}
-              >
-                {t("common.set")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {isInfoOpen ? (
         <div className="modal open">
           <button
@@ -3008,6 +3081,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           {shortcutToast}
         </div>
       ) : null}
-    </section>
+      </section>
+      {settingsModal}
+    </>
   );
 }

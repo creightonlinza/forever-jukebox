@@ -232,23 +232,6 @@ export function TuningModal() {
           </div>
           <div className="modal-header-actions">
             <button
-              id="sleep-timer-open"
-              className="modal-icon-button"
-              type="button"
-              aria-label={t("tuning.sleepTimer")}
-              title={t("tuning.sleepTimer")}
-              onClick={() =>
-                useAppStore.setState({ sleepTimerModalOpen: true })
-              }
-            >
-              <span
-                className="material-symbols-outlined modal-icon-button-icon"
-                aria-hidden="true"
-              >
-                timer
-              </span>
-            </button>
-            <button
               id="tuning-close"
               className="modal-close"
               aria-label={t("common.close")}

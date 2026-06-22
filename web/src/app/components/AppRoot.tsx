@@ -14,12 +14,12 @@ import { Footer } from "./Footer";
 import { Hero } from "./Hero";
 import { NavigationDriver } from "./NavigationDriver";
 import { SearchPanel } from "./SearchPanel";
+import { SettingsModal } from "./SettingsModal";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
 import { InfoModal } from "./listen/InfoModal";
 import { ListenPanel } from "./listen/ListenPanel";
 import { PlaylistModal } from "./listen/PlaylistModal";
-import { SleepTimerModal } from "./listen/SleepTimerModal";
 import { TuningModal } from "./listen/TuningModal";
 
 // Derives activeTab from the URL on every location change and runs the
@@ -129,7 +129,7 @@ export function AppRoot() {
       <Footer />
       <Toast />
       <TuningModal />
-      <SleepTimerModal />
+      <SettingsModal />
       <InfoModal />
       <PlaylistModal />
     </>

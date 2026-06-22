@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "@/app/i18n";
 import { App } from "@/app/App";
+import { applyStoredTheme } from "@/app/theme";
 import { initBackgroundTimer } from "@forever-jukebox/engine/background";
 import "@fontsource/barlow/latin-400.css";
 import "@fontsource/barlow/latin-500.css";
@@ -24,6 +25,7 @@ function registerServiceWorker() {
 }
 
 initBackgroundTimer();
+applyStoredTheme();
 registerServiceWorker();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

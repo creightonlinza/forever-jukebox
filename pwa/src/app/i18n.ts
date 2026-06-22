@@ -8,9 +8,34 @@ export const resources = {
     translation: en,
   },
 } as const;
-const supportedLanguages = Object.keys(resources);
+export const supportedLanguageOptions = [
+  { code: "en", label: "English" },
+] as const;
+const supportedLanguages: readonly string[] = supportedLanguageOptions.map(
+  ({ code }) => code,
+);
+const languageStorageKey = "fj-language";
+
+export function resolveSupportedLanguage(language: string | null | undefined) {
+  const baseLanguage = language?.toLowerCase().split("-")[0];
+  return baseLanguage && supportedLanguages.includes(baseLanguage)
+    ? baseLanguage
+    : "en";
+}
+
+function storedLanguage(): string | null {
+  try {
+    return localStorage.getItem(languageStorageKey);
+  } catch {
+    return null;
+  }
+}
 
 function preferredLanguage(): string {
+  const stored = storedLanguage();
+  if (stored && supportedLanguages.includes(stored)) {
+    return stored;
+  }
   if (typeof navigator === "undefined") {
     return "en";
   }
@@ -44,8 +69,14 @@ void i18n.use(initReactI18next).init({
 });
 
 function updateDocumentLanguage(language: string) {
+  const resolvedLanguage = resolveSupportedLanguage(language);
   if (typeof document !== "undefined" && document.documentElement) {
-    document.documentElement.lang = language;
+    document.documentElement.lang = resolvedLanguage;
+  }
+  try {
+    localStorage.setItem(languageStorageKey, resolvedLanguage);
+  } catch {
+    // Storage can be unavailable in privacy-restricted browser contexts.
   }
 }
 

@@ -102,7 +102,7 @@ type ShellSlice = {
   tuningModalOpen: boolean;
   tuningModalTab: "tuning" | "extras";
   infoModalOpen: boolean;
-  sleepTimerModalOpen: boolean;
+  settingsModalOpen: boolean;
   playlistModalOpen: boolean;
   deleteConfirmOpen: boolean;
   trackInfo: TrackInfoState;
@@ -193,7 +193,7 @@ const createUiSlice: Slice<
     | "tuningModalOpen"
     | "tuningModalTab"
     | "infoModalOpen"
-    | "sleepTimerModalOpen"
+    | "settingsModalOpen"
     | "playlistModalOpen"
     | "deleteConfirmOpen"
     | "trackInfo"
@@ -247,7 +247,7 @@ const createUiSlice: Slice<
     tuningModalOpen: false,
     tuningModalTab: "tuning",
     infoModalOpen: false,
-    sleepTimerModalOpen: false,
+    settingsModalOpen: false,
     playlistModalOpen: false,
     deleteConfirmOpen: false,
     trackInfo: {

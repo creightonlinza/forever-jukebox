@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import i18n from "./i18n";
+import i18n, { resolveSupportedLanguage, supportedLanguageOptions } from "./i18n";
 
 describe("web i18n bootstrap", () => {
   it("loads English synchronously and updates the document language", () => {
@@ -17,5 +17,13 @@ describe("web i18n bootstrap", () => {
     await i18n.changeLanguage("fr");
     expect(i18n.t("common.listen")).toBe("Listen");
     expect(i18n.resolvedLanguage).toBe("en");
+    expect(document.documentElement.lang).toBe("en");
+    expect(localStorage.getItem("fj-language")).toBe("en");
+  });
+
+  it("exposes an extensible supported-language list", () => {
+    expect(supportedLanguageOptions).toEqual([{ code: "en", label: "English" }]);
+    expect(resolveSupportedLanguage("en-US")).toBe("en");
+    expect(resolveSupportedLanguage("invalid")).toBe("en");
   });
 });

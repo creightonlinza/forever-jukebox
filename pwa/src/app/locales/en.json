@@ -10,7 +10,9 @@
     "home": "Home",
     "listen": "Listen",
     "faq": "FAQ",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "light": "Light",
+    "dark": "Dark"
   },
   "navigation": {
     "primary": "Primary",
@@ -96,7 +98,6 @@
     "preparingSwingPercent": "Preparing Swing mode: {{percent}}%",
     "closeExportDialog": "Close export dialog",
     "closeTuningDialog": "Close tuning dialog",
-    "closeSleepTimerDialog": "Close sleep timer dialog",
     "closeTrackInfoDialog": "Close track info dialog",
     "audioModeTitleNightcore": "nightcore",
     "audioModeTitleDaycore": "daycore",
@@ -139,7 +140,6 @@
     "sections": "Tune sections",
     "switchToExtras": "Switch to Extras",
     "switchToTuning": "Switch to Tuning",
-    "sleepTimer": "Sleep Timer",
     "similarityThreshold": "Branch Similarity Threshold:",
     "computedThreshold": "Computed default threshold:",
     "probabilityMin": "Branch Probability Min:",
@@ -156,6 +156,13 @@
     "probabilityMinLabel": "Branch probability minimum",
     "probabilityMaxLabel": "Branch probability maximum",
     "rampSpeedLabel": "Branch ramp speed"
+  },
+  "settings": {
+    "title": "Settings",
+    "open": "Open settings",
+    "language": "Language",
+    "theme": "Theme",
+    "sleepTimer": "Sleep Timer"
   },
   "sleepTimer": {
     "title": "Sleep Timer",

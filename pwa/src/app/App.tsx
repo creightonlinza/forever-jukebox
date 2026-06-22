@@ -9,6 +9,7 @@ import { Listen } from "./routes/Listen";
 import { Faq } from "./routes/Faq";
 import { useInstallPrompt } from "./hooks/useInstallPrompt";
 import { useTranslation } from "react-i18next";
+import { SymbolIcon } from "@/ui/components/SymbolIcon";
 
 type InstallGateProps = {
   canInstall: boolean;
@@ -50,7 +51,7 @@ function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
 function AppLayout() {
   const { t } = useTranslation();
   const location = useLocation();
-  const { isListenLoading } = useAppState();
+  const { isListenLoading, setIsSettingsOpen } = useAppState();
   const { canInstall, isGateUnlocked, promptInstall } = useInstallPrompt();
   const isListenRoute = location.pathname === "/listen";
   const isFaqRoute = location.pathname === "/faq";
@@ -67,7 +68,18 @@ function AppLayout() {
   return (
     <div className="app">
       <header className="hero">
-        <div className="hero-actions" />
+        <div className="hero-actions">
+          <button
+            id="settings-open"
+            className="settings-button"
+            type="button"
+            aria-label={t("settings.open")}
+            title={t("settings.open")}
+            onClick={() => setIsSettingsOpen(true)}
+          >
+            <SymbolIcon className="settings-button-icon" name="settings" />
+          </button>
+        </div>
         <div className="hero-main">
           <div className="hero-title">
             <div className="hero-title-frame">

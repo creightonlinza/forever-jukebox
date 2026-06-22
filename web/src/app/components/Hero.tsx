@@ -2,30 +2,24 @@ import { useAppStore } from "../store";
 import { TabBar } from "./TabBar";
 import { useTranslation } from "react-i18next";
 
-function ThemeToggle() {
+function SettingsButton() {
   const { t } = useTranslation();
-  const theme = useAppStore((s) => s.theme);
-  const setTheme = useAppStore((s) => s.setTheme);
   return (
-    <div className="theme-toggle" id="theme-toggle">
-      <button
-        type="button"
-        className={theme === "light" ? "theme-link active" : "theme-link"}
-        data-theme="light"
-        onClick={() => setTheme("light")}
+    <button
+      id="settings-open"
+      className="settings-button"
+      type="button"
+      aria-label={t("settings.open")}
+      title={t("settings.open")}
+      onClick={() => useAppStore.setState({ settingsModalOpen: true })}
+    >
+      <span
+        className="material-symbols-outlined settings-button-icon"
+        aria-hidden="true"
       >
-        {t("common.light")}
-      </button>
-      <span className="theme-sep" aria-hidden="true"></span>
-      <button
-        type="button"
-        className={theme === "dark" ? "theme-link active" : "theme-link"}
-        data-theme="dark"
-        onClick={() => setTheme("dark")}
-      >
-        {t("common.dark")}
-      </button>
-    </div>
+        settings
+      </span>
+    </button>
   );
 }
 
@@ -106,7 +100,7 @@ export function Hero() {
     <header className="hero">
       <div className="hero-actions">
         <HeroSocials />
-        <ThemeToggle />
+        <SettingsButton />
       </div>
       <div className="hero-main">
         <button

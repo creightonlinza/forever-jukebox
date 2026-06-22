@@ -23,11 +23,11 @@ export const MATERIAL_SYMBOL_ICON_NAMES = [
   "refresh",
   "science",
   "search",
+  "settings",
   "share",
   "skip_next",
   "skip_previous",
   "star",
-  "timer",
   "tune",
   "volume_up",
 ] as const;

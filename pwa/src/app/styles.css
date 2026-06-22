@@ -151,6 +151,29 @@ textarea:focus-visible {
   justify-content: flex-end;
 }
 
+.settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.settings-button:hover {
+  background: var(--surface-control);
+}
+
+.settings-button-icon {
+  width: 24px;
+  height: 24px;
+}
+
 .hero-main {
   margin-top: 10px;
   display: flex;
@@ -1156,35 +1179,6 @@ textarea:focus-visible {
   stroke-width: 1.9;
 }
 
-.modal-icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  min-height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.modal-icon-button:hover {
-  background: var(--surface-control);
-  color: var(--text);
-}
-
-.modal-icon-button:focus-visible {
-  outline: 2px solid var(--beat-fill);
-}
-
-.modal-icon-button-icon {
-  width: 24px;
-  height: 24px;
-  stroke-width: 1.9;
-}
-
 .modal-close {
   background: transparent;
   border: none;
@@ -1331,12 +1325,63 @@ label {
   justify-content: space-between;
 }
 
-.sleep-timer-panel {
-  width: min(420px, 90vw);
+.settings-panel {
+  width: min(460px, 90vw);
 }
 
-.sleep-timer-body {
-  gap: 14px;
+.settings-body {
+  gap: 0;
+}
+
+.settings-section {
+  display: grid;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-panel);
+}
+
+.settings-section:first-child {
+  padding-top: 0;
+}
+
+.settings-section:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.settings-field,
+.settings-fieldset {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings-fieldset legend {
+  padding: 0;
+}
+
+.settings-select-wrap,
+.settings-select {
+  width: 100%;
+}
+
+.settings-theme-options {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-theme-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
 }
 
 .sleep-timer-current {
@@ -1348,20 +1393,7 @@ label {
   font-size: 14px;
 }
 
-.sleep-timer-select-group {
-  display: grid;
-  gap: 6px;
-}
-
-.sleep-timer-select-wrap {
-  width: 100%;
-}
-
-.sleep-timer-select {
-  width: 100%;
-}
-
-.sleep-timer-footer {
+.settings-footer {
   gap: 8px;
 }
 

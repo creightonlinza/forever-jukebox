@@ -235,7 +235,6 @@
     "sections": "Tune sections",
     "switchToExtras": "Switch to Extras",
     "switchToTuning": "Switch to Tuning",
-    "sleepTimer": "Sleep Timer",
     "similarityThreshold": "Branch Similarity Threshold:",
     "computedThreshold": "Computed default threshold:",
     "probabilityMin": "Branch Probability Min:",
@@ -270,6 +269,13 @@
     "cowbell": "More Cowbell",
     "swing": "Swing",
     "swingTooltip": "Adds a swung feel by stretching and compressing each beat internally."
+  },
+  "settings": {
+    "title": "Settings",
+    "open": "Open settings",
+    "language": "Language",
+    "theme": "Theme",
+    "sleepTimer": "Sleep Timer"
   },
   "sleepTimer": {
     "title": "Sleep Timer",
