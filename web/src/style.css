@@ -2133,7 +2133,8 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   gap: 6px;
 }
 
-.volume-control-wrap {
+.volume-control-wrap,
+.pan-control-wrap {
   position: relative;
 }
 
@@ -2290,13 +2291,17 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   pointer-events: none;
 }
 
-.volume-control-panel {
+.volume-control-panel,
+.pan-control-panel {
   position: absolute;
-  transform: translateX(25%);
   bottom: 100%;
 }
 
-.volume-control-panel.is-canonizer {
+.volume-control-panel {
+  transform: translateX(25%);
+}
+
+.pan-control-panel {
   display: grid;
   right: 0;
   gap: 10px;
@@ -2309,12 +2314,12 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   backdrop-filter: blur(8px);
 }
 
-.stream-volume-control {
+.stream-pan-control {
   display: grid;
   gap: 4px;
 }
 
-.stream-volume-control .label-line {
+.stream-pan-control .label-line {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -2322,10 +2327,9 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   font-variant-numeric: tabular-nums;
 }
 
-.volume-slider.stream-volume-slider {
+.pan-slider.stream-pan-slider {
   width: 100%;
-  writing-mode: horizontal-tb;
-  transform: none;
+  accent-color: var(--accent);
 }
 
 .volume-slider {

@@ -7,6 +7,7 @@ type SymbolName =
   | "download"
   | "delete"
   | "arrow_drop_down"
+  | "swap_horiz"
   | "volume_up"
   | "fullscreen"
   | "fullscreen_exit"
@@ -75,6 +76,14 @@ export function SymbolIcon({ name, className }: SymbolIconProps) {
       ) : null}
       {name === "arrow_drop_down" ? (
         <polygon points="6 9 12 15 18 9" fill="currentColor" stroke="none" />
+      ) : null}
+      {name === "swap_horiz" ? (
+        <>
+          <path d="M7 7h11" />
+          <path d="M15 4l3 3-3 3" />
+          <path d="M17 17H6" />
+          <path d="M9 14l-3 3 3 3" />
+        </>
       ) : null}
       {name === "volume_up" ? (
         <>

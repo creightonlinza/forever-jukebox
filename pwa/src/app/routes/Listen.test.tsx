@@ -19,7 +19,8 @@ const mockAppState = {
 
 type MockAutocanonizerInstance = {
   setFinishOutSong: ReturnType<typeof vi.fn>;
-  setStreamVolumes: ReturnType<typeof vi.fn>;
+  setStreamPans: ReturnType<typeof vi.fn>;
+  setVolume: ReturnType<typeof vi.fn>;
   startAtIndex: ReturnType<typeof vi.fn>;
   emitBeat: (
     index: number,
@@ -348,8 +349,8 @@ vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => (
       this.onSelect = handler;
     }
     setVolume = vi.fn((_volume: number) => undefined);
-    setStreamVolumes = vi.fn(
-      (_mainVolume: number, _otherVolume: number) => undefined,
+    setStreamPans = vi.fn(
+      (_mainPan: number, _otherPan: number) => undefined,
     );
     setAudio = vi.fn(
       (_buffer: AudioBuffer | null, _context: AudioContext | null) => undefined,
@@ -623,7 +624,7 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
-  it("shows independent autocanonizer stream volumes in the volume popover", async () => {
+  it("keeps volume as master volume in autocanonizer mode", async () => {
     const rendered = renderListen();
     await settleEffects();
     await changeSelect(
@@ -632,29 +633,48 @@ describe("Listen route behavior", () => {
     );
     await click(getRequired(rendered.container, "#volume-button"));
 
+    const volumeSlider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "input[aria-label='Volume']",
+    );
+    expect(volumeSlider.value).toBe("50");
+    await changeRange(volumeSlider, "70");
+    expect(autocanonizerInstances[0].setVolume).toHaveBeenLastCalledWith(0.7);
+    rendered.unmount();
+  });
+
+  it("shows independent autocanonizer stream pans in the pan popover", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    await changeSelect(
+      getRequired<HTMLSelectElement>(rendered.container, "#play-mode-select"),
+      "autocanonizer",
+    );
+    await click(getRequired(rendered.container, "#autocanonizer-pan-button"));
+
     const mainSlider = getRequired<HTMLInputElement>(
       rendered.container,
-      "#autocanonizer-main-volume",
+      "#autocanonizer-main-pan",
     );
     const otherSlider = getRequired<HTMLInputElement>(
       rendered.container,
-      "#autocanonizer-other-volume",
+      "#autocanonizer-other-pan",
     );
-    expect(mainSlider.value).toBe("100");
-    expect(otherSlider.value).toBe("100");
+    expect(mainSlider.value).toBe("0");
+    expect(otherSlider.value).toBe("0");
 
-    await changeRange(mainSlider, "40");
+    await changeRange(mainSlider, "-40");
 
-    expect(autocanonizerInstances[0].setStreamVolumes).toHaveBeenLastCalledWith(
-      0.4,
-      1,
+    expect(autocanonizerInstances[0].setStreamPans).toHaveBeenLastCalledWith(
+      -0.4,
+      0,
     );
     expect(
       getRequired(
         rendered.container,
-        "#autocanonizer-main-volume-val",
+        "#autocanonizer-main-pan-val",
       ).textContent,
-    ).toBe("40");
+    ).toBe("-40");
     rendered.unmount();
   });
 

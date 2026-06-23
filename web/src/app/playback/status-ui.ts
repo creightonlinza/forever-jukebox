@@ -84,15 +84,12 @@ export function setMasterVolume(context: AppContext, volumePct: number) {
   context.cowbellOverlay.setVolume(volume);
 }
 
-export function setAutocanonizerStreamVolumes(
+export function setAutocanonizerStreamPans(
   context: AppContext,
-  mainVolumePct: number,
-  otherVolumePct: number,
+  mainPan: number,
+  otherPan: number,
 ) {
-  context.autocanonizer?.setStreamVolumes(
-    mainVolumePct / 100,
-    otherVolumePct / 100,
-  );
+  context.autocanonizer?.setStreamPans(mainPan / 100, otherPan / 100);
 }
 
 function openTuningTab(context: AppContext, tab: "tuning" | "extras") {

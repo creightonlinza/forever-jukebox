@@ -353,8 +353,8 @@ const createPlaybackSlice: Slice<
     | "lastBeatIndex"
     | "autocanonizerMainSeconds"
     | "autocanonizerOtherSeconds"
-    | "autocanonizerMainVolumePct"
-    | "autocanonizerOtherVolumePct"
+    | "autocanonizerMainPan"
+    | "autocanonizerOtherPan"
     | "vizData"
     | "shiftBranching"
     | "bringItHomeMode"
@@ -372,8 +372,8 @@ const createPlaybackSlice: Slice<
   lastBeatIndex: null,
   autocanonizerMainSeconds: 0,
   autocanonizerOtherSeconds: 0,
-  autocanonizerMainVolumePct: 100,
-  autocanonizerOtherVolumePct: 100,
+  autocanonizerMainPan: 0,
+  autocanonizerOtherPan: 0,
   vizData: null,
   shiftBranching: false,
   bringItHomeMode: false,

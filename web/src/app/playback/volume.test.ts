@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppContext } from "../context";
 import {
-  setAutocanonizerStreamVolumes,
+  setAutocanonizerStreamPans,
   setMasterVolume,
 } from "./status-ui";
 
 function createContext(overrides: Partial<AppContext> = {}): AppContext {
   return {
     player: { setVolume: vi.fn() },
-    autocanonizer: { setVolume: vi.fn(), setStreamVolumes: vi.fn() },
+    autocanonizer: { setVolume: vi.fn(), setStreamPans: vi.fn() },
     cowbellOverlay: { setVolume: vi.fn() },
     ...overrides,
   } as unknown as AppContext;
@@ -47,14 +47,14 @@ describe("setMasterVolume", () => {
   });
 });
 
-describe("setAutocanonizerStreamVolumes", () => {
-  it("converts both percentages to fractions", () => {
+describe("setAutocanonizerStreamPans", () => {
+  it("converts both -100–100 pan values to -1–1 fractions", () => {
     const context = createContext();
 
-    setAutocanonizerStreamVolumes(context, 25, 75);
+    setAutocanonizerStreamPans(context, -25, 75);
 
-    expect(context.autocanonizer?.setStreamVolumes).toHaveBeenCalledWith(
-      0.25,
+    expect(context.autocanonizer?.setStreamPans).toHaveBeenCalledWith(
+      -0.25,
       0.75,
     );
   });

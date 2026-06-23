@@ -16,9 +16,11 @@ vi.mock("./AutocanonizerViz", () => ({
 }));
 
 type GainStub = GainNode & { gain: { value: number } };
+type PannerStub = StereoPannerNode & { pan: { value: number } };
 
 function createAudioContext() {
   const gains: GainStub[] = [];
+  const panners: PannerStub[] = [];
   const context = {
     destination: {},
     createGain: () => {
@@ -29,8 +31,16 @@ function createAudioContext() {
       gains.push(gain);
       return gain;
     },
+    createStereoPanner: () => {
+      const panner = {
+        pan: { value: 0 },
+        connect: vi.fn(),
+      } as unknown as PannerStub;
+      panners.push(panner);
+      return panner;
+    },
   } as unknown as AudioContext;
-  return { context, gains };
+  return { context, gains, panners };
 }
 
 function createBeat(which: number, start: number): CanonizerBeat {
@@ -59,31 +69,35 @@ describe("AutocanonizerController", () => {
     vi.useRealTimers();
   });
 
-  it("stores and clamps stream volumes before audio is attached", () => {
+  it("stores and clamps stream pans before audio is attached", () => {
     const controller = new AutocanonizerController({} as HTMLElement);
-    controller.setStreamVolumes(0.25, 0.75);
-    const { context, gains } = createAudioContext();
+    controller.setStreamPans(-0.25, 0.75);
+    const { context, gains, panners } = createAudioContext();
 
     controller.setAudio({ duration: 30 } as AudioBuffer, context);
 
-    expect(gains[0].gain.value).toBeCloseTo(0.5 * 0.55 * 0.25);
-    expect(gains[1].gain.value).toBeCloseTo(0.5 * 0.45 * 0.75);
-
-    controller.setStreamVolumes(2, -1);
     expect(gains[0].gain.value).toBeCloseTo(0.5 * 0.55);
-    expect(gains[1].gain.value).toBe(0);
+    expect(gains[1].gain.value).toBeCloseTo(0.5 * 0.45);
+    expect(panners[0].pan.value).toBeCloseTo(-0.25);
+    expect(panners[1].pan.value).toBeCloseTo(0.75);
+
+    controller.setStreamPans(2, -2);
+    expect(panners[0].pan.value).toBe(1);
+    expect(panners[1].pan.value).toBe(-1);
   });
 
-  it("combines master and per-stream volume without changing the base mix", () => {
+  it("keeps the shared volume and base mix independent from stream panning", () => {
     const controller = new AutocanonizerController({} as HTMLElement);
-    const { context, gains } = createAudioContext();
+    const { context, gains, panners } = createAudioContext();
     controller.setAudio({ duration: 30 } as AudioBuffer, context);
 
     controller.setVolume(0.8);
-    controller.setStreamVolumes(0.5, 0.25);
+    controller.setStreamPans(0.5, -0.25);
 
-    expect(gains[0].gain.value).toBeCloseTo(0.8 * 0.55 * 0.5);
-    expect(gains[1].gain.value).toBeCloseTo(0.8 * 0.45 * 0.25);
+    expect(gains[0].gain.value).toBeCloseTo(0.8 * 0.55);
+    expect(gains[1].gain.value).toBeCloseTo(0.8 * 0.45);
+    expect(panners[0].pan.value).toBeCloseTo(0.5);
+    expect(panners[1].pan.value).toBeCloseTo(-0.25);
   });
 
   it("reports both cursor positions for normal playback", () => {

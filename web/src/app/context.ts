@@ -27,8 +27,8 @@ export type AppState = {
   lastBeatIndex: number | null;
   autocanonizerMainSeconds: number;
   autocanonizerOtherSeconds: number;
-  autocanonizerMainVolumePct: number;
-  autocanonizerOtherVolumePct: number;
+  autocanonizerMainPan: number;
+  autocanonizerOtherPan: number;
   vizData: ReturnType<JukeboxEngine["getVisualizationData"]>;
   isRunning: boolean;
   isPaused: boolean;

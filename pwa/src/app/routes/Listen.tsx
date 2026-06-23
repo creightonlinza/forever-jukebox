@@ -496,15 +496,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     React.useState(0);
   const [autocanonizerOtherSeconds, setAutocanonizerOtherSeconds] =
     React.useState(0);
-  const [autocanonizerMainVolumePct, setAutocanonizerMainVolumePct] =
-    React.useState(100);
-  const [autocanonizerOtherVolumePct, setAutocanonizerOtherVolumePct] =
-    React.useState(100);
+  const [autocanonizerMainPan, setAutocanonizerMainPan] = React.useState(0);
+  const [autocanonizerOtherPan, setAutocanonizerOtherPan] = React.useState(0);
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isSleepTimerOpen, setIsSleepTimerOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
   const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
+  const [isPanOpen, setIsPanOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [sleepTimer, setSleepTimerState] = React.useState<SleepTimerState>({
     configuredDurationMs: null,
@@ -586,8 +585,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const bringItHomeModeRef = React.useRef(false);
   const lastBeatRef = React.useRef<number | null>(null);
   const lastCowbellBeatsPlayedRef = React.useRef<number | null>(null);
-  const autocanonizerMainVolumePctRef = React.useRef(100);
-  const autocanonizerOtherVolumePctRef = React.useRef(100);
+  const autocanonizerMainPanRef = React.useRef(0);
+  const autocanonizerOtherPanRef = React.useRef(0);
   const swingRenderTokenRef = React.useRef(0);
   const swingPreparingRef = React.useRef(false);
   const playTimerMsRef = React.useRef(0);
@@ -598,6 +597,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const previousFileKeyRef = React.useRef<string | null>(null);
   const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
+  const panButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const panPanelRef = React.useRef<HTMLDivElement | null>(null);
   const { requestWakeLock, releaseWakeLock } = useWakeLock();
 
   const showShortcutToast = React.useCallback((message: string) => {
@@ -793,9 +794,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     controller.setAnchorHighlightEnabled(highlightAnchorBranch);
     autocanonizer.setVisible(playModeRef.current === "autocanonizer");
     autocanonizer.setFinishOutSong(finishOutSong);
-    autocanonizer.setStreamVolumes(
-      autocanonizerMainVolumePctRef.current / 100,
-      autocanonizerOtherVolumePctRef.current / 100,
+    autocanonizer.setStreamPans(
+      autocanonizerMainPanRef.current / 100,
+      autocanonizerOtherPanRef.current / 100,
     );
     autocanonizer.setOnBeat((index, _beat, cursorTimes) => {
       setBeatsPlayed(index + 1);
@@ -1164,7 +1165,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [releaseWakeLockSafely, requestWakeLockSafely]);
 
   React.useEffect(() => {
-    if (!isVolumeOpen) {
+    if (!isVolumeOpen && !isPanOpen) {
       return;
     }
     const onDocumentClick = (event: MouseEvent) => {
@@ -1178,13 +1179,26 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (volumeButtonRef.current?.contains(target)) {
         return;
       }
+      if (panPanelRef.current?.contains(target)) {
+        return;
+      }
+      if (panButtonRef.current?.contains(target)) {
+        return;
+      }
       setIsVolumeOpen(false);
+      setIsPanOpen(false);
     };
     document.addEventListener("click", onDocumentClick);
     return () => {
       document.removeEventListener("click", onDocumentClick);
     };
-  }, [isVolumeOpen]);
+  }, [isVolumeOpen, isPanOpen]);
+
+  React.useEffect(() => {
+    if (playMode !== "autocanonizer") {
+      setIsPanOpen(false);
+    }
+  }, [playMode]);
 
   function stopPlayback() {
     cowbellOverlayRef.current?.cancelScheduledHits();
@@ -1826,22 +1840,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     cowbellOverlayRef.current?.setVolume(volume);
   };
 
-  const onAutocanonizerStreamVolumeChange = (
+  const onAutocanonizerStreamPanChange = (
     stream: "main" | "other",
     value: number,
   ) => {
-    const nextMain =
-      stream === "main" ? value : autocanonizerMainVolumePct;
-    const nextOther =
-      stream === "other" ? value : autocanonizerOtherVolumePct;
-    setAutocanonizerMainVolumePct(nextMain);
-    setAutocanonizerOtherVolumePct(nextOther);
-    autocanonizerMainVolumePctRef.current = nextMain;
-    autocanonizerOtherVolumePctRef.current = nextOther;
-    autocanonizerRef.current?.setStreamVolumes(
-      nextMain / 100,
-      nextOther / 100,
-    );
+    const nextMain = stream === "main" ? value : autocanonizerMainPan;
+    const nextOther = stream === "other" ? value : autocanonizerOtherPan;
+    setAutocanonizerMainPan(nextMain);
+    setAutocanonizerOtherPan(nextOther);
+    autocanonizerMainPanRef.current = nextMain;
+    autocanonizerOtherPanRef.current = nextOther;
+    autocanonizerRef.current?.setStreamPans(nextMain / 100, nextOther / 100);
   };
 
   const onExportJukeboxAudio = async () => {
@@ -2324,93 +2333,120 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               </div>
             </div>
             <div className="viz-bottom-right">
-              <div className="volume-control-wrap">
-                <div
-                  className={`volume-control-panel ${playMode === "autocanonizer" ? "is-canonizer" : ""} ${isVolumeOpen ? "" : "is-hidden"}`}
-                  ref={volumePanelRef}
-                >
-                  {playMode === "autocanonizer" ? (
-                    <>
-                      <label className="stream-volume-control">
-                        <div className="label-line">
-                          <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
-                            Blue stream
-                          </span>
-                          <span id="autocanonizer-main-volume-val">
-                            {autocanonizerMainVolumePct}
-                          </span>
-                        </div>
-                        <input
-                          id="autocanonizer-main-volume"
-                          className="volume-slider stream-volume-slider"
-                          type="range"
-                          aria-label="Blue stream volume"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={autocanonizerMainVolumePct}
-                          style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
-                          onChange={(event) =>
-                            onAutocanonizerStreamVolumeChange(
-                              "main",
-                              Number(event.target.value),
-                            )
-                          }
-                        />
-                      </label>
-                      <label className="stream-volume-control">
-                        <div className="label-line">
-                          <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
-                            Green stream
-                          </span>
-                          <span id="autocanonizer-other-volume-val">
-                            {autocanonizerOtherVolumePct}
-                          </span>
-                        </div>
-                        <input
-                          id="autocanonizer-other-volume"
-                          className="volume-slider stream-volume-slider"
-                          type="range"
-                          aria-label="Green stream volume"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={autocanonizerOtherVolumePct}
-                          style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
-                          onChange={(event) =>
-                            onAutocanonizerStreamVolumeChange(
-                              "other",
-                              Number(event.target.value),
-                            )
-                          }
-                        />
-                      </label>
-                    </>
-                  ) : (
-                    <label>
+              {playMode === "autocanonizer" ? (
+                <div className="pan-control-wrap">
+                  <div
+                    className={`pan-control-panel ${
+                      isPanOpen ? "" : "is-hidden"
+                    }`}
+                    ref={panPanelRef}
+                  >
+                    <label className="stream-pan-control">
+                      <div className="label-line">
+                        <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
+                          Blue stream
+                        </span>
+                        <span id="autocanonizer-main-pan-val">
+                          {autocanonizerMainPan}
+                        </span>
+                      </div>
                       <input
-                        className="volume-slider"
+                        id="autocanonizer-main-pan"
+                        className="pan-slider stream-pan-slider"
                         type="range"
-                        aria-label="Volume"
-                        min={0}
+                        aria-label="Blue stream pan"
+                        min={-100}
                         max={100}
                         step={1}
-                        value={tuneForm.volume}
-                        onChange={(event) => onVolumeChange(Number(event.target.value))}
+                        value={autocanonizerMainPan}
+                        style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
+                        onChange={(event) =>
+                          onAutocanonizerStreamPanChange(
+                            "main",
+                            Number(event.target.value),
+                          )
+                        }
                       />
-                      <div className="label-line">
-                        <span>Volume:</span>
-                        <span className="volume-value">{tuneForm.volume}</span>
-                      </div>
                     </label>
-                  )}
+                    <label className="stream-pan-control">
+                      <div className="label-line">
+                        <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
+                          Green stream
+                        </span>
+                        <span id="autocanonizer-other-pan-val">
+                          {autocanonizerOtherPan}
+                        </span>
+                      </div>
+                      <input
+                        id="autocanonizer-other-pan"
+                        className="pan-slider stream-pan-slider"
+                        type="range"
+                        aria-label="Green stream pan"
+                        min={-100}
+                        max={100}
+                        step={1}
+                        value={autocanonizerOtherPan}
+                        style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
+                        onChange={(event) =>
+                          onAutocanonizerStreamPanChange(
+                            "other",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                  <button
+                    id="autocanonizer-pan-button"
+                    className="volume-button pan-button"
+                    type="button"
+                    ref={panButtonRef}
+                    onClick={() => {
+                      setIsVolumeOpen(false);
+                      setIsPanOpen((prev) => !prev);
+                    }}
+                    title="Autocanonizer stream pan"
+                    aria-label="Autocanonizer stream pan"
+                  >
+                    <SymbolIcon className="pan-icon" name="swap_horiz" />
+                  </button>
+                </div>
+              ) : null}
+              <div className="volume-control-wrap">
+                <div
+                  className={`volume-control-panel ${
+                    isVolumeOpen ? "" : "is-hidden"
+                  }`}
+                  ref={volumePanelRef}
+                >
+                  <label>
+                    <input
+                      className="volume-slider"
+                      type="range"
+                      aria-label="Volume"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={tuneForm.volume}
+                      onChange={(event) =>
+                        onVolumeChange(Number(event.target.value))
+                      }
+                    />
+                    <div className="label-line">
+                      <span>Volume:</span>
+                      <span className="volume-value">{tuneForm.volume}</span>
+                    </div>
+                  </label>
                 </div>
                 <button
                   id="volume-button"
                   className="volume-button"
                   type="button"
                   ref={volumeButtonRef}
-                  onClick={() => setIsVolumeOpen((prev) => !prev)}
+                  onClick={() => {
+                    setIsPanOpen(false);
+                    setIsVolumeOpen((prev) => !prev);
+                  }}
                   title="Volume"
                   aria-label="Volume"
                 >
