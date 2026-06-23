@@ -2173,6 +2173,16 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   white-space: nowrap;
 }
 
+.autocanonizer-times {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 100%;
+  gap: 6px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .viz-divider {
   color: var(--muted);
 }
@@ -2246,6 +2256,38 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   position: absolute;
   transform: translateX(25%);
   bottom: 100%;
+}
+
+.volume-control-panel.is-canonizer {
+  display: grid;
+  right: 0;
+  gap: 10px;
+  min-width: 210px;
+  padding: 10px 12px;
+  transform: none;
+  border: 1px solid var(--border-panel);
+  border-radius: 8px;
+  background: var(--viz-overlay);
+  backdrop-filter: blur(8px);
+}
+
+.stream-volume-control {
+  display: grid;
+  gap: 4px;
+}
+
+.stream-volume-control .label-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.volume-slider.stream-volume-slider {
+  width: 100%;
+  writing-mode: horizontal-tb;
+  transform: none;
 }
 
 .volume-slider {

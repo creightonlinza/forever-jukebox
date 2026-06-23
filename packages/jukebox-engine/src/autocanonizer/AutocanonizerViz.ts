@@ -35,6 +35,9 @@ const CURSOR_SIZE = 8;
 const OTHER_CURSOR_CENTER_OFFSET = SECTION_HEIGHT - CURSOR_SIZE / 2;
 const CONNECTION_LINE_WIDTH = 3;
 
+export const AUTOCANONIZER_MAIN_COLOR = "#4F8FFF";
+export const AUTOCANONIZER_OTHER_COLOR = "#10DF00";
+
 export class AutocanonizerViz {
   private readonly container: HTMLElement;
   private readonly baseCanvas: HTMLCanvasElement;
@@ -408,7 +411,7 @@ export class AutocanonizerViz {
         otherLayout.height,
       );
     }
-    this.overlayCtx.fillStyle = "#4F8FFF";
+    this.overlayCtx.fillStyle = AUTOCANONIZER_MAIN_COLOR;
     this.overlayCtx.fillRect(
       current.x - cursorWidth / 2,
       sectionY + 0,
@@ -416,7 +419,7 @@ export class AutocanonizerViz {
       cursorHeight,
     );
     if (this.forcedOtherIndex !== null && otherLayout) {
-      this.overlayCtx.fillStyle = "#10DF00";
+      this.overlayCtx.fillStyle = AUTOCANONIZER_OTHER_COLOR;
       this.drawCenteredCursor(
         otherLayout.x,
         otherCursorCenterY,
@@ -430,7 +433,7 @@ export class AutocanonizerViz {
     } else {
       const otherCursor = this.getAnimatedOtherCursor();
       if (otherCursor) {
-        this.overlayCtx.fillStyle = "#10DF00";
+        this.overlayCtx.fillStyle = AUTOCANONIZER_OTHER_COLOR;
         this.drawCenteredCursor(
           otherCursor.x,
           otherCursor.y,
@@ -440,7 +443,7 @@ export class AutocanonizerViz {
         this.lastOtherCursor = { x: otherCursor.x, y: otherCursor.y };
       } else if (this.lastOtherCursor) {
         if (this.otherAnimEndedAt !== null) {
-          this.overlayCtx.fillStyle = "#10DF00";
+          this.overlayCtx.fillStyle = AUTOCANONIZER_OTHER_COLOR;
           this.drawCenteredCursor(
             this.lastOtherCursor.x,
             this.lastOtherCursor.y,
@@ -452,11 +455,11 @@ export class AutocanonizerViz {
         }
         if (otherLayout) {
           const follow = { x: otherLayout.x, y: otherCursorCenterY };
-          this.overlayCtx.fillStyle = "#10DF00";
+          this.overlayCtx.fillStyle = AUTOCANONIZER_OTHER_COLOR;
           this.drawCenteredCursor(follow.x, follow.y, cursorWidth, cursorHeight);
           this.lastOtherCursor = follow;
         } else {
-          this.overlayCtx.fillStyle = "#10DF00";
+          this.overlayCtx.fillStyle = AUTOCANONIZER_OTHER_COLOR;
           this.drawCenteredCursor(
             this.lastOtherCursor.x,
             this.lastOtherCursor.y,
@@ -465,7 +468,7 @@ export class AutocanonizerViz {
           );
         }
       } else if (otherLayout) {
-        this.overlayCtx.fillStyle = "#10DF00";
+        this.overlayCtx.fillStyle = AUTOCANONIZER_OTHER_COLOR;
         const fallback = {
           x: otherLayout.x,
           y: otherCursorCenterY,
@@ -547,10 +550,10 @@ export class AutocanonizerViz {
         this.requestAnimation();
       }
     }
-    this.applyTileOverride(index, "#4F8FFF");
+    this.applyTileOverride(index, AUTOCANONIZER_MAIN_COLOR);
     const beat = this.beats[index];
     if (beat?.other) {
-      this.applyTileOverride(beat.other.which, "#10DF00");
+      this.applyTileOverride(beat.other.which, AUTOCANONIZER_OTHER_COLOR);
     }
     this.drawOverlay();
   }
@@ -562,7 +565,7 @@ export class AutocanonizerViz {
     this.forcedOtherIndex = index;
     this.otherAnim = null;
     this.otherAnimEndedAt = null;
-    this.applyTileOverride(index, "#10DF00");
+    this.applyTileOverride(index, AUTOCANONIZER_OTHER_COLOR);
     this.drawOverlay();
   }
 

@@ -84,6 +84,17 @@ export function setMasterVolume(context: AppContext, volumePct: number) {
   context.cowbellOverlay.setVolume(volume);
 }
 
+export function setAutocanonizerStreamVolumes(
+  context: AppContext,
+  mainVolumePct: number,
+  otherVolumePct: number,
+) {
+  context.autocanonizer?.setStreamVolumes(
+    mainVolumePct / 100,
+    otherVolumePct / 100,
+  );
+}
+
 function openTuningTab(context: AppContext, tab: "tuning" | "extras") {
   syncVolumeUI(context);
   const hasExtrasTab = useAppStore.getState().playMode === "jukebox";

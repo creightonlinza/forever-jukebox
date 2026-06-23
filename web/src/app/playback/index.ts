@@ -13,6 +13,7 @@ export {
   openExtras,
   openInfo,
   openTuning,
+  setAutocanonizerStreamVolumes,
   setMasterVolume,
   syncVolumeUI,
   updateListenTimeDisplay,

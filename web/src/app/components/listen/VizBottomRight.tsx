@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { setMasterVolume } from "../../playback";
+import {
+  AUTOCANONIZER_MAIN_COLOR,
+  AUTOCANONIZER_OTHER_COLOR,
+} from "@forever-jukebox/engine/autocanonizer/AutocanonizerViz";
+import {
+  setAutocanonizerStreamVolumes,
+  setMasterVolume,
+} from "../../playback";
 import {
   hasActivePlaylistControls,
   hasPlaylistControls,
@@ -14,6 +21,9 @@ import { toggleFullscreen } from "../../fullscreen";
 export function VizBottomRight() {
   const playlist = useAppStore((s) => s.playlist);
   const volumePct = useAppStore((s) => s.volumePct);
+  const playMode = useAppStore((s) => s.playMode);
+  const mainVolumePct = useAppStore((s) => s.autocanonizerMainVolumePct);
+  const otherVolumePct = useAppStore((s) => s.autocanonizerOtherVolumePct);
   const isFullscreen = useAppStore((s) => s.isFullscreen);
   const [volumeOpen, setVolumeOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -46,6 +56,21 @@ export function VizBottomRight() {
     setMasterVolume(getAppContext(), pct);
   };
 
+  const handleStreamVolumeChange = (
+    stream: "main" | "other",
+    pct: number,
+  ) => {
+    const nextMain = stream === "main" ? pct : mainVolumePct;
+    const nextOther = stream === "other" ? pct : otherVolumePct;
+    useAppStore.setState({
+      autocanonizerMainVolumePct: nextMain,
+      autocanonizerOtherVolumePct: nextOther,
+    });
+    setAutocanonizerStreamVolumes(getAppContext(), nextMain, nextOther);
+  };
+
+  const isCanonizer = playMode === "autocanonizer";
+
   return (
     <>
       <button
@@ -71,29 +96,88 @@ export function VizBottomRight() {
         <div
           className={
             volumeOpen
-              ? "volume-control-panel"
-              : "volume-control-panel is-hidden"
+              ? `volume-control-panel${isCanonizer ? " is-canonizer" : ""}`
+              : `volume-control-panel is-hidden${isCanonizer ? " is-canonizer" : ""}`
           }
           id="volume-control-panel"
         >
-          <label>
-            <input
-              className="volume-slider"
-              id="volume"
-              type="range"
-              aria-label="Volume"
-              min={0}
-              max={100}
-              step={1}
-              value={volumePct}
-              onChange={(event) =>
-                handleVolumeChange(Number(event.target.value))
-              }
-            />
-            <div className="label-line">
-              <span id="volume-val">{volumePct}</span>
-            </div>
-          </label>
+          {isCanonizer ? (
+            <>
+              <label className="stream-volume-control">
+                <div className="label-line">
+                  <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
+                    Blue stream
+                  </span>
+                  <span id="autocanonizer-main-volume-val">
+                    {mainVolumePct}
+                  </span>
+                </div>
+                <input
+                  className="volume-slider stream-volume-slider"
+                  id="autocanonizer-main-volume"
+                  type="range"
+                  aria-label="Blue stream volume"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={mainVolumePct}
+                  style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
+                  onChange={(event) =>
+                    handleStreamVolumeChange(
+                      "main",
+                      Number(event.target.value),
+                    )
+                  }
+                />
+              </label>
+              <label className="stream-volume-control">
+                <div className="label-line">
+                  <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
+                    Green stream
+                  </span>
+                  <span id="autocanonizer-other-volume-val">
+                    {otherVolumePct}
+                  </span>
+                </div>
+                <input
+                  className="volume-slider stream-volume-slider"
+                  id="autocanonizer-other-volume"
+                  type="range"
+                  aria-label="Green stream volume"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={otherVolumePct}
+                  style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
+                  onChange={(event) =>
+                    handleStreamVolumeChange(
+                      "other",
+                      Number(event.target.value),
+                    )
+                  }
+                />
+              </label>
+            </>
+          ) : (
+            <label>
+              <input
+                className="volume-slider"
+                id="volume"
+                type="range"
+                aria-label="Volume"
+                min={0}
+                max={100}
+                step={1}
+                value={volumePct}
+                onChange={(event) =>
+                  handleVolumeChange(Number(event.target.value))
+                }
+              />
+              <div className="label-line">
+                <span id="volume-val">{volumePct}</span>
+              </div>
+            </label>
+          )}
         </div>
         <button
           id="volume-button"

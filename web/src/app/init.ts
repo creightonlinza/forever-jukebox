@@ -172,6 +172,14 @@ export function initRuntime(): void {
     const jukebox = new JukeboxController(nodes.vizLayer);
     context.autocanonizer = autocanonizer;
     context.jukebox = jukebox;
+    const {
+      autocanonizerMainVolumePct,
+      autocanonizerOtherVolumePct,
+    } = useAppStore.getState();
+    autocanonizer.setStreamVolumes(
+      autocanonizerMainVolumePct / 100,
+      autocanonizerOtherVolumePct / 100,
+    );
     jukebox.setAnchorHighlightEnabled(useAppStore.getState().highlightAnchorBranch);
     jukebox.setActiveIndex(DEFAULT_VISUALIZATION_INDEX);
     initializePlayback();

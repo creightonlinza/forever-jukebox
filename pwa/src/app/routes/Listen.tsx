@@ -5,7 +5,7 @@ import { AudioDecoder } from "@/core/infrastructure/audio/AudioDecoder";
 import { createAnalysisCache } from "@/core/infrastructure/cache/analysisCache";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
-import { formatDuration } from "@/shared/utils/format";
+import { formatDuration, formatTime } from "@/shared/utils/format";
 import {
   safeLocalStorageGet,
   safeLocalStorageSet,
@@ -35,6 +35,10 @@ import {
   type JukeboxExportProgress,
 } from "@/shared/export";
 import { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
+import {
+  AUTOCANONIZER_MAIN_COLOR,
+  AUTOCANONIZER_OTHER_COLOR,
+} from "@forever-jukebox/engine/autocanonizer/AutocanonizerViz";
 import { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
 import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
@@ -488,6 +492,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [isPaused, setIsPaused] = React.useState(false);
   const [beatsPlayed, setBeatsPlayed] = React.useState(0);
   const [listenSeconds, setListenSeconds] = React.useState(0);
+  const [autocanonizerMainSeconds, setAutocanonizerMainSeconds] =
+    React.useState(0);
+  const [autocanonizerOtherSeconds, setAutocanonizerOtherSeconds] =
+    React.useState(0);
+  const [autocanonizerMainVolumePct, setAutocanonizerMainVolumePct] =
+    React.useState(100);
+  const [autocanonizerOtherVolumePct, setAutocanonizerOtherVolumePct] =
+    React.useState(100);
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isSleepTimerOpen, setIsSleepTimerOpen] = React.useState(false);
@@ -574,6 +586,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const bringItHomeModeRef = React.useRef(false);
   const lastBeatRef = React.useRef<number | null>(null);
   const lastCowbellBeatsPlayedRef = React.useRef<number | null>(null);
+  const autocanonizerMainVolumePctRef = React.useRef(100);
+  const autocanonizerOtherVolumePctRef = React.useRef(100);
   const swingRenderTokenRef = React.useRef(0);
   const swingPreparingRef = React.useRef(false);
   const playTimerMsRef = React.useRef(0);
@@ -614,6 +628,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     lastCowbellBeatsPlayedRef.current = null;
     setListenSeconds(0);
     setBeatsPlayed(0);
+    setAutocanonizerMainSeconds(0);
+    setAutocanonizerOtherSeconds(0);
   }
 
   function clearSelectedBranch() {
@@ -777,9 +793,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     controller.setAnchorHighlightEnabled(highlightAnchorBranch);
     autocanonizer.setVisible(playModeRef.current === "autocanonizer");
     autocanonizer.setFinishOutSong(finishOutSong);
-    autocanonizer.setOnBeat((index) => {
+    autocanonizer.setStreamVolumes(
+      autocanonizerMainVolumePctRef.current / 100,
+      autocanonizerOtherVolumePctRef.current / 100,
+    );
+    autocanonizer.setOnBeat((index, _beat, cursorTimes) => {
       setBeatsPlayed(index + 1);
       lastBeatRef.current = index;
+      setAutocanonizerMainSeconds(cursorTimes.mainSeconds);
+      setAutocanonizerOtherSeconds(cursorTimes.otherSeconds);
     });
     autocanonizer.setOnEnded(() => {
       if (!isRunningRef.current) {
@@ -791,7 +813,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (playModeRef.current !== "autocanonizer") {
         return;
       }
-      startAutocanonizerPlayback(index);
+      startAutocanonizerPlayback(index, { resetSession: false });
     });
 
     const resizeObserver = new ResizeObserver(() => {
@@ -1219,6 +1241,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     playModeRef.current = mode;
     setPlayMode(mode);
+    setAutocanonizerMainSeconds(0);
+    setAutocanonizerOtherSeconds(0);
     if (mode === "autocanonizer") {
       setIsTuningOpen(false);
       setIsInfoOpen(false);
@@ -1585,7 +1609,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       autocanonizer.resetVisualization();
     }
     autocanonizer.startAtIndex(index);
-    lastPlayStampRef.current = performance.now();
+    if (resetSession || !isRunningRef.current) {
+      lastPlayStampRef.current = performance.now();
+    }
     isRunningRef.current = true;
     isPausedRef.current = false;
     setIsRunning(true);
@@ -1798,6 +1824,24 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     playerRef.current?.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
     cowbellOverlayRef.current?.setVolume(volume);
+  };
+
+  const onAutocanonizerStreamVolumeChange = (
+    stream: "main" | "other",
+    value: number,
+  ) => {
+    const nextMain =
+      stream === "main" ? value : autocanonizerMainVolumePct;
+    const nextOther =
+      stream === "other" ? value : autocanonizerOtherVolumePct;
+    setAutocanonizerMainVolumePct(nextMain);
+    setAutocanonizerOtherVolumePct(nextOther);
+    autocanonizerMainVolumePctRef.current = nextMain;
+    autocanonizerOtherVolumePctRef.current = nextOther;
+    autocanonizerRef.current?.setStreamVolumes(
+      nextMain / 100,
+      nextOther / 100,
+    );
   };
 
   const onExportJukeboxAudio = async () => {
@@ -2244,6 +2288,28 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="viz-info">
                 <div className="viz-title" id="viz-now-playing">{displayTitle}</div>
                 <div className="viz-meta">
+                  <span
+                    id="autocanonizer-times"
+                    className={`autocanonizer-times ${playMode === "autocanonizer" ? "" : "is-hidden"}`}
+                  >
+                    <span
+                      id="autocanonizer-main-time"
+                      style={{ color: AUTOCANONIZER_MAIN_COLOR }}
+                    >
+                      {formatTime(autocanonizerMainSeconds)}
+                    </span>
+                    <span aria-hidden="true">–</span>
+                    <span
+                      id="autocanonizer-other-time"
+                      style={{ color: AUTOCANONIZER_OTHER_COLOR }}
+                    >
+                      {formatTime(autocanonizerOtherSeconds)}
+                    </span>
+                    <span aria-hidden="true">/</span>
+                    <span id="autocanonizer-total-time">
+                      {formatTime(analysis?.track?.duration ?? 0)}
+                    </span>
+                  </span>
                   <span className="viz-meta-stats">
                     <span>Listen Time:</span>
                     <span>{formatDuration(listenSeconds)}</span>
@@ -2260,25 +2326,84 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             <div className="viz-bottom-right">
               <div className="volume-control-wrap">
                 <div
-                  className={`volume-control-panel ${isVolumeOpen ? "" : "is-hidden"}`}
+                  className={`volume-control-panel ${playMode === "autocanonizer" ? "is-canonizer" : ""} ${isVolumeOpen ? "" : "is-hidden"}`}
                   ref={volumePanelRef}
                 >
-                  <label>
-                    <input
-                      className="volume-slider"
-                      type="range"
-                      aria-label="Volume"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={tuneForm.volume}
-                      onChange={(event) => onVolumeChange(Number(event.target.value))}
-                    />
-                    <div className="label-line">
-                      <span>Volume:</span>
-                      <span className="volume-value">{tuneForm.volume}</span>
-                    </div>
-                  </label>
+                  {playMode === "autocanonizer" ? (
+                    <>
+                      <label className="stream-volume-control">
+                        <div className="label-line">
+                          <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
+                            Blue stream
+                          </span>
+                          <span id="autocanonizer-main-volume-val">
+                            {autocanonizerMainVolumePct}
+                          </span>
+                        </div>
+                        <input
+                          id="autocanonizer-main-volume"
+                          className="volume-slider stream-volume-slider"
+                          type="range"
+                          aria-label="Blue stream volume"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={autocanonizerMainVolumePct}
+                          style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
+                          onChange={(event) =>
+                            onAutocanonizerStreamVolumeChange(
+                              "main",
+                              Number(event.target.value),
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="stream-volume-control">
+                        <div className="label-line">
+                          <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
+                            Green stream
+                          </span>
+                          <span id="autocanonizer-other-volume-val">
+                            {autocanonizerOtherVolumePct}
+                          </span>
+                        </div>
+                        <input
+                          id="autocanonizer-other-volume"
+                          className="volume-slider stream-volume-slider"
+                          type="range"
+                          aria-label="Green stream volume"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={autocanonizerOtherVolumePct}
+                          style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
+                          onChange={(event) =>
+                            onAutocanonizerStreamVolumeChange(
+                              "other",
+                              Number(event.target.value),
+                            )
+                          }
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <label>
+                      <input
+                        className="volume-slider"
+                        type="range"
+                        aria-label="Volume"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={tuneForm.volume}
+                        onChange={(event) => onVolumeChange(Number(event.target.value))}
+                      />
+                      <div className="label-line">
+                        <span>Volume:</span>
+                        <span className="volume-value">{tuneForm.volume}</span>
+                      </div>
+                    </label>
+                  )}
                 </div>
                 <button
                   id="volume-button"
