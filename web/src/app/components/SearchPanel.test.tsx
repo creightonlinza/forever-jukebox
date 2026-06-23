@@ -109,7 +109,7 @@ describe("SearchPanel", () => {
     });
   });
 
-  it("Enter on a result's open-on-YouTube link does not select it", async () => {
+  it("Enter on a result's YouTube preview button does not select it", async () => {
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -125,17 +125,22 @@ describe("SearchPanel", () => {
       });
     });
     render(<SearchPanel />);
-    const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
-    openLink.focus();
+    const previewButton = document.querySelector(
+      ".search-open",
+    ) as HTMLButtonElement;
+    previewButton.focus();
     await userEvent.keyboard("{Enter}");
     expect(h.selectYoutube).not.toHaveBeenCalled();
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe(
+      "modal open",
+    );
     const select = document.querySelector(".search-select") as HTMLButtonElement;
     select.focus();
     await userEvent.keyboard("{Enter}");
     expect(h.selectYoutube).toHaveBeenCalledTimes(1);
   });
 
-  it("renders youtube results with open links that do not select", async () => {
+  it("renders youtube results with preview buttons that do not select", async () => {
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -151,14 +156,15 @@ describe("SearchPanel", () => {
       });
     });
     render(<SearchPanel />);
-    const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
-    expect(openLink.href).toBe("https://www.youtube.com/watch?v=yt-match");
-    expect(openLink.rel).toBe("noreferrer");
-    expect(openLink.getAttribute("aria-label")).toBe("Open on YouTube");
+    const previewButton = document.querySelector(
+      ".search-open",
+    ) as HTMLButtonElement;
+    expect(previewButton.type).toBe("button");
+    expect(previewButton.getAttribute("aria-label")).toBe("Preview on YouTube");
     expect(screen.getByText("2:03")).toBeTruthy();
     // no playlist add controls in search results
     expect(document.querySelectorAll(".playlist-add-button")).toHaveLength(0);
-    await userEvent.click(openLink);
+    await userEvent.click(previewButton);
     expect(h.selectYoutube).not.toHaveBeenCalled();
     await userEvent.click(screen.getByText("Match"));
     expect(h.selectYoutube).toHaveBeenCalledWith({
@@ -169,7 +175,7 @@ describe("SearchPanel", () => {
     });
   });
 
-  it("loads the youtube thumbnail only while the open link is hovered", async () => {
+  it("loads the youtube thumbnail only after opening the preview modal", async () => {
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -185,24 +191,44 @@ describe("SearchPanel", () => {
       });
     });
     render(<SearchPanel />);
-    const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
+    const previewButton = document.querySelector(
+      ".search-open",
+    ) as HTMLButtonElement;
 
-    expect(document.querySelector(".search-thumbnail img")).toBeNull();
-    await userEvent.hover(openLink);
+    expect(document.querySelector(".youtube-preview-thumbnail img")).toBeNull();
+    await userEvent.click(previewButton);
 
     const thumbnail = document.querySelector(
-      ".search-thumbnail img",
+      ".youtube-preview-thumbnail img",
     ) as HTMLImageElement;
     expect(thumbnail.src).toBe(
       "https://i.ytimg.com/vi/yt-match/hqdefault.jpg",
     );
     expect(thumbnail.getAttribute("referrerpolicy")).toBe("no-referrer");
+    expect(thumbnail.alt).toBe("YouTube thumbnail for Match");
 
-    await userEvent.unhover(openLink);
-    expect(document.querySelector(".search-thumbnail img")).toBeNull();
+    expect(screen.getByRole("heading", { name: "YouTube Preview" })).toBeTruthy();
+    const openLink = screen.getByRole("link", { name: "Open in YouTube" });
+    expect(openLink.getAttribute("href")).toBe(
+      "https://www.youtube.com/watch?v=yt-match",
+    );
+    expect(openLink.getAttribute("target")).toBe("_blank");
+    expect(openLink.getAttribute("rel")).toBe("noreferrer");
+
+    await userEvent.click(openLink);
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe(
+      "modal open",
+    );
+
+    await userEvent.click(document.getElementById("youtube-preview-close")!);
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe(
+      "modal",
+    );
+    expect(document.querySelector(".youtube-preview-thumbnail img")).toBeNull();
+    expect(document.activeElement).toBe(previewButton);
   });
 
-  it("shows the youtube thumbnail on keyboard focus and hides failed images", async () => {
+  it("hides a failed youtube thumbnail and resets the failure on reopen", async () => {
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -218,19 +244,28 @@ describe("SearchPanel", () => {
       });
     });
     render(<SearchPanel />);
-    const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
+    const previewButton = document.querySelector(
+      ".search-open",
+    ) as HTMLButtonElement;
 
-    fireEvent.focus(openLink);
+    await userEvent.click(previewButton);
     const thumbnail = document.querySelector(
-      ".search-thumbnail img",
+      ".youtube-preview-thumbnail img",
     ) as HTMLImageElement;
     expect(thumbnail).not.toBeNull();
 
     fireEvent.error(thumbnail);
-    expect(document.querySelector(".search-thumbnail img")).toBeNull();
+    expect(document.querySelector(".youtube-preview-thumbnail img")).toBeNull();
+    expect(screen.getByText("Thumbnail unavailable.")).toBeTruthy();
 
-    fireEvent.blur(openLink);
-    expect(document.querySelector(".search-thumbnail img")).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe(
+      "modal",
+    );
+    await userEvent.click(previewButton);
+    expect(
+      document.querySelector(".youtube-preview-thumbnail img"),
+    ).not.toBeNull();
   });
 
   it("shows upload sections per app config and submits a URL", async () => {

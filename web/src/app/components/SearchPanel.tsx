@@ -3,6 +3,7 @@ import { formatTrackDuration } from "../format";
 import { selectSpotify, selectYoutube, submitSearch } from "../search";
 import { useAppStore } from "../store";
 import { uploadFile, uploadUrl } from "../upload";
+import { Modal, ModalHeader } from "./Modal";
 
 function setOf(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -26,36 +27,20 @@ function youtubeResultKey(
   return item.id ?? `${name}\u0000${artist}\u0000${item.title ?? ""}\u0000${duration}`;
 }
 
-function YoutubeOpenLink({ youtubeId }: { youtubeId: string }) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [thumbnailFailed, setThumbnailFailed] = useState(false);
-  const showThumbnail = (hovered || focused) && !thumbnailFailed;
-
-  const showPreview = () => {
-    setThumbnailFailed(false);
-  };
-
+function YoutubePreviewButton({
+  onOpen,
+}: {
+  onOpen: () => void;
+}) {
   return (
-    <a
+    <button
+      type="button"
       className="search-open"
-      href={`https://www.youtube.com/watch?v=${encodeURIComponent(youtubeId)}`}
-      target="_blank"
-      rel="noreferrer"
-      title="Open on YouTube"
-      aria-label="Open on YouTube"
-      onMouseEnter={() => {
-        showPreview();
-        setHovered(true);
-      }}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => {
-        showPreview();
-        setFocused(true);
-      }}
-      onBlur={() => setFocused(false)}
+      title="Preview on YouTube"
+      aria-label="Preview on YouTube"
       onClick={(event) => {
         event.stopPropagation();
+        onOpen();
       }}
     >
       <span
@@ -64,22 +49,20 @@ function YoutubeOpenLink({ youtubeId }: { youtubeId: string }) {
       >
         open_in_new
       </span>
-      {showThumbnail ? (
-        <span className="search-thumbnail" aria-hidden="true">
-          <img
-            src={`https://i.ytimg.com/vi/${encodeURIComponent(youtubeId)}/hqdefault.jpg`}
-            alt=""
-            referrerPolicy="no-referrer"
-            onError={() => setThumbnailFailed(true)}
-          />
-        </span>
-      ) : null}
-    </a>
+    </button>
   );
 }
 
 function SearchResults() {
   const results = useAppStore((s) => s.searchResults);
+  const [youtubePreview, setYoutubePreview] = useState<{
+    youtubeId: string;
+    title: string;
+  } | null>(null);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+
+  const closeYoutubePreview = () => setYoutubePreview(null);
+
   if (results.kind === "message") {
     return (
       <div className="search-results" id="search-results">
@@ -146,13 +129,58 @@ function SearchResults() {
                   <span>{formatTrackDuration(item.duration)}</span>
                 </button>
                 <span className="search-meta">
-                  {item.id ? <YoutubeOpenLink youtubeId={youtubeId} /> : null}
+                  {item.id ? (
+                    <YoutubePreviewButton
+                      onOpen={() => {
+                        setThumbnailFailed(false);
+                        setYoutubePreview({ youtubeId, title });
+                      }}
+                    />
+                  ) : null}
                 </span>
               </div>
             </li>
           );
         })}
       </ol>
+      <Modal
+        id="youtube-preview-modal"
+        open={youtubePreview !== null}
+        onClose={closeYoutubePreview}
+        panelClassName="youtube-preview-panel"
+      >
+        <ModalHeader
+          title="YouTube Preview"
+          closeId="youtube-preview-close"
+          onClose={closeYoutubePreview}
+        />
+        <div className="modal-body">
+          {youtubePreview && !thumbnailFailed ? (
+            <div className="youtube-preview-thumbnail">
+              <img
+                src={`https://i.ytimg.com/vi/${encodeURIComponent(youtubePreview.youtubeId)}/hqdefault.jpg`}
+                alt={`YouTube thumbnail for ${youtubePreview.title}`}
+                referrerPolicy="no-referrer"
+                onError={() => setThumbnailFailed(true)}
+              />
+            </div>
+          ) : (
+            <p className="modal-hint">Thumbnail unavailable.</p>
+          )}
+        </div>
+        <div className="modal-footer">
+          {youtubePreview ? (
+            <a
+              className="youtube-preview-open"
+              href={`https://www.youtube.com/watch?v=${encodeURIComponent(youtubePreview.youtubeId)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open in YouTube
+            </a>
+          ) : null}
+        </div>
+      </Modal>
     </div>
   );
 }

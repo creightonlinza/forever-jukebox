@@ -1846,15 +1846,17 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 }
 
 .search-open {
-  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--muted);
-  text-decoration: none;
 }
 
 .search-open:hover {
+  background: var(--surface-control);
   color: var(--text);
 }
 
@@ -1868,27 +1870,39 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   line-height: 1;
 }
 
-.search-thumbnail {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  z-index: 10;
-  display: block;
-  width: min(320px, 70vw);
+.youtube-preview-panel {
+  width: min(640px, 90vw);
+}
+
+.youtube-preview-thumbnail {
+  width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  pointer-events: none;
   background: var(--surface);
   border: 1px solid var(--border-panel);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 28%);
 }
 
-.search-thumbnail img {
+.youtube-preview-thumbnail img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.youtube-preview-open {
+  padding: 8px 14px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--surface-panel);
+  color: var(--text);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.youtube-preview-open:hover {
+  background: var(--surface-control);
 }
 
 .play-title {
