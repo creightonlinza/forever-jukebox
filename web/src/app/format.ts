@@ -12,6 +12,15 @@ export function formatDuration(seconds: number) {
   return `${hh}:${mm}:${ss}`;
 }
 
+export function formatCursorTime(seconds: number) {
+  const totalSeconds = Number.isFinite(seconds)
+    ? Math.max(0, Math.floor(seconds))
+    : 0;
+  const minutes = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${minutes}:${String(secs).padStart(2, "0")}`;
+}
+
 export function formatTrackDuration(seconds: unknown) {
   if (typeof seconds !== "number" || Number.isNaN(seconds)) {
     return "-";

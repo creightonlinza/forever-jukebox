@@ -198,6 +198,8 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     setOnBeat: vi.fn(),
     setOnEnded: vi.fn(),
     setOnSelect: vi.fn(),
+    startAtIndex: vi.fn(),
+    resetVisualization: vi.fn(),
     setVisible: vi.fn(),
     resizeNow: vi.fn(),
   };
@@ -1158,6 +1160,30 @@ describe("playback controls", () => {
     expect(context.engine.seekToBeat).toHaveBeenCalledWith(0);
     expect(context.engine.play).not.toHaveBeenCalled();
     expect(context.engine.startJukebox).not.toHaveBeenCalled();
+  });
+
+  it("keeps listen time running when selecting an autocanonizer beat", () => {
+    const context = createContext();
+    (context.autocanonizer.isReady as ReturnType<typeof vi.fn>).mockReturnValue(
+      true,
+    );
+    initializePlayback();
+    useAppStore.setState({
+      playMode: "autocanonizer",
+      isRunning: true,
+      playTimerMs: 3000,
+      lastPlayStamp: 1000,
+    });
+    vi.spyOn(performance, "now").mockReturnValue(5000);
+    const onSelect = (
+      context.autocanonizer.setOnSelect as ReturnType<typeof vi.fn>
+    ).mock.calls[0]?.[0] as ((index: number) => void) | undefined;
+
+    onSelect?.(1);
+
+    expect(context.autocanonizer.startAtIndex).toHaveBeenCalledWith(1);
+    expect(useAppStore.getState().playTimerMs).toBe(3000);
+    expect(useAppStore.getState().lastPlayStamp).toBe(1000);
   });
 
   it("draws the promoted jump target before moving a caught-up cursor", () => {

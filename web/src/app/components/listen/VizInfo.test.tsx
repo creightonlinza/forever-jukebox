@@ -16,6 +16,9 @@ describe("VizInfo", () => {
         listenTimeText: "00:00:00",
         beatsPlayedText: "0",
         bringItHomeMode: false,
+        trackDurationSec: 225,
+        autocanonizerMainSeconds: 0,
+        autocanonizerOtherSeconds: 0,
       });
     });
   });
@@ -78,6 +81,14 @@ describe("VizInfo", () => {
         "is-hidden",
       ),
     ).toBe(true);
+    expect(
+      document
+        .getElementById("autocanonizer-times")
+        ?.classList.contains("is-hidden"),
+    ).toBe(false);
+    expect(
+      document.getElementById("autocanonizer-total-time")?.textContent,
+    ).toBe("3:45");
   });
 
   it("renames the beats counter in cowbell mode", () => {
@@ -103,6 +114,8 @@ describe("VizInfo", () => {
       useAppStore.setState({
         listenTimeText: "00:00:05",
         beatsPlayedText: "7",
+        autocanonizerMainSeconds: 62,
+        autocanonizerOtherSeconds: 125,
       });
     });
 
@@ -111,6 +124,12 @@ describe("VizInfo", () => {
       "00:00:05",
     );
     expect(document.getElementById("beats-played")?.textContent).toBe("7");
+    expect(
+      document.getElementById("autocanonizer-main-time")?.textContent,
+    ).toBe("1:02");
+    expect(
+      document.getElementById("autocanonizer-other-time")?.textContent,
+    ).toBe("2:05");
     // ...but the high-frequency updates never went through React.
     expect(renders).toBe(afterMount);
   });
