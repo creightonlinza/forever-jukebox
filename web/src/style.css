@@ -1849,11 +1849,14 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--muted);
-  text-decoration: none;
 }
 
 .search-open:hover {
+  background: var(--surface-control);
   color: var(--text);
 }
 
@@ -1865,6 +1868,41 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
     "opsz" 20;
   font-size: 18px;
   line-height: 1;
+}
+
+.youtube-preview-panel {
+  width: min(640px, 90vw);
+}
+
+.youtube-preview-thumbnail {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border-panel);
+  border-radius: 8px;
+}
+
+.youtube-preview-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.youtube-preview-open {
+  padding: 8px 14px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--surface-panel);
+  color: var(--text);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.youtube-preview-open:hover {
+  background: var(--surface-control);
 }
 
 .play-title {
