@@ -83,7 +83,7 @@ describe("AppRoot tab lifecycle", () => {
       useAppStore.setState(initialStoreState, true);
       useAppStore.getState().resetTopSongsCache();
     });
-    document.title = "The Forever Jukebox";
+    document.title = "Forever Jukebox";
     vi.clearAllMocks();
   });
 
@@ -131,35 +131,35 @@ describe("AppRoot tab lifecycle", () => {
   it("syncs the browser title from route and track state", async () => {
     const router = renderApp("/");
     await waitFor(() => {
-      expect(document.title).toBe("Top Tracks | The Forever Jukebox");
+      expect(document.title).toBe("Top Tracks | Forever Jukebox");
     });
 
     act(() => {
       useAppStore.getState().selectTab("search");
     });
     await waitFor(() => {
-      expect(document.title).toBe("Search | The Forever Jukebox");
+      expect(document.title).toBe("Search | Forever Jukebox");
     });
 
     act(() => {
       useAppStore.getState().selectTab("play");
     });
     await waitFor(() => {
-      expect(document.title).toBe("Listen | The Forever Jukebox");
+      expect(document.title).toBe("Listen | Forever Jukebox");
     });
 
     act(() => {
       useAppStore.setState({ trackTitle: "Song", trackArtist: "Artist" });
     });
     await waitFor(() => {
-      expect(document.title).toBe("Song - Artist | The Forever Jukebox");
+      expect(document.title).toBe("Song - Artist | Forever Jukebox");
     });
 
     await act(async () => {
       await router.navigate("/whats-new");
     });
     await waitFor(() => {
-      expect(document.title).toBe("What's New | The Forever Jukebox");
+      expect(document.title).toBe("What's New | Forever Jukebox");
     });
   });
 });

@@ -34,7 +34,7 @@ test.describe("shell chrome", () => {
     await page.goto("/");
     const credit = page.locator("#site-footer-credit");
     await expect(credit).toContainText(
-      "The Forever Jukebox & Analysis Engine by",
+      "Forever Jukebox & Analysis Engine by",
     );
     await expect(credit.locator("a").first()).toHaveAttribute(
       "href",

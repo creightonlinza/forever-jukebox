@@ -30,7 +30,7 @@ from .routes.jobs import router as jobs_router
 from .routes.media import router as media_router
 from .routes.search import router as search_router
 
-app = FastAPI(title="The Forever Jukebox Analysis API")
+app = FastAPI(title="Forever Jukebox Analysis API")
 app.include_router(admin_router)
 app.include_router(config_router)
 app.include_router(favorites_router)
@@ -62,7 +62,7 @@ NOINDEX_META = '<meta name="robots" content="noindex, follow" />'
 # Open Graph / Twitter Card defaults. og:url and og:image must be absolute, so they are
 # injected server-side from the request host rather than hardcoded in the static HTML —
 # this keeps the app hoster-agnostic (same rationale as the sitemap/robots routes).
-SITE_NAME = "The Forever Jukebox"
+SITE_NAME = "Forever Jukebox"
 SITE_AUTHOR = "Creighton Linza"
 SITE_DESCRIPTION = (
     "The Forever Jukebox turns any song into a never-ending version of itself — "

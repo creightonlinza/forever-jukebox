@@ -1,4 +1,4 @@
-# The Forever Jukebox Analysis API
+# Forever Jukebox Analysis API
 
 REST API wrapper for the analysis generator. This codebase is intentionally separate from the analysis engine in `engine/`.
 

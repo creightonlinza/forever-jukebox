@@ -20,7 +20,7 @@ function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
       <section className="install-gate__panel">
         <div className="hero-title-frame install-gate__title-frame">
           <h1 className="hero-title-neon install-gate__title">
-            THE FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
+            FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
           </h1>
         </div>
         <p className="install-gate__subtitle">
@@ -69,7 +69,7 @@ function AppLayout() {
           <div className="hero-title">
             <div className="hero-title-frame">
               <h1 className="hero-title-neon">
-                THE FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
+                FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
               </h1>
             </div>
             <span className="hero-subtitle">Offline App</span>

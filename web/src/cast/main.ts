@@ -446,7 +446,7 @@ async function bootstrap() {
 
   function getDisplayTitle() {
     if (!state.trackTitle) {
-      return "The Forever Jukebox";
+      return "Forever Jukebox";
     }
     return state.audioMode === "off"
       ? state.trackTitle
@@ -798,7 +798,7 @@ async function bootstrap() {
     listenAccumulatedMs = 0;
     elements.listenTime.textContent = "00:00:00";
     elements.beatsPlayed.textContent = "0";
-    elements.title.textContent = "The Forever Jukebox";
+    elements.title.textContent = "Forever Jukebox";
     setReceiverIdle();
     sendStatusUpdate();
   }
@@ -853,7 +853,7 @@ async function bootstrap() {
     setStatus(elements.status, "Loading…");
     elements.listenTime.textContent = "00:00:00";
     elements.beatsPlayed.textContent = "0";
-    elements.title.textContent = "The Forever Jukebox";
+    elements.title.textContent = "Forever Jukebox";
     sendStatusUpdate();
     return token;
   }

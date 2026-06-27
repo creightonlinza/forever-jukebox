@@ -30,7 +30,7 @@ describe("VizInfo", () => {
   it("shows the default title without a track", () => {
     render(<VizInfo />);
     expect(document.getElementById("viz-now-playing")?.textContent).toBe(
-      "The Forever Jukebox",
+      "Forever Jukebox",
     );
   });
 
