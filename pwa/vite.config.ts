@@ -54,8 +54,8 @@ export default defineConfig(({ command }) => {
           suppressWarnings: command === "serve",
         },
         manifest: {
-          name: "The Forever Jukebox",
-          short_name: "The Forever Jukebox",
+          name: "Forever Jukebox",
+          short_name: "Forever Jukebox",
           description: "Offline-first Forever Jukebox for local audio.",
           id: appBase,
           start_url: appBase,

@@ -87,7 +87,7 @@ export function VizInfo() {
           );
           return trackArtist ? `${withSuffix} — ${trackArtist}` : withSuffix;
         })()
-      : "The Forever Jukebox";
+      : "Forever Jukebox";
   useMarquee(titleRef, displayTitle);
 
   const isCanonizer = playMode === "autocanonizer";

@@ -1,6 +1,6 @@
-# The Forever Jukebox
+# Forever Jukebox
 
-![The Forever Jukebox logo](./tfj-logo.png)
+![Forever Jukebox logo](./tfj-logo.png)
 
 The Forever Jukebox is a self-hosted, end-to-end system that analyzes audio,
 serves the results via a lightweight API, and powers a refreshed Infinite
@@ -11,7 +11,7 @@ generating similar beat/segment/section data locally.
 
 ## Structure
 
-- `engine/` — The Forever Jukebox audio analysis engine.
+- `engine/` — the Forever Jukebox audio analysis engine.
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI.
 - `pwa/` — Offline/local analysis PWA that can also export jukebox audio.
