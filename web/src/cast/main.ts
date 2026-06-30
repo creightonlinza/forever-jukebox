@@ -190,6 +190,14 @@ function isValidJobId(value: string) {
   return /^[a-f0-9]{32}$/.test(value);
 }
 
+function stripTrailingSlashes(value: string) {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -1275,7 +1283,7 @@ async function bootstrap() {
             : null;
         if (jobId && isValidJobId(jobId)) {
           const nextUrl = baseUrl
-            ? `${baseUrl.replace(/\/+$/, "")}/cast/${encodeURIComponent(jobId)}`
+            ? `${stripTrailingSlashes(baseUrl)}/cast/${encodeURIComponent(jobId)}`
             : null;
           if (nextUrl) {
             window.history.replaceState({}, "", nextUrl);
