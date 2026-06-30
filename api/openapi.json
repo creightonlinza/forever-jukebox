@@ -331,10 +331,6 @@
             "title": "Failed Jobs",
             "type": "integer"
           },
-          "play_count_below": {
-            "title": "Play Count Below",
-            "type": "integer"
-          },
           "sample": {
             "items": {
               "$ref": "#/components/schemas/StorageCleanupSampleItem"
@@ -346,7 +342,6 @@
         "required": [
           "dry_run",
           "days",
-          "play_count_below",
           "candidate_jobs",
           "candidate_bytes",
           "sample",

@@ -17,6 +17,13 @@ pip install -r requirements-dev.txt
 ruff check api worker
 ```
 
+Tests (pytest):
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
 ## Configure the generator
 
 Set environment variables:
@@ -226,7 +233,7 @@ Within 30 minutes of creation/completion, the admin header is not required:
 curl -X DELETE "/api/jobs/<id>"
 ```
 
-Preview manual storage cleanup for cold, low-play tracks (admin):
+Preview manual storage cleanup for cold tracks (admin):
 
 ```bash
 curl -X POST "/api/admin/storage-cleanup" \
@@ -235,9 +242,10 @@ curl -X POST "/api/admin/storage-cleanup" \
   -d '{}'
 ```
 
-The cleanup policy is server-side: completed jobs with `play_count < 2` and
-source activity older than 180 days. Dry-run is the default. To execute the
-cleanup, set `dry_run` to `false` and include the explicit confirmation:
+The cleanup policy is server-side: completed jobs whose source has not been
+played in over 365 days (`updated_at` is bumped on each play). Dry-run is the
+default. To execute the cleanup, set `dry_run` to `false` and include the
+explicit confirmation:
 
 ```bash
 curl -X POST "/api/admin/storage-cleanup" \
