@@ -409,6 +409,30 @@ describe("JukeboxEngine playback loop", () => {
     expect(engine.getConfig().randomBranchChanceDelta).toBe(0.02);
   });
 
+  it("derives minimum branch beats from the configured track percentage", () => {
+    const engine = new JukeboxEngine(makePlayer(), {
+      config: { minLongBranchPercent: 30 },
+    });
+    engine.loadAnalysis(makeAnalysisPayload(50));
+    expect(engine.getConfig().minLongBranch).toBe(15);
+
+    engine.updateConfig({ minLongBranchPercent: 10 });
+    engine.rebuildGraph();
+    expect(engine.getConfig().minLongBranch).toBe(5);
+  });
+
+  it("keeps the legacy 20% anchor baseline by default", () => {
+    const engine = new JukeboxEngine(makePlayer());
+    engine.loadAnalysis(makeAnalysisPayload(50));
+    expect(engine.getConfig()).toEqual(
+      expect.objectContaining({
+        justLongBranches: false,
+        minLongBranchPercent: 20,
+        minLongBranch: 10,
+      }),
+    );
+  });
+
   it("ticks and advances beats based on audio time", () => {
     vi.useFakeTimers();
     if ("window" in globalThis) {

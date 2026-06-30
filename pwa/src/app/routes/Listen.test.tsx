@@ -50,6 +50,10 @@ type MockEngineInstance = {
   play: ReturnType<typeof vi.fn>;
   setUserAnchorEdge: ReturnType<typeof vi.fn>;
   getUserAnchorEdgeId: ReturnType<typeof vi.fn>;
+  getConfig: () => {
+    justLongBranches: boolean;
+    minLongBranchPercent?: number;
+  };
   getLastJumpWasBranch: ReturnType<typeof vi.fn>;
   getPlayVelocity: ReturnType<typeof vi.fn>;
   setPlayVelocity: ReturnType<typeof vi.fn>;
@@ -227,6 +231,7 @@ vi.mock("@/shared/utils/exportJson", () => ({
 }));
 
 vi.mock("@forever-jukebox/engine", () => ({
+  DEFAULT_MIN_LONG_BRANCH_PERCENT: 20,
   JukeboxEngine: class JukeboxEngine {
     private updateListener: ((state: any) => void) | null = null;
     private config = {
@@ -240,6 +245,7 @@ vi.mock("@forever-jukebox/engine", () => ({
       maxRandomBranchChance: 0.5,
       randomBranchChanceDelta: 0.02,
       minLongBranch: 0,
+      minLongBranchPercent: 20,
     };
     private analysis: typeof mockAnalysis | null = null;
     private playVelocity = 1;
@@ -1523,6 +1529,41 @@ describe("Listen route behavior", () => {
       "#tuning-panel-tuning label:first-child .label-line span:last-child"
     );
     expect(thresholdValue.textContent).toBe("20");
+    rendered.unmount();
+  });
+
+  it("applies minimum jump distance slider checkpoints", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    const slider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#min-jump-distance",
+    );
+    expect(slider.value).toBe("0");
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      valueSetter?.call(slider, "4");
+      slider.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(slider.parentElement?.textContent).toContain(">30% of track");
+
+    const applyButton = getRequired<HTMLButtonElement>(
+      rendered.container,
+      ".tuning-footer .tab-btn:last-child",
+    );
+    await click(applyButton);
+
+    expect(engineInstances[0]?.getConfig()).toEqual(
+      expect.objectContaining({
+        justLongBranches: true,
+        minLongBranchPercent: 30,
+      }),
+    );
     rendered.unmount();
   });
 

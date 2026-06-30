@@ -144,6 +144,7 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     justLongBranches: false,
     removeSequentialBranches: false,
     minLongBranch: 0,
+    minLongBranchPercent: 20,
   };
   let userAnchorEdgeId: number | null = null;
   let playVelocity = 1;
@@ -267,6 +268,7 @@ describe("playback tuning", () => {
     expect(form.computedThreshold).toBe(45);
     expect(form.minProbPct).toBe(18);
     expect(form.maxProbPct).toBe(50);
+    expect(form.minLongBranchPercent).toBe(0);
     expect(form.highlightAnchorBranch).toBe(true);
   });
 
@@ -304,6 +306,31 @@ describe("playback tuning", () => {
       }),
     );
     expect(result.threshold).toBe(45);
+  });
+
+  it("applies minimum jump distance while preserving the Any baseline", () => {
+    const context = createContext();
+    applyTuningChanges(
+      context,
+      formValues(context, { minLongBranchPercent: 30 }),
+    );
+    expect(context.engine.updateConfig).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        justLongBranches: true,
+        minLongBranchPercent: 30,
+      }),
+    );
+
+    applyTuningChanges(
+      context,
+      formValues(context, { minLongBranchPercent: 0 }),
+    );
+    expect(context.engine.updateConfig).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        justLongBranches: false,
+        minLongBranchPercent: 20,
+      }),
+    );
   });
 
   it("updates visualization data when tuning changes apply", () => {

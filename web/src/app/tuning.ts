@@ -1,9 +1,21 @@
 import type { AppContext } from "./context";
 import { useAppStore } from "./store";
+import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/engine";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
-const TUNING_PARAM_KEYS = ["jb", "lg", "sq", "thresh", "bp", "d", "am", "ab"];
+const TUNING_PARAM_KEYS = [
+  "jb",
+  "lg",
+  "bl",
+  "sq",
+  "thresh",
+  "bp",
+  "d",
+  "am",
+  "ab",
+];
+const MIN_LONG_BRANCH_PERCENT_OPTIONS = new Set([5, 10, 20, 30]);
 
 function parseAudioMode(raw: string | null) {
   if (
@@ -110,6 +122,14 @@ export function applyTuningParamsToEngine(
   if (params.get("lg") === "1") {
     nextConfig.justLongBranches = true;
   }
+  const minLongBranchPercent = Number.parseInt(params.get("bl") ?? "", 10);
+  if (MIN_LONG_BRANCH_PERCENT_OPTIONS.has(minLongBranchPercent)) {
+    nextConfig.justLongBranches = true;
+    nextConfig.minLongBranchPercent = minLongBranchPercent;
+  } else if (nextConfig.justLongBranches) {
+    nextConfig.minLongBranchPercent =
+      defaults.minLongBranchPercent ?? DEFAULT_MIN_LONG_BRANCH_PERCENT;
+  }
   if (params.get("sq") === "0") {
     nextConfig.removeSequentialBranches = true;
   }
@@ -174,7 +194,14 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
     params.set("jb", "1");
   }
   if (config.justLongBranches) {
-    params.set("lg", "1");
+    params.set(
+      "bl",
+      `${
+        config.minLongBranchPercent ??
+        defaults.minLongBranchPercent ??
+        DEFAULT_MIN_LONG_BRANCH_PERCENT
+      }`,
+    );
   }
   if (config.removeSequentialBranches) {
     params.set("sq", "0");

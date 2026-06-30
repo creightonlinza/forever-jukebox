@@ -63,6 +63,7 @@ export interface JukeboxConfig {
   maxRandomBranchChance: number;
   randomBranchChanceDelta: number;
   minLongBranch: number;
+  minLongBranchPercent?: number;
 }
 
 export interface JukeboxGraphState {

@@ -173,7 +173,8 @@ export function FaqPanel() {
             often jumps happen.
           </li>
           <li>
-            Use the checkboxes to allow or restrict certain branch types.
+            Set a minimum jump distance to filter branches by beat distance
+            across the track, and use the checkboxes for other branch types.
           </li>
           <li>
             Click a branch in the visualization, then press Delete to remove

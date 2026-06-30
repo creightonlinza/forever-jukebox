@@ -40,6 +40,12 @@ const AUDIO_MODE_OPTIONS: Array<{
   },
 ];
 
+const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
+
+function formatMinJumpDistance(percent: number) {
+  return percent === 0 ? "Any distance" : `>${percent}% of track`;
+}
+
 function RangeRow({
   id,
   label,
@@ -262,6 +268,34 @@ export function TuningModal() {
               }
             />
             <RangeRow
+              id="min-jump-distance"
+              label="Minimum Jump Distance:"
+              valueText={formatMinJumpDistance(
+                form?.minLongBranchPercent ?? 0,
+              )}
+              min={0}
+              max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
+              step={1}
+              value={Math.max(
+                0,
+                MIN_JUMP_DISTANCE_OPTIONS.indexOf(
+                  (form?.minLongBranchPercent ??
+                    0) as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
+                ),
+              )}
+              onChange={(index) =>
+                setFormField(
+                  "minLongBranchPercent",
+                  MIN_JUMP_DISTANCE_OPTIONS[index] ?? 0,
+                )
+              }
+              hint={
+                <div className="hint">
+                  Filters jumps by beat distance across the track.
+                </div>
+              }
+            />
+            <RangeRow
               id="min-prob"
               label="Branch Probability Min:"
               valueText={`${form?.minProbPct ?? 18}%`}
@@ -302,17 +336,6 @@ export function TuningModal() {
                   }
                 />{" "}
                 Allow only reverse branches
-              </label>
-              <label>
-                <input
-                  id="just-long"
-                  type="checkbox"
-                  checked={form?.justLongBranches ?? false}
-                  onChange={(event) =>
-                    setFormField("justLongBranches", event.target.checked)
-                  }
-                />{" "}
-                Allow only long branches
               </label>
               <label>
                 <input

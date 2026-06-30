@@ -60,6 +60,7 @@ const baseConfig: JukeboxConfig = {
   maxRandomBranchChance: 0.5,
   randomBranchChanceDelta: 0.02,
   minLongBranch: 0,
+  minLongBranchPercent: 20,
 };
 
 describe("planJukeboxPath", () => {
@@ -151,5 +152,34 @@ describe("planJukeboxPath", () => {
       .map((segment) => `${segment.jumpFromIndex}-${segment.beatIndex}`);
 
     expect(plannedPairs).not.toContain(removedPair);
+  });
+
+  it("uses the configured minimum jump distance percentage", () => {
+    const analysis = createAnalysis(40, 0.5);
+    const planned = planJukeboxPath({
+      analysis,
+      bufferDurationSeconds: 20,
+      durationSeconds: 20,
+      config: {
+        ...baseConfig,
+        justLongBranches: true,
+        minLongBranchPercent: 30,
+        minRandomBranchChance: 1,
+        maxRandomBranchChance: 1,
+        randomBranchChanceDelta: 0,
+      },
+      randomMode: "seeded",
+      seed: 9,
+    });
+    const jumps = planned.segments.filter(
+      (segment) => segment.jumped && segment.jumpFromIndex !== null,
+    );
+    expect(jumps.length).toBeGreaterThan(0);
+    expect(
+      jumps.every(
+        (segment) =>
+          Math.abs((segment.jumpFromIndex ?? 0) - segment.beatIndex) >= 12,
+      ),
+    ).toBe(true);
   });
 });
