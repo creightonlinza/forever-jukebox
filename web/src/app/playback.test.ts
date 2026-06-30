@@ -31,6 +31,7 @@ import {
   handleEdgeSelect,
   handleKeydown,
   handleKeyup,
+  handleWindowBlur,
   initializePlayback,
   resetPlaybackUiForTest,
 } from "./playback-ui";
@@ -146,6 +147,7 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     minLongBranchPercent: 20,
   };
   let userAnchorEdgeId: number | null = null;
+  let playVelocity = 1;
   const engine = {
     getConfig: vi.fn(() => ({ ...engineConfig })),
     updateConfig: vi.fn((partial: Record<string, unknown>) => {
@@ -166,6 +168,12 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     seekToBeat: vi.fn(),
     setForceBranch: vi.fn(),
     setBringItHomeMode: vi.fn(),
+    getLastJumpWasBranch: vi.fn(() => true),
+    getPlayVelocity: vi.fn(() => playVelocity),
+    setPlayVelocity: vi.fn((velocity: number) => {
+      playVelocity = Math.max(-16, Math.min(16, Math.trunc(velocity)));
+    }),
+    setFreezeCurrentBeat: vi.fn(),
     setUserAnchorEdge: vi.fn((edge: { id: number } | null) => {
       userAnchorEdgeId = edge ? edge.id : null;
     }),
@@ -1251,6 +1259,45 @@ describe("playback controls", () => {
     expect(context.jukebox.update).toHaveBeenNthCalledWith(2, 2, false, 0);
     expect(useAppStore.getState().lastBeatIndex).toBe(2);
   });
+
+  it("moves the cursor without highlighting a transport-only jump", () => {
+    const context = createContext();
+    useAppStore.setState({ lastBeatIndex: 9 });
+    vi.mocked(context.engine.getLastJumpWasBranch).mockReturnValue(false);
+
+    initializePlayback();
+    const onUpdate = context.engine.onUpdate as ReturnType<typeof vi.fn>;
+    const listener = onUpdate.mock.calls[0]?.[0] as
+      | ((state: {
+          beatsPlayed: number;
+          currentBeatIndex: number;
+          currentTime: number;
+          lastJumped: boolean;
+          lastJumpTime: number | null;
+          lastJumpFromIndex: number | null;
+          lastJumpToIndex: number | null;
+          currentThreshold: number;
+          lastBranchPoint: number;
+          curRandomBranchChance: number;
+        }) => void)
+      | undefined;
+
+    listener?.({
+      beatsPlayed: 12,
+      currentBeatIndex: 2,
+      currentTime: 1.2,
+      lastJumped: true,
+      lastJumpTime: 0,
+      lastJumpFromIndex: 1,
+      lastJumpToIndex: 0,
+      currentThreshold: 20,
+      lastBranchPoint: 1,
+      curRandomBranchChance: 0.2,
+    });
+
+    expect(context.jukebox.update).toHaveBeenCalledTimes(1);
+    expect(context.jukebox.update).toHaveBeenCalledWith(2, false, 9);
+  });
 });
 
 describe("playback branch shortcuts", () => {
@@ -1263,7 +1310,12 @@ describe("playback branch shortcuts", () => {
     resetPlaybackUiForTest();
     setAppRuntime(context);
     return {
-      handlers: { handleEdgeSelect, handleKeydown, handleKeyup },
+      handlers: {
+        handleEdgeSelect,
+        handleKeydown,
+        handleKeyup,
+        handleWindowBlur,
+      },
       // `showToast` (./ui) and `syncDeletedEdgeState` (./playback) are module
       // mocks; the handlers call the same instances we assert on here.
       showToast: vi.mocked(showToast),
@@ -1487,6 +1539,79 @@ describe("playback branch shortcuts", () => {
 
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(context.jukebox.setSelectedEdgeActive).not.toHaveBeenCalled();
+  });
+
+  it("adjusts play velocity with brackets and allows key repeat", () => {
+    const context = createContext();
+    setBranchState([], null);
+    const { handlers, showToast } = makeHandlers(context);
+    const increment = keyEvent("]");
+    Object.defineProperty(increment, "repeat", { value: true });
+
+    handlers.handleKeydown(increment);
+    handlers.handleKeydown(keyEvent("["));
+
+    expect(context.engine.setPlayVelocity).toHaveBeenNthCalledWith(1, 2);
+    expect(context.engine.setPlayVelocity).toHaveBeenNthCalledWith(2, 1);
+    expect(showToast).toHaveBeenNthCalledWith(1, "Play velocity: +2");
+    expect(showToast).toHaveBeenNthCalledWith(2, "Play velocity: +1");
+    expect(increment.preventDefault).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports the capped play velocity", () => {
+    const context = createContext();
+    setBranchState([], null);
+    const { handlers, showToast } = makeHandlers(context);
+    context.engine.setPlayVelocity(16);
+    vi.mocked(context.engine.setPlayVelocity).mockClear();
+
+    handlers.handleKeydown(keyEvent("]"));
+
+    expect(context.engine.setPlayVelocity).toHaveBeenCalledWith(17);
+    expect(context.engine.getPlayVelocity()).toBe(16);
+    expect(showToast).toHaveBeenCalledWith("Play velocity: +16");
+  });
+
+  it("sets zero and normal play velocity with Down and Up", () => {
+    const context = createContext();
+    setBranchState([], null);
+    const { handlers, showToast } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("ArrowDown"));
+    handlers.handleKeydown(keyEvent("ArrowUp"));
+
+    expect(context.engine.setPlayVelocity).toHaveBeenNthCalledWith(1, 0);
+    expect(context.engine.setPlayVelocity).toHaveBeenNthCalledWith(2, 1);
+    expect(showToast).toHaveBeenNthCalledWith(1, "Play velocity: 0");
+    expect(showToast).toHaveBeenNthCalledWith(2, "Play velocity: +1");
+  });
+
+  it("holds Control to freeze and clears it on release or window blur", () => {
+    const context = createContext();
+    setBranchState([], null);
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("Control"));
+    handlers.handleKeyup(keyEvent("Control"));
+    handlers.handleKeydown(keyEvent("Control"));
+    handlers.handleWindowBlur();
+
+    expect(context.engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(1, true);
+    expect(context.engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(2, false);
+    expect(context.engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(3, true);
+    expect(context.engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(4, false);
+  });
+
+  it("keeps Left and Right assigned to selected branch cycling", () => {
+    const context = createContext();
+    const edges = [branchEdge(1), branchEdge(2)];
+    setBranchState(edges, 1);
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("ArrowRight"));
+
+    expect(useAppStore.getState().selectedEdge?.id).toBe(2);
+    expect(context.engine.setPlayVelocity).not.toHaveBeenCalled();
   });
 
   it("deletes the selected branch on Delete and syncs deleted-edge URL state", () => {

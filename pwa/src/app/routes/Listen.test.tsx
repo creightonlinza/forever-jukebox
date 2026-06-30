@@ -54,6 +54,14 @@ type MockEngineInstance = {
     justLongBranches: boolean;
     minLongBranchPercent?: number;
   };
+  getLastJumpWasBranch: ReturnType<typeof vi.fn>;
+  getPlayVelocity: ReturnType<typeof vi.fn>;
+  setPlayVelocity: ReturnType<typeof vi.fn>;
+  setFreezeCurrentBeat: ReturnType<typeof vi.fn>;
+  getVisualizationData: () => {
+    beats: typeof mockAnalysis.beats;
+    edges: any[];
+  };
   emitUpdate: (state: any) => void;
 };
 const engineInstances: MockEngineInstance[] = [];
@@ -240,6 +248,7 @@ vi.mock("@forever-jukebox/engine", () => ({
       minLongBranchPercent: 20,
     };
     private analysis: typeof mockAnalysis | null = null;
+    private playVelocity = 1;
     pauseJukebox = vi.fn();
     syncToPlaybackPosition = vi.fn();
     stopJukebox = vi.fn();
@@ -249,6 +258,12 @@ vi.mock("@forever-jukebox/engine", () => ({
     seekToBeat = vi.fn();
     setForceBranch = vi.fn();
     setBringItHomeMode = vi.fn();
+    getLastJumpWasBranch = vi.fn(() => true);
+    getPlayVelocity = vi.fn(() => this.playVelocity);
+    setPlayVelocity = vi.fn((velocity: number) => {
+      this.playVelocity = Math.max(-16, Math.min(16, Math.trunc(velocity)));
+    });
+    setFreezeCurrentBeat = vi.fn();
     setUserAnchorEdge = vi.fn();
     getUserAnchorEdgeId = vi.fn(() => null);
     deleteEdge = vi.fn();
@@ -467,15 +482,34 @@ async function changeRange(element: HTMLInputElement, value: string) {
   });
 }
 
-async function keydown(key: string, code?: string) {
+async function keydown(key: string, code?: string, repeat = false) {
   await act(async () => {
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
         key,
         code: code ?? (key.length === 1 ? `Key${key.toUpperCase()}` : key),
+        repeat,
         bubbles: true,
       })
     );
+  });
+}
+
+async function keyup(key: string, code?: string) {
+  await act(async () => {
+    window.dispatchEvent(
+      new KeyboardEvent("keyup", {
+        key,
+        code: code ?? (key.length === 1 ? `Key${key.toUpperCase()}` : key),
+        bubbles: true,
+      })
+    );
+  });
+}
+
+async function blurWindow() {
+  await act(async () => {
+    window.dispatchEvent(new Event("blur"));
   });
 }
 
@@ -921,6 +955,30 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it("moves the cursor without highlighting a transport-only jump", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    const jukebox = jukeboxControllerInstances[0];
+    engine?.getLastJumpWasBranch.mockReturnValue(false);
+    jukebox?.update.mockClear();
+
+    await act(async () => {
+      engine?.emitUpdate({
+        beatsPlayed: 12,
+        currentBeatIndex: 2,
+        lastJumped: true,
+        lastJumpFromIndex: 1,
+        lastJumpToIndex: 0,
+      });
+    });
+
+    expect(jukebox?.update).toHaveBeenCalledTimes(1);
+    expect(jukebox?.update.mock.calls[0]?.[0]).toBe(2);
+    expect(jukebox?.update.mock.calls[0]?.[1]).toBe(false);
+    rendered.unmount();
+  });
+
   it("keeps jukebox running when audio ended fires during normal looping", async () => {
     const rendered = renderListen();
     await settleEffects();
@@ -1138,6 +1196,107 @@ describe("Listen route behavior", () => {
     expect(tabToggleLabel.textContent).toBe("Extras");
     expect(tuningPanel.classList.contains("hidden")).toBe(false);
     expect(extrasPanel.classList.contains("hidden")).toBe(true);
+    rendered.unmount();
+  });
+
+  it("adjusts play velocity with brackets, Down, and Up", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+
+    await keydown("]", "BracketRight", true);
+    await keydown("[", "BracketLeft");
+    await keydown("ArrowDown");
+    await keydown("ArrowUp");
+
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(1, 2);
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(2, 1);
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(3, 0);
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(4, 1);
+    expect(rendered.container.textContent).toContain("Play velocity: +1");
+    rendered.unmount();
+  });
+
+  it("reports the capped play velocity", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+    engine.setPlayVelocity(16);
+    engine.setPlayVelocity.mockClear();
+
+    await keydown("]", "BracketRight");
+
+    expect(engine.setPlayVelocity).toHaveBeenCalledWith(17);
+    expect(engine.getPlayVelocity()).toBe(16);
+    expect(rendered.container.textContent).toContain("Play velocity: +16");
+    rendered.unmount();
+  });
+
+  it("holds Control to freeze and clears it on keyup, blur, and cleanup", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+    engine.setFreezeCurrentBeat.mockClear();
+
+    await keydown("Control");
+    await keyup("Control");
+    await keydown("Control");
+    await blurWindow();
+
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(1, true);
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(2, false);
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(3, true);
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(4, false);
+
+    rendered.unmount();
+    expect(engine.setFreezeCurrentBeat).toHaveBeenLastCalledWith(false);
+  });
+
+  it("keeps Left and Right assigned to selected branch cycling", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
+    const edges = [
+      {
+        id: 1,
+        deleted: false,
+        src: { start: 1, which: 1 },
+        dest: { start: 0, which: 0 },
+        distance: 8,
+      },
+      {
+        id: 2,
+        deleted: false,
+        src: { start: 2, which: 2 },
+        dest: { start: 0, which: 0 },
+        distance: 8,
+      },
+    ];
+    vi.spyOn(engine, "getVisualizationData").mockReturnValue({
+      beats: mockAnalysis.beats,
+      edges,
+    });
+    await act(async () => {
+      controller.emitEdgeSelect(edges[0]);
+    });
+
+    await keydown("ArrowRight");
+
+    expect(controller.setSelectedEdgeActive).toHaveBeenLastCalledWith(edges[1]);
+    expect(engine.setPlayVelocity).not.toHaveBeenCalled();
     rendered.unmount();
   });
 

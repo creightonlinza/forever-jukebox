@@ -42,6 +42,7 @@ export const DEFAULT_JUKEBOX_CONFIG: JukeboxConfig = {
 const TICK_INTERVAL_MS = 50;
 const MIN_JUMP_SCHEDULE_LEAD_SECONDS = 0.08;
 const PLAYBACK_SYNC_TOLERANCE_SECONDS = 0.25;
+const MAX_ABSOLUTE_PLAY_VELOCITY = 16;
 
 type UpdateListener = (state: JukeboxState) => void;
 
@@ -49,12 +50,15 @@ type PendingAdvance = {
   boundaryAudioTime: number;
   chosenIndex: number;
   shouldJump: boolean;
+  selectedBranch: boolean;
+  shouldStop?: boolean;
+  stopScheduled?: boolean;
   targetTime: number | null;
   jumpFromIndex: number | null;
   sourceBoundaryTime: number | null;
 };
 
-type JumpEvent = {
+export type JukeboxJumpEvent = {
   sourceStartTime: number;
   targetTime: number;
 };
@@ -70,9 +74,15 @@ export interface JukeboxPlayer {
   pause: () => void;
   stop: () => void;
   seek: (time: number) => void;
-  scheduleJump: (targetTime: number, sourceStartTime: number) => boolean;
+  scheduleJump: (
+    targetTime: number,
+    sourceStartTime: number,
+    reportedJumpEvent?: JukeboxJumpEvent | null,
+  ) => boolean;
   cancelScheduledJump: () => void;
-  consumeJumpEvent?: () => JumpEvent | null;
+  scheduleStop?: (sourceStartTime: number) => boolean;
+  cancelScheduledStop?: () => void;
+  consumeJumpEvent?: () => JukeboxJumpEvent | null;
   setAnchorJump?: (targetTime: number, sourceStartTime: number) => boolean;
   clearAnchorJump?: () => void;
   getCurrentTime: () => number;
@@ -97,8 +107,11 @@ export class JukeboxEngine {
   private lastJumpTime: number | null = null;
   private lastJumpFromIndex: number | null = null;
   private lastJumpToIndex: number | null = null;
+  private lastJumpWasBranch = false;
   private forceBranch = false;
   private bringItHomeMode = false;
+  private playVelocity = 1;
+  private freezeCurrentBeat = false;
   private pendingAdvance: PendingAdvance | null = null;
   private readonly deletedEdgeKeys = new Set<string>();
   private userAnchorEdgeId: number | null = null;
@@ -137,12 +150,14 @@ export class JukeboxEngine {
     this.lastJumpTime = null;
     this.lastJumpFromIndex = null;
     this.lastJumpToIndex = null;
+    this.lastJumpWasBranch = false;
     this.clearPendingAdvance(true);
   }
 
   loadAnalysis(data: unknown) {
     this.deletedEdgeKeys.clear();
     this.userAnchorEdgeId = null;
+    this.resetPlaybackControls();
     this.analysis = normalizeAnalysis(data);
     this.resolveMinLongBranch();
     this.graph = buildJumpGraph(this.analysis, this.config);
@@ -278,6 +293,7 @@ export class JukeboxEngine {
     this.lastJumpTime = null;
     this.lastJumpFromIndex = null;
     this.lastJumpToIndex = null;
+    this.lastJumpWasBranch = false;
     this.clearPendingAdvance(true);
   }
 
@@ -287,11 +303,14 @@ export class JukeboxEngine {
       backgroundClearTimeout(this.timerId);
       this.timerId = null;
     }
+    this.clearPendingAdvance(false);
     this.player.stop();
   }
 
   resetStats() {
+    this.resetPlaybackControls();
     this.resetState();
+    this.syncAnchorJump();
     this.emitState(false);
   }
 
@@ -321,10 +340,45 @@ export class JukeboxEngine {
   }
 
   setBringItHomeMode(enabled: boolean) {
+    if (this.bringItHomeMode === enabled) {
+      return;
+    }
     this.bringItHomeMode = enabled;
     if (enabled) {
       this.forceBranch = false;
     }
+    this.refreshPendingAdvance();
+  }
+
+  getPlayVelocity(): number {
+    return this.playVelocity;
+  }
+
+  getLastJumpWasBranch(): boolean {
+    return this.lastJumpWasBranch;
+  }
+
+  setPlayVelocity(velocity: number) {
+    const normalizedVelocity = Number.isFinite(velocity)
+      ? Math.trunc(velocity)
+      : 1;
+    const nextVelocity = Math.max(
+      -MAX_ABSOLUTE_PLAY_VELOCITY,
+      Math.min(MAX_ABSOLUTE_PLAY_VELOCITY, normalizedVelocity),
+    );
+    if (this.playVelocity === nextVelocity) {
+      return;
+    }
+    this.playVelocity = nextVelocity;
+    this.refreshPendingAdvance();
+  }
+
+  setFreezeCurrentBeat(enabled: boolean) {
+    if (this.freezeCurrentBeat === enabled) {
+      return;
+    }
+    this.freezeCurrentBeat = enabled;
+    this.refreshPendingAdvance();
   }
 
   private applyDeletedEdges() {
@@ -391,6 +445,14 @@ export class JukeboxEngine {
   }
 
   private syncAnchorJump() {
+    if (
+      this.bringItHomeMode ||
+      this.freezeCurrentBeat ||
+      this.playVelocity !== 1
+    ) {
+      this.player.clearAnchorJump?.();
+      return;
+    }
     const edge = this.getActiveAnchorEdge();
     if (!edge) {
       this.player.clearAnchorJump?.();
@@ -487,7 +549,26 @@ export class JukeboxEngine {
     this.lastJumpTime = null;
     this.lastJumpFromIndex = null;
     this.lastJumpToIndex = null;
+    this.lastJumpWasBranch = false;
     this.clearPendingAdvance(true);
+  }
+
+  private resetPlaybackControls() {
+    this.playVelocity = 1;
+    this.freezeCurrentBeat = false;
+    this.player.cancelScheduledStop?.();
+  }
+
+  private refreshPendingAdvance() {
+    this.clearPendingAdvance(true);
+    this.syncAnchorJump();
+    if (
+      this.ticking &&
+      this.currentBeatIndex >= 0 &&
+      Number.isFinite(this.nextAudioTime)
+    ) {
+      this.preparePendingAdvance(this.nextAudioTime);
+    }
   }
 
   private tick() {
@@ -511,6 +592,9 @@ export class JukeboxEngine {
     this.preparePendingAdvance(this.nextAudioTime);
     while (guard > 0 && audioTime >= this.nextAudioTime) {
       this.advanceBeat(this.nextAudioTime);
+      if (!this.ticking) {
+        break;
+      }
       this.preparePendingAdvance(this.nextAudioTime);
       guard -= 1;
     }
@@ -522,6 +606,7 @@ export class JukeboxEngine {
 
     this.emitState(this.lastJumped);
     this.lastJumped = false;
+    this.lastJumpWasBranch = false;
 
     const msUntilTransition = Math.max(
       0,
@@ -534,21 +619,6 @@ export class JukeboxEngine {
     if (!this.analysis || !this.graph) {
       return;
     }
-    if (
-      this.currentBeatIndex >= 0 &&
-      this.bringItHomeMode &&
-      this.currentBeatIndex === this.beats.length - 1
-    ) {
-      this.ticking = false;
-      this.timerId = null;
-      this.nextAudioTime = Number.POSITIVE_INFINITY;
-      this.lastJumped = false;
-      this.lastJumpTime = null;
-      this.lastJumpFromIndex = null;
-      this.lastJumpToIndex = null;
-      this.clearPendingAdvance(false);
-      return;
-    }
     const advance =
       this.pendingAdvance?.boundaryAudioTime === audioTime
         ? this.pendingAdvance
@@ -557,17 +627,15 @@ export class JukeboxEngine {
       return;
     }
     this.pendingAdvance = null;
+    if (advance.shouldStop) {
+      this.commitStop(advance);
+      return;
+    }
     this.commitAdvance(advance);
   }
 
   private preparePendingAdvance(boundaryAudioTime: number) {
     if (this.currentBeatIndex < 0 || boundaryAudioTime <= 0) {
-      return;
-    }
-    if (
-      this.bringItHomeMode &&
-      this.currentBeatIndex === this.beats.length - 1
-    ) {
       return;
     }
     if (this.pendingAdvance?.boundaryAudioTime === boundaryAudioTime) {
@@ -587,52 +655,81 @@ export class JukeboxEngine {
     const beatsCount = this.beats.length;
     let chosenIndex = 0;
     let shouldJump = false;
+    let selectedBranch = false;
     let jumpFromIndex: number | null = null;
     let sourceBoundaryTime: number | null = null;
     let sequentialIndex = 0;
 
     if (currentIndex >= 0) {
-      const nextIndex = currentIndex + 1;
-      const wrappedIndex = nextIndex >= beatsCount ? 0 : nextIndex;
-      sequentialIndex = wrappedIndex;
-      if (this.bringItHomeMode) {
-        chosenIndex = wrappedIndex;
+      const currentBeat = this.beats[currentIndex];
+      const naturalNextIndex =
+        currentIndex + 1 >= beatsCount ? 0 : currentIndex + 1;
+      sequentialIndex = naturalNextIndex;
+      sourceBoundaryTime = currentBeat.start + currentBeat.duration;
+
+      if (this.freezeCurrentBeat) {
+        chosenIndex = currentIndex;
       } else {
-        const seed = this.beats[wrappedIndex];
-        const wrappedToStart =
-          wrappedIndex === 0 && currentIndex === beatsCount - 1;
-        sourceBoundaryTime = wrappedToStart
-          ? this.beats[currentIndex].start + this.beats[currentIndex].duration
-          : seed.start;
-        if (!wrappedToStart && !this.hasJumpScheduleLead(sourceBoundaryTime)) {
+        const rawSeedIndex = currentIndex + this.playVelocity;
+        if (
+          this.bringItHomeMode &&
+          (rawSeedIndex < 0 || rawSeedIndex >= beatsCount)
+        ) {
+          const stopScheduled =
+            scheduleJump &&
+            (this.player.scheduleStop?.(sourceBoundaryTime) ?? false);
           return {
             boundaryAudioTime,
-            chosenIndex: wrappedIndex,
+            chosenIndex: currentIndex,
             shouldJump: false,
+            selectedBranch: false,
+            shouldStop: true,
+            stopScheduled,
             targetTime: null,
             jumpFromIndex: null,
-            sourceBoundaryTime: null,
+            sourceBoundaryTime,
           };
         }
-        this.branchState.curRandomBranchChance = this.curRandomBranchChance;
-        const selection = selectNextBeatIndex(
-          seed,
-          this.graph,
-          this.config,
-          this.rng,
-          this.branchState,
-          this.forceBranch,
-          this.getActiveUserAnchorSelection(),
-        );
-        this.curRandomBranchChance = this.branchState.curRandomBranchChance;
-        shouldJump = selection.jumped;
-        chosenIndex = shouldJump ? selection.index : wrappedIndex;
-        if (wrappedToStart) {
-          shouldJump = true;
+        const seedIndex = this.wrapBeatIndex(rawSeedIndex, beatsCount);
+        chosenIndex = seedIndex;
+        if (!this.bringItHomeMode) {
+          const seed = this.beats[seedIndex];
+          if (!this.hasJumpScheduleLead(sourceBoundaryTime)) {
+            return {
+              boundaryAudioTime,
+              chosenIndex: naturalNextIndex,
+              shouldJump: false,
+              selectedBranch: false,
+              targetTime: null,
+              jumpFromIndex: null,
+              sourceBoundaryTime: null,
+            };
+          }
+          this.branchState.curRandomBranchChance = this.curRandomBranchChance;
+          const selection = selectNextBeatIndex(
+            seed,
+            this.graph,
+            this.config,
+            this.rng,
+            this.branchState,
+            this.forceBranch,
+            this.getActiveUserAnchorSelection(),
+          );
+          this.curRandomBranchChance = this.branchState.curRandomBranchChance;
+          chosenIndex = selection.jumped ? selection.index : seedIndex;
+          if (selection.jumped) {
+            selectedBranch = true;
+            jumpFromIndex = seed.which;
+          }
         }
-        if (shouldJump) {
-          jumpFromIndex = selection.jumped ? seed.which : currentIndex;
-        }
+      }
+
+      const naturalPlaybackContinues =
+        chosenIndex === naturalNextIndex &&
+        !(currentIndex === beatsCount - 1 && naturalNextIndex === 0);
+      shouldJump = !naturalPlaybackContinues;
+      if (shouldJump && jumpFromIndex === null) {
+        jumpFromIndex = currentIndex;
       }
     }
 
@@ -642,7 +739,22 @@ export class JukeboxEngine {
     }
     const targetTime = shouldJump ? targetBeat.start : null;
     if (scheduleJump && targetTime !== null && sourceBoundaryTime !== null) {
-      const scheduled = this.player.scheduleJump(targetTime, sourceBoundaryTime);
+      const reportedJumpEvent =
+        selectedBranch && jumpFromIndex !== null
+          ? {
+              sourceStartTime: this.beats[jumpFromIndex].start,
+              targetTime,
+            }
+          : null;
+      const scheduled =
+        reportedJumpEvent !== null &&
+        reportedJumpEvent.sourceStartTime === sourceBoundaryTime
+          ? this.player.scheduleJump(targetTime, sourceBoundaryTime)
+          : this.player.scheduleJump(
+              targetTime,
+              sourceBoundaryTime,
+              reportedJumpEvent,
+            );
       if (!scheduled) {
         const sequentialBeat = this.beats[sequentialIndex];
         if (!sequentialBeat) {
@@ -652,6 +764,7 @@ export class JukeboxEngine {
           boundaryAudioTime,
           chosenIndex: sequentialIndex,
           shouldJump: false,
+          selectedBranch: false,
           targetTime: null,
           jumpFromIndex: null,
           sourceBoundaryTime: null,
@@ -662,10 +775,25 @@ export class JukeboxEngine {
       boundaryAudioTime,
       chosenIndex,
       shouldJump,
+      selectedBranch,
       targetTime,
       jumpFromIndex,
       sourceBoundaryTime,
     };
+  }
+
+  private commitStop(advance: PendingAdvance) {
+    this.ticking = false;
+    this.timerId = null;
+    this.nextAudioTime = Number.POSITIVE_INFINITY;
+    this.lastJumped = false;
+    this.lastJumpTime = null;
+    this.lastJumpFromIndex = null;
+    this.lastJumpToIndex = null;
+    this.lastJumpWasBranch = false;
+    if (!advance.stopScheduled) {
+      this.player.stop();
+    }
   }
 
   private commitAdvance(advance: PendingAdvance) {
@@ -675,11 +803,13 @@ export class JukeboxEngine {
       this.lastJumpTime = advance.targetTime;
       this.lastJumpFromIndex = advance.jumpFromIndex;
       this.lastJumpToIndex = advance.chosenIndex;
+      this.lastJumpWasBranch = advance.selectedBranch;
     } else {
       this.lastJumped = false;
       this.lastJumpTime = null;
       this.lastJumpFromIndex = null;
       this.lastJumpToIndex = null;
+      this.lastJumpWasBranch = false;
     }
 
     this.currentBeatIndex = advance.chosenIndex;
@@ -737,6 +867,7 @@ export class JukeboxEngine {
     this.lastJumpTime = null;
     this.lastJumpFromIndex = null;
     this.lastJumpToIndex = null;
+    this.lastJumpWasBranch = false;
     this.branchState.lastDestBySource = null;
     this.clearPendingAdvance(true);
   }
@@ -760,13 +891,23 @@ export class JukeboxEngine {
     this.lastJumpTime = event.targetTime;
     this.lastJumpFromIndex = sourceIndex;
     this.lastJumpToIndex = targetIndex;
+    this.lastJumpWasBranch = true;
   }
 
   private clearPendingAdvance(cancelScheduledJump: boolean) {
-    if (cancelScheduledJump && this.pendingAdvance?.targetTime !== null) {
-      this.player.cancelScheduledJump();
+    if (cancelScheduledJump && this.pendingAdvance) {
+      if (this.pendingAdvance.targetTime !== null) {
+        this.player.cancelScheduledJump();
+      }
+      if (this.pendingAdvance.shouldStop) {
+        this.player.cancelScheduledStop?.();
+      }
     }
     this.pendingAdvance = null;
+  }
+
+  private wrapBeatIndex(index: number, beatsCount: number): number {
+    return ((index % beatsCount) + beatsCount) % beatsCount;
   }
 
   private hasJumpScheduleLead(sourceBoundaryTime: number): boolean {

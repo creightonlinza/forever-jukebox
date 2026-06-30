@@ -84,6 +84,7 @@ const doubles = vi.hoisted(() => {
         edges: [],
       })),
       getSectionStartBeatIndices: vi.fn(() => [1]),
+      getLastJumpWasBranch: vi.fn(() => true),
       loadAnalysis: vi.fn(),
       startJukebox: vi.fn(() => {
         engine.running = true;
@@ -616,6 +617,51 @@ describe("cast receiver main", () => {
 
     expect(viz?.update).toHaveBeenNthCalledWith(1, 0, true, 1);
     expect(viz?.update).toHaveBeenNthCalledWith(2, 2, false, 0);
+  });
+
+  it("moves the cursor without highlighting a transport-only jump", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+    const viz = doubles.vizInstances[0];
+    const engine = doubles.engineInstances[0];
+    engine?.getLastJumpWasBranch.mockReturnValue(false);
+    const onUpdate = engine?.onUpdate.mock.calls[0]?.[0] as
+      | ((state: {
+          beatsPlayed: number;
+          currentBeatIndex: number;
+          lastJumped: boolean;
+          lastJumpFromIndex: number | null;
+          lastJumpToIndex: number | null;
+        }) => void)
+      | undefined;
+    viz?.update.mockClear();
+
+    onUpdate?.({
+      beatsPlayed: 12,
+      currentBeatIndex: 2,
+      lastJumped: true,
+      lastJumpFromIndex: 1,
+      lastJumpToIndex: 0,
+    });
+
+    expect(viz?.update).toHaveBeenCalledTimes(1);
+    expect(viz?.update.mock.calls[0]?.[0]).toBe(2);
+    expect(viz?.update.mock.calls[0]?.[1]).toBe(false);
   });
 
   it("applies audio mode from load tuning params", async () => {

@@ -436,6 +436,96 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources).toHaveLength(0);
   });
 
+  it("schedules an early stop and reports the stopped source offset", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    const onEnded = vi.fn();
+    player.setOnEnded(onEnded);
+    await player.loadBuffer({ duration: 10 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+
+    expect(player.scheduleStop(1)).toBe(true);
+    const source = context.createdSources[0];
+    expect(source?.stop).toHaveBeenCalledWith(1);
+
+    context.currentTime = 1;
+    source?.onended?.();
+    expect(player.isPlaying()).toBe(false);
+    expect(player.getCurrentTime()).toBe(1);
+    expect(onEnded).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops immediately when the requested source boundary is already late", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 10 } as AudioBuffer);
+    player.play();
+    context.currentTime = 1.1;
+
+    expect(player.scheduleStop(1)).toBe(true);
+    expect(context.createdSources[0]?.stop).toHaveBeenCalledWith(1.1);
+  });
+
+  it("cancels a future scheduled stop by replacing the live source", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 10 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+    expect(player.scheduleStop(1)).toBe(true);
+    const original = context.createdSources[0];
+
+    player.cancelScheduledStop();
+
+    const replacement = context.createdSources[1];
+    expect(original?.stop).toHaveBeenCalledWith(0);
+    expect(original?.disconnect).toHaveBeenCalledTimes(1);
+    expect(replacement?.start).toHaveBeenCalledWith(0.25, 0.25, 9.75);
+    expect(player.isPlaying()).toBe(true);
+  });
+
+  it("clears a scheduled stop when an explicit jump replaces it", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 10 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+    expect(player.scheduleStop(2)).toBe(true);
+    const original = context.createdSources[0];
+
+    expect(player.scheduleJump(4, 1)).toBe(true);
+
+    expect(original?.stop).toHaveBeenCalledWith(0);
+    expect(context.createdSources).toHaveLength(3);
+    expect(context.createdSources[2]?.start).toHaveBeenCalledWith(1, 4, 6);
+  });
+
+  it.each(["seek", "pause", "stop", "dispose"] as const)(
+    "clears a scheduled stop on %s",
+    async (action) => {
+      const context = new MockAudioContext();
+      const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+      await player.loadBuffer({ duration: 10 } as AudioBuffer);
+      player.play();
+      context.currentTime = 0.25;
+      expect(player.scheduleStop(2)).toBe(true);
+      const source = context.createdSources[0];
+
+      if (action === "seek") {
+        player.seek(1);
+      } else if (action === "pause") {
+        player.pause();
+      } else if (action === "stop") {
+        player.stop();
+      } else {
+        await player.dispose();
+      }
+
+      expect(source?.stop).toHaveBeenCalledWith(0);
+    },
+  );
+
   it("cleans up a replaced pending jump source", async () => {
     const context = new MockAudioContext();
     context.currentTime = 1;
@@ -482,6 +572,42 @@ describe("BufferedAudioPlayer", () => {
       targetTime: 2,
     });
     expect(player.consumeJumpEvent()).toBeNull();
+  });
+
+  it("can schedule a transport jump without publishing a jump event", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+
+    expect(player.scheduleJump(2, 1, null)).toBe(true);
+    expect(player.consumeJumpEvent()).toBeNull();
+
+    context.currentTime = 1.05;
+    expect(player.consumeJumpEvent()).toBeNull();
+  });
+
+  it("publishes the supplied logical jump event after source promotion", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 0.25;
+
+    expect(
+      player.scheduleJump(2, 1, {
+        sourceStartTime: 5,
+        targetTime: 2,
+      }),
+    ).toBe(true);
+    expect(player.consumeJumpEvent()).toBeNull();
+
+    context.currentTime = 1.05;
+    expect(player.consumeJumpEvent()).toEqual({
+      sourceStartTime: 5,
+      targetTime: 2,
+    });
   });
 
   it("pre-schedules an anchor fallback jump on the audio clock", async () => {
