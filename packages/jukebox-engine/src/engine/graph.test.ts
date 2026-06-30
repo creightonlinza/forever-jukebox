@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { normalizeAnalysis } from "./analysis";
-import { buildJumpGraph } from "./graph";
+import { buildJumpGraph, calculateMinLongBranch } from "./graph";
 import { Edge, JukeboxConfig, QuantumBase } from "./types";
 import {
   happyPathAnalysis,
@@ -467,6 +467,14 @@ function activeEdgeTuples(analysis: ReturnType<typeof normalizeAnalysis>) {
 }
 
 describe("buildJumpGraph", () => {
+  it("converts track percentages into whole-beat minimum distances", () => {
+    expect(calculateMinLongBranch(97, 5)).toBe(4);
+    expect(calculateMinLongBranch(97, 10)).toBe(9);
+    expect(calculateMinLongBranch(97, 20)).toBe(19);
+    expect(calculateMinLongBranch(97, 30)).toBe(29);
+    expect(calculateMinLongBranch(97)).toBe(19);
+  });
+
   it("builds neighbors and a last branch point", () => {
     const analysis = normalizeAnalysis(makeAnalysis());
     const config: JukeboxConfig = {
@@ -644,6 +652,27 @@ describe("buildJumpGraph", () => {
     expect(reverseLongGraph.currentThreshold).toBe(longOnlyGraph.currentThreshold);
     expect(reverseLongEdges.length).toBeLessThanOrEqual(longOnlyEdges.size);
     expect(reverseLongEdges.every((edge) => longOnlyEdges.has(edge))).toBe(true);
+  });
+
+  it("applies minimum distance to forward and reverse branches", () => {
+    const analysis = normalizeAnalysis(happyPathAnalysis());
+    buildJumpGraph(
+      analysis,
+      defaultConfig({
+        currentThreshold: 80,
+        justLongBranches: true,
+        minLongBranch: 4,
+      }),
+    );
+    const edges = analysis.beats.flatMap((beat) => beat.neighbors);
+    expect(edges.length).toBeGreaterThan(0);
+    expect(
+      edges.every(
+        (edge) => Math.abs(edge.src.which - edge.dest.which) >= 4,
+      ),
+    ).toBe(true);
+    expect(edges.some((edge) => edge.dest.which < edge.src.which)).toBe(true);
+    expect(edges.some((edge) => edge.dest.which > edge.src.which)).toBe(true);
   });
 
   it("locks combined backwards, long-branch, and sequential filters", () => {

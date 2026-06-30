@@ -118,8 +118,7 @@ class StorageCleanupTests(unittest.TestCase):
             response = build_cleanup_preview(db_path, storage_root)
 
             self.assertTrue(response.dry_run)
-            self.assertEqual(response.days, 180)
-            self.assertEqual(response.play_count_below, 2)
+            self.assertEqual(response.days, 365)
             self.assertEqual(response.candidate_jobs, 1)
             self.assertEqual(response.candidate_bytes, 15)
             self.assertEqual(_job_count(db_path), 1)
@@ -190,33 +189,34 @@ class StorageCleanupTests(unittest.TestCase):
         self.assertEqual(raised.exception.status_code, 400)
         self.assertTrue(response.dry_run)
 
-    def test_execute_deletes_only_eligible_complete_jobs(self) -> None:
+    def test_execute_deletes_stale_complete_jobs_regardless_of_play_count(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             storage_root = Path(temp_dir) / "storage"
             init_db(db_path)
             _make_job(db_path, storage_root, "eligible")
             _make_job(db_path, storage_root, "recent", updated_at=RECENT_UPDATED_AT)
+            # Stale but high play count: still deleted, play_count no longer gates.
             _make_job(db_path, storage_root, "popular", play_count=3)
             _make_job(db_path, storage_root, "queued", status="queued")
 
             response = execute_cleanup(db_path, storage_root)
 
             self.assertFalse(response.dry_run)
-            self.assertEqual(response.candidate_jobs, 1)
-            self.assertEqual(response.deleted_jobs, 1)
-            self.assertEqual(response.deleted_bytes, 15)
+            self.assertEqual(response.candidate_jobs, 2)
+            self.assertEqual(response.deleted_jobs, 2)
+            self.assertEqual(response.deleted_bytes, 30)
             self.assertEqual(response.failed_jobs, 0)
             self.assertIsNone(get_job(db_path, "eligible"))
+            self.assertIsNone(get_job(db_path, "popular"))
             self.assertIsNotNone(get_job(db_path, "recent"))
-            self.assertIsNotNone(get_job(db_path, "popular"))
             self.assertIsNotNone(get_job(db_path, "queued"))
             self.assertFalse((storage_root / "audio" / "eligible.m4a").exists())
             self.assertFalse((storage_root / "analysis" / "eligible.json").exists())
             self.assertFalse((storage_root / "logs" / "eligible.log").exists())
             self.assertTrue((storage_root / "audio" / "recent.m4a").exists())
-            self.assertEqual(_job_count(db_path), 3)
-            self.assertEqual(_source_count(db_path), 3)
+            self.assertEqual(_job_count(db_path), 2)
+            self.assertEqual(_source_count(db_path), 2)
 
     def test_missing_files_do_not_fail_deletion(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

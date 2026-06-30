@@ -61,6 +61,7 @@ type CastStatus = {
 type CastTuningStatus = {
   justBackwards: boolean;
   justLongBranches: boolean;
+  minLongBranchPercent: number;
   removeSequentialBranches: boolean;
   threshold: number | null;
   computedThreshold: number | null;
@@ -190,6 +191,14 @@ function getElements(): CastElements {
 
 function isValidJobId(value: string) {
   return /^[a-f0-9]{32}$/.test(value);
+}
+
+function stripTrailingSlashes(value: string) {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") {
+    end -= 1;
+  }
+  return value.slice(0, end);
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -519,6 +528,9 @@ async function bootstrap() {
     return {
       justBackwards: config.justBackwards,
       justLongBranches: config.justLongBranches,
+      minLongBranchPercent: config.justLongBranches
+        ? (config.minLongBranchPercent ?? 20)
+        : 0,
       removeSequentialBranches: config.removeSequentialBranches,
       threshold,
       computedThreshold,
@@ -689,15 +701,17 @@ async function bootstrap() {
           );
         }
       }
+      const highlightJump =
+        engineState.lastJumped && nextEngine.getLastJumpWasBranch();
       const jumpFrom =
-        engineState.lastJumped && engineState.lastJumpFromIndex !== null
+        highlightJump && engineState.lastJumpFromIndex !== null
           ? engineState.lastJumpFromIndex
           : state.lastBeatIndex;
       const jumpTo =
-        engineState.lastJumped && typeof engineState.lastJumpToIndex === "number"
+        highlightJump && typeof engineState.lastJumpToIndex === "number"
           ? engineState.lastJumpToIndex
           : engineState.currentBeatIndex;
-      viz.update(jumpTo, engineState.lastJumped, jumpFrom);
+      viz.update(jumpTo, highlightJump, jumpFrom);
       if (jumpTo !== engineState.currentBeatIndex) {
         viz.update(engineState.currentBeatIndex, false, jumpTo);
       }
@@ -1290,7 +1304,7 @@ async function bootstrap() {
             : null;
         if (jobId && isValidJobId(jobId)) {
           const nextUrl = baseUrl
-            ? `${baseUrl.replace(/\/+$/, "")}/cast/${encodeURIComponent(jobId)}`
+            ? `${stripTrailingSlashes(baseUrl)}/cast/${encodeURIComponent(jobId)}`
             : null;
           if (nextUrl) {
             window.history.replaceState({}, "", nextUrl);

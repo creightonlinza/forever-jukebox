@@ -10,6 +10,7 @@ import {
   writeTuningParamsToUrl,
 } from "../tuning";
 import { showToast } from "../ui";
+import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/engine";
 import {
   closeTuning,
   syncVolumeUI,
@@ -214,7 +215,7 @@ export type TuningFormValues = {
   maxProbPct: number;
   rampPct: number;
   justBackwards: boolean;
-  justLongBranches: boolean;
+  minLongBranchPercent: number;
   removeSequentialBranches: boolean;
   highlightAnchorBranch: boolean;
 };
@@ -245,7 +246,9 @@ export function getTuningFormValues(context: AppContext): TuningFormValues {
         config.randomBranchChanceDelta * RANDOM_BRANCH_DELTA_PERCENT_SCALE * 10,
       ) / 10,
     justBackwards: config.justBackwards,
-    justLongBranches: config.justLongBranches,
+    minLongBranchPercent: config.justLongBranches
+      ? (config.minLongBranchPercent ?? DEFAULT_MIN_LONG_BRANCH_PERCENT)
+      : 0,
     removeSequentialBranches: config.removeSequentialBranches,
     highlightAnchorBranch: useAppStore.getState().highlightAnchorBranch,
   };
@@ -275,7 +278,11 @@ export function applyTuningChanges(
     maxRandomBranchChance: maxProb,
     randomBranchChanceDelta: ramp,
     justBackwards: form.justBackwards,
-    justLongBranches: form.justLongBranches,
+    justLongBranches: form.minLongBranchPercent > 0,
+    minLongBranchPercent:
+      form.minLongBranchPercent > 0
+        ? form.minLongBranchPercent
+        : DEFAULT_MIN_LONG_BRANCH_PERCENT,
     removeSequentialBranches: form.removeSequentialBranches,
   });
   useAppStore.setState({ highlightAnchorBranch: form.highlightAnchorBranch });

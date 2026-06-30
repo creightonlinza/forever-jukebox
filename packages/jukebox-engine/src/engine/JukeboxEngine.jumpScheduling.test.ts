@@ -127,6 +127,7 @@ describe("JukeboxEngine jump scheduling", () => {
 
     expect(player.scheduleJump).toHaveBeenCalledTimes(1);
     expect(player.scheduleJump).toHaveBeenCalledWith(0, 1);
+    expect(engine.getLastJumpWasBranch()).toBe(true);
   });
 
   it("uses the final beat end as the source boundary when wrapping", () => {
@@ -145,7 +146,8 @@ describe("JukeboxEngine jump scheduling", () => {
     engineAny.advanceBeat(engineAny.nextAudioTime);
 
     expect(player.scheduleJump).toHaveBeenCalledTimes(1);
-    expect(player.scheduleJump).toHaveBeenCalledWith(0, 2);
+    expect(player.scheduleJump).toHaveBeenCalledWith(0, 2, null);
+    expect(engine.getLastJumpWasBranch()).toBe(false);
   });
 
   it("fails closed when the first branch boundary is too close", () => {
@@ -241,7 +243,11 @@ describe("JukeboxEngine jump scheduling", () => {
       1,
     );
     const updates: JukeboxState[] = [];
-    engine.onUpdate((state) => updates.push(state));
+    const branchUpdates: boolean[] = [];
+    engine.onUpdate((state) => {
+      updates.push(state);
+      branchUpdates.push(engine.getLastJumpWasBranch());
+    });
     engineAny.ticking = true;
 
     engineAny.tick();
@@ -254,6 +260,7 @@ describe("JukeboxEngine jump scheduling", () => {
       lastJumpFromIndex: 1,
       lastJumpToIndex: 0,
     });
+    expect(branchUpdates[branchUpdates.length - 1]).toBe(true);
     engine.stopJukebox();
   });
 

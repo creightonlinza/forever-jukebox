@@ -5,12 +5,14 @@ import { useAppStore } from "../../store";
 import { VizBottomRight } from "./VizBottomRight";
 
 const h = vi.hoisted(() => ({
+  setAutocanonizerStreamPans: vi.fn(),
   setMasterVolume: vi.fn(),
   toggleFullscreen: vi.fn(),
 }));
 
 vi.mock("../../playback", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../playback")>()),
+  setAutocanonizerStreamPans: h.setAutocanonizerStreamPans,
   setMasterVolume: h.setMasterVolume,
 }));
 vi.mock("../../fullscreen", async (importOriginal) => ({
@@ -27,6 +29,9 @@ describe("VizBottomRight", () => {
       useAppStore.setState({
         playlist: { tracks: [], currentIndex: -1 },
         volumePct: 50,
+        playMode: "jukebox",
+        autocanonizerMainPan: 0,
+        autocanonizerOtherPan: 0,
         isFullscreen: false,
         playlistModalOpen: false,
       });
@@ -68,6 +73,67 @@ describe("VizBottomRight", () => {
     expect(
       (document.getElementById("volume") as HTMLInputElement).value,
     ).toBe("25");
+  });
+
+  it("keeps volume as master volume in autocanonizer mode", async () => {
+    act(() => {
+      useAppStore.setState({ playMode: "autocanonizer" });
+    });
+    render(<VizBottomRight />);
+    await userEvent.click(document.getElementById("volume-button")!);
+
+    const slider = document.getElementById("volume") as HTMLInputElement;
+    expect(slider).not.toBe(null);
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      setter.call(slider, "80");
+      slider.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(h.setMasterVolume).toHaveBeenCalledWith(expect.anything(), 80);
+    expect(document.getElementById("volume-val")?.textContent).toBe("80");
+  });
+
+  it("shows and applies independent stream pans in autocanonizer mode", async () => {
+    act(() => {
+      useAppStore.setState({ playMode: "autocanonizer" });
+    });
+    render(<VizBottomRight />);
+
+    expect(document.getElementById("autocanonizer-pan-button")).not.toBe(null);
+    await userEvent.click(document.getElementById("autocanonizer-pan-button")!);
+
+    const slider = document.getElementById(
+      "autocanonizer-main-pan",
+    ) as HTMLInputElement;
+    expect(slider.value).toBe("0");
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )!.set!;
+      setter.call(slider, "-40");
+      slider.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(h.setAutocanonizerStreamPans).toHaveBeenCalledWith(
+      expect.anything(),
+      -40,
+      0,
+    );
+    expect(
+      document.getElementById("autocanonizer-main-pan-val")?.textContent,
+    ).toBe("-40");
+    expect(
+      (
+        document.getElementById(
+          "autocanonizer-other-pan",
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("0");
   });
 
   it("renders the fullscreen state and toggles it", async () => {

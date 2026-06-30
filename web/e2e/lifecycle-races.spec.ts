@@ -98,7 +98,13 @@ test.describe("analysis poll lifecycle", () => {
     await expect(page.locator("#analysis-spinner")).toHaveClass(/\bhidden\b/);
     await expect(page.locator("#viz-panel")).toHaveClass(/\bhidden\b/);
 
-    // polling must stop after a terminal failure
+    // polling must stop after a terminal failure. A superseded load (e.g. a
+    // StrictMode double-mount or rapid re-route) can leave one already-issued
+    // poll request in flight when the failure renders; its abort cancels future
+    // polls but not the in-flight fetch, which lands a beat later. Let that
+    // settle before snapshotting so we measure whether polling *continues*,
+    // not the boundary request.
+    await page.waitForTimeout(1_000);
     const hitsAtFailure = analysisHits;
     await page.waitForTimeout(POLL_INTERVAL_MS * 2 + 1_000);
     expect(analysisHits).toBe(hitsAtFailure);

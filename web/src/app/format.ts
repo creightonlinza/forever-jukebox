@@ -13,11 +13,27 @@ export function formatDuration(seconds: number) {
   return `${hh}:${mm}:${ss}`;
 }
 
+export function formatCursorTime(seconds: number) {
+  const totalSeconds = Number.isFinite(seconds)
+    ? Math.max(0, Math.floor(seconds))
+    : 0;
+  const minutes = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${minutes}:${String(secs).padStart(2, "0")}`;
+}
+
 export function formatTrackDuration(seconds: unknown) {
   if (typeof seconds !== "number" || Number.isNaN(seconds)) {
     return "-";
   }
-  return formatDuration(seconds);
+  const totalSeconds = Math.floor(seconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = String(totalSeconds % 60).padStart(2, "0");
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${secs}`;
+  }
+  return `${minutes}:${secs}`;
 }
 
 export function formatAudioModeLabel(audioMode: JukeboxAudioMode) {

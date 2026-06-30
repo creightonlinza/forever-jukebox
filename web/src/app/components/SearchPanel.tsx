@@ -4,6 +4,7 @@ import { selectSpotify, selectYoutube, submitSearch } from "../search";
 import { useAppStore } from "../store";
 import { uploadFile, uploadUrl } from "../upload";
 import { useTranslation } from "react-i18next";
+import { Modal, ModalHeader } from "./Modal";
 
 function setOf(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -27,9 +28,43 @@ function youtubeResultKey(
   return item.id ?? `${name}\u0000${artist}\u0000${item.title ?? ""}\u0000${duration}`;
 }
 
+function YoutubePreviewButton({
+  onOpen,
+}: {
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="search-open"
+      title="Preview on YouTube"
+      aria-label="Preview on YouTube"
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen();
+      }}
+    >
+      <span
+        className="material-symbols-outlined search-open-icon"
+        aria-hidden="true"
+      >
+        open_in_new
+      </span>
+    </button>
+  );
+}
+
 function SearchResults() {
   const { t } = useTranslation();
   const results = useAppStore((s) => s.searchResults);
+  const [youtubePreview, setYoutubePreview] = useState<{
+    youtubeId: string;
+    title: string;
+  } | null>(null);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+
+  const closeYoutubePreview = () => setYoutubePreview(null);
+
   if (results.kind === "message") {
     return (
       <div className="search-results" id="search-results">
@@ -99,23 +134,12 @@ function SearchResults() {
                 </button>
                 <span className="search-meta">
                   {item.id ? (
-                    <a
-                      className="search-open"
-                      href={`https://www.youtube.com/watch?v=${encodeURIComponent(String(item.id))}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={t("search.openYoutube")}
-                      onClick={(event) => {
-                        event.stopPropagation();
+                    <YoutubePreviewButton
+                      onOpen={() => {
+                        setThumbnailFailed(false);
+                        setYoutubePreview({ youtubeId, title });
                       }}
-                    >
-                      <span
-                        className="material-symbols-outlined search-open-icon"
-                        aria-hidden="true"
-                      >
-                        open_in_new
-                      </span>
-                    </a>
+                    />
                   ) : null}
                 </span>
               </div>
@@ -123,6 +147,44 @@ function SearchResults() {
           );
         })}
       </ol>
+      <Modal
+        id="youtube-preview-modal"
+        open={youtubePreview !== null}
+        onClose={closeYoutubePreview}
+        panelClassName="youtube-preview-panel"
+      >
+        <ModalHeader
+          title="YouTube Preview"
+          closeId="youtube-preview-close"
+          onClose={closeYoutubePreview}
+        />
+        <div className="modal-body">
+          {youtubePreview && !thumbnailFailed ? (
+            <div className="youtube-preview-thumbnail">
+              <img
+                src={`https://i.ytimg.com/vi/${encodeURIComponent(youtubePreview.youtubeId)}/hqdefault.jpg`}
+                alt={`YouTube thumbnail for ${youtubePreview.title}`}
+                referrerPolicy="no-referrer"
+                onError={() => setThumbnailFailed(true)}
+              />
+            </div>
+          ) : (
+            <p className="modal-hint">Thumbnail unavailable.</p>
+          )}
+        </div>
+        <div className="modal-footer">
+          {youtubePreview ? (
+            <a
+              className="youtube-preview-open"
+              href={`https://www.youtube.com/watch?v=${encodeURIComponent(youtubePreview.youtubeId)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open in YouTube
+            </a>
+          ) : null}
+        </div>
+      </Modal>
     </div>
   );
 }

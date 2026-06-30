@@ -21,6 +21,14 @@ const mockAppState = {
 
 type MockAutocanonizerInstance = {
   setFinishOutSong: ReturnType<typeof vi.fn>;
+  setStreamPans: ReturnType<typeof vi.fn>;
+  setVolume: ReturnType<typeof vi.fn>;
+  startAtIndex: ReturnType<typeof vi.fn>;
+  emitBeat: (
+    index: number,
+    cursorTimes: { mainSeconds: number; otherSeconds: number },
+  ) => void;
+  emitSelect: (index: number) => void;
 };
 
 const autocanonizerInstances: MockAutocanonizerInstance[] = [];
@@ -45,6 +53,18 @@ type MockEngineInstance = {
   play: ReturnType<typeof vi.fn>;
   setUserAnchorEdge: ReturnType<typeof vi.fn>;
   getUserAnchorEdgeId: ReturnType<typeof vi.fn>;
+  getConfig: () => {
+    justLongBranches: boolean;
+    minLongBranchPercent?: number;
+  };
+  getLastJumpWasBranch: ReturnType<typeof vi.fn>;
+  getPlayVelocity: ReturnType<typeof vi.fn>;
+  setPlayVelocity: ReturnType<typeof vi.fn>;
+  setFreezeCurrentBeat: ReturnType<typeof vi.fn>;
+  getVisualizationData: () => {
+    beats: typeof mockAnalysis.beats;
+    edges: any[];
+  };
   emitUpdate: (state: any) => void;
 };
 const engineInstances: MockEngineInstance[] = [];
@@ -214,6 +234,7 @@ vi.mock("@/shared/utils/exportJson", () => ({
 }));
 
 vi.mock("@forever-jukebox/engine", () => ({
+  DEFAULT_MIN_LONG_BRANCH_PERCENT: 20,
   JukeboxEngine: class JukeboxEngine {
     private updateListener: ((state: any) => void) | null = null;
     private config = {
@@ -227,8 +248,10 @@ vi.mock("@forever-jukebox/engine", () => ({
       maxRandomBranchChance: 0.5,
       randomBranchChanceDelta: 0.02,
       minLongBranch: 0,
+      minLongBranchPercent: 20,
     };
     private analysis: typeof mockAnalysis | null = null;
+    private playVelocity = 1;
     pauseJukebox = vi.fn();
     syncToPlaybackPosition = vi.fn();
     stopJukebox = vi.fn();
@@ -238,6 +261,12 @@ vi.mock("@forever-jukebox/engine", () => ({
     seekToBeat = vi.fn();
     setForceBranch = vi.fn();
     setBringItHomeMode = vi.fn();
+    getLastJumpWasBranch = vi.fn(() => true);
+    getPlayVelocity = vi.fn(() => this.playVelocity);
+    setPlayVelocity = vi.fn((velocity: number) => {
+      this.playVelocity = Math.max(-16, Math.min(16, Math.trunc(velocity)));
+    });
+    setFreezeCurrentBeat = vi.fn();
     setUserAnchorEdge = vi.fn();
     getUserAnchorEdgeId = vi.fn(() => null);
     deleteEdge = vi.fn();
@@ -315,22 +344,39 @@ vi.mock("@forever-jukebox/engine/viz/JukeboxController", () => ({
 
 vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => ({
   AutocanonizerController: class AutocanonizerController {
-    private onBeat: ((index: number) => void) | null = null;
-    private onEnded: (() => void) | null = null;
+    private onBeat:
+      | ((
+          index: number,
+          beat: unknown,
+          cursorTimes: { mainSeconds: number; otherSeconds: number },
+        ) => void)
+      | null = null;
+    private onSelect: ((index: number) => void) | null = null;
     setFinishOutSong = vi.fn((_enabled: boolean) => undefined);
     constructor(_layer: HTMLElement) {
       autocanonizerInstances.push(this);
     }
     setVisible = vi.fn((_visible: boolean) => undefined);
     resizeNow = vi.fn();
-    setOnBeat(handler: ((index: number) => void) | null) {
+    setOnBeat(
+      handler:
+        | ((
+            index: number,
+            beat: unknown,
+            cursorTimes: { mainSeconds: number; otherSeconds: number },
+          ) => void)
+        | null,
+    ) {
       this.onBeat = handler;
     }
-    setOnEnded(handler: (() => void) | null) {
-      this.onEnded = handler;
+    setOnEnded = vi.fn((_handler: (() => void) | null) => undefined);
+    setOnSelect(handler: ((index: number) => void) | null) {
+      this.onSelect = handler;
     }
-    setOnSelect = vi.fn((_handler: ((index: number) => void) | null) => undefined);
     setVolume = vi.fn((_volume: number) => undefined);
+    setStreamPans = vi.fn(
+      (_mainPan: number, _otherPan: number) => undefined,
+    );
     setAudio = vi.fn(
       (_buffer: AudioBuffer | null, _context: AudioContext | null) => undefined,
     );
@@ -341,9 +387,17 @@ vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => (
     isReady() {
       return true;
     }
-    startAtIndex(index: number) {
-      this.onBeat?.(index);
-      this.onEnded?.();
+    startAtIndex = vi.fn((index: number) => {
+      this.onBeat?.(index, {}, { mainSeconds: index, otherSeconds: index });
+    });
+    emitBeat(
+      index: number,
+      cursorTimes: { mainSeconds: number; otherSeconds: number },
+    ) {
+      this.onBeat?.(index, {}, cursorTimes);
+    }
+    emitSelect(index: number) {
+      this.onSelect?.(index);
     }
     stop = vi.fn();
     reset = vi.fn();
@@ -421,15 +475,45 @@ async function changeSelect(element: HTMLSelectElement, value: string) {
   });
 }
 
-async function keydown(key: string, code?: string) {
+async function changeRange(element: HTMLInputElement, value: string) {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(element, value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+async function keydown(key: string, code?: string, repeat = false) {
   await act(async () => {
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
         key,
         code: code ?? (key.length === 1 ? `Key${key.toUpperCase()}` : key),
+        repeat,
         bubbles: true,
       })
     );
+  });
+}
+
+async function keyup(key: string, code?: string) {
+  await act(async () => {
+    window.dispatchEvent(
+      new KeyboardEvent("keyup", {
+        key,
+        code: code ?? (key.length === 1 ? `Key${key.toUpperCase()}` : key),
+        bubbles: true,
+      })
+    );
+  });
+}
+
+async function blurWindow() {
+  await act(async () => {
+    window.dispatchEvent(new Event("blur"));
   });
 }
 
@@ -557,12 +641,89 @@ describe("Listen route behavior", () => {
         span.textContent === "Total Beats:" && span.classList.contains("is-hidden")
     );
     expect(beatsLabelHidden).toBe(true);
+    const autocanonizer = autocanonizerInstances[0];
+    await act(async () => {
+      autocanonizer.emitBeat(1, {
+        mainSeconds: 62,
+        otherSeconds: 125,
+      });
+    });
+    expect(
+      getRequired(rendered.container, "#autocanonizer-main-time").textContent,
+    ).toBe("1:02");
+    expect(
+      getRequired(rendered.container, "#autocanonizer-other-time").textContent,
+    ).toBe("2:05");
+    expect(
+      getRequired(rendered.container, "#autocanonizer-total-time").textContent,
+    ).toBe("0:04");
 
     await changeSelect(modeSelect, "jukebox");
 
     expect(tuningButton.classList.contains("is-hidden")).toBe(false);
     expect(infoButton.classList.contains("is-hidden")).toBe(false);
     expect(playTitle?.textContent).toBe("song.wav");
+    await changeSelect(modeSelect, "autocanonizer");
+    expect(
+      getRequired(rendered.container, "#autocanonizer-main-time").textContent,
+    ).toBe("0:00");
+    expect(
+      getRequired(rendered.container, "#autocanonizer-other-time").textContent,
+    ).toBe("0:00");
+    rendered.unmount();
+  });
+
+  it("keeps volume as master volume in autocanonizer mode", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    await changeSelect(
+      getRequired<HTMLSelectElement>(rendered.container, "#play-mode-select"),
+      "autocanonizer",
+    );
+    await click(getRequired(rendered.container, "#volume-button"));
+
+    const volumeSlider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "input[aria-label='Volume']",
+    );
+    expect(volumeSlider.value).toBe("50");
+    await changeRange(volumeSlider, "70");
+    expect(autocanonizerInstances[0].setVolume).toHaveBeenLastCalledWith(0.7);
+    rendered.unmount();
+  });
+
+  it("shows independent autocanonizer stream pans in the pan popover", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    await changeSelect(
+      getRequired<HTMLSelectElement>(rendered.container, "#play-mode-select"),
+      "autocanonizer",
+    );
+    await click(getRequired(rendered.container, "#autocanonizer-pan-button"));
+
+    const mainSlider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#autocanonizer-main-pan",
+    );
+    const otherSlider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#autocanonizer-other-pan",
+    );
+    expect(mainSlider.value).toBe("0");
+    expect(otherSlider.value).toBe("0");
+
+    await changeRange(mainSlider, "-40");
+
+    expect(autocanonizerInstances[0].setStreamPans).toHaveBeenLastCalledWith(
+      -0.4,
+      0,
+    );
+    expect(
+      getRequired(
+        rendered.container,
+        "#autocanonizer-main-pan-val",
+      ).textContent,
+    ).toBe("-40");
     rendered.unmount();
   });
 
@@ -782,6 +943,51 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it("keeps listen time running when selecting an autocanonizer beat", async () => {
+    let nowMs = 1000;
+    let listenTimer: (() => void) | null = null;
+    vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+    vi.mocked(window.setInterval).mockImplementation(
+      ((callback: TimerHandler) => {
+        if (typeof callback === "function") {
+          listenTimer = () => callback();
+        }
+        return 1 as unknown as ReturnType<typeof window.setInterval>;
+      }) as unknown as typeof window.setInterval,
+    );
+    const rendered = renderListen();
+    await settleEffects();
+    await changeSelect(
+      getRequired<HTMLSelectElement>(rendered.container, "#play-mode-select"),
+      "autocanonizer",
+    );
+    await click(getRequired<HTMLButtonElement>(rendered.container, "#viz-play"));
+
+    nowMs = 6000;
+    await act(async () => {
+      listenTimer?.();
+    });
+    expect(
+      getRequired(rendered.container, ".viz-meta-stats span:nth-child(2)")
+        .textContent,
+    ).toBe("00:00:05");
+
+    await act(async () => {
+      autocanonizerInstances[0]?.emitSelect(1);
+    });
+    nowMs = 7000;
+    await act(async () => {
+      listenTimer?.();
+    });
+
+    expect(autocanonizerInstances[0]?.startAtIndex).toHaveBeenLastCalledWith(1);
+    expect(
+      getRequired(rendered.container, ".viz-meta-stats span:nth-child(2)")
+        .textContent,
+    ).toBe("00:00:06");
+    rendered.unmount();
+  });
+
   it("draws the promoted jump target before moving a caught-up cursor", async () => {
     const rendered = renderListen();
     await settleEffects();
@@ -801,6 +1007,30 @@ describe("Listen route behavior", () => {
 
     expect(jukebox?.update).toHaveBeenNthCalledWith(1, 0, true, 1);
     expect(jukebox?.update).toHaveBeenNthCalledWith(2, 2, false, 0);
+    rendered.unmount();
+  });
+
+  it("moves the cursor without highlighting a transport-only jump", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    const jukebox = jukeboxControllerInstances[0];
+    engine?.getLastJumpWasBranch.mockReturnValue(false);
+    jukebox?.update.mockClear();
+
+    await act(async () => {
+      engine?.emitUpdate({
+        beatsPlayed: 12,
+        currentBeatIndex: 2,
+        lastJumped: true,
+        lastJumpFromIndex: 1,
+        lastJumpToIndex: 0,
+      });
+    });
+
+    expect(jukebox?.update).toHaveBeenCalledTimes(1);
+    expect(jukebox?.update.mock.calls[0]?.[0]).toBe(2);
+    expect(jukebox?.update.mock.calls[0]?.[1]).toBe(false);
     rendered.unmount();
   });
 
@@ -1021,6 +1251,107 @@ describe("Listen route behavior", () => {
     expect(tabToggleLabel.textContent).toBe("Extras");
     expect(tuningPanel.classList.contains("hidden")).toBe(false);
     expect(extrasPanel.classList.contains("hidden")).toBe(true);
+    rendered.unmount();
+  });
+
+  it("adjusts play velocity with brackets, Down, and Up", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+
+    await keydown("]", "BracketRight", true);
+    await keydown("[", "BracketLeft");
+    await keydown("ArrowDown");
+    await keydown("ArrowUp");
+
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(1, 2);
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(2, 1);
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(3, 0);
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(4, 1);
+    expect(rendered.container.textContent).toContain("Play velocity: +1");
+    rendered.unmount();
+  });
+
+  it("reports the capped play velocity", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+    engine.setPlayVelocity(16);
+    engine.setPlayVelocity.mockClear();
+
+    await keydown("]", "BracketRight");
+
+    expect(engine.setPlayVelocity).toHaveBeenCalledWith(17);
+    expect(engine.getPlayVelocity()).toBe(16);
+    expect(rendered.container.textContent).toContain("Play velocity: +16");
+    rendered.unmount();
+  });
+
+  it("holds Control to freeze and clears it on keyup, blur, and cleanup", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+    engine.setFreezeCurrentBeat.mockClear();
+
+    await keydown("Control");
+    await keyup("Control");
+    await keydown("Control");
+    await blurWindow();
+
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(1, true);
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(2, false);
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(3, true);
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(4, false);
+
+    rendered.unmount();
+    expect(engine.setFreezeCurrentBeat).toHaveBeenLastCalledWith(false);
+  });
+
+  it("keeps Left and Right assigned to selected branch cycling", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
+    const edges = [
+      {
+        id: 1,
+        deleted: false,
+        src: { start: 1, which: 1 },
+        dest: { start: 0, which: 0 },
+        distance: 8,
+      },
+      {
+        id: 2,
+        deleted: false,
+        src: { start: 2, which: 2 },
+        dest: { start: 0, which: 0 },
+        distance: 8,
+      },
+    ];
+    vi.spyOn(engine, "getVisualizationData").mockReturnValue({
+      beats: mockAnalysis.beats,
+      edges,
+    });
+    await act(async () => {
+      controller.emitEdgeSelect(edges[0]);
+    });
+
+    await keydown("ArrowRight");
+
+    expect(controller.setSelectedEdgeActive).toHaveBeenLastCalledWith(edges[1]);
+    expect(engine.setPlayVelocity).not.toHaveBeenCalled();
     rendered.unmount();
   });
 
@@ -1253,6 +1584,41 @@ describe("Listen route behavior", () => {
       "#tuning-panel-tuning label:first-child .label-line span:last-child"
     );
     expect(thresholdValue.textContent).toBe("20");
+    rendered.unmount();
+  });
+
+  it("applies minimum jump distance slider checkpoints", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    const slider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#min-jump-distance",
+    );
+    expect(slider.value).toBe("0");
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      valueSetter?.call(slider, "4");
+      slider.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(slider.parentElement?.textContent).toContain(">30% of track");
+
+    const applyButton = getRequired<HTMLButtonElement>(
+      rendered.container,
+      ".tuning-footer .tab-btn:last-child",
+    );
+    await click(applyButton);
+
+    expect(engineInstances[0]?.getConfig()).toEqual(
+      expect.objectContaining({
+        justLongBranches: true,
+        minLongBranchPercent: 30,
+      }),
+    );
     rendered.unmount();
   });
 

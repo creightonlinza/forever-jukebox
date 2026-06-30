@@ -18,7 +18,7 @@ describe("Footer", () => {
     render(<Footer />);
     const credit = document.getElementById("site-footer-credit");
     expect(credit?.textContent).toBe(
-      "The Forever Jukebox & Analysis Engine by Creighton",
+      "Forever Jukebox & Analysis Engine by Creighton",
     );
     const link = screen.getByText("Creighton") as HTMLAnchorElement;
     expect(link.href).toBe("https://creighton.dev/");
@@ -35,7 +35,7 @@ describe("Footer", () => {
     render(<Footer />);
     const credit = document.getElementById("site-footer-credit");
     expect(credit?.textContent).toBe(
-      "The Forever Jukebox & Analysis Engine by Creighton. This instance is hosted by Example Host.",
+      "Forever Jukebox & Analysis Engine by Creighton. This instance is hosted by Example Host.",
     );
     const hostLink = screen.getByText("Example Host") as HTMLAnchorElement;
     expect(hostLink.href).toBe("https://example.com/");
@@ -51,7 +51,7 @@ describe("Footer", () => {
     render(<Footer />);
     const credit = document.getElementById("site-footer-credit");
     expect(credit?.textContent).toBe(
-      "The Forever Jukebox & Analysis Engine by Creighton. This instance is hosted by Example Host.",
+      "Forever Jukebox & Analysis Engine by Creighton. This instance is hosted by Example Host.",
     );
     const links = credit?.querySelectorAll("a") ?? [];
     expect(links.length).toBe(1);

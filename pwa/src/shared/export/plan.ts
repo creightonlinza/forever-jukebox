@@ -1,6 +1,7 @@
 import type { AnalysisOutput } from "@/shared/analysis-schema";
 import {
   buildJumpGraph,
+  calculateMinLongBranch,
   createRng,
   normalizeAnalysis,
   selectNextBeatIndex,
@@ -86,7 +87,10 @@ export function planJukeboxPath(options: PlanJukeboxPathOptions): PlannedJukebox
 
   const config: JukeboxConfig = {
     ...options.config,
-    minLongBranch: Math.floor(beats.length / 5),
+    minLongBranch: calculateMinLongBranch(
+      beats.length,
+      options.config.minLongBranchPercent,
+    ),
   };
 
   const graph = buildJumpGraph(normalized, config);

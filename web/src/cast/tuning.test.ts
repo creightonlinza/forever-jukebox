@@ -19,6 +19,7 @@ function makeDefaults(): JukeboxConfig {
     maxRandomBranchChance: 0.5,
     randomBranchChanceDelta: 0.018,
     minLongBranch: 2,
+    minLongBranchPercent: 20,
   };
 }
 
@@ -75,6 +76,22 @@ describe("cast tuning", () => {
     expect(parsed?.audioMode).toBe("eight_d");
     expect(parsed?.hasAudioModeParam).toBe(true);
     expect(parsed?.hasGraphTuning).toBe(true);
+  });
+
+  it("parses minimum jump distance and supports legacy fallback", () => {
+    const parsed = parseCastTuningParams("lg=1&bl=30", makeDefaults());
+    expect(parsed?.config).toEqual(
+      expect.objectContaining({
+        justLongBranches: true,
+        minLongBranchPercent: 30,
+      }),
+    );
+
+    const legacy = parseCastTuningParams("lg=1", makeDefaults());
+    expect(legacy?.config.minLongBranchPercent).toBe(20);
+
+    const malformed = parseCastTuningParams("lg=1&bl=25", makeDefaults());
+    expect(malformed?.config.minLongBranchPercent).toBe(20);
   });
 
   it("ignores threshold values below cast minimum", () => {

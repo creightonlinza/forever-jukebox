@@ -1,0 +1,61 @@
+madmom-beats-port
+Copyright (c) 2026 Creighton Linza
+
+This product includes software derived from madmom
+(https://github.com/CPJKU/madmom).
+
+This project's source code is licensed under BSD 2-Clause (see LICENSE and
+LICENSES/BSD_2_CLAUSE.txt). Portions of the Rust core
+(rust/madmom_beats_port_core/src/, in particular features.rs, dbn.rs and
+model.rs) are a port / derivative work of madmom and retain the upstream BSD
+2-Clause notice reproduced below. This NOTICE must be distributed with source
+and binary redistributions (e.g. .so / .a / .dylib / .wasm artifacts).
+
+This repository also includes model artifacts under models/. Those files are
+licensed under CC BY-NC-SA 4.0, not BSD 2-Clause. A distribution that includes
+the model artifacts is free for non-commercial use only under the model terms.
+
+================================================================================
+madmom - source code (BSD 2-Clause License)
+================================================================================
+
+Copyright (c) 2012-2014 Department of Computational Perception,
+Johannes Kepler University, Linz, Austria and Austrian Research Institute for
+Artificial Intelligence (OFAI), Vienna, Austria.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+================================================================================
+Model artifacts - models/ (CC BY-NC-SA 4.0, NON-COMMERCIAL)
+================================================================================
+
+The model artifacts under models/ (downbeats_blstm.json,
+downbeats_blstm_weights.npz) are derived from madmom_models
+(https://github.com/CPJKU/madmom_models) and are distributed under the
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 license. They may
+NOT be used for commercial purposes. Any binary that bundles these model files
+inherits this non-commercial restriction. License notice:
+LICENSES/MODELS_CC_BY_NC_SA.txt.
+
+If you want to include these model files (or a variation or modification
+thereof) or technology which utilises them in a commercial product, please
+contact Gerhard Widmer at http://www.cp.jku.at/people/widmer/.

@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "The Forever Jukebox",
+    "appName": "Forever Jukebox",
     "close": "Close",
     "unknown": "Unknown",
     "untitled": "Untitled",
@@ -40,8 +40,8 @@
     "github": "GitHub repository"
   },
   "footer": {
-    "credit": "The Forever Jukebox & Analysis Engine by <author>Creighton</author>",
-    "hosted": "The Forever Jukebox & Analysis Engine by <author>Creighton</author>. This instance is hosted by <host>{{host}}</host>."
+    "credit": "Forever Jukebox & Analysis Engine by <author>Creighton</author>",
+    "hosted": "Forever Jukebox & Analysis Engine by <author>Creighton</author>. This instance is hosted by <host>{{host}}</host>."
   },
   "documentTitle": {
     "whatsNew": "What's New",
@@ -389,7 +389,7 @@
     "januaryCanon": "<strong>Autocanonizer mode</strong> was added as a new playback option."
   },
   "cast": {
-    "documentTitle": "The Forever Jukebox — Cast",
+    "documentTitle": "Forever Jukebox — Cast",
     "logoAlt": "Forever Jukebox",
     "listenTime": "Listen Time:",
     "totalBeats": "Total Beats:",

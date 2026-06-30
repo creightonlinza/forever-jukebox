@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "The Forever Jukebox",
+    "appName": "Forever Jukebox",
     "close": "Close",
     "off": "Off",
     "reset": "Reset",
@@ -228,7 +228,7 @@
     "wavTooLarge": "WAV export is too large for browser memory at this duration. Use MP3 for long exports."
   },
   "faq": {
-    "whatTitle": "What is The Forever Jukebox?",
+    "whatTitle": "What is the Forever Jukebox?",
     "whatBody": "The Forever Jukebox is an open-source modernization of Paul Lamere’s <infinite>Infinite Jukebox</infinite> and <canon>Autocanonizer</canon> — rebuilt from the ground up by <author>Creighton Linza</author>. It generates a forever-evolving version of any song.",
     "howTitle": "How does it work?",
     "howBody": "The app analyzes your provided audio to estimate beats, segments, and related features. Those features drive beat-synchronous playback. On each beat, the player may jump to a different, sonically similar point based on timbre, loudness, segment duration, and beat position. The visualization maps the possible jump paths.<br/><br/>The full source code is available in the <repo>forever-jukebox</repo> repository.",

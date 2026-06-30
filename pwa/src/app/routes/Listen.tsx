@@ -7,7 +7,7 @@ import { AudioDecoder } from "@/core/infrastructure/audio/AudioDecoder";
 import { createAnalysisCache } from "@/core/infrastructure/cache/analysisCache";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
-import { formatDuration } from "@/shared/utils/format";
+import { formatDuration, formatTime } from "@/shared/utils/format";
 import {
   safeLocalStorageGet,
   safeLocalStorageSet,
@@ -23,7 +23,12 @@ import {
 import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
-import { Edge, JukeboxConfig, JukeboxEngine } from "@forever-jukebox/engine";
+import {
+  DEFAULT_MIN_LONG_BRANCH_PERCENT,
+  Edge,
+  JukeboxConfig,
+  JukeboxEngine,
+} from "@forever-jukebox/engine";
 import {
   DEFAULT_VISUALIZATION_INDEX,
   VISUALIZATION_LABELS,
@@ -37,6 +42,10 @@ import {
   type JukeboxExportProgress,
 } from "@/shared/export";
 import { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
+import {
+  AUTOCANONIZER_MAIN_COLOR,
+  AUTOCANONIZER_OTHER_COLOR,
+} from "@forever-jukebox/engine/autocanonizer/AutocanonizerViz";
 import { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
 import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
@@ -70,6 +79,7 @@ const DEFAULT_CONFIG: JukeboxConfig = {
   maxRandomBranchChance: 0.5,
   randomBranchChanceDelta: 0.02,
   minLongBranch: 0,
+  minLongBranchPercent: DEFAULT_MIN_LONG_BRANCH_PERCENT,
 };
 
 const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
@@ -81,6 +91,7 @@ const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const DEFAULT_PLAYBACK_VOLUME = 0.5;
+const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
 
 type PlayMode = "jukebox" | "autocanonizer";
 type TuningModalTab = "tuning" | "extras";
@@ -518,9 +529,13 @@ type TuneFormState = {
   volume: number;
   highlightAnchorBranch: boolean;
   justBackwards: boolean;
-  justLongBranches: boolean;
+  minLongBranchPercent: number;
   removeSequentialBranches: boolean;
 };
+
+function formatMinJumpDistance(percent: number) {
+  return percent === 0 ? "Any distance" : `>${percent}% of track`;
+}
 
 type ExportFormState = {
   durationSeconds: number;
@@ -634,6 +649,10 @@ function playControlIcon(swingPreparing: boolean, isRunning: boolean) {
   return isRunning ? "pause" : "play_arrow";
 }
 
+function formatPlayVelocity(velocity: number) {
+  return velocity > 0 ? `+${velocity}` : `${velocity}`;
+}
+
 function branchDirection(edge: Edge, t: TFunction) {
   if (edge.dest.which < edge.src.which) {
     return t("listen.backward");
@@ -665,10 +684,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [isPaused, setIsPaused] = React.useState(false);
   const [beatsPlayed, setBeatsPlayed] = React.useState(0);
   const [listenSeconds, setListenSeconds] = React.useState(0);
+  const [autocanonizerMainSeconds, setAutocanonizerMainSeconds] =
+    React.useState(0);
+  const [autocanonizerOtherSeconds, setAutocanonizerOtherSeconds] =
+    React.useState(0);
+  const [autocanonizerMainPan, setAutocanonizerMainPan] = React.useState(0);
+  const [autocanonizerOtherPan, setAutocanonizerOtherPan] = React.useState(0);
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
   const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
+  const [isPanOpen, setIsPanOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [sleepTimer, setSleepTimerState] = React.useState<SleepTimerState>({
     configuredDurationMs: null,
@@ -720,7 +746,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     volume: 50,
     highlightAnchorBranch,
     justBackwards: DEFAULT_CONFIG.justBackwards,
-    justLongBranches: DEFAULT_CONFIG.justLongBranches,
+    minLongBranchPercent: 0,
     removeSequentialBranches: DEFAULT_CONFIG.removeSequentialBranches,
   });
   const [extrasForm, setExtrasForm] = React.useState<ExtrasFormState>({
@@ -753,6 +779,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const bringItHomeModeRef = React.useRef(false);
   const lastBeatRef = React.useRef<number | null>(null);
   const lastCowbellBeatsPlayedRef = React.useRef<number | null>(null);
+  const autocanonizerMainPanRef = React.useRef(0);
+  const autocanonizerOtherPanRef = React.useRef(0);
   const swingRenderTokenRef = React.useRef(0);
   const swingPreparingRef = React.useRef(false);
   const playTimerMsRef = React.useRef(0);
@@ -763,6 +791,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const previousFileKeyRef = React.useRef<string | null>(null);
   const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
+  const panButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const panPanelRef = React.useRef<HTMLDivElement | null>(null);
   const { requestWakeLock, releaseWakeLock } = useWakeLock();
 
   const showShortcutToast = React.useCallback((message: string) => {
@@ -793,6 +823,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     lastCowbellBeatsPlayedRef.current = null;
     setListenSeconds(0);
     setBeatsPlayed(0);
+    setAutocanonizerMainSeconds(0);
+    setAutocanonizerOtherSeconds(0);
   }
 
   function clearSelectedBranch() {
@@ -949,9 +981,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     controller.setAnchorHighlightEnabled(highlightAnchorBranch);
     autocanonizer.setVisible(playModeRef.current === "autocanonizer");
     autocanonizer.setFinishOutSong(finishOutSong);
-    autocanonizer.setOnBeat((index) => {
+    autocanonizer.setStreamPans(
+      autocanonizerMainPanRef.current / 100,
+      autocanonizerOtherPanRef.current / 100,
+    );
+    autocanonizer.setOnBeat((index, _beat, cursorTimes) => {
       setBeatsPlayed(index + 1);
       lastBeatRef.current = index;
+      setAutocanonizerMainSeconds(cursorTimes.mainSeconds);
+      setAutocanonizerOtherSeconds(cursorTimes.otherSeconds);
     });
     autocanonizer.setOnEnded(() => {
       if (!isRunningRef.current) {
@@ -963,7 +1001,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (playModeRef.current !== "autocanonizer") {
         return;
       }
-      startAutocanonizerPlayback(index);
+      startAutocanonizerPlayback(index, { resetSession: false });
     });
 
     const resizeObserver = new ResizeObserver(() => {
@@ -1091,6 +1129,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const usecase = new AnalyzeAudioUseCase(analysisPort, cache, decoder);
 
     engineRef.current?.stopJukebox();
+    engineRef.current?.setFreezeCurrentBeat(false);
+    engineRef.current?.setPlayVelocity(1);
     engineRef.current?.setBringItHomeMode(false);
     autocanonizerRef.current?.stop();
     resetPlaybackSessionMetrics();
@@ -1184,6 +1224,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   React.useEffect(() => {
     if (!isActive) {
       engineRef.current?.setForceBranch(false);
+      engineRef.current?.setFreezeCurrentBeat(false);
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1258,6 +1299,40 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       }
       if (
         playMode === "jukebox" &&
+        (event.key === "[" || event.key === "]")
+      ) {
+        event.preventDefault();
+        const engine = engineRef.current;
+        if (!engine) {
+          return;
+        }
+        const direction = event.key === "]" ? 1 : -1;
+        const velocity = engine.getPlayVelocity() + direction;
+        engine.setPlayVelocity(velocity);
+        showShortcutToast(
+          `Play velocity: ${formatPlayVelocity(engine.getPlayVelocity())}`,
+        );
+        return;
+      }
+      if (playMode === "jukebox" && event.key === "ArrowDown") {
+        event.preventDefault();
+        engineRef.current?.setPlayVelocity(0);
+        showShortcutToast("Play velocity: 0");
+        return;
+      }
+      if (playMode === "jukebox" && event.key === "ArrowUp") {
+        event.preventDefault();
+        engineRef.current?.setPlayVelocity(1);
+        showShortcutToast("Play velocity: +1");
+        return;
+      }
+      if (playMode === "jukebox" && event.key === "Control") {
+        event.preventDefault();
+        engineRef.current?.setFreezeCurrentBeat(true);
+        return;
+      }
+      if (
+        playMode === "jukebox" &&
         event.key === "Shift" &&
         isRunning &&
         !bringItHomeModeRef.current
@@ -1267,16 +1342,26 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Control") {
+        engineRef.current?.setFreezeCurrentBeat(false);
+      }
       if (playMode === "jukebox" && event.key === "Shift") {
         engineRef.current?.setForceBranch(false);
       }
     };
+    const onBlur = () => {
+      engineRef.current?.setFreezeCurrentBeat(false);
+      engineRef.current?.setForceBranch(false);
+    };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+      engineRef.current?.setFreezeCurrentBeat(false);
     };
   }, [
     selectedEdge,
@@ -1325,7 +1410,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [releaseWakeLockSafely, requestWakeLockSafely]);
 
   React.useEffect(() => {
-    if (!isVolumeOpen) {
+    if (!isVolumeOpen && !isPanOpen) {
       return;
     }
     const onDocumentClick = (event: MouseEvent) => {
@@ -1339,13 +1424,26 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (volumeButtonRef.current?.contains(target)) {
         return;
       }
+      if (panPanelRef.current?.contains(target)) {
+        return;
+      }
+      if (panButtonRef.current?.contains(target)) {
+        return;
+      }
       setIsVolumeOpen(false);
+      setIsPanOpen(false);
     };
     document.addEventListener("click", onDocumentClick);
     return () => {
       document.removeEventListener("click", onDocumentClick);
     };
-  }, [isVolumeOpen]);
+  }, [isVolumeOpen, isPanOpen]);
+
+  React.useEffect(() => {
+    if (playMode !== "autocanonizer") {
+      setIsPanOpen(false);
+    }
+  }, [playMode]);
 
   function stopPlayback() {
     cowbellOverlayRef.current?.cancelScheduledHits();
@@ -1402,6 +1500,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     playModeRef.current = mode;
     setPlayMode(mode);
+    setAutocanonizerMainSeconds(0);
+    setAutocanonizerOtherSeconds(0);
     if (mode === "autocanonizer") {
       setIsTuningOpen(false);
       setIsInfoOpen(false);
@@ -1437,15 +1537,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             );
           }
         }
+        const highlightJump =
+          state.lastJumped && engine.getLastJumpWasBranch();
         const jumpFrom =
-          state.lastJumped && state.lastJumpFromIndex !== null
+          highlightJump && state.lastJumpFromIndex !== null
             ? state.lastJumpFromIndex
             : lastBeatRef.current;
         const jumpTo =
-          state.lastJumped && typeof state.lastJumpToIndex === "number"
+          highlightJump && typeof state.lastJumpToIndex === "number"
             ? state.lastJumpToIndex
             : state.currentBeatIndex;
-        vizControllerRef.current?.update(jumpTo, state.lastJumped, jumpFrom);
+        vizControllerRef.current?.update(jumpTo, highlightJump, jumpFrom);
         if (jumpTo !== state.currentBeatIndex) {
           vizControllerRef.current?.update(state.currentBeatIndex, false, jumpTo);
         }
@@ -1501,7 +1603,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       volume: Math.round(player.getVolume() * 100),
       highlightAnchorBranch: nextHighlightAnchorBranch,
       justBackwards: config.justBackwards,
-      justLongBranches: config.justLongBranches,
+      minLongBranchPercent: config.justLongBranches
+        ? (config.minLongBranchPercent ?? DEFAULT_MIN_LONG_BRANCH_PERCENT)
+        : 0,
       removeSequentialBranches: config.removeSequentialBranches,
     });
   };
@@ -1768,7 +1872,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       autocanonizer.resetVisualization();
     }
     autocanonizer.startAtIndex(index);
-    lastPlayStampRef.current = performance.now();
+    if (resetSession || !isRunningRef.current) {
+      lastPlayStampRef.current = performance.now();
+    }
     isRunningRef.current = true;
     isPausedRef.current = false;
     setIsRunning(true);
@@ -1845,7 +1951,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       maxRandomBranchChance: maxProb / 100,
       randomBranchChanceDelta: tuneForm.ramp / RANDOM_BRANCH_DELTA_PERCENT_SCALE,
       justBackwards: tuneForm.justBackwards,
-      justLongBranches: tuneForm.justLongBranches,
+      justLongBranches: tuneForm.minLongBranchPercent > 0,
+      minLongBranchPercent:
+        tuneForm.minLongBranchPercent > 0
+          ? tuneForm.minLongBranchPercent
+          : DEFAULT_MIN_LONG_BRANCH_PERCENT,
       removeSequentialBranches: tuneForm.removeSequentialBranches,
     });
     setHighlightAnchorBranch(tuneForm.highlightAnchorBranch);
@@ -1983,6 +2093,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     playerRef.current?.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
     cowbellOverlayRef.current?.setVolume(volume);
+  };
+
+  const onAutocanonizerStreamPanChange = (
+    stream: "main" | "other",
+    value: number,
+  ) => {
+    const nextMain = stream === "main" ? value : autocanonizerMainPan;
+    const nextOther = stream === "other" ? value : autocanonizerOtherPan;
+    setAutocanonizerMainPan(nextMain);
+    setAutocanonizerOtherPan(nextOther);
+    autocanonizerMainPanRef.current = nextMain;
+    autocanonizerOtherPanRef.current = nextOther;
+    autocanonizerRef.current?.setStreamPans(nextMain / 100, nextOther / 100);
   };
 
   const onExportJukeboxAudio = async () => {
@@ -2596,6 +2719,28 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="viz-info">
                 <div className="viz-title" id="viz-now-playing">{displayTitle}</div>
                 <div className="viz-meta">
+                  <span
+                    id="autocanonizer-times"
+                    className={`autocanonizer-times ${playMode === "autocanonizer" ? "" : "is-hidden"}`}
+                  >
+                    <span
+                      id="autocanonizer-main-time"
+                      style={{ color: AUTOCANONIZER_MAIN_COLOR }}
+                    >
+                      {formatTime(autocanonizerMainSeconds)}
+                    </span>
+                    <span aria-hidden="true">–</span>
+                    <span
+                      id="autocanonizer-other-time"
+                      style={{ color: AUTOCANONIZER_OTHER_COLOR }}
+                    >
+                      {formatTime(autocanonizerOtherSeconds)}
+                    </span>
+                    <span aria-hidden="true">/</span>
+                    <span id="autocanonizer-total-time">
+                      {formatTime(analysis?.track?.duration ?? 0)}
+                    </span>
+                  </span>
                   <span className="viz-meta-stats">
                     <span>{t("listen.listenTime")}</span>
                     <span>{formatDuration(listenSeconds)}</span>
@@ -2610,9 +2755,90 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               </div>
             </div>
             <div className="viz-bottom-right">
+              {playMode === "autocanonizer" ? (
+                <div className="pan-control-wrap">
+                  <div
+                    className={`pan-control-panel ${
+                      isPanOpen ? "" : "is-hidden"
+                    }`}
+                    ref={panPanelRef}
+                  >
+                    <label className="stream-pan-control">
+                      <div className="label-line">
+                        <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
+                          Blue stream
+                        </span>
+                        <span id="autocanonizer-main-pan-val">
+                          {autocanonizerMainPan}
+                        </span>
+                      </div>
+                      <input
+                        id="autocanonizer-main-pan"
+                        className="pan-slider stream-pan-slider"
+                        type="range"
+                        aria-label="Blue stream pan"
+                        min={-100}
+                        max={100}
+                        step={1}
+                        value={autocanonizerMainPan}
+                        style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
+                        onChange={(event) =>
+                          onAutocanonizerStreamPanChange(
+                            "main",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="stream-pan-control">
+                      <div className="label-line">
+                        <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
+                          Green stream
+                        </span>
+                        <span id="autocanonizer-other-pan-val">
+                          {autocanonizerOtherPan}
+                        </span>
+                      </div>
+                      <input
+                        id="autocanonizer-other-pan"
+                        className="pan-slider stream-pan-slider"
+                        type="range"
+                        aria-label="Green stream pan"
+                        min={-100}
+                        max={100}
+                        step={1}
+                        value={autocanonizerOtherPan}
+                        style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
+                        onChange={(event) =>
+                          onAutocanonizerStreamPanChange(
+                            "other",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                  <button
+                    id="autocanonizer-pan-button"
+                    className="volume-button pan-button"
+                    type="button"
+                    ref={panButtonRef}
+                    onClick={() => {
+                      setIsVolumeOpen(false);
+                      setIsPanOpen((prev) => !prev);
+                    }}
+                    title="Autocanonizer stream pan"
+                    aria-label="Autocanonizer stream pan"
+                  >
+                    <SymbolIcon className="pan-icon" name="swap_horiz" />
+                  </button>
+                </div>
+              ) : null}
               <div className="volume-control-wrap">
                 <div
-                  className={`volume-control-panel ${isVolumeOpen ? "" : "is-hidden"}`}
+                  className={`volume-control-panel ${
+                    isVolumeOpen ? "" : "is-hidden"
+                  }`}
                   ref={volumePanelRef}
                 >
                   <label>
@@ -2624,7 +2850,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       max={100}
                       step={1}
                       value={tuneForm.volume}
-                      onChange={(event) => onVolumeChange(Number(event.target.value))}
+                      onChange={(event) =>
+                        onVolumeChange(Number(event.target.value))
+                      }
                     />
                     <div className="label-line">
                       <span>{t("listen.volumeValue")}</span>
@@ -2637,7 +2865,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   className="volume-button"
                   type="button"
                   ref={volumeButtonRef}
-                  onClick={() => setIsVolumeOpen((prev) => !prev)}
+                  onClick={() => {
+                    setIsPanOpen(false);
+                    setIsVolumeOpen((prev) => !prev);
+                  }}
                   title={t("listen.volume")}
                   aria-label={t("listen.volume")}
                 >
@@ -2912,6 +3143,40 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     }
                   />
                 </label>
+                <label>
+                  <div className="label-line">
+                    <span>Minimum Jump Distance:</span>
+                    <span>
+                      {formatMinJumpDistance(tuneForm.minLongBranchPercent)}
+                    </span>
+                  </div>
+                  <div className="hint">
+                    Filters jumps by beat distance across the track.
+                  </div>
+                  <input
+                    id="min-jump-distance"
+                    type="range"
+                    min={0}
+                    max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
+                    step={1}
+                    value={Math.max(
+                      0,
+                      MIN_JUMP_DISTANCE_OPTIONS.indexOf(
+                        tuneForm.minLongBranchPercent as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
+                      ),
+                    )}
+                    aria-label="Minimum jump distance"
+                    onChange={(event) =>
+                      setTuneForm((prev) => ({
+                        ...prev,
+                        minLongBranchPercent:
+                          MIN_JUMP_DISTANCE_OPTIONS[
+                            Number(event.target.value)
+                          ] ?? 0,
+                      }))
+                    }
+                  />
+                </label>
                 <div className="checkbox-row">
                   <label>
                     <input
@@ -2922,16 +3187,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       }
                     />
                     <span>{t("tuning.onlyReverse")}</span>
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={tuneForm.justLongBranches}
-                      onChange={(event) =>
-                        setTuneForm((prev) => ({ ...prev, justLongBranches: event.target.checked }))
-                      }
-                    />
-                    <span>{t("tuning.onlyLong")}</span>
                   </label>
                   <label>
                     <input
@@ -3055,6 +3310,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="info-row">
                 <span className="info-label">{t("info.arrows")}</span>
                 <span>{t("info.arrowsAction")}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">[ / ]:</span>
+                <span>Decrease/increase play velocity</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Down/Up:</span>
+                <span>Set play velocity to 0/+1</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Control (hold):</span>
+                <span>Freeze on the current beat</span>
               </div>
               <div className="info-row">
                 <span className="info-label">{t("info.anchor")}</span>

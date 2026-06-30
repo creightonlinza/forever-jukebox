@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   applyExtrasChanges,
@@ -48,7 +48,7 @@ const TUNING_FORM: TuningFormValues = {
   maxProbPct: 50,
   rampPct: 10,
   justBackwards: false,
-  justLongBranches: false,
+  minLongBranchPercent: 0,
   removeSequentialBranches: false,
   highlightAnchorBranch: false,
 };
@@ -107,6 +107,9 @@ describe("TuningModal", () => {
     expect(document.getElementById("computed-threshold")?.textContent).toBe(
       "45",
     );
+    expect(document.getElementById("min-jump-distance-val")?.textContent).toBe(
+      "Any distance",
+    );
 
     await userEvent.click(document.getElementById("tuning-apply")!);
     expect(applyTuningChanges).toHaveBeenCalledWith(
@@ -116,6 +119,25 @@ describe("TuningModal", () => {
     // apply returns updated values which re-render the form
     expect(document.getElementById("computed-threshold")?.textContent).toBe(
       "47",
+    );
+  });
+
+  it("maps minimum jump distance slider checkpoints into the form", async () => {
+    render(<TuningModal />);
+    act(() => {
+      useAppStore.setState({ tuningModalOpen: true });
+    });
+    const slider = document.getElementById(
+      "min-jump-distance",
+    ) as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: "3" } });
+    expect(document.getElementById("min-jump-distance-val")?.textContent).toBe(
+      ">20% of track",
+    );
+    await userEvent.click(document.getElementById("tuning-apply")!);
+    expect(applyTuningChanges).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ minLongBranchPercent: 20 }),
     );
   });
 

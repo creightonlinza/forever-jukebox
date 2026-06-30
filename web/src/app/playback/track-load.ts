@@ -156,6 +156,8 @@ export function resetForNewTrack(
   cancelPoll();
   useAppStore.setState({ shiftBranching: false });
   engine.setForceBranch(false);
+  engine.setFreezeCurrentBeat(false);
+  engine.setPlayVelocity(1);
   useAppStore.setState({ bringItHomeMode: false });
   engine.setBringItHomeMode(false);
   useAppStore.setState({ selectedEdge: null });
@@ -174,7 +176,11 @@ export function resetForNewTrack(
   updateVizVisibility();
   useAppStore.setState({ playTimerMs: 0 });
   useAppStore.setState({ lastPlayStamp: null });
-  useAppStore.setState({ lastBeatIndex: null });
+  useAppStore.setState({
+    lastBeatIndex: null,
+    autocanonizerMainSeconds: 0,
+    autocanonizerOtherSeconds: 0,
+  });
   updateListenTimeDisplay();
   useAppStore.setState({ beatsPlayedText: "0" });
   closeTuning();

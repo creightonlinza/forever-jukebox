@@ -25,6 +25,7 @@ function createConfig(overrides: Partial<JukeboxConfig> = {}): JukeboxConfig {
     maxRandomBranchChance: 0.5,
     randomBranchChanceDelta: 0.02,
     minLongBranch: 0,
+    minLongBranchPercent: 20,
     ...overrides,
   };
 }
@@ -79,6 +80,7 @@ describe("tuning params", () => {
     const config = context.engine.getConfig();
     expect(config.justBackwards).toBe(true);
     expect(config.justLongBranches).toBe(true);
+    expect(config.minLongBranchPercent).toBe(20);
     expect(config.removeSequentialBranches).toBe(true);
     expect(config.currentThreshold).toBe(25);
     expect(config.minRandomBranchChance).toBeCloseTo(0.18, 4);
@@ -86,6 +88,35 @@ describe("tuning params", () => {
     expect(config.randomBranchChanceDelta).toBeCloseTo(0.02, 4);
     expect(useAppStore.getState().jukeboxAudioMode).toBe("nightcore");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("nightcore");
+  });
+
+  it("applies minimum jump distance percentages from params", () => {
+    const context = createContext();
+    applyTuningParamsToEngine(context, new URLSearchParams("bl=30"));
+    expect(context.engine.getConfig()).toEqual(
+      expect.objectContaining({
+        justLongBranches: true,
+        minLongBranchPercent: 30,
+      }),
+    );
+  });
+
+  it("falls back to 20% for legacy and malformed long-branch params", () => {
+    const legacy = createContext();
+    applyTuningParamsToEngine(legacy, new URLSearchParams("lg=1"));
+    expect(legacy.engine.getConfig().minLongBranchPercent).toBe(20);
+
+    const malformed = createContext();
+    applyTuningParamsToEngine(
+      malformed,
+      new URLSearchParams("lg=1&bl=25"),
+    );
+    expect(malformed.engine.getConfig()).toEqual(
+      expect.objectContaining({
+        justLongBranches: true,
+        minLongBranchPercent: 20,
+      }),
+    );
   });
 
   it("ignores unsupported audio mode values", () => {
@@ -143,6 +174,16 @@ describe("tuning params", () => {
     expect(params.get("jb")).toBe("1");
     expect(params.get("thresh")).toBe("30");
     expect(params.get("bp")).toBeNull();
+  });
+
+  it("serializes minimum jump distance without the legacy long-branch flag", () => {
+    const context = createContext({
+      justLongBranches: true,
+      minLongBranchPercent: 10,
+    });
+    const params = getTuningParamsFromEngine(context);
+    expect(params.get("lg")).toBeNull();
+    expect(params.get("bl")).toBe("10");
   });
 
   it("serializes audio mode when enabled", () => {

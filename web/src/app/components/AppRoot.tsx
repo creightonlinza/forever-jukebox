@@ -8,6 +8,7 @@ import { titleForAppView } from "../document-title";
 import {
   handleKeydown as playbackHandleKeydown,
   handleKeyup as playbackHandleKeyup,
+  handleWindowBlur as playbackHandleWindowBlur,
 } from "../playback-ui";
 import { FaqPanel } from "./FaqPanel";
 import { Footer } from "./Footer";
@@ -101,11 +102,15 @@ function useGlobalHotkeys() {
   useEffect(() => {
     const onKeydown = (event: KeyboardEvent) => playbackHandleKeydown(event);
     const onKeyup = (event: KeyboardEvent) => playbackHandleKeyup(event);
+    const onBlur = () => playbackHandleWindowBlur();
     window.addEventListener("keydown", onKeydown);
     window.addEventListener("keyup", onKeyup);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKeydown);
       window.removeEventListener("keyup", onKeyup);
+      window.removeEventListener("blur", onBlur);
+      playbackHandleWindowBlur();
     };
   }, []);
 }
