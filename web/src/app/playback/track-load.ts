@@ -155,6 +155,8 @@ export function resetForNewTrack(
   cancelPoll();
   useAppStore.setState({ shiftBranching: false });
   engine.setForceBranch(false);
+  engine.setFreezeCurrentBeat(false);
+  engine.setPlayVelocity(1);
   useAppStore.setState({ bringItHomeMode: false });
   engine.setBringItHomeMode(false);
   useAppStore.setState({ selectedEdge: null });

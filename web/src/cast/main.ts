@@ -682,15 +682,17 @@ async function bootstrap() {
           );
         }
       }
+      const highlightJump =
+        engineState.lastJumped && nextEngine.getLastJumpWasBranch();
       const jumpFrom =
-        engineState.lastJumped && engineState.lastJumpFromIndex !== null
+        highlightJump && engineState.lastJumpFromIndex !== null
           ? engineState.lastJumpFromIndex
           : state.lastBeatIndex;
       const jumpTo =
-        engineState.lastJumped && typeof engineState.lastJumpToIndex === "number"
+        highlightJump && typeof engineState.lastJumpToIndex === "number"
           ? engineState.lastJumpToIndex
           : engineState.currentBeatIndex;
-      viz.update(jumpTo, engineState.lastJumped, jumpFrom);
+      viz.update(jumpTo, highlightJump, jumpFrom);
       if (jumpTo !== engineState.currentBeatIndex) {
         viz.update(engineState.currentBeatIndex, false, jumpTo);
       }

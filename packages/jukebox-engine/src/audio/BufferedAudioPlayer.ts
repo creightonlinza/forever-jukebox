@@ -37,6 +37,9 @@ export class BufferedAudioPlayer {
   private anchorStopSource: AudioBufferSourceNode | null = null;
   private anchorJump: AnchorJump | null = null;
   private promotedJumpEvent: JumpEvent | null = null;
+  private scheduledStopSource: AudioBufferSourceNode | null = null;
+  private scheduledStopAt: number | null = null;
+  private scheduledStopOffset: number | null = null;
   private readonly masterGain: GainNode;
   private readonly sourceChainInput: GainNode;
   private readonly sourceChainOutput: GainNode;
@@ -322,7 +325,11 @@ export class BufferedAudioPlayer {
     return event;
   }
 
-  scheduleJump(targetTime: number, sourceStartTime: number) {
+  scheduleJump(
+    targetTime: number,
+    sourceStartTime: number,
+    reportedJumpEvent?: JumpEvent | null,
+  ) {
     if (!this.buffer || !this.playing) {
       return false;
     }
@@ -333,6 +340,7 @@ export class BufferedAudioPlayer {
     if (lateBy > maxLateSeconds) {
       return false;
     }
+    this.cancelScheduledStop();
     this.clearAnchorPendingSwap();
     this.clearPendingSwap();
     const sourceLead = Math.max(0, sourceStartTime - currentSourceTime);
@@ -341,20 +349,7 @@ export class BufferedAudioPlayer {
     source.buffer = this.buffer;
     source.playbackRate.value = this.playbackRate;
     source.connect(this.sourceChainInput);
-    source.onended = () => {
-      if (this.source !== source) {
-        return;
-      }
-      if (this.isSourceStoppingForPendingAnchor(source)) {
-        return;
-      }
-      if (this.playing) {
-        this.playing = false;
-        this.offset = this.buffer ? this.buffer.duration : 0;
-        this.stopPanMotion();
-        this.onEnded?.();
-      }
-    };
+    this.attachSourceEndedHandler(source);
     const duration = this.buffer.duration - targetTime;
     try {
       source.start(startTime, targetTime, Math.max(0, duration));
@@ -373,7 +368,10 @@ export class BufferedAudioPlayer {
     this.pendingSource = source;
     this.pendingStartAt = startTime - targetTime / this.playbackRate;
     this.pendingSwapAt = startTime;
-    this.pendingJumpEvent = { targetTime, sourceStartTime };
+    this.pendingJumpEvent =
+      reportedJumpEvent === undefined
+        ? { targetTime, sourceStartTime }
+        : reportedJumpEvent;
     this.armAnchorPendingSwap(targetTime, startTime, source);
     return true;
   }
@@ -383,6 +381,47 @@ export class BufferedAudioPlayer {
     this.clearAnchorPendingSwap();
     this.clearPendingSwap({ restartCurrentSource: true });
     this.syncAnchorPendingSwap();
+  }
+
+  scheduleStop(sourceStartTime: number) {
+    if (!this.buffer || !this.playing || !this.source) {
+      return false;
+    }
+    this.maybePromotePending();
+    this.cancelScheduledStop();
+    this.clearAnchorPendingSwap({ restartCurrentSource: true });
+    this.clearPendingSwap({ restartCurrentSource: true });
+    if (!this.source) {
+      return false;
+    }
+    const sourceLead = Math.max(0, sourceStartTime - this.getCurrentTime());
+    const stopAt = this.context.currentTime + sourceLead / this.playbackRate;
+    try {
+      this.source.stop(stopAt);
+    } catch {
+      return false;
+    }
+    this.scheduledStopSource = this.source;
+    this.scheduledStopAt = stopAt;
+    this.scheduledStopOffset = sourceStartTime;
+    return true;
+  }
+
+  cancelScheduledStop() {
+    if (
+      !this.scheduledStopSource ||
+      this.scheduledStopAt === null ||
+      this.scheduledStopOffset === null
+    ) {
+      this.clearScheduledStopState();
+      return;
+    }
+    if (this.context.currentTime >= this.scheduledStopAt) {
+      return;
+    }
+    const restartOffset = this.getCurrentTimeFromClock();
+    this.clearScheduledStopState();
+    this.replaceCurrentSourceAt(restartOffset, this.context.currentTime);
   }
 
   setAnchorJump(targetTime: number, sourceStartTime: number) {
@@ -398,6 +437,7 @@ export class BufferedAudioPlayer {
       this.clearAnchorJump();
       return false;
     }
+    this.cancelScheduledStop();
     this.anchorJump = { targetTime, sourceStartTime };
     this.syncAnchorPendingSwap();
     return true;
@@ -409,6 +449,7 @@ export class BufferedAudioPlayer {
   }
 
   private stopSource() {
+    this.clearScheduledStopState();
     this.clearAnchorPendingSwap();
     this.clearPendingSwap();
     if (this.source) {
@@ -513,20 +554,7 @@ export class BufferedAudioPlayer {
     this.startAt = startTime - offset / this.playbackRate;
     this.playing = true;
     this.syncPanMotion();
-    source.onended = () => {
-      if (this.source !== source) {
-        return;
-      }
-      if (this.isSourceStoppingForPendingAnchor(source)) {
-        return;
-      }
-      if (this.playing) {
-        this.playing = false;
-        this.offset = this.buffer ? this.buffer.duration : 0;
-        this.stopPanMotion();
-        this.onEnded?.();
-      }
-    };
+    this.attachSourceEndedHandler(source);
     const duration = this.buffer.duration - offset;
     source.start(startTime, offset, Math.max(0, duration));
     if (options.syncAnchor !== false) {
@@ -558,6 +586,33 @@ export class BufferedAudioPlayer {
     }
     const elapsed = (this.context.currentTime - this.startAt) * this.playbackRate;
     return Math.max(0, Math.min(this.buffer.duration, elapsed));
+  }
+
+  private attachSourceEndedHandler(source: AudioBufferSourceNode) {
+    source.onended = () => {
+      if (this.source !== source) {
+        return;
+      }
+      if (this.isSourceStoppingForPendingAnchor(source)) {
+        return;
+      }
+      const stoppedAt =
+        this.scheduledStopSource === source ? this.scheduledStopOffset : null;
+      this.clearScheduledStopState();
+      if (this.playing) {
+        this.playing = false;
+        this.offset =
+          stoppedAt ?? (this.buffer ? this.buffer.duration : 0);
+        this.stopPanMotion();
+        this.onEnded?.();
+      }
+    };
+  }
+
+  private clearScheduledStopState() {
+    this.scheduledStopSource = null;
+    this.scheduledStopAt = null;
+    this.scheduledStopOffset = null;
   }
 
   private syncAnchorPendingSwap() {
@@ -592,20 +647,7 @@ export class BufferedAudioPlayer {
     source.buffer = this.buffer;
     source.playbackRate.value = this.playbackRate;
     source.connect(this.sourceChainInput);
-    source.onended = () => {
-      if (this.source !== source) {
-        return;
-      }
-      if (this.isSourceStoppingForPendingAnchor(source)) {
-        return;
-      }
-      if (this.playing) {
-        this.playing = false;
-        this.offset = this.buffer ? this.buffer.duration : 0;
-        this.stopPanMotion();
-        this.onEnded?.();
-      }
-    };
+    this.attachSourceEndedHandler(source);
     const duration = this.buffer.duration - targetTime;
     try {
       source.start(startTime, targetTime, Math.max(0, duration));
