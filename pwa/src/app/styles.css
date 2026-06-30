@@ -106,8 +106,6 @@ textarea:focus-visible {
 
 .install-gate__title-frame {
   margin-top: 0;
-  width: 100%;
-  max-width: 100%;
   justify-content: center;
   padding: 3px 10px 5px;
 }
