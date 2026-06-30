@@ -11,8 +11,7 @@ from .routes.jobs_runtime import delete_job_artifacts
 from .utils import abs_storage_path
 
 
-CLEANUP_POLICY_DAYS = 180
-CLEANUP_POLICY_PLAY_COUNT_BELOW = 2
+CLEANUP_POLICY_DAYS = 365
 SAMPLE_SIZE = 10
 
 
@@ -67,11 +66,10 @@ def find_cleanup_candidates(db_path: Path) -> list[CleanupCandidate]:
             FROM jobs j
             JOIN sources s ON s.id = j.source_ref
             WHERE j.status = 'complete'
-              AND s.play_count < ?
               AND julianday(s.updated_at) < julianday('now', ?)
             ORDER BY s.updated_at ASC, j.id ASC
             """,
-            (CLEANUP_POLICY_PLAY_COUNT_BELOW, _cutoff_arg(CLEANUP_POLICY_DAYS)),
+            (_cutoff_arg(CLEANUP_POLICY_DAYS),),
         ).fetchall()
     return [_candidate_from_row(row) for row in rows]
 
@@ -98,10 +96,9 @@ def find_cleanup_candidate_by_id(
             JOIN sources s ON s.id = j.source_ref
             WHERE j.id = ?
               AND j.status = 'complete'
-              AND s.play_count < ?
               AND julianday(s.updated_at) < julianday('now', ?)
             """,
-            (job_id, CLEANUP_POLICY_PLAY_COUNT_BELOW, _cutoff_arg(CLEANUP_POLICY_DAYS)),
+            (job_id, _cutoff_arg(CLEANUP_POLICY_DAYS)),
         ).fetchone()
     return _candidate_from_row(row) if row else None
 
@@ -162,7 +159,6 @@ def build_cleanup_preview(db_path: Path, storage_root: Path) -> StorageCleanupRe
     return StorageCleanupResponse(
         dry_run=True,
         days=CLEANUP_POLICY_DAYS,
-        play_count_below=CLEANUP_POLICY_PLAY_COUNT_BELOW,
         candidate_jobs=len(candidates),
         candidate_bytes=sum(bytes_by_job.values()),
         sample=sample,
@@ -207,7 +203,6 @@ def execute_cleanup(db_path: Path, storage_root: Path) -> StorageCleanupResponse
     return StorageCleanupResponse(
         dry_run=False,
         days=CLEANUP_POLICY_DAYS,
-        play_count_below=CLEANUP_POLICY_PLAY_COUNT_BELOW,
         candidate_jobs=preview.candidate_jobs,
         candidate_bytes=preview.candidate_bytes,
         sample=[],

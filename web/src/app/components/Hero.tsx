@@ -113,7 +113,7 @@ export function Hero() {
           onClick={() => goHome()}
         >
           <h1 className="hero-title-neon">
-            THE FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
+            FOREVER <span className="hero-title-jukebox">JUKEBOX</span>
           </h1>
         </button>
         <TabBar />

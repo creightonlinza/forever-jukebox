@@ -10,7 +10,7 @@ describe("document title", () => {
         trackTitle: null,
         trackArtist: null,
       }),
-    ).toBe("Top Tracks | The Forever Jukebox");
+    ).toBe("Top Tracks | Forever Jukebox");
     expect(
       titleForAppView({
         activeTabId: "search",
@@ -18,7 +18,7 @@ describe("document title", () => {
         trackTitle: null,
         trackArtist: null,
       }),
-    ).toBe("Search | The Forever Jukebox");
+    ).toBe("Search | Forever Jukebox");
     expect(
       titleForAppView({
         activeTabId: "faq",
@@ -26,7 +26,7 @@ describe("document title", () => {
         trackTitle: null,
         trackArtist: null,
       }),
-    ).toBe("What's New | The Forever Jukebox");
+    ).toBe("What's New | Forever Jukebox");
   });
 
   it("uses loaded track metadata on the Listen route", () => {
@@ -37,7 +37,7 @@ describe("document title", () => {
         trackTitle: "Song",
         trackArtist: "Artist",
       }),
-    ).toBe("Song - Artist | The Forever Jukebox");
+    ).toBe("Song - Artist | Forever Jukebox");
     expect(
       titleForAppView({
         activeTabId: "play",
@@ -45,6 +45,6 @@ describe("document title", () => {
         trackTitle: null,
         trackArtist: null,
       }),
-    ).toBe("Listen | The Forever Jukebox");
+    ).toBe("Listen | Forever Jukebox");
   });
 });

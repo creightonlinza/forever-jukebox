@@ -55,7 +55,7 @@ export function Faq() {
     <section className="panel panel--faq">
       <h1>FAQ</h1>
       <div className="faq">
-        <h2>What is The Forever Jukebox?</h2>
+        <h2>What is the Forever Jukebox?</h2>
         <p>
           The Forever Jukebox is an open-source modernization of Paul Lamere’s{" "}
           <a

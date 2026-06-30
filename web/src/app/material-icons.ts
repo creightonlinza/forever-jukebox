@@ -27,6 +27,7 @@ export const MATERIAL_SYMBOL_ICON_NAMES = [
   "skip_next",
   "skip_previous",
   "star",
+  "swap_horiz",
   "timer",
   "tune",
   "volume_up",

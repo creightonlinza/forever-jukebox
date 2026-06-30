@@ -598,21 +598,21 @@ def increment_job_plays(db_path: Path, job_id: str) -> Optional[int]:
 
 
 def set_job_play_count(db_path: Path, job_id: str, play_count: int) -> Optional[int]:
-    now = _utc_now()
     clamped = max(0, int(play_count))
     with _connect(db_path) as conn:
         row = conn.execute(SELECT_JOB_SOURCE_REF_SQL, (job_id,)).fetchone()
         if not row:
             return None
         source_ref = row[0]
+        # Admin override of the counter is not a listen, so leave updated_at
+        # untouched: it tracks last play for storage-cleanup eligibility.
         conn.execute(
             """
             UPDATE sources
-            SET play_count = ?,
-                updated_at = ?
+            SET play_count = ?
             WHERE id = ?
             """,
-            (clamped, now, source_ref),
+            (clamped, source_ref),
         )
         count_row = conn.execute(
             "SELECT play_count FROM sources WHERE id = ?",
