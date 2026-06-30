@@ -5,7 +5,7 @@ import { AudioDecoder } from "@/core/infrastructure/audio/AudioDecoder";
 import { createAnalysisCache } from "@/core/infrastructure/cache/analysisCache";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
-import { formatDuration } from "@/shared/utils/format";
+import { formatDuration, formatTime } from "@/shared/utils/format";
 import {
   safeLocalStorageGet,
   safeLocalStorageSet,
@@ -35,6 +35,10 @@ import {
   type JukeboxExportProgress,
 } from "@/shared/export";
 import { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
+import {
+  AUTOCANONIZER_MAIN_COLOR,
+  AUTOCANONIZER_OTHER_COLOR,
+} from "@forever-jukebox/engine/autocanonizer/AutocanonizerViz";
 import { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
 import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
@@ -492,11 +496,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [isPaused, setIsPaused] = React.useState(false);
   const [beatsPlayed, setBeatsPlayed] = React.useState(0);
   const [listenSeconds, setListenSeconds] = React.useState(0);
+  const [autocanonizerMainSeconds, setAutocanonizerMainSeconds] =
+    React.useState(0);
+  const [autocanonizerOtherSeconds, setAutocanonizerOtherSeconds] =
+    React.useState(0);
+  const [autocanonizerMainPan, setAutocanonizerMainPan] = React.useState(0);
+  const [autocanonizerOtherPan, setAutocanonizerOtherPan] = React.useState(0);
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isSleepTimerOpen, setIsSleepTimerOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
   const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
+  const [isPanOpen, setIsPanOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [sleepTimer, setSleepTimerState] = React.useState<SleepTimerState>({
     configuredDurationMs: null,
@@ -578,6 +589,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const bringItHomeModeRef = React.useRef(false);
   const lastBeatRef = React.useRef<number | null>(null);
   const lastCowbellBeatsPlayedRef = React.useRef<number | null>(null);
+  const autocanonizerMainPanRef = React.useRef(0);
+  const autocanonizerOtherPanRef = React.useRef(0);
   const swingRenderTokenRef = React.useRef(0);
   const swingPreparingRef = React.useRef(false);
   const playTimerMsRef = React.useRef(0);
@@ -588,6 +601,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const previousFileKeyRef = React.useRef<string | null>(null);
   const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
+  const panButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const panPanelRef = React.useRef<HTMLDivElement | null>(null);
   const { requestWakeLock, releaseWakeLock } = useWakeLock();
 
   const showShortcutToast = React.useCallback((message: string) => {
@@ -618,6 +633,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     lastCowbellBeatsPlayedRef.current = null;
     setListenSeconds(0);
     setBeatsPlayed(0);
+    setAutocanonizerMainSeconds(0);
+    setAutocanonizerOtherSeconds(0);
   }
 
   function clearSelectedBranch() {
@@ -781,9 +798,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     controller.setAnchorHighlightEnabled(highlightAnchorBranch);
     autocanonizer.setVisible(playModeRef.current === "autocanonizer");
     autocanonizer.setFinishOutSong(finishOutSong);
-    autocanonizer.setOnBeat((index) => {
+    autocanonizer.setStreamPans(
+      autocanonizerMainPanRef.current / 100,
+      autocanonizerOtherPanRef.current / 100,
+    );
+    autocanonizer.setOnBeat((index, _beat, cursorTimes) => {
       setBeatsPlayed(index + 1);
       lastBeatRef.current = index;
+      setAutocanonizerMainSeconds(cursorTimes.mainSeconds);
+      setAutocanonizerOtherSeconds(cursorTimes.otherSeconds);
     });
     autocanonizer.setOnEnded(() => {
       if (!isRunningRef.current) {
@@ -795,7 +818,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (playModeRef.current !== "autocanonizer") {
         return;
       }
-      startAutocanonizerPlayback(index);
+      startAutocanonizerPlayback(index, { resetSession: false });
     });
 
     const resizeObserver = new ResizeObserver(() => {
@@ -1193,7 +1216,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [releaseWakeLockSafely, requestWakeLockSafely]);
 
   React.useEffect(() => {
-    if (!isVolumeOpen) {
+    if (!isVolumeOpen && !isPanOpen) {
       return;
     }
     const onDocumentClick = (event: MouseEvent) => {
@@ -1207,13 +1230,26 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (volumeButtonRef.current?.contains(target)) {
         return;
       }
+      if (panPanelRef.current?.contains(target)) {
+        return;
+      }
+      if (panButtonRef.current?.contains(target)) {
+        return;
+      }
       setIsVolumeOpen(false);
+      setIsPanOpen(false);
     };
     document.addEventListener("click", onDocumentClick);
     return () => {
       document.removeEventListener("click", onDocumentClick);
     };
-  }, [isVolumeOpen]);
+  }, [isVolumeOpen, isPanOpen]);
+
+  React.useEffect(() => {
+    if (playMode !== "autocanonizer") {
+      setIsPanOpen(false);
+    }
+  }, [playMode]);
 
   function stopPlayback() {
     cowbellOverlayRef.current?.cancelScheduledHits();
@@ -1270,6 +1306,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     playModeRef.current = mode;
     setPlayMode(mode);
+    setAutocanonizerMainSeconds(0);
+    setAutocanonizerOtherSeconds(0);
     if (mode === "autocanonizer") {
       setIsTuningOpen(false);
       setIsInfoOpen(false);
@@ -1638,7 +1676,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       autocanonizer.resetVisualization();
     }
     autocanonizer.startAtIndex(index);
-    lastPlayStampRef.current = performance.now();
+    if (resetSession || !isRunningRef.current) {
+      lastPlayStampRef.current = performance.now();
+    }
     isRunningRef.current = true;
     isPausedRef.current = false;
     setIsRunning(true);
@@ -1851,6 +1891,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     playerRef.current?.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
     cowbellOverlayRef.current?.setVolume(volume);
+  };
+
+  const onAutocanonizerStreamPanChange = (
+    stream: "main" | "other",
+    value: number,
+  ) => {
+    const nextMain = stream === "main" ? value : autocanonizerMainPan;
+    const nextOther = stream === "other" ? value : autocanonizerOtherPan;
+    setAutocanonizerMainPan(nextMain);
+    setAutocanonizerOtherPan(nextOther);
+    autocanonizerMainPanRef.current = nextMain;
+    autocanonizerOtherPanRef.current = nextOther;
+    autocanonizerRef.current?.setStreamPans(nextMain / 100, nextOther / 100);
   };
 
   const onExportJukeboxAudio = async () => {
@@ -2297,6 +2350,28 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <div className="viz-info">
                 <div className="viz-title" id="viz-now-playing">{displayTitle}</div>
                 <div className="viz-meta">
+                  <span
+                    id="autocanonizer-times"
+                    className={`autocanonizer-times ${playMode === "autocanonizer" ? "" : "is-hidden"}`}
+                  >
+                    <span
+                      id="autocanonizer-main-time"
+                      style={{ color: AUTOCANONIZER_MAIN_COLOR }}
+                    >
+                      {formatTime(autocanonizerMainSeconds)}
+                    </span>
+                    <span aria-hidden="true">–</span>
+                    <span
+                      id="autocanonizer-other-time"
+                      style={{ color: AUTOCANONIZER_OTHER_COLOR }}
+                    >
+                      {formatTime(autocanonizerOtherSeconds)}
+                    </span>
+                    <span aria-hidden="true">/</span>
+                    <span id="autocanonizer-total-time">
+                      {formatTime(analysis?.track?.duration ?? 0)}
+                    </span>
+                  </span>
                   <span className="viz-meta-stats">
                     <span>Listen Time:</span>
                     <span>{formatDuration(listenSeconds)}</span>
@@ -2311,9 +2386,90 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               </div>
             </div>
             <div className="viz-bottom-right">
+              {playMode === "autocanonizer" ? (
+                <div className="pan-control-wrap">
+                  <div
+                    className={`pan-control-panel ${
+                      isPanOpen ? "" : "is-hidden"
+                    }`}
+                    ref={panPanelRef}
+                  >
+                    <label className="stream-pan-control">
+                      <div className="label-line">
+                        <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
+                          Blue stream
+                        </span>
+                        <span id="autocanonizer-main-pan-val">
+                          {autocanonizerMainPan}
+                        </span>
+                      </div>
+                      <input
+                        id="autocanonizer-main-pan"
+                        className="pan-slider stream-pan-slider"
+                        type="range"
+                        aria-label="Blue stream pan"
+                        min={-100}
+                        max={100}
+                        step={1}
+                        value={autocanonizerMainPan}
+                        style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
+                        onChange={(event) =>
+                          onAutocanonizerStreamPanChange(
+                            "main",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="stream-pan-control">
+                      <div className="label-line">
+                        <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
+                          Green stream
+                        </span>
+                        <span id="autocanonizer-other-pan-val">
+                          {autocanonizerOtherPan}
+                        </span>
+                      </div>
+                      <input
+                        id="autocanonizer-other-pan"
+                        className="pan-slider stream-pan-slider"
+                        type="range"
+                        aria-label="Green stream pan"
+                        min={-100}
+                        max={100}
+                        step={1}
+                        value={autocanonizerOtherPan}
+                        style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
+                        onChange={(event) =>
+                          onAutocanonizerStreamPanChange(
+                            "other",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                  <button
+                    id="autocanonizer-pan-button"
+                    className="volume-button pan-button"
+                    type="button"
+                    ref={panButtonRef}
+                    onClick={() => {
+                      setIsVolumeOpen(false);
+                      setIsPanOpen((prev) => !prev);
+                    }}
+                    title="Autocanonizer stream pan"
+                    aria-label="Autocanonizer stream pan"
+                  >
+                    <SymbolIcon className="pan-icon" name="swap_horiz" />
+                  </button>
+                </div>
+              ) : null}
               <div className="volume-control-wrap">
                 <div
-                  className={`volume-control-panel ${isVolumeOpen ? "" : "is-hidden"}`}
+                  className={`volume-control-panel ${
+                    isVolumeOpen ? "" : "is-hidden"
+                  }`}
                   ref={volumePanelRef}
                 >
                   <label>
@@ -2325,7 +2481,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       max={100}
                       step={1}
                       value={tuneForm.volume}
-                      onChange={(event) => onVolumeChange(Number(event.target.value))}
+                      onChange={(event) =>
+                        onVolumeChange(Number(event.target.value))
+                      }
                     />
                     <div className="label-line">
                       <span>Volume:</span>
@@ -2338,7 +2496,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   className="volume-button"
                   type="button"
                   ref={volumeButtonRef}
-                  onClick={() => setIsVolumeOpen((prev) => !prev)}
+                  onClick={() => {
+                    setIsPanOpen(false);
+                    setIsVolumeOpen((prev) => !prev);
+                  }}
                   title="Volume"
                   aria-label="Volume"
                 >

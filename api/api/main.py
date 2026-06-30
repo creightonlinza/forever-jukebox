@@ -30,7 +30,7 @@ from .routes.jobs import router as jobs_router
 from .routes.media import router as media_router
 from .routes.search import router as search_router
 
-app = FastAPI(title="The Forever Jukebox Analysis API")
+app = FastAPI(title="Forever Jukebox Analysis API")
 app.include_router(admin_router)
 app.include_router(config_router)
 app.include_router(favorites_router)
@@ -62,7 +62,7 @@ NOINDEX_META = '<meta name="robots" content="noindex, follow" />'
 # Open Graph / Twitter Card defaults. og:url and og:image must be absolute, so they are
 # injected server-side from the request host rather than hardcoded in the static HTML —
 # this keeps the app hoster-agnostic (same rationale as the sitemap/robots routes).
-SITE_NAME = "The Forever Jukebox"
+SITE_NAME = "Forever Jukebox"
 SITE_AUTHOR = "Creighton Linza"
 SITE_DESCRIPTION = (
     "The Forever Jukebox turns any song into a never-ending version of itself — "
@@ -127,6 +127,7 @@ def _head_meta(
 # Track-id parsing mirrors the web app (identity.ts `isLikelyJobId` + track-load.ts
 # `parseTrackId`): a 32-hex id is a job id; "provider:sourceId" names a known source;
 # anything else is treated as a bare YouTube source id.
+LISTEN_PREFIX = "listen/"
 JOB_ID_RE = re.compile(r"^[a-f0-9]{32}$")
 SOURCE_PREFIX_RE = re.compile(r"^([a-z]+):(.+)$")
 SOURCE_PROVIDERS = frozenset({"youtube", "soundcloud", "bandcamp"})
@@ -243,10 +244,10 @@ if WEB_DIST.exists():
 
     def _render_index(base_url: str, full_path: str) -> str:
         page_url = base_url if not full_path else f"{base_url}/{full_path.lstrip('/')}"
-        noindex = full_path == "listen" or full_path.startswith("listen/")
+        noindex = full_path == "listen" or full_path.startswith(LISTEN_PREFIX)
         extra = {}
-        if full_path.startswith("listen/"):
-            card = _listen_card(full_path[len("listen/") :])
+        if full_path.startswith(LISTEN_PREFIX):
+            card = _listen_card(full_path[len(LISTEN_PREFIX) :])
             if card:
                 extra = {"title": card[0], "description": card[1], "og_type": "music.song"}
         head = _head_meta(base_url, page_url, noindex=noindex, **extra)

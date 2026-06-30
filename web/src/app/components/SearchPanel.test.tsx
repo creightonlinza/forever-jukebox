@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   DEFAULT_SEARCH_HINT,
@@ -79,6 +79,7 @@ describe("SearchPanel", () => {
       });
     });
     render(<SearchPanel />);
+    expect(screen.getByText("3:20")).toBeTruthy();
     await userEvent.click(screen.getByText("Song — Artist"));
     expect(h.selectSpotify).toHaveBeenCalledWith({
       name: "Song",
@@ -108,7 +109,7 @@ describe("SearchPanel", () => {
     });
   });
 
-  it("Enter on a result's open-on-YouTube link does not select it", async () => {
+  it("Enter on a result's YouTube preview button does not select it", async () => {
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -124,17 +125,22 @@ describe("SearchPanel", () => {
       });
     });
     render(<SearchPanel />);
-    const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
-    openLink.focus();
+    const previewButton = document.querySelector(
+      ".search-open",
+    ) as HTMLButtonElement;
+    previewButton.focus();
     await userEvent.keyboard("{Enter}");
     expect(h.selectYoutube).not.toHaveBeenCalled();
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe(
+      "modal open",
+    );
     const select = document.querySelector(".search-select") as HTMLButtonElement;
     select.focus();
     await userEvent.keyboard("{Enter}");
     expect(h.selectYoutube).toHaveBeenCalledTimes(1);
   });
 
-  it("renders youtube results with open links that do not select", async () => {
+  it("renders youtube results with preview buttons that do not select", async () => {
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -150,11 +156,15 @@ describe("SearchPanel", () => {
       });
     });
     render(<SearchPanel />);
-    const openLink = document.querySelector(".search-open") as HTMLAnchorElement;
-    expect(openLink.href).toBe("https://www.youtube.com/watch?v=yt-match");
+    const previewButton = document.querySelector(
+      ".search-open",
+    ) as HTMLButtonElement;
+    expect(previewButton.type).toBe("button");
+    expect(previewButton.getAttribute("aria-label")).toBe("Preview on YouTube");
+    expect(screen.getByText("2:03")).toBeTruthy();
     // no playlist add controls in search results
     expect(document.querySelectorAll(".playlist-add-button")).toHaveLength(0);
-    await userEvent.click(openLink);
+    await userEvent.click(previewButton);
     expect(h.selectYoutube).not.toHaveBeenCalled();
     await userEvent.click(screen.getByText("Match"));
     expect(h.selectYoutube).toHaveBeenCalledWith({
@@ -163,6 +173,99 @@ describe("SearchPanel", () => {
       artist: "Artist",
       duration: 123,
     });
+  });
+
+  it("loads the youtube thumbnail only after opening the preview modal", async () => {
+    act(() => {
+      useAppStore.setState({
+        searchResults: {
+          kind: "youtube",
+          items: [
+            {
+              item: { id: "yt-match", title: "Match", duration: 123 },
+              name: "Song",
+              artist: "Artist",
+            },
+          ],
+        },
+      });
+    });
+    render(<SearchPanel />);
+    const previewButton = document.querySelector(
+      ".search-open",
+    ) as HTMLButtonElement;
+
+    expect(document.querySelector(".youtube-preview-thumbnail img")).toBeNull();
+    await userEvent.click(previewButton);
+
+    const thumbnail = document.querySelector(
+      ".youtube-preview-thumbnail img",
+    ) as HTMLImageElement;
+    expect(thumbnail.src).toBe(
+      "https://i.ytimg.com/vi/yt-match/hqdefault.jpg",
+    );
+    expect(thumbnail.getAttribute("referrerpolicy")).toBe("no-referrer");
+    expect(thumbnail.alt).toBe("YouTube thumbnail for Match");
+
+    expect(screen.getByRole("heading", { name: "YouTube Preview" })).toBeTruthy();
+    const openLink = screen.getByRole("link", { name: "Open in YouTube" });
+    expect(openLink.getAttribute("href")).toBe(
+      "https://www.youtube.com/watch?v=yt-match",
+    );
+    expect(openLink.getAttribute("target")).toBe("_blank");
+    expect(openLink.getAttribute("rel")).toBe("noreferrer");
+
+    await userEvent.click(openLink);
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe(
+      "modal open",
+    );
+
+    await userEvent.click(document.getElementById("youtube-preview-close")!);
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe(
+      "modal",
+    );
+    expect(document.querySelector(".youtube-preview-thumbnail img")).toBeNull();
+    expect(document.activeElement).toBe(previewButton);
+  });
+
+  it("hides a failed youtube thumbnail and resets the failure on reopen", async () => {
+    act(() => {
+      useAppStore.setState({
+        searchResults: {
+          kind: "youtube",
+          items: [
+            {
+              item: { id: "yt-match", title: "Match", duration: 123 },
+              name: "Song",
+              artist: "Artist",
+            },
+          ],
+        },
+      });
+    });
+    render(<SearchPanel />);
+    const previewButton = document.querySelector(
+      ".search-open",
+    ) as HTMLButtonElement;
+
+    await userEvent.click(previewButton);
+    const thumbnail = document.querySelector(
+      ".youtube-preview-thumbnail img",
+    ) as HTMLImageElement;
+    expect(thumbnail).not.toBeNull();
+
+    fireEvent.error(thumbnail);
+    expect(document.querySelector(".youtube-preview-thumbnail img")).toBeNull();
+    expect(screen.getByText("Thumbnail unavailable.")).toBeTruthy();
+
+    await userEvent.keyboard("{Escape}");
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe(
+      "modal",
+    );
+    await userEvent.click(previewButton);
+    expect(
+      document.querySelector(".youtube-preview-thumbnail img"),
+    ).not.toBeNull();
   });
 
   it("shows upload sections per app config and submits a URL", async () => {

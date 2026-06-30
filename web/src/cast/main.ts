@@ -190,6 +190,14 @@ function isValidJobId(value: string) {
   return /^[a-f0-9]{32}$/.test(value);
 }
 
+function stripTrailingSlashes(value: string) {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -446,7 +454,7 @@ async function bootstrap() {
 
   function getDisplayTitle() {
     if (!state.trackTitle) {
-      return "The Forever Jukebox";
+      return "Forever Jukebox";
     }
     return state.audioMode === "off"
       ? state.trackTitle
@@ -800,7 +808,7 @@ async function bootstrap() {
     listenAccumulatedMs = 0;
     elements.listenTime.textContent = "00:00:00";
     elements.beatsPlayed.textContent = "0";
-    elements.title.textContent = "The Forever Jukebox";
+    elements.title.textContent = "Forever Jukebox";
     setReceiverIdle();
     sendStatusUpdate();
   }
@@ -855,7 +863,7 @@ async function bootstrap() {
     setStatus(elements.status, "Loading…");
     elements.listenTime.textContent = "00:00:00";
     elements.beatsPlayed.textContent = "0";
-    elements.title.textContent = "The Forever Jukebox";
+    elements.title.textContent = "Forever Jukebox";
     sendStatusUpdate();
     return token;
   }
@@ -1277,7 +1285,7 @@ async function bootstrap() {
             : null;
         if (jobId && isValidJobId(jobId)) {
           const nextUrl = baseUrl
-            ? `${baseUrl.replace(/\/+$/, "")}/cast/${encodeURIComponent(jobId)}`
+            ? `${stripTrailingSlashes(baseUrl)}/cast/${encodeURIComponent(jobId)}`
             : null;
           if (nextUrl) {
             window.history.replaceState({}, "", nextUrl);

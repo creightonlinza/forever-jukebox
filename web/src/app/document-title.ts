@@ -1,6 +1,6 @@
 import type { TabId } from "./context";
 
-export const BASE_DOCUMENT_TITLE = "The Forever Jukebox";
+export const BASE_DOCUMENT_TITLE = "Forever Jukebox";
 
 export function titleForAppView({
   activeTabId,

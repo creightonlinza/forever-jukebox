@@ -106,8 +106,6 @@ textarea:focus-visible {
 
 .install-gate__title-frame {
   margin-top: 0;
-  width: 100%;
-  max-width: 100%;
   justify-content: center;
   padding: 3px 10px 5px;
 }
@@ -602,6 +600,7 @@ textarea:focus-visible {
 .tune-icon,
 .info-icon,
 .copy-icon,
+.pan-icon,
 .volume-icon,
 .fullscreen-icon,
 .modal-close-icon {
@@ -864,7 +863,8 @@ textarea:focus-visible {
   gap: 6px;
 }
 
-.volume-control-wrap {
+.volume-control-wrap,
+.pan-control-wrap {
   position: relative;
 }
 
@@ -924,14 +924,59 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
+.autocanonizer-times {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 100%;
+  gap: 6px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .viz-divider {
   color: var(--muted);
 }
 
-.volume-control-panel {
+.volume-control-panel,
+.pan-control-panel {
   position: absolute;
-  transform: translateX(25%);
   bottom: 100%;
+}
+
+.volume-control-panel {
+  transform: translateX(25%);
+}
+
+.pan-control-panel {
+  display: grid;
+  right: 0;
+  gap: 10px;
+  min-width: 210px;
+  padding: 10px 12px;
+  transform: none;
+  border: 1px solid var(--border-panel);
+  border-radius: 8px;
+  background: var(--viz-overlay);
+  backdrop-filter: blur(8px);
+}
+
+.stream-pan-control {
+  display: grid;
+  gap: 4px;
+}
+
+.stream-pan-control .label-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pan-slider.stream-pan-slider {
+  width: 100%;
+  accent-color: var(--accent);
 }
 
 .volume-slider {

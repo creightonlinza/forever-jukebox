@@ -54,10 +54,16 @@ test.describe("search panel", () => {
     );
     const matches = page.locator(".search-item");
     await expect(matches.first()).toBeVisible();
-    // matches carry external open links that don't trigger selection
+    // matches carry a preview button (not selection) that opens a modal with
+    // the external YouTube link
     const open = matches.first().locator(".search-open");
-    await expect(open).toHaveAttribute("href", /youtube\.com\/watch/);
-    await expect(open).toHaveAttribute("target", "_blank");
+    await expect(open).toHaveAttribute("aria-label", "Preview on YouTube");
+    await open.click();
+    const previewLink = page.locator(
+      "#youtube-preview-modal .youtube-preview-open",
+    );
+    await expect(previewLink).toHaveAttribute("href", /youtube\.com\/watch/);
+    await expect(previewLink).toHaveAttribute("target", "_blank");
   });
 
   test("Spotify result click loads an existing analysis directly (mocked hit)", async ({

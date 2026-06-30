@@ -5,7 +5,7 @@ export function Footer() {
   return (
     <footer className="site-footer">
       <p id="site-footer-credit">
-        The Forever Jukebox &amp; Analysis Engine by{" "}
+        Forever Jukebox &amp; Analysis Engine by{" "}
         <a href="https://creighton.dev" target="_blank" rel="noreferrer">
           Creighton
         </a>

@@ -1,4 +1,4 @@
-# The Forever Jukebox Web UI (TypeScript)
+# Forever Jukebox Web UI (TypeScript)
 
 ## Run
 ```bash

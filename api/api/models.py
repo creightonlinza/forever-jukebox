@@ -103,7 +103,6 @@ class StorageCleanupError(BaseModel):
 class StorageCleanupResponse(BaseModel):
     dry_run: bool
     days: int
-    play_count_below: int
     candidate_jobs: int
     candidate_bytes: int
     sample: list[StorageCleanupSampleItem]

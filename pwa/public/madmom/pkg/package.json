@@ -1,12 +1,14 @@
 {
   "name": "madmom_beats_port_wasm",
   "type": "module",
-  "version": "4.1.0",
-  "license": "MIT OR Apache-2.0",
+  "version": "4.1.1",
+  "license": "BSD-2-Clause",
   "files": [
     "madmom_beats_port_wasm_bg.wasm",
     "madmom_beats_port_wasm.js",
-    "madmom_beats_port_wasm.d.ts"
+    "madmom_beats_port_wasm.d.ts",
+    "LICENSE",
+    "NOTICE"
   ],
   "main": "madmom_beats_port_wasm.js",
   "types": "madmom_beats_port_wasm.d.ts",

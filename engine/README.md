@@ -1,4 +1,4 @@
-# The Forever Jukebox Audio Analysis Engine
+# Forever Jukebox Audio Analysis Engine
 
 This package generates analysis JSON compatible with `schema.json` and the Forever Jukebox branch logic. It is the analysis engine consumed by the API worker.
 
