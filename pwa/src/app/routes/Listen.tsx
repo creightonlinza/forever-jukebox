@@ -533,8 +533,10 @@ type TuneFormState = {
   removeSequentialBranches: boolean;
 };
 
-function formatMinJumpDistance(percent: number) {
-  return percent === 0 ? "Any distance" : `>${percent}% of track`;
+function formatMinJumpDistance(percent: number, t: TFunction) {
+  return percent === 0
+    ? t("tuning.anyDistance")
+    : t("tuning.percentOfTrack", { percent });
 }
 
 type ExportFormState = {
@@ -1310,20 +1312,22 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         const velocity = engine.getPlayVelocity() + direction;
         engine.setPlayVelocity(velocity);
         showShortcutToast(
-          `Play velocity: ${formatPlayVelocity(engine.getPlayVelocity())}`,
+          t("listen.playVelocity", {
+            value: formatPlayVelocity(engine.getPlayVelocity()),
+          }),
         );
         return;
       }
       if (playMode === "jukebox" && event.key === "ArrowDown") {
         event.preventDefault();
         engineRef.current?.setPlayVelocity(0);
-        showShortcutToast("Play velocity: 0");
+        showShortcutToast(t("listen.playVelocity", { value: "0" }));
         return;
       }
       if (playMode === "jukebox" && event.key === "ArrowUp") {
         event.preventDefault();
         engineRef.current?.setPlayVelocity(1);
-        showShortcutToast("Play velocity: +1");
+        showShortcutToast(t("listen.playVelocity", { value: "+1" }));
         return;
       }
       if (playMode === "jukebox" && event.key === "Control") {
@@ -2766,7 +2770,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     <label className="stream-pan-control">
                       <div className="label-line">
                         <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
-                          Blue stream
+                          {t("listen.blueStream")}
                         </span>
                         <span id="autocanonizer-main-pan-val">
                           {autocanonizerMainPan}
@@ -2776,7 +2780,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         id="autocanonizer-main-pan"
                         className="pan-slider stream-pan-slider"
                         type="range"
-                        aria-label="Blue stream pan"
+                        aria-label={t("listen.blueStreamPan")}
                         min={-100}
                         max={100}
                         step={1}
@@ -2793,7 +2797,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     <label className="stream-pan-control">
                       <div className="label-line">
                         <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
-                          Green stream
+                          {t("listen.greenStream")}
                         </span>
                         <span id="autocanonizer-other-pan-val">
                           {autocanonizerOtherPan}
@@ -2803,7 +2807,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         id="autocanonizer-other-pan"
                         className="pan-slider stream-pan-slider"
                         type="range"
-                        aria-label="Green stream pan"
+                        aria-label={t("listen.greenStreamPan")}
                         min={-100}
                         max={100}
                         step={1}
@@ -2827,8 +2831,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       setIsVolumeOpen(false);
                       setIsPanOpen((prev) => !prev);
                     }}
-                    title="Autocanonizer stream pan"
-                    aria-label="Autocanonizer stream pan"
+                    title={t("listen.streamPan")}
+                    aria-label={t("listen.streamPan")}
                   >
                     <SymbolIcon className="pan-icon" name="swap_horiz" />
                   </button>
@@ -3145,13 +3149,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </label>
                 <label>
                   <div className="label-line">
-                    <span>Minimum Jump Distance:</span>
+                    <span>{t("tuning.minJumpDistance")}</span>
                     <span>
-                      {formatMinJumpDistance(tuneForm.minLongBranchPercent)}
+                      {formatMinJumpDistance(tuneForm.minLongBranchPercent, t)}
                     </span>
                   </div>
                   <div className="hint">
-                    Filters jumps by beat distance across the track.
+                    {t("tuning.minJumpDistanceHint")}
                   </div>
                   <input
                     id="min-jump-distance"
@@ -3165,7 +3169,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         tuneForm.minLongBranchPercent as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
                       ),
                     )}
-                    aria-label="Minimum jump distance"
+                    aria-label={t("tuning.minJumpDistanceLabel")}
                     onChange={(event) =>
                       setTuneForm((prev) => ({
                         ...prev,
@@ -3312,16 +3316,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <span>{t("info.arrowsAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">[ / ]:</span>
-                <span>Decrease/increase play velocity</span>
+                <span className="info-label">{t("info.velocity")}</span>
+                <span>{t("info.velocityAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">Down/Up:</span>
-                <span>Set play velocity to 0/+1</span>
+                <span className="info-label">{t("info.velocityReset")}</span>
+                <span>{t("info.velocityResetAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">Control (hold):</span>
-                <span>Freeze on the current beat</span>
+                <span className="info-label">{t("info.freeze")}</span>
+                <span>{t("info.freezeAction")}</span>
               </div>
               <div className="info-row">
                 <span className="info-label">{t("info.anchor")}</span>

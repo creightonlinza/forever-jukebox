@@ -119,7 +119,7 @@ export function VizBottomRight() {
             <label className="stream-pan-control">
               <div className="label-line">
                 <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
-                  Blue stream
+                  {t("playback.blueStream")}
                 </span>
                 <span id="autocanonizer-main-pan-val">{mainPan}</span>
               </div>
@@ -127,7 +127,7 @@ export function VizBottomRight() {
                 className="pan-slider stream-pan-slider"
                 id="autocanonizer-main-pan"
                 type="range"
-                aria-label="Blue stream pan"
+                aria-label={t("playback.blueStreamPan")}
                 min={-100}
                 max={100}
                 step={1}
@@ -141,7 +141,7 @@ export function VizBottomRight() {
             <label className="stream-pan-control">
               <div className="label-line">
                 <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
-                  Green stream
+                  {t("playback.greenStream")}
                 </span>
                 <span id="autocanonizer-other-pan-val">{otherPan}</span>
               </div>
@@ -149,7 +149,7 @@ export function VizBottomRight() {
                 className="pan-slider stream-pan-slider"
                 id="autocanonizer-other-pan"
                 type="range"
-                aria-label="Green stream pan"
+                aria-label={t("playback.greenStreamPan")}
                 min={-100}
                 max={100}
                 step={1}
@@ -164,8 +164,8 @@ export function VizBottomRight() {
           <button
             id="autocanonizer-pan-button"
             className="volume-button pan-button"
-            aria-label="Autocanonizer stream pan"
-            title="Autocanonizer stream pan"
+            aria-label={t("playback.streamPan")}
+            title={t("playback.streamPan")}
             onClick={() => {
               setVolumeOpen(false);
               setPanOpen((prev) => !prev);

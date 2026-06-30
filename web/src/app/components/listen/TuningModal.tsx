@@ -14,6 +14,7 @@ import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { Modal } from "../Modal";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 const AUDIO_MODE_OPTIONS: Array<{
   id: string;
@@ -64,8 +65,10 @@ const AUDIO_MODE_OPTIONS: Array<{
 
 const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
 
-function formatMinJumpDistance(percent: number) {
-  return percent === 0 ? "Any distance" : `>${percent}% of track`;
+function formatMinJumpDistance(percent: number, t: TFunction) {
+  return percent === 0
+    ? t("tuning.anyDistance")
+    : t("tuning.percentOfTrack", { percent });
 }
 
 function RangeRow({
@@ -277,9 +280,10 @@ export function TuningModal() {
             />
             <RangeRow
               id="min-jump-distance"
-              label="Minimum Jump Distance:"
+              label={t("tuning.minJumpDistance")}
               valueText={formatMinJumpDistance(
                 form?.minLongBranchPercent ?? 0,
+                t,
               )}
               min={0}
               max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
@@ -299,7 +303,7 @@ export function TuningModal() {
               }
               hint={
                 <div className="hint">
-                  Filters jumps by beat distance across the track.
+                  {t("tuning.minJumpDistanceHint")}
                 </div>
               }
             />

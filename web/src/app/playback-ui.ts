@@ -360,20 +360,22 @@ export function handleKeydown(event: KeyboardEvent): void {
       const velocity = engine.getPlayVelocity() + direction;
       engine.setPlayVelocity(velocity);
       showToast(
-        `Play velocity: ${formatPlayVelocity(engine.getPlayVelocity())}`,
+        i18n.t("playback.playVelocity", {
+          value: formatPlayVelocity(engine.getPlayVelocity()),
+        }),
       );
       return;
     }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       engine.setPlayVelocity(0);
-      showToast("Play velocity: 0");
+      showToast(i18n.t("playback.playVelocity", { value: "0" }));
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
       engine.setPlayVelocity(1);
-      showToast("Play velocity: +1");
+      showToast(i18n.t("playback.playVelocity", { value: "+1" }));
       return;
     }
     if (event.key === "Control") {

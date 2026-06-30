@@ -33,12 +33,13 @@ function YoutubePreviewButton({
 }: {
   onOpen: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
       className="search-open"
-      title="Preview on YouTube"
-      aria-label="Preview on YouTube"
+      title={t("search.previewYoutube")}
+      aria-label={t("search.previewYoutube")}
       onClick={(event) => {
         event.stopPropagation();
         onOpen();
@@ -154,7 +155,7 @@ function SearchResults() {
         panelClassName="youtube-preview-panel"
       >
         <ModalHeader
-          title="YouTube Preview"
+          title={t("search.youtubePreview")}
           closeId="youtube-preview-close"
           onClose={closeYoutubePreview}
         />
@@ -163,13 +164,15 @@ function SearchResults() {
             <div className="youtube-preview-thumbnail">
               <img
                 src={`https://i.ytimg.com/vi/${encodeURIComponent(youtubePreview.youtubeId)}/hqdefault.jpg`}
-                alt={`YouTube thumbnail for ${youtubePreview.title}`}
+                alt={t("search.youtubeThumbnailAlt", {
+                  title: youtubePreview.title,
+                })}
                 referrerPolicy="no-referrer"
                 onError={() => setThumbnailFailed(true)}
               />
             </div>
           ) : (
-            <p className="modal-hint">Thumbnail unavailable.</p>
+            <p className="modal-hint">{t("search.thumbnailUnavailable")}</p>
           )}
         </div>
         <div className="modal-footer">
@@ -180,7 +183,7 @@ function SearchResults() {
               target="_blank"
               rel="noreferrer"
             >
-              Open in YouTube
+              {t("search.openYoutube")}
             </a>
           ) : null}
         </div>
