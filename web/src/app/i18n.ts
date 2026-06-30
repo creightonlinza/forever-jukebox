@@ -15,12 +15,18 @@ const supportedLanguages: readonly string[] = supportedLanguageOptions.map(
   ({ code }) => code,
 );
 const languageStorageKey = "fj-language";
+const rtlLanguages: readonly string[] = ["ar", "fa", "he", "ur"];
 
 export function resolveSupportedLanguage(language: string | null | undefined) {
   const baseLanguage = language?.toLowerCase().split("-")[0];
   return baseLanguage && supportedLanguages.includes(baseLanguage)
     ? baseLanguage
     : "en";
+}
+
+export function isRtlLanguage(language: string | null | undefined): boolean {
+  const baseLanguage = language?.toLowerCase().split("-")[0];
+  return baseLanguage ? rtlLanguages.includes(baseLanguage) : false;
 }
 
 function storedLanguage(): string | null {
@@ -72,6 +78,9 @@ function updateDocumentLanguage(language: string) {
   const resolvedLanguage = resolveSupportedLanguage(language);
   if (typeof document !== "undefined" && document.documentElement) {
     document.documentElement.lang = resolvedLanguage;
+    document.documentElement.dir = isRtlLanguage(resolvedLanguage)
+      ? "rtl"
+      : "ltr";
   }
   try {
     localStorage.setItem(languageStorageKey, resolvedLanguage);

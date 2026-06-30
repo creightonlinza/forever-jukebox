@@ -13,10 +13,8 @@ export function Footer() {
             components={{
               author: <a href="https://creighton.dev" target="_blank" rel="noreferrer" />,
               host: credit.hostedByUrl ? (
-              <a href={credit.hostedByUrl} target="_blank" rel="noreferrer">
-                {credit.hostedByName}
-              </a>
-            ) : (
+                <a href={credit.hostedByUrl} target="_blank" rel="noreferrer" />
+              ) : (
                 <span />
               ),
             }}

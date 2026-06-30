@@ -1,8 +1,6 @@
 import type { TabId } from "./context";
 import i18n from "./i18n";
 
-export const BASE_DOCUMENT_TITLE = i18n.t("common.appName");
-
 export function titleForAppView({
   activeTabId,
   pathname,
@@ -36,6 +34,6 @@ export function titleForAppView({
 
   return i18n.t("documentTitle.separator", {
     page: pageTitle,
-    app: BASE_DOCUMENT_TITLE,
+    app: i18n.t("common.appName"),
   });
 }

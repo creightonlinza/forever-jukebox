@@ -10,7 +10,6 @@
     "home": "Home",
     "listen": "Listen",
     "faq": "FAQ",
-    "loading": "Loading…",
     "light": "Light",
     "dark": "Dark"
   },
@@ -47,10 +46,7 @@
     "features": "Extracting features",
     "segments": "Extracting segments",
     "building": "Building analysis",
-    "cached": "Loaded cached analysis",
     "ready": "Ready",
-    "complete": "Analysis complete",
-    "memoryError": "Beat detection ran out of memory for this track.",
     "failed": "Unable to analyze this audio file."
   },
   "listen": {
@@ -175,7 +171,6 @@
     "sleepTimer": "Sleep Timer"
   },
   "sleepTimer": {
-    "title": "Sleep Timer",
     "timer": "Timer",
     "currentCountdown": "Current countdown: {{time}}",
     "off": "Off",
@@ -224,7 +219,6 @@
     "wavDescription": "WAV Audio",
     "bitrate": "MP3 Bitrate:",
     "bitrateLabel": "MP3 bitrate",
-    "matchPlayback": "Match Current Playback Exactly",
     "exporting": "Exporting...",
     "action": "Export Audio",
     "initializing": "Initializing export",

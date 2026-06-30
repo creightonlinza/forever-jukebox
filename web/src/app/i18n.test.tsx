@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import i18n, { resolveSupportedLanguage, supportedLanguageOptions } from "./i18n";
+import i18n, {
+  isRtlLanguage,
+  resolveSupportedLanguage,
+  supportedLanguageOptions,
+} from "./i18n";
 
 describe("web i18n bootstrap", () => {
   it("loads English synchronously and updates the document language", () => {
@@ -25,5 +29,13 @@ describe("web i18n bootstrap", () => {
     expect(supportedLanguageOptions).toEqual([{ code: "en", label: "English" }]);
     expect(resolveSupportedLanguage("en-US")).toBe("en");
     expect(resolveSupportedLanguage("invalid")).toBe("en");
+  });
+
+  it("sets text direction and detects RTL languages", () => {
+    expect(document.documentElement.dir).toBe("ltr");
+    expect(isRtlLanguage("ar")).toBe(true);
+    expect(isRtlLanguage("he-IL")).toBe(true);
+    expect(isRtlLanguage("en")).toBe(false);
+    expect(isRtlLanguage(null)).toBe(false);
   });
 });

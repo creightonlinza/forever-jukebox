@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigationType } from "react-router-dom";
 import { getAppContext, handleRoute } from "../runtime";
 import { useAppStore } from "../store";
@@ -63,6 +64,7 @@ function useTabEffects() {
 }
 
 function useDocumentTitle() {
+  const { i18n } = useTranslation();
   const location = useLocation();
   const activeTab = useAppStore((s) => s.activeTabId);
   const trackTitle = useAppStore((s) => s.trackTitle);
@@ -74,7 +76,8 @@ function useDocumentTitle() {
       trackTitle,
       trackArtist,
     });
-  }, [activeTab, location.pathname, trackTitle, trackArtist]);
+    // i18n.language is a dependency so the title re-localizes on language change.
+  }, [activeTab, location.pathname, trackTitle, trackArtist, i18n.language]);
 }
 
 // Body-level flag CSS uses to reveal playlist-add buttons.
