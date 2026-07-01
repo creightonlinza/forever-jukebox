@@ -190,110 +190,114 @@ export function FaqPanel() {
         className={subtab === "whats-new" ? "faq faq-updates" : "faq faq-updates hidden"}
         id="faq-whats-new-panel"
       >
-        <h4>{t("faq.july2026")}</h4>
-        <p>{t("faq.julyIntro")}</p>
+        {/* What's New is intentionally hardcoded English, not i18n tokens: it's a
+            high-churn changelog that is never translated (untranslated tokens would
+            just force a locale-completeness exemption). Adding a new entry is a plain
+            JSX edit here. Keep the FAQ above fully tokenized. */}
+        <h4>July 2026</h4>
+        <p>July community feature request extravaganza — all suggested by you:</p>
         <ul>
           <li>
-            <Trans i18nKey="faq.julyPanning" components={{ strong: <strong /> }} />
+            Added <strong>left/right panning</strong> to the Autocanonizer, providing more control over the stereo field.
           </li>
           <li>
-            <Trans i18nKey="faq.julyThumbnails" components={{ strong: <strong /> }} />
+            YouTube sources now show <strong>video thumbnails</strong> (click the popup icon).
           </li>
           <li>
-            <Trans i18nKey="faq.julyVelocity" components={{ strong: <strong /> }} />
+            Added a <strong>velocity</strong> control for nudging playback speed, plus <strong>Ctrl+freeze</strong> to lock onto the current beat.
           </li>
           <li>
-            <Trans i18nKey="faq.julyBranchLength" components={{ strong: <strong /> }} />
+            New <strong>minimum branch length slider</strong> — filter out short jumps for longer runs before the Jukebox branches.
           </li>
         </ul>
 
-        <h4>{t("faq.june2026")}</h4>
+        <h4>June 2026</h4>
         <ul>
           <li>
-            <Trans i18nKey="faq.juneModes" components={{ strong: <strong /> }} />
+            A few more Audio Mode options introduced on the Extras menu: <strong>8-bit, Underwater, Cathedral</strong>
           </li>
           <li>
-            <Trans i18nKey="faq.juneFavorites" components={{ strong: <strong /> }} />
+            <strong>Favorites search &amp; sorting</strong> added, maximum saved favorites bumped to 150 tracks.
           </li>
           <li>
-            <Trans i18nKey="faq.junePlaylists" components={{ strong: <strong /> }} />
+            Added local <strong>Playlists</strong>: queue up to 10 tracks, then skip between them from the Listen screen. More info in the FAQ.
           </li>
           <li>
-            <Trans i18nKey="faq.juneReact" components={{ strong: <strong /> }} />
+            <strong>Rewrote the app in React</strong> — please report any issues.
           </li>
         </ul>
 
-        <h4>{t("faq.may2026")}</h4>
+        <h4>May 2026</h4>
         <ul>
           <li>
-            <Trans i18nKey="faq.mayRemix" components={{ strong: <strong /> }} />
+            Added <strong>More Cowbell</strong> and <strong>Swing</strong> remix toys to Extras, giving beat-aware ways to reshape tracks while the Jukebox plays.
           </li>
           <li>
-            <Trans i18nKey="faq.mayExport" components={{ strong: <strong /> }} />
+            Offline App (PWA) can now <strong>export audio</strong> with any actively selected Audio Mode.
           </li>
           <li>
-            <Trans i18nKey="faq.mayAnchor" components={{ strong: <strong /> }} />
+            Implemented <strong>custom anchor branches</strong>: select a backward branch and press A to make it the forced anchor jump.
           </li>
           <li>
-            <Trans i18nKey="faq.mayTimer" components={{ strong: <strong /> }} />
+            Added a <strong>sleep timer</strong> to the Tuning/Extras dialog.
           </li>
         </ul>
 
-        <h4>{t("faq.april2026")}</h4>
+        <h4>April 2026</h4>
         <ul>
           <li>
-            <Trans i18nKey="faq.aprilWhatsNew" components={{ strong: <strong /> }} />
+            Added a <strong>What's New</strong> section (you are here)!
           </li>
           <li>
-            <Trans i18nKey="faq.aprilSources" components={{ strong: <strong /> }} />
+            Added <strong>SoundCloud</strong> and <strong>Bandcamp</strong> support via Upload by URL.
           </li>
           <li>
-            <Trans i18nKey="faq.aprilExtras" components={{ strong: <strong /> }} />
+            <strong>Extras</strong> menu added (press E on the Listen screen or access in the tuning menu) for experimental features.
           </li>
           <li>
-            <Trans i18nKey="faq.aprilModes" components={{ strong: <strong /> }} />
+            Added highly requested <strong>nightcore</strong>, <strong>daycore</strong>, &amp; other <strong>Audio Mode</strong> options to the Extras menu.
           </li>
         </ul>
 
-        <h4>{t("faq.march2026")}</h4>
+        <h4>March 2026</h4>
         <ul>
           <li>
-            <Trans i18nKey="faq.marchStats" components={{ strong: <strong /> }} />
+            <strong>Branch stats</strong> toggle was added to provide helpful data points like direction, timing, &amp; match percentage.
           </li>
           <li>
-            <Trans i18nKey="faq.marchHome" components={{ strong: <strong /> }} />
+            <strong>Bring It Home mode</strong> (press H on your keyboard to toggle) was added for a more linear playback option that finishes the track cleanly.
           </li>
           <li>
-            <Trans i18nKey="faq.marchBackend" components={{ strong: <strong /> }} />
+            The backend moved to <strong>madmom-beats-lite</strong>, improving progress reporting and memory footprint, while maintaining quality analysis.
           </li>
         </ul>
 
-        <h4>{t("faq.february2026")}</h4>
+        <h4>February 2026</h4>
         <ul>
           <li>
-            <Trans i18nKey="faq.februaryOffline" components={{ strong: <strong /> }} />
+            The <strong>Offline App</strong> (PWA) launched, making it possible to analyze and play tracks directly - without an internet connection.
           </li>
           <li>
-            <Trans i18nKey="faq.februaryLists" components={{ strong: <strong /> }} />
+            <strong>Recently Played</strong> and <strong>Trending</strong> discovery lists were added.
           </li>
           <li>
-            <Trans i18nKey="faq.februaryArc" components={{ strong: <strong /> }} />
+            A new <strong>Arc visualization</strong> replaced the Spiral view.
           </li>
         </ul>
 
-        <h4>{t("faq.january2026")}</h4>
+        <h4>January 2026</h4>
         <ul>
           <li>
-            <Trans i18nKey="faq.januaryLaunch" components={{ strong: <strong /> }} />
+            Happy new year! Site <strong>launched</strong> on the first of the year.
           </li>
           <li>
-            <Trans i18nKey="faq.januaryFavorites" components={{ strong: <strong /> }} />
+            <strong>Favorites</strong> feature added, along with <strong>Favorites Sync</strong> so saved tracks can travel between sessions &amp; devices.
           </li>
           <li>
-            <Trans i18nKey="faq.januaryUploads" components={{ strong: <strong /> }} />
+            Support was added for <strong>user uploads</strong> and manually added <strong>YouTube links</strong>.
           </li>
           <li>
-            <Trans i18nKey="faq.januaryCanon" components={{ strong: <strong /> }} />
+            <strong>Autocanonizer mode</strong> was added as a new playback option.
           </li>
         </ul>
       </div>
