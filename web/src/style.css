@@ -9,7 +9,7 @@ body {
   color: var(--text);
   display: flex;
   flex-direction: column;
-  min-width: 425px;
+  min-width: 360px;
   min-height: 100vh;
   transition:
     opacity 0.2s ease,
@@ -314,6 +314,12 @@ a:focus-visible {
   display: block;
 }
 
+/* Copy of the social row shown inside the FAQ. Hidden by default; revealed
+   only at the mobile breakpoint where the hero's own social row is hidden. */
+.faq-socials {
+  display: none;
+}
+
 .panel-title {
   font-size: 14px;
   letter-spacing: 0.08em;
@@ -540,10 +546,23 @@ a:focus-visible {
 
 .tabs {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  /* flex-start keeps the overflow off the right edge (scrollable). flex-end
+     would push it off the left, where browsers can't scroll to reach it. */
+  justify-content: flex-start;
   gap: 8px;
   margin-bottom: 0;
+  /* min-width:0 lets this flex child shrink below its content width so the
+     overflow scrolls inside the row instead of widening the hero. */
+  min-width: 0;
+  overflow-x: auto;
+  /* Scroll without a visible scrollbar. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-btn {
@@ -554,6 +573,9 @@ a:focus-visible {
   color: var(--text);
   font-size: 13px;
   letter-spacing: 0.02em;
+  /* Keep buttons full-size so the row overflows and scrolls rather than
+     compressing to fit. */
+  flex-shrink: 0;
 }
 
 .tab-btn.active {
@@ -2411,19 +2433,18 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
     display: none;
   }
 
+  .faq-socials {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
   .settings-button {
     position: absolute;
     top: 0;
     right: 0;
     z-index: 4;
-  }
-
-  .panel {
-    padding: 0;
-  }
-
-  .play-title {
-    padding-left: 6px;
   }
 
   #viz-stats {

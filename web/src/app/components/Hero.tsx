@@ -23,10 +23,10 @@ function SettingsButton() {
   );
 }
 
-function HeroSocials() {
+export function HeroSocials({ className = "hero-socials" }: { className?: string } = {}) {
   const { t } = useTranslation();
   return (
-    <span className="hero-socials" aria-label={t("hero.communityLinks")}>
+    <span className={className} aria-label={t("hero.communityLinks")}>
       <a
         className="hero-social-link"
         href="https://www.reddit.com/r/infinitejukebox/"

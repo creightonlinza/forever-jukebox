@@ -1513,14 +1513,6 @@ label {
     padding: 0;
   }
 
-  .panel {
-    padding: 0;
-  }
-
-  .play-title {
-    padding-left: 6px;
-  }
-
   #viz-stats {
     align-items: flex-start;
     flex-wrap: wrap;

@@ -4,6 +4,7 @@ import { clearCachedAudio, getCachedAudioBytes } from "../cache";
 import { pathForFaqSubtab, type FaqSubtabId } from "../tabs";
 import { showToast } from "../ui";
 import { Trans, useTranslation } from "react-i18next";
+import { HeroSocials } from "./Hero";
 
 function formatMegabytes(bytes: number) {
   const mb = Math.max(0, bytes) / (1024 * 1024);
@@ -116,6 +117,7 @@ export function FaqPanel() {
         className={subtab === "faq" ? "faq" : "faq hidden"}
         id="faq-panel"
       >
+        <HeroSocials className="faq-socials" />
         <h4>{t("faq.whatTitle")}</h4>
         <p>
           <Trans
