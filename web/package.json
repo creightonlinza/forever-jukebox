@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@forever-jukebox/engine": "*",
+    "@forever-jukebox/i18n": "*",
     "abortcontroller-polyfill": "^1.7.5",
     "core-js": "^3.38.1",
     "i18next": "^26.3.1",
