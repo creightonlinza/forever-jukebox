@@ -113,26 +113,6 @@ test.describe("tuning modal", () => {
     expect(await focusInsideModal()).toBe(true);
   });
 
-  test("Escape closes only the topmost of stacked modals", async ({
-    page,
-  }) => {
-    await loadFirstTopTrack(page);
-    await page.locator("#tuning").click();
-    const tuningModal = page.locator("#tuning-modal");
-    await expect(tuningModal).toHaveClass(/\bopen\b/);
-    // the sleep timer opens on top of the tuning modal
-    await page.locator("#sleep-timer-open").click();
-    const sleepModal = page.locator("#sleep-timer-modal");
-    await expect(sleepModal).toHaveClass(/\bopen\b/);
-
-    await page.keyboard.press("Escape");
-    await expect(sleepModal).not.toHaveClass(/\bopen\b/);
-    await expect(tuningModal).toHaveClass(/\bopen\b/);
-
-    await page.keyboard.press("Escape");
-    await expect(tuningModal).not.toHaveClass(/\bopen\b/);
-  });
-
   test("highlight-anchor checkbox persists to localStorage", async ({
     page,
   }) => {
@@ -224,9 +204,8 @@ test.describe("extras", () => {
 test.describe("sleep timer", () => {
   test("set, live countdown, select round-trip, off", async ({ page }) => {
     await loadFirstTopTrack(page);
-    await page.locator("#tuning").click();
-    await page.locator("#sleep-timer-open").click();
-    const modal = page.locator("#sleep-timer-modal");
+    await page.locator("#settings-open").click();
+    const modal = page.locator("#settings-modal");
     await expect(modal).toHaveClass(/\bopen\b/);
     await expect(page.locator("#sleep-timer-current")).toHaveText("Off");
 
@@ -235,7 +214,7 @@ test.describe("sleep timer", () => {
     await expect(modal).not.toHaveClass(/\bopen\b/);
 
     // reopen: countdown is live and the select reflects the applied timer
-    await page.locator("#sleep-timer-open").click();
+    await page.locator("#settings-open").click();
     await expect(page.locator("#sleep-timer-current")).toContainText(
       "Current countdown: 00:14:",
     );
@@ -243,9 +222,9 @@ test.describe("sleep timer", () => {
 
     await page.locator("#sleep-timer-select").selectOption("off");
     await page.locator("#sleep-timer-set").click();
-    await page.locator("#sleep-timer-open").click();
+    await page.locator("#settings-open").click();
     await expect(page.locator("#sleep-timer-current")).toHaveText("Off");
-    await page.locator("#sleep-timer-cancel").click();
+    await page.locator("#settings-cancel").click();
     await expect(modal).not.toHaveClass(/\bopen\b/);
   });
 
@@ -253,11 +232,10 @@ test.describe("sleep timer", () => {
     page,
   }) => {
     await loadFirstTopTrack(page);
-    await page.locator("#tuning").click();
-    await page.locator("#sleep-timer-open").click();
+    await page.locator("#settings-open").click();
     await page.locator("#sleep-timer-select").selectOption("1800000");
-    await page.locator("#sleep-timer-close").click();
-    await page.locator("#sleep-timer-open").click();
+    await page.locator("#settings-cancel").click();
+    await page.locator("#settings-open").click();
     await expect(page.locator("#sleep-timer-current")).toHaveText("Off");
     await expect(page.locator("#sleep-timer-select")).toHaveValue("off");
   });

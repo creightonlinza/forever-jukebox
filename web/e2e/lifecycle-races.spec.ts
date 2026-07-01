@@ -47,9 +47,9 @@ test.describe("analysis poll lifecycle", () => {
     });
 
     await page.goto(`/listen/${track.id}`);
-    await expect(page.locator("#analysis-status")).toHaveText(
-      "Analyzing beats",
-    );
+    // #analysis-status is a localized label derived from status+progress
+    // (see translateJobProgress), not the raw API `message`.
+    await expect(page.locator("#analysis-status")).toHaveText("Analyzing");
     await expect(page.locator("#analysis-progress")).toHaveText("42%");
     await expect(page.locator("#analysis-spinner")).not.toHaveClass(
       /\bhidden\b/,
@@ -127,7 +127,7 @@ test.describe("analysis poll lifecycle", () => {
         message: "Analyzing beats",
       });
       // requests 1-2 (initial load + first poll) answer fast so the
-      // "Analyzing beats" status renders promptly...
+      // "Analyzing" status renders promptly...
       if (aHits <= 2) {
         return route.fulfill({
           status: 200,
@@ -149,9 +149,7 @@ test.describe("analysis poll lifecycle", () => {
     });
 
     await page.goto(`/listen/${trackA.id}`);
-    await expect(page.locator("#analysis-status")).toHaveText(
-      "Analyzing beats",
-    );
+    await expect(page.locator("#analysis-status")).toHaveText("Analyzing");
     // let the third request (a hanging poll) go out
     await page.waitForTimeout(POLL_INTERVAL_MS + 1_000);
     expect(aHits).toBeGreaterThan(2);
@@ -204,11 +202,9 @@ test.describe("sleep timer expiry", () => {
       "Pause",
     );
 
-    await page.locator("#tuning").click();
-    await page.locator("#sleep-timer-open").click();
+    await page.locator("#settings-open").click();
     await page.locator("#sleep-timer-select").selectOption("900000");
-    await page.locator("#sleep-timer-set").click();
-    await page.keyboard.press("Escape"); // close the tuning modal under it
+    await page.locator("#sleep-timer-set").click(); // applies and closes settings
 
     await page.clock.fastForward("16:00");
 
@@ -216,8 +212,7 @@ test.describe("sleep timer expiry", () => {
       "aria-label",
       "Play",
     );
-    await page.locator("#tuning").click();
-    await page.locator("#sleep-timer-open").click();
+    await page.locator("#settings-open").click();
     await expect(page.locator("#sleep-timer-current")).toHaveText("Off");
   });
 });

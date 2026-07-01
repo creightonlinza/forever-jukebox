@@ -7,19 +7,30 @@ test.describe("theme", () => {
     await page.goto("/");
     await expect(page.locator("body")).not.toHaveClass(/theme-light/);
 
-    await page.locator('[data-theme="light"]').click();
+    // theme lives in the settings modal (radio group)
+    const lightRadio = page.locator(
+      'input[name="settings-theme"][value="light"]',
+    );
+    const darkRadio = page.locator(
+      'input[name="settings-theme"][value="dark"]',
+    );
+
+    await page.locator("#settings-open").click();
+    await lightRadio.check();
     await expect(page.locator("body")).toHaveClass(/theme-light/);
-    await expect(page.locator('[data-theme="light"]')).toHaveClass(/active/);
+    await expect(lightRadio).toBeChecked();
     expect(await page.evaluate(() => localStorage.getItem("fj-theme"))).toBe(
       "light",
     );
+    await page.locator("#settings-close").click();
 
     // hard reload — theme must apply pre-paint from fj-theme
     await page.reload();
     await expect(page.locator("body")).toHaveClass(/theme-light/);
-    await expect(page.locator('[data-theme="light"]')).toHaveClass(/active/);
+    await page.locator("#settings-open").click();
+    await expect(lightRadio).toBeChecked();
 
-    await page.locator('[data-theme="dark"]').click();
+    await darkRadio.check();
     await expect(page.locator("body")).not.toHaveClass(/theme-light/);
     expect(await page.evaluate(() => localStorage.getItem("fj-theme"))).toBe(
       "dark",
