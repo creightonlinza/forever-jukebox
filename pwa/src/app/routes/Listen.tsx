@@ -255,66 +255,8 @@ function audioModeLabel(audioMode: JukeboxAudioMode, t: TFunction) {
   return t(keys[audioMode]);
 }
 
-function audioModeTooltip(audioMode: JukeboxAudioMode, t: TFunction) {
-  const keys: Partial<
-    Record<
-      JukeboxAudioMode,
-      | "audioModes.nightcoreTooltip"
-      | "audioModes.daycoreTooltip"
-      | "audioModes.vaporwaveTooltip"
-      | "audioModes.eightDTooltip"
-      | "audioModes.lofiTooltip"
-      | "audioModes.eightBitTooltip"
-      | "audioModes.underwaterTooltip"
-      | "audioModes.cathedralTooltip"
-      | "audioModes.cowbell"
-      | "audioModes.swingTooltip"
-    >
-  > = {
-    nightcore: "audioModes.nightcoreTooltip",
-    daycore: "audioModes.daycoreTooltip",
-    vaporwave: "audioModes.vaporwaveTooltip",
-    eight_d: "audioModes.eightDTooltip",
-    lofi: "audioModes.lofiTooltip",
-    eight_bit: "audioModes.eightBitTooltip",
-    underwater: "audioModes.underwaterTooltip",
-    cathedral: "audioModes.cathedralTooltip",
-    cowbell: "audioModes.cowbell",
-    swing: "audioModes.swingTooltip",
-  };
-  const key = keys[audioMode];
-  return key ? t(key) : undefined;
-}
-
 function formatAudioModeTitleLabel(audioMode: JukeboxAudioMode, t: TFunction) {
-  const keys: Partial<
-    Record<
-      JukeboxAudioMode,
-      | "listen.audioModeTitleNightcore"
-      | "listen.audioModeTitleDaycore"
-      | "listen.audioModeTitleVaporwave"
-      | "listen.audioModeTitleEightD"
-      | "listen.audioModeTitleLofi"
-      | "listen.audioModeTitleEightBit"
-      | "listen.audioModeTitleUnderwater"
-      | "listen.audioModeTitleCathedral"
-      | "listen.audioModeTitleCowbell"
-      | "listen.audioModeTitleSwing"
-    >
-  > = {
-    nightcore: "listen.audioModeTitleNightcore",
-    daycore: "listen.audioModeTitleDaycore",
-    vaporwave: "listen.audioModeTitleVaporwave",
-    eight_d: "listen.audioModeTitleEightD",
-    lofi: "listen.audioModeTitleLofi",
-    eight_bit: "listen.audioModeTitleEightBit",
-    underwater: "listen.audioModeTitleUnderwater",
-    cathedral: "listen.audioModeTitleCathedral",
-    cowbell: "listen.audioModeTitleCowbell",
-    swing: "listen.audioModeTitleSwing",
-  };
-  const key = keys[audioMode];
-  return key ? t(key) : "";
+  return audioModeLabel(audioMode, t).toLocaleLowerCase();
 }
 
 function getAudioModeInputId(mode: JukeboxAudioMode) {
@@ -335,12 +277,8 @@ function AudioModeRadio({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const tooltip = audioModeTooltip(option, t);
   return (
-    <label
-      className={`audio-mode-option ${className}`.trim()}
-      title={tooltip}
-    >
+    <label className={`audio-mode-option ${className}`.trim()}>
       <input
         id={getAudioModeInputId(option)}
         type="radio"
@@ -348,7 +286,6 @@ function AudioModeRadio({
         value={option}
         checked={checked}
         onChange={onChange}
-        title={tooltip}
         disabled={disabled}
       />
       <span>{audioModeLabel(option, t)}</span>

@@ -1628,7 +1628,7 @@ describe("Listen route behavior", () => {
     await settleEffects();
 
     const playTitle = getRequired<HTMLDivElement>(rendered.container, ".play-title");
-    expect(playTitle.textContent).toContain("(eight_bit)");
+    expect(playTitle.textContent).toContain("(8-bit)");
 
     await openTuningModal(rendered.container);
     await switchToExtrasTab(rendered.container);
@@ -1658,63 +1658,4 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
-  it("maps audio mode hover text correctly", async () => {
-    const rendered = renderListen();
-    await settleEffects();
-
-    await openTuningModal(rendered.container);
-    await switchToExtrasTab(rendered.container);
-
-    const offInput = getRequired<HTMLInputElement>(rendered.container, "#audio-mode-off");
-    const nightcoreInput = getRequired<HTMLInputElement>(
-      rendered.container,
-      "#audio-mode-nightcore"
-    );
-    const daycoreInput = getRequired<HTMLInputElement>(
-      rendered.container,
-      "#audio-mode-daycore"
-    );
-    const vaporwaveInput = getRequired<HTMLInputElement>(
-      rendered.container,
-      "#audio-mode-vaporwave"
-    );
-    const eightDInput = getRequired<HTMLInputElement>(
-      rendered.container,
-      "#audio-mode-eight-d"
-    );
-    const eightBitInput = getRequired<HTMLInputElement>(
-      rendered.container,
-      "#audio-mode-eight-bit"
-    );
-    const lofiInput = getRequired<HTMLInputElement>(rendered.container, "#audio-mode-lofi");
-    const underwaterInput = getRequired<HTMLInputElement>(
-      rendered.container,
-      "#audio-mode-underwater"
-    );
-    const cathedralInput = getRequired<HTMLInputElement>(
-      rendered.container,
-      "#audio-mode-cathedral"
-    );
-    const cowbellInput = getRequired<HTMLInputElement>(
-      rendered.container,
-      "#audio-mode-cowbell"
-    );
-    const swingInput = getRequired<HTMLInputElement>(
-      rendered.container,
-      "#audio-mode-swing"
-    );
-
-    expect(offInput.title).toBe("");
-    expect(nightcoreInput.title).toBe("Fast & Bright");
-    expect(daycoreInput.title).toBe("Slow & Deep");
-    expect(vaporwaveInput.title).toBe("Muffled & Slow");
-    expect(eightDInput.title).toBe("Spinning/Spatial");
-    expect(eightBitInput.title).toBe("Bitcrushed & Filtered");
-    expect(lofiInput.title).toBe("Radio Filter");
-    expect(underwaterInput.title).toBe("Heavy Low-Pass");
-    expect(cathedralInput.title).toBe("Cathedral Reverb");
-    expect(cowbellInput.title).toBe("More Cowbell");
-    expect(swingInput.title).toBe("Adds a loping swung feel to each beat");
-    rendered.unmount();
-  });
 });
