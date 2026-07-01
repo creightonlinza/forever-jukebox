@@ -39,18 +39,18 @@ export function formatTrackDuration(seconds: unknown) {
 export function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
   const labels: Record<JukeboxAudioMode, string> = {
     off: i18n.t("common.off"),
-    nightcore: i18n.t("playback.audioModeNightcore"),
-    daycore: i18n.t("playback.audioModeDaycore"),
-    vaporwave: i18n.t("playback.audioModeVaporwave"),
-    eight_d: i18n.t("playback.audioModeEightD"),
-    lofi: i18n.t("playback.audioModeLofi"),
-    eight_bit: i18n.t("playback.audioModeEightBit"),
-    underwater: i18n.t("playback.audioModeUnderwater"),
-    cathedral: i18n.t("playback.audioModeCathedral"),
-    cowbell: i18n.t("playback.audioModeCowbell"),
-    swing: i18n.t("playback.audioModeSwing"),
+    nightcore: i18n.t("audioModes.nightcore"),
+    daycore: i18n.t("audioModes.daycore"),
+    vaporwave: i18n.t("audioModes.vaporwave"),
+    eight_d: i18n.t("audioModes.eightD"),
+    lofi: i18n.t("audioModes.lofi"),
+    eight_bit: i18n.t("audioModes.eightBit"),
+    underwater: i18n.t("audioModes.underwater"),
+    cathedral: i18n.t("audioModes.cathedral"),
+    cowbell: i18n.t("audioModes.cowbell"),
+    swing: i18n.t("audioModes.swing"),
   };
-  return labels[audioMode];
+  return labels[audioMode].toLocaleLowerCase();
 }
 
 export function formatPlaybackTitle(

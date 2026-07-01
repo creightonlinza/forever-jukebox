@@ -21,44 +21,32 @@ const AUDIO_MODE_OPTIONS: Array<{
   value: JukeboxAudioMode;
   labelKey:
     | "common.off"
-    | "tuning.nightcore"
-    | "tuning.daycore"
-    | "tuning.vaporwave"
-    | "tuning.eightD"
-    | "tuning.lofi"
-    | "tuning.eightBit"
-    | "tuning.underwater"
-    | "tuning.cathedral"
-    | "tuning.cowbell"
-    | "tuning.swing";
-  titleKey?:
-    | "tuning.nightcoreTooltip"
-    | "tuning.daycoreTooltip"
-    | "tuning.vaporwaveTooltip"
-    | "tuning.eightDTooltip"
-    | "tuning.lofiTooltip"
-    | "tuning.eightBitTooltip"
-    | "tuning.underwaterTooltip"
-    | "tuning.cathedralTooltip"
-    | "tuning.cowbell"
-    | "tuning.swingTooltip";
+    | "audioModes.nightcore"
+    | "audioModes.daycore"
+    | "audioModes.vaporwave"
+    | "audioModes.eightD"
+    | "audioModes.lofi"
+    | "audioModes.eightBit"
+    | "audioModes.underwater"
+    | "audioModes.cathedral"
+    | "audioModes.cowbell"
+    | "audioModes.swing";
   section: "default" | "styles" | "toys";
 }> = [
   { id: "audio-mode-off", value: "off", labelKey: "common.off", section: "default" },
-  { id: "audio-mode-nightcore", value: "nightcore", labelKey: "tuning.nightcore", titleKey: "tuning.nightcoreTooltip", section: "styles" },
-  { id: "audio-mode-daycore", value: "daycore", labelKey: "tuning.daycore", titleKey: "tuning.daycoreTooltip", section: "styles" },
-  { id: "audio-mode-vaporwave", value: "vaporwave", labelKey: "tuning.vaporwave", titleKey: "tuning.vaporwaveTooltip", section: "styles" },
-  { id: "audio-mode-eight-d", value: "eight_d", labelKey: "tuning.eightD", titleKey: "tuning.eightDTooltip", section: "styles" },
-  { id: "audio-mode-lofi", value: "lofi", labelKey: "tuning.lofi", titleKey: "tuning.lofiTooltip", section: "styles" },
-  { id: "audio-mode-eight-bit", value: "eight_bit", labelKey: "tuning.eightBit", titleKey: "tuning.eightBitTooltip", section: "styles" },
-  { id: "audio-mode-underwater", value: "underwater", labelKey: "tuning.underwater", titleKey: "tuning.underwaterTooltip", section: "styles" },
-  { id: "audio-mode-cathedral", value: "cathedral", labelKey: "tuning.cathedral", titleKey: "tuning.cathedralTooltip", section: "styles" },
-  { id: "audio-mode-cowbell", value: "cowbell", labelKey: "tuning.cowbell", titleKey: "tuning.cowbell", section: "toys" },
+  { id: "audio-mode-nightcore", value: "nightcore", labelKey: "audioModes.nightcore", section: "styles" },
+  { id: "audio-mode-daycore", value: "daycore", labelKey: "audioModes.daycore", section: "styles" },
+  { id: "audio-mode-vaporwave", value: "vaporwave", labelKey: "audioModes.vaporwave", section: "styles" },
+  { id: "audio-mode-eight-d", value: "eight_d", labelKey: "audioModes.eightD", section: "styles" },
+  { id: "audio-mode-lofi", value: "lofi", labelKey: "audioModes.lofi", section: "styles" },
+  { id: "audio-mode-eight-bit", value: "eight_bit", labelKey: "audioModes.eightBit", section: "styles" },
+  { id: "audio-mode-underwater", value: "underwater", labelKey: "audioModes.underwater", section: "styles" },
+  { id: "audio-mode-cathedral", value: "cathedral", labelKey: "audioModes.cathedral", section: "styles" },
+  { id: "audio-mode-cowbell", value: "cowbell", labelKey: "audioModes.cowbell", section: "toys" },
   {
     id: "audio-mode-swing",
     value: "swing",
-    labelKey: "tuning.swing",
-    titleKey: "tuning.swingTooltip",
+    labelKey: "audioModes.swing",
     section: "toys",
   },
 ];
@@ -185,14 +173,12 @@ export function TuningModal() {
           ? "audio-mode-option audio-mode-default-option"
           : "audio-mode-option"
       }
-      title={option.titleKey ? t(option.titleKey) : undefined}
     >
       <input
         id={option.id}
         type="radio"
         name="audio-mode"
         value={option.value}
-        title={option.titleKey ? t(option.titleKey) : undefined}
         checked={extras?.audioMode === option.value}
         disabled={!hasExtrasTab}
         onChange={() => setExtrasField("audioMode", option.value)}
