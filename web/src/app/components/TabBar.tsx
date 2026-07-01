@@ -1,6 +1,7 @@
 import type { TabId } from "../context";
 import { useAppStore } from "../store";
 import { useTranslation } from "react-i18next";
+import { SettingsButton } from "./Hero";
 
 function tabClass(active: boolean, pulsing = false) {
   let cls = "tab-btn";
@@ -58,6 +59,10 @@ export function TabBar() {
         <span className="tab-label-offline-full">{t("navigation.offlineApp")}</span>
         <span className="tab-label-offline-short">{t("navigation.app")}</span>
       </a>
+      <SettingsButton
+        id="settings-open"
+        className="settings-button settings-button-tab"
+      />
     </nav>
   );
 }

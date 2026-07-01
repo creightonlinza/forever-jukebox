@@ -2,12 +2,15 @@ import { useAppStore } from "../store";
 import { TabBar } from "./TabBar";
 import { useTranslation } from "react-i18next";
 
-function SettingsButton() {
+export function SettingsButton({
+  id,
+  className = "settings-button",
+}: { id?: string; className?: string } = {}) {
   const { t } = useTranslation();
   return (
     <button
-      id="settings-open"
-      className="settings-button"
+      id={id}
+      className={className}
       type="button"
       aria-label={t("settings.open")}
       title={t("settings.open")}
@@ -100,7 +103,7 @@ export function Hero() {
     <header className="hero">
       <div className="hero-actions">
         <HeroSocials />
-        <SettingsButton />
+        <SettingsButton className="settings-button settings-button-hero" />
       </div>
       <div className="hero-main">
         <button

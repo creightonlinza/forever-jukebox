@@ -190,6 +190,23 @@ export function FaqPanel() {
         className={subtab === "whats-new" ? "faq faq-updates" : "faq faq-updates hidden"}
         id="faq-whats-new-panel"
       >
+        <h4>{t("faq.july2026")}</h4>
+        <p>{t("faq.julyIntro")}</p>
+        <ul>
+          <li>
+            <Trans i18nKey="faq.julyPanning" components={{ strong: <strong /> }} />
+          </li>
+          <li>
+            <Trans i18nKey="faq.julyThumbnails" components={{ strong: <strong /> }} />
+          </li>
+          <li>
+            <Trans i18nKey="faq.julyVelocity" components={{ strong: <strong /> }} />
+          </li>
+          <li>
+            <Trans i18nKey="faq.julyBranchLength" components={{ strong: <strong /> }} />
+          </li>
+        </ul>
+
         <h4>{t("faq.june2026")}</h4>
         <ul>
           <li>

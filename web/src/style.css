@@ -234,6 +234,18 @@ button,
   background: var(--surface-control);
 }
 
+/* Gear lives in the tab row by default; keep it full-size so the scrolling
+   row doesn't squash it. */
+.settings-button-tab {
+  flex-shrink: 0;
+}
+
+/* The hero-corner gear is a mobile-only fallback, hidden until the tab row
+   collapses at the 600px breakpoint. */
+.settings-button-hero {
+  display: none;
+}
+
 .settings-button-icon {
   font-variation-settings:
     "FILL" 0,
@@ -547,6 +559,7 @@ a:focus-visible {
 .tabs {
   display: flex;
   flex-wrap: nowrap;
+  align-items: center;
   /* flex-start keeps the overflow off the right edge (scrollable). flex-end
      would push it off the left, where browsers can't scroll to reach it. */
   justify-content: flex-start;
@@ -2440,7 +2453,12 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
     margin-top: 12px;
   }
 
-  .settings-button {
+  .settings-button-tab {
+    display: none;
+  }
+
+  .settings-button-hero {
+    display: inline-flex;
     position: absolute;
     top: 0;
     right: 0;
