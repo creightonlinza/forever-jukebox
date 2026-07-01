@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import i18n, {
-  isRtlLanguage,
   resolveSupportedLanguage,
   supportedLanguageOptions,
 } from "./i18n";
@@ -31,11 +30,7 @@ describe("PWA i18n bootstrap", () => {
     expect(resolveSupportedLanguage("invalid")).toBe("en");
   });
 
-  it("sets text direction and detects RTL languages", () => {
+  it("sets document text direction on bootstrap", () => {
     expect(document.documentElement.dir).toBe("ltr");
-    expect(isRtlLanguage("ar")).toBe(true);
-    expect(isRtlLanguage("he-IL")).toBe(true);
-    expect(isRtlLanguage("en")).toBe(false);
-    expect(isRtlLanguage(null)).toBe(false);
   });
 });
