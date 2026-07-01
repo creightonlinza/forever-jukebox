@@ -23,6 +23,7 @@ import { getAppContext, getPlaybackDeps } from "./runtime";
 import { useAppStore } from "./store";
 import { syncTuningParamsState, writeTuningParamsToUrl } from "./tuning";
 import { showToast } from "./ui";
+import i18n from "./i18n";
 
 type FavoritesDelta = {
   added: FavoriteTrack[];
@@ -65,7 +66,7 @@ export async function hydrateFavoritesFromSync() {
       await refreshFavoritesFromSync();
     } catch (err) {
       console.warn(`Favorites sync hydrate failed: ${String(err)}`);
-      showToast("Favorites sync failed.");
+      showToast(i18n.t("favorites.syncFailed"));
     }
   }
 
@@ -81,10 +82,10 @@ export async function refreshFavoritesFromSync() {
       const items = await fetchFavoritesSync(code);
       const favorites = normalizeFavoritesFromSync(items);
       updateFavorites(favorites, { sync: false });
-      showToast("Favorites refreshed.", { icon: "cloud_done" });
+      showToast(i18n.t("favorites.refreshed"), { icon: "cloud_done" });
     } catch (err) {
       console.warn(`Favorites sync refresh failed: ${String(err)}`);
-      showToast("Favorites sync failed.");
+      showToast(i18n.t("favorites.syncFailed"));
     }
   }
 
@@ -96,7 +97,7 @@ export async function enterSyncCode(
     const items = await fetchFavoritesSync(code);
     const favorites = normalizeFavoritesFromSync(items);
     const shouldReplace = window.confirm(
-      "Replace your local favorites with the synced list?",
+      i18n.t("favorites.replaceConfirm"),
     );
     if (!shouldReplace) {
       return "cancelled";
@@ -132,7 +133,7 @@ export async function createSyncCode(): Promise<string> {
       const title =
         typeof item.title === "string" && item.title.trim()
           ? item.title.trim()
-          : "Untitled";
+          : i18n.t("common.untitled");
       const artist = typeof item.artist === "string" ? item.artist : "";
       const duration =
         typeof item.duration === "number" && Number.isFinite(item.duration)
@@ -238,7 +239,7 @@ export function updateFavorites(
       }
     } catch (err) {
       console.warn(`Favorites sync update failed: ${String(err)}`);
-      showToast("Favorites sync failed.");
+      showToast(i18n.t("favorites.syncFailed"));
     } finally {
       syncUpdateInFlight = false;
       if (pendingSyncDelta) {
@@ -374,7 +375,7 @@ export function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
     if (isFavorite(useAppStore.getState().favorites, favoriteId)) {
       return;
     }
-    const title = useAppStore.getState().trackTitle || "Untitled";
+    const title = useAppStore.getState().trackTitle || i18n.t("common.untitled");
     const artist = useAppStore.getState().trackArtist || "";
     const inferredSourceType = provider ?? sourceTypeFromAnalysis(response) ?? "upload";
     const track: FavoriteTrack = {
@@ -418,7 +419,10 @@ export function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
       ...olderFavorite,
       uniqueSongId: jobId,
       sourceType: sourceTypeFromAnalysis(response) ?? olderFavorite.sourceType ?? "youtube",
-      title: useAppStore.getState().trackTitle || olderFavorite.title || "Untitled",
+      title:
+        useAppStore.getState().trackTitle ||
+        olderFavorite.title ||
+        i18n.t("common.untitled"),
       artist: useAppStore.getState().trackArtist || olderFavorite.artist || "",
       duration: useAppStore.getState().trackDurationSec ?? olderFavorite.duration,
     };
@@ -514,7 +518,7 @@ export function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
 
 export function removeFavoriteWithToast(favoriteId: string) {
     updateFavorites(removeFavorite(useAppStore.getState().favorites, favoriteId));
-    showFavoriteToast("Removed from Favorites");
+    showFavoriteToast(i18n.t("favorites.removed"));
   }
 
   async function handleFavoriteToggle() {
@@ -533,7 +537,7 @@ export function removeFavoriteWithToast(favoriteId: string) {
       }
       try {
         updateFavorites(removeFavorite(useAppStore.getState().favorites, currentFavorite.uniqueSongId));
-        showFavoriteToast("Removed from Favorites");
+        showFavoriteToast(i18n.t("favorites.removed"));
         if (showLoading) {
           await waitForFavoritesSyncIdle();
         }
@@ -544,7 +548,7 @@ export function removeFavoriteWithToast(favoriteId: string) {
       }
       return;
     }
-    const title = useAppStore.getState().trackTitle || "Untitled";
+    const title = useAppStore.getState().trackTitle || i18n.t("common.untitled");
     const artist = useAppStore.getState().trackArtist || "";
     const track: FavoriteTrack = {
       uniqueSongId: currentId,
@@ -561,7 +565,7 @@ export function removeFavoriteWithToast(favoriteId: string) {
     };
     const result = addFavorite(useAppStore.getState().favorites, track);
     if (result.status === "limit") {
-      showToast(`Maximum favorites reached (${maxFavorites()}).`);
+      showToast(i18n.t("favorites.maximum", { count: maxFavorites() }));
       return;
     }
     const showLoading = shouldShowFavoriteToggleLoading();
@@ -571,9 +575,9 @@ export function removeFavoriteWithToast(favoriteId: string) {
     try {
       updateFavorites(result.favorites);
       if (result.status === "added") {
-        showFavoriteToast("Added to Favorites");
+        showFavoriteToast(i18n.t("favorites.added"));
       } else {
-        showToast("Favorited");
+        showToast(i18n.t("favorites.favorited"));
       }
       if (showLoading) {
         await waitForFavoritesSyncIdle();

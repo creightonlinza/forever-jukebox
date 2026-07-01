@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigationType } from "react-router-dom";
 import { getAppContext, handleRoute } from "../runtime";
 import { useAppStore } from "../store";
@@ -15,12 +16,12 @@ import { Footer } from "./Footer";
 import { Hero } from "./Hero";
 import { NavigationDriver } from "./NavigationDriver";
 import { SearchPanel } from "./SearchPanel";
+import { SettingsModal } from "./SettingsModal";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
 import { InfoModal } from "./listen/InfoModal";
 import { ListenPanel } from "./listen/ListenPanel";
 import { PlaylistModal } from "./listen/PlaylistModal";
-import { SleepTimerModal } from "./listen/SleepTimerModal";
 import { TuningModal } from "./listen/TuningModal";
 
 // Derives activeTab from the URL on every location change and runs the
@@ -63,6 +64,7 @@ function useTabEffects() {
 }
 
 function useDocumentTitle() {
+  const { i18n } = useTranslation();
   const location = useLocation();
   const activeTab = useAppStore((s) => s.activeTabId);
   const trackTitle = useAppStore((s) => s.trackTitle);
@@ -74,7 +76,8 @@ function useDocumentTitle() {
       trackTitle,
       trackArtist,
     });
-  }, [activeTab, location.pathname, trackTitle, trackArtist]);
+    // i18n.language is a dependency so the title re-localizes on language change.
+  }, [activeTab, location.pathname, trackTitle, trackArtist, i18n.language]);
 }
 
 // Body-level flag CSS uses to reveal playlist-add buttons.
@@ -134,7 +137,7 @@ export function AppRoot() {
       <Footer />
       <Toast />
       <TuningModal />
-      <SleepTimerModal />
+      <SettingsModal />
       <InfoModal />
       <PlaylistModal />
     </>

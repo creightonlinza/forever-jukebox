@@ -8,6 +8,7 @@ import {
   updatePlayButton,
 } from "./status-ui";
 import { requestWakeLock } from "./wake-lock";
+import i18n from "../i18n";
 
 let listenTimerId: number | null = null;
 
@@ -109,7 +110,9 @@ export function startJukeboxPlayback(context: AppContext, resetSession: boolean)
     return;
   }
   if (isPlaybackBlockedForSwing()) {
-    showToast("Preparing Swing mode...", { icon: "hourglass_top" });
+    showToast(i18n.t("playback.preparingSwingEllipsis"), {
+      icon: "hourglass_top",
+    });
     updatePlayButton();
     return;
   }
@@ -179,7 +182,9 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
     return;
   }
   if (isPlaybackBlockedForSwing()) {
-    showToast("Preparing Swing mode...", { icon: "hourglass_top" });
+    showToast(i18n.t("playback.preparingSwingEllipsis"), {
+      icon: "hourglass_top",
+    });
     updatePlayButton();
     return;
   }

@@ -8,6 +8,7 @@ import {
 } from "./errorDisplay";
 import type { PlaylistTrack } from "./playlist";
 import { setLoadingProgress, showToast } from "./ui";
+import i18n from "./i18n";
 
 // Upload flows. The React Search panel owns the inputs/busy state and calls
 // these with values; `onAccepted` fires when the job is accepted (before
@@ -29,7 +30,9 @@ function formatMinutes(value: number): string {
 }
 
 function maxTrackLengthMessage(minutes: number): string {
-  return `The maximum track length for this server is ${formatMinutes(minutes)} minutes.`;
+  return i18n.t("search.maxTrackLength", {
+    minutes: formatMinutes(minutes),
+  });
 }
 
 function normalizeUploadedSourceType(
@@ -110,16 +113,18 @@ export async function uploadAudioFile(
   const { context } = deps;
   const config = useAppStore.getState().appConfig;
   if (!config?.allow_user_upload) {
-    showToast("Uploads are disabled.");
+    showToast(i18n.t("upload.disabled"));
     return;
   }
   if (!file) {
-    showToast("Choose a file to upload.");
+    showToast(i18n.t("upload.chooseFile"));
     return;
   }
   if (config.max_upload_size && file.size > config.max_upload_size) {
     showToast(
-      `File is too large. Max ${Math.round(config.max_upload_size / (1024 * 1024))} MB.`,
+      i18n.t("upload.fileTooLarge", {
+        size: Math.round(config.max_upload_size / (1024 * 1024)),
+      }),
     );
     return;
   }
@@ -156,7 +161,7 @@ export async function uploadAudioFile(
     deps.onNormalTrackSelected?.({
       id: response.id,
       sourceType: "upload",
-      title: file.name || "Untitled",
+      title: file.name || i18n.t("common.untitled"),
       artist: "",
       duration: null,
       tuningParams: null,
@@ -175,7 +180,7 @@ export async function uploadAudioFile(
     });
     onAccepted?.();
     useAppStore.getState().setActiveTab("play");
-    setLoadingProgress(context, null, "Queued");
+    setLoadingProgress(context, null, i18n.t("common.queued"));
     await deps.pollAnalysisJob(response.id);
   } catch (err) {
     const trackTooLong =
@@ -192,7 +197,7 @@ export async function uploadAudioFile(
         formatErrorForDisplay(err) ||
           (fallbackLimit !== null
             ? maxTrackLengthMessage(fallbackLimit)
-            : "This track exceeds the server max track length."),
+            : i18n.t("upload.trackTooLong")),
         {
           icon: "error",
           tone: "error",
@@ -200,7 +205,9 @@ export async function uploadAudioFile(
       );
       return;
     }
-    showToast(`Upload failed: ${formatErrorForDisplay(err)}`, {
+    showToast(i18n.t("upload.failedWithError", {
+      error: formatErrorForDisplay(err),
+    }), {
       icon: "error",
       tone: "error",
     });
@@ -216,17 +223,17 @@ export async function uploadFromUrl(
   const config = useAppStore.getState().appConfig;
   const allowUserUrl = Boolean(config?.allow_user_url);
   if (!allowUserUrl) {
-    showToast("URL uploads are disabled.");
+    showToast(i18n.t("upload.urlDisabled"));
     return;
   }
   const trimmed = raw.trim();
   if (!trimmed) {
-    showToast("Enter a supported URL.");
+    showToast(i18n.t("upload.enterSupportedUrl"));
     return;
   }
   const sourceUrl = normalizeSupportedSourceUrl(trimmed);
   if (!sourceUrl) {
-    showToast("Invalid or unsupported URL.");
+    showToast(i18n.t("upload.invalidUrl"));
     return;
   }
   const requestedSourceProvider = inferSourceProviderFromUrl(sourceUrl);
@@ -244,7 +251,7 @@ export async function uploadFromUrl(
         formatErrorForDisplay(response.error, {
           sourceProvider: sourceProvider ?? requestedSourceProvider,
           errorCode: response.error_code,
-          fallback: "Upload failed.",
+          fallback: i18n.t("upload.failed"),
         }),
         { icon: "error", tone: "error" },
       );
@@ -258,7 +265,7 @@ export async function uploadFromUrl(
     deps.onNormalTrackSelected?.({
       id: listenId,
       sourceType: playlistSourceType,
-      title: "Untitled",
+      title: i18n.t("common.untitled"),
       artist: "",
       duration: null,
       tuningParams: null,
@@ -278,7 +285,7 @@ export async function uploadFromUrl(
       tuningParams: null,
     });
     useAppStore.getState().setActiveTab("play");
-    setLoadingProgress(context, null, "Fetching audio");
+    setLoadingProgress(context, null, i18n.t("common.fetchingAudio"));
     await deps.pollAnalysisJob(response.id);
   } catch (err) {
     const trackTooLong =
@@ -297,7 +304,7 @@ export async function uploadFromUrl(
         }) ||
           (fallbackLimit !== null
             ? maxTrackLengthMessage(fallbackLimit)
-            : "This track exceeds the server max track length."),
+            : i18n.t("upload.trackTooLong")),
         {
           icon: "error",
           tone: "error",
@@ -308,7 +315,7 @@ export async function uploadFromUrl(
     showToast(
       formatErrorForDisplay(err, {
         sourceProvider: requestedSourceProvider,
-        fallback: "Upload failed.",
+        fallback: i18n.t("upload.failed"),
       }),
       { icon: "error", tone: "error" },
     );

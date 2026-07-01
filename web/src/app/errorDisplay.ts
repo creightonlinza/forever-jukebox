@@ -1,6 +1,7 @@
 type ErrorLike = Error & {
   code?: string;
 };
+import i18n from "./i18n";
 
 export type ErrorDisplayOptions = {
   sourceProvider?: string | null;
@@ -8,8 +9,7 @@ export type ErrorDisplayOptions = {
   fallback?: string;
 };
 
-const GENERIC_ERROR_MESSAGE =
-  "Something went wrong. Please try again or report an issue on GitHub.";
+const GENERIC_ERROR_MESSAGE = i18n.t("errors.generic");
 
 const FETCH_FAILURE_CODES = new Set([
   "download_unavailable",
@@ -52,7 +52,10 @@ function errorCode(value: unknown): string | null {
   return typeof code === "string" && code.trim() ? code.trim() : null;
 }
 
-export function cleanErrorMessage(value: unknown, fallback = "Loading failed."): string {
+export function cleanErrorMessage(
+  value: unknown,
+  fallback = i18n.t("errors.loadingFailed"),
+): string {
   let message = errorMessage(value).replace(/\s+/g, " ").trim();
   while (/^error:\s*/i.test(message)) {
     message = message.replace(/^error:\s*/i, "").trim();
@@ -86,7 +89,7 @@ export function formatErrorForDisplay(
   const code = options.errorCode ?? errorCode(value);
   const label = sourceLabel(options.sourceProvider);
   if (label && isSourceFetchFailure(message, code)) {
-    return `${label} fetch failed.`;
+    return i18n.t("errors.sourceFetchFailed", { source: label });
   }
   return message;
 }

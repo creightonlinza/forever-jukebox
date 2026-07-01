@@ -23,6 +23,7 @@ import {
   writeTuningParamsToUrl,
 } from "./tuning";
 import { isEditableTarget, setAnalysisStatus, showToast } from "./ui";
+import i18n from "./i18n";
 
 let lastCowbellBeatsPlayed = 0;
 
@@ -48,12 +49,12 @@ function toSimilarityPercent(distance: number, maxDistance: number) {
 
 function branchDirection(edge: Edge) {
   if (edge.dest.which < edge.src.which) {
-    return "Backward";
+    return i18n.t("playback.backward");
   }
   if (edge.dest.which > edge.src.which) {
-    return "Forward";
+    return i18n.t("playback.forward");
   }
-  return "Same beat";
+  return i18n.t("playback.sameBeat");
 }
 
   function syncExtrasPopup(edge: Edge | null) {
@@ -77,7 +78,7 @@ function branchDirection(edge: Edge) {
     const maxDistance = Math.max(1, engine.getConfig().maxBranchThreshold);
     useAppStore.setState({
       branchStats: {
-        title: `Branch #${edge.id} stats`,
+        title: i18n.t("playback.branchStatsTitle", { id: edge.id }),
         startText: formatDuration(startDisplaySeconds),
         endText: formatDuration(endDisplaySeconds),
         deltaText: formatSignedDuration(endDisplaySeconds - startDisplaySeconds),
@@ -299,7 +300,7 @@ export function setCanonizerFinish(checked: boolean): void {
     useAppStore.setState({ tuningParams: result.length > 0 ? result : null });
     writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
     showToast(
-      nextAnchor ? "Anchor branch set" : "Anchor branch reset",
+      nextAnchor ? i18n.t("playback.anchorSet") : i18n.t("playback.anchorReset"),
     );
     return true;
   }
@@ -341,7 +342,9 @@ export function handleKeydown(event: KeyboardEvent): void {
       const enabled = !useAppStore.getState().bringItHomeMode;
       setBringItHomeMode(enabled);
       showToast(
-        `Bring It Home ${enabled ? "enabled" : "disabled"}`,
+        enabled
+          ? i18n.t("playback.bringHomeEnabled")
+          : i18n.t("playback.bringHomeDisabled"),
       );
       return;
     }
@@ -357,20 +360,22 @@ export function handleKeydown(event: KeyboardEvent): void {
       const velocity = engine.getPlayVelocity() + direction;
       engine.setPlayVelocity(velocity);
       showToast(
-        `Play velocity: ${formatPlayVelocity(engine.getPlayVelocity())}`,
+        i18n.t("playback.playVelocity", {
+          value: formatPlayVelocity(engine.getPlayVelocity()),
+        }),
       );
       return;
     }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       engine.setPlayVelocity(0);
-      showToast("Play velocity: 0");
+      showToast(i18n.t("playback.playVelocity", { value: "0" }));
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
       engine.setPlayVelocity(1);
-      showToast("Play velocity: +1");
+      showToast(i18n.t("playback.playVelocity", { value: "+1" }));
       return;
     }
     if (event.key === "Control") {
@@ -485,7 +490,7 @@ export function copyShortUrl(): void {
     if (!trackId) {
       setAnalysisStatus(
         context,
-        "Select a track to generate a short URL.",
+        i18n.t("playback.selectTrackForUrl"),
         false,
       );
       return;
@@ -505,9 +510,13 @@ export function copyShortUrl(): void {
     const shortUrl = url.toString();
     try {
       await navigator.clipboard.writeText(shortUrl);
-      showToast("Link copied to clipboard");
+      showToast(i18n.t("status.linkCopied"));
     } catch (err) {
-      setAnalysisStatus(context, `Copy failed: ${formatErrorForDisplay(err)}`, false);
+      setAnalysisStatus(
+        context,
+        i18n.t("status.copyFailed", { error: formatErrorForDisplay(err) }),
+        false,
+      );
     }
   }
 

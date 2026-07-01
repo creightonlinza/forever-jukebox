@@ -1,4 +1,5 @@
 import "../cast/style.css";
+import i18n from "../app/i18n";
 import {
   BufferedAudioPlayer,
   type JukeboxAudioMode,
@@ -10,6 +11,7 @@ import { JukeboxViz } from "@forever-jukebox/engine/viz/JukeboxViz";
 import { fetchAnalysis, fetchAudio, recordPlay, retryJob } from "../app/api";
 import { formatErrorForDisplay } from "../app/errorDisplay";
 import { formatDuration } from "../app/format";
+import { translateJobProgress } from "../app/job-progress";
 import {
   CAST_AUDIO_MODE_CAPABILITIES,
   applyCastTuningToEngine,
@@ -229,16 +231,14 @@ type CastErrorInfo = {
 
 function buildCastTrackTooLongError(): CastErrorInfo {
   return {
-    message:
-      "Sorry, tracks longer than 7 minutes cannot be cast due to Chromecast memory limitations.",
+    message: i18n.t("cast.tooLong"),
     code: CAST_TRACK_TOO_LONG_ERROR_CODE,
   };
 }
 
 function buildCastTrackDurationUnknownError(): CastErrorInfo {
   return {
-    message:
-      "Sorry, this track cannot be cast because its duration could not be verified before loading.",
+    message: i18n.t("cast.durationUnknown"),
     code: CAST_TRACK_DURATION_UNKNOWN_ERROR_CODE,
   };
 }
@@ -326,7 +326,7 @@ async function pollAnalysis(
           formatErrorForDisplay(response.error, {
             sourceProvider: response.source_provider,
             errorCode: response.error_code,
-            fallback: "Analysis failed.",
+            fallback: i18n.t("cast.analysisFailed"),
           }),
         ),
         { code: response.error_code },
@@ -339,7 +339,11 @@ async function pollAnalysis(
       typeof response.progress === "number"
         ? Math.round(response.progress)
         : null;
-    const message = response.message || "Processing";
+    const message = translateJobProgress(
+      response.status,
+      progress,
+      response.message,
+    );
     setStatus(
       statusEl,
       progress === null ? message : `${message} (${progress}%)`,
@@ -355,7 +359,7 @@ async function loadAnalysis(
   token: number,
   state: CastState,
 ): Promise<Awaited<ReturnType<typeof fetchAnalysis>>> {
-  setStatus(statusEl, "Loading analysis");
+  setStatus(statusEl, i18n.t("cast.loadingAnalysis"));
   let initialResponse = await fetchAnalysis(jobId);
   if (token !== state.loadToken) {
     throw new Error("Load cancelled");
@@ -386,7 +390,7 @@ async function loadAudio(
   if (token !== state.loadToken) {
     throw new Error("Load cancelled");
   }
-  setStatus(statusEl, "Loading audio");
+  setStatus(statusEl, i18n.t("cast.loadingAudio"));
   const buffer = await fetchAudio(jobId);
   if (token !== state.loadToken) {
     throw new Error("Load cancelled");
@@ -396,6 +400,15 @@ async function loadAudio(
 
 async function bootstrap() {
   const elements = getElements();
+  document.title = i18n.t("cast.documentTitle");
+  const logoImage = elements.logo.querySelector("img");
+  if (logoImage) {
+    logoImage.alt = i18n.t("cast.logoAlt");
+  }
+  const listenLabel = document.querySelector("#cast-listen-label");
+  if (listenLabel) {
+    listenLabel.textContent = i18n.t("cast.listenTime");
+  }
   const POST_LOAD_PLAY_DELAY_MS = 2000;
   const IDLE_TIMEOUT_SECONDS = 600;
   const IDLE_TIMEOUT_MS = IDLE_TIMEOUT_SECONDS * 1000;
@@ -455,7 +468,7 @@ async function bootstrap() {
 
   function getDisplayTitle() {
     if (!state.trackTitle) {
-      return "Forever Jukebox";
+      return i18n.t("common.appName");
     }
     return state.audioMode === "off"
       ? state.trackTitle
@@ -470,7 +483,9 @@ async function bootstrap() {
 
   function updateBeatsLabel() {
     elements.beatsLabel.textContent =
-      state.audioMode === "cowbell" ? "Total Cowbells:" : "Total Beats:";
+      state.audioMode === "cowbell"
+        ? i18n.t("cast.totalCowbells")
+        : i18n.t("cast.totalBeats");
   }
 
   function setAudioMode(mode: JukeboxAudioMode) {
@@ -812,7 +827,7 @@ async function bootstrap() {
     listenAccumulatedMs = 0;
     elements.listenTime.textContent = "00:00:00";
     elements.beatsPlayed.textContent = "0";
-    elements.title.textContent = "Forever Jukebox";
+    elements.title.textContent = i18n.t("common.appName");
     setReceiverIdle();
     sendStatusUpdate();
   }
@@ -864,16 +879,16 @@ async function bootstrap() {
     isTrackPaused = false;
     listenAccumulatedMs = 0;
     setLoadingState(elements, true);
-    setStatus(elements.status, "Loading…");
+    setStatus(elements.status, i18n.t("cast.loading"));
     elements.listenTime.textContent = "00:00:00";
     elements.beatsPlayed.textContent = "0";
-    elements.title.textContent = "Forever Jukebox";
+    elements.title.textContent = i18n.t("common.appName");
     sendStatusUpdate();
     return token;
   }
 
   function applyTrackMetadata(trackMeta: CastTrackMeta, durationSeconds: number) {
-    const title = trackMeta.title || "Unknown";
+    const title = trackMeta.title || i18n.t("cast.unknownTrack");
     const artist = trackMeta.artist || "";
     state.trackTitle = title;
     state.trackArtist = artist || null;
@@ -1029,7 +1044,7 @@ async function bootstrap() {
         return;
       }
       const errorMessage = formatErrorForDisplay(err, {
-        fallback: "Load failed.",
+        fallback: i18n.t("cast.loadFailed"),
       });
       const errorCode =
         err &&
@@ -1161,7 +1176,7 @@ async function bootstrap() {
       return true;
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to apply tuning";
+        err instanceof Error ? err.message : i18n.t("cast.tuningFailed");
       console.error("Failed to apply cast tuning", err);
       sendStatusUpdate(errorMessage);
       return false;

@@ -490,7 +490,7 @@ describe("cast receiver main", () => {
     expect(doubles.retryJobMock).toHaveBeenCalledTimes(1);
     expect(doubles.retryJobMock).toHaveBeenCalledWith(jobId);
     expect(document.querySelector("#cast-status")?.textContent).toBe(
-      "Restarted (10%)",
+      "Analyzing (10%)",
     );
 
     await vi.advanceTimersByTimeAsync(5100);

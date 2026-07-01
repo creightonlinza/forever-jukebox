@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnalysisOutput } from "@/shared/analysis-schema";
 import type { JukeboxConfig } from "@forever-jukebox/engine";
-import { exportJukeboxAudio } from "../exporter";
+import {
+  exportJukeboxAudio,
+  type JukeboxExportProgress,
+} from "../exporter";
 import { planJukeboxPath } from "../plan";
 import { renderJukeboxAudio } from "../render";
 import {
@@ -97,7 +100,7 @@ describe("exportJukeboxAudio progress", () => {
       mimeType: "audio/mpeg",
     }));
 
-    const events: Array<{ stage: string; percent: number }> = [];
+    const events: JukeboxExportProgress[] = [];
 
     const result = await exportJukeboxAudio({
       analysis: mockAnalysis,
@@ -107,16 +110,24 @@ describe("exportJukeboxAudio progress", () => {
       format: "mp3",
       audioMode: "off",
       onProgress: (event) => {
-        events.push({ stage: event.stage, percent: event.percent });
+        events.push(event);
       },
     });
 
     expect(result.extension).toBe("mp3");
     expect(events.length).toBeGreaterThan(0);
-    expect(events[0]).toEqual({ stage: "planning", percent: 2 });
+    expect(events[0]).toEqual({
+      stage: "planning",
+      message: { kind: "planning" },
+      percent: 2,
+    });
     expect(events.some((event) => event.stage === "rendering" && event.percent >= 80)).toBe(true);
     expect(events.some((event) => event.stage === "encoding" && event.percent >= 90)).toBe(true);
-    expect(events[events.length - 1]).toEqual({ stage: "encoding", percent: 100 });
+    expect(events[events.length - 1]).toEqual({
+      stage: "encoding",
+      message: { kind: "finalizing" },
+      percent: 100,
+    });
   });
 
   it("rejects oversized wav exports with a memory-safe error", async () => {

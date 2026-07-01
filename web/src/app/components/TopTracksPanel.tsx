@@ -37,37 +37,39 @@ import {
 } from "../favorites-actions";
 import { addToPlaylist } from "../playlist-actions";
 import { selectTrack } from "../track-select";
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 
 type TopSongsTabId = "top" | "trending" | "recent" | "favorites";
 
 const LIST_CONFIG: Record<
   TopSongsListTabId,
   {
-    loadingText: string;
-    emptyText: string;
-    errorPrefix: string;
+    loadingText: () => string;
+    emptyText: () => string;
+    errorPrefix: () => string;
     listId: string;
     fetchItems: () => Promise<TopSongsItem[]>;
   }
 > = {
   top: {
-    loadingText: "Loading top tracks…",
-    emptyText: "No plays recorded yet.",
-    errorPrefix: "Top tracks",
+    loadingText: () => i18n.t("topTracks.loadingTop"),
+    emptyText: () => i18n.t("topTracks.emptyTop"),
+    errorPrefix: () => i18n.t("topTracks.topError"),
     listId: "top-songs",
     fetchItems: () => fetchTopSongs(TOP_SONGS_LIMIT),
   },
   trending: {
-    loadingText: "Loading trending tracks…",
-    emptyText: "No trending tracks yet.",
-    errorPrefix: "Trending tracks",
+    loadingText: () => i18n.t("topTracks.loadingTrending"),
+    emptyText: () => i18n.t("topTracks.emptyTrending"),
+    errorPrefix: () => i18n.t("topTracks.trendingError"),
     listId: "trending-songs",
     fetchItems: () => fetchTrendingSongs(),
   },
   recent: {
-    loadingText: "Loading recent plays…",
-    emptyText: "No recent plays yet.",
-    errorPrefix: "Recent plays",
+    loadingText: () => i18n.t("topTracks.loadingRecent"),
+    emptyText: () => i18n.t("topTracks.emptyRecent"),
+    errorPrefix: () => i18n.t("topTracks.recentError"),
     listId: "recent-songs",
     fetchItems: () => fetchRecentSongs(TOP_SONGS_LIMIT),
   },
@@ -97,13 +99,13 @@ function modalStatusClassName(status: { error?: boolean } | null) {
 function topSongsTitle(subtab: TopSongsTabId) {
   switch (subtab) {
     case "top":
-      return `Top ${TOP_SONGS_LIMIT}`;
+      return i18n.t("topTracks.top25");
     case "trending":
-      return "Trending";
+      return i18n.t("topTracks.trending");
     case "recent":
-      return `Last ${TOP_SONGS_LIMIT} Played`;
+      return i18n.t("topTracks.recent");
     case "favorites":
-      return "Favorites";
+      return i18n.t("common.favorites");
   }
 }
 
@@ -124,12 +126,15 @@ function PlaylistAddButton({
   track: PlaylistTrack;
   onAdd: (track: PlaylistTrack) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
       className="playlist-add-button"
-      title="Add to playlist"
-      aria-label={`Add ${track.title || "track"} to playlist`}
+      title={t("playlist.add")}
+      aria-label={t("playlist.addNamed", {
+        title: track.title || t("common.track"),
+      })}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -156,6 +161,7 @@ function SongList({
   state: TopSongsListState;
   hidden: boolean;
 }) {
+  const { t } = useTranslation();
   const config = LIST_CONFIG[tabId];
   const className = hidden ? "top-list hidden" : "top-list";
   if (state.kind === "message") {
@@ -168,7 +174,8 @@ function SongList({
   return (
     <ol className={className} id={config.listId}>
       {state.items.slice(0, TOP_SONGS_LIMIT).map((item) => {
-        const title = typeof item.title === "string" ? item.title : "Untitled";
+        const title =
+          typeof item.title === "string" ? item.title : t("common.untitled");
         const artist = typeof item.artist === "string" ? item.artist : "";
         const jobId = typeof item.id === "string" ? item.id : "";
         const sourceProvider =
@@ -212,6 +219,7 @@ function SongList({
 }
 
 function FavoritesList({ query }: { query: string }) {
+  const { t } = useTranslation();
   const favorites = useAppStore((s) => s.favorites);
   const [sort, setSort] = useState<FavoritesDisplaySort>({
     key: "title",
@@ -228,11 +236,11 @@ function FavoritesList({ query }: { query: string }) {
 
   const trimmedQuery = query.trim();
   if (favorites.length === 0) {
-    return <>No favorites yet.</>;
+    return <>{t("favorites.none")}</>;
   }
   const visibleFavorites = filterFavorites(favorites, trimmedQuery);
   if (visibleFavorites.length === 0) {
-    return <>{`No favorites match "${trimmedQuery}".`}</>;
+    return <>{t("favorites.noneMatching", { query: trimmedQuery })}</>;
   }
 
   const sortHeader = (key: FavoritesDisplaySort["key"], label: string) => {
@@ -270,19 +278,19 @@ function FavoritesList({ query }: { query: string }) {
     <table className="favorites-table">
       <thead>
         <tr>
-          {sortHeader("title", "Title")}
-          {sortHeader("artist", "Artist")}
+          {sortHeader("title", t("favorites.titleColumn"))}
+          {sortHeader("artist", t("favorites.artistColumn"))}
           <th
             scope="col"
             className="favorite-remove-heading"
-            aria-label="Remove favorite"
+            aria-label={t("favorites.remove")}
           ></th>
         </tr>
       </thead>
       <tbody>
         {sortFavoritesForDisplay(visibleFavorites, sort).map((item) => {
           const sourceType = item.sourceType ?? "youtube";
-          const titleText = item.title || "Untitled";
+          const titleText = item.title || t("common.untitled");
           const handleRowClick = (event: MouseEvent<HTMLTableRowElement>) => {
             const target = event.target as HTMLElement | null;
             if (target?.closest("a, button")) {
@@ -331,7 +339,7 @@ function FavoritesList({ query }: { query: string }) {
                       <span
                         className="material-symbols-outlined favorite-tune-icon"
                         aria-hidden="true"
-                        title="Custom tuning"
+                        title={t("favorites.customTuning")}
                       >
                         tune
                       </span>
@@ -350,7 +358,7 @@ function FavoritesList({ query }: { query: string }) {
                 <button
                   type="button"
                   className="favorite-remove"
-                  aria-label={`Remove ${titleText} from Favorites`}
+                  aria-label={t("favorites.removeNamed", { title: titleText })}
                   data-favorite-id={item.uniqueSongId}
                   onClick={(event) => {
                     event.preventDefault();
@@ -381,6 +389,7 @@ function FavoritesSyncEnterModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(
     null,
@@ -400,21 +409,21 @@ function FavoritesSyncEnterModal({
   const submit = async () => {
     const code = value.trim();
     if (!code) {
-      setStatus({ text: "Enter a sync code first.", error: true });
+      setStatus({ text: t("favorites.enterCodeFirst"), error: true });
       return;
     }
     setBusy(true);
-    setStatus({ text: "Syncing favorites...", error: false });
+    setStatus({ text: t("favorites.syncing"), error: false });
     try {
       const result = await enterSyncCode(code);
       if (result === "replaced") {
-        setStatus({ text: "Favorites updated.", error: false });
+        setStatus({ text: t("favorites.updated"), error: false });
         onClose();
       } else {
         setStatus(null);
       }
     } catch (err) {
-      setStatus({ text: "Unable to sync favorites.", error: true });
+      setStatus({ text: t("favorites.unableToSync"), error: true });
       console.warn(`Favorites sync failed: ${String(err)}`);
     } finally {
       setBusy(false);
@@ -423,7 +432,7 @@ function FavoritesSyncEnterModal({
 
   const handleSubmit = () => {
     submit().catch((err) => {
-      setStatus({ text: "Unable to sync favorites.", error: true });
+      setStatus({ text: t("favorites.unableToSync"), error: true });
       console.warn(`Favorites sync failed: ${String(err)}`);
       setBusy(false);
     });
@@ -432,13 +441,13 @@ function FavoritesSyncEnterModal({
   return (
     <Modal id="favorites-sync-enter-modal" open={open} onClose={onClose}>
       <ModalHeader
-        title="Favorites Sync"
+        title={t("favorites.syncTitle")}
         closeId="favorites-sync-enter-close"
         onClose={onClose}
       />
       <div className="modal-body">
           <p className="modal-hint">
-            Enter the 3-word sync code to pull down your favorites.
+            {t("favorites.enterHint")}
           </p>
           <input
             id="favorites-sync-enter-input"
@@ -472,7 +481,7 @@ function FavoritesSyncEnterModal({
           disabled={busy}
           onClick={handleSubmit}
         >
-          {busy ? "Syncing..." : "Sync favorites"}
+          {busy ? t("favorites.syncingAction") : t("favorites.syncAction")}
         </button>
       </div>
     </Modal>
@@ -486,6 +495,7 @@ function FavoritesSyncCreateModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const existingCode = useAppStore((s) => s.favoritesSyncCode);
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(
     null,
@@ -504,19 +514,21 @@ function FavoritesSyncCreateModal({
   }, [open]);
 
   const hint = output
-    ? "Enter this code on another device to sync."
-    : "Create a sync code to share your favorites between devices.";
-  const buttonLabel = existingCode ? "Create new sync code" : "Create sync code";
+    ? t("favorites.shareHint")
+    : t("favorites.createHint");
+  const buttonLabel = existingCode
+    ? t("favorites.createNewCode")
+    : t("favorites.createCode");
 
   const submit = async () => {
     setButtonHidden(true);
-    setStatus({ text: "Creating sync code...", error: false });
+    setStatus({ text: t("favorites.creatingCode"), error: false });
     try {
       const code = await createSyncCode();
       setOutput(code);
       setStatus(null);
     } catch (err) {
-      setStatus({ text: "Unable to create sync code.", error: true });
+      setStatus({ text: t("favorites.unableToCreateCode"), error: true });
       setButtonHidden(false);
       console.warn(`Favorites sync create failed: ${String(err)}`);
     }
@@ -524,7 +536,7 @@ function FavoritesSyncCreateModal({
 
   const handleSubmit = () => {
     submit().catch((err) => {
-      setStatus({ text: "Unable to create sync code.", error: true });
+      setStatus({ text: t("favorites.unableToCreateCode"), error: true });
       setButtonHidden(false);
       console.warn(`Favorites sync create failed: ${String(err)}`);
     });
@@ -533,7 +545,7 @@ function FavoritesSyncCreateModal({
   return (
     <Modal id="favorites-sync-create-modal" open={open} onClose={onClose}>
       <ModalHeader
-        title="Favorites Sync"
+        title={t("favorites.syncTitle")}
         closeId="favorites-sync-create-close"
         onClose={onClose}
       />
@@ -573,6 +585,7 @@ function FavoritesSyncCreateModal({
 }
 
 function FavoritesSyncControls({ visible }: { visible: boolean }) {
+  const { t } = useTranslation();
   const syncCode = useAppStore((s) => s.favoritesSyncCode);
   const [menuOpen, setMenuOpen] = useState(false);
   const [enterOpen, setEnterOpen] = useState(false);
@@ -626,7 +639,7 @@ function FavoritesSyncControls({ visible }: { visible: boolean }) {
             visible ? "favorites-sync-button" : "favorites-sync-button hidden"
           }
           type="button"
-          aria-label="Favorites sync"
+          aria-label={t("favorites.sync")}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={(event) => {
@@ -656,7 +669,7 @@ function FavoritesSyncControls({ visible }: { visible: boolean }) {
             data-favorites-sync="refresh"
             onClick={() => handleItem("refresh")}
           >
-            Refresh favorites
+            {t("favorites.refreshAction")}
           </button>
           <button
             type="button"
@@ -664,7 +677,7 @@ function FavoritesSyncControls({ visible }: { visible: boolean }) {
             data-favorites-sync="create"
             onClick={() => handleItem("create")}
           >
-            {hasCode ? "View sync code" : "Create sync code"}
+            {hasCode ? t("favorites.viewCode") : t("favorites.createCode")}
           </button>
           <button
             type="button"
@@ -672,7 +685,7 @@ function FavoritesSyncControls({ visible }: { visible: boolean }) {
             data-favorites-sync="enter"
             onClick={() => handleItem("enter")}
           >
-            Enter sync code
+            {t("favorites.enterCode")}
           </button>
         </div>
       </div>
@@ -689,6 +702,7 @@ function FavoritesSyncControls({ visible }: { visible: boolean }) {
 }
 
 export function TopTracksPanel() {
+  const { t } = useTranslation();
   const subtab = useAppStore((s) => s.topSongsTab);
   const allowSync = useAppStore((s) =>
     Boolean(s.appConfig?.allow_favorites_sync),
@@ -713,23 +727,26 @@ export function TopTracksPanel() {
       state.setTopSongsTabInFlight(tabId, true);
       state.setTopSongsListState(tabId, {
         kind: "message",
-        text: config.loadingText,
+        text: config.loadingText(),
       });
       try {
         const items = await config.fetchItems();
         useAppStore.getState().setTopSongsListState(
           tabId,
           items.length === 0
-            ? { kind: "message", text: config.emptyText }
+            ? { kind: "message", text: config.emptyText() }
             : { kind: "loaded", items },
         );
         useAppStore.getState().setTopSongsTabLoaded(tabId, true);
       } catch (err) {
         useAppStore.getState().setTopSongsListState(tabId, {
           kind: "message",
-          text: `${config.errorPrefix} unavailable: ${formatErrorForDisplay(err)}`,
+          text: i18n.t("topTracks.unavailable", {
+            section: config.errorPrefix(),
+            error: formatErrorForDisplay(err),
+          }),
         });
-        console.warn(`${config.errorPrefix} load failed: ${String(err)}`);
+        console.warn(`${config.errorPrefix()} load failed: ${String(err)}`);
       } finally {
         useAppStore.getState().setTopSongsTabInFlight(tabId, false);
       }
@@ -760,9 +777,9 @@ export function TopTracksPanel() {
   return (
     <section className="panel tab-panel" data-tab-panel="top">
       <div className="subtabs" id="top-subtabs">
-        {subtabButton("top", "All Time")}
-        {subtabButton("trending", "Trending")}
-        {subtabButton("recent", "Recents")}
+        {subtabButton("top", t("topTracks.allTime"))}
+        {subtabButton("trending", t("topTracks.trending"))}
+        {subtabButton("recent", t("topTracks.recents"))}
         <span className="subtab-spacer" aria-hidden="true"></span>
         {subtabButton(
           "favorites",
@@ -773,7 +790,7 @@ export function TopTracksPanel() {
             >
               star
             </span>
-            <span>Favorites</span>
+            <span>{t("common.favorites")}</span>
           </>,
         )}
       </div>
@@ -797,8 +814,8 @@ export function TopTracksPanel() {
               : "top-list-refresh-button"
           }
           type="button"
-          aria-label={`Refresh ${title}`}
-          title="Refresh"
+          aria-label={t("topTracks.refresh", { title })}
+          title={t("topTracks.refreshTitle")}
           onClick={() => {
             if (subtab !== "favorites") {
               loadList(subtab, true).catch((err) => {
@@ -829,9 +846,9 @@ export function TopTracksPanel() {
             id="favorites-search-input"
             className="search-input"
             type="search"
-            placeholder="Search favorites"
+            placeholder={t("favorites.searchPlaceholder")}
             autoComplete="off"
-            aria-label="Search favorites"
+            aria-label={t("favorites.searchLabel")}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />

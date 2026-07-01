@@ -1,41 +1,41 @@
 import { useAppStore } from "../store";
 import { TabBar } from "./TabBar";
+import { useTranslation } from "react-i18next";
 
-function ThemeToggle() {
-  const theme = useAppStore((s) => s.theme);
-  const setTheme = useAppStore((s) => s.setTheme);
+export function SettingsButton({
+  id,
+  className = "settings-button",
+}: { id?: string; className?: string } = {}) {
+  const { t } = useTranslation();
   return (
-    <div className="theme-toggle" id="theme-toggle">
-      <button
-        type="button"
-        className={theme === "light" ? "theme-link active" : "theme-link"}
-        data-theme="light"
-        onClick={() => setTheme("light")}
+    <button
+      id={id}
+      className={className}
+      type="button"
+      aria-label={t("settings.open")}
+      title={t("settings.open")}
+      onClick={() => useAppStore.setState({ settingsModalOpen: true })}
+    >
+      <span
+        className="material-symbols-outlined settings-button-icon"
+        aria-hidden="true"
       >
-        Light
-      </button>
-      <span className="theme-sep" aria-hidden="true"></span>
-      <button
-        type="button"
-        className={theme === "dark" ? "theme-link active" : "theme-link"}
-        data-theme="dark"
-        onClick={() => setTheme("dark")}
-      >
-        Dark
-      </button>
-    </div>
+        settings
+      </span>
+    </button>
   );
 }
 
-function HeroSocials() {
+export function HeroSocials({ className = "hero-socials" }: { className?: string } = {}) {
+  const { t } = useTranslation();
   return (
-    <span className="hero-socials" aria-label="Community links">
+    <span className={className} aria-label={t("hero.communityLinks")}>
       <a
         className="hero-social-link"
         href="https://www.reddit.com/r/infinitejukebox/"
         target="_blank"
         rel="noreferrer"
-        aria-label="Reddit community"
+        aria-label={t("hero.reddit")}
         title="Reddit"
       >
         <svg
@@ -55,7 +55,7 @@ function HeroSocials() {
         href="https://discord.com/invite/KWN5BfD"
         target="_blank"
         rel="noreferrer"
-        aria-label="Discord server"
+        aria-label={t("hero.discord")}
         title="Discord"
       >
         <svg
@@ -77,7 +77,7 @@ function HeroSocials() {
         href="https://github.com/creightonlinza/forever-jukebox/"
         target="_blank"
         rel="noreferrer"
-        aria-label="GitHub repository"
+        aria-label={t("hero.github")}
         title="GitHub"
       >
         <svg
@@ -97,19 +97,20 @@ function HeroSocials() {
 }
 
 export function Hero() {
+  const { t } = useTranslation();
   const goHome = useAppStore((s) => s.goHome);
   return (
     <header className="hero">
       <div className="hero-actions">
         <HeroSocials />
-        <ThemeToggle />
+        <SettingsButton className="settings-button settings-button-hero" />
       </div>
       <div className="hero-main">
         <button
           id="hero-title-home"
           className="hero-title"
           type="button"
-          aria-label="Go to Top Tracks"
+          aria-label={t("navigation.goToTopTracks")}
           onClick={() => goHome()}
         >
           <h1 className="hero-title-neon">

@@ -14,6 +14,7 @@ import {
 import { toggleFavorite } from "../../favorites-actions";
 import { copyShortUrl } from "../../playback-ui";
 import { Modal } from "../Modal";
+import { useTranslation } from "react-i18next";
 
 function DeleteConfirmModal({
   pending,
@@ -22,6 +23,7 @@ function DeleteConfirmModal({
   pending: PendingDelete | null;
   onClosed: () => void;
 }) {
+  const { t } = useTranslation();
   const open = useAppStore((s) => s.deleteConfirmOpen);
   const [busy, setBusy] = useState(false);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
@@ -72,7 +74,7 @@ function DeleteConfirmModal({
       panelClassName="delete-confirm-panel"
     >
       <div className="modal-header">
-        <h2 id="delete-confirm-title">Delete track?</h2>
+        <h2 id="delete-confirm-title">{t("delete.trackQuestion")}</h2>
       </div>
       <div className="modal-footer">
         <button
@@ -82,7 +84,7 @@ function DeleteConfirmModal({
           disabled={busy}
           onClick={close}
         >
-          Cancel
+          {t("common.cancel")}
         </button>
         <button
           id="delete-confirm-delete"
@@ -92,7 +94,7 @@ function DeleteConfirmModal({
           aria-busy={busy}
           onClick={() => void confirm()}
         >
-          Delete
+          {t("common.delete")}
         </button>
       </div>
     </Modal>
@@ -100,6 +102,7 @@ function DeleteConfirmModal({
 }
 
 export function PlayMenu() {
+  const { t } = useTranslation();
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const swingPreparing = useAppStore((s) => s.swingPreparing);
@@ -128,7 +131,7 @@ export function PlayMenu() {
     trackTitle || trackArtist
       ? (() => {
           const withSuffix = formatPlaybackTitle(
-            trackTitle ?? "Unknown",
+            trackTitle ?? t("common.unknown"),
             playMode,
             audioMode,
           );
@@ -146,11 +149,11 @@ export function PlayMenu() {
     }),
   );
   const favoriteLabel = favoriteActive
-    ? "Remove from Favorites"
-    : "Add to Favorites";
+    ? t("playback.removeFavorite")
+    : t("playback.addFavorite");
   const deleteLabel = adminMode
-    ? "Delete track"
-    : "Delete within 30 minutes of creation";
+    ? t("delete.track")
+    : t("delete.withinWindow");
 
   const handleDeleteClick = () => {
     const pending = getPendingDelete();
@@ -177,7 +180,7 @@ export function PlayMenu() {
                 : "bring-home-note is-hidden"
             }
           >
-            Bringing it on home
+            {t("playback.bringingHome")}
           </span>
         </div>
         <div className="menu-right">
@@ -204,8 +207,8 @@ export function PlayMenu() {
             id="tuning"
             className={isCanonizer ? "tune-toggle is-hidden" : "tune-toggle"}
             disabled={isCanonizer}
-            aria-label="Tune"
-            title="Tune"
+            aria-label={t("playback.tune")}
+            title={t("playback.tune")}
             onClick={() => openTuning(getAppContext())}
           >
             <span
@@ -218,8 +221,8 @@ export function PlayMenu() {
           <button
             id="track-info"
             className={isCanonizer ? "info-toggle is-hidden" : "info-toggle"}
-            aria-label="Info"
-            title="Info"
+            aria-label={t("playback.info")}
+            title={t("playback.info")}
             onClick={() => openInfo(getAppContext())}
           >
             <span
@@ -232,8 +235,8 @@ export function PlayMenu() {
           <button
             id="short-url"
             className="copy-toggle"
-            aria-label="Copy URL"
-            title="Copy URL"
+            aria-label={t("playback.copyUrl")}
+            title={t("playback.copyUrl")}
             onClick={() => copyShortUrl()}
           >
             <span

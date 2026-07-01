@@ -18,6 +18,7 @@ import {
   updateTrackInfo,
 } from "./status-ui";
 import { canPrepareSwingMode, prepareSwingMode } from "./swing";
+import i18n from "../i18n";
 
 const DEFAULT_VOLUME = 0.5;
 
@@ -146,7 +147,7 @@ export function applyExtrasChanges(
     if (canPrepareSwingMode(context)) {
       prepareSwingMode(context);
     } else {
-      showToast("Swing mode will prepare once audio is loaded", {
+      showToast(i18n.t("playback.swingWhenLoaded"), {
         icon: "hourglass_top",
       });
     }

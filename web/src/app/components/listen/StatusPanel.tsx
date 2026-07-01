@@ -1,10 +1,12 @@
 import { hasInactiveSavedPlaylist } from "../../playlist";
 import { useAppStore } from "../../store";
+import { useTranslation } from "react-i18next";
 
 // The Listen-panel status row: spinner, loading progress, analysis status
 // text and the saved-playlist shortcut. Hidden once a track is fully
 // loaded.
 export function StatusPanel() {
+  const { t } = useTranslation();
   const statusText = useAppStore((s) => s.analysisStatusText);
   const spinning = useAppStore((s) => s.analysisSpinning);
   const progressText = useAppStore((s) => s.analysisProgressText);
@@ -50,7 +52,7 @@ export function StatusPanel() {
         type="button"
         onClick={() => useAppStore.setState({ playlistModalOpen: true })}
       >
-        Saved Playlist
+        {t("playlist.saved")}
       </button>
       </div>
     </div>

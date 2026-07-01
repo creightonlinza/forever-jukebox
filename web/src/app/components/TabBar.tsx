@@ -1,5 +1,7 @@
 import type { TabId } from "../context";
 import { useAppStore } from "../store";
+import { useTranslation } from "react-i18next";
+import { SettingsButton } from "./Hero";
 
 function tabClass(active: boolean, pulsing = false) {
   let cls = "tab-btn";
@@ -9,40 +11,41 @@ function tabClass(active: boolean, pulsing = false) {
 }
 
 export function TabBar() {
+  const { t } = useTranslation();
   const activeTab = useAppStore((s) => s.activeTabId);
   const isPlayTabPulsing = useAppStore((s) => s.isPlayTabPulsing);
   const selectTab = useAppStore((s) => s.selectTab);
   const onClick = (tabId: TabId) => () => selectTab(tabId);
   return (
-    <nav className="tabs" aria-label="Primary">
+    <nav className="tabs" aria-label={t("navigation.primary")}>
       <button
         className={tabClass(activeTab === "top")}
         data-tab-button="top"
         onClick={onClick("top")}
       >
-        <span className="tab-label-top-full">Top Tracks</span>
-        <span className="tab-label-top-short">Top</span>
+        <span className="tab-label-top-full">{t("navigation.topTracks")}</span>
+        <span className="tab-label-top-short">{t("navigation.top")}</span>
       </button>
       <button
         className={tabClass(activeTab === "search")}
         data-tab-button="search"
         onClick={onClick("search")}
       >
-        Search
+        {t("common.search")}
       </button>
       <button
         className={tabClass(activeTab === "play", isPlayTabPulsing)}
         data-tab-button="play"
         onClick={onClick("play")}
       >
-        Listen
+        {t("common.listen")}
       </button>
       <button
         className={tabClass(activeTab === "faq")}
         data-tab-button="faq"
         onClick={onClick("faq")}
       >
-        FAQ
+        {t("common.faq")}
       </button>
       <a
         className="tab-btn tab-link"
@@ -53,9 +56,13 @@ export function TabBar() {
         <span className="material-symbols-outlined tab-link-icon" aria-hidden="true">
           download
         </span>
-        <span className="tab-label-offline-full">Offline App</span>
-        <span className="tab-label-offline-short">App</span>
+        <span className="tab-label-offline-full">{t("navigation.offlineApp")}</span>
+        <span className="tab-label-offline-short">{t("navigation.app")}</span>
       </a>
+      <SettingsButton
+        id="settings-open"
+        className="settings-button settings-button-tab"
+      />
     </nav>
   );
 }

@@ -14,11 +14,13 @@ import {
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { toggleFullscreen } from "../../fullscreen";
+import { useTranslation } from "react-i18next";
 
 // The right-hand cluster of the viz bottom bar: playlist-open button,
 // volume panel, fullscreen toggle. Rendered into the .viz-bottom-right
 // container.
 export function VizBottomRight() {
+  const { t } = useTranslation();
   const playlist = useAppStore((s) => s.playlist);
   const volumePct = useAppStore((s) => s.volumePct);
   const playMode = useAppStore((s) => s.playMode);
@@ -61,9 +63,14 @@ export function VizBottomRight() {
   const hasTracks = hasPlaylistControls(playlist);
   const active = hasActivePlaylistControls(playlist);
   const playlistTitle = active
-    ? `Playlist (${playlist.currentIndex + 1}/${playlist.tracks.length})`
-    : "Saved Playlist";
-  const fullscreenLabel = isFullscreen ? "Exit Fullscreen" : "Fullscreen";
+    ? t("playlist.savedWithPosition", {
+        current: playlist.currentIndex + 1,
+        total: playlist.tracks.length,
+      })
+    : t("playlist.saved");
+  const fullscreenLabel = isFullscreen
+    ? t("playback.exitFullscreen")
+    : t("playback.fullscreen");
 
   const handleVolumeChange = (pct: number) => {
     useAppStore.setState({ volumePct: pct });
@@ -112,7 +119,7 @@ export function VizBottomRight() {
             <label className="stream-pan-control">
               <div className="label-line">
                 <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
-                  Blue stream
+                  {t("playback.blueStream")}
                 </span>
                 <span id="autocanonizer-main-pan-val">{mainPan}</span>
               </div>
@@ -120,7 +127,7 @@ export function VizBottomRight() {
                 className="pan-slider stream-pan-slider"
                 id="autocanonizer-main-pan"
                 type="range"
-                aria-label="Blue stream pan"
+                aria-label={t("playback.blueStreamPan")}
                 min={-100}
                 max={100}
                 step={1}
@@ -134,7 +141,7 @@ export function VizBottomRight() {
             <label className="stream-pan-control">
               <div className="label-line">
                 <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
-                  Green stream
+                  {t("playback.greenStream")}
                 </span>
                 <span id="autocanonizer-other-pan-val">{otherPan}</span>
               </div>
@@ -142,7 +149,7 @@ export function VizBottomRight() {
                 className="pan-slider stream-pan-slider"
                 id="autocanonizer-other-pan"
                 type="range"
-                aria-label="Green stream pan"
+                aria-label={t("playback.greenStreamPan")}
                 min={-100}
                 max={100}
                 step={1}
@@ -157,8 +164,8 @@ export function VizBottomRight() {
           <button
             id="autocanonizer-pan-button"
             className="volume-button pan-button"
-            aria-label="Autocanonizer stream pan"
-            title="Autocanonizer stream pan"
+            aria-label={t("playback.streamPan")}
+            title={t("playback.streamPan")}
             onClick={() => {
               setVolumeOpen(false);
               setPanOpen((prev) => !prev);
@@ -185,7 +192,7 @@ export function VizBottomRight() {
               className="volume-slider"
               id="volume"
               type="range"
-              aria-label="Volume"
+              aria-label={t("playback.volume")}
               min={0}
               max={100}
               step={1}
@@ -202,7 +209,7 @@ export function VizBottomRight() {
         <button
           id="volume-button"
           className="volume-button"
-          aria-label="Volume"
+          aria-label={t("playback.volume")}
           onClick={() => {
             setPanOpen(false);
             setVolumeOpen((prev) => !prev);

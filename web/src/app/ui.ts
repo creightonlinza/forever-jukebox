@@ -1,6 +1,7 @@
 import type { AppContext } from "./context";
 import type { MaterialSymbolIconName } from "./material-icons";
 import { useAppStore } from "./store";
+import i18n from "./i18n";
 
 export type ToastOptions = {
   icon?: MaterialSymbolIconName;
@@ -32,7 +33,7 @@ export function setLoadingProgress(
   message?: string | null
 ) {
   useAppStore.setState({
-    analysisStatusText: message?.trim() || "Loading",
+    analysisStatusText: message?.trim() || i18n.t("common.loading"),
     analysisSpinning: true,
     analysisProgressText:
       typeof progress === "number" ? `${Math.round(progress)}%` : "",

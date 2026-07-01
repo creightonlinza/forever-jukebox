@@ -5,8 +5,10 @@ import {
   selectPlaylistIndex,
 } from "../../playlist-actions";
 import { Modal } from "../Modal";
+import { useTranslation } from "react-i18next";
 
 export function PlaylistModal() {
+  const { t } = useTranslation();
   const open = useAppStore((s) => s.playlistModalOpen);
   const playlist = useAppStore((s) => s.playlist);
   const close = () => useAppStore.setState({ playlistModalOpen: false });
@@ -20,11 +22,11 @@ export function PlaylistModal() {
       panelClassName="playlist-panel"
     >
       <div className="modal-header">
-        <h2>Playlist</h2>
+        <h2>{t("playlist.title")}</h2>
         <button
           id="playlist-close"
           className="modal-close"
-          aria-label="Close"
+          aria-label={t("common.close")}
           onClick={close}
         >
           <span
@@ -38,7 +40,7 @@ export function PlaylistModal() {
       <div className="modal-body">
         <div id="playlist-list" className="playlist-list-wrap">
           {isEmpty ? (
-            "No playlist yet."
+            t("playlist.none")
           ) : (
             <ol className="playlist-list">
               {playlist.tracks.map((track, index) => {
@@ -60,7 +62,7 @@ export function PlaylistModal() {
                       }
                     >
                       <span className="playlist-item-title">
-                        {track.title || "Untitled"}
+                        {track.title || t("common.untitled")}
                       </span>
                       <span className="playlist-item-artist">
                         {track.artist || ""}
@@ -71,7 +73,9 @@ export function PlaylistModal() {
                       className="playlist-remove"
                       data-playlist-index={index}
                       disabled={isCurrent}
-                      aria-label={`Remove ${track.title || "track"}`}
+                      aria-label={t("playlist.removeNamed", {
+                        title: track.title || t("common.track"),
+                      })}
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
@@ -99,7 +103,7 @@ export function PlaylistModal() {
           disabled={isEmpty}
           onClick={() => clearPlaylist()}
         >
-          Clear Playlist
+          {t("playlist.clear")}
         </button>
       </div>
     </Modal>

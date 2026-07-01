@@ -15,6 +15,8 @@ const exportMocks = vi.hoisted(() => ({
 const mockAppState = {
   file: null as File | null,
   setIsListenLoading: vi.fn<(loading: boolean) => void>(),
+  isSettingsOpen: false,
+  setIsSettingsOpen: vi.fn<(isOpen: boolean) => void>(),
 };
 
 type MockAutocanonizerInstance = {
@@ -40,6 +42,7 @@ type MockJukeboxControllerInstance = {
   setData: ReturnType<typeof vi.fn>;
   setSelectedEdgeActive: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
+  refresh: ReturnType<typeof vi.fn>;
 };
 const jukeboxControllerInstances: MockJukeboxControllerInstance[] = [];
 type MockEngineInstance = {
@@ -317,6 +320,7 @@ vi.mock("@forever-jukebox/engine/viz/JukeboxController", () => ({
     setVisible = vi.fn((_visible: boolean) => undefined);
     setAnchorHighlightEnabled = vi.fn((_enabled: boolean) => undefined);
     resizeActive = vi.fn();
+    refresh = vi.fn();
     reset = vi.fn();
     setData = vi.fn((_data: unknown) => undefined);
     setOnSelect = vi.fn((_handler: (index: number) => void) => undefined);
@@ -551,6 +555,11 @@ describe("Listen route behavior", () => {
       lastModified: 1234,
     });
     mockAppState.setIsListenLoading.mockReset();
+    mockAppState.isSettingsOpen = false;
+    mockAppState.setIsSettingsOpen.mockReset();
+    mockAppState.setIsSettingsOpen.mockImplementation((isOpen) => {
+      mockAppState.isSettingsOpen = isOpen;
+    });
     exportMocks.exportJukeboxAudio.mockReset();
     exportMocks.exportJukeboxAudio.mockResolvedValue({
       bytes: new Uint8Array([1, 2, 3]),
@@ -756,7 +765,7 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
-  it("opens sleep timer from the tuning header and applies only when set", async () => {
+  it("moves the sleep timer from tuning into global settings", async () => {
     const rendered = renderListen();
     await settleEffects();
 
@@ -765,24 +774,21 @@ describe("Listen route behavior", () => {
       rendered.container,
       ".modal-header-actions",
     );
-    const sleepTimerButton = getRequired<HTMLButtonElement>(
-      headerActions,
-      "#sleep-timer-open",
-    );
     const closeButton = getRequired<HTMLButtonElement>(
       headerActions,
       ".modal-close",
     );
-    expect(Array.from(headerActions.children)).toEqual([
-      sleepTimerButton,
-      closeButton,
-    ]);
+    expect(Array.from(headerActions.children)).toEqual([closeButton]);
+    expect(headerActions.querySelector("#sleep-timer-open")).toBeNull();
 
-    await click(sleepTimerButton);
+    mockAppState.isSettingsOpen = true;
+    rendered.rerender();
+    await settleEffects();
     const sleepTimerModal = getRequired<HTMLDivElement>(
-      rendered.container,
-      "#sleep-timer-modal",
+      document.body,
+      "#settings-modal",
     );
+    expect(sleepTimerModal.parentElement).toBe(document.body);
     const sleepTimerCurrent = getRequired<HTMLDivElement>(
       sleepTimerModal,
       "#sleep-timer-current",
@@ -794,13 +800,16 @@ describe("Listen route behavior", () => {
     expect(sleepTimerCurrent.textContent).toBe("Off");
 
     await changeSelect(sleepTimerSelect, "900000");
-    await click(getRequired<HTMLButtonElement>(sleepTimerModal, "#sleep-timer-cancel"));
-    expect(rendered.container.querySelector("#sleep-timer-modal")).toBe(null);
+    await click(getRequired<HTMLButtonElement>(sleepTimerModal, "#settings-cancel"));
+    rendered.rerender();
+    expect(document.body.querySelector("#settings-modal")).toBe(null);
 
-    await click(sleepTimerButton);
+    mockAppState.isSettingsOpen = true;
+    rendered.rerender();
+    await settleEffects();
     const reopenedModal = getRequired<HTMLDivElement>(
-      rendered.container,
-      "#sleep-timer-modal",
+      document.body,
+      "#settings-modal",
     );
     const reopenedSelect = getRequired<HTMLSelectElement>(
       reopenedModal,
@@ -810,12 +819,15 @@ describe("Listen route behavior", () => {
 
     await changeSelect(reopenedSelect, "900000");
     await click(getRequired<HTMLButtonElement>(reopenedModal, "#sleep-timer-set"));
-    expect(rendered.container.querySelector("#sleep-timer-modal")).toBe(null);
+    rendered.rerender();
+    expect(document.body.querySelector("#settings-modal")).toBe(null);
 
-    await click(sleepTimerButton);
+    mockAppState.isSettingsOpen = true;
+    rendered.rerender();
+    await settleEffects();
     const appliedModal = getRequired<HTMLDivElement>(
-      rendered.container,
-      "#sleep-timer-modal",
+      document.body,
+      "#settings-modal",
     );
     expect(
       getRequired<HTMLSelectElement>(appliedModal, "#sleep-timer-select").value,
@@ -826,6 +838,46 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it("keeps settings available without a loaded file", async () => {
+    mockAppState.file = null;
+    mockAppState.isSettingsOpen = true;
+    const rendered = renderListen();
+    await settleEffects();
+
+    const settingsModal = getRequired<HTMLDivElement>(
+      document.body,
+      "#settings-modal",
+    );
+    expect(settingsModal.textContent).toContain("Settings");
+    expect(
+      getRequired<HTMLSelectElement>(settingsModal, "#settings-language").value,
+    ).toBe("en");
+    await click(
+      getRequired<HTMLButtonElement>(settingsModal, ".modal-backdrop"),
+    );
+    rendered.rerender();
+    expect(document.body.querySelector("#settings-modal")).toBeNull();
+    rendered.unmount();
+  });
+
+  it("applies and persists theme changes immediately", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    mockAppState.isSettingsOpen = true;
+    rendered.rerender();
+
+    const lightTheme = getRequired<HTMLInputElement>(
+      document.body,
+      'input[name="settings-theme"][value="light"]',
+    );
+    await click(lightTheme);
+
+    expect(window.localStorage.getItem("fj-theme")).toBe("light");
+    expect(document.documentElement.style.colorScheme).toBe("light");
+    expect(jukeboxControllerInstances[0]?.refresh).toHaveBeenCalled();
+    rendered.unmount();
+  });
+
   it("expires the sleep timer through the playback stop path", async () => {
     vi.useFakeTimers();
     let nowMs = 0;
@@ -833,11 +885,12 @@ describe("Listen route behavior", () => {
     const rendered = renderListen();
     await settleEffects();
 
-    await openTuningModal(rendered.container);
-    await click(getRequired<HTMLButtonElement>(rendered.container, "#sleep-timer-open"));
+    mockAppState.isSettingsOpen = true;
+    rendered.rerender();
+    await settleEffects();
     const sleepTimerModal = getRequired<HTMLDivElement>(
-      rendered.container,
-      "#sleep-timer-modal",
+      document.body,
+      "#settings-modal",
     );
     await changeSelect(
       getRequired<HTMLSelectElement>(sleepTimerModal, "#sleep-timer-select"),
@@ -857,10 +910,12 @@ describe("Listen route behavior", () => {
     });
 
     expect(engine.stopJukebox).toHaveBeenCalledTimes(1);
-    await click(getRequired<HTMLButtonElement>(rendered.container, "#sleep-timer-open"));
+    mockAppState.isSettingsOpen = true;
+    rendered.rerender();
+    await settleEffects();
     const expiredModal = getRequired<HTMLDivElement>(
-      rendered.container,
-      "#sleep-timer-modal",
+      document.body,
+      "#settings-modal",
     );
     expect(
       getRequired<HTMLDivElement>(expiredModal, "#sleep-timer-current").textContent,

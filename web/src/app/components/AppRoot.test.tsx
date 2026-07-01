@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { AppRoot } from "./AppRoot";
 import { useAppStore } from "../store";
@@ -162,5 +163,18 @@ describe("AppRoot tab lifecycle", () => {
     await waitFor(() => {
       expect(document.title).toBe("What's New | Forever Jukebox");
     });
+  });
+
+  it("opens global settings from the header gear", async () => {
+    renderApp("/");
+    const button = document.getElementById("settings-open");
+    expect(button?.getAttribute("aria-label")).toBe("Open settings");
+
+    await userEvent.click(button!);
+
+    expect(useAppStore.getState().settingsModalOpen).toBe(true);
+    expect(document.getElementById("settings-modal")?.className).toBe(
+      "modal open",
+    );
   });
 });

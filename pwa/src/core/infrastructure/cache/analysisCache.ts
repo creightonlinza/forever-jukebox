@@ -7,7 +7,7 @@ let analysisDbPromise: Promise<IDBDatabase> | null = null;
 
 type CacheBackend = AnalysisCachePort;
 type TrackMetadata = {
-  title: string;
+  title: string | null;
   artist: string | null;
   durationSeconds: number | null;
 };
@@ -81,10 +81,7 @@ function asFiniteNumber(value: unknown): number | null {
   return value;
 }
 
-function extractTrackMetadata(
-  fingerprint: string,
-  analysis: unknown,
-): TrackMetadata {
+function extractTrackMetadata(analysis: unknown): TrackMetadata {
   const track =
     analysis && typeof analysis === "object" && "track" in analysis
       ? (analysis as { track?: unknown }).track
@@ -92,9 +89,7 @@ function extractTrackMetadata(
   const trackRecord =
     track && typeof track === "object" ? (track as Record<string, unknown>) : null;
 
-  const title =
-    asString(trackRecord?.title) ??
-    `Cached track ${fingerprint.slice(0, 8)}`;
+  const title = asString(trackRecord?.title);
   const artist = asString(trackRecord?.artist);
   const durationSeconds = asFiniteNumber(trackRecord?.duration);
 
@@ -105,7 +100,7 @@ function sortCachedTracks(
   tracks: CachedAnalysisTrack[],
 ): CachedAnalysisTrack[] {
   return tracks.sort((a, b) => {
-    const titleCompare = a.title.localeCompare(b.title, undefined, {
+    const titleCompare = (a.title ?? "").localeCompare(b.title ?? "", undefined, {
       sensitivity: "base",
     });
     if (titleCompare !== 0) {
@@ -204,7 +199,7 @@ async function listOpfsAnalysisTracks(): Promise<CachedAnalysisTrack[]> {
         const text = await file.text();
         const parsed = JSON.parse(text) as unknown;
         const fingerprint = handle.name.replace(/\.json$/u, "");
-        const metadata = extractTrackMetadata(fingerprint, parsed);
+        const metadata = extractTrackMetadata(parsed);
         tracks.push({
           fingerprint,
           ...metadata,
@@ -267,7 +262,7 @@ async function listIndexedDbAnalysisTracks(): Promise<CachedAnalysisTrack[]> {
           typeof cursor.key === "string"
             ? cursor.key
             : String(cursor.key);
-        const metadata = extractTrackMetadata(fingerprint, cursor.value as unknown);
+        const metadata = extractTrackMetadata(cursor.value as unknown);
         tracks.push({
           fingerprint,
           ...metadata,

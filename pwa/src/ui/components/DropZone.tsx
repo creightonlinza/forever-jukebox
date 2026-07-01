@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 type DropZoneProps = {
   onFile: (file: File) => void;
@@ -6,6 +7,7 @@ type DropZoneProps = {
 };
 
 export function DropZone({ onFile, accept }: DropZoneProps) {
+  const { t } = useTranslation();
   const [active, setActive] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -35,14 +37,14 @@ export function DropZone({ onFile, accept }: DropZoneProps) {
   return (
     <div className={`drop-zone ${active ? "is-active" : ""}`} onDrop={onDrop} onDragOver={onDrag} onDragLeave={onDragLeave}>
       <div className="drop-zone__content">
-        <p className="drop-zone__title">Drop an audio file</p>
-        <p className="drop-zone__sub">or</p>
+        <p className="drop-zone__title">{t("home.dropFile")}</p>
+        <p className="drop-zone__sub">{t("home.or")}</p>
         <button
           className="btn btn-primary"
           type="button"
           onClick={() => inputRef.current?.click()}
         >
-          Choose file
+          {t("home.chooseFile")}
         </button>
       </div>
       <input

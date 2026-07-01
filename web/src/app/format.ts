@@ -1,5 +1,6 @@
 import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
 import type { AppState } from "./context";
+import i18n from "./i18n";
 
 export function formatDuration(seconds: number) {
   const totalSeconds = Math.floor(seconds);
@@ -36,13 +37,20 @@ export function formatTrackDuration(seconds: unknown) {
 }
 
 export function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
-  if (audioMode === "cowbell") {
-    return "more cowbell";
-  }
-  if (audioMode === "underwater" || audioMode === "cathedral") {
-    return audioMode;
-  }
-  return audioMode;
+  const labels: Record<JukeboxAudioMode, string> = {
+    off: i18n.t("common.off"),
+    nightcore: i18n.t("playback.audioModeNightcore"),
+    daycore: i18n.t("playback.audioModeDaycore"),
+    vaporwave: i18n.t("playback.audioModeVaporwave"),
+    eight_d: i18n.t("playback.audioModeEightD"),
+    lofi: i18n.t("playback.audioModeLofi"),
+    eight_bit: i18n.t("playback.audioModeEightBit"),
+    underwater: i18n.t("playback.audioModeUnderwater"),
+    cathedral: i18n.t("playback.audioModeCathedral"),
+    cowbell: i18n.t("playback.audioModeCowbell"),
+    swing: i18n.t("playback.audioModeSwing"),
+  };
+  return labels[audioMode];
 }
 
 export function formatPlaybackTitle(
@@ -51,7 +59,7 @@ export function formatPlaybackTitle(
   audioMode: JukeboxAudioMode,
 ) {
   if (playMode === "autocanonizer") {
-    return `${baseTitle} (autocanonized)`;
+    return `${baseTitle} (${i18n.t("playback.autocanonized")})`;
   }
   if (audioMode !== "off") {
     return `${baseTitle} (${formatAudioModeLabel(audioMode)})`;

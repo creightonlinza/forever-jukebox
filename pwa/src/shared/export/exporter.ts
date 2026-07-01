@@ -23,7 +23,16 @@ import { renderJukeboxAudio } from "./render";
 
 export interface JukeboxExportProgress {
   stage: "planning" | "rendering" | "encoding";
-  message: string;
+  message:
+    | { kind: "initializing" }
+    | { kind: "preparingSwing" }
+    | { kind: "planning" }
+    | { kind: "renderingChunk"; chunk: number; total: number }
+    | { kind: "encodingChunk"; chunk: number; total: number }
+    | { kind: "combiningChunks" }
+    | { kind: "renderingAudio" }
+    | { kind: "encodingFormat"; format: string }
+    | { kind: "finalizing" };
   percent: number;
 }
 
@@ -59,7 +68,7 @@ const MAX_WAV_FLOAT32_RENDER_BYTES = 1_200_000_000;
 function report(
   onProgress: ExportJukeboxAudioOptions["onProgress"],
   stage: JukeboxExportProgress["stage"],
-  message: string,
+  message: JukeboxExportProgress["message"],
   percent: number,
 ) {
   onProgress?.({
@@ -72,7 +81,7 @@ function report(
 export async function exportJukeboxAudio(
   options: ExportJukeboxAudioOptions,
 ): Promise<ExportJukeboxAudioResult> {
-  report(options.onProgress, "planning", "Planning branch path", 2);
+  report(options.onProgress, "planning", { kind: "planning" }, 2);
   const sourceBuffer =
     options.audioMode === "swing" && options.swingBuffer
       ? options.swingBuffer
@@ -130,7 +139,11 @@ export async function exportJukeboxAudio(
       report(
         options.onProgress,
         "rendering",
-        `Rendering chunk ${chunkIndex + 1}/${chunkCount}`,
+        {
+          kind: "renderingChunk",
+          chunk: chunkIndex + 1,
+          total: chunkCount,
+        },
         8 + (chunkIndex / chunkCount) * 72,
       );
       const renderedChunk = await renderJukeboxAudio({
@@ -146,7 +159,11 @@ export async function exportJukeboxAudio(
           report(
             options.onProgress,
             "rendering",
-            `Rendering chunk ${chunkIndex + 1}/${chunkCount}`,
+            {
+              kind: "renderingChunk",
+              chunk: chunkIndex + 1,
+              total: chunkCount,
+            },
             percent,
           );
         },
@@ -157,7 +174,11 @@ export async function exportJukeboxAudio(
       report(
         options.onProgress,
         "encoding",
-        `Encoding chunk ${chunkIndex + 1}/${chunkCount}`,
+        {
+          kind: "encodingChunk",
+          chunk: chunkIndex + 1,
+          total: chunkCount,
+        },
         encodeStart,
       );
       const chunkEncoded = await encodeAudioBufferWithFfmpeg(renderedChunk, {
@@ -167,7 +188,11 @@ export async function exportJukeboxAudio(
           report(
             options.onProgress,
             "encoding",
-            `Encoding chunk ${chunkIndex + 1}/${chunkCount}`,
+            {
+              kind: "encodingChunk",
+              chunk: chunkIndex + 1,
+              total: chunkCount,
+            },
             encodeStart + progress * encodeSpan,
           );
         },
@@ -175,7 +200,7 @@ export async function exportJukeboxAudio(
       encodedChunks.push(chunkEncoded.bytes);
     }
 
-    report(options.onProgress, "encoding", "Combining encoded chunks", 98);
+    report(options.onProgress, "encoding", { kind: "combiningChunks" }, 98);
     encoded = await concatMp3ChunksWithFfmpeg(encodedChunks);
   } else {
     const estimatedBytes =
@@ -189,7 +214,7 @@ export async function exportJukeboxAudio(
       );
     }
 
-    report(options.onProgress, "rendering", "Rendering offline audio", 8);
+    report(options.onProgress, "rendering", { kind: "renderingAudio" }, 8);
 
     const rendered = await renderJukeboxAudio({
       sourceBuffer,
@@ -200,11 +225,21 @@ export async function exportJukeboxAudio(
       cowbellEvents,
       onProgress: (progress) => {
         const percent = 8 + progress * 72;
-        report(options.onProgress, "rendering", "Rendering offline audio", percent);
+        report(
+          options.onProgress,
+          "rendering",
+          { kind: "renderingAudio" },
+          percent,
+        );
       },
     });
 
-    report(options.onProgress, "encoding", `Encoding ${options.format.toUpperCase()}`, 82);
+    report(
+      options.onProgress,
+      "encoding",
+      { kind: "encodingFormat", format: options.format.toUpperCase() },
+      82,
+    );
 
     encoded = await encodeAudioBufferWithFfmpeg(rendered, {
       format: options.format,
@@ -214,14 +249,14 @@ export async function exportJukeboxAudio(
         report(
           options.onProgress,
           "encoding",
-          `Encoding ${options.format.toUpperCase()}`,
+          { kind: "encodingFormat", format: options.format.toUpperCase() },
           percent,
         );
       },
     });
   }
 
-  report(options.onProgress, "encoding", "Finalizing file", 100);
+  report(options.onProgress, "encoding", { kind: "finalizing" }, 100);
 
   return {
     ...encoded,

@@ -7,15 +7,18 @@ import {
   setCanonizerFinish,
   setPlayMode,
 } from "../../playback-ui";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
-function getVisualizationLabel(index: number) {
-  return VISUALIZATION_LABELS[index] ?? `Visualization ${index + 1}`;
+function getVisualizationLabel(index: number, t: TFunction) {
+  return VISUALIZATION_LABELS[index] ??
+    t("playback.visualizationNumber", { number: index + 1 });
 }
 
-function getVisualizationSelectEntries(count: number) {
+function getVisualizationSelectEntries(count: number, t: TFunction) {
   return Array.from({ length: count }, (_, index) => ({
     index,
-    label: getVisualizationLabel(index),
+    label: getVisualizationLabel(index, t),
   })).sort((a, b) =>
     a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
   );
@@ -24,6 +27,7 @@ function getVisualizationSelectEntries(count: number) {
 // The viz-top controls: play-mode select, visualization select and the
 // autocanonizer finish-out checkbox. Rendered into the .viz-top container.
 export function VizTop() {
+  const { t } = useTranslation();
   const playMode = useAppStore((s) => s.playMode);
   const activeVizIndex = useAppStore((s) => s.activeVizIndex);
   const audioLoaded = useAppStore((s) => s.audioLoaded);
@@ -41,6 +45,7 @@ export function VizTop() {
   // ref handoff happens at commit); fall back to the static label count.
   const entries = getVisualizationSelectEntries(
     getAppContext().jukebox?.getCount() ?? VISUALIZATION_LABELS.length,
+    t,
   );
 
   return (
@@ -51,7 +56,7 @@ export function VizTop() {
             <select
               id="play-mode-select"
               className="viz-select"
-              aria-label="Mode"
+              aria-label={t("playback.mode")}
               value={playMode}
               onChange={(event) =>
                 setPlayMode(
@@ -61,8 +66,8 @@ export function VizTop() {
                 )
               }
             >
-              <option value="autocanonizer">Autocanonizer</option>
-              <option value="jukebox">Jukebox</option>
+              <option value="autocanonizer">{t("playback.autocanonizer")}</option>
+              <option value="jukebox">{t("playback.jukebox")}</option>
             </select>
             <span
               className="material-symbols-outlined viz-select-arrow"
@@ -79,7 +84,7 @@ export function VizTop() {
             <select
               id="viz-select"
               className="viz-select"
-              aria-label="Visualization"
+              aria-label={t("playback.visualization")}
               disabled={vizSelectDisabled}
               value={String(activeVizIndex)}
               onChange={(event) => {
@@ -114,7 +119,7 @@ export function VizTop() {
             setCanonizerFinish(event.target.checked);
           }}
         />
-        <span>Finish out the track</span>
+        <span>{t("playback.finishTrack")}</span>
       </div>
     </>
   );

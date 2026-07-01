@@ -13,37 +13,62 @@ import {
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { Modal } from "../Modal";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 const AUDIO_MODE_OPTIONS: Array<{
   id: string;
   value: JukeboxAudioMode;
-  label: string;
-  title?: string;
+  labelKey:
+    | "common.off"
+    | "tuning.nightcore"
+    | "tuning.daycore"
+    | "tuning.vaporwave"
+    | "tuning.eightD"
+    | "tuning.lofi"
+    | "tuning.eightBit"
+    | "tuning.underwater"
+    | "tuning.cathedral"
+    | "tuning.cowbell"
+    | "tuning.swing";
+  titleKey?:
+    | "tuning.nightcoreTooltip"
+    | "tuning.daycoreTooltip"
+    | "tuning.vaporwaveTooltip"
+    | "tuning.eightDTooltip"
+    | "tuning.lofiTooltip"
+    | "tuning.eightBitTooltip"
+    | "tuning.underwaterTooltip"
+    | "tuning.cathedralTooltip"
+    | "tuning.cowbell"
+    | "tuning.swingTooltip";
   section: "default" | "styles" | "toys";
 }> = [
-  { id: "audio-mode-off", value: "off", label: "Off", section: "default" },
-  { id: "audio-mode-nightcore", value: "nightcore", label: "Nightcore", title: "Fast & Bright", section: "styles" },
-  { id: "audio-mode-daycore", value: "daycore", label: "Daycore", title: "Slow & Deep", section: "styles" },
-  { id: "audio-mode-vaporwave", value: "vaporwave", label: "Vaporwave", title: "Muffled & Slow", section: "styles" },
-  { id: "audio-mode-eight-d", value: "eight_d", label: "8D Audio", title: "Spinning/Spatial", section: "styles" },
-  { id: "audio-mode-lofi", value: "lofi", label: "LoFi", title: "Radio Filter", section: "styles" },
-  { id: "audio-mode-eight-bit", value: "eight_bit", label: "8-Bit", title: "Bitcrushed & Filtered", section: "styles" },
-  { id: "audio-mode-underwater", value: "underwater", label: "Underwater", title: "Heavy Low-Pass", section: "styles" },
-  { id: "audio-mode-cathedral", value: "cathedral", label: "Cathedral", title: "Cathedral Reverb", section: "styles" },
-  { id: "audio-mode-cowbell", value: "cowbell", label: "More Cowbell", title: "More Cowbell", section: "toys" },
+  { id: "audio-mode-off", value: "off", labelKey: "common.off", section: "default" },
+  { id: "audio-mode-nightcore", value: "nightcore", labelKey: "tuning.nightcore", titleKey: "tuning.nightcoreTooltip", section: "styles" },
+  { id: "audio-mode-daycore", value: "daycore", labelKey: "tuning.daycore", titleKey: "tuning.daycoreTooltip", section: "styles" },
+  { id: "audio-mode-vaporwave", value: "vaporwave", labelKey: "tuning.vaporwave", titleKey: "tuning.vaporwaveTooltip", section: "styles" },
+  { id: "audio-mode-eight-d", value: "eight_d", labelKey: "tuning.eightD", titleKey: "tuning.eightDTooltip", section: "styles" },
+  { id: "audio-mode-lofi", value: "lofi", labelKey: "tuning.lofi", titleKey: "tuning.lofiTooltip", section: "styles" },
+  { id: "audio-mode-eight-bit", value: "eight_bit", labelKey: "tuning.eightBit", titleKey: "tuning.eightBitTooltip", section: "styles" },
+  { id: "audio-mode-underwater", value: "underwater", labelKey: "tuning.underwater", titleKey: "tuning.underwaterTooltip", section: "styles" },
+  { id: "audio-mode-cathedral", value: "cathedral", labelKey: "tuning.cathedral", titleKey: "tuning.cathedralTooltip", section: "styles" },
+  { id: "audio-mode-cowbell", value: "cowbell", labelKey: "tuning.cowbell", titleKey: "tuning.cowbell", section: "toys" },
   {
     id: "audio-mode-swing",
     value: "swing",
-    label: "Swing",
-    title: "Adds a swung feel by stretching and compressing each beat internally.",
+    labelKey: "tuning.swing",
+    titleKey: "tuning.swingTooltip",
     section: "toys",
   },
 ];
 
 const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
 
-function formatMinJumpDistance(percent: number) {
-  return percent === 0 ? "Any distance" : `>${percent}% of track`;
+function formatMinJumpDistance(percent: number, t: TFunction) {
+  return percent === 0
+    ? t("tuning.anyDistance")
+    : t("tuning.percentOfTrack", { percent });
 }
 
 function RangeRow({
@@ -87,6 +112,7 @@ function RangeRow({
 }
 
 export function TuningModal() {
+  const { t } = useTranslation();
   const open = useAppStore((s) => s.tuningModalOpen);
   const storedTab = useAppStore((s) => s.tuningModalTab);
   const playMode = useAppStore((s) => s.playMode);
@@ -159,19 +185,19 @@ export function TuningModal() {
           ? "audio-mode-option audio-mode-default-option"
           : "audio-mode-option"
       }
-      title={option.title}
+      title={option.titleKey ? t(option.titleKey) : undefined}
     >
       <input
         id={option.id}
         type="radio"
         name="audio-mode"
         value={option.value}
-        title={option.title}
+        title={option.titleKey ? t(option.titleKey) : undefined}
         checked={extras?.audioMode === option.value}
         disabled={!hasExtrasTab}
         onChange={() => setExtrasField("audioMode", option.value)}
       />
-      {option.label}
+      {t(option.labelKey)}
     </label>
   );
 
@@ -185,16 +211,18 @@ export function TuningModal() {
               className={tuningActive ? undefined : "is-extras-active"}
             >
               <span id="tuning-title-text">
-                {tuningActive ? "Tuning" : "Extras"}
+                {tuningActive ? t("tuning.title") : t("tuning.extras")}
               </span>
             </h2>
-            <div className="modal-tabs" aria-label="Tune sections">
+            <div className="modal-tabs" aria-label={t("tuning.sections")}>
               <button
                 id="tuning-tab-toggle"
                 className={hasExtrasTab ? "modal-tab" : "modal-tab hidden"}
                 type="button"
                 aria-label={
-                  tuningActive ? "Switch to Extras" : "Switch to Tuning"
+                  tuningActive
+                    ? t("tuning.switchToExtras")
+                    : t("tuning.switchToTuning")
                 }
                 onClick={handleToggleTab}
               >
@@ -206,33 +234,16 @@ export function TuningModal() {
                   {tuningActive ? "science" : "tune"}
                 </span>
                 <span id="tuning-tab-toggle-label">
-                  {tuningActive ? "Extras" : "Tuning"}
+                  {tuningActive ? t("tuning.extras") : t("tuning.title")}
                 </span>
               </button>
             </div>
           </div>
           <div className="modal-header-actions">
             <button
-              id="sleep-timer-open"
-              className="modal-icon-button"
-              type="button"
-              aria-label="Sleep Timer"
-              title="Sleep Timer"
-              onClick={() =>
-                useAppStore.setState({ sleepTimerModalOpen: true })
-              }
-            >
-              <span
-                className="material-symbols-outlined modal-icon-button-icon"
-                aria-hidden="true"
-              >
-                timer
-              </span>
-            </button>
-            <button
               id="tuning-close"
               className="modal-close"
-              aria-label="Close"
+              aria-label={t("common.close")}
               onClick={close}
             >
               <span
@@ -248,7 +259,7 @@ export function TuningModal() {
           <div id="tuning-panel-tuning" className={tuningActive ? undefined : "hidden"}>
             <RangeRow
               id="threshold"
-              label="Branch Similarity Threshold:"
+              label={t("tuning.similarityThreshold")}
               valueText={`${form?.threshold ?? 2}`}
               min={2}
               max={80}
@@ -257,7 +268,7 @@ export function TuningModal() {
               onChange={(value) => setFormField("threshold", value)}
               hint={
                 <div className="hint">
-                  Computed default threshold:{" "}
+                  {t("tuning.computedThreshold")}{" "}
                   <span id="computed-threshold">
                     {form?.computedThreshold === null ||
                     form?.computedThreshold === undefined
@@ -269,9 +280,10 @@ export function TuningModal() {
             />
             <RangeRow
               id="min-jump-distance"
-              label="Minimum Jump Distance:"
+              label={t("tuning.minJumpDistance")}
               valueText={formatMinJumpDistance(
                 form?.minLongBranchPercent ?? 0,
+                t,
               )}
               min={0}
               max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
@@ -291,13 +303,13 @@ export function TuningModal() {
               }
               hint={
                 <div className="hint">
-                  Filters jumps by beat distance across the track.
+                  {t("tuning.minJumpDistanceHint")}
                 </div>
               }
             />
             <RangeRow
               id="min-prob"
-              label="Branch Probability Min:"
+              label={t("tuning.probabilityMin")}
               valueText={`${form?.minProbPct ?? 18}%`}
               min={0}
               max={100}
@@ -307,7 +319,7 @@ export function TuningModal() {
             />
             <RangeRow
               id="max-prob"
-              label="Branch Probability Max:"
+              label={t("tuning.probabilityMax")}
               valueText={`${form?.maxProbPct ?? 50}%`}
               min={0}
               max={100}
@@ -317,7 +329,7 @@ export function TuningModal() {
             />
             <RangeRow
               id="ramp"
-              label="Branch Ramp Speed:"
+              label={t("tuning.rampSpeed")}
               valueText={`${form?.rampPct ?? 10}%`}
               min={0}
               max={100}
@@ -335,7 +347,7 @@ export function TuningModal() {
                     setFormField("justBackwards", event.target.checked)
                   }
                 />{" "}
-                Allow only reverse branches
+                {t("tuning.onlyReverse")}
               </label>
               <label>
                 <input
@@ -346,7 +358,7 @@ export function TuningModal() {
                     setFormField("removeSequentialBranches", event.target.checked)
                   }
                 />{" "}
-                Remove sequential branches
+                {t("tuning.removeSequential")}
               </label>
               <label>
                 <input
@@ -357,7 +369,7 @@ export function TuningModal() {
                     setFormField("highlightAnchorBranch", event.target.checked)
                   }
                 />{" "}
-                Highlight forced anchor jump
+                {t("tuning.highlightAnchor")}
               </label>
             </div>
           </div>
@@ -376,7 +388,7 @@ export function TuningModal() {
                     setExtrasField("branchStatsEnabled", event.target.checked)
                   }
                 />{" "}
-                Show selected branch stats
+                {t("tuning.showBranchStats")}
               </label>
               <label>
                 <input
@@ -388,19 +400,19 @@ export function TuningModal() {
                     setExtrasField("bringItHomeMode", event.target.checked)
                   }
                 />{" "}
-                Bring It Home mode
+                {t("tuning.bringItHome")}
               </label>
             </div>
             <div id="jukebox-audio-mode-group" className="audio-mode-group">
-              <div className="label-line">Audio Mode</div>
+              <div className="label-line">{t("tuning.audioMode")}</div>
               <div
                 className="audio-mode-options"
                 role="radiogroup"
-                aria-label="Audio mode"
+                aria-label={t("tuning.audioModeLabel")}
               >
                 {audioModeOption(AUDIO_MODE_OPTIONS[0])}
                 <div className="audio-mode-section">
-                  <div className="audio-mode-section-title">Playback Styles</div>
+                  <div className="audio-mode-section-title">{t("tuning.playbackStyles")}</div>
                   <div className="audio-mode-section-options">
                     {AUDIO_MODE_OPTIONS.filter(
                       (option) => option.section === "styles",
@@ -408,7 +420,7 @@ export function TuningModal() {
                   </div>
                 </div>
                 <div className="audio-mode-section">
-                  <div className="audio-mode-section-title">Remix Toys</div>
+                  <div className="audio-mode-section-title">{t("tuning.remixToys")}</div>
                   <div className="audio-mode-section-options">
                     {AUDIO_MODE_OPTIONS.filter(
                       (option) => option.section === "toys",
@@ -421,10 +433,10 @@ export function TuningModal() {
         </div>
         <div className="modal-footer tuning-footer">
           <button id="tuning-reset" onClick={handleReset}>
-            Reset
+            {t("common.reset")}
           </button>
           <button id="tuning-apply" onClick={handleApply}>
-            Apply
+            {t("common.apply")}
           </button>
         </div>
       </Modal>

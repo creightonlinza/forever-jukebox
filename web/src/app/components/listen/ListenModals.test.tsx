@@ -7,7 +7,6 @@ import {
   getExtrasFormValues,
   getTuningFormValues,
   resetTuningDefaults,
-  setSleepTimer,
   type ExtrasFormValues,
   type TuningFormValues,
 } from "../../playback";
@@ -19,14 +18,12 @@ import {
 } from "../../playlist-actions";
 import { InfoModal } from "./InfoModal";
 import { PlaylistModal } from "./PlaylistModal";
-import { SleepTimerModal } from "./SleepTimerModal";
 import { TuningModal } from "./TuningModal";
 
 vi.mock("../../playback", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../playback")>();
   return {
     ...actual,
-    setSleepTimer: vi.fn(),
     getTuningFormValues: vi.fn(),
     applyTuningChanges: vi.fn(),
     getExtrasFormValues: vi.fn(),
@@ -78,7 +75,7 @@ beforeEach(() => {
       tuningModalOpen: false,
       tuningModalTab: "tuning",
       infoModalOpen: false,
-      sleepTimerModalOpen: false,
+      settingsModalOpen: false,
       playlistModalOpen: false,
       playMode: "jukebox",
       sleepTimer: { configuredDurationMs: null, endTimeMs: null, remainingMs: 0 },
@@ -214,61 +211,12 @@ describe("TuningModal", () => {
     expect(useAppStore.getState().tuningModalOpen).toBe(false);
   });
 
-  it("opens the sleep timer from the header", async () => {
+  it("does not expose sleep timer controls", () => {
     render(<TuningModal />);
     act(() => {
       useAppStore.setState({ tuningModalOpen: true });
     });
-    await userEvent.click(document.getElementById("sleep-timer-open")!);
-    expect(useAppStore.getState().sleepTimerModalOpen).toBe(true);
-  });
-});
-
-describe("SleepTimerModal", () => {
-  it("shows the countdown and sets a pending duration", async () => {
-    (setSleepTimer as Mock).mockClear();
-    render(<SleepTimerModal />);
-    act(() => {
-      useAppStore.setState({
-        sleepTimerModalOpen: true,
-        sleepTimer: {
-          configuredDurationMs: null,
-          endTimeMs: null,
-          remainingMs: 0,
-        },
-      });
-    });
-    expect(document.getElementById("sleep-timer-current")?.textContent).toBe(
-      "Off",
-    );
-    await userEvent.selectOptions(
-      document.getElementById("sleep-timer-select")!,
-      "1800000",
-    );
-    await userEvent.click(document.getElementById("sleep-timer-set")!);
-    expect(setSleepTimer).toHaveBeenCalledWith(1800000);
-    expect(useAppStore.getState().sleepTimerModalOpen).toBe(false);
-  });
-
-  it("renders the remaining countdown from the store", () => {
-    act(() => {
-      useAppStore.setState({
-        sleepTimerModalOpen: true,
-        sleepTimer: {
-          configuredDurationMs: 1800000,
-          endTimeMs: 100,
-          remainingMs: 65_000,
-        },
-      });
-    });
-    render(<SleepTimerModal />);
-    expect(document.getElementById("sleep-timer-current")?.textContent).toBe(
-      "Current countdown: 00:01:05",
-    );
-    expect(
-      (document.getElementById("sleep-timer-select") as HTMLSelectElement)
-        .value,
-    ).toBe("1800000");
+    expect(document.getElementById("sleep-timer-open")).toBeNull();
   });
 });
 
