@@ -123,9 +123,9 @@ export function FaqPanel() {
           <Trans
             i18nKey="faq.whatBody"
             components={{
-              infinite: <a href="https://musicmachinery.com/2012/11/12/the-infinite-jukebox/" target="_blank" rel="noreferrer" />,
-              canon: <a href="https://musicmachinery.com/2014/03/18/how-the-autocanonizer-works/" target="_blank" rel="noreferrer" />,
-              author: <a href="https://creighton.dev" target="_blank" rel="noreferrer" />,
+              infinite: <a href="https://musicmachinery.com/2012/11/12/the-infinite-jukebox/" target="_blank" rel="noreferrer">Infinite Jukebox</a>,
+              canon: <a href="https://musicmachinery.com/2014/03/18/how-the-autocanonizer-works/" target="_blank" rel="noreferrer">Autocanonizer</a>,
+              author: <a href="https://creighton.dev" target="_blank" rel="noreferrer">Creighton Linza</a>,
             }}
           />
         </p>
@@ -136,7 +136,7 @@ export function FaqPanel() {
           <Trans
             i18nKey="faq.sourceBody"
             components={{
-              repo: <a href="https://github.com/creightonlinza/forever-jukebox/" target="_blank" rel="noreferrer" />,
+              repo: <a href="https://github.com/creightonlinza/forever-jukebox/" target="_blank" rel="noreferrer">forever-jukebox</a>,
             }}
           />
         </p>
@@ -155,7 +155,7 @@ export function FaqPanel() {
           <Trans
             i18nKey="faq.modesBody"
             components={{
-              remix: <a href="https://github.com/echonest/remix" target="_blank" rel="noreferrer" />,
+              remix: <a href="https://github.com/echonest/remix" target="_blank" rel="noreferrer">Echo Nest Remix</a>,
             }}
           />
         </p>
@@ -179,7 +179,7 @@ export function FaqPanel() {
         <p>
           <Trans
             i18nKey="faq.offlineBody"
-            components={{ offline: <a href="/offline/" target="_blank" /> }}
+            components={{ offline: <a href="/offline/" target="_blank">Forever Jukebox Offline app</a> }}
           />
         </p>
 

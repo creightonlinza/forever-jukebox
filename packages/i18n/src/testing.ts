@@ -47,7 +47,7 @@ export function assertLocaleCompleteness(
   { describe, it, expect }: LocaleCompletenessTestApi,
 ): void {
   const locales = Object.entries(localeModules).map(([path, mod]) => ({
-    code: path.match(/([^/]+)\.json$/)?.[1] ?? path,
+    code: path.split("/").pop()?.replace(/\.json$/, "") ?? path,
     keys: baseKeySet(mod),
   }));
 
@@ -64,8 +64,12 @@ export function assertLocaleCompleteness(
       "locale '$code' has exactly the English key set",
       ({ keys }: { keys: Set<string> }) => {
         const en = english!.keys;
-        const missing = [...en].filter((key) => !keys.has(key)).sort();
-        const extra = [...keys].filter((key) => !en.has(key)).sort();
+        const missing = [...en]
+          .filter((key) => !keys.has(key))
+          .sort((a, b) => a.localeCompare(b));
+        const extra = [...keys]
+          .filter((key) => !en.has(key))
+          .sort((a, b) => a.localeCompare(b));
         expect({ missing, extra }).toEqual({ missing: [], extra: [] });
       },
     );

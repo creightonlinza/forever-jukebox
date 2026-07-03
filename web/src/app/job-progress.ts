@@ -18,7 +18,7 @@ export function translateJobProgress(
     return i18n.t("status.wrappingUp");
   }
   if (status === "queued") {
-    const aheadMatch = fallback?.match(/(\d+)\s+ahead/i);
+    const aheadMatch = fallback?.match(/(\d{1,9})\s+ahead/i);
     if (aheadMatch) {
       return i18n.t("status.queuedAhead", {
         count: Number(aheadMatch[1]),

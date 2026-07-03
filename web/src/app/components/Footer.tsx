@@ -11,9 +11,9 @@ export function Footer() {
             i18nKey="footer.hosted"
             values={{ host: credit.hostedByName }}
             components={{
-              author: <a href="https://creighton.dev" target="_blank" rel="noreferrer" />,
+              author: <a href="https://creighton.dev" target="_blank" rel="noreferrer">Creighton</a>,
               host: credit.hostedByUrl ? (
-                <a href={credit.hostedByUrl} target="_blank" rel="noreferrer" />
+                <a href={credit.hostedByUrl} target="_blank" rel="noreferrer">{credit.hostedByName}</a>
               ) : (
                 <span />
               ),
@@ -23,7 +23,7 @@ export function Footer() {
           <Trans
             i18nKey="footer.credit"
             components={{
-              author: <a href="https://creighton.dev" target="_blank" rel="noreferrer" />,
+              author: <a href="https://creighton.dev" target="_blank" rel="noreferrer">Creighton</a>,
             }}
           />
         )}
