@@ -144,32 +144,16 @@ textarea:focus-visible {
   position: relative;
 }
 
-.hero-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .settings-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.settings-button:hover {
-  background: var(--surface-control);
+  padding: 7px 12px;
 }
 
 .settings-button-icon {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 
 .hero-main {

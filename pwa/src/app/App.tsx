@@ -68,18 +68,6 @@ function AppLayout() {
   return (
     <div className="app">
       <header className="hero">
-        <div className="hero-actions">
-          <button
-            id="settings-open"
-            className="settings-button"
-            type="button"
-            aria-label={t("settings.open")}
-            title={t("settings.open")}
-            onClick={() => setIsSettingsOpen(true)}
-          >
-            <SymbolIcon className="settings-button-icon" name="settings" />
-          </button>
-        </div>
         <div className="hero-main">
           <div className="hero-title">
             <div className="hero-title-frame">
@@ -109,6 +97,16 @@ function AppLayout() {
               >
                 {t("common.faq")}
               </Link>
+              <button
+                id="settings-open"
+                className="tab-btn settings-button"
+                type="button"
+                aria-label={t("settings.open")}
+                title={t("settings.open")}
+                onClick={() => setIsSettingsOpen(true)}
+              >
+                <SymbolIcon className="settings-button-icon" name="settings" />
+              </button>
             </nav>
           ) : null}
         </div>
