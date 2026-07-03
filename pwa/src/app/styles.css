@@ -78,7 +78,7 @@ textarea:focus-visible {
 .app {
   width: 100%;
   margin: 0;
-  padding: 0 20px;
+  padding: 0 16px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -513,6 +513,15 @@ textarea:focus-visible {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  scrollbar-width: none;
+}
+
+.play-title::-webkit-scrollbar {
+  display: none;
+}
+
+.play-title.is-marquee-active {
+  text-overflow: clip;
 }
 
 .menu-bar {
@@ -864,6 +873,7 @@ textarea:focus-visible {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  row-gap: 4px;
   font-size: 14px;
   color: var(--text);
   padding: 10px 12px;
@@ -916,6 +926,15 @@ textarea:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   display: none;
+  scrollbar-width: none;
+}
+
+.viz-title::-webkit-scrollbar {
+  display: none;
+}
+
+.viz-title.is-marquee-active {
+  text-overflow: clip;
 }
 
 #viz-panel:fullscreen .viz-title {
@@ -1482,12 +1501,6 @@ label {
   text-decoration: underline;
 }
 
-@media (max-width: 1024px) {
-  .menu-bar {
-    flex-wrap: wrap;
-  }
-}
-
 @media (max-width: 960px) {
   .hero-main {
     margin-top: 0;
@@ -1508,13 +1521,8 @@ label {
 }
 
 @media (max-width: 600px) {
-  .app {
-    margin: 0;
-    padding: 0;
-  }
-
   #viz-stats {
-    align-items: flex-start;
+    align-items: center;
     flex-wrap: wrap;
   }
 
@@ -1526,13 +1534,29 @@ label {
     order: 1;
   }
 
-  #viz-stats .viz-bottom-right {
+  /* Dissolve the title+meta column so the title can shrink on the controls
+     row (triggering the marquee) while the meta stats drop to their own line
+     instead of forcing the whole block wide and pushing the icons down. */
+  #viz-stats .viz-info {
+    display: contents;
+  }
+
+  /* flex-basis 0 (not auto) so the title claims no intrinsic width and stays
+     on the controls row, shrinking to trigger the marquee — with basis auto
+     its full content width forces it to wrap onto its own line instead. */
+  #viz-stats .viz-title {
     order: 2;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  #viz-stats .viz-bottom-right {
+    order: 3;
     margin-left: auto;
   }
 
-  #viz-stats .viz-info {
-    order: 3;
+  #viz-stats .viz-meta {
+    order: 4;
     flex: 0 0 100%;
   }
 }

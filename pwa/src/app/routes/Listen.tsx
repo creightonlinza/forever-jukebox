@@ -51,6 +51,7 @@ import { useAppState } from "../state/AppState";
 import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useWakeLock } from "./listen/useWakeLock";
+import { useMarquee } from "./listen/useMarquee";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -2437,6 +2438,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       )
     : null;
 
+  // Computed before the early return (and file-guarded) so the marquee hooks
+  // below run unconditionally on every render, keeping hook order stable.
+  const displayTitle = file
+    ? formatTrackTitle(file.name, playMode, jukeboxAudioMode, t)
+    : "";
+  // The marquee controller owns each title node's text imperatively, so the
+  // title <div>s are left empty in JSX (see .play-title / .viz-title) and wired
+  // through these ref callbacks.
+  const playTitleRef = useMarquee(displayTitle);
+  const vizTitleRef = useMarquee(displayTitle);
+
   if (!file) {
     return (
       <>
@@ -2448,12 +2460,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       </>
     );
   }
-  const displayTitle = formatTrackTitle(
-    file.name,
-    playMode,
-    jukeboxAudioMode,
-    t,
-  );
 
   return (
     <>
@@ -2491,7 +2497,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       {showPlaybackUi ? (
         <div className="menu-bar">
           <div className="menu-left">
-            <div className="play-title">{displayTitle}</div>
+            <div className="play-title" ref={playTitleRef}></div>
             {playMode === "jukebox" && bringItHomeMode ? (
               <span className="bring-home-note">{t("listen.bringingHome")}</span>
             ) : null}
@@ -2658,7 +2664,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 />
               </button>
               <div className="viz-info">
-                <div className="viz-title" id="viz-now-playing">{displayTitle}</div>
+                <div className="viz-title" id="viz-now-playing" ref={vizTitleRef}></div>
                 <div className="viz-meta">
                   <span
                     id="autocanonizer-times"

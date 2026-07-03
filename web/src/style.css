@@ -2143,6 +2143,7 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  row-gap: 4px;
   font-size: 14px;
   color: var(--text);
   padding: 10px 12px;
@@ -2434,12 +2435,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   }
 }
 
-@media (max-width: 1024px) {
-  .menu-bar {
-    flex-wrap: wrap;
-  }
-}
-
 @media (max-width: 600px) {
   #app {
     margin: 0;
@@ -2485,7 +2480,7 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   }
 
   #viz-stats {
-    align-items: flex-start;
+    align-items: center;
     flex-wrap: wrap;
   }
 
@@ -2497,13 +2492,29 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
     order: 1;
   }
 
-  #viz-stats .viz-bottom-right {
+  /* Dissolve the title+meta column so the title can shrink on the controls
+     row (triggering the marquee) while the meta stats drop to their own line
+     instead of forcing the whole block wide and pushing the icons down. */
+  #viz-stats .viz-info {
+    display: contents;
+  }
+
+  /* flex-basis 0 (not auto) so the title claims no intrinsic width and stays
+     on the controls row, shrinking to trigger the marquee — with basis auto
+     its full content width forces it to wrap onto its own line instead. */
+  #viz-stats .viz-title {
     order: 2;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  #viz-stats .viz-bottom-right {
+    order: 3;
     margin-left: auto;
   }
 
-  #viz-stats .viz-info {
-    order: 3;
+  #viz-stats .viz-meta {
+    order: 4;
     flex: 0 0 100%;
   }
 }
