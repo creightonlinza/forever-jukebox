@@ -193,6 +193,7 @@ describe("search flows", () => {
       "YouTube fetch failed.",
       false,
     );
+    expect(useAppStore.getState().analysisRetryJobId).toBe("job-f");
     expect(deps.pollAnalysis).not.toHaveBeenCalled();
     expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
   });

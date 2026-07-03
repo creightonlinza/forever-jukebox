@@ -2405,6 +2405,20 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   color: var(--muted);
 }
 
+.status-retry-button {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.status-retry-button:hover {
+  text-decoration: underline;
+}
+
 .spinner {
   width: 16px;
   height: 16px;

@@ -18,11 +18,16 @@ export function setAnalysisStatus(
 ) {
   useAppStore.setState(
     spinning
-      ? { analysisStatusText: message, analysisSpinning: true }
+      ? {
+          analysisStatusText: message,
+          analysisSpinning: true,
+          analysisRetryJobId: null,
+        }
       : {
           analysisStatusText: message,
           analysisSpinning: false,
           analysisProgressText: "",
+          analysisRetryJobId: null,
         },
   );
 }
@@ -37,6 +42,7 @@ export function setLoadingProgress(
     analysisSpinning: true,
     analysisProgressText:
       typeof progress === "number" ? `${Math.round(progress)}%` : "",
+    analysisRetryJobId: null,
   });
 }
 

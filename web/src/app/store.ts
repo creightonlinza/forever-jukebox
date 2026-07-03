@@ -112,6 +112,13 @@ type ShellSlice = {
   analysisStatusText: string;
   analysisSpinning: boolean;
   analysisProgressText: string;
+  // Job id offered for a one-click retry when a load failed with a
+  // transient source fetch error; null hides the retry link.
+  analysisRetryJobId: string | null;
+  // Job id of a user-initiated retry currently loading. If this job fails
+  // again the retry link is consumed rather than re-offered, so the button
+  // only appears once per fresh load (a new search/reload re-enables it).
+  retryInFlightJobId: string | null;
   listenTimeText: string;
   beatsPlayedText: string;
   playlistLoadBusy: boolean;
@@ -203,6 +210,8 @@ const createUiSlice: Slice<
     | "analysisStatusText"
     | "analysisSpinning"
     | "analysisProgressText"
+    | "analysisRetryJobId"
+    | "retryInFlightJobId"
     | "listenTimeText"
     | "beatsPlayedText"
     | "playlistLoadBusy"
@@ -262,6 +271,8 @@ const createUiSlice: Slice<
     analysisStatusText: i18n.t("status.noTrack"),
     analysisSpinning: false,
     analysisProgressText: "",
+    analysisRetryJobId: null,
+    retryInFlightJobId: null,
     listenTimeText: "00:00:00",
     beatsPlayedText: "0",
     playlistLoadBusy: false,

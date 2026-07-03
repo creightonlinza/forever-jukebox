@@ -1,5 +1,6 @@
 import { hasInactiveSavedPlaylist } from "../../playlist";
 import { useAppStore } from "../../store";
+import { retryTrack } from "../../track-select";
 import { useTranslation } from "react-i18next";
 
 // The Listen-panel status row: spinner, loading progress, analysis status
@@ -10,6 +11,7 @@ export function StatusPanel() {
   const statusText = useAppStore((s) => s.analysisStatusText);
   const spinning = useAppStore((s) => s.analysisSpinning);
   const progressText = useAppStore((s) => s.analysisProgressText);
+  const retryJobId = useAppStore((s) => s.analysisRetryJobId);
   const playlist = useAppStore((s) => s.playlist);
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
@@ -41,6 +43,18 @@ export function StatusPanel() {
       </div>
       <div className="status-text" id="analysis-status">
         {statusText}
+        {retryJobId && !spinning ? (
+          <>
+            {" "}
+            <button
+              type="button"
+              className="status-retry-button"
+              onClick={() => retryTrack(retryJobId)}
+            >
+              {t("common.retry")}
+            </button>
+          </>
+        ) : null}
       </div>
       <button
         id="saved-playlist"

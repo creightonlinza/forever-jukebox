@@ -12,6 +12,7 @@ import {
   isAnalysisComplete,
   isAnalysisFailed,
   isAnalysisInProgress,
+  isRetryableFetchFailure,
 } from "../analysisStatus";
 import {
   deleteCachedTrack,
@@ -66,6 +67,23 @@ import {
 
 const GENERIC_LOAD_ERROR_MESSAGE = i18n.t("errors.generic");
 let pollController: AbortController | null = null;
+
+// Show the retry link for a transient fetch failure, unless this failure is
+// the result of a retry the user already triggered for the same job — in
+// which case the offer is consumed so the button only appears once.
+function offerRetryLinkForFailure(
+  response: AnalysisResponse | null,
+  jobId: string,
+): void {
+  if (!isRetryableFetchFailure(response)) {
+    return;
+  }
+  if (useAppStore.getState().retryInFlightJobId === jobId) {
+    useAppStore.setState({ retryInFlightJobId: null });
+    return;
+  }
+  useAppStore.setState({ analysisRetryJobId: jobId });
+}
 
 export type PlaybackDeps = {
   setActiveTab: (tabId: TabId) => void;
@@ -407,6 +425,7 @@ export async function pollAnalysis(
           }),
           false,
         );
+        offerRetryLinkForFailure(response, jobId);
         return;
       } else if (isAnalysisComplete(response)) {
         if (!useAppStore.getState().audioLoaded) {
@@ -467,6 +486,7 @@ async function continueTrackLoadWithResponse(
       }),
       false,
     );
+    offerRetryLinkForFailure(response, response.id);
     return false;
   }
   if (isAnalysisComplete(response)) {

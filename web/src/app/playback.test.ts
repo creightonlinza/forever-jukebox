@@ -1842,6 +1842,64 @@ describe("playback loading", () => {
     );
   });
 
+  it("offers a retry link when a YouTube fetch fails", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    const jobId = "c4f3c0dc73c6476c9db95c227f9206f2";
+    const failed = {
+      status: "failed",
+      id: jobId,
+      source_id: "abc123def45",
+      source_provider: "youtube",
+      error: "ERROR: Unable to download video data.",
+      error_code: "download_unavailable",
+    };
+    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => failed } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: async () => ({ status: "downloading", id: jobId, source_provider: "youtube" }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => failed } as Response);
+
+    await loadTrackById(context, deps, jobId);
+
+    expect(useAppStore.getState().analysisRetryJobId).toBe(jobId);
+  });
+
+  it("does not re-offer the retry link when a user retry fails again", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    const jobId = "d4f3c0dc73c6476c9db95c227f9206f2";
+    const failed = {
+      status: "failed",
+      id: jobId,
+      source_id: "abc123def45",
+      source_provider: "youtube",
+      error: "ERROR: Unable to download video data.",
+      error_code: "download_unavailable",
+    };
+    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => failed } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: async () => ({ status: "downloading", id: jobId, source_provider: "youtube" }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => failed } as Response);
+
+    // Simulate the user having clicked Retry for this job.
+    useAppStore.setState({ retryInFlightJobId: jobId });
+
+    await loadTrackById(context, deps, jobId);
+
+    expect(useAppStore.getState().analysisRetryJobId).toBeNull();
+    expect(useAppStore.getState().retryInFlightJobId).toBeNull();
+  });
+
   it("lets the backend reject a non-retryable job restart", async () => {
     const context = createContext();
     const deps = createLoadDeps();
