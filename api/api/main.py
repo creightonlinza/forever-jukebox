@@ -69,6 +69,26 @@ SITE_DESCRIPTION = (
     "seamlessly jumping between similar beats to remix it on the fly."
 )
 
+# Distinct per-page name/description for the indexable non-root routes. Without these,
+# every sitemap URL serves identical pre-render HTML and crawlers treat the pages as
+# duplicates of the homepage. Page names mirror the client's document-title format
+# (document-title.ts renders "<Page> | Forever Jukebox").
+PAGE_META = {
+    "search": (
+        "Search",
+        "Find any song and play it as a never-ending remix with The Forever Jukebox.",
+    ),
+    "faq": (
+        "FAQ",
+        "Answers to common questions about how The Forever Jukebox remixes songs "
+        "into infinite versions of themselves.",
+    ),
+    "whats-new": (
+        "What's New",
+        "The latest features and improvements to The Forever Jukebox.",
+    ),
+}
+
 
 def _attr(value: str) -> str:
     """Escape a string for use inside a double-quoted HTML attribute."""
@@ -178,6 +198,14 @@ def _inject_head(html: str, snippet: str) -> str:
     return snippet + html
 
 
+TITLE_TAG_RE = re.compile(r"<title>.*?</title>", re.DOTALL)
+
+
+def _set_title(html: str, title: str) -> str:
+    """Replace the document's <title> tag content."""
+    return TITLE_TAG_RE.sub(lambda _: f"<title>{escape(title)}</title>", html, count=1)
+
+
 @app.middleware("http")
 async def block_garbage_paths(request: Request, call_next):
     if WP_GARBAGE_RE.match(request.url.path):
@@ -200,7 +228,10 @@ def _shutdown() -> None:
     close_client()
 
 
-@app.get("/sitemap.xml", include_in_schema=False)
+# Public routes are registered for HEAD as well as GET: FastAPI's @app.get answers
+# HEAD with 405, but RFC 9110 §9.1 requires general-purpose servers to support both,
+# and link validators / crawlers probe with HEAD.
+@app.api_route("/sitemap.xml", methods=["GET", "HEAD"], include_in_schema=False)
 def sitemap_xml(request: Request):
     base_url = str(request.base_url).rstrip("/")
     entries = "".join(
@@ -220,7 +251,7 @@ def sitemap_xml(request: Request):
     return Response(content=content, media_type="application/xml")
 
 
-@app.get("/robots.txt", include_in_schema=False)
+@app.api_route("/robots.txt", methods=["GET", "HEAD"], include_in_schema=False)
 def robots_txt(request: Request):
     base_url = str(request.base_url).rstrip("/")
     content = (
@@ -246,14 +277,23 @@ if WEB_DIST.exists():
         page_url = base_url if not full_path else f"{base_url}/{full_path.lstrip('/')}"
         noindex = full_path == "listen" or full_path.startswith(LISTEN_PREFIX)
         extra = {}
+        doc_title = None
         if full_path.startswith(LISTEN_PREFIX):
             card = _listen_card(full_path[len(LISTEN_PREFIX) :])
             if card:
                 extra = {"title": card[0], "description": card[1], "og_type": "music.song"}
+                doc_title = f"{card[0]} | {SITE_NAME}"
+        elif full_path in PAGE_META:
+            page_name, description = PAGE_META[full_path]
+            doc_title = f"{page_name} | {SITE_NAME}"
+            extra = {"title": doc_title, "description": description}
         head = _head_meta(base_url, page_url, noindex=noindex, **extra)
-        return _inject_head(_index_template(), head)
+        html = _inject_head(_index_template(), head)
+        if doc_title:
+            html = _set_title(html, doc_title)
+        return html
 
-    @app.get("/{full_path:path}", responses=NOT_FOUND)
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], responses=NOT_FOUND)
     def spa_fallback(full_path: str, request: Request):
         if full_path.startswith("api"):
             raise HTTPException(status_code=404, detail="Not found")
