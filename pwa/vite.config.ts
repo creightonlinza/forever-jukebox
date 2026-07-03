@@ -46,9 +46,14 @@ export default defineConfig(({ command }) => {
       react(),
       VitePWA({
         injectRegister: null,
-        // Avoid forced app reloads during long-running analysis/playback.
-        // Updates are applied on next launch/reload instead of mid-session.
-        registerType: "prompt",
+        // "autoUpdate" makes the new service worker skipWaiting + clientsClaim,
+        // so it activates promptly instead of getting stuck in the waiting state
+        // (which previously left installed clients frozen on a stale version).
+        // Because we register manually in main.tsx with no controllerchange
+        // handler, the page is NOT force-reloaded mid-session: the refreshed
+        // precache surfaces on the next navigation/launch, preserving
+        // long-running analysis/playback.
+        registerType: "autoUpdate",
         includeAssets: ["favicon.png", "favicon-512.png", "worker.js", "madmom/**"],
         devOptions: {
           enabled: command === "serve",
@@ -84,6 +89,7 @@ export default defineConfig(({ command }) => {
             ? {}
             : {
                 maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
+                cleanupOutdatedCaches: true,
                 globPatterns: ["**/*.{js,css,html,wasm,json,webmanifest,png,svg,ico,ttf,woff,woff2,wav}"],
                 runtimeCaching: [
                   {
