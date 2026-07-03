@@ -85,7 +85,8 @@ describe("AppRoot tab lifecycle", () => {
       useAppStore.setState(initialStoreState, true);
       useAppStore.getState().resetTopSongsCache();
     });
-    document.title = "Forever Jukebox";
+    // A value no route produces, so title assertions prove the sync ran.
+    document.title = "pre-sync";
     vi.clearAllMocks();
   });
 
@@ -133,7 +134,7 @@ describe("AppRoot tab lifecycle", () => {
   it("syncs the browser title from route and track state", async () => {
     const router = renderApp("/");
     await waitFor(() => {
-      expect(document.title).toBe("Top Tracks | Forever Jukebox");
+      expect(document.title).toBe("Forever Jukebox");
     });
 
     act(() => {

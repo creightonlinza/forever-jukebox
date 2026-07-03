@@ -29,7 +29,9 @@ export function titleForAppView({
       ? i18n.t("documentTitle.whatsNew")
       : i18n.t("common.faq");
   } else {
-    pageTitle = i18n.t("navigation.topTracks");
+    // The homepage title is the bare brand name, matching the server-rendered
+    // <title> so hydration doesn't swap it.
+    return i18n.t("common.appName");
   }
 
   return i18n.t("documentTitle.separator", {

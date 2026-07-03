@@ -10,7 +10,7 @@ describe("document title", () => {
         trackTitle: null,
         trackArtist: null,
       }),
-    ).toBe("Top Tracks | Forever Jukebox");
+    ).toBe("Forever Jukebox");
     expect(
       titleForAppView({
         activeTabId: "search",
