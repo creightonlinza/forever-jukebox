@@ -50,27 +50,35 @@ describe("TabBar", () => {
     expect(offline?.getAttribute("target")).toBe("_blank");
   });
 
+  it("renders tabs as crawlable links with real hrefs", () => {
+    renderTabBar();
+    expect(screen.getByText("Top Tracks").closest("a")?.getAttribute("href")).toBe("/");
+    expect(screen.getByText("Search").closest("a")?.getAttribute("href")).toBe("/search");
+    expect(screen.getByText("Listen").closest("a")?.getAttribute("href")).toBe("/listen");
+    expect(screen.getByText("FAQ").closest("a")?.getAttribute("href")).toBe("/faq");
+  });
+
   it("marks the active tab from the store", () => {
     renderTabBar();
-    const topButton = screen.getByText("Top Tracks").closest("button");
-    const searchButton = screen.getByText("Search").closest("button");
-    expect(topButton?.className).toContain("active");
-    expect(searchButton?.className).not.toContain("active");
+    const topTab = screen.getByText("Top Tracks").closest("a");
+    const searchTab = screen.getByText("Search").closest("a");
+    expect(topTab?.className).toContain("active");
+    expect(searchTab?.className).not.toContain("active");
     act(() => {
       useAppStore.getState().setActiveTab("search");
     });
-    expect(topButton?.className).not.toContain("active");
-    expect(searchButton?.className).toContain("active");
+    expect(topTab?.className).not.toContain("active");
+    expect(searchTab?.className).toContain("active");
   });
 
   it("pulses the Listen tab while audio runs on other tabs", () => {
     renderTabBar();
-    const playButton = screen.getByText("Listen").closest("button");
-    expect(playButton?.className).not.toContain("is-playing");
+    const playTab = screen.getByText("Listen").closest("a");
+    expect(playTab?.className).not.toContain("is-playing");
     act(() => {
       useAppStore.getState().setPlayTabPulsing(true);
     });
-    expect(playButton?.className).toContain("is-playing");
+    expect(playTab?.className).toContain("is-playing");
   });
 
   it("navigates via the store's selectTab action on click", async () => {

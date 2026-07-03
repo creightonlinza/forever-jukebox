@@ -7,6 +7,7 @@ from starlette.requests import Request
 
 from api.main import (
     NOINDEX_META,
+    PAGE_META,
     SITE_AUTHOR,
     SITE_DESCRIPTION,
     SITE_NAME,
@@ -14,8 +15,10 @@ from api.main import (
     _head_meta,
     _inject_head,
     _parse_track_id,
+    _set_title,
     _social_meta,
     _track_card,
+    app,
     robots_txt,
     sitemap_xml,
 )
@@ -115,6 +118,47 @@ class HeadInjectionTests(unittest.TestCase):
         result = _inject_head("<div>no head here</div>", NOINDEX_META)
 
         self.assertIn(NOINDEX_META, result)
+
+
+class TitleTests(unittest.TestCase):
+    def test_replaces_template_title(self) -> None:
+        html = "<html><head><title>Forever Jukebox</title></head><body></body></html>"
+
+        result = _set_title(html, f"Search | {SITE_NAME}")
+
+        self.assertIn(f"<title>Search | {SITE_NAME}</title>", result)
+        self.assertNotIn("<title>Forever Jukebox</title>", result)
+
+    def test_escapes_title_text(self) -> None:
+        html = "<html><head><title>x</title></head></html>"
+
+        result = _set_title(html, "Song <b> & Artist")
+
+        self.assertIn("<title>Song &lt;b&gt; &amp; Artist</title>", result)
+
+
+class PageMetaTests(unittest.TestCase):
+    def test_every_page_meta_route_is_in_the_sitemap(self) -> None:
+        sitemap_paths = {path for path, _, _ in SITEMAP_PATHS}
+        for route in PAGE_META:
+            self.assertIn(f"/{route}", sitemap_paths)
+
+    def test_descriptions_are_distinct_from_the_default(self) -> None:
+        descriptions = {description for _, description in PAGE_META.values()}
+        descriptions.add(SITE_DESCRIPTION)
+        self.assertEqual(len(descriptions), len(PAGE_META) + 1)
+
+
+class HeadMethodTests(unittest.TestCase):
+    # RFC 9110 §9.1: general-purpose servers MUST support GET and HEAD; FastAPI's
+    # @app.get alone answers HEAD with 405.
+    def test_public_routes_accept_head(self) -> None:
+        methods_by_path = {
+            getattr(route, "path", None): getattr(route, "methods", set())
+            for route in app.routes
+        }
+        for path in ("/sitemap.xml", "/robots.txt"):
+            self.assertIn("HEAD", methods_by_path[path], path)
 
 
 class SocialMetaTests(unittest.TestCase):
