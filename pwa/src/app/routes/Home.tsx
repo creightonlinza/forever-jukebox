@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   CachedAnalysisTrack,
-  createAnalysisCache,
+  deleteCachedAnalysis,
   listCachedAnalysisTracks,
 } from "@/core/infrastructure/cache/analysisCache";
 import { formatDuration } from "@/shared/utils/format";
@@ -53,8 +53,7 @@ export function Home() {
     setDeletingFingerprint(fingerprint);
     setCachedTrackError(null);
     try {
-      const cache = createAnalysisCache();
-      await cache.clear(fingerprint);
+      await deleteCachedAnalysis(fingerprint);
       setCachedTracks((prev) => prev.filter((track) => track.fingerprint !== fingerprint));
     } catch {
       setCachedTrackError(t("home.deleteFailed"));

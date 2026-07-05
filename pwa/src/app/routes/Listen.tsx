@@ -5,6 +5,11 @@ import { Link } from "react-router-dom";
 import { AnalysisWorkerClient } from "@/core/infrastructure/analysis/AnalysisWorkerClient";
 import { AudioDecoder } from "@/core/infrastructure/audio/AudioDecoder";
 import { createAnalysisCache } from "@/core/infrastructure/cache/analysisCache";
+import {
+  loadTuning,
+  removeTuning,
+  saveTuning,
+} from "@/core/infrastructure/cache/tuningStore";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import { formatDuration, formatTime } from "@/shared/utils/format";
@@ -728,6 +733,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const sleepTimerTimeoutRef = React.useRef<number | null>(null);
   const sleepTimerEndTimeRef = React.useRef<number | null>(null);
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
+  const fingerprintRef = React.useRef<string | null>(null);
   const previousFileKeyRef = React.useRef<string | null>(null);
   const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
@@ -1084,6 +1090,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setAnalysis(null);
     setReadyFileKey(null);
     analysisRef.current = null;
+    fingerprintRef.current = null;
     clearSelectedBranch();
     setIsExportOpen(false);
     setIsExporting(false);
@@ -1113,6 +1120,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         analysisRef.current = result.analysis;
+        fingerprintRef.current = result.fingerprint;
         setAnalysis(result.analysis);
         setReadyFileKey(fileKey);
         await playerRef.current?.loadBuffer(result.audioBuffer);
@@ -1121,6 +1129,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           playerRef.current?.getContext() ?? null
         );
         initializeEngine(result.analysis);
+        restoreSavedTuning(result.fingerprint);
         if (jukeboxAudioMode === "cowbell") {
           cowbellOverlayRef.current?.enable();
         }
@@ -1552,6 +1561,66 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     });
   };
 
+  const persistCurrentTuning = () => {
+    const engine = engineRef.current;
+    const fingerprint = fingerprintRef.current;
+    if (!engine || !fingerprint) {
+      return;
+    }
+    const config = engine.getConfig();
+    const deletedEdgeIds =
+      engine
+        .getGraphState()
+        ?.allEdges.filter((edge) => edge.deleted)
+        .map((edge) => edge.id) ?? [];
+    saveTuning(fingerprint, {
+      v: 1,
+      config: {
+        currentThreshold: config.currentThreshold,
+        justBackwards: config.justBackwards,
+        justLongBranches: config.justLongBranches,
+        removeSequentialBranches: config.removeSequentialBranches,
+        minRandomBranchChance: config.minRandomBranchChance,
+        maxRandomBranchChance: config.maxRandomBranchChance,
+        randomBranchChanceDelta: config.randomBranchChanceDelta,
+        minLongBranchPercent: config.minLongBranchPercent,
+      },
+      deletedEdgeIds,
+      anchorEdgeId: engine.getUserAnchorEdgeId(),
+    });
+  };
+
+  const restoreSavedTuning = (fingerprint: string) => {
+    const engine = engineRef.current;
+    if (!engine) {
+      return;
+    }
+    const saved = loadTuning(fingerprint);
+    if (!saved) {
+      return;
+    }
+    engine.updateConfig(saved.config);
+    engine.clearDeletedEdges();
+    engine.rebuildGraph();
+    const allEdges = engine.getGraphState()?.allEdges ?? [];
+    for (const id of saved.deletedEdgeIds) {
+      const edge = allEdges.find((candidate) => candidate.id === id);
+      if (edge) {
+        engine.deleteEdge(edge);
+      }
+    }
+    if (saved.anchorEdgeId !== null) {
+      const anchorEdge = allEdges.find(
+        (candidate) => candidate.id === saved.anchorEdgeId,
+      );
+      if (anchorEdge) {
+        engine.setUserAnchorEdge(anchorEdge);
+      }
+    }
+    syncVizDataFromEngine();
+    syncTuneFormFromEngine();
+  };
+
   const syncExtrasFormFromState = React.useCallback(() => {
     setExtrasForm({
       branchStatsEnabled,
@@ -1837,6 +1906,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     rebuildGraphAndSyncViz();
     clearSelectedBranch();
     syncTuneFormFromEngine();
+    persistCurrentTuning();
   };
 
   const selectAdjacentBranch = (direction: -1 | 1) => {
@@ -1867,6 +1937,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engine.setUserAnchorEdge(nextAnchor);
     syncVizDataFromEngine();
     vizControllerRef.current?.setSelectedEdgeActive(edge);
+    persistCurrentTuning();
     showShortcutToast(
       nextAnchor ? t("listen.anchorSet") : t("listen.anchorReset"),
     );
@@ -1911,6 +1982,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     autocanonizerRef.current?.setVolume(volume);
     cowbellOverlayRef.current?.setVolume(volume);
     syncTuneFormFromEngine(tuneForm.highlightAnchorBranch);
+    persistCurrentTuning();
     setIsTuningOpen(false);
   };
 
@@ -1928,6 +2000,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     autocanonizerRef.current?.setVolume(DEFAULT_PLAYBACK_VOLUME);
     cowbellOverlayRef.current?.setVolume(DEFAULT_PLAYBACK_VOLUME);
     syncTuneFormFromEngine();
+    if (fingerprintRef.current) {
+      removeTuning(fingerprintRef.current);
+    }
     setIsTuningOpen(false);
   };
 

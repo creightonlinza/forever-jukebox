@@ -1,5 +1,6 @@
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
 import { AnalysisOutput } from "@/shared/analysis-schema";
+import { clearAllTuning, removeTuning } from "./tuningStore";
 
 const DB_NAME = "forever-jukebox-pwa";
 const STORE_NAME = "analysis";
@@ -34,9 +35,17 @@ export async function getAnalysisCacheBytes(): Promise<number> {
 export async function clearAllAnalysisCache(): Promise<void> {
   if (isOpfsAvailable()) {
     await clearAllOpfsAnalysis();
-    return;
+  } else {
+    await clearAllIndexedDbAnalysis();
   }
-  await clearAllIndexedDbAnalysis();
+  clearAllTuning();
+}
+
+// Remove a single cached analysis along with its auto-saved tuning. Kept beside
+// clearAllAnalysisCache so analysis + tuning removal stay in one place.
+export async function deleteCachedAnalysis(fingerprint: string): Promise<void> {
+  await createAnalysisCache().clear(fingerprint);
+  removeTuning(fingerprint);
 }
 
 export async function listCachedAnalysisTracks(): Promise<CachedAnalysisTrack[]> {
