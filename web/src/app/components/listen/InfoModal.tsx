@@ -48,16 +48,28 @@ export function InfoModal() {
           [t("info.space"), t("info.spaceAction")],
           [t("info.shift"), t("info.shiftAction")],
           [t("info.arrows"), t("info.arrowsAction")],
-          [t("info.velocity"), t("info.velocityAction")],
+          [t("info.velocity"), t("info.velocityAction"), t("info.velocityNote")],
           [t("info.velocityReset"), t("info.velocityResetAction")],
           [t("info.freeze"), t("info.freezeAction")],
           [t("info.anchor"), t("info.anchorAction")],
           [t("info.delete"), t("info.deleteAction")],
           [t("info.extras"), t("info.extrasAction")],
           [t("info.home"), t("info.homeAction")],
-        ] as Array<[string, string]>).map(([label, text]) => (
+        ] as Array<[string, string, string?]>).map(([label, text, note]) => (
           <div className="info-row" key={label}>
-            <span className="info-label">{label}</span>
+            <span className="info-label">
+              {label}
+              {note ? (
+                <span
+                  className="material-symbols-outlined info-help-icon"
+                  role="img"
+                  title={note}
+                  aria-label={note}
+                >
+                  help
+                </span>
+              ) : null}
+            </span>
             <span>{text}</span>
           </div>
         ))}

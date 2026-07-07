@@ -13,6 +13,7 @@ export const MATERIAL_SYMBOL_ICON_NAMES = [
   "error",
   "fullscreen",
   "fullscreen_exit",
+  "help",
   "hourglass_top",
   "info",
   "open_in_new",

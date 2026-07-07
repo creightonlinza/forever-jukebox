@@ -136,7 +136,7 @@ vi.mock("@/core/application/usecases/analyzeAudio", () => ({
 
 vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
   BufferedAudioPlayer: class BufferedAudioPlayer {
-    private volume = 0.5;
+    private volume = 1;
     private onEnded: (() => void) | null = null;
     private audioMode = "off";
     constructor() {
@@ -686,7 +686,7 @@ describe("Listen route behavior", () => {
       rendered.container,
       "input[aria-label='Volume']",
     );
-    expect(volumeSlider.value).toBe("50");
+    expect(volumeSlider.value).toBe("100");
     await changeRange(volumeSlider, "70");
     expect(autocanonizerInstances[0].setVolume).toHaveBeenLastCalledWith(0.7);
     rendered.unmount();
@@ -1272,6 +1272,23 @@ describe("Listen route behavior", () => {
     expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(3, 0);
     expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(4, 1);
     expect(rendered.container.textContent).toContain("Play velocity: +1");
+    rendered.unmount();
+  });
+
+  it("adjusts play velocity via physical bracket positions on non-US layouts", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+
+    // Latin American layout: the physical bracket keys produce ´ (dead) and +
+    await keydown("Dead", "BracketRight");
+    await keydown("´", "BracketLeft");
+
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(1, 2);
+    expect(engine.setPlayVelocity).toHaveBeenNthCalledWith(2, 1);
     rendered.unmount();
   });
 

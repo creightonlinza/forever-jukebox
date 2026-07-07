@@ -1115,6 +1115,28 @@ textarea:focus-visible {
   z-index: 30;
 }
 
+.modifier-badges {
+  position: absolute;
+  top: 60px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.modifier-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-panel);
+  background: var(--viz-overlay);
+  backdrop-filter: blur(8px);
+  color: var(--text);
+  font-size: 12px;
+}
+
 .modal {
   position: fixed;
   inset: 0;
@@ -1459,6 +1481,19 @@ label {
 
 .info-label {
   color: var(--muted);
+}
+
+.info-help {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-left: 4px;
+  color: var(--muted);
+  cursor: help;
+}
+
+.info-help-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .faq h2 {

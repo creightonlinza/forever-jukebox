@@ -44,6 +44,7 @@ export type AppState = {
   pendingAutoFavoriteId: string | null;
   lastPlayCountedJobId: string | null;
   shiftBranching: boolean;
+  freezeBeat: boolean;
   bringItHomeMode: boolean;
   branchStatsEnabled: boolean;
   jukeboxAudioMode: JukeboxAudioMode;

@@ -32,7 +32,7 @@ class AutocanonizerPlayer {
   private readonly mainPanner: StereoPannerNode | null;
   private readonly otherPanner: StereoPannerNode | null;
   private readonly masterBlend: number;
-  private baseVolume = 0.5;
+  private baseVolume = 1;
   private mainStreamPan = 0;
   private otherStreamPan = 0;
   private otherBeatGain = 1;

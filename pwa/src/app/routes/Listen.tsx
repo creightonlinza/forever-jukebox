@@ -662,6 +662,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [tuningActiveTab, setTuningActiveTab] =
     React.useState<TuningModalTab>("tuning");
   const [shortcutToast, setShortcutToast] = React.useState<string | null>(null);
+  const [forceBranchActive, setForceBranchActive] = React.useState(false);
+  const [freezeBeatActive, setFreezeBeatActive] = React.useState(false);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
     const raw = safeLocalStorageGet(VISUALIZATION_STORAGE_KEY);
     if (raw !== null) {
@@ -688,7 +690,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           RANDOM_BRANCH_DELTA_PERCENT_SCALE *
           10,
       ) / 10,
-    volume: 50,
+    volume: 100,
     highlightAnchorBranch,
     justBackwards: DEFAULT_CONFIG.justBackwards,
     minLongBranchPercent: 0,
@@ -1174,6 +1176,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (!isActive) {
       engineRef.current?.setForceBranch(false);
       engineRef.current?.setFreezeCurrentBeat(false);
+      setForceBranchActive(false);
+      setFreezeBeatActive(false);
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1228,6 +1232,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         engineRef.current?.setBringItHomeMode(nextValue);
         if (nextValue) {
           engineRef.current?.setForceBranch(false);
+          setForceBranchActive(false);
         }
         showShortcutToast(
           nextValue
@@ -1246,16 +1251,25 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         }
         return;
       }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "[" || event.key === "]")
-      ) {
+      // Match brackets by typed character first, then by physical key
+      // position so layouts without direct bracket keys still work.
+      let bracketDirection = 0;
+      if (event.key === "[") {
+        bracketDirection = -1;
+      } else if (event.key === "]") {
+        bracketDirection = 1;
+      } else if (event.code === "BracketLeft") {
+        bracketDirection = -1;
+      } else if (event.code === "BracketRight") {
+        bracketDirection = 1;
+      }
+      if (playMode === "jukebox" && bracketDirection !== 0) {
         event.preventDefault();
         const engine = engineRef.current;
         if (!engine) {
           return;
         }
-        const direction = event.key === "]" ? 1 : -1;
+        const direction = bracketDirection;
         const velocity = engine.getPlayVelocity() + direction;
         engine.setPlayVelocity(velocity);
         showShortcutToast(
@@ -1280,6 +1294,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       if (playMode === "jukebox" && event.key === "Control") {
         event.preventDefault();
         engineRef.current?.setFreezeCurrentBeat(true);
+        setFreezeBeatActive(true);
         return;
       }
       if (
@@ -1289,20 +1304,25 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         !bringItHomeModeRef.current
       ) {
         engineRef.current?.setForceBranch(true);
+        setForceBranchActive(true);
       }
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key === "Control") {
         engineRef.current?.setFreezeCurrentBeat(false);
+        setFreezeBeatActive(false);
       }
       if (playMode === "jukebox" && event.key === "Shift") {
         engineRef.current?.setForceBranch(false);
+        setForceBranchActive(false);
       }
     };
     const onBlur = () => {
       engineRef.current?.setFreezeCurrentBeat(false);
       engineRef.current?.setForceBranch(false);
+      setFreezeBeatActive(false);
+      setForceBranchActive(false);
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -1313,6 +1333,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
       engineRef.current?.setFreezeCurrentBeat(false);
+      setFreezeBeatActive(false);
+      setForceBranchActive(false);
     };
   }, [
     selectedEdge,
@@ -2720,6 +2742,20 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <span>{t("listen.finishTrack")}</span>
             </div>
           </div>
+          {forceBranchActive || freezeBeatActive ? (
+            <div className="modifier-badges" role="status" aria-live="polite">
+              {forceBranchActive ? (
+                <span className="modifier-badge">
+                  {t("listen.forceBranchBadge")}
+                </span>
+              ) : null}
+              {freezeBeatActive ? (
+                <span className="modifier-badge">
+                  {t("listen.freezeBeatBadge")}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div id="viz-layer" className="viz-layer" ref={vizLayerRef} />
           <div id="canonizer-layer" className="canonizer-layer" ref={canonizerLayerRef} />
           <div className="viz-bottom" id="viz-stats">
@@ -3334,7 +3370,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <span>{t("info.arrowsAction")}</span>
               </div>
               <div className="info-row">
-                <span className="info-label">{t("info.velocity")}</span>
+                <span className="info-label">
+                  {t("info.velocity")}
+                  <span
+                    className="info-help"
+                    role="img"
+                    title={t("info.velocityNote")}
+                    aria-label={t("info.velocityNote")}
+                  >
+                    <SymbolIcon className="info-help-icon" name="help" />
+                  </span>
+                </span>
                 <span>{t("info.velocityAction")}</span>
               </div>
               <div className="info-row">
