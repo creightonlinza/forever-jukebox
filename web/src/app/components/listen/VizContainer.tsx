@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { attachViz, getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
+import { ModifierBadges } from "../ModifierBadges";
 import { BranchStatsPopup } from "./BranchStatsPopup";
 import { PlayControls } from "./PlayControls";
 import { VizBottomRight } from "./VizBottomRight";
@@ -90,6 +91,7 @@ export function VizContainer() {
         className={playMode === "autocanonizer" ? "viz is-canonizer" : "viz"}
       >
         <BranchStatsPopup />
+        <ModifierBadges />
         <div className="viz-top">
           <VizTop />
         </div>

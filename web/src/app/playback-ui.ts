@@ -354,9 +354,21 @@ export function handleKeydown(event: KeyboardEvent): void {
       }
       return;
     }
-    if (event.key === "[" || event.key === "]") {
+    // Match brackets by typed character first, then by physical key
+    // position so layouts without direct bracket keys still work.
+    let bracketDirection = 0;
+    if (event.key === "[") {
+      bracketDirection = -1;
+    } else if (event.key === "]") {
+      bracketDirection = 1;
+    } else if (event.code === "BracketLeft") {
+      bracketDirection = -1;
+    } else if (event.code === "BracketRight") {
+      bracketDirection = 1;
+    }
+    if (bracketDirection !== 0) {
       event.preventDefault();
-      const direction = event.key === "]" ? 1 : -1;
+      const direction = bracketDirection;
       const velocity = engine.getPlayVelocity() + direction;
       engine.setPlayVelocity(velocity);
       showToast(
@@ -381,6 +393,7 @@ export function handleKeydown(event: KeyboardEvent): void {
     if (event.key === "Control") {
       event.preventDefault();
       engine.setFreezeCurrentBeat(true);
+      useAppStore.setState({ freezeBeat: true });
       return;
     }
     if (
@@ -420,6 +433,7 @@ export function handleKeyup(event: KeyboardEvent): void {
     const { engine } = context;
     if (event.key === "Control") {
       engine.setFreezeCurrentBeat(false);
+      useAppStore.setState({ freezeBeat: false });
     }
     if (useAppStore.getState().playMode === "autocanonizer") {
       return;
@@ -436,6 +450,7 @@ export function handleWindowBlur(): void {
       return;
     }
     context.engine.setFreezeCurrentBeat(false);
+    useAppStore.setState({ freezeBeat: false });
     if (useAppStore.getState().shiftBranching) {
       useAppStore.setState({ shiftBranching: false });
       context.engine.setForceBranch(false);

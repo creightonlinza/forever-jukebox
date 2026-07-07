@@ -46,7 +46,7 @@ export class BufferedAudioPlayer {
   private stereoPanner: StereoPannerNode | null = null;
   private chainNodes: AudioNode[] = [];
   private readonly reverbImpulseBuffers = new Map<string, AudioBuffer>();
-  private volume = 0.5;
+  private volume = 1;
   private startAt = 0;
   private offset = 0;
   private playing = false;

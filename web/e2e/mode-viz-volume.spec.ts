@@ -107,7 +107,7 @@ test.describe("volume + fullscreen", () => {
     await expect(panel).toHaveClass(/is-hidden/);
     await page.locator("#volume-button").click();
     await expect(panel).not.toHaveClass(/is-hidden/);
-    await expect(page.locator("#volume-val")).toHaveText("50");
+    await expect(page.locator("#volume-val")).toHaveText("100");
 
     await setRangeValue(page, "#volume", "75");
     await expect(page.locator("#volume-val")).toHaveText("75");

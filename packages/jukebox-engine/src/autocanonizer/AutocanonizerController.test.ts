@@ -76,8 +76,8 @@ describe("AutocanonizerController", () => {
 
     controller.setAudio({ duration: 30 } as AudioBuffer, context);
 
-    expect(gains[0].gain.value).toBeCloseTo(0.5 * 0.55);
-    expect(gains[1].gain.value).toBeCloseTo(0.5 * 0.45);
+    expect(gains[0].gain.value).toBeCloseTo(1 * 0.55);
+    expect(gains[1].gain.value).toBeCloseTo(1 * 0.45);
     expect(panners[0].pan.value).toBeCloseTo(-0.25);
     expect(panners[1].pan.value).toBeCloseTo(0.75);
 

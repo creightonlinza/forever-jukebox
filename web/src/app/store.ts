@@ -266,7 +266,7 @@ const createUiSlice: Slice<
       deletedCount: 0,
     },
     favoriteToggleBusy: false,
-    volumePct: 50,
+    volumePct: 100,
     isFullscreen: false,
     analysisStatusText: i18n.t("status.noTrack"),
     analysisSpinning: false,
@@ -369,6 +369,7 @@ const createPlaybackSlice: Slice<
     | "autocanonizerOtherPan"
     | "vizData"
     | "shiftBranching"
+    | "freezeBeat"
     | "bringItHomeMode"
     | "jukeboxAudioMode"
     | "swingPreparing"
@@ -388,6 +389,7 @@ const createPlaybackSlice: Slice<
   autocanonizerOtherPan: 0,
   vizData: null,
   shiftBranching: false,
+  freezeBeat: false,
   bringItHomeMode: false,
   jukeboxAudioMode: "off",
   swingPreparing: false,
