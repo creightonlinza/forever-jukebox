@@ -128,6 +128,48 @@ describe("AutocanonizerController", () => {
     });
   });
 
+  it("loops back to the first beat after the final beat by default", () => {
+    vi.useFakeTimers();
+    const controller = new AutocanonizerController({} as HTMLElement);
+    const first = createBeat(0, 0);
+    const second = createBeat(1, 10);
+    const final = createBeat(2, 20);
+    first.next = second;
+    second.prev = first;
+    second.next = final;
+    final.prev = second;
+    final.other = first;
+    first.other = first;
+    second.other = second;
+    const player = {
+      reset: vi.fn(),
+      stop: vi.fn(),
+      stopMain: vi.fn(),
+      playBeat: vi.fn(() => 0.1),
+      playOtherOnly: vi.fn(() => 0.1),
+    };
+    const inner = controller as unknown as {
+      beats: CanonizerBeat[];
+      player: typeof player;
+    };
+    inner.beats = [first, second, final];
+    inner.player = player;
+    const onBeat = vi.fn();
+    const onEnded = vi.fn();
+    controller.setOnBeat(onBeat);
+    controller.setOnEnded(onEnded);
+
+    controller.startAtIndex(2);
+    vi.advanceTimersByTime(250);
+    controller.stop();
+
+    const beatIndexes = onBeat.mock.calls.map((call) => call[0]);
+    expect(beatIndexes).toEqual([2, 0, 1]);
+    expect(onEnded).not.toHaveBeenCalled();
+    expect(player.stopMain).not.toHaveBeenCalled();
+    expect(player.playOtherOnly).not.toHaveBeenCalled();
+  });
+
   it("holds the main cursor while finish-out advances the other stream", () => {
     vi.useFakeTimers();
     const controller = new AutocanonizerController({} as HTMLElement);
