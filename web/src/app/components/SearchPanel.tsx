@@ -61,6 +61,9 @@ function SearchResults() {
   const [youtubePreview, setYoutubePreview] = useState<{
     youtubeId: string;
     title: string;
+    name: string;
+    artist: string;
+    duration: number;
   } | null>(null);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
 
@@ -138,7 +141,13 @@ function SearchResults() {
                     <YoutubePreviewButton
                       onOpen={() => {
                         setThumbnailFailed(false);
-                        setYoutubePreview({ youtubeId, title });
+                        setYoutubePreview({
+                          youtubeId,
+                          title,
+                          name,
+                          artist,
+                          duration: ytDuration,
+                        });
                       }}
                     />
                   ) : null}
@@ -176,6 +185,19 @@ function SearchResults() {
           )}
         </div>
         <div className="modal-footer">
+          {youtubePreview ? (
+            <button
+              type="button"
+              id="youtube-preview-use"
+              onClick={() => {
+                const { youtubeId, name, artist, duration } = youtubePreview;
+                closeYoutubePreview();
+                selectYoutube({ youtubeId, name, artist, duration });
+              }}
+            >
+              {t("search.useResult")}
+            </button>
+          ) : null}
           {youtubePreview ? (
             <a
               className="youtube-preview-open"

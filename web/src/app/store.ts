@@ -25,6 +25,9 @@ export type BranchStatsState = {
   startText: string;
   endText: string;
   deltaText: string;
+  startBeatText: string;
+  endBeatText: string;
+  beatDeltaText: string;
   direction: string;
   similarityText: string;
   deleteDisabled: boolean;

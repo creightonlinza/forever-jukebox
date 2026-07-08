@@ -283,6 +283,9 @@ export class AutocanonizerController {
     this.onSelect = handler;
   }
 
+  // When enabled, the main cursor stops at the final beat and the trailing
+  // other cursor plays out to the end. When disabled (the default), the track
+  // loops back to the first beat and repeats.
   setFinishOutSong(enabled: boolean) {
     this.finishOutSong = enabled;
   }
@@ -446,8 +449,11 @@ export class AutocanonizerController {
         this.tickSecondary();
         return;
       }
+      // Default: loop back to the top of the track.
+      this.currentIndex = 0;
+    } else {
+      this.currentIndex += 1;
     }
-    this.currentIndex += 1;
     const nextDelayMs = Math.max(0, delay * 1000);
     this.timerId = backgroundSetTimeout(() => this.tick(), nextDelayMs);
   }

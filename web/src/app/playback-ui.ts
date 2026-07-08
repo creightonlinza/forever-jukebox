@@ -35,6 +35,10 @@ function formatSignedDuration(seconds: number) {
   return `${seconds >= 0 ? "+" : "-"}${formatDuration(Math.abs(seconds))}`;
 }
 
+function formatSignedBeats(beats: number) {
+  return `${beats >= 0 ? "+" : "-"}${Math.abs(beats)}`;
+}
+
 function formatPlayVelocity(velocity: number) {
   return velocity > 0 ? `+${velocity}` : `${velocity}`;
 }
@@ -82,6 +86,9 @@ function branchDirection(edge: Edge) {
         startText: formatDuration(startDisplaySeconds),
         endText: formatDuration(endDisplaySeconds),
         deltaText: formatSignedDuration(endDisplaySeconds - startDisplaySeconds),
+        startBeatText: String(edge.src.which),
+        endBeatText: String(edge.dest.which),
+        beatDeltaText: formatSignedBeats(edge.dest.which - edge.src.which),
         direction: branchDirection(edge),
         similarityText: `${toSimilarityPercent(edge.distance, maxDistance)}%`,
         deleteDisabled: edge.deleted,

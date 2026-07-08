@@ -228,6 +228,42 @@ describe("SearchPanel", () => {
     expect(document.activeElement).toBe(previewButton);
   });
 
+  it("selects the previewed result via the Use this result button", async () => {
+    act(() => {
+      useAppStore.setState({
+        searchResults: {
+          kind: "youtube",
+          items: [
+            {
+              item: { id: "yt-match", title: "Match", duration: 123 },
+              name: "Song",
+              artist: "Artist",
+            },
+          ],
+        },
+      });
+    });
+    render(<SearchPanel />);
+    const previewButton = document.querySelector(
+      ".search-open",
+    ) as HTMLButtonElement;
+
+    await userEvent.click(previewButton);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Use this result" }),
+    );
+    expect(h.selectYoutube).toHaveBeenCalledTimes(1);
+    expect(h.selectYoutube).toHaveBeenCalledWith({
+      youtubeId: "yt-match",
+      name: "Song",
+      artist: "Artist",
+      duration: 123,
+    });
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe(
+      "modal",
+    );
+  });
+
   it("hides a failed youtube thumbnail and resets the failure on reopen", async () => {
     act(() => {
       useAppStore.setState({
