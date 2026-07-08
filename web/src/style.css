@@ -1936,6 +1936,10 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   width: min(640px, 90vw);
 }
 
+.youtube-preview-panel .modal-footer {
+  gap: 8px;
+}
+
 .youtube-preview-thumbnail {
   width: 100%;
   aspect-ratio: 16 / 9;
