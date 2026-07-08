@@ -2376,11 +2376,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           );
           const signedDelta =
             `${deltaSeconds >= 0 ? "+" : "-"}${formatDuration(Math.abs(deltaSeconds))}`;
+          const beatDelta = selectedEdge.dest.which - selectedEdge.src.which;
           return {
             id: selectedEdge.id,
             start: formatDuration(startDisplaySeconds),
             end: formatDuration(endDisplaySeconds),
             delta: signedDelta,
+            startBeat: String(selectedEdge.src.which),
+            endBeat: String(selectedEdge.dest.which),
+            beatDelta: `${beatDelta >= 0 ? "+" : "-"}${Math.abs(beatDelta)}`,
             direction: branchDirection(selectedEdge, t),
             similarity: `${toSimilarityPercent(selectedEdge.distance, maxDistance)}%`,
           };
@@ -2670,16 +2674,28 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <span className="branch-stats-popup-value">{branchStats.direction}</span>
               </div>
               <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.start")}</span>
+                <span className="branch-stats-popup-label">{t("listen.startTime")}</span>
                 <span className="branch-stats-popup-value">{branchStats.start}</span>
               </div>
               <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.end")}</span>
+                <span className="branch-stats-popup-label">{t("listen.endTime")}</span>
                 <span className="branch-stats-popup-value">{branchStats.end}</span>
               </div>
               <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.difference")}</span>
+                <span className="branch-stats-popup-label">{t("listen.timeDifference")}</span>
                 <span className="branch-stats-popup-value">{branchStats.delta}</span>
+              </div>
+              <div className="branch-stats-popup-row">
+                <span className="branch-stats-popup-label">{t("listen.startBeat")}</span>
+                <span className="branch-stats-popup-value">{branchStats.startBeat}</span>
+              </div>
+              <div className="branch-stats-popup-row">
+                <span className="branch-stats-popup-label">{t("listen.endBeat")}</span>
+                <span className="branch-stats-popup-value">{branchStats.endBeat}</span>
+              </div>
+              <div className="branch-stats-popup-row">
+                <span className="branch-stats-popup-label">{t("listen.beatDifference")}</span>
+                <span className="branch-stats-popup-value">{branchStats.beatDelta}</span>
               </div>
               <div className="branch-stats-popup-row">
                 <span className="branch-stats-popup-label">{t("listen.branchMatch")}</span>
