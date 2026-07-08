@@ -124,9 +124,7 @@ describe("VizBottomRight", () => {
       -40,
       0,
     );
-    expect(
-      document.getElementById("autocanonizer-main-pan-val")?.textContent,
-    ).toBe("-40");
+    expect(slider.value).toBe("-40");
     expect(
       (
         document.getElementById(

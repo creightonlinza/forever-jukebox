@@ -118,19 +118,23 @@ export function VizBottomRight() {
           >
             <label className="stream-pan-control">
               <div className="label-line">
+                <span className="pan-end-label">{t("playback.balanceLeft")}</span>
                 <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
-                  {t("playback.blueStream")}
+                  {t("playback.blueBalance")}
                 </span>
-                <span id="autocanonizer-main-pan-val">{mainPan}</span>
+                <span className="pan-end-label">
+                  {t("playback.balanceRight")}
+                </span>
               </div>
               <input
                 className="pan-slider stream-pan-slider"
                 id="autocanonizer-main-pan"
                 type="range"
-                aria-label={t("playback.blueStreamPan")}
+                aria-label={t("playback.blueBalance")}
                 min={-100}
                 max={100}
                 step={1}
+                list="autocanonizer-pan-ticks"
                 value={mainPan}
                 style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
                 onChange={(event) =>
@@ -140,19 +144,23 @@ export function VizBottomRight() {
             </label>
             <label className="stream-pan-control">
               <div className="label-line">
+                <span className="pan-end-label">{t("playback.balanceLeft")}</span>
                 <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
-                  {t("playback.greenStream")}
+                  {t("playback.greenBalance")}
                 </span>
-                <span id="autocanonizer-other-pan-val">{otherPan}</span>
+                <span className="pan-end-label">
+                  {t("playback.balanceRight")}
+                </span>
               </div>
               <input
                 className="pan-slider stream-pan-slider"
                 id="autocanonizer-other-pan"
                 type="range"
-                aria-label={t("playback.greenStreamPan")}
+                aria-label={t("playback.greenBalance")}
                 min={-100}
                 max={100}
                 step={1}
+                list="autocanonizer-pan-ticks"
                 value={otherPan}
                 style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
                 onChange={(event) =>
@@ -160,12 +168,17 @@ export function VizBottomRight() {
                 }
               />
             </label>
+            <datalist id="autocanonizer-pan-ticks">
+              <option value={-100} />
+              <option value={0} />
+              <option value={100} />
+            </datalist>
           </div>
           <button
             id="autocanonizer-pan-button"
             className="volume-button pan-button"
-            aria-label={t("playback.streamPan")}
-            title={t("playback.streamPan")}
+            aria-label={t("playback.audioBalance")}
+            title={t("playback.audioBalance")}
             onClick={() => {
               setVolumeOpen(false);
               setPanOpen((prev) => !prev);

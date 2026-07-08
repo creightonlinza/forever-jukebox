@@ -968,10 +968,15 @@ textarea:focus-visible {
 .pan-control-panel {
   position: absolute;
   bottom: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-panel);
+  border-radius: 8px;
+  background: var(--viz-overlay);
+  backdrop-filter: blur(8px);
 }
 
 .volume-control-panel {
-  transform: translateX(25%);
+  transform: translateX(-15%);
 }
 
 .pan-control-panel {
@@ -979,12 +984,7 @@ textarea:focus-visible {
   right: 0;
   gap: 10px;
   min-width: 210px;
-  padding: 10px 12px;
   transform: none;
-  border: 1px solid var(--border-panel);
-  border-radius: 8px;
-  background: var(--viz-overlay);
-  backdrop-filter: blur(8px);
 }
 
 .stream-pan-control {
@@ -993,11 +993,22 @@ textarea:focus-visible {
 }
 
 .stream-pan-control .label-line {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   gap: 12px;
   font-size: 12px;
-  font-variant-numeric: tabular-nums;
+}
+
+.stream-pan-control .pan-end-label {
+  opacity: 0.7;
+}
+
+.stream-pan-control .pan-end-label:first-child {
+  justify-self: start;
+}
+
+.stream-pan-control .pan-end-label:last-child {
+  justify-self: end;
 }
 
 .pan-slider.stream-pan-slider {

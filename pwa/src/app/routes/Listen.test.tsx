@@ -718,12 +718,7 @@ describe("Listen route behavior", () => {
       -0.4,
       0,
     );
-    expect(
-      getRequired(
-        rendered.container,
-        "#autocanonizer-main-pan-val",
-      ).textContent,
-    ).toBe("-40");
+    expect(mainSlider.value).toBe("-40");
     rendered.unmount();
   });
 

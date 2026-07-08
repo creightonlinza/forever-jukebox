@@ -2839,21 +2839,25 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   >
                     <label className="stream-pan-control">
                       <div className="label-line">
-                        <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
-                          {t("listen.blueStream")}
+                        <span className="pan-end-label">
+                          {t("listen.balanceLeft")}
                         </span>
-                        <span id="autocanonizer-main-pan-val">
-                          {autocanonizerMainPan}
+                        <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
+                          {t("listen.blueBalance")}
+                        </span>
+                        <span className="pan-end-label">
+                          {t("listen.balanceRight")}
                         </span>
                       </div>
                       <input
                         id="autocanonizer-main-pan"
                         className="pan-slider stream-pan-slider"
                         type="range"
-                        aria-label={t("listen.blueStreamPan")}
+                        aria-label={t("listen.blueBalance")}
                         min={-100}
                         max={100}
                         step={1}
+                        list="autocanonizer-pan-ticks"
                         value={autocanonizerMainPan}
                         style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
                         onChange={(event) =>
@@ -2866,21 +2870,25 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     </label>
                     <label className="stream-pan-control">
                       <div className="label-line">
-                        <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
-                          {t("listen.greenStream")}
+                        <span className="pan-end-label">
+                          {t("listen.balanceLeft")}
                         </span>
-                        <span id="autocanonizer-other-pan-val">
-                          {autocanonizerOtherPan}
+                        <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
+                          {t("listen.greenBalance")}
+                        </span>
+                        <span className="pan-end-label">
+                          {t("listen.balanceRight")}
                         </span>
                       </div>
                       <input
                         id="autocanonizer-other-pan"
                         className="pan-slider stream-pan-slider"
                         type="range"
-                        aria-label={t("listen.greenStreamPan")}
+                        aria-label={t("listen.greenBalance")}
                         min={-100}
                         max={100}
                         step={1}
+                        list="autocanonizer-pan-ticks"
                         value={autocanonizerOtherPan}
                         style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
                         onChange={(event) =>
@@ -2891,6 +2899,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         }
                       />
                     </label>
+                    <datalist id="autocanonizer-pan-ticks">
+                      <option value={-100} />
+                      <option value={0} />
+                      <option value={100} />
+                    </datalist>
                   </div>
                   <button
                     id="autocanonizer-pan-button"
@@ -2901,8 +2914,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       setIsVolumeOpen(false);
                       setIsPanOpen((prev) => !prev);
                     }}
-                    title={t("listen.streamPan")}
-                    aria-label={t("listen.streamPan")}
+                    title={t("listen.audioBalance")}
+                    aria-label={t("listen.audioBalance")}
                   >
                     <SymbolIcon className="pan-icon" name="swap_horiz" />
                   </button>
@@ -2929,7 +2942,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       }
                     />
                     <div className="label-line">
-                      <span>{t("listen.volumeValue")}</span>
                       <span className="volume-value">{tuneForm.volume}</span>
                     </div>
                   </label>

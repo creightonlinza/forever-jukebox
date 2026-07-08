@@ -2362,10 +2362,15 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 .pan-control-panel {
   position: absolute;
   bottom: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-panel);
+  border-radius: 8px;
+  background: var(--viz-overlay);
+  backdrop-filter: blur(8px);
 }
 
 .volume-control-panel {
-  transform: translateX(25%);
+  transform: translateX(-15%);
 }
 
 .pan-control-panel {
@@ -2373,12 +2378,7 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   right: 0;
   gap: 10px;
   min-width: 210px;
-  padding: 10px 12px;
   transform: none;
-  border: 1px solid var(--border-panel);
-  border-radius: 8px;
-  background: var(--viz-overlay);
-  backdrop-filter: blur(8px);
 }
 
 .stream-pan-control {
@@ -2387,16 +2387,34 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 }
 
 .stream-pan-control .label-line {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   gap: 12px;
   font-size: 12px;
-  font-variant-numeric: tabular-nums;
+}
+
+.stream-pan-control .pan-end-label {
+  opacity: 0.7;
+}
+
+.stream-pan-control .pan-end-label:first-child {
+  justify-self: start;
+}
+
+.stream-pan-control .pan-end-label:last-child {
+  justify-self: end;
 }
 
 .pan-slider.stream-pan-slider {
   width: 100%;
   accent-color: var(--accent);
+  /* Native datalist tick marks are drawn in the scheme's foreground color;
+     without this they render dark-on-dark and disappear. */
+  color-scheme: dark;
+}
+
+body.theme-light .pan-slider.stream-pan-slider {
+  color-scheme: light;
 }
 
 .volume-slider {
