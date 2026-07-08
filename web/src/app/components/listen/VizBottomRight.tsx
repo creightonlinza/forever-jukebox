@@ -223,6 +223,7 @@ export function VizBottomRight() {
           id="volume-button"
           className="volume-button"
           aria-label={t("playback.volume")}
+          title={t("playback.volume")}
           onClick={() => {
             setPanOpen(false);
             setVolumeOpen((prev) => !prev);

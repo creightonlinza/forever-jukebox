@@ -107,7 +107,6 @@
     "closeTrackInfoDialog": "Close track info dialog"
   },
   "audioModes": {
-    "label": "Audio mode",
     "playbackStyles": "Playback Styles",
     "remixToys": "Remix Toys",
     "nightcore": "Nightcore",
@@ -136,17 +135,12 @@
     "removeSequential": "Remove sequential branches",
     "minJumpDistance": "Minimum Jump Distance:",
     "minJumpDistanceHint": "Filters jumps by beat distance across the track.",
-    "minJumpDistanceLabel": "Minimum jump distance",
     "anyDistance": "Any distance",
     "percentOfTrack": ">{{percent}}% of track",
     "highlightAnchor": "Highlight forced anchor jump",
     "showBranchStats": "Show selected branch stats",
     "bringItHome": "Bring It Home mode",
-    "audioMode": "Audio Mode",
-    "similarityThresholdLabel": "Branch similarity threshold",
-    "probabilityMinLabel": "Branch probability minimum",
-    "probabilityMaxLabel": "Branch probability maximum",
-    "rampSpeedLabel": "Branch ramp speed"
+    "audioMode": "Audio Mode"
   },
   "settings": {
     "title": "Settings",
@@ -197,14 +191,12 @@
     "title": "Export Jukebox Audio",
     "note": "Exports using current tuning and deleted branches.",
     "duration": "Export Duration:",
-    "durationLabel": "Export duration",
     "format": "Format:",
     "mp3": "MP3 (compressed)",
     "wav": "WAV (lossless)",
     "mp3Description": "MP3 Audio",
     "wavDescription": "WAV Audio",
     "bitrate": "MP3 Bitrate:",
-    "bitrateLabel": "MP3 bitrate",
     "exporting": "Exporting...",
     "action": "Export Audio",
     "initializing": "Initializing export",

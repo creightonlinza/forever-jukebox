@@ -27,6 +27,7 @@ export function PlaylistModal() {
           id="playlist-close"
           className="modal-close"
           aria-label={t("common.close")}
+          title={t("common.close")}
           onClick={close}
         >
           <span
@@ -74,6 +75,9 @@ export function PlaylistModal() {
                       data-playlist-index={index}
                       disabled={isCurrent}
                       aria-label={t("playlist.removeNamed", {
+                        title: track.title || t("common.track"),
+                      })}
+                      title={t("playlist.removeNamed", {
                         title: track.title || t("common.track"),
                       })}
                       onClick={(event) => {

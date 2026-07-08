@@ -160,7 +160,9 @@ describe("SearchPanel", () => {
       ".search-open",
     ) as HTMLButtonElement;
     expect(previewButton.type).toBe("button");
-    expect(previewButton.getAttribute("aria-label")).toBe("Preview on YouTube");
+    expect(previewButton.getAttribute("aria-label")).toBe(
+      "Open YouTube preview",
+    );
     expect(screen.getByText("2:03")).toBeTruthy();
     // no playlist add controls in search results
     expect(document.querySelectorAll(".playlist-add-button")).toHaveLength(0);

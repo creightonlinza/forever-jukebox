@@ -228,7 +228,6 @@ export async function uploadFromUrl(
   }
   const trimmed = raw.trim();
   if (!trimmed) {
-    showToast(i18n.t("upload.enterSupportedUrl"));
     return;
   }
   const sourceUrl = normalizeSupportedSourceUrl(trimmed);

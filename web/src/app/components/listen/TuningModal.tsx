@@ -89,6 +89,7 @@ function RangeRow({
       <input
         id={id}
         type="range"
+        aria-label={label}
         min={min}
         max={max}
         step={step}
@@ -230,6 +231,7 @@ export function TuningModal() {
               id="tuning-close"
               className="modal-close"
               aria-label={t("common.close")}
+              title={t("common.close")}
               onClick={close}
             >
               <span
@@ -394,7 +396,7 @@ export function TuningModal() {
               <div
                 className="audio-mode-options"
                 role="radiogroup"
-                aria-label={t("tuning.audioModeLabel")}
+                aria-label={t("tuning.audioMode")}
               >
                 {audioModeOption(AUDIO_MODE_OPTIONS[0])}
                 <div className="audio-mode-section">

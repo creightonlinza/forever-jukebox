@@ -104,6 +104,7 @@ export function SettingsModal() {
           id="settings-close"
           className="modal-close"
           aria-label={t("common.close")}
+          title={t("common.close")}
           onClick={close}
         >
           <span

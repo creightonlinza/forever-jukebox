@@ -182,6 +182,7 @@ export function ModalHeader({
         id={closeId}
         className="modal-close"
         aria-label={t("common.close")}
+        title={t("common.close")}
         onClick={onClose}
       >
         <span

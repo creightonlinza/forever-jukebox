@@ -343,7 +343,7 @@ function AudioModeOptions({
     <div
       className="audio-mode-options"
       role="radiogroup"
-      aria-label={t("audioModes.label")}
+      aria-label={t("tuning.audioMode")}
     >
       <AudioModeRadio
         option="off"
@@ -2416,6 +2416,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 type="button"
                 onClick={closeSettings}
                 aria-label={t("common.close")}
+                title={t("common.close")}
               >
                 <SymbolIcon className="modal-close-icon" name="close" />
               </button>
@@ -3001,6 +3002,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 type="button"
                 onClick={() => setIsExportOpen(false)}
                 aria-label={t("common.close")}
+                title={t("common.close")}
                 disabled={isExporting}
               >
                 <SymbolIcon className="modal-close-icon" name="close" />
@@ -3018,7 +3020,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 <input
                   className="field-input"
                   type="number"
-                  aria-label={t("export.durationLabel")}
+                  aria-label={t("export.duration")}
                   min={5}
                   max={MAX_EXPORT_DURATION_SECONDS}
                   step={5}
@@ -3057,7 +3059,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   </div>
                   <input
                     type="range"
-                    aria-label={t("export.bitrateLabel")}
+                    aria-label={t("export.bitrate")}
                     min={64}
                     max={320}
                     step={32}
@@ -3150,7 +3152,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </div>
               </div>
               <div className="modal-header-actions">
-                <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label={t("common.close")}>
+                <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label={t("common.close")} title={t("common.close")}>
                   <SymbolIcon className="modal-close-icon" name="close" />
                 </button>
               </div>
@@ -3168,7 +3170,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   </div>
                   <input
                     type="range"
-                    aria-label={t("tuning.similarityThresholdLabel")}
+                    aria-label={t("tuning.similarityThreshold")}
                     min={2}
                     max={80}
                     step={1}
@@ -3189,7 +3191,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     max={100}
                     step={2}
                     value={tuneForm.minProb}
-                    aria-label={t("tuning.probabilityMinLabel")}
+                    aria-label={t("tuning.probabilityMin")}
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, minProb: Number(event.target.value) }))
                     }
@@ -3206,7 +3208,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     max={100}
                     step={2}
                     value={tuneForm.maxProb}
-                    aria-label={t("tuning.probabilityMaxLabel")}
+                    aria-label={t("tuning.probabilityMax")}
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, maxProb: Number(event.target.value) }))
                     }
@@ -3223,7 +3225,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     max={100}
                     step={2}
                     value={tuneForm.ramp}
-                    aria-label={t("tuning.rampSpeedLabel")}
+                    aria-label={t("tuning.rampSpeed")}
                     onChange={(event) =>
                       setTuneForm((prev) => ({ ...prev, ramp: Number(event.target.value) }))
                     }
@@ -3251,7 +3253,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                         tuneForm.minLongBranchPercent as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
                       ),
                     )}
-                    aria-label={t("tuning.minJumpDistanceLabel")}
+                    aria-label={t("tuning.minJumpDistance")}
                     onChange={(event) =>
                       setTuneForm((prev) => ({
                         ...prev,
@@ -3363,7 +3365,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           <div className="modal-panel">
             <div className="modal-header">
               <h2>{t("info.title")}</h2>
-              <button className="modal-close" type="button" onClick={() => setIsInfoOpen(false)} aria-label={t("common.close")}>
+              <button className="modal-close" type="button" onClick={() => setIsInfoOpen(false)} aria-label={t("common.close")} title={t("common.close")}>
                 <SymbolIcon className="modal-close-icon" name="close" />
               </button>
             </div>

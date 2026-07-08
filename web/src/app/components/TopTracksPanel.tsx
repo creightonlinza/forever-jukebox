@@ -359,6 +359,7 @@ function FavoritesList({ query }: { query: string }) {
                   type="button"
                   className="favorite-remove"
                   aria-label={t("favorites.removeNamed", { title: titleText })}
+                  title={t("favorites.removeNamed", { title: titleText })}
                   data-favorite-id={item.uniqueSongId}
                   onClick={(event) => {
                     event.preventDefault();
@@ -640,6 +641,7 @@ function FavoritesSyncControls({ visible }: { visible: boolean }) {
           }
           type="button"
           aria-label={t("favorites.sync")}
+          title={t("favorites.sync")}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={(event) => {
@@ -848,7 +850,7 @@ export function TopTracksPanel() {
             type="search"
             placeholder={t("favorites.searchPlaceholder")}
             autoComplete="off"
-            aria-label={t("favorites.searchLabel")}
+            aria-label={t("favorites.searchPlaceholder")}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />

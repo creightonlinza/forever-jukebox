@@ -333,6 +333,7 @@ export function SearchPanel() {
             className={setOf("search-inline-action", searchBusy && "is-loading")}
             type="button"
             aria-label={t("common.search")}
+            title={t("common.search")}
             aria-busy={searchBusy}
             disabled={searchBusy}
             onClick={() => void triggerSearch()}

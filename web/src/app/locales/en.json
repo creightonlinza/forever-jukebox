@@ -63,7 +63,7 @@
     "lookupFailed": "Lookup failed: {{error}}",
     "openYoutube": "Open in YouTube",
     "useResult": "Use this result",
-    "previewYoutube": "Preview on YouTube",
+    "previewYoutube": "Open YouTube preview",
     "youtubePreview": "YouTube Preview",
     "youtubeThumbnailAlt": "YouTube thumbnail for {{title}}",
     "thumbnailUnavailable": "Thumbnail unavailable.",
@@ -85,7 +85,6 @@
     "failed": "Upload failed.",
     "failedWithError": "Upload failed: {{error}}",
     "urlDisabled": "URL uploads are disabled.",
-    "enterSupportedUrl": "Enter a supported URL.",
     "invalidUrl": "Invalid or unsupported URL.",
     "trackTooLong": "This track exceeds the server max track length."
   },
@@ -119,7 +118,6 @@
     "removeNamed": "Remove {{title}} from Favorites",
     "sync": "Favorites sync",
     "searchPlaceholder": "Search favorites",
-    "searchLabel": "Search favorites",
     "none": "No favorites yet.",
     "noneMatching": "No favorites match \"{{query}}\".",
     "titleColumn": "Title",
@@ -259,7 +257,6 @@
     "showBranchStats": "Show selected branch stats",
     "bringItHome": "Bring It Home mode",
     "audioMode": "Audio Mode",
-    "audioModeLabel": "Audio mode",
     "playbackStyles": "Playback Styles",
     "remixToys": "Remix Toys"
   },

@@ -16,6 +16,7 @@ export function InfoModal() {
           id="info-close"
           className="modal-close"
           aria-label={t("common.close")}
+          title={t("common.close")}
           onClick={close}
         >
           <span
