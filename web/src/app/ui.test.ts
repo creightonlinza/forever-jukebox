@@ -46,19 +46,19 @@ describe("ui helpers", () => {
 
   it("sets analysis status and spinner", () => {
     const context = createContext();
-    setAnalysisStatus(context, "Working", true);
-    expect(useAppStore.getState().analysisStatusText).toBe("Working");
+    setAnalysisStatus(context, () => "Working", true);
+    expect(useAppStore.getState().analysisStatusText()).toBe("Working");
     expect(useAppStore.getState().analysisSpinning).toBe(true);
-    setAnalysisStatus(context, "Done", false);
+    setAnalysisStatus(context, () => "Done", false);
     expect(useAppStore.getState().analysisSpinning).toBe(false);
     expect(useAppStore.getState().analysisProgressText).toBe("");
   });
 
   it("sets loading progress message and percentage", () => {
     const context = createContext();
-    setLoadingProgress(context, 55.4, "Loading");
+    setLoadingProgress(context, 55.4, () => "Loading");
     expect(useAppStore.getState().analysisProgressText).toBe("55%");
-    expect(useAppStore.getState().analysisStatusText).toBe("Loading");
+    expect(useAppStore.getState().analysisStatusText()).toBe("Loading");
     setLoadingProgress(context, null, null);
     expect(useAppStore.getState().analysisProgressText).toBe("");
   });

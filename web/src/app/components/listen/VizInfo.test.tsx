@@ -163,7 +163,7 @@ describe("StatusPanel", () => {
   beforeEach(() => {
     act(() => {
       useAppStore.setState({
-        analysisStatusText: "No track selected.",
+        analysisStatusText: () => "No track selected.",
         analysisSpinning: false,
         analysisProgressText: "",
         audioLoaded: false,
@@ -192,7 +192,7 @@ describe("StatusPanel", () => {
     ).toBe(true);
     act(() => {
       useAppStore.setState({
-        analysisStatusText: "Loading",
+        analysisStatusText: () => "Loading",
         analysisSpinning: true,
         analysisProgressText: "55%",
       });

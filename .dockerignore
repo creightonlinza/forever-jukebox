@@ -9,6 +9,8 @@
 **/node_modules/
 api/storage/
 engine/.venv/
+engine/training/audio/
+engine/training/analysis/
 web/node_modules/
 web/dist/
 pwa/dist/

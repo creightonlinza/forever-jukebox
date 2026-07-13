@@ -54,7 +54,7 @@ import {
   handleNormalTrackSelected,
 } from "./playlist-actions";
 import { applyAppConfig } from "./app-config";
-import { useAppStore } from "./store";
+import { useAppStore, type LocalizedText } from "./store";
 import {
   loadFavorites,
   loadFavoritesSyncCode,
@@ -125,10 +125,12 @@ export function initRuntime(): void {
         tuningParams: useAppStore.getState().tuningParams,
         playMode: useAppStore.getState().playMode,
       }),
-    setAnalysisStatus: (message: string, spinning: boolean) =>
+    setAnalysisStatus: (message: LocalizedText, spinning: boolean) =>
       setAnalysisStatus(context, message, spinning),
-    setLoadingProgress: (progress: number | null, message?: string | null) =>
-      setLoadingProgress(context, progress, message),
+    setLoadingProgress: (
+      progress: number | null,
+      message?: LocalizedText | null,
+    ) => setLoadingProgress(context, progress, message),
   };
   const playbackDeps: PlaybackDeps = { ...sharedFlowDeps };
   setPlaybackDeps(playbackDeps);
@@ -197,7 +199,7 @@ export function initRuntime(): void {
   };
   setAttachViz(attachViz);
 
-  setAnalysisStatus(context, i18n.t("status.noTrack"), false);
+  setAnalysisStatus(context, () => i18n.t("status.noTrack"), false);
   loadAppConfig()
     .then((config) => {
       if (config) {

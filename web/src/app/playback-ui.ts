@@ -82,14 +82,14 @@ function branchDirection(edge: Edge) {
     const maxDistance = Math.max(1, engine.getConfig().maxBranchThreshold);
     useAppStore.setState({
       branchStats: {
-        title: i18n.t("playback.branchStatsTitle", { id: edge.id }),
+        title: () => i18n.t("playback.branchStatsTitle", { id: edge.id }),
         startText: formatDuration(startDisplaySeconds),
         endText: formatDuration(endDisplaySeconds),
         deltaText: formatSignedDuration(endDisplaySeconds - startDisplaySeconds),
         startBeatText: String(edge.src.which),
         endBeatText: String(edge.dest.which),
         beatDeltaText: formatSignedBeats(edge.dest.which - edge.src.which),
-        direction: branchDirection(edge),
+        direction: () => branchDirection(edge),
         similarityText: `${toSimilarityPercent(edge.distance, maxDistance)}%`,
         deleteDisabled: edge.deleted,
       },
@@ -516,7 +516,7 @@ export function copyShortUrl(): void {
     if (!trackId) {
       setAnalysisStatus(
         context,
-        i18n.t("playback.selectTrackForUrl"),
+        () => i18n.t("playback.selectTrackForUrl"),
         false,
       );
       return;
@@ -540,7 +540,7 @@ export function copyShortUrl(): void {
     } catch (err) {
       setAnalysisStatus(
         context,
-        i18n.t("status.copyFailed", { error: formatErrorForDisplay(err) }),
+        () => i18n.t("status.copyFailed", { error: formatErrorForDisplay(err) }),
         false,
       );
     }

@@ -21,14 +21,14 @@ export type ToastState = {
 };
 
 export type BranchStatsState = {
-  title: string;
+  title: LocalizedText;
   startText: string;
   endText: string;
   deltaText: string;
   startBeatText: string;
   endBeatText: string;
   beatDeltaText: string;
-  direction: string;
+  direction: LocalizedText;
   similarityText: string;
   deleteDisabled: boolean;
 };
@@ -46,8 +46,12 @@ export type NavigationRequest = {
   replace?: boolean;
 };
 
+// Persistent store text is kept as a thunk so it re-translates when the
+// language changes; components evaluate it on render.
+export type LocalizedText = () => string;
+
 export type SearchResultsState =
-  | { kind: "message"; text: string }
+  | { kind: "message"; text: LocalizedText }
   | { kind: "spotify"; items: SpotifySearchItem[] }
   | {
       kind: "youtube";
@@ -65,13 +69,14 @@ export type TopSongsItem = {
 };
 
 export type TopSongsListState =
-  | { kind: "message"; text: string }
+  | { kind: "message"; text: LocalizedText }
   | { kind: "loaded"; items: TopSongsItem[] };
 
-export const DEFAULT_SEARCH_HINT = i18n.t("search.hintStep1");
+export const DEFAULT_SEARCH_HINT: LocalizedText = () =>
+  i18n.t("search.hintStep1");
 export const DEFAULT_SEARCH_RESULTS: SearchResultsState = {
   kind: "message",
-  text: i18n.t("search.resultsEmpty"),
+  text: () => i18n.t("search.resultsEmpty"),
 };
 
 function createDefaultTopSongsLists(): Record<
@@ -79,9 +84,12 @@ function createDefaultTopSongsLists(): Record<
   TopSongsListState
 > {
   return {
-    top: { kind: "message", text: i18n.t("topTracks.loadingTop") },
-    trending: { kind: "message", text: i18n.t("topTracks.loadingTrending") },
-    recent: { kind: "message", text: i18n.t("topTracks.loadingRecent") },
+    top: { kind: "message", text: () => i18n.t("topTracks.loadingTop") },
+    trending: {
+      kind: "message",
+      text: () => i18n.t("topTracks.loadingTrending"),
+    },
+    recent: { kind: "message", text: () => i18n.t("topTracks.loadingRecent") },
   };
 }
 
@@ -94,7 +102,7 @@ type ShellSlice = {
   footerCredit: FooterCredit | null;
   toast: ToastState | null;
   searchQuery: string;
-  searchHint: string;
+  searchHint: LocalizedText;
   searchResults: SearchResultsState;
   topSongsLists: Record<TopSongsListTabId, TopSongsListState>;
   topSongsLoadedTabs: TopSongsListTabId[];
@@ -112,7 +120,7 @@ type ShellSlice = {
   favoriteToggleBusy: boolean;
   volumePct: number;
   isFullscreen: boolean;
-  analysisStatusText: string;
+  analysisStatusText: LocalizedText;
   analysisSpinning: boolean;
   analysisProgressText: string;
   // Job id offered for a one-click retry when a load failed with a
@@ -271,7 +279,7 @@ const createUiSlice: Slice<
     favoriteToggleBusy: false,
     volumePct: 100,
     isFullscreen: false,
-    analysisStatusText: i18n.t("status.noTrack"),
+    analysisStatusText: () => i18n.t("status.noTrack"),
     analysisSpinning: false,
     analysisProgressText: "",
     analysisRetryJobId: null,

@@ -30,7 +30,7 @@ describe("PWA i18n bootstrap", () => {
       { code: "de", label: "Deutsch" },
     ]);
     expect(resolveSupportedLanguage("en-US")).toBe("en");
-    expect(resolveSupportedLanguage("de-AT")).toBe("de");
+    expect(resolveSupportedLanguage("de-DE")).toBe("de");
     expect(resolveSupportedLanguage("invalid")).toBe("en");
   });
 

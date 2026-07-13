@@ -36,7 +36,7 @@ import {
   type PlaylistSourceType,
   type PlaylistTrack,
 } from "../playlist";
-import { useAppStore } from "../store";
+import { useAppStore, type LocalizedText } from "../store";
 import {
   bumpLoadGeneration,
   getLoadGeneration,
@@ -65,7 +65,7 @@ import {
   syncDeletedEdgeState,
 } from "./tuning-forms";
 
-const GENERIC_LOAD_ERROR_MESSAGE = i18n.t("errors.generic");
+const GENERIC_LOAD_ERROR_MESSAGE = () => i18n.t("errors.generic");
 let pollController: AbortController | null = null;
 
 // Show the retry link for a transient fetch failure, unless this failure is
@@ -92,10 +92,10 @@ export type PlaybackDeps = {
     options?: { replace?: boolean; trackId?: string | null },
   ) => void;
   updateTrackUrl: (trackId: string, replace?: boolean) => void;
-  setAnalysisStatus: (message: string, spinning: boolean) => void;
+  setAnalysisStatus: (message: LocalizedText, spinning: boolean) => void;
   setLoadingProgress: (
     progress: number | null,
-    message?: string | null,
+    message?: LocalizedText | null,
   ) => void;
   onTrackChange?: (trackId: string | null) => void;
   onAnalysisLoaded?: (response: AnalysisComplete) => void;
@@ -215,7 +215,7 @@ export function resetForNewTrack(
   engine.updateConfig({ ...defaultConfig });
   syncVolumeUI(context);
   useAppStore.setState({
-    analysisStatusText: i18n.t("status.noTrack"),
+    analysisStatusText: () => i18n.t("status.noTrack"),
     analysisSpinning: false,
     analysisProgressText: "",
   });
@@ -403,7 +403,8 @@ export async function pollAnalysis(
           typeof response.progress === "number" ? response.progress : null;
         deps.setLoadingProgress(
           progress,
-          translateJobProgress(response.status, progress, response.message),
+          () =>
+            translateJobProgress(response.status, progress, response.message),
         );
         if (
           response.status !== "downloading" &&
@@ -418,11 +419,12 @@ export async function pollAnalysis(
         }
       } else if (isAnalysisFailed(response)) {
         deps.setAnalysisStatus(
-          formatErrorForDisplay(response.error, {
-            sourceProvider: response.source_provider,
-            errorCode: response.error_code,
-            fallback: i18n.t("status.loadingFailed"),
-          }),
+          () =>
+            formatErrorForDisplay(response.error, {
+              sourceProvider: response.source_provider,
+              errorCode: response.error_code,
+              fallback: i18n.t("status.loadingFailed"),
+            }),
           false,
         );
         offerRetryLinkForFailure(response, jobId);
@@ -438,7 +440,9 @@ export async function pollAnalysis(
             continue;
           }
         }
-        deps.setLoadingProgress(100, i18n.t("status.calculatingPathways"));
+        deps.setLoadingProgress(100, () =>
+          i18n.t("status.calculatingPathways"),
+        );
         if (applyAnalysisResult(context, response, deps.onAnalysisLoaded)) {
           deps.setActiveTab("play");
           return;
@@ -479,11 +483,12 @@ async function continueTrackLoadWithResponse(
   }
   if (isAnalysisFailed(response)) {
     deps.setAnalysisStatus(
-      formatErrorForDisplay(response.error, {
-        sourceProvider: response.source_provider,
-        errorCode: response.error_code,
-        fallback: i18n.t("status.loadingFailed"),
-      }),
+      () =>
+        formatErrorForDisplay(response.error, {
+          sourceProvider: response.source_provider,
+          errorCode: response.error_code,
+          fallback: i18n.t("status.loadingFailed"),
+        }),
       false,
     );
     offerRetryLinkForFailure(response, response.id);
@@ -586,7 +591,7 @@ async function loadTrack(
   handlePlaylistForNormalTrackLoad(deps, source, options);
   resetForNewTrack(context, { clearTuning: shouldClear });
   deps.setActiveTab("play");
-  deps.setLoadingProgress(null, i18n.t("common.fetchingAudio"));
+  deps.setLoadingProgress(null, () => i18n.t("common.fetchingAudio"));
   if (source.type === "source") {
     useAppStore.setState({ lastSourceProvider: source.provider });
     useAppStore.setState({ lastSourceId: source.id });
@@ -628,7 +633,7 @@ async function loadTrack(
   } catch (err) {
     if (!isStaleLoad(generation)) {
       deps.setAnalysisStatus(
-        i18n.t("status.loadFailed", { error: formatErrorForDisplay(err) }),
+        () => i18n.t("status.loadFailed", { error: formatErrorForDisplay(err) }),
         false,
       );
     }

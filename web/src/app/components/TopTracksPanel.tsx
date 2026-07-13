@@ -167,7 +167,7 @@ function SongList({
   if (state.kind === "message") {
     return (
       <ol className={className} id={config.listId}>
-        {state.text}
+        {state.text()}
       </ol>
     );
   }
@@ -729,24 +729,25 @@ export function TopTracksPanel() {
       state.setTopSongsTabInFlight(tabId, true);
       state.setTopSongsListState(tabId, {
         kind: "message",
-        text: config.loadingText(),
+        text: config.loadingText,
       });
       try {
         const items = await config.fetchItems();
         useAppStore.getState().setTopSongsListState(
           tabId,
           items.length === 0
-            ? { kind: "message", text: config.emptyText() }
+            ? { kind: "message", text: config.emptyText }
             : { kind: "loaded", items },
         );
         useAppStore.getState().setTopSongsTabLoaded(tabId, true);
       } catch (err) {
         useAppStore.getState().setTopSongsListState(tabId, {
           kind: "message",
-          text: i18n.t("topTracks.unavailable", {
-            section: config.errorPrefix(),
-            error: formatErrorForDisplay(err),
-          }),
+          text: () =>
+            i18n.t("topTracks.unavailable", {
+              section: config.errorPrefix(),
+              error: formatErrorForDisplay(err),
+            }),
         });
         console.warn(`${config.errorPrefix()} load failed: ${String(err)}`);
       } finally {
