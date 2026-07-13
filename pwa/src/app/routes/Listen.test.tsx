@@ -61,6 +61,7 @@ type MockEngineInstance = {
   getPlayVelocity: ReturnType<typeof vi.fn>;
   setPlayVelocity: ReturnType<typeof vi.fn>;
   setFreezeCurrentBeat: ReturnType<typeof vi.fn>;
+  setForceBranch: ReturnType<typeof vi.fn>;
   getVisualizationData: () => {
     beats: typeof mockAnalysis.beats;
     edges: any[];
@@ -515,6 +516,20 @@ async function blurWindow() {
   await act(async () => {
     window.dispatchEvent(new Event("blur"));
   });
+}
+
+async function hideDocument() {
+  Object.defineProperty(document, "hidden", {
+    value: true,
+    configurable: true,
+  });
+  try {
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+  } finally {
+    Reflect.deleteProperty(document, "hidden");
+  }
 }
 
 async function settleEffects() {
@@ -1326,6 +1341,25 @@ describe("Listen route behavior", () => {
 
     rendered.unmount();
     expect(engine.setFreezeCurrentBeat).toHaveBeenLastCalledWith(false);
+  });
+
+  it("clears freeze and force-branch when the tab is hidden", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+    engine.setFreezeCurrentBeat.mockClear();
+    engine.setForceBranch.mockClear();
+
+    await keydown("Control");
+    await hideDocument();
+
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(1, true);
+    expect(engine.setFreezeCurrentBeat).toHaveBeenNthCalledWith(2, false);
+    expect(engine.setForceBranch).toHaveBeenLastCalledWith(false);
+    rendered.unmount();
   });
 
   it("keeps Left and Right assigned to selected branch cycling", async () => {

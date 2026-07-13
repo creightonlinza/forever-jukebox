@@ -1324,14 +1324,26 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       setFreezeBeatActive(false);
       setForceBranchActive(false);
     };
+    // Blur alone can be missed on tab switches (e.g. Ctrl+T), leaving
+    // freeze/branch modes stuck; visibilitychange covers that path.
+    const onHotkeyVisibilityChange = () => {
+      if (document.hidden) {
+        onBlur();
+      }
+    };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", onHotkeyVisibilityChange);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
+      document.removeEventListener(
+        "visibilitychange",
+        onHotkeyVisibilityChange,
+      );
       engineRef.current?.setFreezeCurrentBeat(false);
       setFreezeBeatActive(false);
       setForceBranchActive(false);

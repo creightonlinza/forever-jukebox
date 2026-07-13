@@ -106,13 +106,22 @@ function useGlobalHotkeys() {
     const onKeydown = (event: KeyboardEvent) => playbackHandleKeydown(event);
     const onKeyup = (event: KeyboardEvent) => playbackHandleKeyup(event);
     const onBlur = () => playbackHandleWindowBlur();
+    // Blur alone can be missed on tab switches (e.g. Ctrl+T), leaving
+    // freeze/branch modes stuck; visibilitychange covers that path.
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        playbackHandleWindowBlur();
+      }
+    };
     window.addEventListener("keydown", onKeydown);
     window.addEventListener("keyup", onKeyup);
     window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("keydown", onKeydown);
       window.removeEventListener("keyup", onKeyup);
       window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       playbackHandleWindowBlur();
     };
   }, []);
