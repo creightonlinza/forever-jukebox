@@ -558,24 +558,11 @@ a:focus-visible {
 
 .tabs {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  /* flex-start keeps the overflow off the right edge (scrollable). flex-end
-     would push it off the left, where browsers can't scroll to reach it. */
   justify-content: flex-start;
   gap: 8px;
   margin-bottom: 0;
-  /* min-width:0 lets this flex child shrink below its content width so the
-     overflow scrolls inside the row instead of widening the hero. */
-  min-width: 0;
-  overflow-x: auto;
-  /* Scroll without a visible scrollbar. */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.tabs::-webkit-scrollbar {
-  display: none;
 }
 
 .tab-btn {
@@ -591,8 +578,7 @@ a:focus-visible {
   color: var(--text);
   font-size: 13px;
   letter-spacing: 0.02em;
-  /* Keep buttons full-size so the row overflows and scrolls rather than
-     compressing to fit. */
+  /* Keep buttons full-size so the row wraps rather than compressing to fit. */
   flex-shrink: 0;
 }
 

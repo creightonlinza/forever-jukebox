@@ -291,7 +291,11 @@ export function setCanonizerFinish(checked: boolean): void {
     }
     const { engine, jukebox } = context;
     const edge = useAppStore.getState().selectedEdge;
-    if (!edge || edge.deleted || edge.dest.which >= edge.src.which) {
+    if (!edge || edge.deleted) {
+      return false;
+    }
+    if (edge.dest.which >= edge.src.which) {
+      showToast(i18n.t("playback.anchorRequiresBackward"));
       return false;
     }
     const nextAnchor = engine.getUserAnchorEdgeId() === edge.id ? null : edge;

@@ -1383,7 +1383,7 @@ describe("playback branch shortcuts", () => {
     expect(window.location.search).toBe("");
   });
 
-  it("ignores A for a selected forward branch", () => {
+  it("shows a toast instead of anchoring a selected forward branch", () => {
     const context = createContext();
     const edge = {
       id: 8,
@@ -1392,13 +1392,14 @@ describe("playback branch shortcuts", () => {
       deleted: false,
     };
     useAppStore.setState({ selectedEdge: edge as AppState["selectedEdge"] });
-    const { handlers } = makeHandlers(context);
+    const { handlers, showToast } = makeHandlers(context);
     const event = keyEvent("A");
 
     handlers.handleKeydown(event);
 
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(context.engine.setUserAnchorEdge).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("Anchor requires a backward branch");
   });
 
   it("ignores playback shortcuts while track delete confirmation is open", () => {
