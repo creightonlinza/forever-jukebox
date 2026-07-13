@@ -166,7 +166,7 @@
     "deletedBranches": "Deleted branches:",
     "keyboardCommands": "Keyboard commands",
     "space": "Space:",
-    "spaceAction": "Play/pause playback",
+    "spaceAction": "Resume/pause playback",
     "shift": "Shift (hold):",
     "shiftAction": "Force branching while playing",
     "arrows": "Left/Right:",
