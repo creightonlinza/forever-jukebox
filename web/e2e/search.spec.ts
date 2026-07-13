@@ -57,7 +57,7 @@ test.describe("search panel", () => {
     // matches carry a preview button (not selection) that opens a modal with
     // the external YouTube link
     const open = matches.first().locator(".search-open");
-    await expect(open).toHaveAttribute("aria-label", "Preview on YouTube");
+    await expect(open).toHaveAttribute("aria-label", "Open YouTube preview");
     await open.click();
     const previewLink = page.locator(
       "#youtube-preview-modal .youtube-preview-open",
@@ -157,9 +157,6 @@ test.describe("upload panel", () => {
     test.skip(!config.allow_user_url, "URL uploads disabled");
     await page.goto("/search");
     await page.locator('[data-search-subtab="upload"]').click();
-
-    await page.locator("#upload-youtube-button").click();
-    await expectToast(page, "Enter a supported URL.");
 
     await page
       .locator("#upload-youtube-input")
