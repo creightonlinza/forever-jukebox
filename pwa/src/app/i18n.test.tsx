@@ -25,8 +25,12 @@ describe("PWA i18n bootstrap", () => {
   });
 
   it("exposes an extensible supported-language list", () => {
-    expect(supportedLanguageOptions).toEqual([{ code: "en", label: "English" }]);
+    expect(supportedLanguageOptions).toEqual([
+      { code: "en", label: "English" },
+      { code: "de", label: "Deutsch" },
+    ]);
     expect(resolveSupportedLanguage("en-US")).toBe("en");
+    expect(resolveSupportedLanguage("de-AT")).toBe("de");
     expect(resolveSupportedLanguage("invalid")).toBe("en");
   });
 
