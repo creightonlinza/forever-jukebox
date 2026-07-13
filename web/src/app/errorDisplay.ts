@@ -9,8 +9,6 @@ export type ErrorDisplayOptions = {
   fallback?: string;
 };
 
-const GENERIC_ERROR_MESSAGE = i18n.t("errors.generic");
-
 const FETCH_FAILURE_CODES = new Set([
   "download_unavailable",
   "youtube_unavailable",
@@ -22,7 +20,6 @@ const FETCH_FAILURE_MESSAGES = new Set([
   "unable to download video data.",
   "this video is not available on youtube.",
   "unable to reach youtube",
-  GENERIC_ERROR_MESSAGE.toLowerCase(),
 ]);
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -76,6 +73,10 @@ function isSourceFetchFailure(message: string, code: string | null): boolean {
   }
   const normalized = message.toLowerCase();
   if (FETCH_FAILURE_MESSAGES.has(normalized)) {
+    return true;
+  }
+  // Translated at call time so the comparison tracks the active language.
+  if (normalized === i18n.t("errors.generic").toLowerCase()) {
     return true;
   }
   return normalized.startsWith("request failed (");

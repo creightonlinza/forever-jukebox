@@ -16,7 +16,7 @@ export function BranchStatsPopup() {
     >
       <div className="branch-stats-popup-header">
         <div className="branch-stats-popup-title" id="branch-stats-title">
-          {stats?.title ?? t("playback.branchStats")}
+          {stats ? stats.title() : t("playback.branchStats")}
         </div>
         <button
           id="branch-stats-delete"
@@ -41,7 +41,7 @@ export function BranchStatsPopup() {
       <div className="branch-stats-popup-row">
         <span className="branch-stats-popup-label">{t("playback.direction")}</span>
         <span className="branch-stats-popup-value" id="branch-stats-direction">
-          {stats?.direction ?? t("playback.backward")}
+          {stats ? stats.direction() : t("playback.backward")}
         </span>
       </div>
       <div className="branch-stats-popup-row">

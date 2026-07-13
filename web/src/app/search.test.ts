@@ -62,6 +62,16 @@ function createDeps(): SearchDeps {
 
 
 
+// Status setters receive LocalizedText thunks; evaluate them so assertions
+// can compare the resulting strings.
+function localizedCalls(mock: unknown): unknown[][] {
+  return (mock as ReturnType<typeof vi.fn>).mock.calls.map((call) =>
+    call.map((arg) =>
+      typeof arg === "function" ? (arg as () => unknown)() : arg,
+    ),
+  );
+}
+
 const initialStoreState = useAppStore.getState();
 
 beforeEach(() => {
@@ -75,7 +85,7 @@ describe("search flows", () => {
     useAppStore.setState({
       searchQuery: "",
       searchResults: DEFAULT_SEARCH_RESULTS,
-      searchHint: "Step 1: Find a Spotify track.",
+      searchHint: () => "Step 1: Find a Spotify track.",
     });
     api = await import("./api");
     playback = await import("./playback");
@@ -138,10 +148,11 @@ describe("search flows", () => {
     );
 
     expect(result).toBe(false);
-    expect(useAppStore.getState().searchResults).toEqual({
-      kind: "message",
-      text: "Checking existing analysis...",
-    });
+    const results = useAppStore.getState().searchResults;
+    expect(results.kind).toBe("message");
+    expect(results.kind === "message" && results.text()).toBe(
+      "Checking existing analysis...",
+    );
     expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
     expect(deps.pollAnalysis).not.toHaveBeenCalled();
   });
@@ -166,7 +177,10 @@ describe("search flows", () => {
     );
 
     expect(result).toBe(true);
-    expect(deps.setLoadingProgress).toHaveBeenCalledWith(null, "Fetching audio");
+    expect(localizedCalls(deps.setLoadingProgress)).toContainEqual([
+      null,
+      "Fetching audio",
+    ]);
     expect(deps.pollAnalysis).toHaveBeenCalledWith("job-processing");
     expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
   });
@@ -189,10 +203,10 @@ describe("search flows", () => {
       "Artist",
     );
     expect(result).toBe(true);
-    expect(deps.setAnalysisStatus).toHaveBeenCalledWith(
+    expect(localizedCalls(deps.setAnalysisStatus)).toContainEqual([
       "YouTube fetch failed.",
       false,
-    );
+    ]);
     expect(useAppStore.getState().analysisRetryJobId).toBe("job-f");
     expect(deps.pollAnalysis).not.toHaveBeenCalled();
     expect(deps.applyAnalysisResult).not.toHaveBeenCalled();

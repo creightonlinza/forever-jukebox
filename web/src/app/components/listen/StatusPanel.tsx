@@ -42,7 +42,7 @@ export function StatusPanel() {
         {progressText}
       </div>
       <div className="status-text" id="analysis-status">
-        {statusText}
+        {statusText()}
         {retryJobId && !spinning ? (
           <>
             {" "}

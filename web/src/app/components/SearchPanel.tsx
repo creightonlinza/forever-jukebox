@@ -72,7 +72,7 @@ function SearchResults() {
   if (results.kind === "message") {
     return (
       <div className="search-results" id="search-results">
-        {results.text}
+        {results.text()}
       </div>
     );
   }
@@ -307,7 +307,7 @@ export function SearchPanel() {
         id="search-panel"
       >
         <div className="search-hint" id="search-hint">
-          {hint}
+          {hint()}
         </div>
         <div className="search-bar search-bar-inline">
           <input

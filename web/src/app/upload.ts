@@ -180,7 +180,7 @@ export async function uploadAudioFile(
     });
     onAccepted?.();
     useAppStore.getState().setActiveTab("play");
-    setLoadingProgress(context, null, i18n.t("common.queued"));
+    setLoadingProgress(context, null, () => i18n.t("common.queued"));
     await deps.pollAnalysisJob(response.id);
   } catch (err) {
     const trackTooLong =
@@ -284,7 +284,7 @@ export async function uploadFromUrl(
       tuningParams: null,
     });
     useAppStore.getState().setActiveTab("play");
-    setLoadingProgress(context, null, i18n.t("common.fetchingAudio"));
+    setLoadingProgress(context, null, () => i18n.t("common.fetchingAudio"));
     await deps.pollAnalysisJob(response.id);
   } catch (err) {
     const trackTooLong =

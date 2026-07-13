@@ -1,6 +1,6 @@
 import type { AppContext } from "./context";
 import type { MaterialSymbolIconName } from "./material-icons";
-import { useAppStore } from "./store";
+import { useAppStore, type LocalizedText } from "./store";
 import i18n from "./i18n";
 
 export type ToastOptions = {
@@ -13,7 +13,7 @@ let toastTimer: number | null = null;
 // The React status panel renders these store values.
 export function setAnalysisStatus(
   _context: AppContext,
-  message: string,
+  message: LocalizedText,
   spinning: boolean
 ) {
   useAppStore.setState(
@@ -35,10 +35,10 @@ export function setAnalysisStatus(
 export function setLoadingProgress(
   _context: AppContext,
   progress: number | null,
-  message?: string | null
+  message?: LocalizedText | null
 ) {
   useAppStore.setState({
-    analysisStatusText: message?.trim() || i18n.t("common.loading"),
+    analysisStatusText: () => message?.().trim() || i18n.t("common.loading"),
     analysisSpinning: true,
     analysisProgressText:
       typeof progress === "number" ? `${Math.round(progress)}%` : "",

@@ -21,6 +21,7 @@ import {
   DEFAULT_SEARCH_HINT,
   DEFAULT_SEARCH_RESULTS,
   useAppStore,
+  type LocalizedText,
   type SearchResultsState,
 } from "./store";
 import i18n from "./i18n";
@@ -33,9 +34,12 @@ export type SearchDeps = {
     options?: { replace?: boolean; trackId?: string | null }
   ) => void;
   updateTrackUrl: (trackId: string, replace?: boolean) => void;
-  setAnalysisStatus: (message: string, spinning: boolean) => void;
+  setAnalysisStatus: (message: LocalizedText, spinning: boolean) => void;
   showToast: (message: string, options?: ToastOptions) => void;
-  setLoadingProgress: (progress: number | null, message?: string | null) => void;
+  setLoadingProgress: (
+    progress: number | null,
+    message?: LocalizedText | null,
+  ) => void;
   pollAnalysis: (jobId: string) => Promise<void>;
   applyAnalysisResult: (response: AnalysisComplete) => boolean;
   loadAudioFromJob: (jobId: string) => Promise<boolean>;
@@ -84,11 +88,11 @@ function setSearchResults(results: SearchResultsState) {
   useAppStore.setState({ searchResults: results });
 }
 
-function setSearchMessage(text: string) {
+function setSearchMessage(text: LocalizedText) {
   setSearchResults({ kind: "message", text });
 }
 
-function setSearchHint(text: string) {
+function setSearchHint(text: LocalizedText) {
   useAppStore.setState({ searchHint: text });
 }
 
@@ -106,7 +110,7 @@ export async function startYoutubeAnalysisFlow(
   useAppStore.setState({ analysisLoaded: false });
   deps.updateVizVisibility();
   deps.setActiveTab("play");
-  deps.setLoadingProgress(null, i18n.t("common.fetchingAudio"));
+  deps.setLoadingProgress(null, () => i18n.t("common.fetchingAudio"));
   useAppStore.setState({ lastTrackId: youtubeId });
   useAppStore.setState({ lastSourceId: youtubeId });
   useAppStore.setState({ lastSourceProvider: "youtube" });
@@ -151,7 +155,7 @@ export async function startYoutubeAnalysisFlow(
       typeof response.progress === "number" ? response.progress : null;
     deps.setLoadingProgress(
       progress,
-      translateJobProgress(response.status, progress, response.message),
+      () => translateJobProgress(response.status, progress, response.message),
     );
   }
   await deps.pollAnalysis(jobId);
@@ -166,12 +170,12 @@ export async function showYoutubeMatches(
 ) {
   const query = artist ? `${artist} - ${name}` : name;
   deps.navigateToTab("search", { replace: true });
-  setSearchMessage(i18n.t("search.youtubeSearching"));
-  setSearchHint(i18n.t("search.hintStep2"));
+  setSearchMessage(() => i18n.t("search.youtubeSearching"));
+  setSearchHint(() => i18n.t("search.hintStep2"));
   try {
     const ytItems = await searchYoutube(query, duration);
     if (ytItems.length === 0) {
-      setSearchMessage(i18n.t("search.youtubeNone"));
+      setSearchMessage(() => i18n.t("search.youtubeNone"));
       setSearchHint(DEFAULT_SEARCH_HINT);
       return;
     }
@@ -180,7 +184,7 @@ export async function showYoutubeMatches(
       items: ytItems.map((item) => ({ item, name, artist })),
     });
   } catch (err) {
-    setSearchMessage(
+    setSearchMessage(() =>
       i18n.t("search.youtubeSearchFailed", {
         error: formatErrorForDisplay(err),
       }),
@@ -198,8 +202,8 @@ export async function tryLoadExistingTrackByName(
   if (!artist) {
     return false;
   }
-  setSearchMessage(i18n.t("search.checkingExisting"));
-  setSearchHint(i18n.t("search.hintStep2"));
+  setSearchMessage(() => i18n.t("search.checkingExisting"));
+  setSearchHint(() => i18n.t("search.hintStep2"));
   const entryGeneration = getLoadGeneration();
   try {
     const response = await fetchJobByTrack(title, artist);
@@ -239,7 +243,7 @@ export async function tryLoadExistingTrackByName(
     useAppStore.setState({ analysisLoaded: false });
     deps.updateVizVisibility();
     deps.setActiveTab("play");
-    deps.setLoadingProgress(null, i18n.t("common.fetchingAudio"));
+    deps.setLoadingProgress(null, () => i18n.t("common.fetchingAudio"));
     useAppStore.setState({ lastTrackId: jobId });
     deps.onTrackChange?.(jobId);
     deps.updateTrackUrl(jobId);
@@ -250,11 +254,12 @@ export async function tryLoadExistingTrackByName(
     }
     if (isAnalysisFailed(response)) {
       deps.setAnalysisStatus(
-        formatErrorForDisplay(response.error, {
-          sourceProvider: response.source_provider,
-          errorCode: response.error_code,
-          fallback: i18n.t("status.loadingFailed"),
-        }),
+        () =>
+          formatErrorForDisplay(response.error, {
+            sourceProvider: response.source_provider,
+            errorCode: response.error_code,
+            fallback: i18n.t("status.loadingFailed"),
+          }),
         false,
       );
       if (isRetryableFetchFailure(response)) {
@@ -284,7 +289,7 @@ export async function tryLoadExistingTrackByName(
     await deps.pollAnalysis(jobId);
     return true;
   } catch (err) {
-    setSearchMessage(
+    setSearchMessage(() =>
       i18n.t("search.lookupFailed", { error: formatErrorForDisplay(err) }),
     );
     return false;
@@ -297,20 +302,20 @@ export async function runSearch(_context: AppContext, _deps: SearchDeps) {
     useAppStore.setState({ searchQuery: query });
   }
   if (!query) {
-    setSearchMessage(i18n.t("search.enterQuery"));
+    setSearchMessage(() => i18n.t("search.enterQuery"));
     return;
   }
-  setSearchMessage(i18n.t("search.spotifySearching"));
+  setSearchMessage(() => i18n.t("search.spotifySearching"));
   setSearchHint(DEFAULT_SEARCH_HINT);
   try {
     const items = await searchSpotify(query);
     if (items.length === 0) {
-      setSearchMessage(i18n.t("search.spotifyNone"));
+      setSearchMessage(() => i18n.t("search.spotifyNone"));
       return;
     }
     setSearchResults({ kind: "spotify", items });
   } catch (err) {
-    setSearchMessage(
+    setSearchMessage(() =>
       i18n.t("search.searchFailed", { error: formatErrorForDisplay(err) }),
     );
   }
@@ -337,7 +342,7 @@ export function selectYoutubeMatch(
 ) {
   const { youtubeId, name, artist, duration } = selection;
   if (!youtubeId) {
-    deps.setAnalysisStatus(i18n.t("search.noYoutubeId"), false);
+    deps.setAnalysisStatus(() => i18n.t("search.noYoutubeId"), false);
     return;
   }
   if (!isTrackLengthAllowed(deps, duration)) {
@@ -345,9 +350,10 @@ export function selectYoutubeMatch(
   }
   startYoutubeAnalysisFlow(context, deps, youtubeId, name, artist).catch((err) => {
     deps.setAnalysisStatus(
-      i18n.t("search.youtubeAnalysisFailed", {
-        error: formatErrorForDisplay(err, { sourceProvider: "youtube" }),
-      }),
+      () =>
+        i18n.t("search.youtubeAnalysisFailed", {
+          error: formatErrorForDisplay(err, { sourceProvider: "youtube" }),
+        }),
       false,
     );
   });
@@ -370,11 +376,11 @@ export function selectSpotifyMatch(
       return;
     }
     if (!Number.isFinite(duration)) {
-      deps.setAnalysisStatus(i18n.t("search.noDuration"), false);
+      deps.setAnalysisStatus(() => i18n.t("search.noDuration"), false);
       return;
     }
     showYoutubeMatches(context, deps, name, artist, duration).catch((err) => {
-      setSearchMessage(
+      setSearchMessage(() =>
         i18n.t("search.youtubeSearchFailed", {
           error: formatErrorForDisplay(err),
         }),
@@ -382,7 +388,7 @@ export function selectSpotifyMatch(
       setSearchHint(DEFAULT_SEARCH_HINT);
     });
   }).catch((err) => {
-    setSearchMessage(
+    setSearchMessage(() =>
       i18n.t("search.lookupFailed", { error: formatErrorForDisplay(err) }),
     );
   });

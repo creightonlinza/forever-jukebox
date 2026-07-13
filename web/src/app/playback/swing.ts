@@ -43,7 +43,7 @@ export function prepareSwingMode(context: AppContext) {
   useAppStore.setState({ swingRenderToken: renderToken });
   useAppStore.setState({ swingPreparing: true });
   useAppStore.setState({
-    analysisStatusText: i18n.t("playback.swingAdding"),
+    analysisStatusText: () => i18n.t("playback.swingAdding"),
     analysisSpinning: true,
     analysisProgressText: "0%",
   });
@@ -76,7 +76,7 @@ export function prepareSwingMode(context: AppContext) {
       context.player.setRenderedJukeboxAudioBuffer("swing", buffer);
       context.player.setJukeboxAudioMode("swing");
       useAppStore.setState({
-        analysisStatusText: i18n.t("playback.swingReady"),
+        analysisStatusText: () => i18n.t("playback.swingReady"),
         analysisSpinning: false,
         analysisProgressText: "",
       });
@@ -104,7 +104,7 @@ export function prepareSwingMode(context: AppContext) {
       useAppStore.setState({ jukeboxAudioMode: "off" });
       context.player.setJukeboxAudioMode("off");
       useAppStore.setState({
-        analysisStatusText: i18n.t("playback.swingFailedStatus"),
+        analysisStatusText: () => i18n.t("playback.swingFailedStatus"),
         analysisSpinning: false,
         analysisProgressText: "",
       });

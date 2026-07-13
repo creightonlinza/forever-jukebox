@@ -92,6 +92,21 @@ function setLocalStorage() {
   return store;
 }
 
+// Status setters receive LocalizedText thunks; evaluate them so assertions
+// can compare the resulting strings.
+function localizedCalls(mock: unknown): unknown[][] {
+  return (mock as ReturnType<typeof vi.fn>).mock.calls.map((call) =>
+    call.map((arg) =>
+      typeof arg === "function" ? (arg as () => unknown)() : arg,
+    ),
+  );
+}
+
+function lastLocalizedCall(mock: unknown): unknown[] | undefined {
+  const calls = localizedCalls(mock);
+  return calls[calls.length - 1];
+}
+
 const initialStoreState = useAppStore.getState();
 
 beforeEach(() => {
@@ -1438,7 +1453,10 @@ describe("playback branch shortcuts", () => {
 
     expect(useAppStore.getState().selectedEdge).toBe(edge);
     expect(context.jukebox.setSelectedEdgeActive).toHaveBeenCalledWith(edge);
-    expect(useAppStore.getState().branchStats).toEqual({
+    const stats = useAppStore.getState().branchStats;
+    expect(
+      stats && { ...stats, title: stats.title(), direction: stats.direction() },
+    ).toEqual({
       title: "Branch #12 stats",
       startText: "00:00:32",
       endText: "00:00:08",
@@ -1839,10 +1857,10 @@ describe("playback loading", () => {
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(`/api/analysis/${jobId}`);
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(deps.setAnalysisStatus).toHaveBeenLastCalledWith(
+    expect(lastLocalizedCall(deps.setAnalysisStatus)).toEqual([
       "SoundCloud fetch failed.",
       false,
-    );
+    ]);
   });
 
   it("offers a retry link when a YouTube fetch fails", async () => {
@@ -1932,10 +1950,10 @@ describe("playback loading", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/jobs/${jobId}/retry`);
-    expect(deps.setAnalysisStatus).toHaveBeenLastCalledWith(
+    expect(lastLocalizedCall(deps.setAnalysisStatus)).toEqual([
       "No beats or downbeats were detected in this audio.",
       false,
-    );
+    ]);
   });
 
   it("retries a failed job without exposing source metadata", async () => {
@@ -1965,10 +1983,10 @@ describe("playback loading", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/jobs/${jobId}/retry`);
-    expect(deps.setAnalysisStatus).toHaveBeenLastCalledWith(
+    expect(lastLocalizedCall(deps.setAnalysisStatus)).toEqual([
       "Engine exited with status 1",
       false,
-    );
+    ]);
   });
 
   it("marks the matching saved playlist item current on preserved route loads", async () => {
@@ -2222,7 +2240,10 @@ describe("playback loading", () => {
     expect(context.engine.loadAnalysis).toHaveBeenCalled();
     expect(useAppStore.getState().audioLoaded).toBe(true);
     expect(useAppStore.getState().analysisLoaded).toBe(true);
-    expect(deps.setLoadingProgress).toHaveBeenCalledWith(100, "Calculating pathways");
+    expect(localizedCalls(deps.setLoadingProgress)).toContainEqual([
+      100,
+      "Calculating pathways",
+    ]);
     expect(deps.setActiveTab).toHaveBeenCalledWith("play");
   });
 
@@ -2237,10 +2258,10 @@ describe("playback loading", () => {
 
     await pollAnalysis(context, deps, "missing-job");
 
-    expect(deps.setAnalysisStatus).toHaveBeenCalledWith(
+    expect(localizedCalls(deps.setAnalysisStatus)).toContainEqual([
       "Something went wrong. Please try again or report an issue on GitHub.",
       false,
-    );
+    ]);
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
   });
 
@@ -2356,10 +2377,10 @@ describe("playback loading", () => {
 
     await pollAnalysis(context, deps, "job-failed");
 
-    expect(deps.setAnalysisStatus).toHaveBeenCalledWith(
+    expect(localizedCalls(deps.setAnalysisStatus)).toContainEqual([
       "YouTube fetch failed.",
       false,
-    );
+    ]);
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
     expect(useAppStore.getState().analysisLoaded).toBe(false);
   });
