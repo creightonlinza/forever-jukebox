@@ -31,14 +31,19 @@ import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
 import {
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
   Edge,
+  findBackwardTwin,
   JukeboxConfig,
   JukeboxEngine,
 } from "@forever-jukebox/engine";
 import {
-  ARC_VISUALIZATION_INDEX,
   DEFAULT_VISUALIZATION_INDEX,
   VISUALIZATION_LABELS,
+  visualizationSeparatesPairedEdges,
 } from "@forever-jukebox/engine/constants/visualization";
+import {
+  createToastQueue,
+  type ToastQueue,
+} from "@forever-jukebox/engine/ui/toastQueue";
 import {
   backgroundClearTimeout,
   backgroundSetTimeout,
@@ -99,11 +104,25 @@ const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const DEFAULT_PLAYBACK_VOLUME = 0.5;
 const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
-const SHORTCUT_TOAST_DURATION_MS = 2000;
-const SHORTCUT_TOAST_EXIT_MS = 200;
-const MAX_SHORTCUT_TOASTS = 3;
+type ShortcutToastQueue = ToastQueue<{ message: string }>;
 
-type ShortcutToastItem = { id: number; message: string; exiting: boolean };
+function ShortcutToastStack({ queue }: { queue: ShortcutToastQueue }) {
+  const toasts = React.useSyncExternalStore(queue.subscribe, queue.getItems);
+  return (
+    <div className="shortcut-toast-stack" role="status" aria-live="polite">
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className={
+            toast.exiting ? "shortcut-toast exiting" : "shortcut-toast"
+          }
+        >
+          {toast.message}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type PlayMode = "jukebox" | "autocanonizer";
 type TuningModalTab = "tuning" | "extras";
@@ -667,9 +686,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [swingProgress, setSwingProgress] = React.useState(0);
   const [tuningActiveTab, setTuningActiveTab] =
     React.useState<TuningModalTab>("tuning");
-  const [shortcutToasts, setShortcutToasts] = React.useState<
-    ShortcutToastItem[]
-  >([]);
   const [forceBranchActive, setForceBranchActive] = React.useState(false);
   const [freezeBeatActive, setFreezeBeatActive] = React.useState(false);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
@@ -732,6 +748,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const isPausedRef = React.useRef(false);
   const playModeRef = React.useRef<PlayMode>("jukebox");
   const bringItHomeModeRef = React.useRef(false);
+  // Read by the hotkey handlers, which are registered by an effect that does
+  // not re-run when the visualization changes.
+  const activeVizIndexRef = React.useRef(activeVizIndex);
+  // Last data pushed to the viz controller; every edge mutation funnels
+  // through syncVizDataFromEngine, so this is as fresh as the viz itself.
+  const vizDataRef = React.useRef<ReturnType<
+    JukeboxEngine["getVisualizationData"]
+  > | null>(null);
   const lastBeatRef = React.useRef<number | null>(null);
   const lastCowbellBeatsPlayedRef = React.useRef<number | null>(null);
   const autocanonizerMainPanRef = React.useRef(0);
@@ -751,73 +775,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const panPanelRef = React.useRef<HTMLDivElement | null>(null);
   const { requestWakeLock, releaseWakeLock } = useWakeLock();
 
-  // The ref mirrors state so dedupe/cap decisions and timer scheduling can
-  // happen outside setState updaters (safe under StrictMode double-invoke).
-  const shortcutToastsRef = React.useRef<ShortcutToastItem[]>([]);
-  const shortcutToastIdRef = React.useRef(1);
-  const shortcutToastTimersRef = React.useRef<Map<number, number>>(new Map());
+  // The queue owns stacking/dedupe/timers; ShortcutToastStack subscribes to
+  // it directly so toast churn does not re-render this route.
+  const shortcutToastQueueRef = React.useRef<ShortcutToastQueue | null>(null);
+  if (shortcutToastQueueRef.current === null) {
+    shortcutToastQueueRef.current = createToastQueue<{ message: string }>();
+  }
+  const shortcutToastQueue = shortcutToastQueueRef.current;
 
-  const updateShortcutToasts = React.useCallback(
-    (updater: (prev: ShortcutToastItem[]) => ShortcutToastItem[]) => {
-      shortcutToastsRef.current = updater(shortcutToastsRef.current);
-      setShortcutToasts(shortcutToastsRef.current);
-    },
-    [],
-  );
-
-  // Clearing any previous timer per id keeps drop-oldest safe: the pending
-  // hide is cancelled before the removal is scheduled.
-  const scheduleShortcutToastTimer = React.useCallback(
-    (id: number, delay: number, fn: () => void) => {
-      const timers = shortcutToastTimersRef.current;
-      const prev = timers.get(id);
-      if (prev !== undefined) {
-        window.clearTimeout(prev);
-      }
-      timers.set(id, window.setTimeout(fn, delay));
-    },
-    [],
-  );
-
-  const beginShortcutToastExit = React.useCallback(
-    (id: number) => {
-      updateShortcutToasts((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)),
-      );
-      scheduleShortcutToastTimer(id, SHORTCUT_TOAST_EXIT_MS, () => {
-        shortcutToastTimersRef.current.delete(id);
-        updateShortcutToasts((prev) => prev.filter((t) => t.id !== id));
-      });
-    },
-    [scheduleShortcutToastTimer, updateShortcutToasts],
-  );
-
-  // Up to MAX_SHORTCUT_TOASTS stack; the oldest is dropped for a new one.
   const showShortcutToast = React.useCallback(
-    (message: string) => {
-      const active = shortcutToastsRef.current.filter((t) => !t.exiting);
-      const newest = active[active.length - 1];
-      if (newest && newest.message === message) {
-        // Identical consecutive message: refresh its timer instead of
-        // stacking a duplicate.
-        scheduleShortcutToastTimer(newest.id, SHORTCUT_TOAST_DURATION_MS, () =>
-          beginShortcutToastExit(newest.id),
-        );
-        return;
-      }
-      if (active.length >= MAX_SHORTCUT_TOASTS) {
-        beginShortcutToastExit(active[0].id);
-      }
-      const id = shortcutToastIdRef.current++;
-      updateShortcutToasts((prev) => [
-        ...prev,
-        { id, message, exiting: false },
-      ]);
-      scheduleShortcutToastTimer(id, SHORTCUT_TOAST_DURATION_MS, () =>
-        beginShortcutToastExit(id),
-      );
+    (message: string, key?: string) => {
+      shortcutToastQueue.show({ message }, key);
     },
-    [beginShortcutToastExit, scheduleShortcutToastTimer, updateShortcutToasts],
+    [shortcutToastQueue],
   );
 
   const requestWakeLockSafely = React.useCallback(() => {
@@ -941,6 +911,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (data) {
       vizControllerRef.current?.setData(data);
     }
+    vizDataRef.current = data ?? null;
     return data ?? null;
   }
 
@@ -1049,18 +1020,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [isPaused]);
 
   React.useEffect(() => {
-    const timers = shortcutToastTimersRef.current;
     return () => {
-      for (const timer of timers.values()) {
-        window.clearTimeout(timer);
-      }
-      timers.clear();
+      shortcutToastQueue.clear();
     };
-  }, []);
+  }, [shortcutToastQueue]);
 
   React.useEffect(() => {
     bringItHomeModeRef.current = bringItHomeMode;
   }, [bringItHomeMode]);
+
+  React.useEffect(() => {
+    activeVizIndexRef.current = activeVizIndex;
+  }, [activeVizIndex]);
 
   React.useEffect(() => {
     playModeRef.current = playMode;
@@ -1347,19 +1318,26 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           t("listen.playVelocity", {
             value: formatPlayVelocity(engine.getPlayVelocity()),
           }),
+          "play-velocity",
         );
         return;
       }
       if (playMode === "jukebox" && event.key === "ArrowDown") {
         event.preventDefault();
         engineRef.current?.setPlayVelocity(0);
-        showShortcutToast(t("listen.playVelocity", { value: "0" }));
+        showShortcutToast(
+          t("listen.playVelocity", { value: "0" }),
+          "play-velocity",
+        );
         return;
       }
       if (playMode === "jukebox" && event.key === "ArrowUp") {
         event.preventDefault();
         engineRef.current?.setPlayVelocity(1);
-        showShortcutToast(t("listen.playVelocity", { value: "+1" }));
+        showShortcutToast(
+          t("listen.playVelocity", { value: "+1" }),
+          "play-velocity",
+        );
         return;
       }
       if (playMode === "jukebox" && event.key === "Control") {
@@ -1416,6 +1394,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         onHotkeyVisibilityChange,
       );
       engineRef.current?.setFreezeCurrentBeat(false);
+      engineRef.current?.setForceBranch(false);
       setFreezeBeatActive(false);
       setForceBranchActive(false);
     };
@@ -2040,22 +2019,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return false;
     }
     if (edge.dest.which >= edge.src.which) {
-      // Outside the arc layout, a forward and backward branch between the
-      // same beats draw as one arc, so a click may have grabbed the forward
-      // one. The arc layout draws the two directions apart, so a forward
-      // selection there is deliberate and gets no redirect.
-      const forward = edge;
-      const twin =
-        activeVizIndex === ARC_VISUALIZATION_INDEX
-          ? null
-          : (engine
-              .getVisualizationData()
-              ?.edges.find(
-                (candidate) =>
-                  !candidate.deleted &&
-                  candidate.src.which === forward.dest.which &&
-                  candidate.dest.which === forward.src.which,
-              ) ?? null);
+      // In layouts that draw a twin pair as one arc, a click may have
+      // grabbed the forward one; in layouts that draw the two directions
+      // apart, a forward selection is deliberate and gets no redirect.
+      const twin = visualizationSeparatesPairedEdges(activeVizIndexRef.current)
+        ? null
+        : findBackwardTwin(vizDataRef.current?.edges ?? [], edge);
       if (!twin) {
         showShortcutToast(t("listen.anchorRequiresBackward"));
         return false;
@@ -3549,26 +3518,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           </div>
         </div>
       ) : null}
-      <div
-        className={
-          shortcutToasts.length
-            ? "shortcut-toast-stack"
-            : "shortcut-toast-stack hidden"
-        }
-        role="status"
-        aria-live="polite"
-      >
-        {shortcutToasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={
-              toast.exiting ? "shortcut-toast exiting" : "shortcut-toast"
-            }
-          >
-            {toast.message}
-          </div>
-        ))}
-      </div>
+      <ShortcutToastStack queue={shortcutToastQueue} />
       </section>
       {settingsModal}
     </>

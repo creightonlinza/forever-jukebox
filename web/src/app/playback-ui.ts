@@ -1,12 +1,15 @@
+import { findBackwardTwin } from "@forever-jukebox/engine";
 import type { Edge } from "@forever-jukebox/engine/types";
 import {
-  ARC_VISUALIZATION_INDEX,
   CANONIZER_FINISH_KEY,
   VIZ_STORAGE_KEY,
+  visualizationSeparatesPairedEdges,
 } from "./constants";
 import { formatErrorForDisplay } from "./errorDisplay";
 import { formatDuration } from "./format";
+import type { AppContext } from "./context";
 import {
+  applyExtrasChanges,
   openExtras,
   startAutocanonizerPlayback,
   startJukeboxFromBeat,
@@ -15,6 +18,8 @@ import {
   togglePlayback,
   updateTrackInfo,
   updateVizVisibility,
+  type ExtrasApplyResult,
+  type ExtrasFormValues,
 } from "./playback";
 import {
   advancePlaylistOnAutocanonizerEnded,
@@ -65,7 +70,7 @@ function branchDirection(edge: Edge) {
   return i18n.t("playback.sameBeat");
 }
 
-export function syncExtrasPopup(edge: Edge | null) {
+function syncExtrasPopup(edge: Edge | null) {
     const context = getAttachedAppContext();
     if (!context) {
       return;
@@ -100,6 +105,19 @@ export function syncExtrasPopup(edge: Edge | null) {
     });
   }
 
+// applyExtrasChanges owns the disable half of the branch-stats invariant
+// (it nulls branchStats itself); this wrapper completes the enable half so
+// no caller can leave the popup stale for the already-selected branch.
+export function applyExtrasAndSync(
+  context: AppContext,
+  values: ExtrasFormValues,
+): ExtrasApplyResult {
+  const result = applyExtrasChanges(context, values);
+  if (result.branchStatsChanged) {
+    syncExtrasPopup(useAppStore.getState().selectedEdge);
+  }
+  return result;
+}
 
 export function deleteSelectedBranch(): void {
     const context = getAttachedAppContext();
@@ -289,26 +307,6 @@ export function setCanonizerFinish(checked: boolean): void {
     syncExtrasPopup(nextEdge);
   }
 
-  // Outside the arc layout, a forward and backward branch between the same
-  // beats draw as one arc, so a click may have grabbed the forward one. The
-  // arc layout draws the two directions apart, so a forward selection there
-  // is deliberate and gets no redirect.
-  function findBackwardTwin(edge: Edge): Edge | null {
-    if (useAppStore.getState().activeVizIndex === ARC_VISUALIZATION_INDEX) {
-      return null;
-    }
-    return (
-      useAppStore
-        .getState()
-        .vizData?.edges.find(
-          (candidate) =>
-            !candidate.deleted &&
-            candidate.src.which === edge.dest.which &&
-            candidate.dest.which === edge.src.which,
-        ) ?? null
-    );
-  }
-
   function toggleSelectedAnchorBranch() {
     const context = getAttachedAppContext();
     if (!context) {
@@ -320,7 +318,13 @@ export function setCanonizerFinish(checked: boolean): void {
       return false;
     }
     if (edge.dest.which >= edge.src.which) {
-      const twin = findBackwardTwin(edge);
+      // In layouts that draw a twin pair as one arc, a click may have
+      // grabbed the forward one; in layouts that draw the two directions
+      // apart, a forward selection is deliberate and gets no redirect.
+      const { activeVizIndex, vizData } = useAppStore.getState();
+      const twin = visualizationSeparatesPairedEdges(activeVizIndex)
+        ? null
+        : findBackwardTwin(vizData?.edges ?? [], edge);
       if (!twin) {
         showToast(i18n.t("playback.anchorRequiresBackward"));
         return false;
@@ -417,19 +421,24 @@ export function handleKeydown(event: KeyboardEvent): void {
         i18n.t("playback.playVelocity", {
           value: formatPlayVelocity(engine.getPlayVelocity()),
         }),
+        { key: "play-velocity" },
       );
       return;
     }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       engine.setPlayVelocity(0);
-      showToast(i18n.t("playback.playVelocity", { value: "0" }));
+      showToast(i18n.t("playback.playVelocity", { value: "0" }), {
+        key: "play-velocity",
+      });
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
       engine.setPlayVelocity(1);
-      showToast(i18n.t("playback.playVelocity", { value: "+1" }));
+      showToast(i18n.t("playback.playVelocity", { value: "+1" }), {
+        key: "play-velocity",
+      });
       return;
     }
     if (event.key === "Control") {

@@ -10,7 +10,8 @@
     "./autocanonizer/*": "./src/autocanonizer/*.ts",
     "./viz/*": "./src/viz/*.ts",
     "./background": "./src/background/backgroundTimer.ts",
-    "./constants/visualization": "./src/constants/visualization.ts"
+    "./constants/visualization": "./src/constants/visualization.ts",
+    "./ui/toastQueue": "./src/ui/toastQueue.ts"
   },
   "scripts": {
     "test": "vitest run",

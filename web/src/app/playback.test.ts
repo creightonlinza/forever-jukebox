@@ -25,20 +25,20 @@ import {
   type TuningFormValues,
 } from "./playback";
 import {
-  ARC_VISUALIZATION_INDEX,
   DEFAULT_VISUALIZATION_INDEX,
+  VISUALIZATION_LABELS,
 } from "./constants";
 import { setAppRuntime } from "./runtime";
 import { useAppStore } from "./store";
 import { showToast } from "./ui";
 import {
+  applyExtrasAndSync,
   handleEdgeSelect,
   handleKeydown,
   handleKeyup,
   handleWindowBlur,
   initializePlayback,
   resetPlaybackUiForTest,
-  syncExtrasPopup,
 } from "./playback-ui";
 import { setWindowUrl } from "./__tests__/test-utils";
 
@@ -432,14 +432,13 @@ describe("playback tuning", () => {
     useAppStore.setState({ selectedEdge: edge as AppState["selectedEdge"] });
     setAppRuntime(context);
 
-    // Mirrors the TuningModal apply flow: sync the popup when the apply
-    // reports that the branch stats toggle changed.
-    const result = applyExtrasChanges(context, {
+    // The TuningModal apply flow: the wrapper syncs the popup when the
+    // apply reports that the branch stats toggle changed.
+    const result = applyExtrasAndSync(context, {
       ...getExtrasFormValues(),
       branchStatsEnabled: true,
     });
     expect(result.branchStatsChanged).toBe(true);
-    syncExtrasPopup(useAppStore.getState().selectedEdge);
 
     const branchStats = useAppStore.getState().branchStats;
     expect(branchStats).not.toBeNull();
@@ -1521,7 +1520,7 @@ describe("playback branch shortcuts", () => {
     };
     useAppStore.setState({
       selectedEdge: forward as AppState["selectedEdge"],
-      activeVizIndex: ARC_VISUALIZATION_INDEX,
+      activeVizIndex: VISUALIZATION_LABELS.indexOf("Arc"),
       vizData: {
         beats: [],
         edges: [forward, twin],
@@ -1698,8 +1697,12 @@ describe("playback branch shortcuts", () => {
 
     expect(context.engine.setPlayVelocity).toHaveBeenNthCalledWith(1, 2);
     expect(context.engine.setPlayVelocity).toHaveBeenNthCalledWith(2, 1);
-    expect(showToast).toHaveBeenNthCalledWith(1, "Play velocity: +2");
-    expect(showToast).toHaveBeenNthCalledWith(2, "Play velocity: +1");
+    expect(showToast).toHaveBeenNthCalledWith(1, "Play velocity: +2", {
+      key: "play-velocity",
+    });
+    expect(showToast).toHaveBeenNthCalledWith(2, "Play velocity: +1", {
+      key: "play-velocity",
+    });
     expect(increment.preventDefault).toHaveBeenCalledTimes(1);
   });
 
@@ -1714,7 +1717,9 @@ describe("playback branch shortcuts", () => {
 
     expect(context.engine.setPlayVelocity).toHaveBeenCalledWith(17);
     expect(context.engine.getPlayVelocity()).toBe(16);
-    expect(showToast).toHaveBeenCalledWith("Play velocity: +16");
+    expect(showToast).toHaveBeenCalledWith("Play velocity: +16", {
+      key: "play-velocity",
+    });
   });
 
   it("sets zero and normal play velocity with Down and Up", () => {
@@ -1727,8 +1732,12 @@ describe("playback branch shortcuts", () => {
 
     expect(context.engine.setPlayVelocity).toHaveBeenNthCalledWith(1, 0);
     expect(context.engine.setPlayVelocity).toHaveBeenNthCalledWith(2, 1);
-    expect(showToast).toHaveBeenNthCalledWith(1, "Play velocity: 0");
-    expect(showToast).toHaveBeenNthCalledWith(2, "Play velocity: +1");
+    expect(showToast).toHaveBeenNthCalledWith(1, "Play velocity: 0", {
+      key: "play-velocity",
+    });
+    expect(showToast).toHaveBeenNthCalledWith(2, "Play velocity: +1", {
+      key: "play-velocity",
+    });
   });
 
   it("holds Control to freeze and clears it on release or window blur", () => {

@@ -14,10 +14,11 @@ describe("Toast", () => {
     cleanup();
   });
 
-  it("is hidden when there are no toasts", () => {
+  it("renders an empty stack when there are no toasts", () => {
     render(<Toast />);
     const el = document.getElementById("toast");
-    expect(el?.className).toBe("toast-stack hidden");
+    expect(el?.className).toBe("toast-stack");
+    expect(el?.childElementCount).toBe(0);
     expect(el?.getAttribute("role")).toBe("status");
     expect(el?.getAttribute("aria-live")).toBe("polite");
   });

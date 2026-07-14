@@ -3,7 +3,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { Listen } from "./Listen";
-import { ARC_VISUALIZATION_INDEX } from "@forever-jukebox/engine/constants/visualization";
+import { VISUALIZATION_LABELS } from "@forever-jukebox/engine/constants/visualization";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
 
@@ -70,6 +70,11 @@ type MockEngineInstance = {
   emitUpdate: (state: any) => void;
 };
 const engineInstances: MockEngineInstance[] = [];
+// Edges the mock engine reports from getVisualizationData; set before
+// renderListen so they are picked up when the route syncs viz data on load.
+let mockVizEdges: unknown[] = [];
+
+const ARC_VIZ_INDEX = VISUALIZATION_LABELS.indexOf("Arc");
 
 const mockAnalysis = {
   sections: [{ start: 0, duration: 4, confidence: 1 }],
@@ -235,7 +240,10 @@ vi.mock("@/shared/utils/exportJson", () => ({
   saveExportBinary: exportMocks.saveExportBinary,
 }));
 
-vi.mock("@forever-jukebox/engine", () => ({
+vi.mock("@forever-jukebox/engine", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@forever-jukebox/engine")
+  >()),
   DEFAULT_MIN_LONG_BRANCH_PERCENT: 20,
   JukeboxEngine: class JukeboxEngine {
     private updateListener: ((state: any) => void) | null = null;
@@ -303,7 +311,7 @@ vi.mock("@forever-jukebox/engine", () => ({
     getVisualizationData() {
       return {
         beats: this.analysis?.beats ?? [],
-        edges: [],
+        edges: mockVizEdges,
       };
     }
     getSectionStartBeatIndices() {
@@ -567,6 +575,7 @@ describe("Listen route behavior", () => {
     playerInstances.length = 0;
     jukeboxControllerInstances.length = 0;
     engineInstances.length = 0;
+    mockVizEdges = [];
     mockAppState.file = new File([new Uint8Array([1, 2, 3])], "song.wav", {
       lastModified: 1234,
     });
@@ -1342,6 +1351,7 @@ describe("Listen route behavior", () => {
 
     rendered.unmount();
     expect(engine.setFreezeCurrentBeat).toHaveBeenLastCalledWith(false);
+    expect(engine.setForceBranch).toHaveBeenLastCalledWith(false);
   });
 
   it("clears freeze and force-branch when the tab is hidden", async () => {
@@ -1440,14 +1450,6 @@ describe("Listen route behavior", () => {
   });
 
   it("redirects A on a forward branch to its backward twin", async () => {
-    const rendered = renderListen();
-    await settleEffects();
-
-    const controller = jukeboxControllerInstances[0];
-    const engine = engineInstances[0];
-    if (!controller || !engine) {
-      throw new Error("Expected jukebox controller and engine instances");
-    }
     const forward = {
       id: 8,
       deleted: false,
@@ -1462,10 +1464,15 @@ describe("Listen route behavior", () => {
       dest: { start: 4, which: 4 },
       distance: 8,
     };
-    vi.spyOn(engine, "getVisualizationData").mockReturnValue({
-      beats: mockAnalysis.beats,
-      edges: [forward, twin],
-    });
+    mockVizEdges = [forward, twin];
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
     await act(async () => {
       controller.emitEdgeSelect(forward);
     });
@@ -1507,15 +1514,7 @@ describe("Listen route behavior", () => {
   });
 
   it("does not redirect to the backward twin on the arc visualization", async () => {
-    window.localStorage.setItem("fj-viz", String(ARC_VISUALIZATION_INDEX));
-    const rendered = renderListen();
-    await settleEffects();
-
-    const controller = jukeboxControllerInstances[0];
-    const engine = engineInstances[0];
-    if (!controller || !engine) {
-      throw new Error("Expected jukebox controller and engine instances");
-    }
+    window.localStorage.setItem("fj-viz", String(ARC_VIZ_INDEX));
     const forward = {
       id: 8,
       deleted: false,
@@ -1530,10 +1529,15 @@ describe("Listen route behavior", () => {
       dest: { start: 4, which: 4 },
       distance: 8,
     };
-    vi.spyOn(engine, "getVisualizationData").mockReturnValue({
-      beats: mockAnalysis.beats,
-      edges: [forward, twin],
-    });
+    mockVizEdges = [forward, twin];
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
     await act(async () => {
       controller.emitEdgeSelect(forward);
     });
@@ -1544,6 +1548,68 @@ describe("Listen route behavior", () => {
     expect(rendered.container.textContent).toContain(
       "Anchor requires a backward branch",
     );
+    rendered.unmount();
+  });
+
+  it("honors a visualization switch made after the branch was selected", async () => {
+    const forward = {
+      id: 8,
+      deleted: false,
+      src: { start: 4, which: 4 },
+      dest: { start: 12, which: 12 },
+      distance: 8,
+    };
+    const twin = {
+      id: 9,
+      deleted: false,
+      src: { start: 12, which: 12 },
+      dest: { start: 4, which: 4 },
+      distance: 8,
+    };
+    mockVizEdges = [forward, twin];
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
+    await act(async () => {
+      controller.emitEdgeSelect(forward);
+    });
+
+    // Switching to the arc viz after the selection must apply to the A
+    // shortcut even though the hotkey effect does not re-run.
+    const vizSelect = getRequired<HTMLSelectElement>(
+      rendered.container,
+      "#viz-select",
+    );
+    await changeSelect(vizSelect, String(ARC_VIZ_INDEX));
+
+    await keydown("A", "KeyA");
+
+    expect(engine.setUserAnchorEdge).not.toHaveBeenCalled();
+    expect(rendered.container.textContent).toContain(
+      "Anchor requires a backward branch",
+    );
+    rendered.unmount();
+  });
+
+  it("updates the velocity toast in place while ramping", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const engine = engineInstances[0];
+    if (!engine) {
+      throw new Error("Expected jukebox engine instance");
+    }
+
+    await keydown("]", "BracketRight");
+    await keydown("]", "BracketRight", true);
+
+    const toasts = rendered.container.querySelectorAll(".shortcut-toast");
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]?.textContent).toBe("Play velocity: +3");
     rendered.unmount();
   });
 

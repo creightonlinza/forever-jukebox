@@ -1,4 +1,5 @@
 import { create, type StateCreator } from "zustand";
+import type { ToastQueueItem } from "@forever-jukebox/engine/ui/toastQueue";
 import i18n from "./i18n";
 import type { SpotifySearchItem, YoutubeSearchItem } from "./api";
 import type { AppState, SleepTimerState, TabId } from "./context";
@@ -20,7 +21,7 @@ export type ToastState = {
   tone: "default" | "error";
 };
 
-export type ToastItem = ToastState & { id: number; exiting: boolean };
+export type ToastItem = ToastQueueItem<ToastState>;
 
 export type BranchStatsState = {
   title: LocalizedText;

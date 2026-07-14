@@ -1,5 +1,4 @@
 export {
-  ARC_VISUALIZATION_INDEX,
   BEAT_AVOID_RADIUS_PX,
   BEAT_SELECT_RADIUS_PX,
   DEFAULT_VISUALIZATION_INDEX,
@@ -7,6 +6,7 @@ export {
   MAX_EDGE_SAMPLES,
   MAX_EDGES_BASE,
   VISUALIZATION_LABELS,
+  visualizationSeparatesPairedEdges,
 } from "@forever-jukebox/engine/constants/visualization";
 
 export const ANALYSIS_POLL_INTERVAL_MS = 3000;

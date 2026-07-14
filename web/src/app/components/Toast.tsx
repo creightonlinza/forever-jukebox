@@ -3,12 +3,7 @@ import { useAppStore } from "../store";
 export function Toast() {
   const toasts = useAppStore((s) => s.toasts);
   return (
-    <div
-      id="toast"
-      className={toasts.length ? "toast-stack" : "toast-stack hidden"}
-      role="status"
-      aria-live="polite"
-    >
+    <div id="toast" className="toast-stack" role="status" aria-live="polite">
       {toasts.map((toast) => {
         let className = "toast";
         if (toast.tone === "error") {

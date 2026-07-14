@@ -17,7 +17,15 @@ export const DEFAULT_VISUALIZATION_INDEX = Math.max(
   VISUALIZATION_LABELS.indexOf("Classic")
 );
 
-export const ARC_VISUALIZATION_INDEX = Math.max(
-  0,
-  VISUALIZATION_LABELS.indexOf("Arc")
-);
+type VisualizationLabel = (typeof VISUALIZATION_LABELS)[number];
+
+// Layouts that draw a forward and a backward branch between the same beats
+// apart, so a forward selection there is deliberate. The label type makes a
+// rename in VISUALIZATION_LABELS a compile error here instead of a silently
+// lost capability.
+const SEPARATES_PAIRED_EDGES: readonly VisualizationLabel[] = ["Arc"];
+
+export function visualizationSeparatesPairedEdges(index: number): boolean {
+  const label = VISUALIZATION_LABELS[index];
+  return label !== undefined && SEPARATES_PAIRED_EDGES.includes(label);
+}

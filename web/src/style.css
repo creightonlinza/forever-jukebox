@@ -1620,10 +1620,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   pointer-events: none;
 }
 
-.toast-stack.hidden {
-  display: none;
-}
-
 .toast {
   padding: 10px 14px;
   border-radius: 8px;

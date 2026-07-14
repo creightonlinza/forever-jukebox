@@ -1126,10 +1126,6 @@ textarea:focus-visible {
   pointer-events: none;
 }
 
-.shortcut-toast-stack.hidden {
-  display: none;
-}
-
 .shortcut-toast {
   padding: 10px 14px;
   border-radius: 8px;

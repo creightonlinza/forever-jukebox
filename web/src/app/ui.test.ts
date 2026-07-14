@@ -171,5 +171,26 @@ describe("ui helpers", () => {
       vi.advanceTimersByTime(300);
       expect(useAppStore.getState().toasts).toEqual([]);
     });
+
+    it("updates a keyed toast in place instead of stacking", () => {
+      showToast("Play velocity: +1", { key: "play-velocity" });
+      showToast("Other");
+      vi.advanceTimersByTime(1000);
+      showToast("Play velocity: +2", { key: "play-velocity" });
+      const toasts = useAppStore.getState().toasts;
+      expect(toasts.map((t) => t.message)).toEqual([
+        "Play velocity: +2",
+        "Other",
+      ]);
+      expect(toasts[0]?.exiting).toBe(false);
+      // The update refreshed the keyed toast's timer, so it outlives "Other".
+      vi.advanceTimersByTime(1900);
+      expect(
+        useAppStore.getState().toasts.map((t) => t.message),
+      ).toEqual(["Play velocity: +2"]);
+      expect(useAppStore.getState().toasts[0]?.exiting).toBe(false);
+      vi.advanceTimersByTime(300);
+      expect(useAppStore.getState().toasts).toEqual([]);
+    });
   });
 });
