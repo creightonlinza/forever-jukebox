@@ -763,6 +763,7 @@ async function bootstrap() {
     player = new BufferedAudioPlayer();
     cowbellOverlay = new CowbellOverlayService(player.getContext(), {
       getPlaybackRate: () => player?.getPlaybackRate() ?? 1,
+      destination: player.getOverlayDestination(),
     });
     player.setOnEnded(() => {
       if (engine) {

@@ -195,6 +195,9 @@ vi.mock("@forever-jukebox/shared/audio/BufferedAudioPlayer", () => ({
     getPlaybackRate() {
       return 1;
     }
+    getOverlayDestination() {
+      return {} as AudioNode;
+    }
     emitEnded() {
       this.onEnded?.();
     }

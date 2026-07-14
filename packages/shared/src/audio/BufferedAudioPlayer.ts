@@ -43,6 +43,7 @@ export class BufferedAudioPlayer {
   private readonly masterGain: GainNode;
   private readonly sourceChainInput: GainNode;
   private readonly sourceChainOutput: GainNode;
+  private limiter: DynamicsCompressorNode | null = null;
   private stereoPanner: StereoPannerNode | null = null;
   private chainNodes: AudioNode[] = [];
   private readonly reverbImpulseBuffers = new Map<string, AudioBuffer>();
@@ -64,7 +65,26 @@ export class BufferedAudioPlayer {
     this.context = context ?? new AudioContext();
     this.masterGain = this.context.createGain();
     this.masterGain.gain.value = this.volume;
-    this.masterGain.connect(this.context.destination);
+    if (typeof this.context.createDynamicsCompressor === "function") {
+      // Safety limiter: reverb modes sum dry (up to 1.0) plus wet (up to 0.9)
+      // gain, the nightcore/cathedral highpass adds resonance near its cutoff,
+      // and 8D panning sums channels — all of which can push peaks past 0dBFS
+      // and clip the output. Threshold 0 with knee 0 leaves anything already
+      // under 0dBFS (notably the "off" mode) untouched, since the node's
+      // automatic makeup gain is exactly 1 at that threshold. It sits after
+      // masterGain so overlays (see getOverlayDestination) can join post-volume
+      // and share both the limiting and the node's small lookahead latency.
+      this.limiter = this.context.createDynamicsCompressor();
+      this.limiter.threshold.value = 0;
+      this.limiter.knee.value = 0;
+      this.limiter.ratio.value = 20;
+      this.limiter.attack.value = 0.001;
+      this.limiter.release.value = 0.25;
+      this.masterGain.connect(this.limiter);
+      this.limiter.connect(this.context.destination);
+    } else {
+      this.masterGain.connect(this.context.destination);
+    }
     this.sourceChainInput = this.context.createGain();
     this.sourceChainOutput = this.context.createGain();
     if (typeof this.context.createStereoPanner === "function") {
@@ -114,6 +134,14 @@ export class BufferedAudioPlayer {
 
   getContext(): AudioContext {
     return this.context;
+  }
+
+  // Where overlay services (e.g. cowbell) should connect instead of the raw
+  // context destination, so their hits pass through the same safety limiter
+  // as the music and stay time-aligned with its lookahead latency. Sits after
+  // masterGain, so overlays manage their own volume as before.
+  getOverlayDestination(): AudioNode {
+    return this.limiter ?? this.context.destination;
   }
 
   play() {
@@ -875,6 +903,14 @@ export class BufferedAudioPlayer {
         // no-op
       }
       this.stereoPanner = null;
+    }
+    if (this.limiter) {
+      try {
+        this.limiter.disconnect();
+      } catch {
+        // no-op
+      }
+      this.limiter = null;
     }
     if (this.context.state !== "closed") {
       try {

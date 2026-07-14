@@ -928,6 +928,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const player = new BufferedAudioPlayer();
     const cowbellOverlay = new CowbellOverlayService(player.getContext(), {
       getPlaybackRate: () => player.getPlaybackRate(),
+      destination: player.getOverlayDestination(),
     });
     cowbellOverlay.setVolume(player.getVolume());
     playerRef.current = player;

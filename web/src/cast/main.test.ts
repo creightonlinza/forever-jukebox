@@ -40,6 +40,7 @@ const doubles = vi.hoisted(() => {
       isPlaying: vi.fn(() => player.isPlayingValue),
       getDuration: vi.fn(() => 120),
       getContext: vi.fn(() => context),
+      getOverlayDestination: vi.fn(() => ({})),
       getPlaybackRate: vi.fn(() => 1),
       setJukeboxAudioMode: vi.fn(),
     };

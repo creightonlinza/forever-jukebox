@@ -48,6 +48,16 @@ class MockWaveShaperNode {
   disconnect = vi.fn();
 }
 
+class MockDynamicsCompressorNode {
+  threshold = { value: -24 };
+  knee = { value: 30 };
+  ratio = { value: 12 };
+  attack = { value: 0.003 };
+  release = { value: 0.25 };
+  connect = vi.fn();
+  disconnect = vi.fn();
+}
+
 class MockAudioContext {
   currentTime = 0;
   destination = {};
@@ -58,6 +68,7 @@ class MockAudioContext {
   createdConvolvers: MockConvolverNode[] = [];
   createdPanners: MockStereoPannerNode[] = [];
   createdWaveShapers: MockWaveShaperNode[] = [];
+  createdCompressors: MockDynamicsCompressorNode[] = [];
   createdBuffers: AudioBuffer[] = [];
   createGain() {
     const gain = new MockGainNode();
@@ -83,6 +94,11 @@ class MockAudioContext {
     const shaper = new MockWaveShaperNode();
     this.createdWaveShapers.push(shaper);
     return shaper;
+  }
+  createDynamicsCompressor() {
+    const compressor = new MockDynamicsCompressorNode();
+    this.createdCompressors.push(compressor);
+    return compressor;
   }
   createBuffer(channels: number, length: number, sampleRate: number) {
     const data = Array.from({ length: channels }, () => new Float32Array(length));
@@ -379,6 +395,37 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.start).toHaveBeenCalledWith(0, 0, 2);
 
     player.stop();
+  });
+
+  it("routes output through a 0dBFS safety limiter after master gain", () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+
+    const limiter = context.createdCompressors[0];
+    const masterGain = context.createdGains[0];
+    const panner = context.createdPanners[0];
+    expect(limiter).toBeDefined();
+    expect(limiter?.threshold.value).toBe(0);
+    expect(limiter?.knee.value).toBe(0);
+    expect(limiter?.ratio.value).toBe(20);
+    expect(panner?.connect).toHaveBeenCalledWith(masterGain);
+    expect(masterGain?.connect).toHaveBeenCalledWith(limiter);
+    expect(limiter?.connect).toHaveBeenCalledWith(context.destination);
+    expect(player.getOverlayDestination()).toBe(limiter);
+  });
+
+  it("connects master gain directly to destination without compressor support", () => {
+    const context = new MockAudioContext();
+    (context as { createDynamicsCompressor?: unknown }).createDynamicsCompressor =
+      undefined;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+
+    const masterGain = context.createdGains[0];
+    const panner = context.createdPanners[0];
+    expect(context.createdCompressors).toHaveLength(0);
+    expect(panner?.connect).toHaveBeenCalledWith(masterGain);
+    expect(masterGain?.connect).toHaveBeenCalledWith(context.destination);
+    expect(player.getOverlayDestination()).toBe(context.destination);
   });
 
   it("keeps normal mode on the continuous source path", async () => {
