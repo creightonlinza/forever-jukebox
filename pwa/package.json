@@ -17,7 +17,7 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@fontsource/barlow": "^5.2.8",
-    "@forever-jukebox/engine": "*",
+    "@forever-jukebox/shared": "*",
     "@forever-jukebox/i18n": "*",
     "essentia.js": "^0.1.3",
     "i18next": "^26.3.1",

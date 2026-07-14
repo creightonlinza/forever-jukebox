@@ -7,8 +7,8 @@ import {
 import {
   AUDIO_MODE_SETTINGS,
   type JukeboxAudioMode,
-} from "@forever-jukebox/engine/audio/audioModes";
-import type { JukeboxConfig, RandomMode } from "@forever-jukebox/engine";
+} from "@forever-jukebox/shared/audio/audioModes";
+import type { JukeboxConfig, RandomMode } from "@forever-jukebox/shared";
 import {
   planJukeboxPath,
   type DeletedEdgeRef,

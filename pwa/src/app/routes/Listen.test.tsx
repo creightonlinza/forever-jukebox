@@ -3,9 +3,9 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { Listen } from "./Listen";
-import { VISUALIZATION_LABELS } from "@forever-jukebox/engine/constants/visualization";
-import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
-import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
+import { VISUALIZATION_LABELS } from "@forever-jukebox/shared/constants/visualization";
+import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
+import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
 
 const exportMocks = vi.hoisted(() => ({
   exportJukeboxAudio: vi.fn(),
@@ -141,7 +141,7 @@ vi.mock("@/core/application/usecases/analyzeAudio", () => ({
   },
 }));
 
-vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
+vi.mock("@forever-jukebox/shared/audio/BufferedAudioPlayer", () => ({
   BufferedAudioPlayer: class BufferedAudioPlayer {
     private volume = 1;
     private onEnded: (() => void) | null = null;
@@ -205,7 +205,7 @@ vi.mock("@forever-jukebox/engine/audio/BufferedAudioPlayer", () => ({
   },
 }));
 
-vi.mock("@forever-jukebox/engine/audio/CowbellOverlayService", () => ({
+vi.mock("@forever-jukebox/shared/audio/CowbellOverlayService", () => ({
   CowbellOverlayService: class CowbellOverlayService {
     enable = vi.fn();
     disable = vi.fn();
@@ -217,7 +217,7 @@ vi.mock("@forever-jukebox/engine/audio/CowbellOverlayService", () => ({
   },
 }));
 
-vi.mock("@forever-jukebox/engine/audio/swingBufferCache", () => ({
+vi.mock("@forever-jukebox/shared/audio/swingBufferCache", () => ({
   getOrCreateSwingBuffer: vi.fn(
     (
       _sourceBuffer: AudioBuffer,
@@ -227,7 +227,7 @@ vi.mock("@forever-jukebox/engine/audio/swingBufferCache", () => ({
   ),
 }));
 
-vi.mock("@forever-jukebox/engine/audio/swingRenderer", () => ({
+vi.mock("@forever-jukebox/shared/audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(async () => ({ duration: 4 }) as AudioBuffer),
 }));
 
@@ -240,9 +240,9 @@ vi.mock("@/shared/utils/exportJson", () => ({
   saveExportBinary: exportMocks.saveExportBinary,
 }));
 
-vi.mock("@forever-jukebox/engine", async (importOriginal) => ({
+vi.mock("@forever-jukebox/shared", async (importOriginal) => ({
   ...(await importOriginal<
-    typeof import("@forever-jukebox/engine")
+    typeof import("@forever-jukebox/shared")
   >()),
   DEFAULT_MIN_LONG_BRANCH_PERCENT: 20,
   JukeboxEngine: class JukeboxEngine {
@@ -320,7 +320,7 @@ vi.mock("@forever-jukebox/engine", async (importOriginal) => ({
   },
 }));
 
-vi.mock("@forever-jukebox/engine/viz/JukeboxController", () => ({
+vi.mock("@forever-jukebox/shared/viz/JukeboxController", () => ({
   JukeboxController: class JukeboxController {
     private onEdgeSelect: ((edge: unknown) => void) | null = null;
     constructor(_layer: HTMLElement) {
@@ -352,7 +352,7 @@ vi.mock("@forever-jukebox/engine/viz/JukeboxController", () => ({
   },
 }));
 
-vi.mock("@forever-jukebox/engine/autocanonizer/AutocanonizerController", () => ({
+vi.mock("@forever-jukebox/shared/autocanonizer/AutocanonizerController", () => ({
   AutocanonizerController: class AutocanonizerController {
     private onBeat:
       | ((

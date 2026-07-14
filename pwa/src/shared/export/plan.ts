@@ -9,7 +9,7 @@ import {
   type JukeboxGraphState,
   type QuantumBase,
   type RandomMode,
-} from "@forever-jukebox/engine";
+} from "@forever-jukebox/shared";
 
 export interface DeletedEdgeRef {
   src: number;

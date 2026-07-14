@@ -13,11 +13,11 @@ const getOrCreateSwingBuffer = vi.fn(
     }),
 );
 
-vi.mock("@forever-jukebox/engine/audio/swingBufferCache", () => ({
+vi.mock("@forever-jukebox/shared/audio/swingBufferCache", () => ({
   getOrCreateSwingBuffer: (...args: unknown[]) =>
     getOrCreateSwingBuffer(...args),
 }));
-vi.mock("@forever-jukebox/engine/audio/swingRenderer", () => ({
+vi.mock("@forever-jukebox/shared/audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(),
 }));
 vi.mock("../tuning", () => ({

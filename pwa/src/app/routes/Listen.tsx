@@ -24,40 +24,40 @@ import {
 import {
   BufferedAudioPlayer,
   type JukeboxAudioMode,
-} from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
-import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
-import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
-import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
+} from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
+import { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOverlayService";
+import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
+import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
 import {
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
   Edge,
   findBackwardTwin,
   JukeboxConfig,
   JukeboxEngine,
-} from "@forever-jukebox/engine";
+} from "@forever-jukebox/shared";
 import {
   DEFAULT_VISUALIZATION_INDEX,
   VISUALIZATION_LABELS,
   visualizationSeparatesPairedEdges,
-} from "@forever-jukebox/engine/constants/visualization";
+} from "@forever-jukebox/shared/constants/visualization";
 import {
   createToastQueue,
   type ToastQueue,
-} from "@forever-jukebox/engine/ui/toastQueue";
+} from "@forever-jukebox/shared/ui/toastQueue";
 import {
   backgroundClearTimeout,
   backgroundSetTimeout,
-} from "@forever-jukebox/engine/background";
+} from "@forever-jukebox/shared/background";
 import {
   exportJukeboxAudio,
   type JukeboxExportProgress,
 } from "@/shared/export";
-import { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
+import { AutocanonizerController } from "@forever-jukebox/shared/autocanonizer/AutocanonizerController";
 import {
   AUTOCANONIZER_MAIN_COLOR,
   AUTOCANONIZER_OTHER_COLOR,
-} from "@forever-jukebox/engine/autocanonizer/AutocanonizerViz";
-import { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
+} from "@forever-jukebox/shared/autocanonizer/AutocanonizerViz";
+import { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
 import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";

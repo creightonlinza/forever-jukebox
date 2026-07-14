@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { JukeboxConfig } from "@forever-jukebox/engine/types";
+import type { JukeboxConfig } from "@forever-jukebox/shared/types";
 import {
   CAST_AUDIO_MODE_CAPABILITIES,
   applyCastTuningToEngine,

@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { useAppStore } from "./store";
 import type { AppContext } from "./context";
-import type { JukeboxConfig } from "@forever-jukebox/engine/types";
+import type { JukeboxConfig } from "@forever-jukebox/shared/types";
 import {
   applyTuningParamsToEngine,
   clearTuningParamsFromUrl,

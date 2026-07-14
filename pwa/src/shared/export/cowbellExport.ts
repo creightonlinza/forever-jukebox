@@ -15,8 +15,8 @@ import {
   TRILL_GAIN,
   WALKEN_EFFECT_PROBABILITY,
   WALKEN_GAIN,
-} from "@forever-jukebox/engine/audio/CowbellOverlayService";
-import { createRng } from "@forever-jukebox/engine";
+} from "@forever-jukebox/shared/audio/CowbellOverlayService";
+import { createRng } from "@forever-jukebox/shared";
 import type { PlannedJukeboxSegment } from "./plan";
 import type { CowbellRenderEvent } from "./render";
 

@@ -1,7 +1,7 @@
-import type { JukeboxEngine } from "@forever-jukebox/engine";
-import type { JukeboxConfig } from "@forever-jukebox/engine/types";
-import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
-import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/engine";
+import type { JukeboxEngine } from "@forever-jukebox/shared";
+import type { JukeboxConfig } from "@forever-jukebox/shared/types";
+import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
+import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
