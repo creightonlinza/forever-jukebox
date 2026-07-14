@@ -1,4 +1,4 @@
-import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
+import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import type { AppState } from "./context";
 import i18n from "./i18n";
 

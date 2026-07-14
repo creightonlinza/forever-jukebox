@@ -15,8 +15,8 @@ generating similar beat/segment/section data locally.
 - `api/` — REST API + worker that calls the engine.
 - `web/` — Web UI.
 - `pwa/` — Offline/local analysis PWA that can also export jukebox audio.
-- `packages/jukebox-engine/` — Shared jukebox engine/audio/visualization code used by
-  both `web/` and `pwa/` (npm workspace package `@forever-jukebox/engine`).
+- `packages/shared/` — Shared jukebox engine/audio/visualization code used by
+  both `web/` and `pwa/` (npm workspace package `@forever-jukebox/shared`).
 - `schema.json` — JSON schema reference for analysis output.
 
 ## Quick Start

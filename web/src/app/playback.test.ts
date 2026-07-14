@@ -54,11 +54,11 @@ vi.mock("./playback", async (importActual) => ({
   syncDeletedEdgeState: vi.fn(),
   updateTrackInfo: vi.fn(),
 }));
-import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
-import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
+import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
+import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
 import { ADMIN_KEY_STORAGE_KEY } from "./admin";
 
-vi.mock("@forever-jukebox/engine/audio/swingBufferCache", () => ({
+vi.mock("@forever-jukebox/shared/audio/swingBufferCache", () => ({
   getOrCreateSwingBuffer: vi.fn(
     (
       _sourceBuffer: AudioBuffer,
@@ -68,7 +68,7 @@ vi.mock("@forever-jukebox/engine/audio/swingBufferCache", () => ({
   ),
 }));
 
-vi.mock("@forever-jukebox/engine/audio/swingRenderer", () => ({
+vi.mock("@forever-jukebox/shared/audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(async () => ({ duration: 120 }) as AudioBuffer),
 }));
 

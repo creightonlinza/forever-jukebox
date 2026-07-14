@@ -1,6 +1,6 @@
 import type { AppContext } from "./context";
 import { useAppStore } from "./store";
-import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/engine";
+import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;

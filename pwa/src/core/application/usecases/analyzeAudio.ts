@@ -3,7 +3,7 @@ import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
 import { AudioDecoderPort } from "@/core/domain/ports/AudioDecoderPort";
 import { AnalysisOutput, validateAnalysis } from "@/shared/analysis-schema";
 import { computeFingerprint } from "@/shared/utils/fingerprint";
-import { TrackMeta } from "@forever-jukebox/engine/types";
+import { TrackMeta } from "@forever-jukebox/shared/types";
 
 export type AnalyzeStage =
   | "loading"

@@ -3,11 +3,11 @@ import i18n from "../app/i18n";
 import {
   BufferedAudioPlayer,
   type JukeboxAudioMode,
-} from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
-import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
-import { JukeboxEngine } from "@forever-jukebox/engine";
-import type { JukeboxConfig } from "@forever-jukebox/engine/types";
-import { JukeboxViz } from "@forever-jukebox/engine/viz/JukeboxViz";
+} from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
+import { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOverlayService";
+import { JukeboxEngine } from "@forever-jukebox/shared";
+import type { JukeboxConfig } from "@forever-jukebox/shared/types";
+import { JukeboxViz } from "@forever-jukebox/shared/viz/JukeboxViz";
 import { fetchAnalysis, fetchAudio, recordPlay, retryJob } from "../app/api";
 import { formatErrorForDisplay } from "../app/errorDisplay";
 import { formatDuration } from "../app/format";

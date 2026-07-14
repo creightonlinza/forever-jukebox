@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AnalysisOutput } from "@/shared/analysis-schema";
-import type { JukeboxConfig } from "@forever-jukebox/engine";
+import type { JukeboxConfig } from "@forever-jukebox/shared";
 import { planJukeboxPath } from "../plan";
 
 function createVector(seed: number): number[] {

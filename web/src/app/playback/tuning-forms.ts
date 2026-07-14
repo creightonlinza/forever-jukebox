@@ -1,5 +1,5 @@
 import type { AppContext } from "../context";
-import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
+import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { storeAnchorHighlight } from "../anchorHighlight";
 import { storeBranchStatsEnabled } from "../extrasMode";
 import { useAppStore } from "../store";
@@ -10,7 +10,7 @@ import {
   writeTuningParamsToUrl,
 } from "../tuning";
 import { showToast } from "../ui";
-import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/engine";
+import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
 import {
   closeTuning,
   syncVolumeUI,

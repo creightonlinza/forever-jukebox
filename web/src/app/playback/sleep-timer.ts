@@ -4,7 +4,7 @@ import { getAppContext } from "../runtime";
 import {
   backgroundClearTimeout,
   backgroundSetTimeout,
-} from "@forever-jukebox/engine/background";
+} from "@forever-jukebox/shared/background";
 import { stopPlayback } from "./transport";
 
 export type SleepTimerOption = {

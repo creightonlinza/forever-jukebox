@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY web/package.json web/
 COPY pwa/package.json pwa/
-COPY packages/jukebox-engine/package.json packages/jukebox-engine/
+COPY packages/shared/package.json packages/shared/
 RUN npm ci
 COPY packages/ packages/
 COPY web/ web/

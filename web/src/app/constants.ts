@@ -7,7 +7,7 @@ export {
   MAX_EDGES_BASE,
   VISUALIZATION_LABELS,
   visualizationSeparatesPairedEdges,
-} from "@forever-jukebox/engine/constants/visualization";
+} from "@forever-jukebox/shared/constants/visualization";
 
 export const ANALYSIS_POLL_INTERVAL_MS = 3000;
 export const LISTEN_TIMER_INTERVAL_MS = 200;

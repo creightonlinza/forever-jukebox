@@ -1,5 +1,5 @@
 import { create, type StateCreator } from "zustand";
-import type { ToastQueueItem } from "@forever-jukebox/engine/ui/toastQueue";
+import type { ToastQueueItem } from "@forever-jukebox/shared/ui/toastQueue";
 import i18n from "./i18n";
 import type { SpotifySearchItem, YoutubeSearchItem } from "./api";
 import type { AppState, SleepTimerState, TabId } from "./context";

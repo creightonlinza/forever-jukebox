@@ -1,8 +1,8 @@
-import { JukeboxEngine } from "@forever-jukebox/engine";
-import { BufferedAudioPlayer } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
-import { CowbellOverlayService } from "@forever-jukebox/engine/audio/CowbellOverlayService";
-import { AutocanonizerController } from "@forever-jukebox/engine/autocanonizer/AutocanonizerController";
-import { JukeboxController } from "@forever-jukebox/engine/viz/JukeboxController";
+import { JukeboxEngine } from "@forever-jukebox/shared";
+import { BufferedAudioPlayer } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
+import { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOverlayService";
+import { AutocanonizerController } from "@forever-jukebox/shared/autocanonizer/AutocanonizerController";
+import { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import { applyThemeVariables, resolveStoredTheme } from "./theme";
 import { resolveStoredAnchorHighlight } from "./anchorHighlight";
 import { resolveStoredBranchStatsEnabled } from "./extrasMode";
@@ -12,7 +12,7 @@ import {
   showToast,
 } from "./ui";
 import { handleRouteChange } from "./routing";
-import { initBackgroundTimer } from "@forever-jukebox/engine/background";
+import { initBackgroundTimer } from "@forever-jukebox/shared/background";
 import { fetchAppConfig } from "./api";
 import { loadAppConfig, saveAppConfig } from "./cache";
 import {

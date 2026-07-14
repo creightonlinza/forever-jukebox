@@ -1,6 +1,6 @@
 import type { AppContext } from "../context";
-import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
-import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
+import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
+import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
 import { useAppStore } from "../store";
 import { syncTuningParamsState, writeTuningParamsToUrl } from "../tuning";
 import { showToast } from "../ui";

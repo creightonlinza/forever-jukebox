@@ -1,5 +1,5 @@
 import { AnalysisOutput } from "@/shared/analysis-schema";
-import { TrackMeta } from "@forever-jukebox/engine/types";
+import { TrackMeta } from "@forever-jukebox/shared/types";
 
 export type AnalysisProgress = {
   stage: "beats" | "features" | "segments" | "building";

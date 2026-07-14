@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 import {
   AUTOCANONIZER_MAIN_COLOR,
   AUTOCANONIZER_OTHER_COLOR,
-} from "@forever-jukebox/engine/autocanonizer/AutocanonizerViz";
+} from "@forever-jukebox/shared/autocanonizer/AutocanonizerViz";
 import { formatCursorTime, formatPlaybackTitle } from "../../format";
 import { useMarquee } from "../../hooks/useMarquee";
 import { useAppStore } from "../../store";

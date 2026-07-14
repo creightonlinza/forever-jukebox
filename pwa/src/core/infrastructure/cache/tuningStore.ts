@@ -1,4 +1,4 @@
-import type { JukeboxConfig } from "@forever-jukebox/engine";
+import type { JukeboxConfig } from "@forever-jukebox/shared";
 
 // Per-song tuning is auto-saved in localStorage, keyed by the same fingerprint
 // used for the cached analysis. Removal is centralized in analysisCache.ts so

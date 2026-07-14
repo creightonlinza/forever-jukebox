@@ -5,7 +5,7 @@ import {
   createBitcrusherCurve,
   renderBitcrushedBuffer,
   type JukeboxAudioMode,
-} from "@forever-jukebox/engine/audio/audioModes";
+} from "@forever-jukebox/shared/audio/audioModes";
 import type { PlannedJukeboxSegment } from "./plan";
 
 export type CowbellRenderEvent = {

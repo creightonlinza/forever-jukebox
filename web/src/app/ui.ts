@@ -1,4 +1,4 @@
-import { createToastQueue } from "@forever-jukebox/engine/ui/toastQueue";
+import { createToastQueue } from "@forever-jukebox/shared/ui/toastQueue";
 import type { AppContext } from "./context";
 import type { MaterialSymbolIconName } from "./material-icons";
 import { useAppStore, type LocalizedText, type ToastState } from "./store";

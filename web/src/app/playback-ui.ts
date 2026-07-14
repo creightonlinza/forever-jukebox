@@ -1,5 +1,5 @@
-import { findBackwardTwin } from "@forever-jukebox/engine";
-import type { Edge } from "@forever-jukebox/engine/types";
+import { findBackwardTwin } from "@forever-jukebox/shared";
+import type { Edge } from "@forever-jukebox/shared/types";
 import {
   CANONIZER_FINISH_KEY,
   VIZ_STORAGE_KEY,

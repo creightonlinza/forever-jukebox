@@ -1,5 +1,5 @@
 {
-  "name": "@forever-jukebox/engine",
+  "name": "@forever-jukebox/shared",
   "private": true,
   "version": "0.0.0",
   "type": "module",
