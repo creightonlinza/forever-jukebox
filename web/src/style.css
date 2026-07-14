@@ -122,19 +122,19 @@ button,
   animation: jukebox-flicker-off 18s steps(1, end) infinite;
 }
 
+/* Animates opacity (composited) rather than color: repainting the text
+   mid-cycle re-registers the h1 as a late LCP candidate in Chrome. */
 @keyframes jukebox-flicker-off {
   0%,
   88.3%,
   88.8%,
   89.6%,
   100% {
-    color: inherit;
-    text-shadow: inherit;
+    opacity: 1;
   }
   88.4%,
   89.2% {
-    color: var(--bg);
-    text-shadow: none;
+    opacity: 0;
   }
 }
 
