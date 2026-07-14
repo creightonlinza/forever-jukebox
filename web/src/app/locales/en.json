@@ -181,6 +181,7 @@
     "anchorSet": "Anchor branch set",
     "anchorReset": "Anchor branch reset",
     "anchorRequiresBackward": "Anchor requires a backward branch",
+    "branchDeleted": "Branch deleted",
     "playVelocity": "Play velocity: {{value}}",
     "forceBranchBadge": "Force branching",
     "freezeBeatBadge": "Freeze beat",

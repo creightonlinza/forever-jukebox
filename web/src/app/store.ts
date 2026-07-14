@@ -20,6 +20,8 @@ export type ToastState = {
   tone: "default" | "error";
 };
 
+export type ToastItem = ToastState & { id: number; exiting: boolean };
+
 export type BranchStatsState = {
   title: LocalizedText;
   startText: string;
@@ -100,7 +102,7 @@ type ShellSlice = {
   isPlayTabPulsing: boolean;
   vizStatsPulseId: number;
   footerCredit: FooterCredit | null;
-  toast: ToastState | null;
+  toasts: ToastItem[];
   searchQuery: string;
   searchHint: LocalizedText;
   searchResults: SearchResultsState;
@@ -201,7 +203,7 @@ const createUiSlice: Slice<
     | "isPlayTabPulsing"
     | "vizStatsPulseId"
     | "footerCredit"
-    | "toast"
+    | "toasts"
     | "searchQuery"
     | "searchHint"
     | "searchResults"
@@ -257,7 +259,7 @@ const createUiSlice: Slice<
     isPlayTabPulsing: false,
     vizStatsPulseId: 0,
     footerCredit: null,
-    toast: null,
+    toasts: [],
     searchQuery: "",
     searchHint: DEFAULT_SEARCH_HINT,
     searchResults: DEFAULT_SEARCH_RESULTS,

@@ -85,7 +85,8 @@ describe("FaqPanel", () => {
     await userEvent.click(button);
     expect(cache.clearCachedAudio).toHaveBeenCalled();
     await waitFor(() => {
-      expect(useAppStore.getState().toast?.message).toBe(
+      const toasts = useAppStore.getState().toasts;
+      expect(toasts[toasts.length - 1]?.message).toBe(
         "Cached audio cleared.",
       );
     });

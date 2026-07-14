@@ -1606,10 +1606,25 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   line-height: 1;
 }
 
-.toast {
+.toast-stack {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(480px, calc(100vw - 40px));
+  z-index: 30;
+  pointer-events: none;
+}
+
+.toast-stack.hidden {
+  display: none;
+}
+
+.toast {
   padding: 10px 14px;
   border-radius: 8px;
   border: 1px solid var(--border-panel);
@@ -1617,7 +1632,29 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   color: var(--text);
   font-size: 13px;
   box-shadow: 0 8px 20px var(--shadow-elevated);
-  z-index: 30;
+  animation: toast-enter 200ms ease-out;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+
+.toast.exiting {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+    transition: none;
+  }
 }
 
 .toast.error {
@@ -1630,10 +1667,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.toast.hidden {
-  display: none;
 }
 
 .toast-icon {

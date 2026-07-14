@@ -99,6 +99,11 @@ const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const DEFAULT_PLAYBACK_VOLUME = 0.5;
 const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
+const SHORTCUT_TOAST_DURATION_MS = 2000;
+const SHORTCUT_TOAST_EXIT_MS = 200;
+const MAX_SHORTCUT_TOASTS = 3;
+
+type ShortcutToastItem = { id: number; message: string; exiting: boolean };
 
 type PlayMode = "jukebox" | "autocanonizer";
 type TuningModalTab = "tuning" | "extras";
@@ -662,7 +667,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [swingProgress, setSwingProgress] = React.useState(0);
   const [tuningActiveTab, setTuningActiveTab] =
     React.useState<TuningModalTab>("tuning");
-  const [shortcutToast, setShortcutToast] = React.useState<string | null>(null);
+  const [shortcutToasts, setShortcutToasts] = React.useState<
+    ShortcutToastItem[]
+  >([]);
   const [forceBranchActive, setForceBranchActive] = React.useState(false);
   const [freezeBeatActive, setFreezeBeatActive] = React.useState(false);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
@@ -744,9 +751,74 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const panPanelRef = React.useRef<HTMLDivElement | null>(null);
   const { requestWakeLock, releaseWakeLock } = useWakeLock();
 
-  const showShortcutToast = React.useCallback((message: string) => {
-    setShortcutToast(message);
-  }, []);
+  // The ref mirrors state so dedupe/cap decisions and timer scheduling can
+  // happen outside setState updaters (safe under StrictMode double-invoke).
+  const shortcutToastsRef = React.useRef<ShortcutToastItem[]>([]);
+  const shortcutToastIdRef = React.useRef(1);
+  const shortcutToastTimersRef = React.useRef<Map<number, number>>(new Map());
+
+  const updateShortcutToasts = React.useCallback(
+    (updater: (prev: ShortcutToastItem[]) => ShortcutToastItem[]) => {
+      shortcutToastsRef.current = updater(shortcutToastsRef.current);
+      setShortcutToasts(shortcutToastsRef.current);
+    },
+    [],
+  );
+
+  // Clearing any previous timer per id keeps drop-oldest safe: the pending
+  // hide is cancelled before the removal is scheduled.
+  const scheduleShortcutToastTimer = React.useCallback(
+    (id: number, delay: number, fn: () => void) => {
+      const timers = shortcutToastTimersRef.current;
+      const prev = timers.get(id);
+      if (prev !== undefined) {
+        window.clearTimeout(prev);
+      }
+      timers.set(id, window.setTimeout(fn, delay));
+    },
+    [],
+  );
+
+  const beginShortcutToastExit = React.useCallback(
+    (id: number) => {
+      updateShortcutToasts((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)),
+      );
+      scheduleShortcutToastTimer(id, SHORTCUT_TOAST_EXIT_MS, () => {
+        shortcutToastTimersRef.current.delete(id);
+        updateShortcutToasts((prev) => prev.filter((t) => t.id !== id));
+      });
+    },
+    [scheduleShortcutToastTimer, updateShortcutToasts],
+  );
+
+  // Up to MAX_SHORTCUT_TOASTS stack; the oldest is dropped for a new one.
+  const showShortcutToast = React.useCallback(
+    (message: string) => {
+      const active = shortcutToastsRef.current.filter((t) => !t.exiting);
+      const newest = active[active.length - 1];
+      if (newest && newest.message === message) {
+        // Identical consecutive message: refresh its timer instead of
+        // stacking a duplicate.
+        scheduleShortcutToastTimer(newest.id, SHORTCUT_TOAST_DURATION_MS, () =>
+          beginShortcutToastExit(newest.id),
+        );
+        return;
+      }
+      if (active.length >= MAX_SHORTCUT_TOASTS) {
+        beginShortcutToastExit(active[0].id);
+      }
+      const id = shortcutToastIdRef.current++;
+      updateShortcutToasts((prev) => [
+        ...prev,
+        { id, message, exiting: false },
+      ]);
+      scheduleShortcutToastTimer(id, SHORTCUT_TOAST_DURATION_MS, () =>
+        beginShortcutToastExit(id),
+      );
+    },
+    [beginShortcutToastExit, scheduleShortcutToastTimer, updateShortcutToasts],
+  );
 
   const requestWakeLockSafely = React.useCallback(() => {
     requestWakeLock().catch((err) => {
@@ -977,16 +1049,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [isPaused]);
 
   React.useEffect(() => {
-    if (!shortcutToast) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setShortcutToast(null);
-    }, 2000);
+    const timers = shortcutToastTimersRef.current;
     return () => {
-      window.clearTimeout(timer);
+      for (const timer of timers.values()) {
+        window.clearTimeout(timer);
+      }
+      timers.clear();
     };
-  }, [shortcutToast]);
+  }, []);
 
   React.useEffect(() => {
     bringItHomeModeRef.current = bringItHomeMode;
@@ -1942,6 +2012,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     clearSelectedBranch();
     syncTuneFormFromEngine();
     persistCurrentTuning();
+    showShortcutToast(t("listen.branchDeleted"));
   };
 
   const selectAdjacentBranch = (direction: -1 | 1) => {
@@ -3478,11 +3549,26 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           </div>
         </div>
       ) : null}
-      {shortcutToast ? (
-        <div className="shortcut-toast" role="status" aria-live="polite">
-          {shortcutToast}
-        </div>
-      ) : null}
+      <div
+        className={
+          shortcutToasts.length
+            ? "shortcut-toast-stack"
+            : "shortcut-toast-stack hidden"
+        }
+        role="status"
+        aria-live="polite"
+      >
+        {shortcutToasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={
+              toast.exiting ? "shortcut-toast exiting" : "shortcut-toast"
+            }
+          >
+            {toast.message}
+          </div>
+        ))}
+      </div>
       </section>
       {settingsModal}
     </>

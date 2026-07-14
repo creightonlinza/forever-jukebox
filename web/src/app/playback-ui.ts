@@ -126,6 +126,7 @@ export function deleteSelectedBranch(): void {
     useAppStore.setState({ selectedEdge: null });
     jukebox.setSelectedEdge(null);
     syncExtrasPopup(null);
+    showToast(i18n.t("playback.branchDeleted"));
   }
 
 export function initializePlayback(): void {
