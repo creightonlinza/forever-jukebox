@@ -15,9 +15,35 @@ from typing import Any
 from packaging.tags import sys_tags
 from packaging.utils import InvalidWheelFilename, parse_wheel_filename
 
-LATEST_RELEASE_URL = "https://api.github.com/repos/creightonlinza/madmom-beats-lite/releases/latest"
 DIST_NAME = "madmom-beats-lite"
 CHUNK_SIZE = 1024 * 1024
+
+# Pinned to a fixed release instead of querying the GitHub API for the latest
+# one: the anonymous API rate limit (60 req/hour per IP) regularly breaks
+# builds on shared CI/builder IPs, and the repo is not expected to change.
+# To upgrade, update the tag and asset digests below from
+# https://github.com/creightonlinza/madmom-beats-lite/releases
+_RELEASE_TAG = "v1.0.3"
+_DOWNLOAD_BASE = f"https://github.com/creightonlinza/madmom-beats-lite/releases/download/{_RELEASE_TAG}"
+_ASSET_DIGESTS = {
+    "madmom_beats_lite-1.0.3-cp310-cp310-macosx_10_9_universal2.whl": "sha256:954393335a7d931c53da8bedb4095aa358352564c9baa2ecda5efc216c8028d7",
+    "madmom_beats_lite-1.0.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": "sha256:69a40994416d45269dbfa9eb583243cd8b3748248f344eb98a697d81d5053f7c",
+    "madmom_beats_lite-1.0.3-cp310-cp310-win_amd64.whl": "sha256:478a65a9d3da40196ee686daf5fee16419a08e635f70a79b5669b615a82ce9c9",
+    "madmom_beats_lite-1.0.3-cp311-cp311-macosx_10_9_universal2.whl": "sha256:4057462ed3fcb84faad2b5c0442bbd214e2b2e84e35273515ceb8c65726dd249",
+    "madmom_beats_lite-1.0.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": "sha256:10223231614a01250c31e00bc776fc0b87229a457a7d5cab7761fed421536c06",
+    "madmom_beats_lite-1.0.3-cp311-cp311-win_amd64.whl": "sha256:d708bc2974dbfa0790b5bbb290965fdd54746b08d99b34d7b9ab364c200c3354",
+}
+PINNED_RELEASE = {
+    "tag_name": _RELEASE_TAG,
+    "assets": [
+        {
+            "name": name,
+            "browser_download_url": f"{_DOWNLOAD_BASE}/{name}",
+            "digest": digest,
+        }
+        for name, digest in _ASSET_DIGESTS.items()
+    ],
+}
 
 
 @dataclass
@@ -64,18 +90,6 @@ def pick_best_wheel(assets: list[dict[str, Any]]) -> dict[str, Any]:
     if best is None:
         raise RuntimeError("NoCompatibleWheel")
     return best
-
-
-def _fetch_latest_release() -> dict[str, Any]:
-    request = urllib.request.Request(
-        LATEST_RELEASE_URL,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "forever-jukebox-madmom-beats-lite-updater",
-        },
-    )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
 
 
 def _download_wheel(
@@ -151,7 +165,7 @@ def run_install(python_executable: str, download_dir: Path) -> InstallOutcome:
     release_tag: str | None = None
     asset_name: str | None = None
     try:
-        release = _fetch_latest_release()
+        release = PINNED_RELEASE
         release_tag = str(release.get("tag_name") or "")
         assets = release.get("assets") or []
         if not isinstance(assets, list):
@@ -212,7 +226,7 @@ def run_install(python_executable: str, download_dir: Path) -> InstallOutcome:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Install latest compatible madmom-beats-lite wheel from GitHub releases.")
+    parser = argparse.ArgumentParser(description="Install the pinned madmom-beats-lite wheel from GitHub releases.")
     parser.add_argument(
         "--python",
         default=sys.executable,
