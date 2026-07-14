@@ -92,6 +92,7 @@
     "swingWhenLoaded": "Swing mode will prepare once audio is loaded",
     "anchorSet": "Anchor branch set",
     "anchorReset": "Anchor branch reset",
+    "anchorRequiresBackward": "Anchor requires a backward branch",
     "playVelocity": "Play velocity: {{value}}",
     "forceBranchBadge": "Force branching",
     "freezeBeatBadge": "Freeze beat",

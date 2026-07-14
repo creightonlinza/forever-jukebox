@@ -3,6 +3,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { Listen } from "./Listen";
+import { ARC_VISUALIZATION_INDEX } from "@forever-jukebox/engine/constants/visualization";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/engine/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
 
@@ -1438,7 +1439,46 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
-  it("ignores A for a selected forward branch", async () => {
+  it("redirects A on a forward branch to its backward twin", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
+    const forward = {
+      id: 8,
+      deleted: false,
+      src: { start: 4, which: 4 },
+      dest: { start: 12, which: 12 },
+      distance: 8,
+    };
+    const twin = {
+      id: 9,
+      deleted: false,
+      src: { start: 12, which: 12 },
+      dest: { start: 4, which: 4 },
+      distance: 8,
+    };
+    vi.spyOn(engine, "getVisualizationData").mockReturnValue({
+      beats: mockAnalysis.beats,
+      edges: [forward, twin],
+    });
+    await act(async () => {
+      controller.emitEdgeSelect(forward);
+    });
+
+    await keydown("A", "KeyA");
+
+    expect(engine.setUserAnchorEdge).toHaveBeenCalledWith(twin);
+    expect(controller.setSelectedEdgeActive).toHaveBeenLastCalledWith(twin);
+    expect(rendered.container.textContent).toContain("Anchor branch set");
+    rendered.unmount();
+  });
+
+  it("shows a toast instead of anchoring a forward branch with no backward twin", async () => {
     const rendered = renderListen();
     await settleEffects();
 
@@ -1460,6 +1500,50 @@ describe("Listen route behavior", () => {
     await keydown("A", "KeyA");
 
     expect(engine.setUserAnchorEdge).not.toHaveBeenCalled();
+    expect(rendered.container.textContent).toContain(
+      "Anchor requires a backward branch",
+    );
+    rendered.unmount();
+  });
+
+  it("does not redirect to the backward twin on the arc visualization", async () => {
+    window.localStorage.setItem("fj-viz", String(ARC_VISUALIZATION_INDEX));
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
+    const forward = {
+      id: 8,
+      deleted: false,
+      src: { start: 4, which: 4 },
+      dest: { start: 12, which: 12 },
+      distance: 8,
+    };
+    const twin = {
+      id: 9,
+      deleted: false,
+      src: { start: 12, which: 12 },
+      dest: { start: 4, which: 4 },
+      distance: 8,
+    };
+    vi.spyOn(engine, "getVisualizationData").mockReturnValue({
+      beats: mockAnalysis.beats,
+      edges: [forward, twin],
+    });
+    await act(async () => {
+      controller.emitEdgeSelect(forward);
+    });
+
+    await keydown("A", "KeyA");
+
+    expect(engine.setUserAnchorEdge).not.toHaveBeenCalled();
+    expect(rendered.container.textContent).toContain(
+      "Anchor requires a backward branch",
+    );
     rendered.unmount();
   });
 

@@ -1,5 +1,9 @@
 import type { Edge } from "@forever-jukebox/engine/types";
-import { CANONIZER_FINISH_KEY, VIZ_STORAGE_KEY } from "./constants";
+import {
+  ARC_VISUALIZATION_INDEX,
+  CANONIZER_FINISH_KEY,
+  VIZ_STORAGE_KEY,
+} from "./constants";
 import { formatErrorForDisplay } from "./errorDisplay";
 import { formatDuration } from "./format";
 import {
@@ -61,7 +65,7 @@ function branchDirection(edge: Edge) {
   return i18n.t("playback.sameBeat");
 }
 
-  function syncExtrasPopup(edge: Edge | null) {
+export function syncExtrasPopup(edge: Edge | null) {
     const context = getAttachedAppContext();
     if (!context) {
       return;
@@ -284,19 +288,45 @@ export function setCanonizerFinish(checked: boolean): void {
     syncExtrasPopup(nextEdge);
   }
 
+  // Outside the arc layout, a forward and backward branch between the same
+  // beats draw as one arc, so a click may have grabbed the forward one. The
+  // arc layout draws the two directions apart, so a forward selection there
+  // is deliberate and gets no redirect.
+  function findBackwardTwin(edge: Edge): Edge | null {
+    if (useAppStore.getState().activeVizIndex === ARC_VISUALIZATION_INDEX) {
+      return null;
+    }
+    return (
+      useAppStore
+        .getState()
+        .vizData?.edges.find(
+          (candidate) =>
+            !candidate.deleted &&
+            candidate.src.which === edge.dest.which &&
+            candidate.dest.which === edge.src.which,
+        ) ?? null
+    );
+  }
+
   function toggleSelectedAnchorBranch() {
     const context = getAttachedAppContext();
     if (!context) {
       return false;
     }
     const { engine, jukebox } = context;
-    const edge = useAppStore.getState().selectedEdge;
+    let edge = useAppStore.getState().selectedEdge;
     if (!edge || edge.deleted) {
       return false;
     }
     if (edge.dest.which >= edge.src.which) {
-      showToast(i18n.t("playback.anchorRequiresBackward"));
-      return false;
+      const twin = findBackwardTwin(edge);
+      if (!twin) {
+        showToast(i18n.t("playback.anchorRequiresBackward"));
+        return false;
+      }
+      edge = twin;
+      useAppStore.setState({ selectedEdge: twin });
+      syncExtrasPopup(twin);
     }
     const nextAnchor = engine.getUserAnchorEdgeId() === edge.id ? null : edge;
     engine.setUserAnchorEdge(nextAnchor);

@@ -24,6 +24,10 @@ import {
   updateListenTimeDisplay,
   type TuningFormValues,
 } from "./playback";
+import {
+  ARC_VISUALIZATION_INDEX,
+  DEFAULT_VISUALIZATION_INDEX,
+} from "./constants";
 import { setAppRuntime } from "./runtime";
 import { useAppStore } from "./store";
 import { showToast } from "./ui";
@@ -34,6 +38,7 @@ import {
   handleWindowBlur,
   initializePlayback,
   resetPlaybackUiForTest,
+  syncExtrasPopup,
 } from "./playback-ui";
 import { setWindowUrl } from "./__tests__/test-utils";
 
@@ -412,6 +417,34 @@ describe("playback tuning", () => {
     expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("1");
     expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("daycore");
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows stats for the already-selected branch once stats are enabled", () => {
+    const context = createContext();
+    useAppStore.setState({ playMode: "jukebox" });
+    const edge = {
+      id: 4,
+      src: { start: 10, which: 8 },
+      dest: { start: 2, which: 2 },
+      distance: 5,
+      deleted: false,
+    };
+    useAppStore.setState({ selectedEdge: edge as AppState["selectedEdge"] });
+    setAppRuntime(context);
+
+    // Mirrors the TuningModal apply flow: sync the popup when the apply
+    // reports that the branch stats toggle changed.
+    const result = applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      branchStatsEnabled: true,
+    });
+    expect(result.branchStatsChanged).toBe(true);
+    syncExtrasPopup(useAppStore.getState().selectedEdge);
+
+    const branchStats = useAppStore.getState().branchStats;
+    expect(branchStats).not.toBeNull();
+    expect(branchStats?.startBeatText).toBe("8");
+    expect(branchStats?.endBeatText).toBe("2");
   });
 
   it("applies cowbell as an audio mode from extras controls", () => {
@@ -1398,7 +1431,53 @@ describe("playback branch shortcuts", () => {
     expect(window.location.search).toBe("");
   });
 
-  it("shows a toast instead of anchoring a selected forward branch", () => {
+  it("redirects A on a forward branch to its backward twin", () => {
+    const context = createContext();
+    const forward = {
+      id: 8,
+      src: { which: 2 },
+      dest: { which: 5 },
+      deleted: false,
+    };
+    const twin = {
+      id: 9,
+      src: { which: 5 },
+      dest: { which: 2 },
+      deleted: false,
+    };
+    useAppStore.setState({
+      selectedEdge: forward as AppState["selectedEdge"],
+      activeVizIndex: DEFAULT_VISUALIZATION_INDEX,
+      vizData: {
+        beats: [],
+        edges: [forward, twin],
+        lastBranchPoint: 1,
+        anchorEdgeId: null,
+      } as unknown as AppState["vizData"],
+    });
+    const nextVizData = {
+      beats: [],
+      edges: [forward, twin],
+      lastBranchPoint: 1,
+      anchorEdgeId: 9,
+    };
+    (
+      context.engine.getVisualizationData as ReturnType<typeof vi.fn>
+    ).mockReturnValue(nextVizData);
+    const { handlers, showToast } = makeHandlers(context);
+    const event = keyEvent("A");
+
+    handlers.handleKeydown(event);
+
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(context.engine.setUserAnchorEdge).toHaveBeenCalledWith(twin);
+    expect(useAppStore.getState().selectedEdge).toBe(twin);
+    expect(context.jukebox.setSelectedEdgeActive).toHaveBeenCalledWith(twin);
+    expect(showToast).toHaveBeenCalledWith("Anchor branch set");
+    expect(useAppStore.getState().tuningParams).toBe("ab=9");
+  });
+
+  it("shows a toast instead of anchoring a forward branch with no backward twin", () => {
     const context = createContext();
     const edge = {
       id: 8,
@@ -1406,7 +1485,16 @@ describe("playback branch shortcuts", () => {
       dest: { which: 5 },
       deleted: false,
     };
-    useAppStore.setState({ selectedEdge: edge as AppState["selectedEdge"] });
+    useAppStore.setState({
+      selectedEdge: edge as AppState["selectedEdge"],
+      activeVizIndex: DEFAULT_VISUALIZATION_INDEX,
+      vizData: {
+        beats: [],
+        edges: [edge],
+        lastBranchPoint: 1,
+        anchorEdgeId: null,
+      } as unknown as AppState["vizData"],
+    });
     const { handlers, showToast } = makeHandlers(context);
     const event = keyEvent("A");
 
@@ -1414,6 +1502,41 @@ describe("playback branch shortcuts", () => {
 
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(context.engine.setUserAnchorEdge).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("Anchor requires a backward branch");
+  });
+
+  it("does not redirect to the backward twin on the arc visualization", () => {
+    const context = createContext();
+    const forward = {
+      id: 8,
+      src: { which: 2 },
+      dest: { which: 5 },
+      deleted: false,
+    };
+    const twin = {
+      id: 9,
+      src: { which: 5 },
+      dest: { which: 2 },
+      deleted: false,
+    };
+    useAppStore.setState({
+      selectedEdge: forward as AppState["selectedEdge"],
+      activeVizIndex: ARC_VISUALIZATION_INDEX,
+      vizData: {
+        beats: [],
+        edges: [forward, twin],
+        lastBranchPoint: 1,
+        anchorEdgeId: null,
+      } as unknown as AppState["vizData"],
+    });
+    const { handlers, showToast } = makeHandlers(context);
+    const event = keyEvent("A");
+
+    handlers.handleKeydown(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(context.engine.setUserAnchorEdge).not.toHaveBeenCalled();
+    expect(useAppStore.getState().selectedEdge).toBe(forward);
     expect(showToast).toHaveBeenCalledWith("Anchor requires a backward branch");
   });
 

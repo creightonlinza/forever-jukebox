@@ -10,6 +10,7 @@ import {
   type ExtrasFormValues,
   type TuningFormValues,
 } from "../../playback";
+import { syncExtrasPopup } from "../../playback-ui";
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { Modal } from "../Modal";
@@ -133,7 +134,10 @@ export function TuningModal() {
       if (!extras) {
         return;
       }
-      applyExtrasChanges(getAppContext(), extras);
+      const result = applyExtrasChanges(getAppContext(), extras);
+      if (result.branchStatsChanged) {
+        syncExtrasPopup(useAppStore.getState().selectedEdge);
+      }
       close();
       return;
     }

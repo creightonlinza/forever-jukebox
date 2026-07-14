@@ -35,6 +35,7 @@ import {
   JukeboxEngine,
 } from "@forever-jukebox/engine";
 import {
+  ARC_VISUALIZATION_INDEX,
   DEFAULT_VISUALIZATION_INDEX,
   VISUALIZATION_LABELS,
 } from "@forever-jukebox/engine/constants/visualization";
@@ -1963,9 +1964,33 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
   const toggleSelectedAnchorBranch = () => {
     const engine = engineRef.current;
-    const edge = selectedEdge;
-    if (!engine || !edge || edge.deleted || edge.dest.which >= edge.src.which) {
+    let edge = selectedEdge;
+    if (!engine || !edge || edge.deleted) {
       return false;
+    }
+    if (edge.dest.which >= edge.src.which) {
+      // Outside the arc layout, a forward and backward branch between the
+      // same beats draw as one arc, so a click may have grabbed the forward
+      // one. The arc layout draws the two directions apart, so a forward
+      // selection there is deliberate and gets no redirect.
+      const forward = edge;
+      const twin =
+        activeVizIndex === ARC_VISUALIZATION_INDEX
+          ? null
+          : (engine
+              .getVisualizationData()
+              ?.edges.find(
+                (candidate) =>
+                  !candidate.deleted &&
+                  candidate.src.which === forward.dest.which &&
+                  candidate.dest.which === forward.src.which,
+              ) ?? null);
+      if (!twin) {
+        showShortcutToast(t("listen.anchorRequiresBackward"));
+        return false;
+      }
+      edge = twin;
+      setSelectedEdge(twin);
     }
     const nextAnchor = engine.getUserAnchorEdgeId() === edge.id ? null : edge;
     engine.setUserAnchorEdge(nextAnchor);

@@ -16,3 +16,8 @@ export const DEFAULT_VISUALIZATION_INDEX = Math.max(
   0,
   VISUALIZATION_LABELS.indexOf("Classic")
 );
+
+export const ARC_VISUALIZATION_INDEX = Math.max(
+  0,
+  VISUALIZATION_LABELS.indexOf("Arc")
+);
