@@ -31,13 +31,19 @@ import { renderSwingBuffer } from "@forever-jukebox/engine/audio/swingRenderer";
 import {
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
   Edge,
+  findBackwardTwin,
   JukeboxConfig,
   JukeboxEngine,
 } from "@forever-jukebox/engine";
 import {
   DEFAULT_VISUALIZATION_INDEX,
   VISUALIZATION_LABELS,
+  visualizationSeparatesPairedEdges,
 } from "@forever-jukebox/engine/constants/visualization";
+import {
+  createToastQueue,
+  type ToastQueue,
+} from "@forever-jukebox/engine/ui/toastQueue";
 import {
   backgroundClearTimeout,
   backgroundSetTimeout,
@@ -98,6 +104,25 @@ const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 const DEFAULT_PLAYBACK_VOLUME = 0.5;
 const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
+type ShortcutToastQueue = ToastQueue<{ message: string }>;
+
+function ShortcutToastStack({ queue }: { queue: ShortcutToastQueue }) {
+  const toasts = React.useSyncExternalStore(queue.subscribe, queue.getItems);
+  return (
+    <div className="shortcut-toast-stack" role="status" aria-live="polite">
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className={
+            toast.exiting ? "shortcut-toast exiting" : "shortcut-toast"
+          }
+        >
+          {toast.message}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type PlayMode = "jukebox" | "autocanonizer";
 type TuningModalTab = "tuning" | "extras";
@@ -661,7 +686,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [swingProgress, setSwingProgress] = React.useState(0);
   const [tuningActiveTab, setTuningActiveTab] =
     React.useState<TuningModalTab>("tuning");
-  const [shortcutToast, setShortcutToast] = React.useState<string | null>(null);
   const [forceBranchActive, setForceBranchActive] = React.useState(false);
   const [freezeBeatActive, setFreezeBeatActive] = React.useState(false);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
@@ -724,6 +748,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const isPausedRef = React.useRef(false);
   const playModeRef = React.useRef<PlayMode>("jukebox");
   const bringItHomeModeRef = React.useRef(false);
+  // Read by the hotkey handlers, which are registered by an effect that does
+  // not re-run when the visualization changes.
+  const activeVizIndexRef = React.useRef(activeVizIndex);
+  // Last data pushed to the viz controller; every edge mutation funnels
+  // through syncVizDataFromEngine, so this is as fresh as the viz itself.
+  const vizDataRef = React.useRef<ReturnType<
+    JukeboxEngine["getVisualizationData"]
+  > | null>(null);
   const lastBeatRef = React.useRef<number | null>(null);
   const lastCowbellBeatsPlayedRef = React.useRef<number | null>(null);
   const autocanonizerMainPanRef = React.useRef(0);
@@ -743,9 +775,20 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const panPanelRef = React.useRef<HTMLDivElement | null>(null);
   const { requestWakeLock, releaseWakeLock } = useWakeLock();
 
-  const showShortcutToast = React.useCallback((message: string) => {
-    setShortcutToast(message);
-  }, []);
+  // The queue owns stacking/dedupe/timers; ShortcutToastStack subscribes to
+  // it directly so toast churn does not re-render this route.
+  const shortcutToastQueueRef = React.useRef<ShortcutToastQueue | null>(null);
+  if (shortcutToastQueueRef.current === null) {
+    shortcutToastQueueRef.current = createToastQueue<{ message: string }>();
+  }
+  const shortcutToastQueue = shortcutToastQueueRef.current;
+
+  const showShortcutToast = React.useCallback(
+    (message: string, key?: string) => {
+      shortcutToastQueue.show({ message }, key);
+    },
+    [shortcutToastQueue],
+  );
 
   const requestWakeLockSafely = React.useCallback(() => {
     requestWakeLock().catch((err) => {
@@ -868,6 +911,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (data) {
       vizControllerRef.current?.setData(data);
     }
+    vizDataRef.current = data ?? null;
     return data ?? null;
   }
 
@@ -976,20 +1020,18 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [isPaused]);
 
   React.useEffect(() => {
-    if (!shortcutToast) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setShortcutToast(null);
-    }, 2000);
     return () => {
-      window.clearTimeout(timer);
+      shortcutToastQueue.clear();
     };
-  }, [shortcutToast]);
+  }, [shortcutToastQueue]);
 
   React.useEffect(() => {
     bringItHomeModeRef.current = bringItHomeMode;
   }, [bringItHomeMode]);
+
+  React.useEffect(() => {
+    activeVizIndexRef.current = activeVizIndex;
+  }, [activeVizIndex]);
 
   React.useEffect(() => {
     playModeRef.current = playMode;
@@ -1276,19 +1318,26 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           t("listen.playVelocity", {
             value: formatPlayVelocity(engine.getPlayVelocity()),
           }),
+          "play-velocity",
         );
         return;
       }
       if (playMode === "jukebox" && event.key === "ArrowDown") {
         event.preventDefault();
         engineRef.current?.setPlayVelocity(0);
-        showShortcutToast(t("listen.playVelocity", { value: "0" }));
+        showShortcutToast(
+          t("listen.playVelocity", { value: "0" }),
+          "play-velocity",
+        );
         return;
       }
       if (playMode === "jukebox" && event.key === "ArrowUp") {
         event.preventDefault();
         engineRef.current?.setPlayVelocity(1);
-        showShortcutToast(t("listen.playVelocity", { value: "+1" }));
+        showShortcutToast(
+          t("listen.playVelocity", { value: "+1" }),
+          "play-velocity",
+        );
         return;
       }
       if (playMode === "jukebox" && event.key === "Control") {
@@ -1324,15 +1373,28 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       setFreezeBeatActive(false);
       setForceBranchActive(false);
     };
+    // Blur alone can be missed on tab switches (e.g. Ctrl+T), leaving
+    // freeze/branch modes stuck; visibilitychange covers that path.
+    const onHotkeyVisibilityChange = () => {
+      if (document.hidden) {
+        onBlur();
+      }
+    };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", onHotkeyVisibilityChange);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
+      document.removeEventListener(
+        "visibilitychange",
+        onHotkeyVisibilityChange,
+      );
       engineRef.current?.setFreezeCurrentBeat(false);
+      engineRef.current?.setForceBranch(false);
       setFreezeBeatActive(false);
       setForceBranchActive(false);
     };
@@ -1929,6 +1991,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     clearSelectedBranch();
     syncTuneFormFromEngine();
     persistCurrentTuning();
+    showShortcutToast(t("listen.branchDeleted"));
   };
 
   const selectAdjacentBranch = (direction: -1 | 1) => {
@@ -1951,9 +2014,23 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
   const toggleSelectedAnchorBranch = () => {
     const engine = engineRef.current;
-    const edge = selectedEdge;
-    if (!engine || !edge || edge.deleted || edge.dest.which >= edge.src.which) {
+    let edge = selectedEdge;
+    if (!engine || !edge || edge.deleted) {
       return false;
+    }
+    if (edge.dest.which >= edge.src.which) {
+      // In layouts that draw a twin pair as one arc, a click may have
+      // grabbed the forward one; in layouts that draw the two directions
+      // apart, a forward selection is deliberate and gets no redirect.
+      const twin = visualizationSeparatesPairedEdges(activeVizIndexRef.current)
+        ? null
+        : findBackwardTwin(vizDataRef.current?.edges ?? [], edge);
+      if (!twin) {
+        showShortcutToast(t("listen.anchorRequiresBackward"));
+        return false;
+      }
+      edge = twin;
+      setSelectedEdge(twin);
     }
     const nextAnchor = engine.getUserAnchorEdgeId() === edge.id ? null : edge;
     engine.setUserAnchorEdge(nextAnchor);
@@ -3441,11 +3518,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           </div>
         </div>
       ) : null}
-      {shortcutToast ? (
-        <div className="shortcut-toast" role="status" aria-live="polite">
-          {shortcutToast}
-        </div>
-      ) : null}
+      <ShortcutToastStack queue={shortcutToastQueue} />
       </section>
       {settingsModal}
     </>

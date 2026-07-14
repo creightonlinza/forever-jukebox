@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { JukeboxAudioMode } from "@forever-jukebox/engine/audio/BufferedAudioPlayer";
 import {
-  applyExtrasChanges,
   applyTuningChanges,
   getExtrasFormValues,
   getTuningFormValues,
@@ -10,6 +9,7 @@ import {
   type ExtrasFormValues,
   type TuningFormValues,
 } from "../../playback";
+import { applyExtrasAndSync } from "../../playback-ui";
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { Modal } from "../Modal";
@@ -133,7 +133,7 @@ export function TuningModal() {
       if (!extras) {
         return;
       }
-      applyExtrasChanges(getAppContext(), extras);
+      applyExtrasAndSync(getAppContext(), extras);
       close();
       return;
     }

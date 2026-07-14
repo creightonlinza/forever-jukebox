@@ -1,14 +1,16 @@
+import { createToastQueue } from "@forever-jukebox/engine/ui/toastQueue";
 import type { AppContext } from "./context";
 import type { MaterialSymbolIconName } from "./material-icons";
-import { useAppStore, type LocalizedText } from "./store";
+import { useAppStore, type LocalizedText, type ToastState } from "./store";
 import i18n from "./i18n";
 
 export type ToastOptions = {
   icon?: MaterialSymbolIconName;
   tone?: "default" | "error";
+  // Toasts sharing a key update the visible toast in place (e.g. a held
+  // velocity key emits a changing readout) instead of stacking.
+  key?: string;
 };
-
-let toastTimer: number | null = null;
 
 // The React status panel renders these store values.
 export function setAnalysisStatus(
@@ -70,21 +72,20 @@ export function blurMouseActivatedControl(event: Event) {
   event.currentTarget.blur();
 }
 
-// The React <Toast> renders this store state; only the auto-hide timer is
-// managed here.
+// The shared queue owns stacking/dedupe/timers; the React <Toast> renders
+// the mirrored store state.
+const toastQueue = createToastQueue<ToastState>();
+toastQueue.subscribe(() => {
+  useAppStore.setState({ toasts: toastQueue.getItems() });
+});
+
 export function showToast(message: string, options?: ToastOptions) {
-  useAppStore.setState({
-    toast: {
+  toastQueue.show(
+    {
       message,
       icon: options?.icon,
       tone: options?.tone === "error" ? "error" : "default",
     },
-  });
-  if (toastTimer !== null) {
-    window.clearTimeout(toastTimer);
-  }
-  toastTimer = window.setTimeout(() => {
-    useAppStore.setState({ toast: null });
-    toastTimer = null;
-  }, 2000);
+    options?.key,
+  );
 }

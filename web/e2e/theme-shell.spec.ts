@@ -60,12 +60,13 @@ test.describe("shell chrome", () => {
     });
   });
 
-  test("toast element exists, hidden, with live-region semantics", async ({
+  test("toast element exists, empty, with live-region semantics", async ({
     page,
   }) => {
     await page.goto("/");
     const toast = page.locator("#toast");
-    await expect(toast).toHaveClass(/\bhidden\b/);
+    await expect(toast).toHaveClass(/\btoast-stack\b/);
+    await expect(toast).toBeEmpty();
     await expect(toast).toHaveAttribute("role", "status");
     await expect(toast).toHaveAttribute("aria-live", "polite");
   });

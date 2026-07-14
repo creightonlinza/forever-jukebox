@@ -5,6 +5,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { AppRoot } from "./AppRoot";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
+import { handleWindowBlur } from "../playback-ui";
 
 const h = vi.hoisted(() => ({
   attachViz: vi.fn(),
@@ -164,6 +165,28 @@ describe("AppRoot tab lifecycle", () => {
     await waitFor(() => {
       expect(document.title).toBe("What's New | Forever Jukebox");
     });
+  });
+
+  it("resets playback modifiers when the tab is hidden", () => {
+    renderApp("/");
+
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(handleWindowBlur).not.toHaveBeenCalled();
+
+    Object.defineProperty(document, "hidden", {
+      value: true,
+      configurable: true,
+    });
+    try {
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+    } finally {
+      Reflect.deleteProperty(document, "hidden");
+    }
+    expect(handleWindowBlur).toHaveBeenCalledTimes(1);
   });
 
   it("opens global settings from the header gear", async () => {

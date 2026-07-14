@@ -1,4 +1,5 @@
 import { create, type StateCreator } from "zustand";
+import type { ToastQueueItem } from "@forever-jukebox/engine/ui/toastQueue";
 import i18n from "./i18n";
 import type { SpotifySearchItem, YoutubeSearchItem } from "./api";
 import type { AppState, SleepTimerState, TabId } from "./context";
@@ -19,6 +20,8 @@ export type ToastState = {
   icon?: MaterialSymbolIconName;
   tone: "default" | "error";
 };
+
+export type ToastItem = ToastQueueItem<ToastState>;
 
 export type BranchStatsState = {
   title: LocalizedText;
@@ -100,7 +103,7 @@ type ShellSlice = {
   isPlayTabPulsing: boolean;
   vizStatsPulseId: number;
   footerCredit: FooterCredit | null;
-  toast: ToastState | null;
+  toasts: ToastItem[];
   searchQuery: string;
   searchHint: LocalizedText;
   searchResults: SearchResultsState;
@@ -201,7 +204,7 @@ const createUiSlice: Slice<
     | "isPlayTabPulsing"
     | "vizStatsPulseId"
     | "footerCredit"
-    | "toast"
+    | "toasts"
     | "searchQuery"
     | "searchHint"
     | "searchResults"
@@ -257,7 +260,7 @@ const createUiSlice: Slice<
     isPlayTabPulsing: false,
     vizStatsPulseId: 0,
     footerCredit: null,
-    toast: null,
+    toasts: [],
     searchQuery: "",
     searchHint: DEFAULT_SEARCH_HINT,
     searchResults: DEFAULT_SEARCH_RESULTS,

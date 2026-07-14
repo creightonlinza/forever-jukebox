@@ -1112,10 +1112,21 @@ textarea:focus-visible {
   color: #ffffff;
 }
 
-.shortcut-toast {
+.shortcut-toast-stack {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(480px, calc(100vw - 40px));
+  z-index: 30;
+  pointer-events: none;
+}
+
+.shortcut-toast {
   padding: 10px 14px;
   border-radius: 8px;
   border: 1px solid var(--border-panel);
@@ -1123,7 +1134,29 @@ textarea:focus-visible {
   color: var(--text);
   font-size: 13px;
   box-shadow: 0 8px 20px var(--shadow-elevated);
-  z-index: 30;
+  animation: shortcut-toast-enter 200ms ease-out;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+
+.shortcut-toast.exiting {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@keyframes shortcut-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shortcut-toast {
+    animation: none;
+    transition: none;
+  }
 }
 
 .modifier-badges {

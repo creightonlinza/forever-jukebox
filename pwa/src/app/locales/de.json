@@ -92,6 +92,8 @@
     "swingWhenLoaded": "Swing-Modus wird vorbereitet, sobald die Audiodaten geladen sind",
     "anchorSet": "Anker-Sprungpfad festgelegt",
     "anchorReset": "Anker-Sprungpfad zurückgesetzt",
+    "anchorRequiresBackward": "Anker benötigt einen rückwärtsgerichteten Sprungpfad",
+    "branchDeleted": "Sprungpfad gelöscht",
     "playVelocity": "Wiedergaberate: {{value}}",
     "forceBranchBadge": "Sprungpfade erzwingen",
     "freezeBeatBadge": "Beat einfrieren",
