@@ -19,14 +19,11 @@ import {
 } from "@forever-jukebox/shared/audio/audioModes";
 import {
   closeTuning,
-  syncVolumeUI,
   updatePlayButton,
   updateTrackInfo,
 } from "./status-ui";
 import { canPrepareSwingMode, prepareSwingMode } from "./swing";
 import i18n from "../i18n";
-
-const DEFAULT_VOLUME = 0.5;
 
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
 
@@ -344,7 +341,7 @@ export function applyTuningChanges(
 }
 
 export function resetTuningDefaults(context: AppContext) {
-  const { autocanonizer, cowbellOverlay, engine, jukebox, player } = context;
+  const { engine, jukebox } = context;
   engine.clearDeletedEdges();
   engine.updateConfig(context.defaultConfig);
   engine.rebuildGraph();
@@ -368,9 +365,5 @@ export function resetTuningDefaults(context: AppContext) {
       jukeboxAudioMode === "off" ? null : audioModeParams.toString(),
   });
   writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
-  player.setVolume(DEFAULT_VOLUME);
-  autocanonizer?.setVolume(DEFAULT_VOLUME);
-  cowbellOverlay.setVolume(DEFAULT_VOLUME);
-  syncVolumeUI(context);
   updateTrackInfo(context);
 }

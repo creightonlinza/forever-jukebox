@@ -113,7 +113,6 @@ const AUDIO_MODE_QUERY_KEY = "am";
 const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
-const DEFAULT_PLAYBACK_VOLUME = 0.5;
 const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
 type ShortcutToastQueue = ToastQueue<{ message: string }>;
 
@@ -2180,9 +2179,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engine.updateConfig(DEFAULT_CONFIG);
     rebuildGraphAndSyncViz();
     clearSelectedBranch();
-    player.setVolume(DEFAULT_PLAYBACK_VOLUME);
-    autocanonizerRef.current?.setVolume(DEFAULT_PLAYBACK_VOLUME);
-    cowbellOverlayRef.current?.setVolume(DEFAULT_PLAYBACK_VOLUME);
     syncTuneFormFromEngine();
     if (fingerprintRef.current) {
       removeTuning(fingerprintRef.current);
