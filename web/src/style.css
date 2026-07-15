@@ -578,8 +578,6 @@ a:focus-visible {
   color: var(--text);
   font-size: 13px;
   letter-spacing: 0.02em;
-  /* Keep buttons full-size so the row wraps rather than compressing to fit. */
-  flex-shrink: 0;
 }
 
 .tab-btn.active {
