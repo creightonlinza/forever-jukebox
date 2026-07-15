@@ -101,11 +101,17 @@ test.describe("analysis poll lifecycle", () => {
     // polling must stop after a terminal failure. A superseded load (e.g. a
     // StrictMode double-mount or rapid re-route) can leave one already-issued
     // poll request in flight when the failure renders; its abort cancels future
-    // polls but not the in-flight fetch, which lands a beat later. Let that
-    // settle before snapshotting so we measure whether polling *continues*,
-    // not the boundary request.
-    await page.waitForTimeout(1_000);
-    const hitsAtFailure = analysisHits;
+    // polls but not the in-flight fetch, which can land arbitrarily late under
+    // parallel-suite load. Wait until the count holds still for a full poll
+    // interval before snapshotting so we measure whether polling *continues*,
+    // not the boundary request. A poll that actually keeps going never
+    // stabilizes here and still fails the final assertion below.
+    let hitsAtFailure = analysisHits;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await page.waitForTimeout(POLL_INTERVAL_MS + 500);
+      if (analysisHits === hitsAtFailure) break;
+      hitsAtFailure = analysisHits;
+    }
     await page.waitForTimeout(POLL_INTERVAL_MS * 2 + 1_000);
     expect(analysisHits).toBe(hitsAtFailure);
   });

@@ -98,7 +98,9 @@ export async function loadTrackByDeepLink(
 export async function loadFirstTopTrack(page: Page): Promise<string> {
   await page.goto("/");
   const link = page.locator("#top-songs .top-list-item a").first();
-  await expect(link).toBeVisible();
+  // the top list waits on /api/top, which can respond slowly while the
+  // backend serves the whole parallel suite — outlast the default 10s
+  await expect(link).toBeVisible({ timeout: 30_000 });
   const trackId = await link.getAttribute("data-track-id");
   await link.click();
   await waitForTrackLoaded(page);
