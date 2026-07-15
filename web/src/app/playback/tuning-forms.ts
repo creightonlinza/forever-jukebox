@@ -6,15 +6,16 @@ import { useAppStore } from "../store";
 import {
   getAnchorBranchIdFromUrl,
   getDeletedEdgeIdsFromUrl,
+  resetAudioModeToOff,
   syncTuningParamsState,
   writeTuningParamsToUrl,
 } from "../tuning";
 import { showToast } from "../ui";
 import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
 import {
-  DEFAULT_AUDIO_MODE_INTENSITY,
-  audioModeSupportsIntensity,
+  audioModeChangeAffectsPlayback,
   clampAudioModeIntensity,
+  setAudioModeIntensityParam,
 } from "@forever-jukebox/shared/audio/audioModes";
 import {
   closeTuning,
@@ -155,13 +156,13 @@ export function applyExtrasChanges(
     jukeboxAudioMode: nextAudioMode,
     audioIntensity: nextAudioIntensity,
   });
-  player.setJukeboxAudioModeIntensity(nextAudioIntensity);
   if (nextAudioMode === "cowbell") {
     cowbellOverlay.enable();
   } else {
     cowbellOverlay.disable();
   }
   if (nextAudioMode === "swing") {
+    player.setJukeboxAudioModeIntensity(nextAudioIntensity);
     if (canPrepareSwingMode(context)) {
       prepareSwingMode(context);
     } else {
@@ -174,11 +175,14 @@ export function applyExtrasChanges(
       swingRenderToken: useAppStore.getState().swingRenderToken + (1),
     });
     useAppStore.setState({ swingPreparing: false });
-    player.setJukeboxAudioMode(nextAudioMode);
+    player.setJukeboxAudioMode(nextAudioMode, nextAudioIntensity);
     if (
-      (previousAudioMode !== nextAudioMode ||
-        (audioModeSupportsIntensity(nextAudioMode) &&
-          previousAudioIntensity !== nextAudioIntensity)) &&
+      audioModeChangeAffectsPlayback(
+        previousAudioMode,
+        nextAudioMode,
+        previousAudioIntensity,
+        nextAudioIntensity,
+      ) &&
       useAppStore.getState().playMode === "jukebox" &&
       (useAppStore.getState().isRunning || useAppStore.getState().isPaused)
     ) {
@@ -209,12 +213,7 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
     swingRenderToken: useAppStore.getState().swingRenderToken + (1),
   });
   useAppStore.setState({ swingPreparing: false });
-  useAppStore.setState({
-    jukeboxAudioMode: "off",
-    audioIntensity: DEFAULT_AUDIO_MODE_INTENSITY,
-  });
-  player.setJukeboxAudioModeIntensity(DEFAULT_AUDIO_MODE_INTENSITY);
-  player.setJukeboxAudioMode("off");
+  resetAudioModeToOff(player);
   updatePlayButton();
   if (
     previousAudioMode !== "off" &&
@@ -363,12 +362,7 @@ export function resetTuningDefaults(context: AppContext) {
   });
   const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
   const audioModeParams = new URLSearchParams({ am: jukeboxAudioMode });
-  if (
-    audioModeSupportsIntensity(jukeboxAudioMode) &&
-    audioIntensity !== DEFAULT_AUDIO_MODE_INTENSITY
-  ) {
-    audioModeParams.set("ai", `${audioIntensity}`);
-  }
+  setAudioModeIntensityParam(audioModeParams, jukeboxAudioMode, audioIntensity);
   useAppStore.setState({
     tuningParams:
       jukeboxAudioMode === "off" ? null : audioModeParams.toString(),

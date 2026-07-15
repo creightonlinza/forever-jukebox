@@ -2,11 +2,7 @@ import type { JukeboxEngine } from "@forever-jukebox/shared";
 import type { JukeboxConfig } from "@forever-jukebox/shared/types";
 import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
-import {
-  DEFAULT_AUDIO_MODE_INTENSITY,
-  audioModeSupportsIntensity,
-  clampAudioModeIntensity,
-} from "@forever-jukebox/shared/audio/audioModes";
+import { parseAudioModeIntensityParam } from "@forever-jukebox/shared/audio/audioModes";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
@@ -180,13 +176,10 @@ export function parseCastTuningParams(
   const highlightAnchorBranch = parseBool(params.get("ah")) ?? false;
   const hasAudioModeParam = params.has("am");
   const audioMode = parseAudioMode(params.get("am"));
-  let audioIntensity = DEFAULT_AUDIO_MODE_INTENSITY;
-  if (params.has("ai") && audioMode && audioModeSupportsIntensity(audioMode)) {
-    const rawIntensity = Number.parseInt(params.get("ai") ?? "", 10);
-    if (Number.isFinite(rawIntensity)) {
-      audioIntensity = clampAudioModeIntensity(rawIntensity);
-    }
-  }
+  const audioIntensity = parseAudioModeIntensityParam(
+    params.get("ai"),
+    audioMode,
+  );
   return {
     config: nextConfig,
     deletedEdgeIds,

@@ -8,6 +8,7 @@ import { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOver
 import {
   DEFAULT_AUDIO_MODE_INTENSITY,
   audioModeSupportsIntensity,
+  setAudioModeIntensityParam,
 } from "@forever-jukebox/shared/audio/audioModes";
 import { JukeboxEngine } from "@forever-jukebox/shared";
 import type { JukeboxConfig } from "@forever-jukebox/shared/types";
@@ -508,8 +509,7 @@ async function bootstrap() {
     } else {
       cowbellOverlay?.disable();
     }
-    player?.setJukeboxAudioModeIntensity(state.audioIntensity);
-    player?.setJukeboxAudioMode(mode);
+    player?.setJukeboxAudioMode(mode, state.audioIntensity);
     updateDisplayedTitle();
     updateBeatsLabel();
   }
@@ -1126,14 +1126,13 @@ async function bootstrap() {
     }
     if (!params.has("am") && state.audioMode !== "off") {
       params.set("am", state.audioMode);
-    }
-    if (
-      !params.has("ai") &&
-      state.audioMode !== "off" &&
-      audioModeSupportsIntensity(state.audioMode) &&
-      state.audioIntensity !== DEFAULT_AUDIO_MODE_INTENSITY
-    ) {
-      params.set("ai", `${state.audioIntensity}`);
+      // `ai` shares `am`'s wire contract: a sender that includes `am` but
+      // omits `ai` means "default intensity" (that's how a reset to 100%
+      // arrives), so the receiver's intensity is only carried over when the
+      // sender said nothing about the audio mode at all.
+      if (!params.has("ai")) {
+        setAudioModeIntensityParam(params, state.audioMode, state.audioIntensity);
+      }
     }
     return params.toString();
   }

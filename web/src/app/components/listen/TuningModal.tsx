@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import {
-  DEFAULT_AUDIO_MODE_INTENSITY,
   MAX_AUDIO_MODE_INTENSITY,
   MIN_AUDIO_MODE_INTENSITY,
   audioModeSupportsIntensity,
@@ -416,11 +415,11 @@ export function TuningModal() {
                     <RangeRow
                       id="audio-intensity"
                       label={t("tuning.audioIntensity")}
-                      valueText={`${extras.audioIntensity ?? DEFAULT_AUDIO_MODE_INTENSITY}%`}
+                      valueText={`${extras.audioIntensity}%`}
                       min={MIN_AUDIO_MODE_INTENSITY}
                       max={MAX_AUDIO_MODE_INTENSITY}
                       step={5}
-                      value={extras.audioIntensity ?? DEFAULT_AUDIO_MODE_INTENSITY}
+                      value={extras.audioIntensity}
                       onChange={(value) => setExtrasField("audioIntensity", value)}
                     />
                   ) : null}

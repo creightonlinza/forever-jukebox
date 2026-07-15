@@ -3,8 +3,8 @@ import { useAppStore } from "./store";
 import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
 import {
   DEFAULT_AUDIO_MODE_INTENSITY,
-  audioModeSupportsIntensity,
-  clampAudioModeIntensity,
+  parseAudioModeIntensityParam,
+  setAudioModeIntensityParam,
 } from "@forever-jukebox/shared/audio/audioModes";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
@@ -169,22 +169,18 @@ export function applyTuningParamsToEngine(
   context.engine.updateConfig(nextConfig);
   const audioMode = parseAudioMode(params.get("am"));
   if (audioMode) {
-    useAppStore.setState({ jukeboxAudioMode: audioMode });
-    if (params.has("ai") && audioModeSupportsIntensity(audioMode)) {
-      const rawIntensity = Number.parseInt(params.get("ai") ?? "", 10);
-      if (Number.isFinite(rawIntensity)) {
-        const audioIntensity = clampAudioModeIntensity(rawIntensity);
-        useAppStore.setState({ audioIntensity });
-        context.player.setJukeboxAudioModeIntensity(audioIntensity);
-      }
-    }
+    const audioIntensity = parseAudioModeIntensityParam(
+      params.get("ai"),
+      audioMode,
+    );
+    useAppStore.setState({ jukeboxAudioMode: audioMode, audioIntensity });
     if (audioMode === "cowbell") {
       context.cowbellOverlay.enable();
     } else {
       context.cowbellOverlay.disable();
     }
     if (audioMode !== "swing") {
-      context.player.setJukeboxAudioMode(audioMode);
+      context.player.setJukeboxAudioMode(audioMode, audioIntensity);
     }
   }
   return true;
@@ -258,14 +254,19 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
   const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
   if (jukeboxAudioMode !== "off") {
     params.set("am", jukeboxAudioMode);
-    if (
-      audioModeSupportsIntensity(jukeboxAudioMode) &&
-      audioIntensity !== DEFAULT_AUDIO_MODE_INTENSITY
-    ) {
-      params.set("ai", `${audioIntensity}`);
-    }
+    setAudioModeIntensityParam(params, jukeboxAudioMode, audioIntensity);
   }
   return params;
+}
+
+// The audio-mode reset shared by track loads and tuning resets: store slice
+// and player return to "off" at default intensity in one step.
+export function resetAudioModeToOff(player: AppContext["player"]) {
+  useAppStore.setState({
+    jukeboxAudioMode: "off",
+    audioIntensity: DEFAULT_AUDIO_MODE_INTENSITY,
+  });
+  player.setJukeboxAudioMode("off", DEFAULT_AUDIO_MODE_INTENSITY);
 }
 
 export function syncTuningParamsState(context: AppContext): string | null {

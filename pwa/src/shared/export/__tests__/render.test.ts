@@ -72,6 +72,14 @@ class MockWaveShaperNode extends MockNode {
   oversample: OverSampleType = "none";
 }
 
+class MockCompressorNode extends MockNode {
+  threshold = { value: -24 };
+  knee = { value: 30 };
+  ratio = { value: 12 };
+  attack = { value: 0.003 };
+  release = { value: 0.25 };
+}
+
 class MockOfflineAudioContext {
   static last: MockOfflineAudioContext | null = null;
   readonly numberOfChannels: number;
@@ -84,6 +92,7 @@ class MockOfflineAudioContext {
   convolvers: MockConvolverNode[] = [];
   panners: MockStereoPannerNode[] = [];
   waveShapers: MockWaveShaperNode[] = [];
+  compressors: MockCompressorNode[] = [];
 
   constructor(
     channelsOrOptions: number | {
@@ -148,6 +157,12 @@ class MockOfflineAudioContext {
     const shaper = new MockWaveShaperNode();
     this.waveShapers.push(shaper);
     return shaper as unknown as WaveShaperNode;
+  }
+
+  createDynamicsCompressor() {
+    const compressor = new MockCompressorNode();
+    this.compressors.push(compressor);
+    return compressor as unknown as DynamicsCompressorNode;
   }
 
   async startRendering() {
@@ -426,5 +441,50 @@ describe("renderJukeboxAudio", () => {
     expect(cowbellSource?.buffer).toBe(cowbell);
     expect(cowbellSource?.start).toHaveBeenCalledWith(0.25, 0, 0.5);
     expect(context?.panners[0]?.pan.value).toBe(-0.2);
+  });
+
+  it("routes the mode graph through the safety limiter like live playback", async () => {
+    const cowbell = makeSourceBuffer([0.5, 0.25], 4);
+    await renderJukeboxAudio({
+      sourceBuffer: makeSourceBuffer(new Array(8).fill(1), 4),
+      segments: [
+        {
+          outputStart: 0,
+          sourceStart: 0,
+          duration: 1,
+          beatIndex: 0,
+          jumped: false,
+          jumpFromIndex: null,
+        },
+      ],
+      durationSeconds: 1,
+      gain: 1,
+      audioMode: "vaporwave",
+      audioIntensityPct: 150,
+      cowbellEvents: [{ outputStart: 0.25, buffer: cowbell, gain: 0.5, pan: -0.2 }],
+    });
+
+    const context = MockOfflineAudioContext.last;
+    const limiter = context?.compressors[0];
+    expect(limiter).toBeDefined();
+    expect(limiter?.threshold.value).toBe(0);
+    expect(limiter?.knee.value).toBe(0);
+    expect(limiter?.connect).toHaveBeenCalledWith(context?.destination);
+
+    // main gain and the cowbell overlay both join at the limiter — nothing
+    // reaches the raw destination unlimited, so summed peaks can't hard-clip
+    // in the encoder
+    const connectsTo = (node: MockNode, target: unknown) =>
+      node.connect.mock.calls.some((call) => call[0] === target);
+    const outputNodes = [
+      ...(context?.gains ?? []),
+      ...(context?.panners ?? []),
+    ];
+    expect(
+      outputNodes.filter((node) => connectsTo(node, context?.destination)),
+    ).toEqual([]);
+    expect(
+      outputNodes.filter((node) => connectsTo(node, limiter)).length,
+    ).toBeGreaterThanOrEqual(2);
   });
 });

@@ -2,6 +2,7 @@ import {
   PAN_STEP,
   REVERB_SECONDS,
   createBitcrusherCurve,
+  createSafetyLimiter,
   getAudioModeSettings,
   renderBitcrushedBuffer,
   type AudioModeSettings,
@@ -201,10 +202,18 @@ async function renderModeGraph(options: {
   const mainGain = context.createGain();
   mainGain.gain.value = options.gain;
   modeOutput.connect(mainGain);
-  mainGain.connect(context.destination);
+  // Mirror live playback's output stage (BufferedAudioPlayer): mode chains
+  // can sum peaks past 0dBFS, and without the limiter the encoder would
+  // hard-clip them into the exported file.
+  const limiter = createSafetyLimiter(context);
+  const destination: AudioNode = limiter ?? context.destination;
+  if (limiter) {
+    limiter.connect(context.destination);
+  }
+  mainGain.connect(destination);
 
   schedulePanAutomation(context, modeOutput, settings);
-  scheduleCowbellEvents(context, options.cowbellEvents);
+  scheduleCowbellEvents(context, options.cowbellEvents, destination);
 
   source.start(0, 0, Math.max(0, options.durationSeconds * settings.rate));
   return await context.startRendering();
@@ -292,9 +301,12 @@ function schedulePanAutomation(
   }
 }
 
+// Cowbell hits join at `destination` (the limiter when available), matching
+// the live overlay path through getOverlayDestination().
 function scheduleCowbellEvents(
   context: OfflineAudioContext,
   events: CowbellRenderEvent[],
+  destination: AudioNode,
 ) {
   for (const event of events) {
     const source = context.createBufferSource();
@@ -310,7 +322,7 @@ function scheduleCowbellEvents(
       gain.connect(panner);
       output = panner;
     }
-    output.connect(context.destination);
+    output.connect(destination);
 
     const offset = Math.max(0, -event.outputStart);
     const startTime = Math.max(0, event.outputStart);

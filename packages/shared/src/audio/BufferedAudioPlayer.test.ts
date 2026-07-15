@@ -339,6 +339,46 @@ describe("BufferedAudioPlayer", () => {
     expect(player.isPlaying()).toBe(true);
   });
 
+  it("updates chain params in place on an intensity-only change", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore");
+    player.play();
+    const biquadCount = context.createdBiquads.length;
+    const sourceCount = context.createdSources.length;
+
+    player.setJukeboxAudioModeIntensity(150);
+
+    // no chain teardown/rebuild — the existing filter is rescaled and the
+    // source restarts exactly once for the new rate
+    expect(context.createdBiquads.length).toBe(biquadCount);
+    expect(context.createdSources.length).toBe(sourceCount + 1);
+    const highPass = context.createdBiquads
+      .filter((node) => node.type === "highpass")
+      .at(-1);
+    expect(highPass?.frequency.value).toBeCloseTo(150 * 2 ** 0.5, 6);
+  });
+
+  it("applies a combined mode+intensity change with a single source restart", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore", 120);
+    player.play();
+    const sourceCount = context.createdSources.length;
+
+    player.setJukeboxAudioMode("vaporwave", 80);
+
+    expect(context.createdSources.length).toBe(sourceCount + 1);
+    expect(player.getJukeboxAudioModeIntensity()).toBe(80);
+    expect(player.getPlaybackRate()).toBeCloseTo(1 + (0.65 - 1) * 0.8, 10);
+    expect(context.createdSources.at(-1)?.playbackRate.value).toBeCloseTo(
+      1 + (0.65 - 1) * 0.8,
+      10,
+    );
+  });
+
   it("clamps intensity to the supported range", () => {
     const player = new BufferedAudioPlayer();
     player.setJukeboxAudioModeIntensity(500);

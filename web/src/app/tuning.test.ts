@@ -88,7 +88,10 @@ describe("tuning params", () => {
     expect(config.maxRandomBranchChance).toBeCloseTo(0.5, 4);
     expect(config.randomBranchChanceDelta).toBeCloseTo(0.02, 4);
     expect(useAppStore.getState().jukeboxAudioMode).toBe("nightcore");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("nightcore");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "nightcore",
+      100,
+    );
   });
 
   it("applies minimum jump distance percentages from params", () => {
@@ -135,7 +138,10 @@ describe("tuning params", () => {
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
     expect(useAppStore.getState().jukeboxAudioMode).toBe("eight_bit");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_bit");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "eight_bit",
+      100,
+    );
   });
 
   it("applies underwater audio mode from params", () => {
@@ -144,7 +150,10 @@ describe("tuning params", () => {
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
     expect(useAppStore.getState().jukeboxAudioMode).toBe("underwater");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("underwater");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "underwater",
+      100,
+    );
   });
 
   it("applies cathedral audio mode from params", () => {
@@ -153,7 +162,10 @@ describe("tuning params", () => {
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
     expect(useAppStore.getState().jukeboxAudioMode).toBe("cathedral");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cathedral");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "cathedral",
+      100,
+    );
   });
 
   it("applies cowbell audio mode from params", () => {
@@ -163,7 +175,10 @@ describe("tuning params", () => {
     expect(applied).toBe(true);
     expect(useAppStore.getState().jukeboxAudioMode).toBe("cowbell");
     expect(context.cowbellOverlay.enable).toHaveBeenCalledTimes(1);
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cowbell");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "cowbell",
+      100,
+    );
   });
 
   it("applies audio intensity with a supported mode", () => {
@@ -172,27 +187,38 @@ describe("tuning params", () => {
     const applied = applyTuningParamsToEngine(context, params);
     expect(applied).toBe(true);
     expect(useAppStore.getState().audioIntensity).toBe(130);
-    expect(context.player.setJukeboxAudioModeIntensity).toHaveBeenCalledWith(130);
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("nightcore");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "nightcore",
+      130,
+    );
   });
 
   it("clamps out-of-range audio intensity values", () => {
     const context = createContext();
     applyTuningParamsToEngine(context, new URLSearchParams("am=daycore&ai=400"));
     expect(useAppStore.getState().audioIntensity).toBe(150);
-    expect(context.player.setJukeboxAudioModeIntensity).toHaveBeenCalledWith(150);
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "daycore",
+      150,
+    );
   });
 
-  it("ignores audio intensity for unsupported modes and malformed values", () => {
+  it("defaults audio intensity for unsupported modes and malformed values", () => {
     const unsupported = createContext();
     applyTuningParamsToEngine(unsupported, new URLSearchParams("am=lofi&ai=130"));
     expect(useAppStore.getState().audioIntensity).toBe(100);
-    expect(unsupported.player.setJukeboxAudioModeIntensity).not.toHaveBeenCalled();
+    expect(unsupported.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "lofi",
+      100,
+    );
 
     const malformed = createContext();
     applyTuningParamsToEngine(malformed, new URLSearchParams("am=nightcore&ai=loud"));
     expect(useAppStore.getState().audioIntensity).toBe(100);
-    expect(malformed.player.setJukeboxAudioModeIntensity).not.toHaveBeenCalled();
+    expect(malformed.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "nightcore",
+      100,
+    );
   });
 
   it("serializes audio intensity only for supported modes at non-default values", () => {

@@ -180,9 +180,9 @@ vi.mock("@forever-jukebox/shared/audio/BufferedAudioPlayer", () => ({
     getVolume() {
       return this.volume;
     }
-    setJukeboxAudioMode(mode: string) {
+    setJukeboxAudioMode = vi.fn((mode: string, _intensityPct?: number) => {
       this.audioMode = mode;
-    }
+    });
     getJukeboxAudioMode() {
       return this.audioMode;
     }
@@ -1230,9 +1230,9 @@ describe("Listen route behavior", () => {
     expect(window.location.search).toContain("am=nightcore");
     expect(window.location.search).toContain("ai=130");
     const player = playerInstances.at(-1) as unknown as {
-      setJukeboxAudioModeIntensity: ReturnType<typeof vi.fn>;
+      setJukeboxAudioMode: ReturnType<typeof vi.fn>;
     };
-    expect(player.setJukeboxAudioModeIntensity).toHaveBeenCalledWith(130);
+    expect(player.setJukeboxAudioMode).toHaveBeenCalledWith("nightcore", 130);
     rendered.unmount();
   });
 
