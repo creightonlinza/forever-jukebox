@@ -1,9 +1,14 @@
 import {
   AUDIO_MODE_SETTINGS,
+  DEFAULT_AUDIO_MODE_INTENSITY,
   PAN_STEP,
   REVERB_SECONDS,
+  audioModeSupportsIntensity,
+  clampAudioModeIntensity,
   createBitcrusherCurve,
+  getAudioModeSettings,
   renderBitcrushedBuffer,
+  type AudioModeSettings,
   type JukeboxAudioMode,
 } from "./audioModes";
 
@@ -55,6 +60,7 @@ export class BufferedAudioPlayer {
   private loadGeneration = 0;
   private onEnded: (() => void) | null = null;
   private audioMode: JukeboxAudioMode = "off";
+  private intensityPct = DEFAULT_AUDIO_MODE_INTENSITY;
   private playbackRate = AUDIO_MODE_SETTINGS.off.rate;
   private panAngle = 0;
   private panFrameId: number | null = null;
@@ -251,7 +257,7 @@ export class BufferedAudioPlayer {
     const shouldResume = this.playing && this.buffer !== null;
     const resumeOffset = shouldResume ? this.getCurrentTime() : this.offset;
     this.audioMode = mode;
-    this.playbackRate = AUDIO_MODE_SETTINGS[mode].rate;
+    this.playbackRate = this.getActiveModeSettings().rate;
     if (mode === "eight_bit") {
       this.renderEightBitBuffer();
     }
@@ -340,6 +346,42 @@ export class BufferedAudioPlayer {
 
   getJukeboxAudioMode(): JukeboxAudioMode {
     return this.audioMode;
+  }
+
+  // Apply intensity BEFORE setJukeboxAudioMode when changing both: this
+  // setter is state-only while the current mode doesn't support intensity,
+  // so the combined change does exactly one chain rebuild + source restart.
+  setJukeboxAudioModeIntensity(intensityPct: number) {
+    const next = clampAudioModeIntensity(intensityPct);
+    if (next === this.intensityPct) {
+      return;
+    }
+    this.intensityPct = next;
+    if (!audioModeSupportsIntensity(this.audioMode)) {
+      return;
+    }
+    const shouldResume = this.playing && this.buffer !== null;
+    const resumeOffset = shouldResume ? this.getCurrentTime() : this.offset;
+    this.playbackRate = this.getActiveModeSettings().rate;
+    this.rebuildSourceChain();
+    if (!this.buffer) {
+      return;
+    }
+    this.offset = Math.max(0, Math.min(this.buffer.duration, resumeOffset));
+    if (!shouldResume) {
+      return;
+    }
+    const now = this.context.currentTime;
+    this.stopSource();
+    this.startSourceAt(this.offset, now);
+  }
+
+  getJukeboxAudioModeIntensity(): number {
+    return this.intensityPct;
+  }
+
+  private getActiveModeSettings(): AudioModeSettings {
+    return getAudioModeSettings(this.audioMode, this.intensityPct);
   }
 
   getPlaybackRate(): number {
@@ -751,7 +793,7 @@ export class BufferedAudioPlayer {
 
   private rebuildSourceChain() {
     this.clearSourceChain();
-    const settings = AUDIO_MODE_SETTINGS[this.audioMode];
+    const settings = this.getActiveModeSettings();
     let lastNode: AudioNode = this.sourceChainInput;
 
     if (settings.highPassFrequency !== null) {
@@ -820,7 +862,7 @@ export class BufferedAudioPlayer {
   }
 
   private syncPanMotion() {
-    const settings = AUDIO_MODE_SETTINGS[this.audioMode];
+    const settings = this.getActiveModeSettings();
     if (!settings.pan || !this.playing || !this.stereoPanner) {
       this.stopPanMotion();
       return;
@@ -833,7 +875,7 @@ export class BufferedAudioPlayer {
       return;
     }
     const tick = () => {
-      const currentSettings = AUDIO_MODE_SETTINGS[this.audioMode];
+      const currentSettings = this.getActiveModeSettings();
       if (!this.playing || !currentSettings.pan || !this.stereoPanner) {
         this.stopPanMotion();
         return;

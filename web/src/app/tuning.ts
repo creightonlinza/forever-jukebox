@@ -1,6 +1,11 @@
 import type { AppContext } from "./context";
 import { useAppStore } from "./store";
 import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
+import {
+  DEFAULT_AUDIO_MODE_INTENSITY,
+  audioModeSupportsIntensity,
+  clampAudioModeIntensity,
+} from "@forever-jukebox/shared/audio/audioModes";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
@@ -13,6 +18,7 @@ const TUNING_PARAM_KEYS = [
   "bp",
   "d",
   "am",
+  "ai",
   "ab",
 ];
 const MIN_LONG_BRANCH_PERCENT_OPTIONS = new Set([5, 10, 20, 30]);
@@ -164,6 +170,14 @@ export function applyTuningParamsToEngine(
   const audioMode = parseAudioMode(params.get("am"));
   if (audioMode) {
     useAppStore.setState({ jukeboxAudioMode: audioMode });
+    if (params.has("ai") && audioModeSupportsIntensity(audioMode)) {
+      const rawIntensity = Number.parseInt(params.get("ai") ?? "", 10);
+      if (Number.isFinite(rawIntensity)) {
+        const audioIntensity = clampAudioModeIntensity(rawIntensity);
+        useAppStore.setState({ audioIntensity });
+        context.player.setJukeboxAudioModeIntensity(audioIntensity);
+      }
+    }
     if (audioMode === "cowbell") {
       context.cowbellOverlay.enable();
     } else {
@@ -241,8 +255,15 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
   if (anchorBranchId !== null) {
     params.set("ab", `${anchorBranchId}`);
   }
-  if (useAppStore.getState().jukeboxAudioMode !== "off") {
-    params.set("am", useAppStore.getState().jukeboxAudioMode);
+  const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
+  if (jukeboxAudioMode !== "off") {
+    params.set("am", jukeboxAudioMode);
+    if (
+      audioModeSupportsIntensity(jukeboxAudioMode) &&
+      audioIntensity !== DEFAULT_AUDIO_MODE_INTENSITY
+    ) {
+      params.set("ai", `${audioIntensity}`);
+    }
   }
   return params;
 }

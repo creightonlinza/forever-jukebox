@@ -121,6 +121,66 @@ export const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = 
   },
 };
 
+export const MIN_AUDIO_MODE_INTENSITY = 50;
+export const MAX_AUDIO_MODE_INTENSITY = 150;
+export const DEFAULT_AUDIO_MODE_INTENSITY = 100;
+
+export const INTENSITY_AUDIO_MODES: ReadonlySet<JukeboxAudioMode> = new Set([
+  "nightcore",
+  "daycore",
+  "vaporwave",
+]);
+
+export function audioModeSupportsIntensity(mode: JukeboxAudioMode): boolean {
+  return INTENSITY_AUDIO_MODES.has(mode);
+}
+
+export function clampAudioModeIntensity(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_AUDIO_MODE_INTENSITY;
+  }
+  return Math.max(
+    MIN_AUDIO_MODE_INTENSITY,
+    Math.min(MAX_AUDIO_MODE_INTENSITY, Math.round(value)),
+  );
+}
+
+export function scaleAudioModeSettings(
+  settings: AudioModeSettings,
+  intensityPct: number,
+): AudioModeSettings {
+  const clamped = clampAudioModeIntensity(intensityPct);
+  if (clamped === DEFAULT_AUDIO_MODE_INTENSITY) {
+    // Same reference guarantees 100% is bit-for-bit today's preset.
+    return settings;
+  }
+  const i = clamped / 100;
+  return {
+    ...settings,
+    rate: 1 + (settings.rate - 1) * i,
+    reverbMix: Math.min(1, settings.reverbMix * i),
+    highPassFrequency:
+      settings.highPassFrequency === null
+        ? null
+        : settings.highPassFrequency * 2 ** (i - 1),
+    lowPassFrequency:
+      settings.lowPassFrequency === null
+        ? null
+        : settings.lowPassFrequency * 2 ** (1 - i),
+  };
+}
+
+export function getAudioModeSettings(
+  mode: JukeboxAudioMode,
+  intensityPct: number = DEFAULT_AUDIO_MODE_INTENSITY,
+): AudioModeSettings {
+  const settings = AUDIO_MODE_SETTINGS[mode];
+  if (!audioModeSupportsIntensity(mode)) {
+    return settings;
+  }
+  return scaleAudioModeSettings(settings, intensityPct);
+}
+
 export const REVERB_SECONDS = 2.5;
 export const PAN_STEP = 0.007;
 const BITCRUSHER_CURVE_SAMPLES = 2048;

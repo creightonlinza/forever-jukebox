@@ -226,6 +226,55 @@ describe("renderJukeboxAudio", () => {
     expect(context?.sources[0]?.start).toHaveBeenCalledWith(0, 0, 1.2);
   });
 
+  it("scales rate and filter values with audio intensity", async () => {
+    await renderJukeboxAudio({
+      sourceBuffer: makeSourceBuffer(new Array(16_000).fill(1), 8000),
+      segments: [
+        {
+          outputStart: 0,
+          sourceStart: 0,
+          duration: 1.3,
+          beatIndex: 0,
+          jumped: false,
+          jumpFromIndex: null,
+        },
+      ],
+      durationSeconds: 1,
+      gain: 1,
+      audioMode: "nightcore",
+      audioIntensityPct: 150,
+    });
+
+    const context = MockOfflineAudioContext.last;
+    expect(context?.sources[0]?.playbackRate.value).toBeCloseTo(1.3, 10);
+    expect(context?.biquads[0]?.type).toBe("highpass");
+    expect(context?.biquads[0]?.frequency.value).toBeCloseTo(150 * 2 ** 0.5, 6);
+  });
+
+  it("ignores audio intensity for unsupported modes", async () => {
+    await renderJukeboxAudio({
+      sourceBuffer: makeSourceBuffer(new Array(20).fill(1), 10),
+      segments: [
+        {
+          outputStart: 0,
+          sourceStart: 0,
+          duration: 1,
+          beatIndex: 0,
+          jumped: false,
+          jumpFromIndex: null,
+        },
+      ],
+      durationSeconds: 1,
+      gain: 1,
+      audioMode: "underwater",
+      audioIntensityPct: 150,
+    });
+
+    const context = MockOfflineAudioContext.last;
+    expect(context?.biquads[0]?.frequency.value).toBe(400);
+    expect(context?.sources[0]?.playbackRate.value).toBe(1);
+  });
+
   it("builds filter and reverb nodes for vaporwave", async () => {
     await renderJukeboxAudio({
       sourceBuffer: makeSourceBuffer(new Array(20).fill(1), 10),

@@ -386,6 +386,7 @@ const createPlaybackSlice: Slice<
     | "freezeBeat"
     | "bringItHomeMode"
     | "jukeboxAudioMode"
+    | "audioIntensity"
     | "swingPreparing"
     | "swingRenderToken"
     | "sleepTimer"
@@ -406,6 +407,7 @@ const createPlaybackSlice: Slice<
   freezeBeat: false,
   bringItHomeMode: false,
   jukeboxAudioMode: "off",
+  audioIntensity: 100,
   swingPreparing: false,
   swingRenderToken: 0,
   sleepTimer: defaultSleepTimer,

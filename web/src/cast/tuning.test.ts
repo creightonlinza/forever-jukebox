@@ -78,6 +78,31 @@ describe("cast tuning", () => {
     expect(parsed?.hasGraphTuning).toBe(true);
   });
 
+  it("parses audio intensity for supported modes", () => {
+    const parsed = parseCastTuningParams("am=nightcore&ai=130", makeDefaults());
+    expect(parsed?.audioMode).toBe("nightcore");
+    expect(parsed?.audioIntensity).toBe(130);
+  });
+
+  it("clamps audio intensity to the supported range", () => {
+    const parsed = parseCastTuningParams("am=daycore&ai=400", makeDefaults());
+    expect(parsed?.audioIntensity).toBe(150);
+  });
+
+  it("defaults audio intensity for unsupported modes and malformed values", () => {
+    const unsupported = parseCastTuningParams("am=lofi&ai=130", makeDefaults());
+    expect(unsupported?.audioIntensity).toBe(100);
+
+    const malformed = parseCastTuningParams(
+      "am=nightcore&ai=loud",
+      makeDefaults(),
+    );
+    expect(malformed?.audioIntensity).toBe(100);
+
+    const absent = parseCastTuningParams("am=nightcore", makeDefaults());
+    expect(absent?.audioIntensity).toBe(100);
+  });
+
   it("parses minimum jump distance and supports legacy fallback", () => {
     const parsed = parseCastTuningParams("lg=1&bl=30", makeDefaults());
     expect(parsed?.config).toEqual(

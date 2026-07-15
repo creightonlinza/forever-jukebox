@@ -57,6 +57,7 @@ const EXTRAS_FORM: ExtrasFormValues = {
   bringItHomeMode: false,
   branchStatsEnabled: false,
   audioMode: "off",
+  audioIntensity: 100,
 };
 
 beforeEach(() => {
@@ -199,6 +200,37 @@ describe("TuningModal", () => {
       expect.objectContaining({ audioMode: "nightcore" }),
     );
     expect(useAppStore.getState().tuningModalOpen).toBe(false);
+  });
+
+  it("shows the intensity slider only for modes that support it", async () => {
+    render(<TuningModal />);
+    act(() => {
+      useAppStore.setState({ tuningModalOpen: true, tuningModalTab: "extras" });
+    });
+    expect(document.getElementById("audio-intensity")).toBeNull();
+
+    await userEvent.click(screen.getByLabelText("Nightcore"));
+    expect(document.getElementById("audio-intensity")).not.toBeNull();
+
+    await userEvent.click(screen.getByLabelText("LoFi"));
+    expect(document.getElementById("audio-intensity")).toBeNull();
+  });
+
+  it("applies the adjusted intensity from the slider", async () => {
+    render(<TuningModal />);
+    act(() => {
+      useAppStore.setState({ tuningModalOpen: true, tuningModalTab: "extras" });
+    });
+    await userEvent.click(screen.getByLabelText("Nightcore"));
+    const slider = document.getElementById(
+      "audio-intensity",
+    ) as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: "130" } });
+    await userEvent.click(document.getElementById("tuning-apply")!);
+    expect(applyExtrasChanges).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ audioMode: "nightcore", audioIntensity: 130 }),
+    );
   });
 
   it("resets tuning and closes", async () => {

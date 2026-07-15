@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { AppContext, AppState } from "./context";
 import type { AnalysisComplete } from "./api";
 import {
@@ -212,6 +212,7 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     stop: vi.fn(),
     seek: vi.fn(),
     setJukeboxAudioMode: vi.fn(),
+    setJukeboxAudioModeIntensity: vi.fn(),
     getSourceBuffer: vi.fn(() => null),
     setRenderedJukeboxAudioBuffer: vi.fn(),
   };
@@ -446,6 +447,70 @@ describe("playback tuning", () => {
     expect(branchStats?.endBeatText).toBe("2");
   });
 
+  it("applies audio intensity from extras controls and writes the url param", () => {
+    const context = createContext();
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({ playMode: "jukebox" });
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 130,
+    });
+
+    expect(useAppStore.getState().audioIntensity).toBe(130);
+    expect(context.player.setJukeboxAudioModeIntensity).toHaveBeenCalledWith(130);
+    const intensityOrder = (
+      context.player.setJukeboxAudioModeIntensity as Mock
+    ).mock.invocationCallOrder[0];
+    const modeOrder = (context.player.setJukeboxAudioMode as Mock).mock
+      .invocationCallOrder[0];
+    expect(intensityOrder).toBeLessThan(modeOrder);
+    expect(window.location.search).toContain("am=nightcore");
+    expect(window.location.search).toContain("ai=130");
+  });
+
+  it("omits the intensity url param at the default value", () => {
+    const context = createContext();
+    useAppStore.setState({ playMode: "jukebox" });
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 100,
+    });
+
+    expect(window.location.search).toContain("am=nightcore");
+    expect(window.location.search).not.toContain("ai=");
+  });
+
+  it("resyncs the engine on an intensity-only change", () => {
+    const context = createContext();
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({ playMode: "jukebox" });
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 100,
+    });
+    expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 120,
+    });
+    expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(2);
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 120,
+    });
+    expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(2);
+  });
+
   it("applies cowbell as an audio mode from extras controls", () => {
     const context = createContext();
     useAppStore.setState({ playMode: "jukebox" });
@@ -585,10 +650,13 @@ describe("playback tuning", () => {
     useAppStore.setState({ branchStatsEnabled: true });
     useAppStore.setState({ bringItHomeMode: true });
     useAppStore.setState({ jukeboxAudioMode: "nightcore" });
+    useAppStore.setState({ audioIntensity: 130 });
 
     const result = resetExtrasDefaults(context);
 
     expect(result).toEqual({ branchStatsChanged: true, audioModeChanged: true });
+    expect(useAppStore.getState().audioIntensity).toBe(100);
+    expect(context.player.setJukeboxAudioModeIntensity).toHaveBeenCalledWith(100);
     expect(useAppStore.getState().branchStatsEnabled).toBe(false);
     expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("0");
     expect(useAppStore.getState().bringItHomeMode).toBe(false);

@@ -120,6 +120,12 @@ describe("URL contract", () => {
     );
   });
 
+  it("carries the audio-intensity tuning param alongside the mode", () => {
+    expect(pathForTrack("xyz", "am=nightcore&ai=130", "jukebox")).toBe(
+      "/listen/xyz?am=nightcore&ai=130",
+    );
+  });
+
   it("adds the mode param for autocanonizer and drops tuning params", () => {
     useAppStore.setState({
       playMode: "autocanonizer",

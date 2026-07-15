@@ -263,6 +263,90 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdConvolvers.length).toBeGreaterThan(0);
   });
 
+  it("scales the nightcore chain and rate with intensity", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore");
+    player.setJukeboxAudioModeIntensity(150);
+    player.play();
+
+    const highPass = context.createdBiquads
+      .filter((node) => node.type === "highpass")
+      .at(-1);
+    expect(highPass?.frequency.value).toBeCloseTo(150 * 2 ** 0.5, 6);
+    expect(context.createdSources[0]?.playbackRate.value).toBeCloseTo(1.3, 10);
+    expect(player.getPlaybackRate()).toBeCloseTo(1.3, 10);
+  });
+
+  it("scales vaporwave reverb and lowpass with intensity", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("vaporwave");
+    player.setJukeboxAudioModeIntensity(50);
+    player.play();
+
+    const lowPass = context.createdBiquads
+      .filter((node) => node.type === "lowpass")
+      .at(-1);
+    expect(lowPass?.frequency.value).toBeCloseTo(1000 * 2 ** 0.5, 6);
+    expect(context.createdSources[0]?.playbackRate.value).toBeCloseTo(0.825, 10);
+    const wetGain = context.createdGains.at(-1);
+    expect(wetGain?.gain.value).toBeCloseTo(0.3, 10);
+  });
+
+  it("ignores a repeated intensity value without rebuilding the chain", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore");
+    player.setJukeboxAudioModeIntensity(120);
+    const biquadCount = context.createdBiquads.length;
+    player.setJukeboxAudioModeIntensity(120);
+    expect(context.createdBiquads.length).toBe(biquadCount);
+  });
+
+  it("stores intensity without rebuilding for unsupported modes and applies it on switch", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("lofi");
+    const biquadCount = context.createdBiquads.length;
+    player.setJukeboxAudioModeIntensity(150);
+    expect(context.createdBiquads.length).toBe(biquadCount);
+    const bandPass = context.createdBiquads.find((node) => node.type === "bandpass");
+    expect(bandPass?.frequency.value).toBe(2000);
+
+    player.setJukeboxAudioMode("nightcore");
+    expect(player.getPlaybackRate()).toBeCloseTo(1.3, 10);
+    expect(player.getJukeboxAudioModeIntensity()).toBe(150);
+  });
+
+  it("restarts a playing source at the current offset when intensity changes", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 30 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore");
+    player.play();
+    context.currentTime = 5;
+    const sourcesBefore = context.createdSources.length;
+
+    player.setJukeboxAudioModeIntensity(150);
+
+    expect(context.createdSources.length).toBeGreaterThan(sourcesBefore);
+    expect(context.createdSources.at(-1)?.playbackRate.value).toBeCloseTo(1.3, 10);
+    expect(player.isPlaying()).toBe(true);
+  });
+
+  it("clamps intensity to the supported range", () => {
+    const player = new BufferedAudioPlayer();
+    player.setJukeboxAudioModeIntensity(500);
+    expect(player.getJukeboxAudioModeIntensity()).toBe(150);
+    player.setJukeboxAudioModeIntensity(0);
+    expect(player.getJukeboxAudioModeIntensity()).toBe(50);
+  });
+
   it("builds lofi chain with bandpass filter", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);

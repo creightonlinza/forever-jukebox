@@ -43,6 +43,7 @@ const doubles = vi.hoisted(() => {
       getOverlayDestination: vi.fn(() => ({})),
       getPlaybackRate: vi.fn(() => 1),
       setJukeboxAudioMode: vi.fn(),
+      setJukeboxAudioModeIntensity: vi.fn(),
     };
     return player;
   };
@@ -851,6 +852,52 @@ describe("cast receiver main", () => {
         threshold: 20,
         computedThreshold: 18,
         audioMode: "lofi",
+      },
+    });
+  });
+
+  it("applies audio intensity from a setTuning command", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: "nightcore",
+      hasAudioModeParam: true,
+      hasGraphTuning: false,
+      highlightAnchorBranch: false,
+      audioIntensity: 130,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "am=nightcore&ai=130" },
+    });
+    await flushMicrotasks();
+
+    const player = doubles.playerInstances[0];
+    expect(player?.setJukeboxAudioModeIntensity).toHaveBeenCalledWith(130);
+    expect(player?.setJukeboxAudioMode).toHaveBeenCalledWith("nightcore");
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
+    const status = statusCall?.[2] as Record<string, unknown> | undefined;
+    expect(status).toMatchObject({
+      type: "status",
+      tuning: {
+        audioMode: "nightcore",
+        audioIntensity: 130,
       },
     });
   });

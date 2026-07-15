@@ -20,6 +20,7 @@ import {
   updateCachedTrack,
 } from "../cache";
 import { ANALYSIS_POLL_INTERVAL_MS } from "../constants";
+import { DEFAULT_AUDIO_MODE_INTENSITY } from "@forever-jukebox/shared/audio/audioModes";
 import { formatErrorForDisplay } from "../errorDisplay";
 import i18n from "../i18n";
 import { isLikelyJobId } from "../identity";
@@ -162,7 +163,11 @@ export function resetForNewTrack(
     useAppStore.getState().lastTrackId !== null ||
     useAppStore.getState().trackTitle !== null;
   if (hadTrackLoaded) {
-    useAppStore.setState({ jukeboxAudioMode: "off" });
+    useAppStore.setState({
+      jukeboxAudioMode: "off",
+      audioIntensity: DEFAULT_AUDIO_MODE_INTENSITY,
+    });
+    player.setJukeboxAudioModeIntensity(DEFAULT_AUDIO_MODE_INTENSITY);
     player.setJukeboxAudioMode("off");
   }
   cowbellOverlay.disable();

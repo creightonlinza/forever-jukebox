@@ -5,6 +5,10 @@ import {
   type JukeboxAudioMode,
 } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOverlayService";
+import {
+  DEFAULT_AUDIO_MODE_INTENSITY,
+  audioModeSupportsIntensity,
+} from "@forever-jukebox/shared/audio/audioModes";
 import { JukeboxEngine } from "@forever-jukebox/shared";
 import type { JukeboxConfig } from "@forever-jukebox/shared/types";
 import { JukeboxViz } from "@forever-jukebox/shared/viz/JukeboxViz";
@@ -74,6 +78,7 @@ type CastTuningStatus = {
   anchorBranchId: number | null;
   highlightAnchorBranch: boolean;
   audioMode: JukeboxAudioMode;
+  audioIntensity: number;
 };
 
 type CastLoadRequest = {
@@ -155,6 +160,7 @@ type CastState = {
   activeVizIndex: number;
   tuningParams: string | null;
   audioMode: JukeboxAudioMode;
+  audioIntensity: number;
 };
 
 type CastTrackMeta = {
@@ -463,6 +469,7 @@ async function bootstrap() {
     activeVizIndex: 0,
     tuningParams: null,
     audioMode: "off",
+    audioIntensity: DEFAULT_AUDIO_MODE_INTENSITY,
   };
   let isTrackPaused = false;
 
@@ -488,13 +495,20 @@ async function bootstrap() {
         : i18n.t("cast.totalBeats");
   }
 
-  function setAudioMode(mode: JukeboxAudioMode) {
+  function setAudioMode(
+    mode: JukeboxAudioMode,
+    intensityPct = DEFAULT_AUDIO_MODE_INTENSITY,
+  ) {
     state.audioMode = mode;
+    state.audioIntensity = audioModeSupportsIntensity(mode)
+      ? intensityPct
+      : DEFAULT_AUDIO_MODE_INTENSITY;
     if (mode === "cowbell") {
       cowbellOverlay?.enable();
     } else {
       cowbellOverlay?.disable();
     }
+    player?.setJukeboxAudioModeIntensity(state.audioIntensity);
     player?.setJukeboxAudioMode(mode);
     updateDisplayedTitle();
     updateBeatsLabel();
@@ -547,6 +561,7 @@ async function bootstrap() {
       anchorBranchId: engine.getUserAnchorEdgeId(),
       highlightAnchorBranch: anchorHighlightEnabled,
       audioMode: state.audioMode,
+      audioIntensity: state.audioIntensity,
     };
   }
 
@@ -822,6 +837,7 @@ async function bootstrap() {
     state.trackDurationSeconds = null;
     state.tuningParams = null;
     state.audioMode = "off";
+    state.audioIntensity = DEFAULT_AUDIO_MODE_INTENSITY;
     updateBeatsLabel();
     isTrackPaused = false;
     playStartAtMs = null;
@@ -874,6 +890,7 @@ async function bootstrap() {
     state.trackDurationSeconds = null;
     state.tuningParams = null;
     state.audioMode = "off";
+    state.audioIntensity = DEFAULT_AUDIO_MODE_INTENSITY;
     updateBeatsLabel();
     state.lastBeatIndex = null;
     state.vizData = null;
@@ -1070,7 +1087,7 @@ async function bootstrap() {
     }
     const result = applyCastTuningToEngine(engine, defaultConfig, tuningParams);
     if (result.parsed?.audioMode) {
-      setAudioMode(result.parsed.audioMode);
+      setAudioMode(result.parsed.audioMode, result.parsed.audioIntensity);
     } else if (
       !result.parsed?.hasAudioModeParam &&
       (tuningParams === null ||
@@ -1110,6 +1127,14 @@ async function bootstrap() {
     if (!params.has("am") && state.audioMode !== "off") {
       params.set("am", state.audioMode);
     }
+    if (
+      !params.has("ai") &&
+      state.audioMode !== "off" &&
+      audioModeSupportsIntensity(state.audioMode) &&
+      state.audioIntensity !== DEFAULT_AUDIO_MODE_INTENSITY
+    ) {
+      params.set("ai", `${state.audioIntensity}`);
+    }
     return params.toString();
   }
 
@@ -1121,7 +1146,7 @@ async function bootstrap() {
       const parsed = parseCastTuningParams(tuningParams, defaultConfig);
       if (parsed && !parsed.hasGraphTuning) {
         if (parsed.audioMode) {
-          setAudioMode(parsed.audioMode);
+          setAudioMode(parsed.audioMode, parsed.audioIntensity);
           if (engine.isRunning() && player?.isPlaying()) {
             engine.syncToPlaybackPosition();
           }
@@ -1144,7 +1169,7 @@ async function bootstrap() {
           liveTuningParams,
         );
         if (result.parsed?.audioMode) {
-          setAudioMode(result.parsed.audioMode);
+          setAudioMode(result.parsed.audioMode, result.parsed.audioIntensity);
         }
         anchorHighlightEnabled = result.highlightAnchorBranch;
         state.tuningParams = liveTuningParams;
