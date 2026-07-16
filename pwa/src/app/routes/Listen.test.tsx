@@ -180,12 +180,13 @@ vi.mock("@forever-jukebox/shared/audio/BufferedAudioPlayer", () => ({
     getVolume() {
       return this.volume;
     }
-    setJukeboxAudioMode(mode: string) {
+    setJukeboxAudioMode = vi.fn((mode: string, _intensityPct?: number) => {
       this.audioMode = mode;
-    }
+    });
     getJukeboxAudioMode() {
       return this.audioMode;
     }
+    setJukeboxAudioModeIntensity = vi.fn((_intensityPct: number) => undefined);
     setRenderedJukeboxAudioBuffer = vi.fn(
       (_mode: string, _buffer: AudioBuffer) => undefined,
     );
@@ -194,6 +195,9 @@ vi.mock("@forever-jukebox/shared/audio/BufferedAudioPlayer", () => ({
     }
     getPlaybackRate() {
       return 1;
+    }
+    getOverlayDestination() {
+      return {} as AudioNode;
     }
     emitEnded() {
       this.onEnded?.();
@@ -1197,6 +1201,72 @@ describe("Listen route behavior", () => {
     expect(playTitle.textContent).toContain("(daycore)");
     expect(rendered.container.textContent).toContain("Bringing it on home");
     expect(window.location.search).toContain("am=daycore");
+    rendered.unmount();
+  });
+
+  it("shows the intensity slider only for supported playback styles and applies it", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    expect(rendered.container.querySelector("#audio-intensity")).toBeNull();
+
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-lofi"));
+    expect(rendered.container.querySelector("#audio-intensity")).toBeNull();
+
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-nightcore"));
+    const slider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-intensity",
+    );
+    await changeRange(slider, "130");
+
+    const footerButtons = Array.from(
+      rendered.container.querySelectorAll<HTMLButtonElement>(".tuning-footer .tab-btn")
+    );
+    await click(footerButtons[1] as HTMLButtonElement);
+
+    expect(window.location.search).toContain("am=nightcore");
+    expect(window.location.search).toContain("ai=130");
+    const player = playerInstances.at(-1) as unknown as {
+      setJukeboxAudioMode: ReturnType<typeof vi.fn>;
+    };
+    expect(player.setJukeboxAudioMode).toHaveBeenCalledWith("nightcore", 130);
+    rendered.unmount();
+  });
+
+  it("passes the audio intensity to jukebox export", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-nightcore"));
+    await changeRange(
+      getRequired<HTMLInputElement>(rendered.container, "#audio-intensity"),
+      "150",
+    );
+    await click(
+      getRequired<HTMLButtonElement>(
+        rendered.container,
+        ".tuning-footer .tab-btn:last-child",
+      ),
+    );
+
+    await click(getRequired<HTMLButtonElement>(rendered.container, "#track-audio-export"));
+    await click(
+      getRequired<HTMLButtonElement>(
+        rendered.container,
+        ".modal-footer .tab-btn:last-child",
+      ),
+    );
+    await settleEffects();
+
+    expect(exportMocks.exportJukeboxAudio.mock.calls[0]?.[0]).toMatchObject({
+      audioMode: "nightcore",
+      audioIntensityPct: 150,
+    });
     rendered.unmount();
   });
 

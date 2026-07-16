@@ -209,6 +209,9 @@ export function FaqPanel() {
           <li>
             New <strong>minimum branch length slider</strong> — filter out short jumps for longer runs before the Jukebox branches.
           </li>
+          <li>
+            Nightcore, Daycore and Vaporwave Audio Modes now have an <strong>intensity slider</strong> — dial the effect anywhere from 50% to 150%.
+          </li>
         </ul>
 
         <h4>June 2026</h4>

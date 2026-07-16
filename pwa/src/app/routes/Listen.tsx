@@ -26,6 +26,17 @@ import {
   type JukeboxAudioMode,
 } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOverlayService";
+import {
+  AUDIO_MODE_INTENSITY_PARAM,
+  DEFAULT_AUDIO_MODE_INTENSITY,
+  MAX_AUDIO_MODE_INTENSITY,
+  MIN_AUDIO_MODE_INTENSITY,
+  audioModeChangeAffectsPlayback,
+  audioModeSupportsIntensity,
+  clampAudioModeIntensity,
+  parseAudioModeIntensityParam,
+  setAudioModeIntensityParam,
+} from "@forever-jukebox/shared/audio/audioModes";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
 import {
@@ -102,7 +113,6 @@ const AUDIO_MODE_QUERY_KEY = "am";
 const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
-const DEFAULT_PLAYBACK_VOLUME = 0.5;
 const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
 type ShortcutToastQueue = ToastQueue<{ message: string }>;
 
@@ -229,6 +239,7 @@ type ExtrasFormState = {
   branchStatsEnabled: boolean;
   bringItHomeMode: boolean;
   audioMode: JukeboxAudioMode;
+  audioIntensity: number;
 };
 
 type AudioModeSection = {
@@ -329,13 +340,20 @@ function AudioModeSectionGroup({
   selectedAudioMode,
   disabled,
   onChange,
+  intensityPct,
+  onIntensityChange,
 }: {
   section: AudioModeSection;
   selectedAudioMode: JukeboxAudioMode;
   disabled: boolean;
   onChange: (mode: JukeboxAudioMode) => void;
+  intensityPct: number;
+  onIntensityChange: (intensityPct: number) => void;
 }) {
   const { t } = useTranslation();
+  const showIntensity =
+    section.options.includes(selectedAudioMode) &&
+    audioModeSupportsIntensity(selectedAudioMode);
   return (
     <div className="audio-mode-section">
       <div className="audio-mode-section-title">{t(section.titleKey)}</div>
@@ -350,6 +368,25 @@ function AudioModeSectionGroup({
           />
         ))}
       </div>
+      {showIntensity ? (
+        <label>
+          <div className="label-line">
+            <span>{t("audioModes.intensity")}</span>
+            <span>{intensityPct}%</span>
+          </div>
+          <input
+            id="audio-intensity"
+            type="range"
+            aria-label={t("audioModes.intensity")}
+            min={MIN_AUDIO_MODE_INTENSITY}
+            max={MAX_AUDIO_MODE_INTENSITY}
+            step={5}
+            value={intensityPct}
+            disabled={disabled}
+            onChange={(event) => onIntensityChange(Number(event.target.value))}
+          />
+        </label>
+      ) : null}
     </div>
   );
 }
@@ -358,10 +395,14 @@ function AudioModeOptions({
   selectedAudioMode,
   disabled,
   onChange,
+  intensityPct,
+  onIntensityChange,
 }: {
   selectedAudioMode: JukeboxAudioMode;
   disabled: boolean;
   onChange: (mode: JukeboxAudioMode) => void;
+  intensityPct: number;
+  onIntensityChange: (intensityPct: number) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -384,6 +425,8 @@ function AudioModeOptions({
           selectedAudioMode={selectedAudioMode}
           disabled={disabled}
           onChange={onChange}
+          intensityPct={intensityPct}
+          onIntensityChange={onIntensityChange}
         />
       ))}
     </div>
@@ -456,7 +499,22 @@ function resolveAudioModeFromUrl(): JukeboxAudioMode {
   return parseAudioMode(params.get(AUDIO_MODE_QUERY_KEY)) ?? "off";
 }
 
-function writeAudioModeToUrl(mode: JukeboxAudioMode, replace = true) {
+function resolveAudioIntensityFromUrl(): number {
+  if (typeof window === "undefined") {
+    return DEFAULT_AUDIO_MODE_INTENSITY;
+  }
+  const params = new URLSearchParams(window.location.search);
+  return parseAudioModeIntensityParam(
+    params.get(AUDIO_MODE_INTENSITY_PARAM),
+    parseAudioMode(params.get(AUDIO_MODE_QUERY_KEY)),
+  );
+}
+
+function writeAudioModeToUrl(
+  mode: JukeboxAudioMode,
+  intensityPct: number,
+  replace = true,
+) {
   if (typeof window === "undefined") {
     return;
   }
@@ -466,6 +524,7 @@ function writeAudioModeToUrl(mode: JukeboxAudioMode, replace = true) {
   } else {
     url.searchParams.set(AUDIO_MODE_QUERY_KEY, mode);
   }
+  setAudioModeIntensityParam(url.searchParams, mode, intensityPct);
   if (replace) {
     window.history.replaceState({}, "", url.toString());
     return;
@@ -642,6 +701,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setIsSettingsOpen,
   } = useAppState();
   const initialAudioMode = React.useMemo(() => resolveAudioModeFromUrl(), []);
+  const initialAudioIntensity = React.useMemo(
+    () => resolveAudioIntensityFromUrl(),
+    [],
+  );
   const [analysis, setAnalysis] = React.useState<AnalysisOutput | null>(null);
   const [readyFileKey, setReadyFileKey] = React.useState<string | null>(null);
   const [progressStage, setProgressStage] = React.useState<AnalyzeStage>("loading");
@@ -682,6 +745,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   );
   const [jukeboxAudioMode, setJukeboxAudioMode] =
     React.useState<JukeboxAudioMode>(initialAudioMode);
+  const [audioIntensity, setAudioIntensity] = React.useState(
+    initialAudioIntensity,
+  );
   const [swingPreparing, setSwingPreparing] = React.useState(false);
   const [swingProgress, setSwingProgress] = React.useState(0);
   const [tuningActiveTab, setTuningActiveTab] =
@@ -724,6 +790,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     branchStatsEnabled: resolveStoredBranchStatsEnabled(),
     bringItHomeMode: false,
     audioMode: initialAudioMode,
+    audioIntensity: initialAudioIntensity,
   });
   const [isExportOpen, setIsExportOpen] = React.useState(false);
   const [isExporting, setIsExporting] = React.useState(false);
@@ -805,6 +872,30 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   function setSwingPreparingState(preparing: boolean) {
     swingPreparingRef.current = preparing;
     setSwingPreparing(preparing);
+  }
+
+  // The audio-mode reset shared by track changes and the extras reset:
+  // player, mode/intensity state, extras form, and URL all return to "off"
+  // at default intensity.
+  function resetAudioModeToOff(player: BufferedAudioPlayer) {
+    cowbellOverlayRef.current?.disable();
+    swingRenderTokenRef.current += 1;
+    setSwingPreparingState(false);
+    setSwingProgress(0);
+    setJukeboxAudioMode("off");
+    setAudioIntensity(DEFAULT_AUDIO_MODE_INTENSITY);
+    setExtrasForm((prev) =>
+      prev.audioMode === "off" &&
+      prev.audioIntensity === DEFAULT_AUDIO_MODE_INTENSITY
+        ? prev
+        : {
+            ...prev,
+            audioMode: "off",
+            audioIntensity: DEFAULT_AUDIO_MODE_INTENSITY,
+          },
+    );
+    player.setJukeboxAudioMode("off", DEFAULT_AUDIO_MODE_INTENSITY);
+    writeAudioModeToUrl("off", DEFAULT_AUDIO_MODE_INTENSITY, true);
   }
 
   function resetPlaybackSessionMetrics() {
@@ -928,15 +1019,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const player = new BufferedAudioPlayer();
     const cowbellOverlay = new CowbellOverlayService(player.getContext(), {
       getPlaybackRate: () => player.getPlaybackRate(),
+      destination: player.getOverlayDestination(),
     });
     cowbellOverlay.setVolume(player.getVolume());
     playerRef.current = player;
     cowbellOverlayRef.current = cowbellOverlay;
     if (jukeboxAudioMode === "cowbell") {
       cowbellOverlay.enable();
-      player.setJukeboxAudioMode("cowbell");
+      player.setJukeboxAudioMode("cowbell", audioIntensity);
     } else if (jukeboxAudioMode !== "swing") {
-      player.setJukeboxAudioMode(jukeboxAudioMode);
+      player.setJukeboxAudioMode(jukeboxAudioMode, audioIntensity);
     }
     return () => {
       cowbellOverlayRef.current?.dispose();
@@ -1097,17 +1189,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const isTrackChange = previousFileKey !== null && previousFileKey !== currentFileKey;
     previousFileKeyRef.current = currentFileKey;
     if (isTrackChange) {
-      cowbellOverlayRef.current?.disable();
       cowbellOverlayRef.current?.setSectionStartBeatIndices([]);
-      swingRenderTokenRef.current += 1;
-      setSwingPreparingState(false);
-      setSwingProgress(0);
-      playerRef.current.setJukeboxAudioMode("off");
-      setJukeboxAudioMode("off");
-      setExtrasForm((prev) =>
-        prev.audioMode === "off" ? prev : { ...prev, audioMode: "off" },
-      );
-      writeAudioModeToUrl("off", true);
+      resetAudioModeToOff(playerRef.current);
     }
 
     const fileKey = `${file.name}:${file.size}:${file.lastModified}`;
@@ -1710,8 +1793,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       branchStatsEnabled,
       bringItHomeMode,
       audioMode: jukeboxAudioMode,
+      audioIntensity,
     });
-  }, [branchStatsEnabled, bringItHomeMode, jukeboxAudioMode]);
+  }, [branchStatsEnabled, bringItHomeMode, jukeboxAudioMode, audioIntensity]);
 
   function getCurrentSwingSourceIdentity() {
     return file ? `${file.name}:${file.size}:${file.lastModified}` : null;
@@ -1812,7 +1896,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         setJukeboxAudioMode("off");
         setExtrasForm((prev) => ({ ...prev, audioMode: "off" }));
         player.setJukeboxAudioMode("off");
-        writeAudioModeToUrl("off", true);
+        writeAudioModeToUrl("off", DEFAULT_AUDIO_MODE_INTENSITY, true);
         showShortcutToast(t("listen.swingFailed"));
       });
   }
@@ -2095,9 +2179,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engine.updateConfig(DEFAULT_CONFIG);
     rebuildGraphAndSyncViz();
     clearSelectedBranch();
-    player.setVolume(DEFAULT_PLAYBACK_VOLUME);
-    autocanonizerRef.current?.setVolume(DEFAULT_PLAYBACK_VOLUME);
-    cowbellOverlayRef.current?.setVolume(DEFAULT_PLAYBACK_VOLUME);
     syncTuneFormFromEngine();
     if (fingerprintRef.current) {
       removeTuning(fingerprintRef.current);
@@ -2111,9 +2192,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     const previousAudioMode = jukeboxAudioMode;
+    const previousAudioIntensity = audioIntensity;
     const nextBranchStatsEnabled = playModeRef.current === "jukebox" && extrasForm.branchStatsEnabled;
     const nextBringItHomeMode = playModeRef.current === "jukebox" && extrasForm.bringItHomeMode;
     const nextAudioMode = extrasForm.audioMode;
+    const nextAudioIntensity = clampAudioModeIntensity(
+      extrasForm.audioIntensity,
+    );
     bringItHomeModeRef.current = nextBringItHomeMode;
     setBringItHomeMode(nextBringItHomeMode);
     if (nextBringItHomeMode) {
@@ -2123,13 +2208,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setBranchStatsEnabled(nextBranchStatsEnabled);
     storeBranchStatsEnabled(nextBranchStatsEnabled);
     setJukeboxAudioMode(nextAudioMode);
+    setAudioIntensity(nextAudioIntensity);
     if (nextAudioMode === "cowbell") {
       cowbellOverlayRef.current?.enable();
     } else {
       cowbellOverlayRef.current?.disable();
     }
     if (nextAudioMode === "swing") {
-      player.setJukeboxAudioMode("swing");
+      player.setJukeboxAudioMode("swing", nextAudioIntensity);
       if (canPrepareSwingMode()) {
         prepareSwingMode();
       } else {
@@ -2139,11 +2225,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       swingRenderTokenRef.current += 1;
       setSwingPreparingState(false);
       setSwingProgress(0);
-      player.setJukeboxAudioMode(nextAudioMode);
+      player.setJukeboxAudioMode(nextAudioMode, nextAudioIntensity);
     }
-    writeAudioModeToUrl(nextAudioMode, true);
+    writeAudioModeToUrl(nextAudioMode, nextAudioIntensity, true);
     if (
-      previousAudioMode !== nextAudioMode &&
+      audioModeChangeAffectsPlayback(
+        previousAudioMode,
+        nextAudioMode,
+        previousAudioIntensity,
+        nextAudioIntensity,
+      ) &&
       playModeRef.current === "jukebox" &&
       nextAudioMode !== "swing" &&
       (isRunningRef.current || isPausedRef.current)
@@ -2159,24 +2250,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     const previousAudioMode = jukeboxAudioMode;
-    const defaultState: ExtrasFormState = {
-      branchStatsEnabled: false,
-      bringItHomeMode: false,
-      audioMode: "off",
-    };
     bringItHomeModeRef.current = false;
     setBringItHomeMode(false);
     engineRef.current?.setBringItHomeMode(false);
-    cowbellOverlayRef.current?.disable();
-    swingRenderTokenRef.current += 1;
-    setSwingPreparingState(false);
-    setSwingProgress(0);
-    setExtrasForm(defaultState);
+    setExtrasForm((prev) => ({
+      ...prev,
+      branchStatsEnabled: false,
+      bringItHomeMode: false,
+    }));
     setBranchStatsEnabled(false);
     storeBranchStatsEnabled(false);
-    setJukeboxAudioMode("off");
-    player.setJukeboxAudioMode("off");
-    writeAudioModeToUrl("off", true);
+    resetAudioModeToOff(player);
     if (
       previousAudioMode !== "off" &&
       playModeRef.current === "jukebox" &&
@@ -2333,6 +2417,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         bitrateKbps: exportForm.format === "mp3" ? exportForm.bitrateKbps : undefined,
         gain: player.getVolume(),
         audioMode: jukeboxAudioMode,
+        audioIntensityPct: audioIntensity,
         sectionStartBeatIndices: engine.getSectionStartBeatIndices(),
         swingBuffer,
         randomMode: "seeded",
@@ -3418,6 +3503,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     disabled={playMode !== "jukebox"}
                     onChange={(audioMode) =>
                       setExtrasForm((prev) => ({ ...prev, audioMode }))
+                    }
+                    intensityPct={extrasForm.audioIntensity}
+                    onIntensityChange={(audioIntensity) =>
+                      setExtrasForm((prev) => ({ ...prev, audioIntensity }))
                     }
                   />
                 </div>

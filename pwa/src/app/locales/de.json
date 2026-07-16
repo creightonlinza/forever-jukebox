@@ -111,6 +111,7 @@
   "audioModes": {
     "playbackStyles": "Wiedergabestile",
     "remixToys": "Remix-Spielzeuge",
+    "intensity": "Intensität",
     "nightcore": "Nightcore",
     "daycore": "Daycore",
     "vaporwave": "Vaporwave",

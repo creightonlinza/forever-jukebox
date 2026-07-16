@@ -121,6 +121,135 @@ export const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = 
   },
 };
 
+export const MIN_AUDIO_MODE_INTENSITY = 50;
+export const MAX_AUDIO_MODE_INTENSITY = 150;
+export const DEFAULT_AUDIO_MODE_INTENSITY = 100;
+
+export const INTENSITY_AUDIO_MODES: ReadonlySet<JukeboxAudioMode> = new Set([
+  "nightcore",
+  "daycore",
+  "vaporwave",
+]);
+
+export function audioModeSupportsIntensity(mode: JukeboxAudioMode): boolean {
+  return INTENSITY_AUDIO_MODES.has(mode);
+}
+
+export function clampAudioModeIntensity(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_AUDIO_MODE_INTENSITY;
+  }
+  return Math.max(
+    MIN_AUDIO_MODE_INTENSITY,
+    Math.min(MAX_AUDIO_MODE_INTENSITY, Math.round(value)),
+  );
+}
+
+export function scaleAudioModeSettings(
+  settings: AudioModeSettings,
+  intensityPct: number,
+): AudioModeSettings {
+  const clamped = clampAudioModeIntensity(intensityPct);
+  if (clamped === DEFAULT_AUDIO_MODE_INTENSITY) {
+    // Same reference guarantees 100% is bit-for-bit today's preset.
+    return settings;
+  }
+  const i = clamped / 100;
+  return {
+    ...settings,
+    rate: 1 + (settings.rate - 1) * i,
+    reverbMix: Math.min(1, settings.reverbMix * i),
+    highPassFrequency:
+      settings.highPassFrequency === null
+        ? null
+        : settings.highPassFrequency * 2 ** (i - 1),
+    lowPassFrequency:
+      settings.lowPassFrequency === null
+        ? null
+        : settings.lowPassFrequency * 2 ** (1 - i),
+  };
+}
+
+export function getAudioModeSettings(
+  mode: JukeboxAudioMode,
+  intensityPct: number = DEFAULT_AUDIO_MODE_INTENSITY,
+): AudioModeSettings {
+  const settings = AUDIO_MODE_SETTINGS[mode];
+  if (!audioModeSupportsIntensity(mode)) {
+    return settings;
+  }
+  return scaleAudioModeSettings(settings, intensityPct);
+}
+
+// Whether an audio-mode/intensity change is audible in the playback timing,
+// i.e. the jukebox engine must resync its beat position to the player. A mode
+// change always is; an intensity change only when the new mode scales with it.
+export function audioModeChangeAffectsPlayback(
+  previousMode: JukeboxAudioMode,
+  nextMode: JukeboxAudioMode,
+  previousIntensityPct: number,
+  nextIntensityPct: number,
+): boolean {
+  return (
+    previousMode !== nextMode ||
+    (audioModeSupportsIntensity(nextMode) &&
+      previousIntensityPct !== nextIntensityPct)
+  );
+}
+
+// Audio-mode intensity travels as the integer-percent `ai` URL/wire parameter
+// next to `am`. Absence means the default, and the value is only meaningful
+// for modes that support intensity. Every app parses and writes it through
+// these helpers so the contract can't drift.
+export const AUDIO_MODE_INTENSITY_PARAM = "ai";
+
+export function parseAudioModeIntensityParam(
+  raw: string | null,
+  mode: JukeboxAudioMode | null,
+): number {
+  if (raw === null || mode === null || !audioModeSupportsIntensity(mode)) {
+    return DEFAULT_AUDIO_MODE_INTENSITY;
+  }
+  return clampAudioModeIntensity(Number.parseInt(raw, 10));
+}
+
+export function setAudioModeIntensityParam(
+  params: URLSearchParams,
+  mode: JukeboxAudioMode,
+  intensityPct: number,
+): void {
+  if (
+    audioModeSupportsIntensity(mode) &&
+    intensityPct !== DEFAULT_AUDIO_MODE_INTENSITY
+  ) {
+    params.set(AUDIO_MODE_INTENSITY_PARAM, `${intensityPct}`);
+  } else {
+    params.delete(AUDIO_MODE_INTENSITY_PARAM);
+  }
+}
+
+// Safety limiter shared by live playback and offline export: reverb modes sum
+// dry (up to 1.0) plus wet (up to 0.9) gain, the nightcore/cathedral highpass
+// adds resonance near its cutoff, and 8D panning sums channels — all of which
+// can push peaks past 0dBFS. Threshold 0 with knee 0 leaves anything already
+// under 0dBFS (notably the "off" mode) untouched, since the node's automatic
+// makeup gain is exactly 1 at that threshold. Returns null when the context
+// has no compressor support; callers fall back to a direct connection.
+export function createSafetyLimiter(
+  context: BaseAudioContext,
+): DynamicsCompressorNode | null {
+  if (typeof context.createDynamicsCompressor !== "function") {
+    return null;
+  }
+  const limiter = context.createDynamicsCompressor();
+  limiter.threshold.value = 0;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.001;
+  limiter.release.value = 0.25;
+  return limiter;
+}
+
 export const REVERB_SECONDS = 2.5;
 export const PAN_STEP = 0.007;
 const BITCRUSHER_CURVE_SAMPLES = 2048;

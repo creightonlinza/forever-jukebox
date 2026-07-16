@@ -40,8 +40,10 @@ const doubles = vi.hoisted(() => {
       isPlaying: vi.fn(() => player.isPlayingValue),
       getDuration: vi.fn(() => 120),
       getContext: vi.fn(() => context),
+      getOverlayDestination: vi.fn(() => ({})),
       getPlaybackRate: vi.fn(() => 1),
       setJukeboxAudioMode: vi.fn(),
+      setJukeboxAudioModeIntensity: vi.fn(),
     };
     return player;
   };
@@ -697,7 +699,10 @@ describe("cast receiver main", () => {
     await vi.advanceTimersByTimeAsync(2100);
     await flushMicrotasks();
 
-    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("eight_d");
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "eight_d",
+      100,
+    );
     const statusCall =
       harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
     const status = statusCall?.[2] as
@@ -831,7 +836,10 @@ describe("cast receiver main", () => {
     });
     await flushMicrotasks();
 
-    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("lofi");
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "lofi",
+      100,
+    );
     expect(engine?.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
     expect(doubles.applyCastTuningToEngineMock).not.toHaveBeenCalledWith(
       engine,
@@ -852,6 +860,145 @@ describe("cast receiver main", () => {
         audioMode: "lofi",
       },
     });
+  });
+
+  it("applies audio intensity from a setTuning command", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: "nightcore",
+      hasAudioModeParam: true,
+      hasGraphTuning: false,
+      highlightAnchorBranch: false,
+      audioIntensity: 130,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "am=nightcore&ai=130" },
+    });
+    await flushMicrotasks();
+
+    const player = doubles.playerInstances[0];
+    expect(player?.setJukeboxAudioMode).toHaveBeenCalledWith("nightcore", 130);
+    const statusCall =
+      harness.sendCustomMessage.mock.calls[harness.sendCustomMessage.mock.calls.length - 1];
+    const status = statusCall?.[2] as Record<string, unknown> | undefined;
+    expect(status).toMatchObject({
+      type: "status",
+      tuning: {
+        audioMode: "nightcore",
+        audioIntensity: 130,
+      },
+    });
+  });
+
+  it("carries stored intensity into graph updates only while the sender omits the mode", async () => {
+    const jobId = "a3f3c0dc73c6476c9db95c227f9206f2";
+    doubles.fetchAnalysisMock.mockResolvedValue({
+      status: "complete",
+      id: jobId,
+      created_at: "2026-04-17T00:57:46.945271+00:00",
+      result: { track: { duration: 123 } },
+      track: { title: "Track", artist: "Artist", duration: 123 },
+    });
+    doubles.fetchAudioMock.mockResolvedValue(new ArrayBuffer(8));
+    doubles.recordPlayMock.mockResolvedValue(undefined);
+
+    const harness = setupCastHarness();
+    await bootstrapReceiver();
+    harness.getLoadInterceptor()?.({ customData: { jobId } });
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(2100);
+    await flushMicrotasks();
+
+    // put the receiver into nightcore @ 130 via an audio-only update
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: "nightcore",
+      hasAudioModeParam: true,
+      hasGraphTuning: false,
+      highlightAnchorBranch: false,
+      audioIntensity: 130,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "am=nightcore&ai=130" },
+    });
+    await flushMicrotasks();
+
+    const lastAppliedParams = () => {
+      const applyCall =
+        doubles.applyCastTuningToEngineMock.mock.calls[
+          doubles.applyCastTuningToEngineMock.mock.calls.length - 1
+        ];
+      return new URLSearchParams(applyCall?.[2] as string);
+    };
+
+    // a graph-only update says nothing about audio, so the receiver carries
+    // its own mode and intensity over
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: null,
+      hasAudioModeParam: false,
+      hasGraphTuning: true,
+      highlightAnchorBranch: false,
+      audioIntensity: 100,
+    });
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: {
+        audioMode: "nightcore",
+        hasAudioModeParam: true,
+        hasGraphTuning: true,
+        audioIntensity: 130,
+      },
+      highlightOnly: false,
+      highlightAnchorBranch: false,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "thresh=35" },
+    });
+    await flushMicrotasks();
+    expect(lastAppliedParams().get("am")).toBe("nightcore");
+    expect(lastAppliedParams().get("ai")).toBe("130");
+
+    // but a graph update that carries `am` without `ai` means "default
+    // intensity" (that's how a reset to 100% arrives) — the receiver must
+    // not re-inject its stored 130
+    doubles.parseCastTuningParamsMock.mockReturnValue({
+      audioMode: "nightcore",
+      hasAudioModeParam: true,
+      hasGraphTuning: true,
+      highlightAnchorBranch: false,
+      audioIntensity: 100,
+    });
+    doubles.applyCastTuningToEngineMock.mockReturnValue({
+      parsed: {
+        audioMode: "nightcore",
+        hasAudioModeParam: true,
+        hasGraphTuning: true,
+        audioIntensity: 100,
+      },
+      highlightOnly: false,
+      highlightAnchorBranch: false,
+    });
+    harness.getMessageListener()?.({
+      data: { type: "setTuning", tuningParams: "thresh=35&am=nightcore" },
+    });
+    await flushMicrotasks();
+    expect(lastAppliedParams().get("am")).toBe("nightcore");
+    expect(lastAppliedParams().get("ai")).toBeNull();
   });
 
   it("enables cowbell mode from a setTuning command without refreshing viz data", async () => {
@@ -892,7 +1039,10 @@ describe("cast receiver main", () => {
 
     expect(cowbell?.enable).toHaveBeenCalledTimes(1);
     expect(cowbell?.disable).not.toHaveBeenCalled();
-    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("cowbell");
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "cowbell",
+      100,
+    );
     expect(document.querySelector("#cast-beats-label")?.textContent).toBe(
       "Total Cowbells:",
     );
@@ -949,7 +1099,10 @@ describe("cast receiver main", () => {
     await flushMicrotasks();
 
     expect(cowbell?.disable).toHaveBeenCalledTimes(1);
-    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("lofi");
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "lofi",
+      100,
+    );
   });
 
   it("schedules cowbell hits on beat changes only while cowbell mode is active", async () => {
@@ -1096,7 +1249,10 @@ describe("cast receiver main", () => {
       data: { type: "setTuning", tuningParams: "am=lofi" },
     });
     await flushMicrotasks();
-    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith("lofi");
+    expect(doubles.playerInstances[0]?.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "lofi",
+      100,
+    );
     doubles.playerInstances[0]?.setJukeboxAudioMode.mockClear();
     harness.sendCustomMessage.mockClear();
 

@@ -46,6 +46,7 @@ import {
   applyTuningParamsFromUrl,
   clearTuningParamsFromUrl,
   getTuningParamsStringFromUrl,
+  resetAudioModeToOff,
   syncTuningParamsState,
   writeTuningParamsToUrl,
 } from "../tuning";
@@ -162,8 +163,7 @@ export function resetForNewTrack(
     useAppStore.getState().lastTrackId !== null ||
     useAppStore.getState().trackTitle !== null;
   if (hadTrackLoaded) {
-    useAppStore.setState({ jukeboxAudioMode: "off" });
-    player.setJukeboxAudioMode("off");
+    resetAudioModeToOff(player);
   }
   cowbellOverlay.disable();
   cowbellOverlay.setSectionStartBeatIndices([]);

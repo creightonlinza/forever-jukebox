@@ -6,21 +6,24 @@ import { useAppStore } from "../store";
 import {
   getAnchorBranchIdFromUrl,
   getDeletedEdgeIdsFromUrl,
+  resetAudioModeToOff,
   syncTuningParamsState,
   writeTuningParamsToUrl,
 } from "../tuning";
 import { showToast } from "../ui";
 import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
 import {
+  audioModeChangeAffectsPlayback,
+  clampAudioModeIntensity,
+  setAudioModeIntensityParam,
+} from "@forever-jukebox/shared/audio/audioModes";
+import {
   closeTuning,
-  syncVolumeUI,
   updatePlayButton,
   updateTrackInfo,
 } from "./status-ui";
 import { canPrepareSwingMode, prepareSwingMode } from "./swing";
 import i18n from "../i18n";
-
-const DEFAULT_VOLUME = 0.5;
 
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
 
@@ -99,16 +102,23 @@ export type ExtrasFormValues = {
   bringItHomeMode: boolean;
   branchStatsEnabled: boolean;
   audioMode: JukeboxAudioMode;
+  audioIntensity: number;
 };
 
 export function getExtrasFormValues(): ExtrasFormValues {
-  const { playMode, bringItHomeMode, branchStatsEnabled, jukeboxAudioMode } =
-    useAppStore.getState();
+  const {
+    playMode,
+    bringItHomeMode,
+    branchStatsEnabled,
+    jukeboxAudioMode,
+    audioIntensity,
+  } = useAppStore.getState();
   const inJukeboxMode = playMode === "jukebox";
   return {
     bringItHomeMode: inJukeboxMode && bringItHomeMode,
     branchStatsEnabled: inJukeboxMode && branchStatsEnabled,
     audioMode: jukeboxAudioMode,
+    audioIntensity,
   };
 }
 
@@ -119,6 +129,7 @@ export function applyExtrasChanges(
   const { cowbellOverlay, engine, player } = context;
   const previousBranchStatsEnabled = useAppStore.getState().branchStatsEnabled;
   const previousAudioMode = useAppStore.getState().jukeboxAudioMode;
+  const previousAudioIntensity = useAppStore.getState().audioIntensity;
   useAppStore.setState({
     bringItHomeMode:
       useAppStore.getState().playMode === "jukebox" && values.bringItHomeMode,
@@ -137,13 +148,18 @@ export function applyExtrasChanges(
   }
   storeBranchStatsEnabled(useAppStore.getState().branchStatsEnabled);
   const nextAudioMode = values.audioMode;
-  useAppStore.setState({ jukeboxAudioMode: nextAudioMode });
+  const nextAudioIntensity = clampAudioModeIntensity(values.audioIntensity);
+  useAppStore.setState({
+    jukeboxAudioMode: nextAudioMode,
+    audioIntensity: nextAudioIntensity,
+  });
   if (nextAudioMode === "cowbell") {
     cowbellOverlay.enable();
   } else {
     cowbellOverlay.disable();
   }
   if (nextAudioMode === "swing") {
+    player.setJukeboxAudioModeIntensity(nextAudioIntensity);
     if (canPrepareSwingMode(context)) {
       prepareSwingMode(context);
     } else {
@@ -156,9 +172,14 @@ export function applyExtrasChanges(
       swingRenderToken: useAppStore.getState().swingRenderToken + (1),
     });
     useAppStore.setState({ swingPreparing: false });
-    player.setJukeboxAudioMode(nextAudioMode);
+    player.setJukeboxAudioMode(nextAudioMode, nextAudioIntensity);
     if (
-      previousAudioMode !== nextAudioMode &&
+      audioModeChangeAffectsPlayback(
+        previousAudioMode,
+        nextAudioMode,
+        previousAudioIntensity,
+        nextAudioIntensity,
+      ) &&
       useAppStore.getState().playMode === "jukebox" &&
       (useAppStore.getState().isRunning || useAppStore.getState().isPaused)
     ) {
@@ -189,8 +210,7 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
     swingRenderToken: useAppStore.getState().swingRenderToken + (1),
   });
   useAppStore.setState({ swingPreparing: false });
-  useAppStore.setState({ jukeboxAudioMode: "off" });
-  player.setJukeboxAudioMode("off");
+  resetAudioModeToOff(player);
   updatePlayButton();
   if (
     previousAudioMode !== "off" &&
@@ -321,7 +341,7 @@ export function applyTuningChanges(
 }
 
 export function resetTuningDefaults(context: AppContext) {
-  const { autocanonizer, cowbellOverlay, engine, jukebox, player } = context;
+  const { engine, jukebox } = context;
   engine.clearDeletedEdges();
   engine.updateConfig(context.defaultConfig);
   engine.rebuildGraph();
@@ -337,16 +357,13 @@ export function resetTuningDefaults(context: AppContext) {
     ? Math.round(graph.currentThreshold)
     : null
   });
+  const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
+  const audioModeParams = new URLSearchParams({ am: jukeboxAudioMode });
+  setAudioModeIntensityParam(audioModeParams, jukeboxAudioMode, audioIntensity);
   useAppStore.setState({
     tuningParams:
-      useAppStore.getState().jukeboxAudioMode === "off"
-        ? null
-        : new URLSearchParams({ am: useAppStore.getState().jukeboxAudioMode }).toString(),
+      jukeboxAudioMode === "off" ? null : audioModeParams.toString(),
   });
   writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
-  player.setVolume(DEFAULT_VOLUME);
-  autocanonizer?.setVolume(DEFAULT_VOLUME);
-  cowbellOverlay.setVolume(DEFAULT_VOLUME);
-  syncVolumeUI(context);
   updateTrackInfo(context);
 }

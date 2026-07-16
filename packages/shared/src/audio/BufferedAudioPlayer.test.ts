@@ -48,6 +48,16 @@ class MockWaveShaperNode {
   disconnect = vi.fn();
 }
 
+class MockDynamicsCompressorNode {
+  threshold = { value: -24 };
+  knee = { value: 30 };
+  ratio = { value: 12 };
+  attack = { value: 0.003 };
+  release = { value: 0.25 };
+  connect = vi.fn();
+  disconnect = vi.fn();
+}
+
 class MockAudioContext {
   currentTime = 0;
   destination = {};
@@ -58,6 +68,7 @@ class MockAudioContext {
   createdConvolvers: MockConvolverNode[] = [];
   createdPanners: MockStereoPannerNode[] = [];
   createdWaveShapers: MockWaveShaperNode[] = [];
+  createdCompressors: MockDynamicsCompressorNode[] = [];
   createdBuffers: AudioBuffer[] = [];
   createGain() {
     const gain = new MockGainNode();
@@ -83,6 +94,11 @@ class MockAudioContext {
     const shaper = new MockWaveShaperNode();
     this.createdWaveShapers.push(shaper);
     return shaper;
+  }
+  createDynamicsCompressor() {
+    const compressor = new MockDynamicsCompressorNode();
+    this.createdCompressors.push(compressor);
+    return compressor;
   }
   createBuffer(channels: number, length: number, sampleRate: number) {
     const data = Array.from({ length: channels }, () => new Float32Array(length));
@@ -247,6 +263,130 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdConvolvers.length).toBeGreaterThan(0);
   });
 
+  it("scales the nightcore chain and rate with intensity", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore");
+    player.setJukeboxAudioModeIntensity(150);
+    player.play();
+
+    const highPass = context.createdBiquads
+      .filter((node) => node.type === "highpass")
+      .at(-1);
+    expect(highPass?.frequency.value).toBeCloseTo(150 * 2 ** 0.5, 6);
+    expect(context.createdSources[0]?.playbackRate.value).toBeCloseTo(1.3, 10);
+    expect(player.getPlaybackRate()).toBeCloseTo(1.3, 10);
+  });
+
+  it("scales vaporwave reverb and lowpass with intensity", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("vaporwave");
+    player.setJukeboxAudioModeIntensity(50);
+    player.play();
+
+    const lowPass = context.createdBiquads
+      .filter((node) => node.type === "lowpass")
+      .at(-1);
+    expect(lowPass?.frequency.value).toBeCloseTo(1000 * 2 ** 0.5, 6);
+    expect(context.createdSources[0]?.playbackRate.value).toBeCloseTo(0.825, 10);
+    const wetGain = context.createdGains.at(-1);
+    expect(wetGain?.gain.value).toBeCloseTo(0.3, 10);
+  });
+
+  it("ignores a repeated intensity value without rebuilding the chain", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore");
+    player.setJukeboxAudioModeIntensity(120);
+    const biquadCount = context.createdBiquads.length;
+    player.setJukeboxAudioModeIntensity(120);
+    expect(context.createdBiquads.length).toBe(biquadCount);
+  });
+
+  it("stores intensity without rebuilding for unsupported modes and applies it on switch", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("lofi");
+    const biquadCount = context.createdBiquads.length;
+    player.setJukeboxAudioModeIntensity(150);
+    expect(context.createdBiquads.length).toBe(biquadCount);
+    const bandPass = context.createdBiquads.find((node) => node.type === "bandpass");
+    expect(bandPass?.frequency.value).toBe(2000);
+
+    player.setJukeboxAudioMode("nightcore");
+    expect(player.getPlaybackRate()).toBeCloseTo(1.3, 10);
+    expect(player.getJukeboxAudioModeIntensity()).toBe(150);
+  });
+
+  it("restarts a playing source at the current offset when intensity changes", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 30 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore");
+    player.play();
+    context.currentTime = 5;
+    const sourcesBefore = context.createdSources.length;
+
+    player.setJukeboxAudioModeIntensity(150);
+
+    expect(context.createdSources.length).toBeGreaterThan(sourcesBefore);
+    expect(context.createdSources.at(-1)?.playbackRate.value).toBeCloseTo(1.3, 10);
+    expect(player.isPlaying()).toBe(true);
+  });
+
+  it("updates chain params in place on an intensity-only change", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore");
+    player.play();
+    const biquadCount = context.createdBiquads.length;
+    const sourceCount = context.createdSources.length;
+
+    player.setJukeboxAudioModeIntensity(150);
+
+    // no chain teardown/rebuild — the existing filter is rescaled and the
+    // source restarts exactly once for the new rate
+    expect(context.createdBiquads.length).toBe(biquadCount);
+    expect(context.createdSources.length).toBe(sourceCount + 1);
+    const highPass = context.createdBiquads
+      .filter((node) => node.type === "highpass")
+      .at(-1);
+    expect(highPass?.frequency.value).toBeCloseTo(150 * 2 ** 0.5, 6);
+  });
+
+  it("applies a combined mode+intensity change with a single source restart", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore", 120);
+    player.play();
+    const sourceCount = context.createdSources.length;
+
+    player.setJukeboxAudioMode("vaporwave", 80);
+
+    expect(context.createdSources.length).toBe(sourceCount + 1);
+    expect(player.getJukeboxAudioModeIntensity()).toBe(80);
+    expect(player.getPlaybackRate()).toBeCloseTo(1 + (0.65 - 1) * 0.8, 10);
+    expect(context.createdSources.at(-1)?.playbackRate.value).toBeCloseTo(
+      1 + (0.65 - 1) * 0.8,
+      10,
+    );
+  });
+
+  it("clamps intensity to the supported range", () => {
+    const player = new BufferedAudioPlayer();
+    player.setJukeboxAudioModeIntensity(500);
+    expect(player.getJukeboxAudioModeIntensity()).toBe(150);
+    player.setJukeboxAudioModeIntensity(0);
+    expect(player.getJukeboxAudioModeIntensity()).toBe(50);
+  });
+
   it("builds lofi chain with bandpass filter", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
@@ -379,6 +519,37 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.start).toHaveBeenCalledWith(0, 0, 2);
 
     player.stop();
+  });
+
+  it("routes output through a 0dBFS safety limiter after master gain", () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+
+    const limiter = context.createdCompressors[0];
+    const masterGain = context.createdGains[0];
+    const panner = context.createdPanners[0];
+    expect(limiter).toBeDefined();
+    expect(limiter?.threshold.value).toBe(0);
+    expect(limiter?.knee.value).toBe(0);
+    expect(limiter?.ratio.value).toBe(20);
+    expect(panner?.connect).toHaveBeenCalledWith(masterGain);
+    expect(masterGain?.connect).toHaveBeenCalledWith(limiter);
+    expect(limiter?.connect).toHaveBeenCalledWith(context.destination);
+    expect(player.getOverlayDestination()).toBe(limiter);
+  });
+
+  it("connects master gain directly to destination without compressor support", () => {
+    const context = new MockAudioContext();
+    (context as { createDynamicsCompressor?: unknown }).createDynamicsCompressor =
+      undefined;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+
+    const masterGain = context.createdGains[0];
+    const panner = context.createdPanners[0];
+    expect(context.createdCompressors).toHaveLength(0);
+    expect(panner?.connect).toHaveBeenCalledWith(masterGain);
+    expect(masterGain?.connect).toHaveBeenCalledWith(context.destination);
+    expect(player.getOverlayDestination()).toBe(context.destination);
   });
 
   it("keeps normal mode on the continuous source path", async () => {

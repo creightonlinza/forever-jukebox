@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import {
+  MAX_AUDIO_MODE_INTENSITY,
+  MIN_AUDIO_MODE_INTENSITY,
+  audioModeSupportsIntensity,
+} from "@forever-jukebox/shared/audio/audioModes";
+import {
   applyTuningChanges,
   getExtrasFormValues,
   getTuningFormValues,
@@ -406,6 +411,18 @@ export function TuningModal() {
                       (option) => option.section === "styles",
                     ).map(audioModeOption)}
                   </div>
+                  {extras && audioModeSupportsIntensity(extras.audioMode) ? (
+                    <RangeRow
+                      id="audio-intensity"
+                      label={t("tuning.audioIntensity")}
+                      valueText={`${extras.audioIntensity}%`}
+                      min={MIN_AUDIO_MODE_INTENSITY}
+                      max={MAX_AUDIO_MODE_INTENSITY}
+                      step={5}
+                      value={extras.audioIntensity}
+                      onChange={(value) => setExtrasField("audioIntensity", value)}
+                    />
+                  ) : null}
                 </div>
                 <div className="audio-mode-section">
                   <div className="audio-mode-section-title">{t("tuning.remixToys")}</div>

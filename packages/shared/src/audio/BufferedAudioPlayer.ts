@@ -1,9 +1,15 @@
 import {
   AUDIO_MODE_SETTINGS,
+  DEFAULT_AUDIO_MODE_INTENSITY,
   PAN_STEP,
   REVERB_SECONDS,
+  audioModeSupportsIntensity,
+  clampAudioModeIntensity,
   createBitcrusherCurve,
+  createSafetyLimiter,
+  getAudioModeSettings,
   renderBitcrushedBuffer,
+  type AudioModeSettings,
   type JukeboxAudioMode,
 } from "./audioModes";
 
@@ -43,8 +49,13 @@ export class BufferedAudioPlayer {
   private readonly masterGain: GainNode;
   private readonly sourceChainInput: GainNode;
   private readonly sourceChainOutput: GainNode;
+  private limiter: DynamicsCompressorNode | null = null;
   private stereoPanner: StereoPannerNode | null = null;
   private chainNodes: AudioNode[] = [];
+  private chainHighPass: BiquadFilterNode | null = null;
+  private chainLowPass: BiquadFilterNode | null = null;
+  private chainDryGain: GainNode | null = null;
+  private chainWetGain: GainNode | null = null;
   private readonly reverbImpulseBuffers = new Map<string, AudioBuffer>();
   private volume = 1;
   private startAt = 0;
@@ -54,6 +65,7 @@ export class BufferedAudioPlayer {
   private loadGeneration = 0;
   private onEnded: (() => void) | null = null;
   private audioMode: JukeboxAudioMode = "off";
+  private intensityPct = DEFAULT_AUDIO_MODE_INTENSITY;
   private playbackRate = AUDIO_MODE_SETTINGS.off.rate;
   private panAngle = 0;
   private panFrameId: number | null = null;
@@ -64,7 +76,16 @@ export class BufferedAudioPlayer {
     this.context = context ?? new AudioContext();
     this.masterGain = this.context.createGain();
     this.masterGain.gain.value = this.volume;
-    this.masterGain.connect(this.context.destination);
+    // The limiter sits after masterGain so overlays (see
+    // getOverlayDestination) can join post-volume and share both the limiting
+    // and the node's small lookahead latency.
+    this.limiter = createSafetyLimiter(this.context);
+    if (this.limiter) {
+      this.masterGain.connect(this.limiter);
+      this.limiter.connect(this.context.destination);
+    } else {
+      this.masterGain.connect(this.context.destination);
+    }
     this.sourceChainInput = this.context.createGain();
     this.sourceChainOutput = this.context.createGain();
     if (typeof this.context.createStereoPanner === "function") {
@@ -114,6 +135,14 @@ export class BufferedAudioPlayer {
 
   getContext(): AudioContext {
     return this.context;
+  }
+
+  // Where overlay services (e.g. cowbell) should connect instead of the raw
+  // context destination, so their hits pass through the same safety limiter
+  // as the music and stay time-aligned with its lookahead latency. Sits after
+  // masterGain, so overlays manage their own volume as before.
+  getOverlayDestination(): AudioNode {
+    return this.limiter ?? this.context.destination;
   }
 
   play() {
@@ -216,32 +245,16 @@ export class BufferedAudioPlayer {
     return this.volume;
   }
 
-  setJukeboxAudioMode(mode: JukeboxAudioMode) {
-    if (mode === this.audioMode) {
-      return;
-    }
-    const shouldResume = this.playing && this.buffer !== null;
-    const resumeOffset = shouldResume ? this.getCurrentTime() : this.offset;
-    this.audioMode = mode;
-    this.playbackRate = AUDIO_MODE_SETTINGS[mode].rate;
-    if (mode === "eight_bit") {
-      this.renderEightBitBuffer();
-    }
-    this.releaseInactiveRenderedModeBuffers(mode);
-    this.reverbImpulseBuffers.clear();
-    this.buffer = this.getActiveBuffer();
-    this.rebuildSourceChain();
-    this.syncPanMotion();
-    if (!this.buffer) {
-      return;
-    }
-    this.offset = Math.max(0, Math.min(this.buffer.duration, resumeOffset));
-    if (!shouldResume) {
-      return;
-    }
-    const now = this.context.currentTime;
-    this.stopSource();
-    this.startSourceAt(this.offset, now);
+  // Pass `intensityPct` when changing both mode and intensity so the combined
+  // change does a single chain rebuild + source restart. Omitting it keeps the
+  // current intensity.
+  setJukeboxAudioMode(mode: JukeboxAudioMode, intensityPct?: number) {
+    this.applyModeAndIntensity(
+      mode,
+      intensityPct === undefined
+        ? this.intensityPct
+        : clampAudioModeIntensity(intensityPct),
+    );
   }
 
   private releaseInactiveRenderedModeBuffers(activeMode: JukeboxAudioMode) {
@@ -312,6 +325,65 @@ export class BufferedAudioPlayer {
 
   getJukeboxAudioMode(): JukeboxAudioMode {
     return this.audioMode;
+  }
+
+  setJukeboxAudioModeIntensity(intensityPct: number) {
+    this.applyModeAndIntensity(
+      this.audioMode,
+      clampAudioModeIntensity(intensityPct),
+    );
+  }
+
+  private applyModeAndIntensity(mode: JukeboxAudioMode, intensityPct: number) {
+    const modeChanged = mode !== this.audioMode;
+    if (!modeChanged && intensityPct === this.intensityPct) {
+      return;
+    }
+    this.audioMode = mode;
+    this.intensityPct = intensityPct;
+    if (!modeChanged && !audioModeSupportsIntensity(mode)) {
+      // Intensity is inaudible for this mode — store it for the next switch
+      // to a mode that supports it.
+      return;
+    }
+    const shouldResume = this.playing && this.buffer !== null;
+    const resumeOffset = shouldResume ? this.getCurrentTime() : this.offset;
+    const settings = this.getActiveModeSettings();
+    this.playbackRate = settings.rate;
+    if (modeChanged) {
+      if (mode === "eight_bit") {
+        this.renderEightBitBuffer();
+      }
+      this.releaseInactiveRenderedModeBuffers(mode);
+      this.reverbImpulseBuffers.clear();
+      this.buffer = this.getActiveBuffer();
+      this.rebuildSourceChain();
+      this.syncPanMotion();
+    } else {
+      // Intensity only scales AudioParams (rate, filter cutoffs, reverb mix)
+      // and never changes a mode's chain topology, so write the params in
+      // place instead of tearing down the node graph. The source restart
+      // below still applies the new playback rate.
+      this.updateSourceChainParams(settings);
+    }
+    if (!this.buffer) {
+      return;
+    }
+    this.offset = Math.max(0, Math.min(this.buffer.duration, resumeOffset));
+    if (!shouldResume) {
+      return;
+    }
+    const now = this.context.currentTime;
+    this.stopSource();
+    this.startSourceAt(this.offset, now);
+  }
+
+  getJukeboxAudioModeIntensity(): number {
+    return this.intensityPct;
+  }
+
+  private getActiveModeSettings(): AudioModeSettings {
+    return getAudioModeSettings(this.audioMode, this.intensityPct);
   }
 
   getPlaybackRate(): number {
@@ -723,7 +795,7 @@ export class BufferedAudioPlayer {
 
   private rebuildSourceChain() {
     this.clearSourceChain();
-    const settings = AUDIO_MODE_SETTINGS[this.audioMode];
+    const settings = this.getActiveModeSettings();
     let lastNode: AudioNode = this.sourceChainInput;
 
     if (settings.highPassFrequency !== null) {
@@ -731,6 +803,7 @@ export class BufferedAudioPlayer {
       highPass.type = "highpass";
       highPass.frequency.value = settings.highPassFrequency;
       this.chainNodes.push(highPass);
+      this.chainHighPass = highPass;
       lastNode.connect(highPass);
       lastNode = highPass;
     }
@@ -749,6 +822,7 @@ export class BufferedAudioPlayer {
       lowPass.type = settings.useBandPass ? "bandpass" : "lowpass";
       lowPass.frequency.value = settings.lowPassFrequency;
       this.chainNodes.push(lowPass);
+      this.chainLowPass = lowPass;
       lastNode.connect(lowPass);
       lastNode = lowPass;
     }
@@ -764,6 +838,8 @@ export class BufferedAudioPlayer {
         settings.reverbDecay ?? 2,
       );
       this.chainNodes.push(dryGain, wetGain, reverb);
+      this.chainDryGain = dryGain;
+      this.chainWetGain = wetGain;
       lastNode.connect(dryGain);
       dryGain.connect(this.sourceChainOutput);
       lastNode.connect(reverb);
@@ -789,10 +865,29 @@ export class BufferedAudioPlayer {
       }
     }
     this.chainNodes = [];
+    this.chainHighPass = null;
+    this.chainLowPass = null;
+    this.chainDryGain = null;
+    this.chainWetGain = null;
+  }
+
+  private updateSourceChainParams(settings: AudioModeSettings) {
+    if (this.chainHighPass && settings.highPassFrequency !== null) {
+      this.chainHighPass.frequency.value = settings.highPassFrequency;
+    }
+    if (this.chainLowPass && settings.lowPassFrequency !== null) {
+      this.chainLowPass.frequency.value = settings.lowPassFrequency;
+    }
+    if (this.chainDryGain) {
+      this.chainDryGain.gain.value = settings.dryMix ?? 1;
+    }
+    if (this.chainWetGain) {
+      this.chainWetGain.gain.value = settings.reverbMix;
+    }
   }
 
   private syncPanMotion() {
-    const settings = AUDIO_MODE_SETTINGS[this.audioMode];
+    const settings = this.getActiveModeSettings();
     if (!settings.pan || !this.playing || !this.stereoPanner) {
       this.stopPanMotion();
       return;
@@ -805,7 +900,7 @@ export class BufferedAudioPlayer {
       return;
     }
     const tick = () => {
-      const currentSettings = AUDIO_MODE_SETTINGS[this.audioMode];
+      const currentSettings = this.getActiveModeSettings();
       if (!this.playing || !currentSettings.pan || !this.stereoPanner) {
         this.stopPanMotion();
         return;
@@ -875,6 +970,14 @@ export class BufferedAudioPlayer {
         // no-op
       }
       this.stereoPanner = null;
+    }
+    if (this.limiter) {
+      try {
+        this.limiter.disconnect();
+      } catch {
+        // no-op
+      }
+      this.limiter = null;
     }
     if (this.context.state !== "closed") {
       try {

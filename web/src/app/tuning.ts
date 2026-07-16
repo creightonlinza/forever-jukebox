@@ -1,6 +1,11 @@
 import type { AppContext } from "./context";
 import { useAppStore } from "./store";
 import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
+import {
+  DEFAULT_AUDIO_MODE_INTENSITY,
+  parseAudioModeIntensityParam,
+  setAudioModeIntensityParam,
+} from "@forever-jukebox/shared/audio/audioModes";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
 const MAX_RANDOM_BRANCH_DELTA = 0.2;
@@ -13,6 +18,7 @@ const TUNING_PARAM_KEYS = [
   "bp",
   "d",
   "am",
+  "ai",
   "ab",
 ];
 const MIN_LONG_BRANCH_PERCENT_OPTIONS = new Set([5, 10, 20, 30]);
@@ -163,14 +169,18 @@ export function applyTuningParamsToEngine(
   context.engine.updateConfig(nextConfig);
   const audioMode = parseAudioMode(params.get("am"));
   if (audioMode) {
-    useAppStore.setState({ jukeboxAudioMode: audioMode });
+    const audioIntensity = parseAudioModeIntensityParam(
+      params.get("ai"),
+      audioMode,
+    );
+    useAppStore.setState({ jukeboxAudioMode: audioMode, audioIntensity });
     if (audioMode === "cowbell") {
       context.cowbellOverlay.enable();
     } else {
       context.cowbellOverlay.disable();
     }
     if (audioMode !== "swing") {
-      context.player.setJukeboxAudioMode(audioMode);
+      context.player.setJukeboxAudioMode(audioMode, audioIntensity);
     }
   }
   return true;
@@ -241,10 +251,22 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
   if (anchorBranchId !== null) {
     params.set("ab", `${anchorBranchId}`);
   }
-  if (useAppStore.getState().jukeboxAudioMode !== "off") {
-    params.set("am", useAppStore.getState().jukeboxAudioMode);
+  const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
+  if (jukeboxAudioMode !== "off") {
+    params.set("am", jukeboxAudioMode);
+    setAudioModeIntensityParam(params, jukeboxAudioMode, audioIntensity);
   }
   return params;
+}
+
+// The audio-mode reset shared by track loads and tuning resets: store slice
+// and player return to "off" at default intensity in one step.
+export function resetAudioModeToOff(player: AppContext["player"]) {
+  useAppStore.setState({
+    jukeboxAudioMode: "off",
+    audioIntensity: DEFAULT_AUDIO_MODE_INTENSITY,
+  });
+  player.setJukeboxAudioMode("off", DEFAULT_AUDIO_MODE_INTENSITY);
 }
 
 export function syncTuningParamsState(context: AppContext): string | null {

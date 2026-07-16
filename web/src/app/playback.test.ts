@@ -212,6 +212,7 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     stop: vi.fn(),
     seek: vi.fn(),
     setJukeboxAudioMode: vi.fn(),
+    setJukeboxAudioModeIntensity: vi.fn(),
     getSourceBuffer: vi.fn(() => null),
     setRenderedJukeboxAudioBuffer: vi.fn(),
   };
@@ -415,7 +416,10 @@ describe("playback tuning", () => {
     expect(useAppStore.getState().branchStatsEnabled).toBe(true);
     expect(useAppStore.getState().jukeboxAudioMode).toBe("daycore");
     expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("1");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("daycore");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "daycore",
+      100,
+    );
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
   });
 
@@ -446,6 +450,70 @@ describe("playback tuning", () => {
     expect(branchStats?.endBeatText).toBe("2");
   });
 
+  it("applies audio intensity from extras controls and writes the url param", () => {
+    const context = createContext();
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({ playMode: "jukebox" });
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 130,
+    });
+
+    expect(useAppStore.getState().audioIntensity).toBe(130);
+    // mode and intensity land in one atomic call so the player rebuilds its
+    // chain and restarts the source exactly once for the combined change
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "nightcore",
+      130,
+    );
+    expect(context.player.setJukeboxAudioModeIntensity).not.toHaveBeenCalled();
+    expect(window.location.search).toContain("am=nightcore");
+    expect(window.location.search).toContain("ai=130");
+  });
+
+  it("omits the intensity url param at the default value", () => {
+    const context = createContext();
+    useAppStore.setState({ playMode: "jukebox" });
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 100,
+    });
+
+    expect(window.location.search).toContain("am=nightcore");
+    expect(window.location.search).not.toContain("ai=");
+  });
+
+  it("resyncs the engine on an intensity-only change", () => {
+    const context = createContext();
+    useAppStore.setState({ isRunning: true });
+    useAppStore.setState({ playMode: "jukebox" });
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 100,
+    });
+    expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 120,
+    });
+    expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(2);
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+      audioIntensity: 120,
+    });
+    expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(2);
+  });
+
   it("applies cowbell as an audio mode from extras controls", () => {
     const context = createContext();
     useAppStore.setState({ playMode: "jukebox" });
@@ -458,7 +526,10 @@ describe("playback tuning", () => {
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
     expect(useAppStore.getState().jukeboxAudioMode).toBe("cowbell");
     expect(context.cowbellOverlay.enable).toHaveBeenCalledTimes(1);
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cowbell");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "cowbell",
+      100,
+    );
     expect(window.location.search).toContain("am=cowbell");
   });
 
@@ -474,7 +545,10 @@ describe("playback tuning", () => {
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
     expect(useAppStore.getState().jukeboxAudioMode).toBe("eight_bit");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("eight_bit");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "eight_bit",
+      100,
+    );
     expect(window.location.search).toContain("am=eight_bit");
   });
 
@@ -488,7 +562,10 @@ describe("playback tuning", () => {
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
     expect(useAppStore.getState().jukeboxAudioMode).toBe("underwater");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("underwater");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "underwater",
+      100,
+    );
     expect(window.location.search).toContain("am=underwater");
   });
 
@@ -502,7 +579,10 @@ describe("playback tuning", () => {
 
     expect(result).toEqual({ branchStatsChanged: false, audioModeChanged: true });
     expect(useAppStore.getState().jukeboxAudioMode).toBe("cathedral");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("cathedral");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "cathedral",
+      100,
+    );
     expect(window.location.search).toContain("am=cathedral");
   });
 
@@ -585,10 +665,13 @@ describe("playback tuning", () => {
     useAppStore.setState({ branchStatsEnabled: true });
     useAppStore.setState({ bringItHomeMode: true });
     useAppStore.setState({ jukeboxAudioMode: "nightcore" });
+    useAppStore.setState({ audioIntensity: 130 });
 
     const result = resetExtrasDefaults(context);
 
     expect(result).toEqual({ branchStatsChanged: true, audioModeChanged: true });
+    expect(useAppStore.getState().audioIntensity).toBe(100);
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("off", 100);
     expect(useAppStore.getState().branchStatsEnabled).toBe(false);
     expect(localStorage.getItem("fj-branch-stats-enabled")).toBe("0");
     expect(useAppStore.getState().bringItHomeMode).toBe(false);
@@ -623,7 +706,7 @@ describe("playback tuning", () => {
     resetForNewTrack(context);
 
     expect(useAppStore.getState().jukeboxAudioMode).toBe("off");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("off");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("off", 100);
     expect(window.location.search).not.toContain("am=daycore");
   });
 
@@ -875,7 +958,10 @@ describe("playback tuning", () => {
 
     expect(applied).toBe(true);
     expect(useAppStore.getState().jukeboxAudioMode).toBe("daycore");
-    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith("daycore");
+    expect(context.player.setJukeboxAudioMode).toHaveBeenCalledWith(
+      "daycore",
+      100,
+    );
     expect(context.cowbellOverlay.setSectionStartBeatIndices).toHaveBeenCalledWith([
       4,
       12,

@@ -5,7 +5,7 @@ import {
   type EncodedAudioFormat,
 } from "@/core/infrastructure/audio/ffmpegAudio";
 import {
-  AUDIO_MODE_SETTINGS,
+  getAudioModeSettings,
   type JukeboxAudioMode,
 } from "@forever-jukebox/shared/audio/audioModes";
 import type { JukeboxConfig, RandomMode } from "@forever-jukebox/shared";
@@ -46,6 +46,7 @@ export interface ExportJukeboxAudioOptions {
   bitrateKbps?: number;
   gain?: number;
   audioMode: JukeboxAudioMode;
+  audioIntensityPct?: number;
   sectionStartBeatIndices?: number[];
   swingBuffer?: AudioBuffer;
   randomMode?: RandomMode;
@@ -86,7 +87,10 @@ export async function exportJukeboxAudio(
     options.audioMode === "swing" && options.swingBuffer
       ? options.swingBuffer
       : options.sourceBuffer;
-  const audioModeSettings = AUDIO_MODE_SETTINGS[options.audioMode];
+  const audioModeSettings = getAudioModeSettings(
+    options.audioMode,
+    options.audioIntensityPct,
+  );
   const playbackRate = audioModeSettings.rate;
   const requestedSourceTimelineSeconds = options.durationSeconds * playbackRate;
 
@@ -152,6 +156,7 @@ export async function exportJukeboxAudio(
         durationSeconds: chunkDuration,
         gain: options.gain ?? 1,
         audioMode: options.audioMode,
+        audioIntensityPct: options.audioIntensityPct,
         cowbellEvents: chunkCowbellEvents,
         onProgress: (progress) => {
           const completed = chunkIndex + progress;
@@ -222,6 +227,7 @@ export async function exportJukeboxAudio(
       durationSeconds: renderedDurationSeconds,
       gain: options.gain ?? 1,
       audioMode: options.audioMode,
+      audioIntensityPct: options.audioIntensityPct,
       cowbellEvents,
       onProgress: (progress) => {
         const percent = 8 + progress * 72;

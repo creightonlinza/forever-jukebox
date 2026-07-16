@@ -1,9 +1,11 @@
 import {
-  AUDIO_MODE_SETTINGS,
   PAN_STEP,
   REVERB_SECONDS,
   createBitcrusherCurve,
+  createSafetyLimiter,
+  getAudioModeSettings,
   renderBitcrushedBuffer,
+  type AudioModeSettings,
   type JukeboxAudioMode,
 } from "@forever-jukebox/shared/audio/audioModes";
 import type { PlannedJukeboxSegment } from "./plan";
@@ -21,6 +23,7 @@ export interface RenderJukeboxAudioOptions {
   durationSeconds: number;
   gain: number;
   audioMode?: JukeboxAudioMode;
+  audioIntensityPct?: number;
   cowbellEvents?: CowbellRenderEvent[];
   onProgress?: (progress: number) => void;
 }
@@ -116,7 +119,7 @@ export async function renderJukeboxAudio(
   options: RenderJukeboxAudioOptions,
 ): Promise<AudioBuffer> {
   const audioMode = options.audioMode ?? "off";
-  const settings = AUDIO_MODE_SETTINGS[audioMode];
+  const settings = getAudioModeSettings(audioMode, options.audioIntensityPct);
   const channels = options.sourceBuffer.numberOfChannels;
   const sampleRate = options.sourceBuffer.sampleRate;
   const rate = settings.rate;
@@ -163,7 +166,7 @@ export async function renderJukeboxAudio(
 
   return renderModeGraph({
     assembled,
-    audioMode,
+    settings,
     durationSeconds: options.durationSeconds,
     gain: mainGain,
     cowbellEvents: options.cowbellEvents ?? [],
@@ -172,7 +175,7 @@ export async function renderJukeboxAudio(
 
 async function renderModeGraph(options: {
   assembled: AudioBuffer;
-  audioMode: JukeboxAudioMode;
+  settings: AudioModeSettings;
   durationSeconds: number;
   gain: number;
   cowbellEvents: CowbellRenderEvent[];
@@ -181,7 +184,7 @@ async function renderModeGraph(options: {
   const sampleRate = options.assembled.sampleRate;
   const outputFrameLength = options.durationSeconds * sampleRate;
   const context = createOfflineContext(channels, outputFrameLength, sampleRate);
-  const settings = AUDIO_MODE_SETTINGS[options.audioMode];
+  const settings = options.settings;
   const graphInput =
     settings.crushBitDepth !== undefined && settings.crushSampleRate !== undefined
       ? renderBitcrushedBuffer(
@@ -195,14 +198,22 @@ async function renderModeGraph(options: {
   source.buffer = graphInput;
   source.playbackRate.value = settings.rate;
 
-  const modeOutput = connectAudioModeChain(context, source, options.audioMode);
+  const modeOutput = connectAudioModeChain(context, source, settings);
   const mainGain = context.createGain();
   mainGain.gain.value = options.gain;
   modeOutput.connect(mainGain);
-  mainGain.connect(context.destination);
+  // Mirror live playback's output stage (BufferedAudioPlayer): mode chains
+  // can sum peaks past 0dBFS, and without the limiter the encoder would
+  // hard-clip them into the exported file.
+  const limiter = createSafetyLimiter(context);
+  const destination: AudioNode = limiter ?? context.destination;
+  if (limiter) {
+    limiter.connect(context.destination);
+  }
+  mainGain.connect(destination);
 
-  schedulePanAutomation(context, modeOutput, options.audioMode);
-  scheduleCowbellEvents(context, options.cowbellEvents);
+  schedulePanAutomation(context, modeOutput, settings);
+  scheduleCowbellEvents(context, options.cowbellEvents, destination);
 
   source.start(0, 0, Math.max(0, options.durationSeconds * settings.rate));
   return await context.startRendering();
@@ -211,9 +222,8 @@ async function renderModeGraph(options: {
 function connectAudioModeChain(
   context: OfflineAudioContext,
   source: AudioBufferSourceNode,
-  audioMode: JukeboxAudioMode,
+  settings: AudioModeSettings,
 ): AudioNode {
-  const settings = AUDIO_MODE_SETTINGS[audioMode];
   const chainOutput = context.createGain();
   let lastNode: AudioNode = source;
 
@@ -273,9 +283,8 @@ function connectAudioModeChain(
 function schedulePanAutomation(
   context: OfflineAudioContext,
   modeOutput: AudioNode,
-  audioMode: JukeboxAudioMode,
+  settings: AudioModeSettings,
 ) {
-  const settings = AUDIO_MODE_SETTINGS[audioMode];
   if (!settings.pan || !("pan" in modeOutput)) {
     return;
   }
@@ -292,9 +301,12 @@ function schedulePanAutomation(
   }
 }
 
+// Cowbell hits join at `destination` (the limiter when available), matching
+// the live overlay path through getOverlayDestination().
 function scheduleCowbellEvents(
   context: OfflineAudioContext,
   events: CowbellRenderEvent[],
+  destination: AudioNode,
 ) {
   for (const event of events) {
     const source = context.createBufferSource();
@@ -310,7 +322,7 @@ function scheduleCowbellEvents(
       gain.connect(panner);
       output = panner;
     }
-    output.connect(context.destination);
+    output.connect(destination);
 
     const offset = Math.max(0, -event.outputStart);
     const startTime = Math.max(0, event.outputStart);

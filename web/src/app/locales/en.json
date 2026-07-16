@@ -259,6 +259,7 @@
     "showBranchStats": "Show selected branch stats",
     "bringItHome": "Bring It Home mode",
     "audioMode": "Audio Mode",
+    "audioIntensity": "Intensity",
     "playbackStyles": "Playback Styles",
     "remixToys": "Remix Toys"
   },
