@@ -2592,6 +2592,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     <select
                       id="settings-language"
                       className="viz-select settings-select"
+                      aria-label={t("settings.language")}
                       value={resolveSupportedLanguage(i18n.resolvedLanguage)}
                       onChange={(event) => {
                         void i18n.changeLanguage(event.target.value);
@@ -2648,14 +2649,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     : t("sleepTimer.off")}
                 </div>
                 <div className="settings-field">
-                  <label className="label-line" htmlFor="sleep-timer-select">
-                    {t("sleepTimer.timer")}
-                  </label>
+                  <span className="label-line">{t("sleepTimer.timer")}</span>
                   <div className="settings-timer-row">
                     <span className="viz-select-wrap settings-select-wrap">
                       <select
                         id="sleep-timer-select"
                         className="viz-select settings-select"
+                        aria-label={t("sleepTimer.timer")}
                         value={getSleepTimerOptionValue(
                           pendingSleepTimerDurationMs,
                         )}
