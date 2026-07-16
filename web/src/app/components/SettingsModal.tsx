@@ -91,6 +91,8 @@ export function SettingsModal() {
     setTheme(nextTheme);
   };
 
+  const languageCredit = t("translationByNameCredit");
+
   return (
     <Modal
       id="settings-modal"
@@ -141,6 +143,9 @@ export function SettingsModal() {
                 arrow_drop_down
               </span>
             </span>
+            {languageCredit ? (
+              <span className="hint">{languageCredit}</span>
+            ) : null}
           </label>
         </section>
 
@@ -169,48 +174,48 @@ export function SettingsModal() {
           <div id="sleep-timer-current" className="sleep-timer-current">
             {countdown}
           </div>
-          <label className="settings-field" htmlFor="sleep-timer-select">
-            <span className="label-line">{t("sleepTimer.timer")}</span>
-            <span className="viz-select-wrap settings-select-wrap">
-              <select
-                id="sleep-timer-select"
-                className="viz-select settings-select"
-                value={pendingValue}
-                onChange={(event) => setPendingValue(event.target.value)}
-              >
-                {SLEEP_TIMER_OPTIONS.map((option) => (
-                  <option
-                    key={valueForDuration(option.durationMs)}
-                    value={valueForDuration(option.durationMs)}
-                  >
-                    {sleepTimerLabel(option.durationMs, t)}
-                  </option>
-                ))}
-              </select>
-              <span
-                className="material-symbols-outlined viz-select-arrow"
-                aria-hidden="true"
-              >
-                arrow_drop_down
+          <div className="settings-field">
+            <label className="label-line" htmlFor="sleep-timer-select">
+              {t("sleepTimer.timer")}
+            </label>
+            <div className="settings-timer-row">
+              <span className="viz-select-wrap settings-select-wrap">
+                <select
+                  id="sleep-timer-select"
+                  className="viz-select settings-select"
+                  value={pendingValue}
+                  onChange={(event) => setPendingValue(event.target.value)}
+                >
+                  {SLEEP_TIMER_OPTIONS.map((option) => (
+                    <option
+                      key={valueForDuration(option.durationMs)}
+                      value={valueForDuration(option.durationMs)}
+                    >
+                      {sleepTimerLabel(option.durationMs, t)}
+                    </option>
+                  ))}
+                </select>
+                <span
+                  className="material-symbols-outlined viz-select-arrow"
+                  aria-hidden="true"
+                >
+                  arrow_drop_down
+                </span>
               </span>
-            </span>
-          </label>
+              <button
+                id="sleep-timer-set"
+                type="button"
+                className="settings-timer-set"
+                onClick={() => {
+                  setSleepTimer(durationFromValue(pendingValue));
+                  close();
+                }}
+              >
+                {t("common.set")}
+              </button>
+            </div>
+          </div>
         </section>
-      </div>
-      <div className="modal-footer settings-footer">
-        <button id="settings-cancel" type="button" onClick={close}>
-          {t("common.close")}
-        </button>
-        <button
-          id="sleep-timer-set"
-          type="button"
-          onClick={() => {
-            setSleepTimer(durationFromValue(pendingValue));
-            close();
-          }}
-        >
-          {t("common.set")}
-        </button>
       </div>
     </Modal>
   );

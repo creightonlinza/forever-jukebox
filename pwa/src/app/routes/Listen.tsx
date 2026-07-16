@@ -2554,6 +2554,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       : null;
 
   const closeSettings = () => setIsSettingsOpen(false);
+  const languageCredit = t("translationByNameCredit");
   const settingsModal = isSettingsOpen
     ? createPortal(
         <div
@@ -2607,6 +2608,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       name="arrow_drop_down"
                     />
                   </span>
+                  {languageCredit ? (
+                    <span className="hint">{languageCredit}</span>
+                  ) : null}
                 </label>
               </section>
 
@@ -2643,58 +2647,52 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                       })
                     : t("sleepTimer.off")}
                 </div>
-                <label className="settings-field" htmlFor="sleep-timer-select">
-                  <span className="label-line">{t("sleepTimer.timer")}</span>
-                  <span className="viz-select-wrap settings-select-wrap">
-                    <select
-                      id="sleep-timer-select"
-                      className="viz-select settings-select"
-                      value={getSleepTimerOptionValue(
-                        pendingSleepTimerDurationMs,
-                      )}
-                      onChange={(event) =>
-                        setPendingSleepTimerDurationMs(
-                          getSleepTimerDurationFromValue(event.target.value),
-                        )
-                      }
+                <div className="settings-field">
+                  <label className="label-line" htmlFor="sleep-timer-select">
+                    {t("sleepTimer.timer")}
+                  </label>
+                  <div className="settings-timer-row">
+                    <span className="viz-select-wrap settings-select-wrap">
+                      <select
+                        id="sleep-timer-select"
+                        className="viz-select settings-select"
+                        value={getSleepTimerOptionValue(
+                          pendingSleepTimerDurationMs,
+                        )}
+                        onChange={(event) =>
+                          setPendingSleepTimerDurationMs(
+                            getSleepTimerDurationFromValue(event.target.value),
+                          )
+                        }
+                      >
+                        {SLEEP_TIMER_OPTIONS.map((option) => (
+                          <option
+                            key={getSleepTimerOptionValue(option.durationMs)}
+                            value={getSleepTimerOptionValue(option.durationMs)}
+                          >
+                            {sleepTimerOptionLabel(option.durationMs, t)}
+                          </option>
+                        ))}
+                      </select>
+                      <SymbolIcon
+                        className="viz-select-arrow"
+                        name="arrow_drop_down"
+                      />
+                    </span>
+                    <button
+                      id="sleep-timer-set"
+                      className="tab-btn settings-timer-set"
+                      type="button"
+                      onClick={() => {
+                        setSleepTimer(pendingSleepTimerDurationMs);
+                        closeSettings();
+                      }}
                     >
-                      {SLEEP_TIMER_OPTIONS.map((option) => (
-                        <option
-                          key={getSleepTimerOptionValue(option.durationMs)}
-                          value={getSleepTimerOptionValue(option.durationMs)}
-                        >
-                          {sleepTimerOptionLabel(option.durationMs, t)}
-                        </option>
-                      ))}
-                    </select>
-                    <SymbolIcon
-                      className="viz-select-arrow"
-                      name="arrow_drop_down"
-                    />
-                  </span>
-                </label>
+                      {t("common.set")}
+                    </button>
+                  </div>
+                </div>
               </section>
-            </div>
-            <div className="modal-footer settings-footer">
-              <button
-                id="settings-cancel"
-                className="tab-btn"
-                type="button"
-                onClick={closeSettings}
-              >
-                {t("common.close")}
-              </button>
-              <button
-                id="sleep-timer-set"
-                className="tab-btn"
-                type="button"
-                onClick={() => {
-                  setSleepTimer(pendingSleepTimerDurationMs);
-                  closeSettings();
-                }}
-              >
-                {t("common.set")}
-              </button>
             </div>
           </div>
         </div>,

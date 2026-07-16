@@ -224,7 +224,7 @@ test.describe("sleep timer", () => {
     await page.locator("#sleep-timer-set").click();
     await page.locator("#settings-open").click();
     await expect(page.locator("#sleep-timer-current")).toHaveText("Off");
-    await page.locator("#settings-cancel").click();
+    await page.locator("#settings-close").click();
     await expect(modal).not.toHaveClass(/\bopen\b/);
   });
 
@@ -234,7 +234,7 @@ test.describe("sleep timer", () => {
     await loadFirstTopTrack(page);
     await page.locator("#settings-open").click();
     await page.locator("#sleep-timer-select").selectOption("1800000");
-    await page.locator("#settings-cancel").click();
+    await page.locator("#settings-close").click();
     await page.locator("#settings-open").click();
     await expect(page.locator("#sleep-timer-current")).toHaveText("Off");
     await expect(page.locator("#sleep-timer-select")).toHaveValue("off");

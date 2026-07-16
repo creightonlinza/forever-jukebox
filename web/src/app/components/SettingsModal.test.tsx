@@ -189,7 +189,7 @@ describe("SettingsModal", () => {
       useAppStore.setState({ settingsModalOpen: true });
     });
     await userEvent.selectOptions(select(), String(FIFTEEN_MIN));
-    await userEvent.click(document.getElementById("settings-cancel")!);
+    await userEvent.click(document.getElementById("settings-close")!);
     act(() => {
       useAppStore.setState({ settingsModalOpen: true });
     });

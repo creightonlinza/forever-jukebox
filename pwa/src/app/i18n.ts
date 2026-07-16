@@ -1,10 +1,12 @@
 import { createAppI18n, defaultNS } from "@forever-jukebox/i18n";
 import de from "./locales/de.json";
 import en from "./locales/en.json";
+import es from "./locales/es.json";
 
 export const supportedLanguageOptions = [
   { code: "en", label: "English" },
   { code: "de", label: "Deutsch" },
+  { code: "es", label: "Español" },
 ] as const;
 
 export const resources = {
@@ -13,6 +15,9 @@ export const resources = {
   },
   de: {
     translation: de,
+  },
+  es: {
+    translation: es,
   },
 } as const;
 

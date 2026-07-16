@@ -824,7 +824,7 @@ describe("Listen route behavior", () => {
     expect(sleepTimerCurrent.textContent).toBe("Off");
 
     await changeSelect(sleepTimerSelect, "900000");
-    await click(getRequired<HTMLButtonElement>(sleepTimerModal, "#settings-cancel"));
+    await click(getRequired<HTMLButtonElement>(sleepTimerModal, "#settings-close"));
     rendered.rerender();
     expect(document.body.querySelector("#settings-modal")).toBe(null);
 

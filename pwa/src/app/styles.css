@@ -1507,8 +1507,20 @@ label {
   font-size: 14px;
 }
 
-.settings-footer {
+.settings-timer-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.settings-timer-row .settings-select-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-timer-set {
+  padding: 6px 10px;
+  font-size: 12px;
 }
 
 .info-body {
