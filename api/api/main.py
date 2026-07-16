@@ -258,7 +258,6 @@ def robots_txt(request: Request):
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /api/\n"
-        "Disallow: /cast\n"
         f"Sitemap: {base_url}/sitemap.xml\n"
     )
     return Response(content=content, media_type="text/plain; charset=utf-8")
@@ -297,10 +296,6 @@ if WEB_DIST.exists():
     def spa_fallback(full_path: str, request: Request):
         if full_path.startswith("api"):
             raise HTTPException(status_code=404, detail="Not found")
-        if full_path == "cast" or full_path.startswith("cast/"):
-            cast_entry = WEB_DIST / "cast-receiver.html"
-            if cast_entry.exists():
-                return FileResponse(cast_entry)
         if full_path == "offline":
             return RedirectResponse(url="/offline/", status_code=308)
         if full_path.startswith("offline/"):

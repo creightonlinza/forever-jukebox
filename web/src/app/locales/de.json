@@ -359,21 +359,5 @@
     "clearing": "Wird geleert...",
     "cachedCleared": "Gecachte Audiodaten geleert.",
     "cachedClearFailed": "Gecachte Audiodaten konnten nicht geleert werden."
-  },
-  "cast": {
-    "documentTitle": "Cast | Forever Jukebox",
-    "logoAlt": "Forever Jukebox",
-    "listenTime": "Hörzeit:",
-    "totalBeats": "Beats insgesamt:",
-    "totalCowbells": "Kuhglocken insgesamt:",
-    "loading": "Wird geladen…",
-    "loadingAnalysis": "Analyse wird geladen",
-    "loadingAudio": "Audiodaten werden geladen",
-    "analysisFailed": "Analyse fehlgeschlagen.",
-    "loadFailed": "Laden fehlgeschlagen.",
-    "unknownTrack": "Unbekannt",
-    "tooLong": "Entschuldigung, Songs länger als 7 Minuten können aufgrund von Chromecast-Speicherbeschränkungen nicht gecastet werden.",
-    "durationUnknown": "Entschuldigung, dieser Song kann nicht gecastet werden, da seine Dauer vor dem Laden nicht verifiziert werden konnte.",
-    "tuningFailed": "Tuning konnte nicht angewendet werden"
   }
 }

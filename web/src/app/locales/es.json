@@ -359,21 +359,5 @@
     "clearing": "Borrando...",
     "cachedCleared": "Audio en caché borrado.",
     "cachedClearFailed": "No se pudo borrar el audio en caché."
-  },
-  "cast": {
-    "documentTitle": "Cast | Forever Jukebox",
-    "logoAlt": "Forever Jukebox",
-    "listenTime": "Tiempo escuchando:",
-    "totalBeats": "Beats totales:",
-    "totalCowbells": "Cencerros totales:",
-    "loading": "Cargando…",
-    "loadingAnalysis": "Cargando análisis",
-    "loadingAudio": "Cargando audio",
-    "analysisFailed": "El análisis falló.",
-    "loadFailed": "La carga falló.",
-    "unknownTrack": "Desconocido",
-    "tooLong": "Lo sentimos, las pistas de más de 7 minutos no se pueden transmitir por las limitaciones de memoria de Chromecast.",
-    "durationUnknown": "Lo sentimos, esta pista no se puede transmitir porque su duración no se pudo verificar antes de cargarla.",
-    "tuningFailed": "No se pudieron aplicar los ajustes"
   }
 }

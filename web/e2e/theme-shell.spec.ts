@@ -71,12 +71,3 @@ test.describe("shell chrome", () => {
     await expect(toast).toHaveAttribute("aria-live", "polite");
   });
 });
-
-test.describe("cast entry", () => {
-  test("/cast serves the vanilla cast receiver", async ({ page }) => {
-    await page.goto("/cast");
-    await expect(page).toHaveTitle(/Cast/);
-    // the receiver page is not the React app
-    await expect(page.locator("#app")).toHaveCount(0);
-  });
-});

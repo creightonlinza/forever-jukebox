@@ -82,11 +82,10 @@ class SitemapTests(unittest.TestCase):
 
 
 class RobotsTests(unittest.TestCase):
-    def test_robots_blocks_api_and_cast(self) -> None:
+    def test_robots_blocks_api(self) -> None:
         body = robots_txt(_request()).body.decode()
 
         self.assertIn("Disallow: /api/", body)
-        self.assertIn("Disallow: /cast", body)
 
     def test_robots_does_not_block_listen(self) -> None:
         # /listen pages must stay crawlable so bots can read the noindex meta tag.
