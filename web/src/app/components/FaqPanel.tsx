@@ -212,6 +212,9 @@ export function FaqPanel() {
           <li>
             Nightcore, Daycore and Vaporwave Audio Modes now have an <strong>intensity slider</strong> — dial the effect anywhere from 50% to 150%.
           </li>
+          <li>
+            Added <strong>translations</strong>: German and Spanish now available in Settings.
+          </li>
         </ul>
 
         <h4>June 2026</h4>

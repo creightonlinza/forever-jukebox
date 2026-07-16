@@ -28,13 +28,25 @@ describe("web i18n bootstrap", () => {
     expect(supportedLanguageOptions).toEqual([
       { code: "en", label: "English" },
       { code: "de", label: "Deutsch" },
+      { code: "es", label: "Español" },
     ]);
     expect(resolveSupportedLanguage("en-US")).toBe("en");
     expect(resolveSupportedLanguage("de-DE")).toBe("de");
+    expect(resolveSupportedLanguage("es-MX")).toBe("es");
     expect(resolveSupportedLanguage("invalid")).toBe("en");
   });
 
   it("sets document text direction on bootstrap", () => {
     expect(document.documentElement.dir).toBe("ltr");
+  });
+
+  it("resolves the translation credit from the locale file", () => {
+    expect(i18n.getFixedT("en")("translationByNameCredit")).toBe("");
+    expect(i18n.getFixedT("es")("translationByNameCredit")).toBe(
+      "Traducido por Pablo",
+    );
+    expect(i18n.getFixedT("de")("translationByNameCredit")).toBe(
+      "Übersetzung von floriegl",
+    );
   });
 });
