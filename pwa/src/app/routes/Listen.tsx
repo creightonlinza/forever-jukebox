@@ -2649,13 +2649,14 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                     : t("sleepTimer.off")}
                 </div>
                 <div className="settings-field">
-                  <span className="label-line">{t("sleepTimer.timer")}</span>
+                  <label className="label-line" htmlFor="sleep-timer-select">
+                    {t("sleepTimer.timer")}
+                  </label>
                   <div className="settings-timer-row">
                     <span className="viz-select-wrap settings-select-wrap">
                       <select
                         id="sleep-timer-select"
                         className="viz-select settings-select"
-                        aria-label={t("sleepTimer.timer")}
                         value={getSleepTimerOptionValue(
                           pendingSleepTimerDurationMs,
                         )}
@@ -2909,7 +2910,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 </span>
               </label>
             </div>
-            <div className="canonizer-finish">
+            <label className="canonizer-finish">
               <input
                 id="canonizer-finish"
                 type="checkbox"
@@ -2917,7 +2918,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 onChange={(event) => setFinishOutSong(event.target.checked)}
               />
               <span>{t("listen.finishTrack")}</span>
-            </div>
+            </label>
           </div>
           {forceBranchActive || freezeBeatActive ? (
             <div className="modifier-badges" role="status" aria-live="polite">

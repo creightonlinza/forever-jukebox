@@ -884,6 +884,26 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it("associates the timer label with the select", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    mockAppState.isSettingsOpen = true;
+    rendered.rerender();
+
+    const settingsModal = getRequired<HTMLDivElement>(
+      document.body,
+      "#settings-modal",
+    );
+    const timerLabel = getRequired<HTMLLabelElement>(
+      settingsModal,
+      'label[for="sleep-timer-select"]',
+    );
+    expect(timerLabel.control).toBe(
+      getRequired<HTMLSelectElement>(settingsModal, "#sleep-timer-select"),
+    );
+    rendered.unmount();
+  });
+
   it("applies and persists theme changes immediately", async () => {
     const rendered = renderListen();
     await settleEffects();

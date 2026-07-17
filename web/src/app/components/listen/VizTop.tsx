@@ -109,7 +109,7 @@ export function VizTop() {
           </span>
         </label>
       </div>
-      <div className="canonizer-finish">
+      <label className="canonizer-finish">
         <input
           type="checkbox"
           id="canonizer-finish"
@@ -120,7 +120,7 @@ export function VizTop() {
           }}
         />
         <span>{t("playback.finishTrack")}</span>
-      </div>
+      </label>
     </>
   );
 }

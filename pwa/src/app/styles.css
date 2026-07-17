@@ -805,6 +805,7 @@ textarea:focus-visible {
 
 .canonizer-finish {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 6px;
   color: var(--text);
@@ -1354,6 +1355,10 @@ label {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+label.label-line {
+  flex-direction: row;
 }
 
 .hint {

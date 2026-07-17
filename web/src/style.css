@@ -636,6 +636,11 @@ option {
   gap: 6px;
 }
 
+label.label-line {
+  flex-direction: row;
+  padding-bottom: 0;
+}
+
 button {
   padding: 8px 14px;
   border-radius: 8px;
@@ -2336,8 +2341,10 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 
 .canonizer-finish {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 6px;
+  padding-bottom: 0;
   color: var(--text);
   font-size: 12px;
 }

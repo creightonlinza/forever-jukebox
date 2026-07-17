@@ -1,6 +1,6 @@
 import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { setSleepTimer } from "../playback";
 import { useAppStore } from "../store";
@@ -159,6 +159,14 @@ describe("SettingsModal", () => {
     await userEvent.click(document.getElementById("sleep-timer-set")!);
     expect(setSleepTimer).toHaveBeenCalledWith(FIFTEEN_MIN);
     expect(useAppStore.getState().settingsModalOpen).toBe(false);
+  });
+
+  it("associates the timer label with the select", () => {
+    render(<SettingsModal />);
+    act(() => {
+      useAppStore.setState({ settingsModalOpen: true });
+    });
+    expect(screen.getByLabelText("Timer")).toBe(select());
   });
 
   it("applies theme changes immediately", async () => {

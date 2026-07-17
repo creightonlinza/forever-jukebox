@@ -176,13 +176,14 @@ export function SettingsModal() {
             {countdown}
           </div>
           <div className="settings-field">
-            <span className="label-line">{t("sleepTimer.timer")}</span>
+            <label className="label-line" htmlFor="sleep-timer-select">
+              {t("sleepTimer.timer")}
+            </label>
             <div className="settings-timer-row">
               <span className="viz-select-wrap settings-select-wrap">
                 <select
                   id="sleep-timer-select"
                   className="viz-select settings-select"
-                  aria-label={t("sleepTimer.timer")}
                   value={pendingValue}
                   onChange={(event) => setPendingValue(event.target.value)}
                 >
