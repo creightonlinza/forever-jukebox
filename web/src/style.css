@@ -408,7 +408,7 @@ a:focus-visible {
 .favorites-sync-menu {
   position: absolute;
   top: 28px;
-  right: 0;
+  left: 0;
   min-width: 170px;
   padding: 6px;
   border-radius: 8px;
