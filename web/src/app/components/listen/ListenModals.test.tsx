@@ -216,6 +216,31 @@ describe("TuningModal", () => {
     expect(document.getElementById("audio-intensity")).toBeNull();
   });
 
+  it("resets intensity for a new mode and restores it when reselecting the opened mode", async () => {
+    (getExtrasFormValues as Mock).mockReturnValue({
+      ...EXTRAS_FORM,
+      audioMode: "nightcore",
+      audioIntensity: 130,
+    });
+    render(<TuningModal />);
+    act(() => {
+      useAppStore.setState({ tuningModalOpen: true, tuningModalTab: "extras" });
+    });
+    expect(document.getElementById("audio-intensity-val")?.textContent).toBe(
+      "130%",
+    );
+
+    await userEvent.click(screen.getByLabelText("Vaporwave"));
+    expect(document.getElementById("audio-intensity-val")?.textContent).toBe(
+      "100%",
+    );
+
+    await userEvent.click(screen.getByLabelText("Nightcore"));
+    expect(document.getElementById("audio-intensity-val")?.textContent).toBe(
+      "130%",
+    );
+  });
+
   it("applies the adjusted intensity from the slider", async () => {
     render(<TuningModal />);
     act(() => {

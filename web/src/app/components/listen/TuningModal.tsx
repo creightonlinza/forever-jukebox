@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import {
+  DEFAULT_AUDIO_MODE_INTENSITY,
   MAX_AUDIO_MODE_INTENSITY,
   MIN_AUDIO_MODE_INTENSITY,
   audioModeSupportsIntensity,
@@ -115,13 +116,18 @@ export function TuningModal() {
   const tuningActive = tab === "tuning";
   const [form, setForm] = useState<TuningFormValues | null>(null);
   const [extras, setExtras] = useState<ExtrasFormValues | null>(null);
+  const [extrasSnapshot, setExtrasSnapshot] = useState<ExtrasFormValues | null>(
+    null,
+  );
 
   // Snapshot engine config + extras state when the modal opens (the read
   // half of the old syncTuningUI/syncExtrasUI).
   useEffect(() => {
     if (open) {
       setForm(getTuningFormValues(getAppContext()));
-      setExtras(getExtrasFormValues());
+      const extrasValues = getExtrasFormValues();
+      setExtras(extrasValues);
+      setExtrasSnapshot(extrasValues);
     }
   }, [open]);
 
@@ -171,6 +177,23 @@ export function TuningModal() {
     setExtras((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
 
+  // Picking a mode resets intensity to its canonical preset; reselecting the
+  // mode that was active when the modal opened restores its saved intensity.
+  const selectAudioMode = (mode: JukeboxAudioMode) => {
+    setExtras((prev) =>
+      prev
+        ? {
+            ...prev,
+            audioMode: mode,
+            audioIntensity:
+              extrasSnapshot && mode === extrasSnapshot.audioMode
+                ? extrasSnapshot.audioIntensity
+                : DEFAULT_AUDIO_MODE_INTENSITY,
+          }
+        : prev,
+    );
+  };
+
   const audioModeOption = (option: (typeof AUDIO_MODE_OPTIONS)[number]) => (
     <label
       key={option.id}
@@ -187,7 +210,7 @@ export function TuningModal() {
         value={option.value}
         checked={extras?.audioMode === option.value}
         disabled={!hasExtrasTab}
-        onChange={() => setExtrasField("audioMode", option.value)}
+        onChange={() => selectAudioMode(option.value)}
       />
       {t(option.labelKey)}
     </label>
