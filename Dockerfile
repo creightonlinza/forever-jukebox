@@ -12,6 +12,18 @@ COPY web/ web/
 COPY pwa/ pwa/
 RUN npm run build --workspace=web && npm run build --workspace=pwa
 
+# PO token provider server for yt-dlp; version must match the pinned
+# bgutil-ytdlp-pot-provider plugin in api/requirements.txt.
+# amd64 + Debian bookworm so the canvas native dep matches the runtime stage.
+FROM --platform=linux/amd64 denoland/deno:debian AS bgutil-build
+ARG BGUTIL_POT_VERSION=1.3.1
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN git clone --depth 1 --branch "${BGUTIL_POT_VERSION}" \
+      https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /bgutil
+WORKDIR /bgutil/server
+RUN deno install --allow-scripts=npm:canvas --frozen
+
 # Force amd64 so pip can use Essentia's manylinux x86_64 wheel (no source builds)
 FROM --platform=linux/amd64 python:3.11-slim-bookworm AS runtime
 
@@ -53,6 +65,11 @@ RUN curl -fsSL "https://github.com/denoland/deno/releases/latest/download/deno-x
     && rm /tmp/deno.zip \
     && chmod +x /usr/local/bin/deno \
     && deno --version
+
+# Server plus the Deno cache it was installed with, so startup needs no
+# npm registry access (entrypoint sets DENO_DIR for the POT process)
+COPY --from=bgutil-build /bgutil/server /app/bgutil-pot/server
+COPY --from=bgutil-build /deno-dir /app/bgutil-pot/deno-dir
 
 # Now copy the actual source
 COPY api/ ./api/
