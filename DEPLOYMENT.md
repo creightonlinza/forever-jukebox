@@ -61,3 +61,9 @@ Notes:
 - Do not delete `jobs.db-journal`, `jobs.db-wal`, or `jobs.db-shm` while the app is
   running. Stop the API and workers first so SQLite can finish recovery/checkpointing.
 - Dependency updates (`yt-dlp`, `madmom-beats-lite`, `deno`) happen during image build/deploy; container startup performs no network updates.
+- The container runs a [bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider)
+  server on `127.0.0.1:4416` so yt-dlp can fetch YouTube PO tokens without a browser;
+  the yt-dlp plugin auto-detects it. The pip plugin pin in `api/requirements.txt` and
+  `BGUTIL_POT_VERSION` in the `Dockerfile` must be bumped together. Local dev needs no
+  setup (yt-dlp degrades gracefully without the server); to get tokens locally, run
+  `docker run --rm -d -p 4416:4416 brainicism/bgutil-ytdlp-pot-provider:1.3.1`.
