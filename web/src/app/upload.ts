@@ -1,4 +1,5 @@
 import type { AppContext } from "./context";
+import { trackEvent } from "./analytics";
 import { startUrlAnalysis, uploadAudio } from "./api";
 import { getLoadGeneration, isStaleLoad, resetForNewTrack } from "./playback";
 import { useAppStore } from "./store";
@@ -336,6 +337,7 @@ export function uploadFile(
   if (!uploadDeps) {
     return Promise.resolve();
   }
+  trackEvent("upload", { method: "file" });
   return uploadAudioFile(uploadDeps, file, onAccepted);
 }
 
@@ -343,5 +345,6 @@ export function uploadUrl(raw: string, onAccepted?: () => void): Promise<void> {
   if (!uploadDeps) {
     return Promise.resolve();
   }
+  trackEvent("upload", { method: "url" });
   return uploadFromUrl(uploadDeps, raw, onAccepted);
 }

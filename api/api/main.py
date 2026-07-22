@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 from .db import get_job, get_job_by_source, init_db
+from .env import env_string
 from .favorites_db import init_favorites_db
 from .http_client import close_client
 from .paths import DB_PATH, FAVORITES_DB_PATH, STORAGE_ROOT, WEB_DIST
@@ -191,6 +192,23 @@ def _listen_card(track_id: str) -> tuple[str, str] | None:
     return _track_card(title, job.track_artist)
 
 
+GA_ID_RE = re.compile(r"^[A-Za-z0-9-]+$")
+
+
+def _ga_head() -> str:
+    """Build the gtag.js <head> snippet, or "" when GA_MEASUREMENT_ID is unset."""
+    ga_id = env_string("GA_MEASUREMENT_ID")
+    if not ga_id or not GA_ID_RE.match(ga_id):
+        return ""
+    return (
+        f'<script async src="https://www.googletagmanager.com/gtag/js?id={ga_id}"></script>'
+        "<script>window.dataLayer=window.dataLayer||[];"
+        "function gtag(){dataLayer.push(arguments);}"
+        "gtag('js',new Date());"
+        f"gtag('config','{ga_id}');</script>"
+    )
+
+
 def _inject_head(html: str, snippet: str) -> str:
     """Insert an HTML snippet just before the document's closing </head> tag."""
     if "</head>" in html:
@@ -287,6 +305,9 @@ if WEB_DIST.exists():
             doc_title = f"{page_name} | {SITE_NAME}"
             extra = {"title": doc_title, "description": description}
         head = _head_meta(base_url, page_url, noindex=noindex, **extra)
+        ga = _ga_head()
+        if ga:
+            head = f"{head}\n    {ga}"
         html = _inject_head(_index_template(), head)
         if doc_title:
             html = _set_title(html, doc_title)

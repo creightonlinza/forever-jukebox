@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { trackEvent } from "../analytics";
 import { clearCachedAudio, getCachedAudioBytes } from "../cache";
 import { pathForFaqSubtab, type FaqSubtabId } from "../tabs";
 import { showToast } from "../ui";
@@ -179,7 +180,7 @@ export function FaqPanel() {
         <p>
           <Trans
             i18nKey="faq.offlineBody"
-            components={{ offline: <a href="/offline/" target="_blank">Forever Jukebox Offline app</a> }}
+            components={{ offline: <a href="/offline/" target="_blank" onClick={() => trackEvent("open_pwa", { source: "faq" })}>Forever Jukebox Offline app</a> }}
           />
         </p>
 

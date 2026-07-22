@@ -1,6 +1,7 @@
 import type { AppContext } from "../context";
+import { trackPlay } from "../analytics";
 import { LISTEN_TIMER_INTERVAL_MS } from "../constants";
-import { useAppStore } from "../store";
+import { getCurrentTrackId, useAppStore } from "../store";
 import { showToast } from "../ui";
 import {
   pulseVizStats,
@@ -143,6 +144,7 @@ export function startJukeboxPlayback(context: AppContext, resetSession: boolean)
   }
   engine.play();
   engine.startJukebox(resetSession);
+  trackPlay("jukebox", getCurrentTrackId(), useAppStore.getState().trackTitle);
   useAppStore.setState({ lastPlayStamp: performance.now() });
   useAppStore.setState({ isRunning: true });
   useAppStore.setState({ isPaused: false });
@@ -246,6 +248,7 @@ export function startAutocanonizerPlayback(
     autocanonizer.resetVisualization();
   }
   autocanonizer.startAtIndex(index);
+  trackPlay("autocanonizer", getCurrentTrackId(), useAppStore.getState().trackTitle);
   if (resetSession || !useAppStore.getState().isRunning) {
     useAppStore.setState({ lastPlayStamp: performance.now() });
   }

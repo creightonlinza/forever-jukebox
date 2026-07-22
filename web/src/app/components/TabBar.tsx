@@ -1,5 +1,6 @@
 import type { MouseEvent } from "react";
 import type { TabId } from "../context";
+import { trackEvent } from "../analytics";
 import { useAppStore } from "../store";
 import { useTranslation } from "react-i18next";
 import { pathForTab } from "../tabs";
@@ -66,6 +67,7 @@ export function TabBar() {
         href="/offline/"
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => trackEvent("open_pwa", { source: "tab_bar" })}
       >
         <span className="material-symbols-outlined tab-link-icon" aria-hidden="true">
           download

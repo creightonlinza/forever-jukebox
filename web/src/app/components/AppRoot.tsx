@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigationType } from "react-router-dom";
+import { trackPageView } from "../analytics";
 import { getAppContext, handleRoute } from "../runtime";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
@@ -33,6 +34,7 @@ function useRouteSync() {
   const navigationType = useNavigationType();
   const handledKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    trackPageView(location.pathname);
     useAppStore.getState().setActiveTab(tabFromPathname(location.pathname));
     if (navigationType === "POP" && handledKeyRef.current !== location.key) {
       handledKeyRef.current = location.key;
