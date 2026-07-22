@@ -16,6 +16,7 @@ import {
   sortFavorites,
   type FavoriteTrack,
 } from "./favorites";
+import { trackEvent } from "./analytics";
 import { isLikelyJobId } from "./identity";
 import { loadTrackById, loadTrackByJobId } from "./playback";
 import { setPlayMode } from "./playback-ui";
@@ -568,6 +569,7 @@ export function removeFavoriteWithToast(favoriteId: string) {
       showToast(i18n.t("favorites.maximum", { count: maxFavorites() }));
       return;
     }
+    trackEvent("favorite", { track_id: currentId, track_title: title });
     const showLoading = shouldShowFavoriteToggleLoading();
     if (showLoading) {
       setFavoriteToggleLoading(true);

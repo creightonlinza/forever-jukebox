@@ -1,4 +1,5 @@
 import type { AppContext, TabId } from "./context";
+import { trackEvent } from "./analytics";
 import { getLoadGeneration, isStaleLoad } from "./playback";
 import {
   fetchJobByTrack,
@@ -305,6 +306,7 @@ export async function runSearch(_context: AppContext, _deps: SearchDeps) {
     setSearchMessage(() => i18n.t("search.enterQuery"));
     return;
   }
+  trackEvent("search", { search_term: query });
   setSearchMessage(() => i18n.t("search.spotifySearching"));
   setSearchHint(DEFAULT_SEARCH_HINT);
   try {
@@ -348,6 +350,11 @@ export function selectYoutubeMatch(
   if (!isTrackLengthAllowed(deps, duration)) {
     return;
   }
+  trackEvent("select_track", {
+    source: "search",
+    track_id: youtubeId,
+    track_title: artist ? `${name} — ${artist}` : name,
+  });
   startYoutubeAnalysisFlow(context, deps, youtubeId, name, artist).catch((err) => {
     deps.setAnalysisStatus(
       () =>
@@ -373,6 +380,10 @@ export function selectSpotifyMatch(
   }
   tryLoadExistingTrackByName(context, deps, name, artist).then((loaded) => {
     if (loaded) {
+      trackEvent("select_track", {
+        source: "search",
+        track_title: artist ? `${name} — ${artist}` : name,
+      });
       return;
     }
     if (!Number.isFinite(duration)) {

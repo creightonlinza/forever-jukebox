@@ -5,6 +5,7 @@ import {
   VIZ_STORAGE_KEY,
   visualizationSeparatesPairedEdges,
 } from "./constants";
+import { trackEvent } from "./analytics";
 import { formatErrorForDisplay } from "./errorDisplay";
 import { formatDuration } from "./format";
 import type { AppContext } from "./context";
@@ -576,6 +577,7 @@ export function copyShortUrl(): void {
     const shortUrl = url.toString();
     try {
       await navigator.clipboard.writeText(shortUrl);
+      trackEvent("share", { track_id: trackId });
       showToast(i18n.t("status.linkCopied"));
     } catch (err) {
       setAnalysisStatus(

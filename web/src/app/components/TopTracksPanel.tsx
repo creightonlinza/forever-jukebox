@@ -36,6 +36,7 @@ import {
   selectFavorite,
 } from "../favorites-actions";
 import { addToPlaylist } from "../playlist-actions";
+import { trackEvent } from "../analytics";
 import { selectTrack } from "../track-select";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
@@ -205,6 +206,11 @@ function SongList({
               data-track-artist={artist}
               onClick={(event) => {
                 event.preventDefault();
+                trackEvent("select_track", {
+                  source: tabId,
+                  track_id: listenId,
+                  track_title: title,
+                });
                 selectTrack(listenId, playlistTrack);
               }}
             >
@@ -231,6 +237,11 @@ function FavoritesList({ query }: { query: string }) {
   };
 
   const select = (item: FavoriteTrack) => {
+    trackEvent("select_track", {
+      source: "favorites",
+      track_id: item.uniqueSongId,
+      track_title: item.title,
+    });
     selectFavorite(item.uniqueSongId, item.sourceType ?? "youtube");
   };
 

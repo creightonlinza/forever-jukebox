@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import unittest
+from unittest.mock import patch
 from xml.etree import ElementTree
 
 from starlette.requests import Request
@@ -12,6 +14,7 @@ from api.main import (
     SITE_DESCRIPTION,
     SITE_NAME,
     SITEMAP_PATHS,
+    _ga_head,
     _head_meta,
     _inject_head,
     _parse_track_id,
@@ -210,6 +213,24 @@ class HeadMetaTests(unittest.TestCase):
 
         self.assertNotIn(NOINDEX_META, without)
         self.assertIn(NOINDEX_META, with_tag)
+
+
+class GaHeadTests(unittest.TestCase):
+    def test_empty_when_unset(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(_ga_head(), "")
+
+    def test_snippet_when_set(self) -> None:
+        with patch.dict(os.environ, {"GA_MEASUREMENT_ID": "G-TEST123"}):
+            snippet = _ga_head()
+
+        self.assertIn("googletagmanager.com/gtag/js?id=G-TEST123", snippet)
+        self.assertIn("gtag('config','G-TEST123')", snippet)
+
+    def test_rejects_ids_with_markup_characters(self) -> None:
+        for bad in ('G-1"><script>', "G-1'x", "G-1 2"):
+            with patch.dict(os.environ, {"GA_MEASUREMENT_ID": bad}):
+                self.assertEqual(_ga_head(), "", bad)
 
 
 class ListenCardTests(unittest.TestCase):
