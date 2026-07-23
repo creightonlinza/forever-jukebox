@@ -59,16 +59,6 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python \
     && if /opt/venv/bin/pip show madmom >/dev/null 2>&1; then /opt/venv/bin/pip uninstall -y madmom && /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python; fi
 
-# Precompile the venv to bytecode. Recompiling FastAPI/pydantic/starlette/uvicorn
-# from source on every boot is the bulk of the ~13s before uvicorn binds on a Fly
-# resume-from-stopped; shipping .pyc lets cold starts load them instead. Explicit
-# compileall is not gated by PYTHONDONTWRITEBYTECODE, and unchecked-hash lets the
-# read-only runtime trust the .pyc without stat-ing the source on import.
-# `|| true`: a stray third-party file that won't compile just goes un-cached
-# (falling back to today's behavior) rather than failing the whole build.
-RUN /opt/venv/bin/python -m compileall -q -j 0 \
-      --invalidation-mode unchecked-hash /opt/venv/lib || true
-
 RUN curl -fsSL "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip" \
       -o /tmp/deno.zip \
     && unzip /tmp/deno.zip -d /usr/local/bin \
@@ -89,10 +79,6 @@ COPY --from=frontend-build /app/pwa/dist ./web/dist/offline
 COPY docker/entrypoint.sh /app/entrypoint.sh
 
 RUN chmod +x /app/entrypoint.sh
-
-# Same precompile for the application code so the API and worker load .pyc on boot.
-RUN /opt/venv/bin/python -m compileall -q -j 0 \
-      --invalidation-mode unchecked-hash /app/api
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONPATH="/app/api" \
