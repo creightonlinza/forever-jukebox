@@ -70,7 +70,13 @@ def _worker_env() -> dict[str, str]:
     return env
 
 
-def run_job(job_id: str, input_path: str, output_path: str) -> None:
+def run_job(
+    job_id: str,
+    input_path: str,
+    output_path: str,
+    title: str | None = None,
+    artist: str | None = None,
+) -> None:
     if not ENGINE_REPO.exists():
         raise RuntimeError("ENGINE_REPO is not set or missing")
 
@@ -95,6 +101,10 @@ def run_job(job_id: str, input_path: str, output_path: str) -> None:
         "-o",
         str(output_abs),
     ]
+    if title:
+        cmd.extend(["--title", title])
+    if artist:
+        cmd.extend(["--artist", artist])
 
     proc = subprocess.Popen(
         cmd,
@@ -123,27 +133,6 @@ def run_job(job_id: str, input_path: str, output_path: str) -> None:
     if returncode != 0:
         message = _extract_engine_error(output_lines) or f"Engine exited with status {returncode}"
         raise JobFailure(message, output_lines)
-
-
-def apply_track_metadata(output_path: str, title: str | None, artist: str | None) -> None:
-    if not title and not artist:
-        return
-    result_path = abs_storage_path(STORAGE_ROOT, output_path)
-    if not result_path.exists():
-        return
-    try:
-        data = json.loads(result_path.read_text(encoding="utf-8"))
-    except Exception:
-        return
-    track = data.get("track") if isinstance(data, dict) else None
-    if not isinstance(track, dict):
-        track = {}
-        data["track"] = track
-    if title:
-        track["title"] = title
-    if artist:
-        track["artist"] = artist
-    result_path.write_text(json.dumps(data), encoding="utf-8")
 
 
 def _parse_timestamp(value: str | None) -> datetime | None:
@@ -236,8 +225,7 @@ def run_worker_loop() -> None:
             time.sleep(1.0)
             continue
         try:
-            run_job(job.id, job.input_path, job.output_path)
-            apply_track_metadata(job.output_path, job.track_title, job.track_artist)
+            run_job(job.id, job.input_path, job.output_path, job.track_title, job.track_artist)
             set_job_progress(DB_PATH, job.id, 100)
         except Exception as exc:
             cleanup_failed_job(job, exc)

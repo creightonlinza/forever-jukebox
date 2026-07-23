@@ -13,6 +13,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analyze audio into a Spotify-style JSON structure.")
     parser.add_argument("input", help="Path to input audio (wav/mp3/m4a).")
     parser.add_argument("-o", "--output", help="Path to output JSON file.")
+    parser.add_argument("--title", help="Track title to embed in the output JSON.")
+    parser.add_argument("--artist", help="Track artist to embed in the output JSON.")
     return parser.parse_args()
 
 
@@ -28,6 +30,10 @@ def main() -> None:
         from .analysis import AnalysisError, analyze_audio
 
         data = analyze_audio(args.input, progress_cb=progress_cb)
+        if args.title:
+            data["track"]["title"] = args.title
+        if args.artist:
+            data["track"]["artist"] = args.artist
         output_path = Path(args.output) if args.output else None
         payload = json.dumps(data, sort_keys=True, indent=None, separators=(",", ":"))
 

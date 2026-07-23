@@ -575,8 +575,6 @@ def download_source_audio(
         "max_filesize": 100 * 1024 * 1024,
         "outtmpl": outtmpl,
         "progress_hooks": [progress_hook],
-        "extractaudio": True,
-        "audioformat": "m4a",
     }
 
     def match_filter(info_dict: dict, *, incomplete: bool) -> str | None:
