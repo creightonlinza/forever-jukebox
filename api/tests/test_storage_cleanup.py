@@ -68,8 +68,6 @@ def _make_job(
     create_job(
         db_path,
         job_id,
-        input_path,
-        output_path,
         status=status,
         track_title=title or f"Track {job_id}",
         track_artist="Artist",

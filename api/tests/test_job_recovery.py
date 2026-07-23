@@ -24,7 +24,6 @@ from api.db import (
     recover_stalled_processing_jobs,
     restart_failed_job,
     set_job_status,
-    update_job_input_path,
 )
 from api.models import AnalysisUrlRequest
 from api.routes import jobs, jobs_runtime as jobs_runtime_module
@@ -48,10 +47,10 @@ class JobRecoveryTests(unittest.TestCase):
                     conn.execute(
                         """
                         INSERT INTO jobs (
-                            id, source_ref, status, input_path, output_path,
+                            id, source_ref, status,
                             error, progress, created_at, updated_at
                         )
-                        VALUES ('orphan', 'missing-source', 'queued', '', '', NULL, 0, 'now', 'now')
+                        VALUES ('orphan', 'missing-source', 'queued', NULL, 0, 'now', 'now')
                         """
                     )
 
@@ -67,8 +66,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     f"job-{index}",
-                    f"audio/job-{index}.mp3",
-                    f"analysis/job-{index}.json",
                     "queued",
                 )
 
@@ -88,7 +85,7 @@ class JobRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
-            create_job(db_path, "locked-job", "audio/locked.mp3", "analysis/locked.json", "queued")
+            create_job(db_path, "locked-job", "queued")
             lock_conn = sqlite3.connect(db_path, timeout=0.01)
             lock_conn.isolation_level = None
             lock_conn.execute("BEGIN IMMEDIATE")
@@ -109,7 +106,7 @@ class JobRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
-            create_job(db_path, "rollback-job", "audio/rollback.mp3", "analysis/rollback.json", "queued")
+            create_job(db_path, "rollback-job", "queued")
 
             with patch.object(db_module, "_utc_now", side_effect=RuntimeError("forced failure")):
                 with self.assertRaisesRegex(RuntimeError, "forced failure"):
@@ -128,8 +125,6 @@ class JobRecoveryTests(unittest.TestCase):
             create_job(
                 db_path,
                 "existing-job",
-                "audio/existing.mp3",
-                "analysis/existing.json",
                 "queued",
                 track_title="Original Title",
                 track_artist="Original Artist",
@@ -156,8 +151,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "new-job",
-                    "audio/new.mp3",
-                    "analysis/new.json",
                     "queued",
                     track_title="New Title",
                     track_artist="New Artist",
@@ -179,9 +172,9 @@ class JobRecoveryTests(unittest.TestCase):
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
 
-            create_job(db_path, "stalled", "audio/stalled.mp3", "analysis/stalled.json", "processing")
-            create_job(db_path, "failed", "audio/failed.mp3", "analysis/failed.json", "queued")
-            create_job(db_path, "errored", "audio/errored.mp3", "analysis/errored.json", "queued")
+            create_job(db_path, "stalled", "processing")
+            create_job(db_path, "failed", "queued")
+            create_job(db_path, "errored", "queued")
             set_job_status(db_path, "failed", "failed", "Download failed")
             set_job_status(db_path, "errored", "processing", "Engine exited with status 1")
 
@@ -203,8 +196,6 @@ class JobRecoveryTests(unittest.TestCase):
             create_job(
                 db_path,
                 "retryable",
-                "audio/retryable.m4a",
-                "analysis/retryable.json",
                 status="queued",
             )
             set_job_status(db_path, "retryable", "failed", "Download failed")
@@ -215,7 +206,6 @@ class JobRecoveryTests(unittest.TestCase):
 
             restarted = get_job(db_path, failed.id)
             self.assertEqual(restarted.status, "downloading")
-            self.assertEqual(restarted.input_path, "")
             self.assertIsNone(restarted.error)
             self.assertEqual(restarted.progress, 0)
             self.assertEqual(restarted.created_at, restarted.updated_at)
@@ -278,8 +268,6 @@ class JobRecoveryTests(unittest.TestCase):
                     create_job(
                         db_path,
                         job_id,
-                        "",
-                        f"analysis/{job_id}.json",
                         status="queued",
                         source_id=source_id,
                         source_provider=provider,
@@ -319,8 +307,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "permanent-failure",
-                    "audio/permanent.m4a",
-                    "analysis/permanent.json",
                     status="queued",
                     source_id="yt-permanent",
                     source_provider="youtube",
@@ -355,8 +341,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "active-job",
-                    "",
-                    "analysis/active-job.json",
                     status="downloading",
                     source_id="yt-active",
                     source_provider="youtube",
@@ -373,8 +357,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "complete-job",
-                    "audio/complete-job.m4a",
-                    "analysis/complete-job.json",
                     status="complete",
                     source_url="https://soundcloud.com/artist/complete",
                     source_provider="soundcloud",
@@ -420,8 +402,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "retry-route-race",
-                    "",
-                    "analysis/retry-route-race.json",
                     status="queued",
                     source_provider="bandcamp",
                     source_url="https://artist.bandcamp.com/track/retry-race",
@@ -485,8 +465,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "failed-job",
-                    "audio/failed.m4a",
-                    "analysis/failed.json",
                     status="queued",
                     track_title="Song",
                     track_artist="Artist",
@@ -527,8 +505,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "failed-source-job",
-                    "audio/failed-source.m4a",
-                    "analysis/failed-source.json",
                     status="queued",
                     track_title="Original Title",
                     track_artist="Original Artist",
@@ -572,8 +548,8 @@ class JobRecoveryTests(unittest.TestCase):
             original_db_path = jobs.DB_PATH
             jobs.DB_PATH = db_path
             try:
-                audio_path = storage_root / "audio" / "retryable-source.m4a"
-                analysis_path = storage_root / "analysis" / "retryable-source.json"
+                audio_path = storage_root / "audio" / "retryable-source-job.m4a"
+                analysis_path = storage_root / "analysis" / "retryable-source-job.json"
                 log_path = storage_root / "logs" / "retryable-source-job.log"
                 for path in (audio_path, analysis_path, log_path):
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -581,8 +557,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "retryable-source-job",
-                    "audio/retryable-source.m4a",
-                    "analysis/retryable-source.json",
                     status="queued",
                     track_title="Original Title",
                     track_artist="Original Artist",
@@ -615,7 +589,6 @@ class JobRecoveryTests(unittest.TestCase):
                 self.assertEqual(len(background_tasks.tasks), 1)
                 restarted = get_job(db_path, "retryable-source-job")
                 self.assertEqual(restarted.status, "downloading")
-                self.assertEqual(restarted.input_path, "")
                 self.assertIsNone(restarted.error)
                 self.assertEqual(restarted.progress, 0)
                 self.assertFalse(audio_path.exists())
@@ -640,8 +613,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "retryable-track-job",
-                    "",
-                    "analysis/retryable-track.json",
                     status="queued",
                     track_title="Song",
                     track_artist="Artist",
@@ -691,8 +662,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "retryable-race-job",
-                    "",
-                    "analysis/retryable-race.json",
                     status="queued",
                     source_id="yt-race-retry",
                     source_provider="youtube",
@@ -747,8 +716,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "retryable-lookup-job",
-                    "",
-                    "analysis/retryable-lookup.json",
                     status="queued",
                     source_id="yt-lookup",
                     source_provider="youtube",
@@ -787,8 +754,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "lookup-job-id",
-                    "",
-                    "analysis/lookup-job-id.json",
                     status="queued",
                     source_id="yt-lookup-id",
                     source_provider="youtube",
@@ -816,8 +781,6 @@ class JobRecoveryTests(unittest.TestCase):
             create_job(
                 db_path,
                 "top-job-id",
-                "",
-                "analysis/top-job-id.json",
                 status="queued",
                 track_title="Song",
                 track_artist="Artist",
@@ -846,8 +809,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "retryable-track-lookup-job",
-                    "",
-                    "analysis/retryable-track-lookup.json",
                     status="queued",
                     track_title="Song",
                     track_artist="Artist",
@@ -889,8 +850,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "retryable-url-job",
-                    "",
-                    "analysis/retryable-url.json",
                     status="queued",
                     source_id="jfKfPfyJRdk",
                     source_provider="youtube",
@@ -938,8 +897,6 @@ class JobRecoveryTests(unittest.TestCase):
                 create_job(
                     db_path,
                     "durable-job-id",
-                    "",
-                    "analysis/durable-job-id.json",
                     status="queued",
                     source_id="yt-durable",
                     source_provider="youtube",
@@ -973,11 +930,6 @@ class JobRecoveryTests(unittest.TestCase):
                     analysis_path.write_text(
                         json.dumps({"track": {"title": "Durable"}}),
                         encoding="utf-8",
-                    )
-                    update_job_input_path(
-                        db_path,
-                        "durable-job-id",
-                        "audio/durable-job-id.m4a",
                     )
                     set_job_status(db_path, "durable-job-id", "complete", None)
                     completed_response = jobs.get_analysis(

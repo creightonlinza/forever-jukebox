@@ -27,7 +27,6 @@ from ..db import (
     set_job_play_count,
     set_job_progress,
     set_job_status,
-    update_job_input_path,
 )
 from ..env import env_flag, env_positive_float
 from ..models import (
@@ -44,7 +43,7 @@ from ..models import (
 )
 from ..paths import DB_PATH, STORAGE_ROOT
 from ..route_responses import error_responses
-from ..utils import abs_storage_path
+from ..utils import analysis_path_for, audio_path_for
 from .jobs_runtime import (
     ALLOWED_UPLOAD_EXTS,
     ANALYSIS_MISSING_MESSAGE,
@@ -158,7 +157,7 @@ def _restart_retryable_failed_job(
         return job
     retry_claimed = restart_failed_job(DB_PATH, job.id, job.updated_at)
     if retry_claimed:
-        delete_job_artifacts(job.id, job, storage_root=STORAGE_ROOT)
+        delete_job_artifacts(job.id, storage_root=STORAGE_ROOT)
         background_tasks.add_task(
             download_source_audio,
             job.id,
@@ -249,12 +248,9 @@ def _create_source_job(
             )
 
     job_id = uuid.uuid4().hex
-    output_path = Path("analysis") / f"{job_id}.json"
     create_job(
         DB_PATH,
         job_id,
-        "",
-        str(output_path),
         status="downloading",
         track_title=track_title,
         track_artist=track_artist,
@@ -290,49 +286,25 @@ def _queued_message(job) -> str:
     return f"Queued • {ahead} ahead of you"
 
 
-def _find_audio_path(job) -> Path | None:
-    if job.input_path:
-        configured_path = abs_storage_path(STORAGE_ROOT, job.input_path)
-        if configured_path.exists():
-            return configured_path
-    candidates = sorted((STORAGE_ROOT / "audio").glob(f"{job.id}.*"))
-    if candidates:
-        return candidates[0]
-    return None
-
-
-def _ensure_audio_path(job) -> Path | None:
-    audio_path = _find_audio_path(job)
-    if not audio_path:
-        return None
-    if job.input_path:
-        configured_path = abs_storage_path(STORAGE_ROOT, job.input_path)
-        if configured_path == audio_path:
-            return audio_path
-    relative_path = Path("audio") / audio_path.name
-    update_job_input_path(DB_PATH, job.id, str(relative_path))
-    return audio_path
-
-
 def _should_attempt_auto_repair(job) -> bool:
     if job.status in {"downloading", "queued", "processing"}:
         return False
     if job.status == "failed":
         return False
-    result_path = abs_storage_path(STORAGE_ROOT, job.output_path)
+    result_path = analysis_path_for(STORAGE_ROOT, job.id)
     if not result_path.exists():
         return True
     if not job.source_id:
         return False
-    return _find_audio_path(job) is None
+    return audio_path_for(STORAGE_ROOT, job.id) is None
 
 
 def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
     if job.status in {"downloading", "queued", "processing"}:
         return job
 
-    audio_path = _ensure_audio_path(job)
-    analysis_path = abs_storage_path(STORAGE_ROOT, job.output_path)
+    audio_path = audio_path_for(STORAGE_ROOT, job.id)
+    analysis_path = analysis_path_for(STORAGE_ROOT, job.id)
     audio_missing = not audio_path or not audio_path.exists()
     analysis_missing = not analysis_path.exists()
 
@@ -425,7 +397,7 @@ def _job_response(job) -> JSONResponse:
         )
         return JSONResponse(payload.model_dump(), status_code=200)
 
-    result_path = abs_storage_path(STORAGE_ROOT, job.output_path)
+    result_path = analysis_path_for(STORAGE_ROOT, job.id)
     if not result_path.exists():
         payload = JobError(
             status="failed",
@@ -609,12 +581,9 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
             )
 
     title = sanitize_title(file.filename)
-    output_path = Path("analysis") / f"{job_id}.json"
     create_job(
         DB_PATH,
         job_id,
-        str(relative_path),
-        str(output_path),
         status="queued",
         track_title=title,
         track_artist="",
@@ -767,8 +736,8 @@ def delete_job_by_id(
     if not is_admin_delete:
         created_at = parse_timestamp(job.created_at)
         completion_time = None
-        if job.status == "complete" and job.output_path:
-            result_path = abs_storage_path(STORAGE_ROOT, job.output_path)
+        if job.status == "complete":
+            result_path = analysis_path_for(STORAGE_ROOT, job.id)
             if result_path.exists():
                 completion_time = datetime.fromtimestamp(result_path.stat().st_mtime, tz=timezone.utc)
         now = datetime.now(timezone.utc)
@@ -786,7 +755,7 @@ def delete_job_by_id(
         if not within_window:
             raise HTTPException(status_code=403, detail="Invalid admin key")
 
-    delete_job_artifacts(job_id, job)
+    delete_job_artifacts(job_id)
     delete_job(DB_PATH, job_id)
     log_event(
         "job_deleted",

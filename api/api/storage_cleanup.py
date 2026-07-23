@@ -8,7 +8,6 @@ from pathlib import Path
 from .db import _connect, delete_job
 from .models import StorageCleanupError, StorageCleanupResponse, StorageCleanupSampleItem
 from .routes.jobs_runtime import delete_job_artifacts
-from .utils import abs_storage_path
 
 
 CLEANUP_POLICY_DAYS = 180
@@ -18,8 +17,6 @@ SAMPLE_SIZE = 10
 @dataclass(frozen=True)
 class CleanupCandidate:
     job_id: str
-    input_path: str
-    output_path: str
     provider: str
     source_id: str | None
     source_url: str | None
@@ -36,15 +33,13 @@ def _cutoff_arg(days: int) -> str:
 def _candidate_from_row(row: tuple) -> CleanupCandidate:
     return CleanupCandidate(
         job_id=str(row[0]),
-        input_path=str(row[1] or ""),
-        output_path=str(row[2] or ""),
-        provider=str(row[3] or ""),
-        source_id=str(row[4]) if row[4] is not None else None,
-        source_url=str(row[5]) if row[5] is not None else None,
-        title=str(row[6]) if row[6] is not None else None,
-        artist=str(row[7]) if row[7] is not None else None,
-        play_count=int(row[8] or 0),
-        updated_at=str(row[9] or ""),
+        provider=str(row[1] or ""),
+        source_id=str(row[2]) if row[2] is not None else None,
+        source_url=str(row[3]) if row[3] is not None else None,
+        title=str(row[4]) if row[4] is not None else None,
+        artist=str(row[5]) if row[5] is not None else None,
+        play_count=int(row[6] or 0),
+        updated_at=str(row[7] or ""),
     )
 
 
@@ -54,8 +49,6 @@ def find_cleanup_candidates(db_path: Path) -> list[CleanupCandidate]:
             """
             SELECT
               j.id,
-              j.input_path,
-              j.output_path,
               s.provider,
               s.source_id,
               s.source_url,
@@ -83,8 +76,6 @@ def find_cleanup_candidate_by_id(
             """
             SELECT
               j.id,
-              j.input_path,
-              j.output_path,
               s.provider,
               s.source_id,
               s.source_url,
@@ -105,10 +96,6 @@ def find_cleanup_candidate_by_id(
 
 def artifact_paths(storage_root: Path, candidate: CleanupCandidate) -> list[Path]:
     paths: list[Path] = []
-    if candidate.input_path:
-        paths.append(abs_storage_path(storage_root, candidate.input_path))
-    if candidate.output_path:
-        paths.append(abs_storage_path(storage_root, candidate.output_path))
     paths.append(storage_root / "logs" / f"{candidate.job_id}.log")
     paths.extend((storage_root / "audio").glob(f"{candidate.job_id}.*"))
     paths.extend((storage_root / "analysis").glob(f"{candidate.job_id}.*"))
@@ -186,7 +173,7 @@ def execute_cleanup(db_path: Path, storage_root: Path) -> StorageCleanupResponse
 
         bytes_to_delete = candidate_bytes(storage_root, eligible)
         try:
-            delete_job_artifacts(eligible.job_id, eligible, storage_root)
+            delete_job_artifacts(eligible.job_id, storage_root)
             delete_job(db_path, eligible.job_id)
         except Exception as exc:  # noqa: BLE001 - cleanup should report and continue.
             errors.append(
