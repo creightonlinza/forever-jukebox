@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -43,7 +42,7 @@ from ..models import (
 )
 from ..paths import DB_PATH, STORAGE_ROOT
 from ..route_responses import error_responses
-from ..utils import analysis_path_for, audio_path_for
+from ..utils import audio_path_for, read_analysis_json, resolve_analysis_path
 from .jobs_runtime import (
     ALLOWED_UPLOAD_EXTS,
     ANALYSIS_MISSING_MESSAGE,
@@ -291,7 +290,7 @@ def _should_attempt_auto_repair(job) -> bool:
         return False
     if job.status == "failed":
         return False
-    result_path = analysis_path_for(STORAGE_ROOT, job.id)
+    result_path = resolve_analysis_path(STORAGE_ROOT, job.id)
     if not result_path.exists():
         return True
     if not job.source_id:
@@ -304,7 +303,7 @@ def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
         return job
 
     audio_path = audio_path_for(STORAGE_ROOT, job.id)
-    analysis_path = analysis_path_for(STORAGE_ROOT, job.id)
+    analysis_path = resolve_analysis_path(STORAGE_ROOT, job.id)
     audio_missing = not audio_path or not audio_path.exists()
     analysis_missing = not analysis_path.exists()
 
@@ -397,7 +396,7 @@ def _job_response(job) -> JSONResponse:
         )
         return JSONResponse(payload.model_dump(), status_code=200)
 
-    result_path = analysis_path_for(STORAGE_ROOT, job.id)
+    result_path = resolve_analysis_path(STORAGE_ROOT, job.id)
     if not result_path.exists():
         payload = JobError(
             status="failed",
@@ -407,7 +406,7 @@ def _job_response(job) -> JSONResponse:
         )
         return JSONResponse(payload.model_dump(), status_code=200)
 
-    data = json.loads(result_path.read_text(encoding="utf-8"))
+    data = read_analysis_json(result_path)
     if isinstance(data, dict) and (job.track_title or job.track_artist):
         track = data.get("track")
         if not isinstance(track, dict):
@@ -737,7 +736,7 @@ def delete_job_by_id(
         created_at = parse_timestamp(job.created_at)
         completion_time = None
         if job.status == "complete":
-            result_path = analysis_path_for(STORAGE_ROOT, job.id)
+            result_path = resolve_analysis_path(STORAGE_ROOT, job.id)
             if result_path.exists():
                 completion_time = datetime.fromtimestamp(result_path.stat().st_mtime, tz=timezone.utc)
         now = datetime.now(timezone.utc)

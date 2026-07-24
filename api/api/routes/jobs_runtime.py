@@ -498,9 +498,9 @@ def cleanup_failure(
     for candidate in (STORAGE_ROOT / "audio").glob(f"{job_id}.*"):
         if candidate.is_file():
             candidate.unlink()
-    result_path = STORAGE_ROOT / "analysis" / f"{job_id}.json"
-    if result_path.is_file():
-        result_path.unlink()
+    for result_path in (STORAGE_ROOT / "analysis").glob(f"{job_id}.json*"):
+        if result_path.is_file():
+            result_path.unlink()
     set_job_status(DB_PATH, job_id, "failed", message)
     log_event(
         "job_failed",
