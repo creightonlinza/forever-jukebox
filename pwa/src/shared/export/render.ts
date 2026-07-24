@@ -1,6 +1,8 @@
 import {
+  MODE_FILTER_Q,
   PAN_STEP,
   REVERB_SECONDS,
+  audioModeNeedsLimiter,
   createBitcrusherCurve,
   createSafetyLimiter,
   getAudioModeSettings,
@@ -202,10 +204,11 @@ async function renderModeGraph(options: {
   const mainGain = context.createGain();
   mainGain.gain.value = options.gain;
   modeOutput.connect(mainGain);
-  // Mirror live playback's output stage (BufferedAudioPlayer): mode chains
-  // can sum peaks past 0dBFS, and without the limiter the encoder would
-  // hard-clip them into the exported file.
-  const limiter = createSafetyLimiter(context);
+  // Mirror live playback's output stage: modes that can sum peaks past 0dBFS
+  // render through the safety limiter so the encoder doesn't hard-clip them.
+  const limiter = audioModeNeedsLimiter(settings)
+    ? createSafetyLimiter(context)
+    : null;
   const destination: AudioNode = limiter ?? context.destination;
   if (limiter) {
     limiter.connect(context.destination);
@@ -213,7 +216,7 @@ async function renderModeGraph(options: {
   mainGain.connect(destination);
 
   schedulePanAutomation(context, modeOutput, settings);
-  scheduleCowbellEvents(context, options.cowbellEvents, destination);
+  scheduleCowbellEvents(context, options.cowbellEvents, context.destination);
 
   source.start(0, 0, Math.max(0, options.durationSeconds * settings.rate));
   return await context.startRendering();
@@ -231,6 +234,7 @@ function connectAudioModeChain(
     const highPass = context.createBiquadFilter();
     highPass.type = "highpass";
     highPass.frequency.value = settings.highPassFrequency;
+    highPass.Q.value = MODE_FILTER_Q;
     lastNode.connect(highPass);
     lastNode = highPass;
   }
@@ -247,6 +251,9 @@ function connectAudioModeChain(
     const lowPass = context.createBiquadFilter();
     lowPass.type = settings.useBandPass ? "bandpass" : "lowpass";
     lowPass.frequency.value = settings.lowPassFrequency;
+    if (!settings.useBandPass) {
+      lowPass.Q.value = MODE_FILTER_Q;
+    }
     lastNode.connect(lowPass);
     lastNode = lowPass;
   }
@@ -301,8 +308,9 @@ function schedulePanAutomation(
   }
 }
 
-// Cowbell hits join at `destination` (the limiter when available), matching
-// the live overlay path through getOverlayDestination().
+// Cowbell hits join at the raw destination, matching the live overlay: they
+// never route through the limiter, so hits on hot masters keep their
+// intended transient clip.
 function scheduleCowbellEvents(
   context: OfflineAudioContext,
   events: CowbellRenderEvent[],

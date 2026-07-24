@@ -228,13 +228,21 @@ export function setAudioModeIntensityParam(
   }
 }
 
-// Safety limiter shared by live playback and offline export: reverb modes sum
-// dry (up to 1.0) plus wet (up to 0.9) gain, the nightcore/cathedral highpass
-// adds resonance near its cutoff, and 8D panning sums channels — all of which
-// can push peaks past 0dBFS. Threshold 0 with knee 0 leaves anything already
-// under 0dBFS (notably the "off" mode) untouched, since the node's automatic
-// makeup gain is exactly 1 at that threshold. Returns null when the context
-// has no compressor support; callers fall back to a direct connection.
+// Butterworth Q for highpass/lowpass mode filters: flat response, never
+// exceeds 0dB. Bandpass keeps the default Q (there it sets bandwidth, not
+// resonance, and peak gain is 0dB regardless).
+export const MODE_FILTER_Q = Math.SQRT1_2;
+
+// True when the mode's chain can push peaks past 0dBFS: reverb sums dry +
+// wet above unity, and 8D panning mixes channels. Only these modes route
+// through the safety limiter; the rest skip its ~6ms lookahead latency.
+export function audioModeNeedsLimiter(settings: AudioModeSettings): boolean {
+  return settings.reverbMix > 0 || settings.pan;
+}
+
+// Brick-wall limiter for modes where audioModeNeedsLimiter() holds. At
+// threshold 0 with knee 0, signal at or below 0dBFS passes unchanged (makeup
+// gain is exactly 1). Returns null when the context lacks compressor support.
 export function createSafetyLimiter(
   context: BaseAudioContext,
 ): DynamicsCompressorNode | null {

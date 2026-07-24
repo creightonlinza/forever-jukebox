@@ -74,7 +74,6 @@ export function initRuntime(): void {
   const player = new BufferedAudioPlayer();
   const cowbellOverlay = new CowbellOverlayService(player.getContext(), {
     getPlaybackRate: () => player.getPlaybackRate(),
-    destination: player.getOverlayDestination(),
   });
   cowbellOverlay.setVolume(player.getVolume());
   const engine = new JukeboxEngine(player, { randomMode: "random" });
