@@ -1,8 +1,10 @@
 import {
   AUDIO_MODE_SETTINGS,
   DEFAULT_AUDIO_MODE_INTENSITY,
+  MODE_FILTER_Q,
   PAN_STEP,
   REVERB_SECONDS,
+  audioModeNeedsLimiter,
   audioModeSupportsIntensity,
   clampAudioModeIntensity,
   createBitcrusherCurve,
@@ -50,6 +52,7 @@ export class BufferedAudioPlayer {
   private readonly sourceChainInput: GainNode;
   private readonly sourceChainOutput: GainNode;
   private limiter: DynamicsCompressorNode | null = null;
+  private masterRoutedThroughLimiter: boolean | null = null;
   private stereoPanner: StereoPannerNode | null = null;
   private chainNodes: AudioNode[] = [];
   private chainHighPass: BiquadFilterNode | null = null;
@@ -76,15 +79,12 @@ export class BufferedAudioPlayer {
     this.context = context ?? new AudioContext();
     this.masterGain = this.context.createGain();
     this.masterGain.gain.value = this.volume;
-    // The limiter sits after masterGain so overlays (see
-    // getOverlayDestination) can join post-volume and share both the limiting
-    // and the node's small lookahead latency.
+    // masterGain routes through the limiter per mode (syncMasterOutputRouting);
+    // the cowbell overlay connects straight to the destination, which stays
+    // aligned because cowbell mode never limits.
     this.limiter = createSafetyLimiter(this.context);
     if (this.limiter) {
-      this.masterGain.connect(this.limiter);
       this.limiter.connect(this.context.destination);
-    } else {
-      this.masterGain.connect(this.context.destination);
     }
     this.sourceChainInput = this.context.createGain();
     this.sourceChainOutput = this.context.createGain();
@@ -135,14 +135,6 @@ export class BufferedAudioPlayer {
 
   getContext(): AudioContext {
     return this.context;
-  }
-
-  // Where overlay services (e.g. cowbell) should connect instead of the raw
-  // context destination, so their hits pass through the same safety limiter
-  // as the music and stay time-aligned with its lookahead latency. Sits after
-  // masterGain, so overlays manage their own volume as before.
-  getOverlayDestination(): AudioNode {
-    return this.limiter ?? this.context.destination;
   }
 
   play() {
@@ -793,15 +785,35 @@ export class BufferedAudioPlayer {
     }
   }
 
+  // Routes masterGain through the limiter only for modes that can produce
+  // overs; other modes connect straight to the destination.
+  private syncMasterOutputRouting(settings: AudioModeSettings) {
+    const useLimiter = this.limiter !== null && audioModeNeedsLimiter(settings);
+    if (useLimiter === this.masterRoutedThroughLimiter) {
+      return;
+    }
+    this.masterRoutedThroughLimiter = useLimiter;
+    try {
+      this.masterGain.disconnect();
+    } catch {
+      // no-op
+    }
+    this.masterGain.connect(
+      useLimiter && this.limiter ? this.limiter : this.context.destination,
+    );
+  }
+
   private rebuildSourceChain() {
     this.clearSourceChain();
     const settings = this.getActiveModeSettings();
+    this.syncMasterOutputRouting(settings);
     let lastNode: AudioNode = this.sourceChainInput;
 
     if (settings.highPassFrequency !== null) {
       const highPass = this.context.createBiquadFilter();
       highPass.type = "highpass";
       highPass.frequency.value = settings.highPassFrequency;
+      highPass.Q.value = MODE_FILTER_Q;
       this.chainNodes.push(highPass);
       this.chainHighPass = highPass;
       lastNode.connect(highPass);
@@ -821,6 +833,9 @@ export class BufferedAudioPlayer {
       const lowPass = this.context.createBiquadFilter();
       lowPass.type = settings.useBandPass ? "bandpass" : "lowpass";
       lowPass.frequency.value = settings.lowPassFrequency;
+      if (!settings.useBandPass) {
+        lowPass.Q.value = MODE_FILTER_Q;
+      }
       this.chainNodes.push(lowPass);
       this.chainLowPass = lowPass;
       lastNode.connect(lowPass);
@@ -872,6 +887,7 @@ export class BufferedAudioPlayer {
   }
 
   private updateSourceChainParams(settings: AudioModeSettings) {
+    this.syncMasterOutputRouting(settings);
     if (this.chainHighPass && settings.highPassFrequency !== null) {
       this.chainHighPass.frequency.value = settings.highPassFrequency;
     }

@@ -53,6 +53,7 @@ class MockSourceNode extends MockNode {
 class MockBiquadNode extends MockNode {
   type: BiquadFilterType = "lowpass";
   frequency = { value: 0 };
+  Q = { value: 1 };
 }
 
 class MockGainNode extends MockNode {
@@ -441,6 +442,8 @@ describe("renderJukeboxAudio", () => {
     expect(cowbellSource?.buffer).toBe(cowbell);
     expect(cowbellSource?.start).toHaveBeenCalledWith(0.25, 0, 0.5);
     expect(context?.panners[0]?.pan.value).toBe(-0.2);
+    // cowbell mode's music path adds no gain, so no limiter is created
+    expect(context?.compressors).toHaveLength(0);
   });
 
   it("routes the mode graph through the safety limiter like live playback", async () => {
@@ -471,20 +474,19 @@ describe("renderJukeboxAudio", () => {
     expect(limiter?.knee.value).toBe(0);
     expect(limiter?.connect).toHaveBeenCalledWith(context?.destination);
 
-    // main gain and the cowbell overlay both join at the limiter — nothing
-    // reaches the raw destination unlimited, so summed peaks can't hard-clip
-    // in the encoder
+    // the mode's main gain joins at the limiter; the cowbell overlay joins
+    // the raw destination, matching the live routing
     const connectsTo = (node: MockNode, target: unknown) =>
       node.connect.mock.calls.some((call) => call[0] === target);
-    const outputNodes = [
-      ...(context?.gains ?? []),
-      ...(context?.panners ?? []),
-    ];
+    const gains = context?.gains ?? [];
+    expect(gains.filter((node) => connectsTo(node, limiter)).length).toBe(1);
     expect(
-      outputNodes.filter((node) => connectsTo(node, context?.destination)),
+      gains.filter((node) => connectsTo(node, context?.destination)),
     ).toEqual([]);
+    const cowbellPanner = context?.panners[0];
+    expect(cowbellPanner).toBeDefined();
     expect(
-      outputNodes.filter((node) => connectsTo(node, limiter)).length,
-    ).toBeGreaterThanOrEqual(2);
+      cowbellPanner ? connectsTo(cowbellPanner, context?.destination) : false,
+    ).toBe(true);
   });
 });

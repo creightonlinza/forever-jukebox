@@ -24,6 +24,7 @@ class MockSourceNode {
 class MockBiquadNode {
   type: BiquadFilterType = "lowpass";
   frequency = { value: 0 };
+  Q = { value: 1 };
   gain = { value: 0 };
   connect = vi.fn();
   disconnect = vi.fn();
@@ -259,8 +260,27 @@ describe("BufferedAudioPlayer", () => {
     const lowPass = context.createdBiquads.find((node) => node.type === "lowpass");
     expect(lowPass).toBeDefined();
     expect(lowPass?.frequency.value).toBe(1000);
+    expect(lowPass?.Q.value).toBeCloseTo(Math.SQRT1_2, 10);
     expect(context.createdSources[0]?.playbackRate.value).toBe(0.65);
     expect(context.createdConvolvers.length).toBeGreaterThan(0);
+  });
+
+  it("uses flat Butterworth Q for highpass, default Q for bandpass", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.setJukeboxAudioMode("nightcore");
+
+    const highPass = context.createdBiquads.find(
+      (node) => node.type === "highpass",
+    );
+    expect(highPass?.Q.value).toBeCloseTo(Math.SQRT1_2, 10);
+
+    player.setJukeboxAudioMode("lofi");
+    const bandPass = context.createdBiquads.find(
+      (node) => node.type === "bandpass",
+    );
+    expect(bandPass?.Q.value).toBe(1);
   });
 
   it("scales the nightcore chain and rate with intensity", async () => {
@@ -521,7 +541,7 @@ describe("BufferedAudioPlayer", () => {
     player.stop();
   });
 
-  it("routes output through a 0dBFS safety limiter after master gain", () => {
+  it("keeps off mode off the limiter and routes boosting modes through it", () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
 
@@ -532,10 +552,52 @@ describe("BufferedAudioPlayer", () => {
     expect(limiter?.threshold.value).toBe(0);
     expect(limiter?.knee.value).toBe(0);
     expect(limiter?.ratio.value).toBe(20);
-    expect(panner?.connect).toHaveBeenCalledWith(masterGain);
-    expect(masterGain?.connect).toHaveBeenCalledWith(limiter);
     expect(limiter?.connect).toHaveBeenCalledWith(context.destination);
-    expect(player.getOverlayDestination()).toBe(limiter);
+    expect(panner?.connect).toHaveBeenCalledWith(masterGain);
+    // off mode: straight to the destination, limiter not in the path
+    expect(masterGain?.connect).toHaveBeenCalledWith(context.destination);
+    expect(masterGain?.connect).not.toHaveBeenCalledWith(limiter);
+
+    // a mode that can clip reroutes masterGain through the limiter
+    player.setJukeboxAudioMode("daycore");
+    expect(masterGain?.disconnect).toHaveBeenCalled();
+    expect(masterGain?.connect).toHaveBeenCalledWith(limiter);
+
+    // and switching back to off restores the direct connection
+    masterGain?.connect.mockClear();
+    player.setJukeboxAudioMode("off");
+    expect(masterGain?.connect).toHaveBeenCalledWith(context.destination);
+    expect(masterGain?.connect).not.toHaveBeenCalledWith(limiter);
+  });
+
+  it("keeps cowbell mode off the limiter", () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+
+    const limiter = context.createdCompressors[0];
+    const masterGain = context.createdGains[0];
+    masterGain?.connect.mockClear();
+    player.setJukeboxAudioMode("vaporwave");
+    expect(masterGain?.connect).toHaveBeenCalledWith(limiter);
+
+    masterGain?.connect.mockClear();
+    player.setJukeboxAudioMode("cowbell");
+    expect(masterGain?.connect).toHaveBeenCalledWith(context.destination);
+    expect(masterGain?.connect).not.toHaveBeenCalledWith(limiter);
+  });
+
+  it("keeps flat-Q filter modes off the limiter", () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+
+    const limiter = context.createdCompressors[0];
+    const masterGain = context.createdGains[0];
+    masterGain?.connect.mockClear();
+    player.setJukeboxAudioMode("nightcore");
+    expect(masterGain?.connect).not.toHaveBeenCalledWith(limiter);
+
+    player.setJukeboxAudioMode("underwater");
+    expect(masterGain?.connect).not.toHaveBeenCalledWith(limiter);
   });
 
   it("connects master gain directly to destination without compressor support", () => {
@@ -549,7 +611,14 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdCompressors).toHaveLength(0);
     expect(panner?.connect).toHaveBeenCalledWith(masterGain);
     expect(masterGain?.connect).toHaveBeenCalledWith(context.destination);
-    expect(player.getOverlayDestination()).toBe(context.destination);
+
+    // still direct even in a mode that would otherwise be limited: the
+    // existing destination connection is left in place untouched
+    masterGain?.connect.mockClear();
+    masterGain?.disconnect.mockClear();
+    player.setJukeboxAudioMode("daycore");
+    expect(masterGain?.connect).not.toHaveBeenCalled();
+    expect(masterGain?.disconnect).not.toHaveBeenCalled();
   });
 
   it("keeps normal mode on the continuous source path", async () => {
