@@ -8,6 +8,7 @@ import re
 from xml.sax.saxutils import escape
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from starlette.responses import Response
 from fastapi.staticfiles import StaticFiles
@@ -32,6 +33,7 @@ from .routes.media import router as media_router
 from .routes.search import router as search_router
 
 app = FastAPI(title="Forever Jukebox Analysis API")
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.include_router(admin_router)
 app.include_router(config_router)
 app.include_router(favorites_router)

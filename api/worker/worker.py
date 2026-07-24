@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import json
+import gzip
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -19,7 +20,13 @@ from api.db import (
     set_job_status,
 )
 from api.routes.jobs_runtime import failure_code_for, log_event
-from api.utils import abs_storage_path, get_logger
+from api.utils import (
+    analysis_path_for,
+    audio_path_for,
+    get_logger,
+    read_analysis_json,
+    resolve_analysis_path,
+)
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 STORAGE_ROOT = (APP_ROOT / "storage").resolve()
@@ -72,8 +79,6 @@ def _worker_env() -> dict[str, str]:
 
 def run_job(
     job_id: str,
-    input_path: str,
-    output_path: str,
     title: str | None = None,
     artist: str | None = None,
 ) -> None:
@@ -82,12 +87,10 @@ def run_job(
 
     env = _worker_env()
 
-    input_abs = abs_storage_path(STORAGE_ROOT, input_path)
-    if not input_abs.exists():
-        candidates = sorted((STORAGE_ROOT / "audio").glob(f"{job_id}.*"))
-        if candidates:
-            input_abs = candidates[0]
-    output_abs = abs_storage_path(STORAGE_ROOT, output_path)
+    input_abs = audio_path_for(STORAGE_ROOT, job_id)
+    if input_abs is None:
+        raise JobFailure("Audio file is missing")
+    output_abs = analysis_path_for(STORAGE_ROOT, job_id)
     output_abs.parent.mkdir(parents=True, exist_ok=True)
 
     def map_engine_progress(value: int) -> int:
@@ -133,6 +136,18 @@ def run_job(
     if returncode != 0:
         message = _extract_engine_error(output_lines) or f"Engine exited with status {returncode}"
         raise JobFailure(message, output_lines)
+    if output_abs.is_file():
+        compress_analysis(output_abs)
+
+
+def compress_analysis(plain_path: Path) -> None:
+    """Replace a plain analysis JSON file with its gzipped sibling."""
+    gz_path = plain_path.with_name(plain_path.name + ".gz")
+    tmp_path = gz_path.with_name(gz_path.name + ".tmp")
+    with plain_path.open("rb") as src, gzip.open(tmp_path, "wb") as dst:
+        shutil.copyfileobj(src, dst)
+    tmp_path.replace(gz_path)
+    plain_path.unlink()
 
 
 def _parse_timestamp(value: str | None) -> datetime | None:
@@ -159,12 +174,12 @@ def _completion_elapsed_ms(job) -> int | None:
     )
 
 
-def _extract_track_duration_seconds(output_path: str) -> float | None:
-    result_path = abs_storage_path(STORAGE_ROOT, output_path)
+def _extract_track_duration_seconds(job_id: str) -> float | None:
+    result_path = resolve_analysis_path(STORAGE_ROOT, job_id)
     if not result_path.exists():
         return None
     try:
-        data = json.loads(result_path.read_text(encoding="utf-8"))
+        data = read_analysis_json(result_path)
     except Exception:
         return None
     if not isinstance(data, dict):
@@ -193,12 +208,10 @@ def cleanup_failed_job(job, error: Exception) -> None:
             log_file.write("\n--- Engine output ---\n")
             for line in output_lines:
                 log_file.write(line)
-    if job.input_path:
-        input_path = abs_storage_path(STORAGE_ROOT, job.input_path)
-        if input_path.is_file():
-            input_path.unlink()
-    if job.output_path:
-        output_path = abs_storage_path(STORAGE_ROOT, job.output_path)
+    input_path = audio_path_for(STORAGE_ROOT, job.id)
+    if input_path is not None and input_path.is_file():
+        input_path.unlink()
+    for output_path in (STORAGE_ROOT / "analysis").glob(f"{job.id}.json*"):
         if output_path.is_file():
             output_path.unlink()
     set_job_status(DB_PATH, job.id, "failed", str(error))
@@ -225,7 +238,7 @@ def run_worker_loop() -> None:
             time.sleep(1.0)
             continue
         try:
-            run_job(job.id, job.input_path, job.output_path, job.track_title, job.track_artist)
+            run_job(job.id, job.track_title, job.track_artist)
             set_job_progress(DB_PATH, job.id, 100)
         except Exception as exc:
             cleanup_failed_job(job, exc)
@@ -235,7 +248,7 @@ def run_worker_loop() -> None:
             "job_completed",
             job_id=job.id,
             source=job.source_provider or "unknown",
-            duration_s=_extract_track_duration_seconds(job.output_path),
+            duration_s=_extract_track_duration_seconds(job.id),
             elapsed_ms=_completion_elapsed_ms(job),
         )
 

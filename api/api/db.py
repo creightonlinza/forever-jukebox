@@ -28,8 +28,6 @@ SELECT_JOB_SOURCE_REF_SQL = "SELECT source_ref FROM jobs WHERE id = ?"
 class Job:
     id: str
     status: str
-    input_path: str
-    output_path: str
     error: Optional[str]
     track_title: Optional[str]
     track_artist: Optional[str]
@@ -43,7 +41,7 @@ class Job:
 
 
 JOB_SELECT_COLUMNS = (
-    "j.id, j.status, j.input_path, j.output_path, j.error, "
+    "j.id, j.status, j.error, "
     "s.track_title, s.track_artist, "
     "CASE WHEN s.provider = 'youtube' THEN s.source_id ELSE NULL END AS source_id, "
     "s.provider AS source_provider, s.source_url, "
@@ -153,7 +151,6 @@ def _normalize_provider(
     source_provider: str | None,
     source_id: str | None,
     source_url: str | None,
-    input_path: str | None,
 ) -> str:
     if source_provider:
         provider = source_provider.strip().lower()
@@ -164,8 +161,6 @@ def _normalize_provider(
         return url_provider
     if source_id:
         return "youtube"
-    if input_path:
-        return "upload"
     return "upload"
 
 
@@ -174,14 +169,12 @@ def _normalize_job_source(
     source_provider: str | None,
     source_id: str | None,
     source_url: str | None,
-    input_path: str,
 ) -> tuple[str, str | None, str | None]:
     normalized_url = _canonical_http_url(_clean_text(source_url))
     provider = _normalize_provider(
         _clean_text(source_provider),
         _clean_text(source_id),
         normalized_url,
-        _clean_text(input_path),
     )
     normalized_source_id = _clean_text(source_id) if provider == "youtube" else None
     if provider == "youtube" and not normalized_source_id and normalized_url:
@@ -332,8 +325,6 @@ def _upsert_source_for_job(
 def create_job(
     db_path: Path,
     job_id: str,
-    input_path: str,
-    output_path: str,
     status: str = "queued",
     track_title: Optional[str] = None,
     track_artist: Optional[str] = None,
@@ -348,7 +339,6 @@ def create_job(
         source_provider=source_provider,
         source_id=source_id,
         source_url=source_url,
-        input_path=input_path,
     )
     with _connect(db_path) as conn:
         source_ref = _upsert_source_for_job(
@@ -363,17 +353,15 @@ def create_job(
         conn.execute(
             """
             INSERT INTO jobs (
-                id, source_ref, status, input_path, output_path,
+                id, source_ref, status,
                 error, progress, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)
+            VALUES (?, ?, ?, NULL, ?, ?, ?)
             """,
             (
                 job_id,
                 source_ref,
                 status,
-                input_path,
-                output_path,
                 _clamp_progress(progress),
                 now,
                 now,
@@ -418,7 +406,6 @@ def restart_failed_job(db_path: Path, job_id: str, expected_updated_at: str) -> 
             """
             UPDATE jobs
             SET status = 'downloading',
-                input_path = '',
                 error = NULL,
                 progress = 0,
                 created_at = ?,
@@ -630,15 +617,6 @@ def set_job_progress(db_path: Path, job_id: str, progress: int) -> None:
         conn.execute(
             "UPDATE jobs SET progress = ?, updated_at = ? WHERE id = ?",
             (clamped, _utc_now(), job_id),
-        )
-        conn.commit()
-
-
-def update_job_input_path(db_path: Path, job_id: str, input_path: str) -> None:
-    with _connect(db_path) as conn:
-        conn.execute(
-            "UPDATE jobs SET input_path = ?, updated_at = ? WHERE id = ?",
-            (input_path, _utc_now(), job_id),
         )
         conn.commit()
 

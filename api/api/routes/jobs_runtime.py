@@ -18,12 +18,11 @@ from ..db import (
     get_job,
     set_job_progress,
     set_job_status,
-    update_job_input_path,
     update_job_track_metadata,
 )
 from ..env import env_positive_float
 from ..paths import DB_PATH, STORAGE_ROOT
-from ..utils import abs_storage_path, get_logger
+from ..utils import get_logger
 from ..ytdlp_config import apply_ejs_config
 
 ERROR_ENGINE = "ERROR: Analysis engine encountered an issue."
@@ -499,9 +498,9 @@ def cleanup_failure(
     for candidate in (STORAGE_ROOT / "audio").glob(f"{job_id}.*"):
         if candidate.is_file():
             candidate.unlink()
-    result_path = STORAGE_ROOT / "analysis" / f"{job_id}.json"
-    if result_path.is_file():
-        result_path.unlink()
+    for result_path in (STORAGE_ROOT / "analysis").glob(f"{job_id}.json*"):
+        if result_path.is_file():
+            result_path.unlink()
     set_job_status(DB_PATH, job_id, "failed", message)
     log_event(
         "job_failed",
@@ -513,16 +512,10 @@ def cleanup_failure(
     logger.info("Job %s failed: %s", job_id, message)
 
 
-def delete_job_artifacts(job_id: str, job, storage_root: Path = STORAGE_ROOT) -> None:
-    paths: list[Path] = []
-    if job and job.input_path:
-        paths.append(abs_storage_path(storage_root, job.input_path))
-    if job and job.output_path:
-        paths.append(abs_storage_path(storage_root, job.output_path))
-    paths.append(storage_root / "logs" / f"{job_id}.log")
-    for path in paths:
-        if path.is_file():
-            path.unlink()
+def delete_job_artifacts(job_id: str, storage_root: Path = STORAGE_ROOT) -> None:
+    log_path = storage_root / "logs" / f"{job_id}.log"
+    if log_path.is_file():
+        log_path.unlink()
     for candidate in (storage_root / "audio").glob(f"{job_id}.*"):
         if candidate.is_file():
             candidate.unlink()
@@ -632,14 +625,14 @@ def download_source_audio(
         cleanup_failure(job_id, "Download failed", source_id, source_provider)
         return
 
+    # Normalize the downloaded file to audio/<id>.<ext> so it can be located
+    # later by globbing on the job id (the extension is not stored in the DB).
     input_path_obj = Path(input_path)
     suffix = input_path_obj.suffix or ".audio"
-    relative_path = Path("audio") / f"{job_id}{suffix}"
-    target_path = (STORAGE_ROOT / relative_path).resolve()
+    target_path = (STORAGE_ROOT / "audio" / f"{job_id}{suffix}").resolve()
     if input_path_obj.resolve() != target_path:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(input_path_obj), str(target_path))
-    update_job_input_path(DB_PATH, job_id, str(relative_path))
     set_job_progress(DB_PATH, job_id, 25)
     set_job_status(DB_PATH, job_id, "queued", None)
 

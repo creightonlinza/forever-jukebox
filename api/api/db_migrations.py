@@ -17,6 +17,7 @@ SOURCE_HOST_PROVIDER = (
 )
 
 MIGRATION_ID_0001 = "0001_sources_jobs_unification"
+MIGRATION_ID_0002 = "0002_drop_job_paths"
 
 
 @dataclass
@@ -37,8 +38,6 @@ class _MigratedJob:
     id: str
     source_key: str
     status: str
-    input_path: str
-    output_path: str
     error: str | None
     progress: int
     created_at: str
@@ -183,8 +182,6 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             id TEXT PRIMARY KEY,
             source_ref TEXT NOT NULL,
             status TEXT NOT NULL,
-            input_path TEXT NOT NULL,
-            output_path TEXT NOT NULL,
             error TEXT,
             progress INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
@@ -214,8 +211,6 @@ def _is_current_schema(conn: sqlite3.Connection) -> bool:
         "id",
         "source_ref",
         "status",
-        "input_path",
-        "output_path",
         "error",
         "progress",
         "created_at",
@@ -327,8 +322,6 @@ def _legacy_job_to_source(
         id=job_id,
         source_key=source_key,
         status=_clean_text(_row_value(row, "status")) or "queued",
-        input_path=_clean_text(_row_value(row, "input_path")) or "",
-        output_path=_clean_text(_row_value(row, "output_path")) or "",
         error=_clean_text(_row_value(row, "error")),
         progress=_clamp_progress(_row_value(row, "progress")),
         created_at=created_at,
@@ -445,8 +438,6 @@ def _collect_from_sources_and_jobs(
                 id=job_id,
                 source_key=source_key,
                 status=_clean_text(_row_value(row, "status")) or "queued",
-                input_path=_clean_text(_row_value(row, "input_path")) or "",
-                output_path=_clean_text(_row_value(row, "output_path")) or "",
                 error=_clean_text(_row_value(row, "error")),
                 progress=_clamp_progress(_row_value(row, "progress")),
                 created_at=created_at,
@@ -462,8 +453,6 @@ def _collect_from_sources_and_jobs(
                     id=synthetic_job_id,
                     source_key=source_key,
                     status="failed",
-                    input_path="",
-                    output_path="",
                     error="Recovered from malformed legacy schema",
                     progress=0,
                     created_at=source.created_at,
@@ -539,17 +528,15 @@ def _apply_migrated_records(
         conn.execute(
             """
             INSERT INTO jobs (
-                id, source_ref, status, input_path, output_path,
+                id, source_ref, status,
                 error, progress, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job.id,
                 source_ref,
                 job.status,
-                job.input_path,
-                job.output_path,
                 job.error,
                 _clamp_progress(job.progress),
                 job.created_at,
@@ -571,6 +558,48 @@ def _migrate_to_current_schema(conn: sqlite3.Connection) -> None:
         sources_by_key, jobs = _collect_from_jobs_only(conn)
 
     _apply_migrated_records(conn, sources_by_key, jobs)
+
+
+def _drop_job_path_columns(conn: sqlite3.Connection) -> None:
+    """Drop the redundant input_path/output_path columns from jobs.
+
+    Both are derivable from the job id and the fixed storage layout
+    (analysis/<id>.json for output, audio/<id>.* for input), so they are no
+    longer stored. Rebuilds the table when either column is still present; a
+    no-op on schemas that never had them (fresh DBs).
+    """
+    if not _table_exists(conn, "jobs"):
+        return
+    columns = _columns_for(conn, "jobs")
+    if "input_path" not in columns and "output_path" not in columns:
+        return
+    conn.execute("DROP TABLE IF EXISTS jobs__new")
+    conn.execute(
+        """
+        CREATE TABLE jobs__new (
+            id TEXT PRIMARY KEY,
+            source_ref TEXT NOT NULL,
+            status TEXT NOT NULL,
+            error TEXT,
+            progress INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(source_ref) REFERENCES sources(id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO jobs__new (
+            id, source_ref, status, error, progress, created_at, updated_at
+        )
+        SELECT id, source_ref, status, error, progress, created_at, updated_at
+        FROM jobs
+        """
+    )
+    conn.execute("DROP TABLE jobs")
+    conn.execute("ALTER TABLE jobs__new RENAME TO jobs")
+    # Indexes are recreated by the trailing _create_schema() in run_migrations.
 
 
 def _ensure_migrations_table(conn: sqlite3.Connection) -> None:
@@ -597,21 +626,51 @@ def _mark_migration_applied(conn: sqlite3.Connection, migration_id: str) -> None
 
 
 def run_migrations(conn: sqlite3.Connection) -> None:
-    """Apply schema migrations in order, recording applied versions."""
+    """Apply schema migrations in order, recording applied versions.
 
-    _ensure_migrations_table(conn)
-    applied = _applied_migrations(conn)
+    The whole run executes inside a single ``BEGIN IMMEDIATE`` transaction. The
+    API and worker both call ``init_db()`` on startup as separate processes, so
+    taking the write lock up front serializes them and makes each migration
+    atomic — a crash mid-rebuild rolls back cleanly instead of leaving a
+    half-dropped table. Foreign keys are disabled for the duration, per
+    SQLite's table-rebuild guidance, so a pre-existing orphan job row cannot
+    abort the copy into the rebuilt table.
+    """
 
-    needs_0001 = MIGRATION_ID_0001 not in applied
-    schema_current = _is_current_schema(conn)
-    if needs_0001 or not schema_current:
-        if not _table_exists(conn, "jobs") and not _table_exists(conn, "sources"):
-            _create_schema(conn)
-        elif schema_current:
-            _create_schema(conn)
-        else:
-            _migrate_to_current_schema(conn)
-        if needs_0001:
-            _mark_migration_applied(conn, MIGRATION_ID_0001)
+    previous_isolation = conn.isolation_level
+    # Manage the transaction explicitly; PRAGMA foreign_keys is a no-op inside
+    # a transaction, so it must be toggled before BEGIN.
+    conn.isolation_level = None
+    conn.execute("PRAGMA foreign_keys = OFF")
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        _ensure_migrations_table(conn)
+        applied = _applied_migrations(conn)
 
-    _create_schema(conn)
+        needs_0001 = MIGRATION_ID_0001 not in applied
+        schema_current = _is_current_schema(conn)
+        if needs_0001 or not schema_current:
+            if not _table_exists(conn, "jobs") and not _table_exists(conn, "sources"):
+                _create_schema(conn)
+            elif schema_current:
+                _create_schema(conn)
+            else:
+                _migrate_to_current_schema(conn)
+            if needs_0001:
+                _mark_migration_applied(conn, MIGRATION_ID_0001)
+
+        if MIGRATION_ID_0002 not in applied:
+            _drop_job_path_columns(conn)
+            _mark_migration_applied(conn, MIGRATION_ID_0002)
+
+        _create_schema(conn)
+        conn.execute("COMMIT")
+    except Exception:
+        try:
+            conn.execute("ROLLBACK")
+        except sqlite3.Error:
+            pass
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.isolation_level = previous_isolation
