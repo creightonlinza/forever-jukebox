@@ -17,14 +17,18 @@ let lastPageViewPath: string | null =
   typeof window === "undefined" ? null : window.location.pathname;
 let lastPlayKey: string | null = null;
 
-function gtagEvent(name: string, params: Record<string, string>): void {
+// Numeric values are sent as-is so they can be registered as GA custom metrics
+// (averaged) rather than dimensions (bucketed into rows).
+type EventParams = Record<string, string | number>;
+
+function gtagEvent(name: string, params: EventParams): void {
   if (typeof window === "undefined" || typeof window.gtag !== "function") {
     return;
   }
   window.gtag("event", name, params);
 }
 
-export function trackEvent(name: string, params: Record<string, string> = {}): void {
+export function trackEvent(name: string, params: EventParams = {}): void {
   gtagEvent(name, params);
 }
 

@@ -14,9 +14,11 @@ import { showToast } from "../ui";
 import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
 import {
   audioModeChangeAffectsPlayback,
+  audioModeSupportsIntensity,
   clampAudioModeIntensity,
   setAudioModeIntensityParam,
 } from "@forever-jukebox/shared/audio/audioModes";
+import { trackEvent } from "../analytics";
 import {
   closeTuning,
   updatePlayButton,
@@ -91,6 +93,17 @@ export function syncDeletedEdgeState(context: AppContext) {
   const { engine } = context;
   useAppStore.setState({ deletedEdgeIds: getDeletedEdgeIdsFromGraph(engine.getGraphState()) });
   syncTuningParamsState(context);
+}
+
+// Only the slider-backed modes carry intensity, so the metric averages real
+// adjustments instead of a constant default.
+function trackAudioModeChange(mode: JukeboxAudioMode, intensity: number): void {
+  trackEvent(
+    "audio_mode",
+    audioModeSupportsIntensity(mode)
+      ? { audio_mode: mode, audio_intensity: intensity }
+      : { audio_mode: mode },
+  );
 }
 
 export type ExtrasApplyResult = {
@@ -187,6 +200,12 @@ export function applyExtrasChanges(
     }
     updatePlayButton();
   }
+  if (
+    previousAudioMode !== nextAudioMode ||
+    previousAudioIntensity !== nextAudioIntensity
+  ) {
+    trackAudioModeChange(nextAudioMode, nextAudioIntensity);
+  }
   syncTuningParamsState(context);
   writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   return {
@@ -211,6 +230,9 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   });
   useAppStore.setState({ swingPreparing: false });
   resetAudioModeToOff(player);
+  if (previousAudioMode !== "off") {
+    trackAudioModeChange("off", useAppStore.getState().audioIntensity);
+  }
   updatePlayButton();
   if (
     previousAudioMode !== "off" &&
@@ -274,11 +296,44 @@ export function getTuningFormValues(context: AppContext): TuningFormValues {
   };
 }
 
+// Reports which controls the user touched, never the values they chose: the
+// values are high-cardinality and unreadable as GA dimensions.
+export function changedTuningControls(
+  previous: TuningFormValues,
+  next: TuningFormValues,
+): string[] {
+  const controls: string[] = [];
+  if (previous.threshold !== next.threshold) {
+    controls.push("threshold");
+  }
+  if (
+    previous.minProbPct !== next.minProbPct ||
+    previous.maxProbPct !== next.maxProbPct ||
+    previous.rampPct !== next.rampPct
+  ) {
+    controls.push("branch_probability");
+  }
+  if (previous.minLongBranchPercent !== next.minLongBranchPercent) {
+    controls.push("min_branch_length");
+  }
+  if (previous.justBackwards !== next.justBackwards) {
+    controls.push("just_backwards");
+  }
+  if (previous.removeSequentialBranches !== next.removeSequentialBranches) {
+    controls.push("sequential");
+  }
+  if (previous.highlightAnchorBranch !== next.highlightAnchorBranch) {
+    controls.push("anchor_highlight");
+  }
+  return controls;
+}
+
 export function applyTuningChanges(
   context: AppContext,
   form: TuningFormValues,
 ): TuningFormValues {
   const { engine, jukebox } = context;
+  const previousForm = getTuningFormValues(context);
   const threshold = form.threshold;
   const computed = form.computedThreshold;
   const useAutoThreshold =
@@ -327,6 +382,9 @@ export function applyTuningChanges(
     nextComputed = resolved;
   } else {
     nextComputed = useAppStore.getState().autoComputedThreshold;
+  }
+  for (const control of changedTuningControls(previousForm, form)) {
+    trackEvent("tune", { control });
   }
   syncTuningParamsState(context);
   writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);

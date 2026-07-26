@@ -35,6 +35,14 @@ describe("analytics", () => {
     expect(gtag).toHaveBeenCalledWith("event", "share", { track_id: "abc" });
   });
 
+  it("forwards numeric params unquoted for custom metrics", () => {
+    trackEvent("audio_mode", { audio_mode: "nightcore", audio_intensity: 120 });
+    expect(gtag).toHaveBeenCalledWith("event", "audio_mode", {
+      audio_mode: "nightcore",
+      audio_intensity: 120,
+    });
+  });
+
   it("suppresses a page_view for the landing path but fires on navigation", () => {
     trackPageView(window.location.pathname);
     expect(gtag).not.toHaveBeenCalled();

@@ -33,6 +33,7 @@ export {
 export {
   applyExtrasChanges,
   applyTuningChanges,
+  changedTuningControls,
   getExtrasFormValues,
   getTuningFormValues,
   resetExtrasDefaults,

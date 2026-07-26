@@ -10,6 +10,7 @@ import {
   resetTuningDefaults,
   applyTuningChanges,
   cancelPoll,
+  changedTuningControls,
   loadAudioFromJob,
   loadTrackById,
   openExtras,
@@ -274,6 +275,55 @@ function formValues(
 ): TuningFormValues {
   return { ...getTuningFormValues(context), ...overrides };
 }
+
+describe("changedTuningControls", () => {
+  const base: TuningFormValues = {
+    threshold: 45,
+    computedThreshold: 45,
+    minProbPct: 18,
+    maxProbPct: 50,
+    rampPct: 10,
+    justBackwards: false,
+    minLongBranchPercent: 0,
+    removeSequentialBranches: false,
+    highlightAnchorBranch: false,
+  };
+
+  it("reports nothing when the form is unchanged", () => {
+    expect(changedTuningControls(base, { ...base })).toEqual([]);
+  });
+
+  it("ignores the derived computed threshold", () => {
+    expect(changedTuningControls(base, { ...base, computedThreshold: 60 })).toEqual(
+      [],
+    );
+  });
+
+  it("groups the three probability sliders under one control", () => {
+    expect(
+      changedTuningControls(base, { ...base, minProbPct: 20, rampPct: 12 }),
+    ).toEqual(["branch_probability"]);
+  });
+
+  it("names each changed control", () => {
+    expect(
+      changedTuningControls(base, {
+        ...base,
+        threshold: 50,
+        minLongBranchPercent: 30,
+        justBackwards: true,
+        removeSequentialBranches: true,
+        highlightAnchorBranch: true,
+      }),
+    ).toEqual([
+      "threshold",
+      "min_branch_length",
+      "just_backwards",
+      "sequential",
+      "anchor_highlight",
+    ]);
+  });
+});
 
 describe("playback tuning", () => {
   beforeEach(() => {
