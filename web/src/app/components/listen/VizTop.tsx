@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CANONIZER_FINISH_KEY, VISUALIZATION_LABELS } from "../../constants";
+import { trackEvent } from "../../analytics";
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import {
@@ -90,6 +91,11 @@ export function VizTop() {
               onChange={(event) => {
                 const idx = Number(event.target.value);
                 if (Number.isFinite(idx)) {
+                  // Report the label, not the index: reordering the label list
+                  // would otherwise silently remap historical data.
+                  trackEvent("select_viz", {
+                    viz: VISUALIZATION_LABELS[idx] ?? String(idx),
+                  });
                   setActiveVisualization(idx);
                 }
               }}
