@@ -322,7 +322,9 @@ ensure_web_deps() {
   # npm workspaces: a single install at the repo root covers web, pwa,
   # and packages/*.
   if [[ ! -d "$ROOT/node_modules" ]]; then
-    (cd "$ROOT" && npm install)
+    # --ignore-scripts: no dependency needs lifecycle scripts (esbuild's
+    # binary ships via optional deps; fsevents degrades gracefully).
+    (cd "$ROOT" && npm install --ignore-scripts)
   fi
 }
 

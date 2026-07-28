@@ -6,7 +6,9 @@ COPY package.json package-lock.json ./
 COPY web/package.json web/
 COPY pwa/package.json pwa/
 COPY packages/shared/package.json packages/shared/
-RUN npm ci
+# Lifecycle scripts are unnecessary here: esbuild's binary comes from its
+# @esbuild/* optional dependency and nothing else needs install scripts.
+RUN npm ci --ignore-scripts
 COPY packages/ packages/
 COPY web/ web/
 COPY pwa/ pwa/
@@ -59,7 +61,8 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python \
     && if /opt/venv/bin/pip show madmom >/dev/null 2>&1; then /opt/venv/bin/pip uninstall -y madmom && /opt/venv/bin/python /app/engine/scripts/install_madmom_beats_lite.py --python /opt/venv/bin/python; fi
 
-RUN curl -fsSL "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip" \
+RUN curl -fsSL --proto '=https' --proto-redir '=https' \
+      "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip" \
       -o /tmp/deno.zip \
     && unzip /tmp/deno.zip -d /usr/local/bin \
     && rm /tmp/deno.zip \
