@@ -284,6 +284,7 @@ export function SearchPanel() {
         id="search-subtabs"
       >
         <button
+          type="button"
           className={setOf("subtab-btn", searchTab === "search" && "active")}
           data-search-subtab="search"
           onClick={() => useAppStore.setState({ searchTab: "search" })}
@@ -292,6 +293,7 @@ export function SearchPanel() {
         </button>
         <span className="subtab-spacer" aria-hidden="true"></span>
         <button
+          type="button"
           className={setOf("subtab-btn", searchTab === "upload" && "active")}
           data-search-subtab="upload"
           onClick={() => useAppStore.setState({ searchTab: "upload" })}
@@ -309,7 +311,15 @@ export function SearchPanel() {
         <div className="search-hint" id="search-hint">
           {hint()}
         </div>
-        <div className="search-bar search-bar-inline">
+        <form
+          className="search-bar search-bar-inline"
+          id="search-form"
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void triggerSearch();
+          }}
+        >
           <input
             id="search-input"
             className="search-input"
@@ -321,22 +331,15 @@ export function SearchPanel() {
             onChange={(event) =>
               useAppStore.setState({ searchQuery: event.target.value })
             }
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                void triggerSearch();
-              }
-            }}
           />
           <button
             id="search-button"
             className={setOf("search-inline-action", searchBusy && "is-loading")}
-            type="button"
+            type="submit"
             aria-label={t("common.search")}
             title={t("common.search")}
             aria-busy={searchBusy}
             disabled={searchBusy}
-            onClick={() => void triggerSearch()}
           >
             <span
               className="material-symbols-outlined search-inline-icon"
@@ -345,7 +348,7 @@ export function SearchPanel() {
               search
             </span>
           </button>
-        </div>
+        </form>
         <SearchResults />
       </div>
       <div
@@ -378,6 +381,7 @@ export function SearchPanel() {
               }
             />
             <button
+              type="button"
               id="upload-file-button"
               className={setOf(fileBusy && "is-loading") || undefined}
               aria-busy={fileBusy}

@@ -780,6 +780,7 @@ export function TopTracksPanel() {
 
   const subtabButton = (tabId: TopSongsTabId, content: React.ReactNode) => (
     <button
+      type="button"
       className={subtab === tabId ? "subtab-btn active" : "subtab-btn"}
       data-top-subtab={tabId}
       onClick={() => useAppStore.setState({ topSongsTab: tabId })}

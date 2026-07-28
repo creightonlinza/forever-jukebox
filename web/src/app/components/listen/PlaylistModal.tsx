@@ -24,6 +24,7 @@ export function PlaylistModal() {
       <div className="modal-header">
         <h2>{t("playlist.title")}</h2>
         <button
+          type="button"
           id="playlist-close"
           className="modal-close"
           aria-label={t("common.close")}

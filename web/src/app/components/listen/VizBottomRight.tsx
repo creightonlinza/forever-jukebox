@@ -175,6 +175,7 @@ export function VizBottomRight() {
             </datalist>
           </div>
           <button
+            type="button"
             id="autocanonizer-pan-button"
             className="volume-button pan-button"
             aria-label={t("playback.audioBalance")}
@@ -220,6 +221,7 @@ export function VizBottomRight() {
           </label>
         </div>
         <button
+          type="button"
           id="volume-button"
           className="volume-button"
           aria-label={t("playback.volume")}
@@ -238,6 +240,7 @@ export function VizBottomRight() {
         </button>
       </div>
       <button
+        type="button"
         id="fullscreen"
         className="fullscreen-toggle"
         aria-label={fullscreenLabel}

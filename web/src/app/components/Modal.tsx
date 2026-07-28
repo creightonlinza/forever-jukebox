@@ -179,6 +179,7 @@ export function ModalHeader({
       {title !== undefined ? <h2>{title}</h2> : null}
       {children}
       <button
+        type="button"
         id={closeId}
         className="modal-close"
         aria-label={t("common.close")}

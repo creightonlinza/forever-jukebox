@@ -90,6 +90,7 @@ export function FaqPanel() {
     <section className="panel tab-panel" data-tab-panel="faq">
       <div className="subtabs" id="faq-subtabs">
         <button
+          type="button"
           className={subtab === "faq" ? "subtab-btn active" : "subtab-btn"}
           data-faq-subtab="faq"
           onClick={() => handleSubtabClick("faq")}
@@ -98,6 +99,7 @@ export function FaqPanel() {
         </button>
         <span className="subtab-spacer" aria-hidden="true"></span>
         <button
+          type="button"
           className={subtab === "whats-new" ? "subtab-btn active" : "subtab-btn"}
           data-faq-subtab="whats-new"
           onClick={() => handleSubtabClick("whats-new")}

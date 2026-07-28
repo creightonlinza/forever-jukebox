@@ -19,6 +19,7 @@ export function BranchStatsPopup() {
           {stats ? stats.title() : t("playback.branchStats")}
         </div>
         <button
+          type="button"
           id="branch-stats-delete"
           className="branch-stats-delete"
           aria-label={t("delete.selectedBranch")}

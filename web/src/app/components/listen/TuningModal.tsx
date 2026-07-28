@@ -256,6 +256,7 @@ export function TuningModal() {
           </div>
           <div className="modal-header-actions">
             <button
+              type="button"
               id="tuning-close"
               className="modal-close"
               aria-label={t("common.close")}
@@ -460,10 +461,10 @@ export function TuningModal() {
           </div>
         </div>
         <div className="modal-footer tuning-footer">
-          <button id="tuning-reset" onClick={handleReset}>
+          <button type="button" id="tuning-reset" onClick={handleReset}>
             {t("common.reset")}
           </button>
-          <button id="tuning-apply" onClick={handleApply}>
+          <button type="button" id="tuning-apply" onClick={handleApply}>
             {t("common.apply")}
           </button>
         </div>

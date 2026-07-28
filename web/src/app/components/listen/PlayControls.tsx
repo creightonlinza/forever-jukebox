@@ -88,6 +88,7 @@ export function PlayControls() {
         </span>
       </button>
       <button
+        type="button"
         id="viz-play"
         className={
           playHidden

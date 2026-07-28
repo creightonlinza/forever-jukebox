@@ -103,6 +103,7 @@ export function SettingsModal() {
       <div className="modal-header">
         <h2>{t("settings.title")}</h2>
         <button
+          type="button"
           id="settings-close"
           className="modal-close"
           aria-label={t("common.close")}

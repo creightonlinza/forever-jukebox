@@ -185,6 +185,7 @@ export function PlayMenu() {
         </div>
         <div className="menu-right">
           <button
+            type="button"
             id="delete-job"
             ref={deleteButtonRef}
             className={
@@ -204,6 +205,7 @@ export function PlayMenu() {
             </span>
           </button>
           <button
+            type="button"
             id="tuning"
             className={isCanonizer ? "tune-toggle is-hidden" : "tune-toggle"}
             disabled={isCanonizer}
@@ -219,6 +221,7 @@ export function PlayMenu() {
             </span>
           </button>
           <button
+            type="button"
             id="track-info"
             className={isCanonizer ? "info-toggle is-hidden" : "info-toggle"}
             aria-label={t("playback.info")}
@@ -233,6 +236,7 @@ export function PlayMenu() {
             </span>
           </button>
           <button
+            type="button"
             id="short-url"
             className="copy-toggle"
             aria-label={t("playback.copyUrl")}
@@ -247,6 +251,7 @@ export function PlayMenu() {
             </span>
           </button>
           <button
+            type="button"
             id="favorite-toggle"
             className={
               `favorite-toggle${favoriteActive ? " active" : ""}` +

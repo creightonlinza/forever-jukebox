@@ -13,6 +13,7 @@ export function InfoModal() {
       <div className="modal-header">
         <h2>{t("info.title")}</h2>
         <button
+          type="button"
           id="info-close"
           className="modal-close"
           aria-label={t("common.close")}
