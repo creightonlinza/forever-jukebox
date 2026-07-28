@@ -1,4 +1,8 @@
-"""Manual storage cleanup for cold completed jobs."""
+"""Manual storage cleanup for cold completed jobs.
+
+Uploaded tracks are exempt: unlike provider-sourced tracks, they have no
+re-acquisition path once deleted.
+"""
 
 from __future__ import annotations
 
@@ -6,12 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .db import _connect, delete_job
-from .models import StorageCleanupError, StorageCleanupResponse, StorageCleanupSampleItem
+from .models import StorageCleanupCandidateItem, StorageCleanupError, StorageCleanupResponse
 from .routes.jobs_runtime import delete_job_artifacts
 
 
-CLEANUP_POLICY_DAYS = 180
-SAMPLE_SIZE = 10
+CLEANUP_POLICY_DAYS = 365
 
 
 @dataclass(frozen=True)
@@ -59,6 +62,7 @@ def find_cleanup_candidates(db_path: Path) -> list[CleanupCandidate]:
             FROM jobs j
             JOIN sources s ON s.id = j.source_ref
             WHERE j.status = 'complete'
+              AND s.provider != 'upload'
               AND julianday(s.updated_at) < julianday('now', ?)
             ORDER BY s.updated_at ASC, j.id ASC
             """,
@@ -87,6 +91,7 @@ def find_cleanup_candidate_by_id(
             JOIN sources s ON s.id = j.source_ref
             WHERE j.id = ?
               AND j.status = 'complete'
+              AND s.provider != 'upload'
               AND julianday(s.updated_at) < julianday('now', ?)
             """,
             (job_id, _cutoff_arg(CLEANUP_POLICY_DAYS)),
@@ -125,12 +130,8 @@ def candidate_bytes(storage_root: Path, candidate: CleanupCandidate) -> int:
 
 def build_cleanup_preview(db_path: Path, storage_root: Path) -> StorageCleanupResponse:
     candidates = find_cleanup_candidates(db_path)
-    bytes_by_job = {
-        candidate.job_id: candidate_bytes(storage_root, candidate)
-        for candidate in candidates
-    }
-    sample = [
-        StorageCleanupSampleItem(
+    listed = [
+        StorageCleanupCandidateItem(
             job_id=candidate.job_id,
             provider=candidate.provider,
             source_id=candidate.source_id,
@@ -139,16 +140,15 @@ def build_cleanup_preview(db_path: Path, storage_root: Path) -> StorageCleanupRe
             artist=candidate.artist,
             play_count=candidate.play_count,
             updated_at=candidate.updated_at,
-            bytes=bytes_by_job[candidate.job_id],
         )
-        for candidate in candidates[:SAMPLE_SIZE]
+        for candidate in candidates
     ]
     return StorageCleanupResponse(
         dry_run=True,
         days=CLEANUP_POLICY_DAYS,
         candidate_jobs=len(candidates),
-        candidate_bytes=sum(bytes_by_job.values()),
-        sample=sample,
+        candidate_bytes=sum(candidate_bytes(storage_root, c) for c in candidates),
+        candidates=listed,
         deleted_jobs=0,
         deleted_bytes=0,
         failed_jobs=0,
@@ -192,7 +192,7 @@ def execute_cleanup(db_path: Path, storage_root: Path) -> StorageCleanupResponse
         days=CLEANUP_POLICY_DAYS,
         candidate_jobs=preview.candidate_jobs,
         candidate_bytes=preview.candidate_bytes,
-        sample=[],
+        candidates=[],
         deleted_jobs=deleted_jobs,
         deleted_bytes=deleted_bytes,
         failed_jobs=len(errors),

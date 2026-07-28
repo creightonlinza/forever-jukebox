@@ -57,6 +57,7 @@ def _make_job(
     status: str = "complete",
     play_count: int = 1,
     updated_at: str = OLD_UPDATED_AT,
+    provider: str = "youtube",
     title: str | None = None,
     audio_bytes: int = 3,
     analysis_bytes: int = 5,
@@ -72,7 +73,7 @@ def _make_job(
         track_title=title or f"Track {job_id}",
         track_artist="Artist",
         source_id=f"source-{job_id}",
-        source_provider="youtube",
+        source_provider=provider,
         source_url=f"https://www.youtube.com/watch?v=source-{job_id}",
     )
     _set_source_activity(db_path, job_id, play_count=play_count, updated_at=updated_at)
@@ -116,13 +117,13 @@ class StorageCleanupTests(unittest.TestCase):
             response = build_cleanup_preview(db_path, storage_root)
 
             self.assertTrue(response.dry_run)
-            self.assertEqual(response.days, 180)
+            self.assertEqual(response.days, 365)
             self.assertEqual(response.candidate_jobs, 1)
             self.assertEqual(response.candidate_bytes, 15)
             self.assertEqual(_job_count(db_path), 1)
             self.assertTrue((storage_root / "audio" / "old-job.m4a").exists())
 
-    def test_preview_includes_at_most_ten_oldest_samples(self) -> None:
+    def test_preview_lists_every_candidate_oldest_first(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             storage_root = Path(temp_dir) / "storage"
@@ -140,8 +141,26 @@ class StorageCleanupTests(unittest.TestCase):
             response = build_cleanup_preview(db_path, storage_root)
 
         self.assertEqual(response.candidate_jobs, 12)
-        self.assertEqual(len(response.sample), 10)
-        self.assertEqual([item.job_id for item in response.sample], [f"job-{index:02d}" for index in range(10)])
+        self.assertEqual(len(response.candidates), 12)
+        self.assertEqual([item.job_id for item in response.candidates], [f"job-{index:02d}" for index in range(12)])
+
+    def test_uploaded_tracks_are_never_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
+            init_db(db_path)
+            _make_job(db_path, storage_root, "old-upload", provider="upload")
+            _make_job(db_path, storage_root, "old-youtube", provider="youtube")
+
+            preview = build_cleanup_preview(db_path, storage_root)
+            self.assertEqual(preview.candidate_jobs, 1)
+            self.assertEqual(preview.candidates[0].job_id, "old-youtube")
+
+            response = execute_cleanup(db_path, storage_root)
+            self.assertEqual(response.deleted_jobs, 1)
+            self.assertIsNotNone(get_job(db_path, "old-upload"))
+            self.assertIsNone(get_job(db_path, "old-youtube"))
+            self.assertTrue((storage_root / "audio" / "old-upload.m4a").exists())
 
     def test_execute_rejects_missing_or_wrong_confirmation(self) -> None:
         with patch.dict(os.environ, {"ADMIN_KEY": "secret"}, clear=True):
@@ -264,7 +283,7 @@ class StorageCleanupTests(unittest.TestCase):
             response = build_cleanup_preview(db_path, storage_root)
 
         self.assertEqual(response.candidate_jobs, 1)
-        self.assertEqual(response.sample[0].job_id, "old-iso")
+        self.assertEqual(response.candidates[0].job_id, "old-iso")
 
 
 if __name__ == "__main__":

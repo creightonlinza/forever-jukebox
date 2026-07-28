@@ -254,106 +254,7 @@
         "title": "PlayCountUpdate",
         "type": "object"
       },
-      "StorageCleanupError": {
-        "properties": {
-          "error": {
-            "title": "Error",
-            "type": "string"
-          },
-          "job_id": {
-            "title": "Job Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "job_id",
-          "error"
-        ],
-        "title": "StorageCleanupError",
-        "type": "object"
-      },
-      "StorageCleanupRequest": {
-        "properties": {
-          "confirm": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirm"
-          },
-          "dry_run": {
-            "default": true,
-            "title": "Dry Run",
-            "type": "boolean"
-          }
-        },
-        "title": "StorageCleanupRequest",
-        "type": "object"
-      },
-      "StorageCleanupResponse": {
-        "properties": {
-          "candidate_bytes": {
-            "title": "Candidate Bytes",
-            "type": "integer"
-          },
-          "candidate_jobs": {
-            "title": "Candidate Jobs",
-            "type": "integer"
-          },
-          "days": {
-            "title": "Days",
-            "type": "integer"
-          },
-          "deleted_bytes": {
-            "title": "Deleted Bytes",
-            "type": "integer"
-          },
-          "deleted_jobs": {
-            "title": "Deleted Jobs",
-            "type": "integer"
-          },
-          "dry_run": {
-            "title": "Dry Run",
-            "type": "boolean"
-          },
-          "errors": {
-            "items": {
-              "$ref": "#/components/schemas/StorageCleanupError"
-            },
-            "title": "Errors",
-            "type": "array"
-          },
-          "failed_jobs": {
-            "title": "Failed Jobs",
-            "type": "integer"
-          },
-          "sample": {
-            "items": {
-              "$ref": "#/components/schemas/StorageCleanupSampleItem"
-            },
-            "title": "Sample",
-            "type": "array"
-          }
-        },
-        "required": [
-          "dry_run",
-          "days",
-          "candidate_jobs",
-          "candidate_bytes",
-          "sample",
-          "deleted_jobs",
-          "deleted_bytes",
-          "failed_jobs",
-          "errors"
-        ],
-        "title": "StorageCleanupResponse",
-        "type": "object"
-      },
-      "StorageCleanupSampleItem": {
+      "StorageCleanupCandidateItem": {
         "properties": {
           "artist": {
             "anyOf": [
@@ -365,10 +266,6 @@
               }
             ],
             "title": "Artist"
-          },
-          "bytes": {
-            "title": "Bytes",
-            "type": "integer"
           },
           "job_id": {
             "title": "Job Id",
@@ -424,10 +321,108 @@
           "job_id",
           "provider",
           "play_count",
-          "updated_at",
-          "bytes"
+          "updated_at"
         ],
-        "title": "StorageCleanupSampleItem",
+        "title": "StorageCleanupCandidateItem",
+        "type": "object"
+      },
+      "StorageCleanupError": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "error"
+        ],
+        "title": "StorageCleanupError",
+        "type": "object"
+      },
+      "StorageCleanupRequest": {
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
+          "dry_run": {
+            "default": true,
+            "title": "Dry Run",
+            "type": "boolean"
+          }
+        },
+        "title": "StorageCleanupRequest",
+        "type": "object"
+      },
+      "StorageCleanupResponse": {
+        "properties": {
+          "candidate_bytes": {
+            "title": "Candidate Bytes",
+            "type": "integer"
+          },
+          "candidate_jobs": {
+            "title": "Candidate Jobs",
+            "type": "integer"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/StorageCleanupCandidateItem"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "deleted_bytes": {
+            "title": "Deleted Bytes",
+            "type": "integer"
+          },
+          "deleted_jobs": {
+            "title": "Deleted Jobs",
+            "type": "integer"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/StorageCleanupError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "failed_jobs": {
+            "title": "Failed Jobs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dry_run",
+          "days",
+          "candidate_jobs",
+          "candidate_bytes",
+          "candidates",
+          "deleted_jobs",
+          "deleted_bytes",
+          "failed_jobs",
+          "errors"
+        ],
+        "title": "StorageCleanupResponse",
         "type": "object"
       },
       "ValidationError": {

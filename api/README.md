@@ -243,9 +243,11 @@ curl -X POST "/api/admin/storage-cleanup" \
 ```
 
 The cleanup policy is server-side: completed jobs whose source has not been
-played in over 365 days (`updated_at` is bumped on each play). Dry-run is the
-default. To execute the cleanup, set `dry_run` to `false` and include the
-explicit confirmation:
+played in over 365 days (`updated_at` is bumped on each play). Uploaded tracks
+are never candidates since they cannot be re-fetched. Dry-run is the
+default, and lists every match in `candidates` (oldest first) alongside the
+`candidate_bytes` total. To execute the cleanup, set `dry_run` to `false` and
+include the explicit confirmation:
 
 ```bash
 curl -X POST "/api/admin/storage-cleanup" \

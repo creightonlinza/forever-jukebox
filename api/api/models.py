@@ -83,7 +83,7 @@ class StorageCleanupRequest(BaseModel):
     confirm: str | None = None
 
 
-class StorageCleanupSampleItem(BaseModel):
+class StorageCleanupCandidateItem(BaseModel):
     job_id: str
     provider: str
     source_id: str | None = None
@@ -92,7 +92,6 @@ class StorageCleanupSampleItem(BaseModel):
     artist: str | None = None
     play_count: int
     updated_at: str
-    bytes: int
 
 
 class StorageCleanupError(BaseModel):
@@ -105,7 +104,7 @@ class StorageCleanupResponse(BaseModel):
     days: int
     candidate_jobs: int
     candidate_bytes: int
-    sample: list[StorageCleanupSampleItem]
+    candidates: list[StorageCleanupCandidateItem]
     deleted_jobs: int
     deleted_bytes: int
     failed_jobs: int
