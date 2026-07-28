@@ -23,9 +23,9 @@ type VisualizationLabel = (typeof VISUALIZATION_LABELS)[number];
 // apart, so a forward selection there is deliberate. The label type makes a
 // rename in VISUALIZATION_LABELS a compile error here instead of a silently
 // lost capability.
-const SEPARATES_PAIRED_EDGES: readonly VisualizationLabel[] = ["Arc"];
+const SEPARATES_PAIRED_EDGES: ReadonlySet<VisualizationLabel> = new Set(["Arc"]);
 
 export function visualizationSeparatesPairedEdges(index: number): boolean {
   const label = VISUALIZATION_LABELS[index];
-  return label !== undefined && SEPARATES_PAIRED_EDGES.includes(label);
+  return label !== undefined && SEPARATES_PAIRED_EDGES.has(label);
 }

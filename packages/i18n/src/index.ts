@@ -6,7 +6,15 @@ import { initReactI18next } from "react-i18next";
 
 export const defaultNS = "translation";
 const languageStorageKey = "fj-language";
-const rtlLanguages: readonly string[] = ["ar", "fa", "he", "ur"];
+const rtlLanguages: ReadonlySet<string> = new Set(["ar", "fa", "he", "ur"]);
+
+function storedLanguage(): string | null {
+  try {
+    return localStorage.getItem(languageStorageKey);
+  } catch {
+    return null;
+  }
+}
 
 export interface SupportedLanguageOption {
   readonly code: string;
@@ -15,7 +23,7 @@ export interface SupportedLanguageOption {
 
 export function isRtlLanguage(language: string | null | undefined): boolean {
   const baseLanguage = language?.toLowerCase().split("-")[0];
-  return baseLanguage ? rtlLanguages.includes(baseLanguage) : false;
+  return baseLanguage ? rtlLanguages.has(baseLanguage) : false;
 }
 
 export interface CreateAppI18nOptions<TResources> {
@@ -49,14 +57,6 @@ export function createAppI18n<TResources extends Resource>({
     return baseLanguage && supportedLanguages.includes(baseLanguage)
       ? baseLanguage
       : "en";
-  }
-
-  function storedLanguage(): string | null {
-    try {
-      return localStorage.getItem(languageStorageKey);
-    } catch {
-      return null;
-    }
   }
 
   function preferredLanguage(): string {

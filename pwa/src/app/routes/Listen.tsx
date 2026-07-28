@@ -2493,7 +2493,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   };
 
   const steps = React.useMemo<ProgressStep[]>(() => {
-    const stageIndex = STEP_ORDER.findIndex((step) => step === progressStage);
+    const stageIndex = STEP_ORDER.indexOf(progressStage);
     return STEP_ORDER.map((step, idx) => ({
       id: step,
       label: analysisStageLabel(step, t),
