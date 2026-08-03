@@ -8,6 +8,8 @@ import os
 import re
 import shutil
 import subprocess
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,6 +39,9 @@ ERROR_YOUTUBE_UNREACHABLE = "ERROR: Unable to reach YouTube"
 ERROR_YOUTUBE_LIVE = "ERROR: Live YouTube videos are not supported."
 ERROR_TRACK_TOO_LONG = "ERROR: This track exceeds the server length limit."
 ERROR_GENERIC = "ERROR: Something went wrong. Please try again or report an issue on GitHub."
+# Lowercase yt-dlp error text shared by classification, notification, and retry.
+HTTP_403_ERROR_TEXT = "http error 403"
+
 ERROR_CODE_ANALYSIS_MISSING = "analysis_missing"
 ERROR_CODE_NO_BEATS_DETECTED = "no_beats_detected"
 ERROR_CODE_YOUTUBE_LIVE = "youtube_live"
@@ -202,7 +207,7 @@ def normalize_job_error(raw: str | None) -> str:
     if "video unavailable" in lowered or "this video is not available" in lowered:
         return ERROR_YOUTUBE_UNAVAILABLE
     if (
-        "http error 403" in lowered
+        HTTP_403_ERROR_TEXT in lowered
         or "[download]" in lowered
         or "unable to download video data" in lowered
         or "premieres in" in lowered
@@ -452,7 +457,7 @@ def _notify_youtube_issue(
     if age_restricted:
         return
     issues: list[str] = []
-    if "http error 403" in lowered or "unable to download video data" in lowered:
+    if HTTP_403_ERROR_TEXT in lowered or "unable to download video data" in lowered:
         issues.append("403: Forbidden")
     if "sign in to confirm" in lowered or "not a bot" in lowered:
         issues.append("Sign in to confirm you're not a bot")
@@ -524,6 +529,45 @@ def delete_job_artifacts(job_id: str, storage_root: Path = STORAGE_ROOT) -> None
             candidate.unlink()
 
 
+HTTP_403_RETRY_DELAY_S = 3.0
+
+
+def _is_http_403_error(exc: Exception) -> bool:
+    return HTTP_403_ERROR_TEXT in str(exc).lower()
+
+
+def _download_with_403_retry(
+    ydl_cls: type,
+    ydl_opts: dict,
+    source_url: str,
+    job_id: str,
+    source_provider: str | None,
+    on_retry: Callable[[], None] | None = None,
+) -> object:
+    """Download via yt-dlp, retrying once on HTTP 403.
+
+    A fresh extraction re-signs the media URLs and re-requests the PO token,
+    which usually clears a transient 403. on_retry runs before the second
+    attempt so the caller can discard first-attempt state.
+    """
+    try:
+        with ydl_cls(ydl_opts) as ydl:
+            return ydl.extract_info(source_url, download=True)
+    except Exception as exc:
+        if not _is_http_403_error(exc):
+            raise
+        log_event(
+            "download_403_retry",
+            job_id=job_id,
+            source=source_provider or "unknown",
+        )
+        if on_retry is not None:
+            on_retry()
+        time.sleep(HTTP_403_RETRY_DELAY_S)
+        with ydl_cls(ydl_opts) as ydl:
+            return ydl.extract_info(source_url, download=True)
+
+
 def download_source_audio(
     job_id: str,
     source_url: str,
@@ -586,9 +630,25 @@ def download_source_audio(
 
     ydl_opts["match_filter"] = match_filter
     apply_ejs_config(ydl_opts)
+
+    def discard_first_attempt() -> None:
+        # Drop attempt 1's partial files so the retry downloads from scratch
+        # instead of resuming a stale .part, and let the progress bar restart.
+        last_progress["value"] = -1
+        set_job_progress(DB_PATH, job_id, 0)
+        for candidate in audio_dir.glob(f"{job_id}.*"):
+            if candidate.is_file():
+                candidate.unlink()
+
     try:
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(source_url, download=True)
+        info = _download_with_403_retry(
+            YoutubeDL,
+            ydl_opts,
+            source_url,
+            job_id,
+            source_provider,
+            on_retry=discard_first_attempt,
+        )
     except Exception as exc:  # pragma: no cover - network call
         cleanup_failure(job_id, str(exc), source_id, source_provider)
         return
