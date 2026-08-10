@@ -40,10 +40,10 @@ import {
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
 import {
+  DEFAULT_JUKEBOX_CONFIG,
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
   Edge,
   findBackwardTwin,
-  JukeboxConfig,
   JukeboxEngine,
 } from "@forever-jukebox/shared";
 import {
@@ -91,19 +91,6 @@ const STEP_ORDER: AnalyzeStage[] = [
   "ready",
 ];
 
-const DEFAULT_CONFIG: JukeboxConfig = {
-  maxBranches: 4,
-  maxBranchThreshold: 80,
-  currentThreshold: 0,
-  justBackwards: false,
-  justLongBranches: false,
-  removeSequentialBranches: false,
-  minRandomBranchChance: 0.18,
-  maxRandomBranchChance: 0.5,
-  randomBranchChanceDelta: 0.02,
-  minLongBranch: 0,
-  minLongBranchPercent: DEFAULT_MIN_LONG_BRANCH_PERCENT,
-};
 
 const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
 const VISUALIZATION_STORAGE_KEY = "fj-viz";
@@ -772,19 +759,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [tuneForm, setTuneForm] = React.useState<TuneFormState>({
     threshold: 0,
     computedThreshold: 0,
-    minProb: Math.round(DEFAULT_CONFIG.minRandomBranchChance * 100),
-    maxProb: Math.round(DEFAULT_CONFIG.maxRandomBranchChance * 100),
+    minProb: Math.round(DEFAULT_JUKEBOX_CONFIG.minRandomBranchChance * 100),
+    maxProb: Math.round(DEFAULT_JUKEBOX_CONFIG.maxRandomBranchChance * 100),
     ramp:
       Math.round(
-        DEFAULT_CONFIG.randomBranchChanceDelta *
+        DEFAULT_JUKEBOX_CONFIG.randomBranchChanceDelta *
           RANDOM_BRANCH_DELTA_PERCENT_SCALE *
           10,
       ) / 10,
     volume: 100,
     highlightAnchorBranch,
-    justBackwards: DEFAULT_CONFIG.justBackwards,
+    justBackwards: DEFAULT_JUKEBOX_CONFIG.justBackwards,
     minLongBranchPercent: 0,
-    removeSequentialBranches: DEFAULT_CONFIG.removeSequentialBranches,
+    removeSequentialBranches: DEFAULT_JUKEBOX_CONFIG.removeSequentialBranches,
   });
   const [extrasForm, setExtrasForm] = React.useState<ExtrasFormState>({
     branchStatsEnabled: resolveStoredBranchStatsEnabled(),
@@ -2175,7 +2162,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     engine.clearDeletedEdges();
-    engine.updateConfig(DEFAULT_CONFIG);
+    engine.updateConfig(DEFAULT_JUKEBOX_CONFIG);
     rebuildGraphAndSyncViz();
     clearSelectedBranch();
     syncTuneFormFromEngine();

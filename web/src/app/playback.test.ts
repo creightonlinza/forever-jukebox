@@ -176,7 +176,7 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     }),
     rebuildGraph: vi.fn(),
     loadAnalysis: vi.fn(),
-    getGraphState: vi.fn(() => ({ currentThreshold: 45, allEdges: [], totalBeats: 0 })),
+    getGraphState: vi.fn(() => ({ currentThreshold: 45, computedThreshold: 45, allEdges: [], totalBeats: 0 })),
     getVisualizationData: vi.fn(() => ({ beats: [], edges: [] })),
     pauseJukebox: vi.fn(),
     syncToPlaybackPosition: vi.fn(),
@@ -418,7 +418,7 @@ describe("playback tuning", () => {
         })),
         updateConfig: vi.fn(),
         rebuildGraph: vi.fn(),
-        getGraphState: vi.fn(() => ({ currentThreshold: 45, allEdges: [], totalBeats: 0 })),
+        getGraphState: vi.fn(() => ({ currentThreshold: 45, computedThreshold: 45, allEdges: [], totalBeats: 0 })),
         getVisualizationData: vi.fn(() => ({ beats: [1], edges: [1] })),
       } as unknown as AppContext["engine"],
       jukebox: {
@@ -764,6 +764,7 @@ describe("playback tuning", () => {
     setWindowUrl("http://localhost/listen/abc?d=1,3");
     const graph = {
       currentThreshold: 45,
+      computedThreshold: 45,
       allEdges: [
         { id: 1, deleted: false },
         { id: 2, deleted: false },
@@ -867,6 +868,7 @@ describe("playback tuning", () => {
         getSectionStartBeatIndices: vi.fn(() => []),
         getGraphState: vi.fn(() => ({
           currentThreshold: 45,
+          computedThreshold: 45,
           allEdges: [anchorEdge],
           totalBeats: 0,
         })),
@@ -915,6 +917,7 @@ describe("playback tuning", () => {
         getSectionStartBeatIndices: vi.fn(() => []),
         getGraphState: vi.fn(() => ({
           currentThreshold: 45,
+          computedThreshold: 45,
           allEdges: [forwardEdge],
           totalBeats: 0,
         })),
@@ -952,7 +955,7 @@ describe("playback tuning", () => {
         updateConfig: vi.fn(),
         loadAnalysis: vi.fn(),
         getSectionStartBeatIndices: vi.fn(() => []),
-        getGraphState: vi.fn(() => ({ currentThreshold: 45, allEdges: [], totalBeats: 0 })),
+        getGraphState: vi.fn(() => ({ currentThreshold: 45, computedThreshold: 45, allEdges: [], totalBeats: 0 })),
         getVisualizationData: vi.fn(() => ({ beats: [], edges: [] })),
         deleteEdge: vi.fn(),
         rebuildGraph: vi.fn(),
@@ -991,7 +994,7 @@ describe("playback tuning", () => {
         updateConfig: vi.fn(),
         loadAnalysis: vi.fn(),
         getSectionStartBeatIndices: vi.fn(() => [4, 12]),
-        getGraphState: vi.fn(() => ({ currentThreshold: 45, allEdges: [], totalBeats: 0 })),
+        getGraphState: vi.fn(() => ({ currentThreshold: 45, computedThreshold: 45, allEdges: [], totalBeats: 0 })),
         getVisualizationData: vi.fn(() => ({ beats: [], edges: [] })),
         deleteEdge: vi.fn(),
         rebuildGraph: vi.fn(),
@@ -1045,6 +1048,7 @@ describe("playback tuning", () => {
     setWindowUrl("http://localhost/listen/abc?thresh=20&d=2");
     const graph = {
       currentThreshold: 45,
+      computedThreshold: 45,
       allEdges: [
         { id: 2, deleted: false },
         { id: 3, deleted: false },

@@ -126,6 +126,20 @@ test.describe("tuning modal", () => {
       ),
     ).toBe("1");
   });
+
+  test("computed hint reports the track default, not the pinned threshold", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    const track = await getFixtureTrack(request, baseURL!);
+    // 51 is not a multiple of 5, so it can never be a computed default.
+    await loadTrackByDeepLink(page, track.id, "?thresh=51");
+    await page.locator("#tuning").click();
+    await expect(page.locator("#tuning-modal")).toHaveClass(/\bopen\b/);
+    await expect(page.locator("#threshold")).toHaveValue("51");
+    await expect(page.locator("#computed-threshold")).not.toHaveText("51");
+  });
 });
 
 test.describe("extras", () => {

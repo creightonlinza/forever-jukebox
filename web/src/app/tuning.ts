@@ -1,6 +1,9 @@
 import type { AppContext } from "./context";
 import { useAppStore } from "./store";
-import { DEFAULT_MIN_LONG_BRANCH_PERCENT } from "@forever-jukebox/shared";
+import {
+  DEFAULT_MIN_LONG_BRANCH_PERCENT,
+  parsePinnedThreshold,
+} from "@forever-jukebox/shared";
 import {
   DEFAULT_AUDIO_MODE_INTENSITY,
   parseAudioModeIntensityParam,
@@ -140,10 +143,7 @@ export function applyTuningParamsToEngine(
     nextConfig.removeSequentialBranches = true;
   }
   if (params.has("thresh")) {
-    const raw = Number.parseInt(params.get("thresh") ?? "", 10);
-    if (Number.isFinite(raw) && raw >= 0) {
-      nextConfig.currentThreshold = raw;
-    }
+    nextConfig.currentThreshold = parsePinnedThreshold(params.get("thresh")) ?? 0;
   }
   if (params.has("bp")) {
     const fields = (params.get("bp") ?? "").split(",");

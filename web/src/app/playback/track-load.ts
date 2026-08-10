@@ -207,7 +207,6 @@ export function resetForNewTrack(
     stopPlayback(context);
   }
   autocanonizer?.reset();
-  useAppStore.setState({ autoComputedThreshold: null });
   if (shouldClearTuning) {
     useAppStore.setState({ tuningParams: null });
     clearTuningParamsFromUrl(true);
@@ -295,17 +294,11 @@ export function applyAnalysisResult(
     return false;
   }
   applyTuningParamsFromUrl(context);
-  const useAutoThreshold = engine.getConfig().currentThreshold === 0;
   engine.loadAnalysis(response.result);
   cowbellOverlay.setSectionStartBeatIndices(engine.getSectionStartBeatIndices());
   applyDeletedEdgesFromUrl(context);
   applyAnchorBranchFromUrl(context);
   autocanonizer.setAnalysis(response.result, response.result.track?.duration);
-  const graph = engine.getGraphState();
-  useAppStore.setState({
-    autoComputedThreshold:
-      useAutoThreshold && graph ? Math.round(graph.currentThreshold) : null,
-  });
   useAppStore.setState({ vizData: engine.getVisualizationData() });
   const data = useAppStore.getState().vizData;
   if (data) {

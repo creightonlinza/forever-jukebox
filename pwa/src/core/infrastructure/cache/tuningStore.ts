@@ -1,4 +1,9 @@
-import type { JukeboxConfig } from "@forever-jukebox/shared";
+import {
+  DEFAULT_JUKEBOX_CONFIG,
+  DEFAULT_MIN_LONG_BRANCH_PERCENT,
+  parsePinnedThreshold,
+  type JukeboxConfig,
+} from "@forever-jukebox/shared";
 
 // Per-song tuning is auto-saved in localStorage, keyed by the same fingerprint
 // used for the cached analysis. Removal is centralized in analysisCache.ts so
@@ -28,6 +33,63 @@ export type SavedTuning = {
 
 function keyFor(fingerprint: string) {
   return `${PREFIX}${fingerprint}`;
+}
+
+function boolOr(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function numberInRange(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(Math.max(value, min), max);
+}
+
+// Stored tuning is hand-editable and survives app upgrades, so every field is
+// re-read rather than trusted. Anything unusable falls back to the engine
+// default, which for the threshold means auto.
+function normalizeConfig(raw: Record<string, unknown>): SavedTuningConfig {
+  const defaults = DEFAULT_JUKEBOX_CONFIG;
+  const minLongBranchPercent = raw.minLongBranchPercent;
+  return {
+    currentThreshold: parsePinnedThreshold(raw.currentThreshold) ?? 0,
+    justBackwards: boolOr(raw.justBackwards, defaults.justBackwards),
+    justLongBranches: boolOr(raw.justLongBranches, defaults.justLongBranches),
+    removeSequentialBranches: boolOr(
+      raw.removeSequentialBranches,
+      defaults.removeSequentialBranches,
+    ),
+    minRandomBranchChance: numberInRange(
+      raw.minRandomBranchChance,
+      0,
+      1,
+      defaults.minRandomBranchChance,
+    ),
+    maxRandomBranchChance: numberInRange(
+      raw.maxRandomBranchChance,
+      0,
+      1,
+      defaults.maxRandomBranchChance,
+    ),
+    randomBranchChanceDelta: numberInRange(
+      raw.randomBranchChanceDelta,
+      0,
+      1,
+      defaults.randomBranchChanceDelta,
+    ),
+    minLongBranchPercent:
+      typeof minLongBranchPercent === "number" &&
+      Number.isFinite(minLongBranchPercent) &&
+      minLongBranchPercent > 0
+        ? Math.min(minLongBranchPercent, 100)
+        : DEFAULT_MIN_LONG_BRANCH_PERCENT,
+  };
 }
 
 export function loadTuning(fingerprint: string): SavedTuning | null {
@@ -62,7 +124,7 @@ export function loadTuning(fingerprint: string): SavedTuning | null {
         : null;
     return {
       v: 1,
-      config: parsed.config as SavedTuningConfig,
+      config: normalizeConfig(parsed.config as Record<string, unknown>),
       deletedEdgeIds,
       anchorEdgeId,
     };

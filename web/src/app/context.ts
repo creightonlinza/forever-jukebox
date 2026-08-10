@@ -36,7 +36,6 @@ export type AppState = {
   analysisLoaded: boolean;
   audioLoadInFlight: boolean;
   analysisPollInFlight: boolean;
-  autoComputedThreshold: number | null;
   lastJobId: string | null;
   lastTrackId: string | null;
   lastSourceId: string | null;
