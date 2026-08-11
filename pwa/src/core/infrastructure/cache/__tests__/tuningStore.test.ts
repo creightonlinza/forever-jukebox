@@ -104,6 +104,16 @@ describe("tuningStore", () => {
     expect(config?.maxRandomBranchChance).toBeCloseTo(0.5, 4);
   });
 
+  it("reorders branch probabilities when a fallback inverts the pair", () => {
+    const config = loadStoredConfig({
+      ...sample.config,
+      minRandomBranchChance: 0.6,
+      maxRandomBranchChance: "high",
+    });
+    expect(config?.minRandomBranchChance).toBeCloseTo(0.5, 4);
+    expect(config?.maxRandomBranchChance).toBeCloseTo(0.6, 4);
+  });
+
   it("falls back to the default minimum jump distance when unusable", () => {
     const config = loadStoredConfig({ ...sample.config, minLongBranchPercent: 0 });
     expect(config?.minLongBranchPercent).toBe(20);

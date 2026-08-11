@@ -57,6 +57,27 @@ function numberInRange(
 function normalizeConfig(raw: Record<string, unknown>): SavedTuningConfig {
   const defaults = DEFAULT_JUKEBOX_CONFIG;
   const minLongBranchPercent = raw.minLongBranchPercent;
+  // Each probability is normalized on its own, so one falling back to its
+  // default can invert the pair. Reorder them the same way applying the tuning
+  // form does, rather than handing the engine a minimum above its maximum.
+  let minRandomBranchChance = numberInRange(
+    raw.minRandomBranchChance,
+    0,
+    1,
+    defaults.minRandomBranchChance,
+  );
+  let maxRandomBranchChance = numberInRange(
+    raw.maxRandomBranchChance,
+    0,
+    1,
+    defaults.maxRandomBranchChance,
+  );
+  if (minRandomBranchChance > maxRandomBranchChance) {
+    [minRandomBranchChance, maxRandomBranchChance] = [
+      maxRandomBranchChance,
+      minRandomBranchChance,
+    ];
+  }
   return {
     currentThreshold: parsePinnedThreshold(raw.currentThreshold) ?? 0,
     justBackwards: boolOr(raw.justBackwards, defaults.justBackwards),
@@ -65,18 +86,8 @@ function normalizeConfig(raw: Record<string, unknown>): SavedTuningConfig {
       raw.removeSequentialBranches,
       defaults.removeSequentialBranches,
     ),
-    minRandomBranchChance: numberInRange(
-      raw.minRandomBranchChance,
-      0,
-      1,
-      defaults.minRandomBranchChance,
-    ),
-    maxRandomBranchChance: numberInRange(
-      raw.maxRandomBranchChance,
-      0,
-      1,
-      defaults.maxRandomBranchChance,
-    ),
+    minRandomBranchChance,
+    maxRandomBranchChance,
     randomBranchChanceDelta: numberInRange(
       raw.randomBranchChanceDelta,
       0,
