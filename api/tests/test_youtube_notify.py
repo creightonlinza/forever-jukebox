@@ -8,11 +8,11 @@ from unittest.mock import patch
 
 from api import db as db_module
 from api.db import (
+    claim_notify_state,
     create_job,
     get_notify_state,
     init_db,
     set_job_status,
-    set_notify_state,
 )
 from api.routes import jobs_runtime as jobs_runtime_module
 from api.routes.jobs_runtime import (
@@ -99,6 +99,11 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
             conn.execute("UPDATE jobs SET updated_at = ? WHERE id = ?", (updated_at, job_id))
             conn.commit()
 
+    def _set_last_sent(self, value: str) -> None:
+        self.assertTrue(
+            claim_notify_state(self.db_path, NOTIFY_LAST_SENT_KEY, None, value)
+        )
+
     def _sent_message(self) -> str:
         self.assertEqual(self.send_mock.call_count, 1)
         return self.send_mock.call_args[0][1]
@@ -152,13 +157,13 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
 
     def test_cooldown_suppresses_ping(self) -> None:
         self._seed_failures(5)
-        set_notify_state(self.db_path, NOTIFY_LAST_SENT_KEY, _utc_iso(timedelta(hours=-1)))
+        self._set_last_sent(_utc_iso(timedelta(hours=-1)))
         maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
 
     def test_expired_cooldown_reports_pile_since_last_ping(self) -> None:
         self._seed_failures(7)
-        set_notify_state(self.db_path, NOTIFY_LAST_SENT_KEY, _utc_iso(timedelta(hours=-7)))
+        self._set_last_sent(_utc_iso(timedelta(hours=-7)))
         maybe_notify_youtube_failures(self.db_path)
         message = self._sent_message()
         self.assertIn("7 YouTube download failures piled up", message)
@@ -166,7 +171,7 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
 
     def test_failures_before_last_ping_do_not_count(self) -> None:
         job_ids = self._seed_failures(7)
-        set_notify_state(self.db_path, NOTIFY_LAST_SENT_KEY, _utc_iso(timedelta(hours=-7)))
+        self._set_last_sent(_utc_iso(timedelta(hours=-7)))
         for job_id in job_ids[:3]:
             self._set_updated_at(job_id, _utc_iso(timedelta(hours=-8)))
         maybe_notify_youtube_failures(self.db_path)
@@ -181,10 +186,30 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
         maybe_notify_youtube_failures(self.db_path)
         self.assertEqual(self.send_mock.call_count, 1)
 
-    def test_notify_state_roundtrip_and_idempotent_init(self) -> None:
+    def test_window_is_capped_even_after_a_long_quiet_period(self) -> None:
+        job_ids = self._seed_failures(5)
+        self._set_last_sent(_utc_iso(timedelta(hours=-200)))
+        self._set_updated_at(job_ids[0], _utc_iso(timedelta(hours=-30)))
+        maybe_notify_youtube_failures(self.db_path)
+        self.send_mock.assert_not_called()
+
+        self._reset_throttle()
+        self._set_updated_at(job_ids[0], _utc_iso(timedelta(hours=-1)))
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("in the last 24.0h", self._sent_message())
+
+    def test_losing_the_claim_skips_the_send(self) -> None:
+        self._seed_failures(5)
+        with patch.object(jobs_runtime_module, "claim_notify_state", return_value=False):
+            maybe_notify_youtube_failures(self.db_path)
+        self.send_mock.assert_not_called()
+
+    def test_notify_state_claim_is_single_winner(self) -> None:
         init_db(self.db_path)
-        set_notify_state(self.db_path, "k", "v1")
-        set_notify_state(self.db_path, "k", "v2")
+        self.assertTrue(claim_notify_state(self.db_path, "k", None, "v1"))
+        self.assertFalse(claim_notify_state(self.db_path, "k", None, "v2"))
+        self.assertFalse(claim_notify_state(self.db_path, "k", "stale", "v3"))
+        self.assertTrue(claim_notify_state(self.db_path, "k", "v1", "v2"))
         self.assertEqual(get_notify_state(self.db_path, "k"), "v2")
 
 

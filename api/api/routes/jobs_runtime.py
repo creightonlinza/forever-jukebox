@@ -17,13 +17,13 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 from ..db import (
+    claim_notify_state,
     delete_job,
     get_job,
     get_notify_state,
     recent_youtube_failure_errors,
     set_job_progress,
     set_job_status,
-    set_notify_state,
     update_job_track_metadata,
 )
 from ..env import env_positive_float
@@ -451,9 +451,11 @@ AGE_RESTRICTED_PATTERNS = (
 
 NOTIFY_FAILURE_THRESHOLD = 5
 NOTIFY_MIN_INTERVAL_S = 6 * 3600.0
-NOTIFY_FIRST_RUN_WINDOW_S = 24 * 3600.0
+NOTIFY_MAX_WINDOW_S = 24 * 3600.0
 NOTIFY_CHECK_INTERVAL_S = 60.0
 NOTIFY_LAST_SENT_KEY = "youtube_last_ntfy_at"
+# curl caps itself; subprocess gets a wider guard so curl exits on its own first.
+NTFY_TIMEOUT_S = 10.0
 
 _next_notify_check_monotonic = 0.0
 
@@ -471,12 +473,21 @@ def youtube_block_signal(raw: str | None) -> str | None:
 
 
 def _send_ntfy(topic_key: str, message: str) -> None:
+    """Post to ntfy, capped by a timeout so a stalled call cannot block a caller."""
     try:
         subprocess.run(
-            ["curl", "-d", message, f"ntfy.sh/{topic_key}"],
+            [
+                "curl",
+                "--max-time",
+                str(int(NTFY_TIMEOUT_S)),
+                "-d",
+                message,
+                f"ntfy.sh/{topic_key}",
+            ],
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=NTFY_TIMEOUT_S * 2,
         )
     except Exception:
         return
@@ -485,11 +496,12 @@ def _send_ntfy(topic_key: str, message: str) -> None:
 def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
     """Ping ntfy when blocked-looking YouTube failures pile up.
 
-    Counts YouTube jobs still failed since the last ping (bounded to the
-    last 24h when no ping has been sent) and notifies once the count
-    reaches NOTIFY_FAILURE_THRESHOLD, at most once per NOTIFY_MIN_INTERVAL_S.
-    Safe to call every worker-loop iteration; the DB is only queried every
-    NOTIFY_CHECK_INTERVAL_S.
+    Counts YouTube jobs still failed since the last ping, over a window of at
+    most NOTIFY_MAX_WINDOW_S, and notifies once the count reaches
+    NOTIFY_FAILURE_THRESHOLD, at most once per NOTIFY_MIN_INTERVAL_S. Safe to
+    call every worker-loop iteration; the DB is only queried every
+    NOTIFY_CHECK_INTERVAL_S, and concurrent workers claim the send slot so
+    only one of them pings.
     """
     global _next_notify_check_monotonic
     topic_key = os.environ.get(NTFY_TOPIC_ENV)
@@ -500,12 +512,14 @@ def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
         return
     _next_notify_check_monotonic = mono + NOTIFY_CHECK_INTERVAL_S
     now = datetime.now(timezone.utc)
-    last_sent = parse_timestamp(get_notify_state(db_path, NOTIFY_LAST_SENT_KEY))
+    stored_last_sent = get_notify_state(db_path, NOTIFY_LAST_SENT_KEY)
+    last_sent = parse_timestamp(stored_last_sent)
     if last_sent is not None and last_sent.tzinfo is None:
         last_sent = last_sent.replace(tzinfo=timezone.utc)
     if last_sent is not None and (now - last_sent).total_seconds() < NOTIFY_MIN_INTERVAL_S:
         return
-    since = last_sent or (now - timedelta(seconds=NOTIFY_FIRST_RUN_WINDOW_S))
+    window_start = now - timedelta(seconds=NOTIFY_MAX_WINDOW_S)
+    since = max(last_sent, window_start) if last_sent is not None else window_start
     labels = [
         label
         for label in (
@@ -516,6 +530,10 @@ def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
     ]
     if len(labels) < NOTIFY_FAILURE_THRESHOLD:
         return
+    if not claim_notify_state(
+        db_path, NOTIFY_LAST_SENT_KEY, stored_last_sent, now.isoformat()
+    ):
+        return
     counts = Counter(labels)
     breakdown = ", ".join(f"{label} x{count}" for label, count in counts.most_common())
     hours = (now - since).total_seconds() / 3600.0
@@ -524,7 +542,6 @@ def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
         f"in the last {hours:.1f}h ({breakdown})"
     )
     _send_ntfy(topic_key, message)
-    set_notify_state(db_path, NOTIFY_LAST_SENT_KEY, now.isoformat())
     log_event("ntfy_youtube_failures", count=len(labels), window_h=round(hours, 1))
 
 

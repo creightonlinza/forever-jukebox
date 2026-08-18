@@ -386,14 +386,24 @@ def get_notify_state(db_path: Path, key: str) -> Optional[str]:
     return str(row[0]) if row else None
 
 
-def set_notify_state(db_path: Path, key: str, value: str) -> None:
+def claim_notify_state(db_path: Path, key: str, expected: Optional[str], value: str) -> bool:
+    """Set the key to value only if it still holds expected; True when this caller won.
+
+    Lets concurrent workers agree on which one sends a notification.
+    """
     with _connect(db_path) as conn:
-        conn.execute(
-            "INSERT INTO notify_state (key, value) VALUES (?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (key, value),
-        )
+        if expected is None:
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO notify_state (key, value) VALUES (?, ?)",
+                (key, value),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE notify_state SET value = ? WHERE key = ? AND value = ?",
+                (value, key, expected),
+            )
         conn.commit()
+    return int(cur.rowcount or 0) > 0
 
 
 def recent_youtube_failure_errors(db_path: Path, since_iso: str) -> list[str]:
