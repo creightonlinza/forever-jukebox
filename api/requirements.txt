@@ -1,7 +1,8 @@
 fastapi
 uvicorn
 python-multipart
-yt-dlp[default]
+# Nightly channel: YouTube extractor fixes land here ahead of stable releases.
+yt-dlp[default] @ https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.tar.gz
 bgutil-ytdlp-pot-provider==1.3.1  # keep in sync with BGUTIL_POT_VERSION in Dockerfile
 httpx
 python-dotenv

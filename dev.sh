@@ -268,7 +268,9 @@ ensure_api_env() {
   if ! "$API_VENV/bin/python" -c "import fastapi, yt_dlp, httpx, dotenv" >/dev/null 2>&1; then
     "$API_VENV/bin/python" -m pip install -r "$ROOT/api/requirements.txt"
   fi
-  if is_true "$UPDATE_YTDLP" && ! "$API_VENV/bin/python" -m pip install --upgrade "yt-dlp[default]"; then
+  # Nightly channel, matching api/requirements.txt.
+  ytdlp_nightly="https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.tar.gz"
+  if is_true "$UPDATE_YTDLP" && ! "$API_VENV/bin/python" -m pip install --upgrade "yt-dlp[default] @ $ytdlp_nightly"; then
     echo "Warning: could not auto-upgrade yt-dlp; continuing with installed version."
   fi
   if ! command -v deno >/dev/null 2>&1 && ! try_deno_install_with_package_manager; then
