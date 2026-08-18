@@ -380,6 +380,44 @@ def create_job(
         conn.commit()
 
 
+def get_notify_state(db_path: Path, key: str) -> Optional[str]:
+    with _connect(db_path) as conn:
+        row = conn.execute("SELECT value FROM notify_state WHERE key = ?", (key,)).fetchone()
+    return str(row[0]) if row else None
+
+
+def set_notify_state(db_path: Path, key: str, value: str) -> None:
+    with _connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO notify_state (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+        conn.commit()
+
+
+def recent_youtube_failure_errors(db_path: Path, since_iso: str) -> list[str]:
+    """Errors of YouTube jobs currently failed since the given timestamp.
+
+    Retried jobs reuse their row, so failures the user retried to success
+    no longer appear here.
+    """
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT j.error
+            FROM jobs j
+            JOIN sources s ON s.id = j.source_ref
+            WHERE s.provider = 'youtube'
+              AND j.status = 'failed'
+              AND j.error IS NOT NULL
+              AND j.updated_at >= ?
+            """,
+            (since_iso,),
+        ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
 def get_job(db_path: Path, job_id: str) -> Optional[Job]:
     with _connect(db_path) as conn:
         row = conn.execute(

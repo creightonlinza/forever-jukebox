@@ -190,6 +190,14 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS notify_state (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+        """
+    )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at, id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_source_ref_created ON jobs(source_ref, created_at DESC)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sources_provider ON sources(provider)")

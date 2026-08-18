@@ -9,17 +9,21 @@ import re
 import shutil
 import subprocess
 import time
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 from ..db import (
     delete_job,
     get_job,
+    get_notify_state,
+    recent_youtube_failure_errors,
     set_job_progress,
     set_job_status,
+    set_notify_state,
     update_job_track_metadata,
 )
 from ..env import env_positive_float
@@ -426,63 +430,102 @@ def message_for_progress(status: str, progress: int | None) -> str | None:
     return "Wrapping up"
 
 
-def _is_youtube_source_id(source_provider: str | None, source_id: str | None) -> bool:
-    if source_provider != "youtube":
-        return False
-    if not source_id:
-        return False
-    return bool(YOUTUBE_ID_RE.fullmatch(source_id))
+# Signals that a YouTube download failed because YouTube refused to serve
+# us (broken signatures, IP flagging, rate limiting) rather than because the
+# video itself is bad. Checked in order; first match wins.
+YOUTUBE_BLOCK_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("403", (HTTP_403_ERROR_TEXT, "unable to download video data")),
+    ("bot-check", ("sign in to confirm", "not a bot")),
+    ("429", ("http error 429", "too many requests")),
+    ("blocked", ("content isn't available",)),
+    ("network", ("timed out", "connection reset", "unable to connect")),
+)
+
+# Age restriction is a property of the video, not a block signal.
+AGE_RESTRICTED_PATTERNS = (
+    "sign in to confirm your age",
+    "inappropriate for some users",
+    "age-restricted",
+    "age restriction",
+)
+
+NOTIFY_FAILURE_THRESHOLD = 5
+NOTIFY_MIN_INTERVAL_S = 6 * 3600.0
+NOTIFY_FIRST_RUN_WINDOW_S = 24 * 3600.0
+NOTIFY_CHECK_INTERVAL_S = 60.0
+NOTIFY_LAST_SENT_KEY = "youtube_last_ntfy_at"
+
+_next_notify_check_monotonic = 0.0
 
 
-def _notify_youtube_issue(
-    raw: str | None,
-    source_provider: str | None,
-    source_id: str | None,
-    job_id: str,
-) -> None:
+def youtube_block_signal(raw: str | None) -> str | None:
     if not raw:
-        return
-    if not _is_youtube_source_id(source_provider, source_id):
-        return
-    topic_key = os.environ.get(NTFY_TOPIC_ENV)
-    if not topic_key:
-        return
+        return None
     lowered = raw.lower()
-    age_restricted = (
-        "sign in to confirm your age" in lowered
-        or "inappropriate for some users" in lowered
-        or "age-restricted" in lowered
-        or "age restriction" in lowered
-    )
-    if age_restricted:
-        return
-    issues: list[str] = []
-    if HTTP_403_ERROR_TEXT in lowered or "unable to download video data" in lowered:
-        issues.append("403: Forbidden")
-    if "sign in to confirm" in lowered or "not a bot" in lowered:
-        issues.append("Sign in to confirm you're not a bot")
-    if not issues:
-        return
-    video_label = source_id or "unknown"
-    log_path = f"/api/logs/{job_id}"
-    message = (
-        "[Forever Jukebox] Youtube error on "
-        + video_label
-        + ": "
-        + " or ".join(issues)
-        + " - "
-        + log_path
-    )
-    topic_url = f"ntfy.sh/{topic_key}"
+    if any(pattern in lowered for pattern in AGE_RESTRICTED_PATTERNS):
+        return None
+    for label, patterns in YOUTUBE_BLOCK_PATTERNS:
+        if any(pattern in lowered for pattern in patterns):
+            return label
+    return None
+
+
+def _send_ntfy(topic_key: str, message: str) -> None:
     try:
         subprocess.run(
-            ["curl", "-d", message, topic_url],
+            ["curl", "-d", message, f"ntfy.sh/{topic_key}"],
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
     except Exception:
         return
+
+
+def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
+    """Ping ntfy when blocked-looking YouTube failures pile up.
+
+    Counts YouTube jobs still failed since the last ping (bounded to the
+    last 24h when no ping has been sent) and notifies once the count
+    reaches NOTIFY_FAILURE_THRESHOLD, at most once per NOTIFY_MIN_INTERVAL_S.
+    Safe to call every worker-loop iteration; the DB is only queried every
+    NOTIFY_CHECK_INTERVAL_S.
+    """
+    global _next_notify_check_monotonic
+    topic_key = os.environ.get(NTFY_TOPIC_ENV)
+    if not topic_key:
+        return
+    mono = time.monotonic()
+    if mono < _next_notify_check_monotonic:
+        return
+    _next_notify_check_monotonic = mono + NOTIFY_CHECK_INTERVAL_S
+    now = datetime.now(timezone.utc)
+    last_sent = parse_timestamp(get_notify_state(db_path, NOTIFY_LAST_SENT_KEY))
+    if last_sent is not None and last_sent.tzinfo is None:
+        last_sent = last_sent.replace(tzinfo=timezone.utc)
+    if last_sent is not None and (now - last_sent).total_seconds() < NOTIFY_MIN_INTERVAL_S:
+        return
+    since = last_sent or (now - timedelta(seconds=NOTIFY_FIRST_RUN_WINDOW_S))
+    labels = [
+        label
+        for label in (
+            youtube_block_signal(error)
+            for error in recent_youtube_failure_errors(db_path, since.isoformat())
+        )
+        if label is not None
+    ]
+    if len(labels) < NOTIFY_FAILURE_THRESHOLD:
+        return
+    counts = Counter(labels)
+    breakdown = ", ".join(f"{label} x{count}" for label, count in counts.most_common())
+    hours = (now - since).total_seconds() / 3600.0
+    message = (
+        f"[Forever Jukebox] {len(labels)} YouTube download failures piled up "
+        f"in the last {hours:.1f}h ({breakdown})"
+    )
+    _send_ntfy(topic_key, message)
+    set_notify_state(db_path, NOTIFY_LAST_SENT_KEY, now.isoformat())
+    log_event("ntfy_youtube_failures", count=len(labels), window_h=round(hours, 1))
 
 
 def _write_failure_log(job_id: str, message: str) -> None:
@@ -495,10 +538,8 @@ def _write_failure_log(job_id: str, message: str) -> None:
 def cleanup_failure(
     job_id: str,
     message: str,
-    source_id: str | None = None,
     source_provider: str | None = None,
 ) -> None:
-    _notify_youtube_issue(message, source_provider, source_id, job_id)
     _write_failure_log(job_id, message)
     for candidate in (STORAGE_ROOT / "audio").glob(f"{job_id}.*"):
         if candidate.is_file():
@@ -577,7 +618,7 @@ def download_source_audio(
     try:
         from yt_dlp import YoutubeDL
     except Exception:
-        cleanup_failure(job_id, "yt-dlp is not available", source_id, source_provider)
+        cleanup_failure(job_id, "yt-dlp is not available", source_provider)
         return
 
     audio_dir = STORAGE_ROOT / "audio"
@@ -650,7 +691,7 @@ def download_source_audio(
             on_retry=discard_first_attempt,
         )
     except Exception as exc:  # pragma: no cover - network call
-        cleanup_failure(job_id, str(exc), source_id, source_provider)
+        cleanup_failure(job_id, str(exc), source_provider)
         return
 
     job = get_job(DB_PATH, job_id)
@@ -682,7 +723,7 @@ def download_source_audio(
                 break
 
     if not input_path:
-        cleanup_failure(job_id, "Download failed", source_id, source_provider)
+        cleanup_failure(job_id, "Download failed", source_provider)
         return
 
     # Normalize the downloaded file to audio/<id>.<ext> so it can be located
