@@ -452,14 +452,12 @@ const createTuningSlice: Slice<
   Pick<
     AppStoreState,
     | "tuningParams"
-    | "autoComputedThreshold"
     | "deletedEdgeIds"
     | "highlightAnchorBranch"
     | "branchStatsEnabled"
   >
 > = () => ({
   tuningParams: null,
-  autoComputedThreshold: null,
   deletedEdgeIds: [],
   highlightAnchorBranch: false,
   branchStatsEnabled: false,

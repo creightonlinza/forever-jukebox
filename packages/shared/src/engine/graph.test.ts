@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { normalizeAnalysis } from "./analysis";
-import { buildJumpGraph, calculateMinLongBranch } from "./graph";
+import {
+  buildJumpGraph,
+  calculateMinLongBranch,
+  parsePinnedThreshold,
+} from "./graph";
 import { Edge, JukeboxConfig, QuantumBase } from "./types";
 import {
   happyPathAnalysis,
@@ -1038,5 +1042,107 @@ describe("buildJumpGraph", () => {
     const graph = buildJumpGraph(analysis, config);
 
     expect(graph.lastBranchPoint).toBe(-1);
+  });
+});
+
+describe("parsePinnedThreshold", () => {
+  function label(raw: unknown) {
+    return typeof raw === "string" ? `"${raw}"` : String(raw);
+  }
+
+  const autoCases: unknown[] = [
+    undefined,
+    null,
+    "",
+    "0",
+    "1",
+    "-5",
+    "abc",
+    0,
+    1,
+    -5,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    true,
+    {},
+  ];
+
+  for (const raw of autoCases) {
+    it(`reads ${label(raw)} as auto`, () => {
+      expect(parsePinnedThreshold(raw)).toBeNull();
+    });
+  }
+
+  const pinCases: Array<[unknown, number]> = [
+    ["2", 2],
+    ["45", 45],
+    ["45.7", 45],
+    ["80", 80],
+    ["81", 80],
+    ["500", 80],
+    [2, 2],
+    [45, 45],
+    [45.4, 45],
+    [45.6, 46],
+    [500, 80],
+  ];
+
+  for (const [raw, expected] of pinCases) {
+    it(`reads ${label(raw)} as a pin at ${expected}`, () => {
+      expect(parsePinnedThreshold(raw)).toBe(expected);
+    });
+  }
+});
+
+// A threshold of 0 asks the engine to pick one. These pin the shape of that
+// contract at the engine boundary: what goes in as a plain number, and what
+// comes back out as computedThreshold and the resolved currentThreshold.
+describe("threshold auto resolution", () => {
+  function denseAnalysis() {
+    return normalizeAnalysis(longBranchDensityAnalysis(96));
+  }
+
+  it("resolves a threshold of 0 to the computed default", () => {
+    const graph = buildJumpGraph(denseAnalysis(), defaultConfig({ currentThreshold: 0 }));
+
+    expect(graph.currentThreshold).toBe(graph.computedThreshold);
+    // Below the ceiling, so this exercises the sweep rather than its fallback.
+    expect(graph.computedThreshold).toBeLessThan(80);
+  });
+
+  it("computes a default inside the sweep range", () => {
+    const graph = buildJumpGraph(denseAnalysis(), defaultConfig({ currentThreshold: 0 }));
+
+    expect(graph.computedThreshold).toBeGreaterThanOrEqual(10);
+    expect(graph.computedThreshold).toBeLessThanOrEqual(80);
+    expect(graph.computedThreshold % 5).toBe(0);
+  });
+
+  it("uses a chosen threshold verbatim without moving the computed default", () => {
+    const auto = buildJumpGraph(denseAnalysis(), defaultConfig({ currentThreshold: 0 }));
+
+    for (const chosen of [2, 45, 80]) {
+      const graph = buildJumpGraph(
+        denseAnalysis(),
+        defaultConfig({ currentThreshold: chosen }),
+      );
+      expect(graph.currentThreshold).toBe(chosen);
+      expect(graph.computedThreshold).toBe(auto.computedThreshold);
+    }
+  });
+
+  it("leaves the caller's config untouched", () => {
+    const config = defaultConfig({ currentThreshold: 0 });
+    buildJumpGraph(denseAnalysis(), config);
+
+    expect(config.currentThreshold).toBe(0);
+  });
+
+  it("resolves the same pair for the same inputs", () => {
+    const first = buildJumpGraph(denseAnalysis(), defaultConfig({ currentThreshold: 0 }));
+    const second = buildJumpGraph(denseAnalysis(), defaultConfig({ currentThreshold: 0 }));
+
+    expect(second.computedThreshold).toBe(first.computedThreshold);
+    expect(second.currentThreshold).toBe(first.currentThreshold);
   });
 });

@@ -275,9 +275,9 @@ export function getTuningFormValues(context: AppContext): TuningFormValues {
     config.currentThreshold === 0 && graph
       ? Math.round(graph.currentThreshold)
       : config.currentThreshold;
-  const computedValue =
-    useAppStore.getState().autoComputedThreshold ??
-    (graph ? Math.round(graph.currentThreshold) : null);
+  // The engine's own default for this track, which is not the threshold in use
+  // whenever the user has pinned one.
+  const computedValue = graph ? Math.round(graph.computedThreshold) : null;
   return {
     threshold: thresholdValue,
     computedThreshold: computedValue,
@@ -374,14 +374,12 @@ export function applyTuningChanges(
   let nextThreshold = threshold;
   let nextComputed: number | null;
   if (graph) {
-    const resolved = Math.max(0, Math.round(graph.currentThreshold));
     if (useAutoThreshold) {
-      useAppStore.setState({ autoComputedThreshold: resolved });
-      nextThreshold = resolved;
+      nextThreshold = Math.max(0, Math.round(graph.currentThreshold));
     }
-    nextComputed = resolved;
+    nextComputed = Math.round(graph.computedThreshold);
   } else {
-    nextComputed = useAppStore.getState().autoComputedThreshold;
+    nextComputed = form.computedThreshold;
   }
   for (const control of changedTuningControls(previousForm, form)) {
     trackEvent("tune", { control });
@@ -409,12 +407,6 @@ export function resetTuningDefaults(context: AppContext) {
     jukebox?.setData(data);
   }
   syncDeletedEdgeState(context);
-  const graph = engine.getGraphState();
-  useAppStore.setState({
-    autoComputedThreshold: graph
-    ? Math.round(graph.currentThreshold)
-    : null
-  });
   const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
   const audioModeParams = new URLSearchParams({ am: jukeboxAudioMode });
   setAudioModeIntensityParam(audioModeParams, jukeboxAudioMode, audioIntensity);

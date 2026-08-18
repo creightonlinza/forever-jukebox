@@ -8,6 +8,7 @@ import {
   getAnchorBranchIdFromUrl,
   getDeletedEdgeIdsFromUrl,
   getTuningParamsFromEngine,
+  serializeParams,
   syncTuningParamsState,
   writeTuningParamsToUrl,
 } from "./tuning";
@@ -343,5 +344,65 @@ describe("tuning params", () => {
     expect(config.minRandomBranchChance).toBeCloseTo(0.25, 4);
     expect(config.maxRandomBranchChance).toBeCloseTo(0.5, 4);
     expect(config.randomBranchChanceDelta).toBeCloseTo(0.02, 4);
+  });
+});
+
+// The param string is the only tuning artefact that outlives the session: it is
+// stored verbatim on favorites and playlist entries and pasted into share links.
+// These assert what a given string reads back as, never how it is held.
+describe("threshold param round trip", () => {
+  beforeEach(() => {
+    setWindowUrl("http://localhost/listen/abc");
+  });
+
+  function readBack(raw: string) {
+    const context = createContext();
+    applyTuningParamsToEngine(context, new URLSearchParams(raw));
+    return serializeParams(getTuningParamsFromEngine(context));
+  }
+
+  function thresholdOf(raw: string) {
+    return new URLSearchParams(readBack(raw)).get("thresh");
+  }
+
+  const cases: Array<[string, string | null]> = [
+    ["thresh=45", "45"],
+    ["thresh=2", "2"],
+    ["thresh=80", "80"],
+    ["jb=1", null],
+    ["thresh=0", null],
+    ["thresh=-10", null],
+    ["thresh=abc", null],
+  ];
+
+  for (const [raw, expected] of cases) {
+    it(`reads "${raw}" as ${expected === null ? "no threshold" : expected}`, () => {
+      expect(thresholdOf(raw)).toBe(expected);
+    });
+  }
+
+  it("reads a threshold below the slider floor as auto", () => {
+    expect(thresholdOf("thresh=1")).toBeNull();
+  });
+
+  it("clamps a threshold above the ceiling to the value that acts", () => {
+    expect(thresholdOf("thresh=500")).toBe("80");
+  });
+
+  it("keeps a threshold distinct from the params beside it", () => {
+    expect(readBack("jb=1&thresh=45&bp=25,60,10")).toBe(
+      "jb=1&thresh=45&bp=25,60,10",
+    );
+  });
+
+  it("reads a threshold the same regardless of key order", () => {
+    expect(thresholdOf("bp=25,60,10&thresh=45&jb=1")).toBe("45");
+  });
+
+  it("settles after one read", () => {
+    for (const [raw] of cases) {
+      const once = readBack(raw);
+      expect(readBack(once)).toBe(once);
+    }
   });
 });

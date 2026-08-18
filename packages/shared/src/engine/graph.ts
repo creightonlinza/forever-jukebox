@@ -16,6 +16,32 @@ const CONFIDENCE_WEIGHT = 1;
 
 export const DEFAULT_MIN_LONG_BRANCH_PERCENT = 20;
 
+// Floor and ceiling for a threshold a user or a stored param can pin. The floor
+// is unrelated to the sweep floor of 10 in computeDefaultThreshold: a computed
+// default can never land below 10, but 2..9 are meaningful pins. The ceiling
+// mirrors the default maxBranchThreshold, above which a threshold saturates
+// because edges are only precalculated that far; the two are kept equal by
+// convention rather than by construction.
+export const MIN_THRESHOLD = 2;
+export const MAX_THRESHOLD = 80;
+
+// Reads a pinned threshold from a URL param or a stored config value. Auto is
+// the ground state, so anything that is not a usable pin — missing, unparseable,
+// negative, or below the floor — reads as null rather than as an error. Values
+// above the ceiling clamp, so the number that is reported is the number that acts.
+export function parsePinnedThreshold(raw: unknown): number | null {
+  let parsed = Number.NaN;
+  if (typeof raw === "string") {
+    parsed = Number.parseInt(raw, 10);
+  } else if (typeof raw === "number") {
+    parsed = Math.round(raw);
+  }
+  if (!Number.isFinite(parsed) || parsed < MIN_THRESHOLD) {
+    return null;
+  }
+  return Math.min(parsed, MAX_THRESHOLD);
+}
+
 export function calculateMinLongBranch(
   totalBeats: number,
   percent = DEFAULT_MIN_LONG_BRANCH_PERCENT,
