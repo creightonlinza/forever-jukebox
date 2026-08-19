@@ -127,7 +127,7 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
         )
         maybe_notify_youtube_failures(self.db_path)
         message = self._sent_message()
-        self.assertIn("5 YouTube download failures piled up", message)
+        self.assertIn("5 YouTube download failures logged", message)
         self.assertIn("in the last 24.0h", message)
         self.assertIn("403 x3", message)
         self.assertIn("bot-check x2", message)
@@ -166,7 +166,7 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
         self._set_last_sent(_utc_iso(timedelta(hours=-7)))
         maybe_notify_youtube_failures(self.db_path)
         message = self._sent_message()
-        self.assertIn("7 YouTube download failures piled up", message)
+        self.assertIn("7 YouTube download failures logged", message)
         self.assertIn("in the last 7.0h", message)
 
     def test_failures_before_last_ping_do_not_count(self) -> None:

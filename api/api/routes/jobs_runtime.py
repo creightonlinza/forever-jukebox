@@ -538,7 +538,7 @@ def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
     breakdown = ", ".join(f"{label} x{count}" for label, count in counts.most_common())
     hours = (now - since).total_seconds() / 3600.0
     message = (
-        f"[Forever Jukebox] {len(labels)} YouTube download failures piled up "
+        f"[Forever Jukebox] {len(labels)} YouTube download failures logged "
         f"in the last {hours:.1f}h ({breakdown})"
     )
     _send_ntfy(topic_key, message)
