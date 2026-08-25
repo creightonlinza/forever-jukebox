@@ -75,12 +75,19 @@ export function useInstallPrompt() {
     if (!promptEvent) {
       return null;
     }
-    await promptEvent.prompt();
-    const choice = await promptEvent.userChoice;
-    if (choice.outcome === "accepted") {
+    try {
+      await promptEvent.prompt();
+      const choice = await promptEvent.userChoice;
+      if (choice.outcome === "accepted") {
+        setPromptEvent(null);
+      }
+      return choice.outcome;
+    } catch {
+      // A prompt event can only be used once; drop it so the UI falls back
+      // to the browser-menu instructions instead of a dead button.
       setPromptEvent(null);
+      return null;
     }
-    return choice.outcome;
   };
 
   const isGateUnlocked = gateUnlocked || isStandalone;

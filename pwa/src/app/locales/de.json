@@ -12,21 +12,23 @@
     "listen": "Anhören",
     "faq": "FAQ",
     "light": "Hell",
-    "dark": "Dunkel"
+    "dark": "Dunkel",
+    "or": "oder"
   },
   "navigation": {
     "primary": "Primär",
     "offlineApp": "Offline-App"
   },
   "install": {
-    "subtitle": "Installieren, um die Offline-App zu nutzen.",
+    "subtitle": "Wähle, wie du die Offline-App bekommst:",
     "afterInstall": "Nach der Installation vom Desktop oder App-Launcher öffnen.",
     "browserMenu": "Verwende das Browser-Menü (App installieren/Zum Startbildschirm hinzufügen) und öffne dann die installierte App.",
-    "action": "Installieren"
+    "action": "Web-App installieren",
+    "playAction": "Jetzt bei Google Play",
+    "playHint": "Native App für Android."
   },
   "home": {
     "dropFile": "Audiodatei hier ablegen",
-    "or": "oder",
     "chooseFile": "Datei auswählen",
     "cachedAnalysis": "Gecachte Analyse",
     "cachedHint": "Wähle die originale Audiodatei, um die gecachte Analyse sofort zu laden.",
