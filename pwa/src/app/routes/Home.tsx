@@ -73,7 +73,7 @@ export function Home() {
 
   return (
     <section className="panel home-panel">
-      <DropZone onFile={handleFile} accept="audio/*" />
+      <DropZone onFile={handleFile} />
       <div className="cached-tracks">
         <h2 className="cached-tracks__title">
           <span>{t("home.cachedAnalysis")}</span>
