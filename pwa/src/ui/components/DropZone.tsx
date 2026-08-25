@@ -43,7 +43,7 @@ export function DropZone({ onFile, accept = AUDIO_FILE_ACCEPT }: DropZoneProps) 
     <div className={`drop-zone ${active ? "is-active" : ""}`} onDrop={onDrop} onDragOver={onDrag} onDragLeave={onDragLeave}>
       <div className="drop-zone__content">
         <p className="drop-zone__title">{t("home.dropFile")}</p>
-        <p className="drop-zone__sub">{t("home.or")}</p>
+        <p className="drop-zone__sub">{t("common.or")}</p>
         <button
           className="btn btn-primary"
           type="button"

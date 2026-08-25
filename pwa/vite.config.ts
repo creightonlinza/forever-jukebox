@@ -54,7 +54,7 @@ export default defineConfig(({ command }) => {
         // precache surfaces on the next navigation/launch, preserving
         // long-running analysis/playback.
         registerType: "autoUpdate",
-        includeAssets: ["favicon.png", "favicon-512.png", "worker.js", "madmom/**"],
+        includeAssets: ["favicon.png", "favicon-512.png", "worker.js", "madmom/**", "badges/**"],
         devOptions: {
           enabled: command === "serve",
           suppressWarnings: command === "serve",

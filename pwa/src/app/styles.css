@@ -134,6 +134,37 @@ textarea:focus-visible {
   font-size: 13px;
 }
 
+.install-gate__option {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.install-gate__option--secondary .install-gate__action,
+.install-gate__option--secondary .install-gate__hint {
+  opacity: 0.85;
+}
+
+.install-gate__play {
+  display: block;
+  line-height: 0;
+}
+
+/* The badge PNG has built-in transparent padding around the artwork.
+   The secondary size ranks it below the primary option without altering it. */
+.install-gate__play-badge {
+  height: 64px;
+  width: auto;
+}
+
+.install-gate__option--secondary .install-gate__play-badge {
+  height: 52px;
+}
+
+.install-gate__divider {
+  text-transform: uppercase;
+}
+
 .hero {
   width: 100%;
   background: var(--surface-hero);

@@ -12,21 +12,23 @@
     "listen": "Escuchar",
     "faq": "Preguntas Frecuentes",
     "light": "Claro",
-    "dark": "Oscuro"
+    "dark": "Oscuro",
+    "or": "o"
   },
   "navigation": {
     "primary": "Principal",
     "offlineApp": "App sin conexión"
   },
   "install": {
-    "subtitle": "Instala para usar la App sin conexión.",
+    "subtitle": "Elige cómo obtener la App sin conexión:",
     "afterInstall": "Después de instalar, ábrela desde tu escritorio o lanzador de aplicaciones.",
     "browserMenu": "Usa el menú de tu navegador (Instalar app/Agregar a escritorio), luego abre la aplicación instalada.",
-    "action": "Instalar"
+    "action": "Instalar aplicación web",
+    "playAction": "Disponible en Google Play",
+    "playHint": "Aplicación nativa para Android."
   },
   "home": {
     "dropFile": "Arrastra un archivo de audio aquí",
-    "or": "o",
     "chooseFile": "Selecciona un archivo",
     "cachedAnalysis": "Análisis en caché",
     "cachedHint": "Selecciona el archivo de audio original para cargar su análisis en caché de manera instantánea.",

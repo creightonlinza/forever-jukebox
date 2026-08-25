@@ -12,21 +12,23 @@
     "listen": "Listen",
     "faq": "FAQ",
     "light": "Light",
-    "dark": "Dark"
+    "dark": "Dark",
+    "or": "or"
   },
   "navigation": {
     "primary": "Primary",
     "offlineApp": "Offline App"
   },
   "install": {
-    "subtitle": "Install to use the offline app.",
+    "subtitle": "Choose how to get the offline app:",
     "afterInstall": "After installing, open it from your desktop or app launcher.",
     "browserMenu": "Use your browser menu (Install app/Add to Home Screen), then open the installed app.",
-    "action": "Install"
+    "action": "Install web app",
+    "playAction": "Get it on Google Play",
+    "playHint": "Native app for Android."
   },
   "home": {
     "dropFile": "Drop an audio file",
-    "or": "or",
     "chooseFile": "Choose file",
     "cachedAnalysis": "Cached analysis",
     "cachedHint": "Pick the original audio file to load its cached analysis instantly.",

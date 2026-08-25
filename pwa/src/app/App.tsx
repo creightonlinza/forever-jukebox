@@ -10,6 +10,8 @@ import { Faq } from "./routes/Faq";
 import { useInstallPrompt } from "./hooks/useInstallPrompt";
 import { useTranslation } from "react-i18next";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
+import { isAndroid } from "@/shared/utils/platform";
+import { PLAY_BADGE_URL, PLAY_STORE_URL } from "./constants";
 
 type InstallGateProps = {
   canInstall: boolean;
@@ -18,6 +20,46 @@ type InstallGateProps = {
 
 function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
   const { t } = useTranslation();
+  const playContent = (
+    <>
+      <a
+        className="install-gate__play"
+        href={PLAY_STORE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <img
+          className="install-gate__play-badge"
+          src={PLAY_BADGE_URL}
+          alt={t("install.playAction")}
+          width={646}
+          height={250}
+        />
+      </a>
+      <p className="install-gate__hint">{t("install.playHint")}</p>
+    </>
+  );
+  const pwaContent = (
+    <>
+      {canInstall ? (
+        <button
+          className="tab-btn install-gate__action"
+          type="button"
+          onClick={() => void promptInstall()}
+        >
+          {t("install.action")}
+        </button>
+      ) : null}
+      <p className="install-gate__hint">
+        {canInstall
+          ? t("install.afterInstall")
+          : t("install.browserMenu")}
+      </p>
+    </>
+  );
+  const [primary, secondary] = isAndroid()
+    ? [playContent, pwaContent]
+    : [pwaContent, playContent];
   return (
     <div className="install-gate">
       <section className="install-gate__panel">
@@ -29,20 +71,13 @@ function InstallGate({ canInstall, promptInstall }: InstallGateProps) {
         <p className="install-gate__subtitle">
           {t("install.subtitle")}
         </p>
-        <p className="install-gate__hint">
-          {canInstall
-            ? t("install.afterInstall")
-            : t("install.browserMenu")}
+        <div className="install-gate__option">{primary}</div>
+        <p className="install-gate__hint install-gate__divider">
+          {t("common.or")}
         </p>
-        {canInstall ? (
-          <button
-            className="tab-btn install-gate__action"
-            type="button"
-            onClick={() => void promptInstall()}
-          >
-            {t("install.action")}
-          </button>
-        ) : null}
+        <div className="install-gate__option install-gate__option--secondary">
+          {secondary}
+        </div>
       </section>
     </div>
   );
