@@ -196,10 +196,12 @@ describe("exportJukeboxAudio progress", () => {
       durationSeconds: 10,
       format: "wav",
       audioMode: "nightcore",
+      userAnchorEdge: { src: 3, dest: 1 },
     });
 
     expect(vi.mocked(planJukeboxPath).mock.calls[0]?.[0]).toMatchObject({
       durationSeconds: 12,
+      userAnchorEdge: { src: 3, dest: 1 },
     });
     expect(vi.mocked(renderJukeboxAudio).mock.calls[0]?.[0]).toMatchObject({
       durationSeconds: 10,

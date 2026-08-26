@@ -2392,12 +2392,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           .getGraphState()
           ?.allEdges.filter((edge) => edge.deleted)
           .map((edge) => ({ src: edge.src.which, dest: edge.dest.which })) ?? [];
+      const anchorEdge = engine.getUserAnchorEdge();
 
       const result = await exportJukeboxAudio({
         analysis: activeAnalysis,
         sourceBuffer,
         config: engine.getConfig(),
         deletedEdges,
+        userAnchorEdge: anchorEdge
+          ? { src: anchorEdge.src.which, dest: anchorEdge.dest.which }
+          : null,
         durationSeconds,
         format: exportForm.format,
         bitrateKbps: exportForm.format === "mp3" ? exportForm.bitrateKbps : undefined,

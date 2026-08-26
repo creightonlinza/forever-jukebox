@@ -1,4 +1,4 @@
-import { JukeboxConfig, JukeboxGraphState, QuantumBase } from "./types";
+import { Edge, JukeboxConfig, JukeboxGraphState, QuantumBase } from "./types";
 
 export interface BranchState {
   curRandomBranchChance: number;
@@ -8,6 +8,15 @@ export interface BranchState {
 export interface UserAnchorSelection {
   edgeId: number;
   sourceIndex: number;
+}
+
+// A pinned anchor edge only takes effect while it survives deletion and
+// branch filtering (i.e. is still offered by its source beat).
+export function isActiveUserAnchorEdge(edge: Edge): boolean {
+  if (edge.deleted) {
+    return false;
+  }
+  return edge.src.neighbors.some((candidate) => candidate.id === edge.id);
 }
 
 const REFERENCE_BEAT_DURATION_SECONDS = 0.5;

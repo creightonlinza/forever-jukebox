@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { AnalysisOutput } from "@/shared/analysis-schema";
-import type { JukeboxConfig } from "@forever-jukebox/shared";
+import {
+  buildJumpGraph,
+  calculateMinLongBranch,
+  normalizeAnalysis,
+  type JukeboxConfig,
+} from "@forever-jukebox/shared";
 import { planJukeboxPath } from "../plan";
 
 function createVector(seed: number): number[] {
@@ -152,6 +157,117 @@ describe("planJukeboxPath", () => {
       .map((segment) => `${segment.jumpFromIndex}-${segment.beatIndex}`);
 
     expect(plannedPairs).not.toContain(removedPair);
+  });
+
+  it("forces the pinned user anchor edge in the exported jump path", () => {
+    const analysis = createAnalysis(48, 0.5);
+    const normalized = normalizeAnalysis(analysis);
+    const config: JukeboxConfig = {
+      ...baseConfig,
+      minLongBranch: calculateMinLongBranch(
+        normalized.beats.length,
+        baseConfig.minLongBranchPercent,
+      ),
+    };
+    const graph = buildJumpGraph(normalized, config);
+    const anchorEdge = graph.allEdges.find(
+      (edge) => !edge.deleted && edge.dest.which < edge.src.which,
+    );
+    expect(anchorEdge).toBeDefined();
+    if (!anchorEdge) {
+      return;
+    }
+
+    const planned = planJukeboxPath({
+      analysis,
+      bufferDurationSeconds: 24,
+      durationSeconds: 20,
+      config: baseConfig,
+      randomMode: "seeded",
+      seed: 5,
+      userAnchorEdge: {
+        src: anchorEdge.src.which,
+        dest: anchorEdge.dest.which,
+      },
+    });
+
+    const anchorJumps = planned.segments.filter(
+      (segment) =>
+        segment.jumped && segment.jumpFromIndex === anchorEdge.src.which,
+    );
+    expect(anchorJumps.length).toBeGreaterThan(0);
+    expect(
+      anchorJumps.every(
+        (segment) => segment.beatIndex === anchorEdge.dest.which,
+      ),
+    ).toBe(true);
+  });
+
+  it("repoints the forced anchor branch when its edges are deleted", () => {
+    const analysis = createAnalysis(48, 0.5);
+    const noRandomConfig: JukeboxConfig = {
+      ...baseConfig,
+      minRandomBranchChance: 0,
+      maxRandomBranchChance: 0,
+      randomBranchChanceDelta: 0,
+    };
+    const normalized = normalizeAnalysis(analysis);
+    const config: JukeboxConfig = {
+      ...noRandomConfig,
+      minLongBranch: calculateMinLongBranch(
+        normalized.beats.length,
+        noRandomConfig.minLongBranchPercent,
+      ),
+    };
+    const graph = buildJumpGraph(normalized, config);
+    const anchorBeat = normalized.beats[graph.lastBranchPoint];
+    expect(anchorBeat.neighbors.length).toBeGreaterThan(0);
+
+    const planned = planJukeboxPath({
+      analysis,
+      bufferDurationSeconds: 24,
+      durationSeconds: 30,
+      config: noRandomConfig,
+      randomMode: "seeded",
+      seed: 5,
+      deletedEdges: anchorBeat.neighbors.map((edge) => ({
+        src: edge.src.which,
+        dest: edge.dest.which,
+      })),
+    });
+
+    const lastBeatIndex = normalized.beats.length - 1;
+    const forcedJumps = planned.segments.filter(
+      (segment) =>
+        segment.jumped &&
+        !(segment.jumpFromIndex === lastBeatIndex && segment.beatIndex === 0),
+    );
+    expect(forcedJumps.length).toBeGreaterThan(0);
+  });
+
+  it("ignores a user anchor that is unknown or deleted", () => {
+    const analysis = createAnalysis(48, 0.5);
+
+    const baseline = planJukeboxPath({
+      analysis,
+      bufferDurationSeconds: 24,
+      durationSeconds: 10,
+      config: baseConfig,
+      randomMode: "seeded",
+      seed: 5,
+    });
+
+    const withUnknownAnchor = planJukeboxPath({
+      analysis,
+      bufferDurationSeconds: 24,
+      durationSeconds: 10,
+      config: baseConfig,
+      randomMode: "seeded",
+      seed: 5,
+      userAnchorEdge: { src: 999, dest: 0 },
+    });
+
+    expect(withUnknownAnchor.segments).toEqual(baseline.segments);
   });
 
   it("uses the configured minimum jump distance percentage", () => {

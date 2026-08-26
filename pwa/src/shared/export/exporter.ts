@@ -11,7 +11,7 @@ import {
 import type { JukeboxConfig, RandomMode } from "@forever-jukebox/shared";
 import {
   planJukeboxPath,
-  type DeletedEdgeRef,
+  type EdgeRef,
   type PlannedJukeboxSegment,
 } from "./plan";
 import {
@@ -40,7 +40,8 @@ export interface ExportJukeboxAudioOptions {
   analysis: AnalysisOutput;
   sourceBuffer: AudioBuffer;
   config: JukeboxConfig;
-  deletedEdges?: DeletedEdgeRef[];
+  deletedEdges?: EdgeRef[];
+  userAnchorEdge?: EdgeRef | null;
   durationSeconds: number;
   format: EncodedAudioFormat;
   bitrateKbps?: number;
@@ -102,6 +103,7 @@ export async function exportJukeboxAudio(
     deletedEdges: options.deletedEdges,
     randomMode: options.randomMode,
     seed: options.seed,
+    userAnchorEdge: options.userAnchorEdge,
   });
   const renderedDurationSeconds = plan.renderDurationSeconds / playbackRate;
   const cowbellEvents =

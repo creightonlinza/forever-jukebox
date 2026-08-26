@@ -54,6 +54,7 @@ type MockEngineInstance = {
   play: ReturnType<typeof vi.fn>;
   setUserAnchorEdge: ReturnType<typeof vi.fn>;
   getUserAnchorEdgeId: ReturnType<typeof vi.fn>;
+  getUserAnchorEdge: ReturnType<typeof vi.fn>;
   getConfig: () => {
     justLongBranches: boolean;
     minLongBranchPercent?: number;
@@ -280,6 +281,7 @@ vi.mock("@forever-jukebox/shared", async (importOriginal) => ({
     setFreezeCurrentBeat = vi.fn();
     setUserAnchorEdge = vi.fn();
     getUserAnchorEdgeId = vi.fn(() => null);
+    getUserAnchorEdge = vi.fn(() => null);
     deleteEdge = vi.fn();
     rebuildGraph = vi.fn();
     clearDeletedEdges = vi.fn();
@@ -1153,6 +1155,7 @@ describe("Listen route behavior", () => {
     expect(exportMocks.exportJukeboxAudio.mock.calls[0]?.[0]).toMatchObject({
       audioMode: "daycore",
       sectionStartBeatIndices: [],
+      userAnchorEdge: null,
     });
     rendered.unmount();
   });

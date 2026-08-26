@@ -13,6 +13,7 @@ import {
 import {
   BranchState,
   getBestLastBranchNeighborIndex,
+  isActiveUserAnchorEdge,
   selectNextBeatIndex,
   UserAnchorSelection,
 } from "./selection";
@@ -412,19 +413,14 @@ export class JukeboxEngine {
     return edge ? { edgeId: edge.id, sourceIndex: edge.src.which } : null;
   }
 
-  private getUserAnchorEdge(): Edge | null {
+  getUserAnchorEdge(): Edge | null {
     if (!this.graph || this.userAnchorEdgeId === null) {
       return null;
     }
     const edge = this.graph.allEdges.find(
       (candidate) => candidate.id === this.userAnchorEdgeId,
     );
-    if (!edge || edge.deleted) {
-      return null;
-    }
-    return edge.src.neighbors.some((candidate) => candidate.id === edge.id)
-      ? edge
-      : null;
+    return edge && isActiveUserAnchorEdge(edge) ? edge : null;
   }
 
   private getDefaultAnchorEdge(): Edge | null {
