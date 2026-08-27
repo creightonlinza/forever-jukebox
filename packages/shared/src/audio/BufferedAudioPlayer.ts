@@ -121,6 +121,12 @@ export class BufferedAudioPlayer {
     this.originalBuffer = buffer;
     this.renderedModeBuffers = {};
     this.reverbImpulseBuffers.clear();
+    // The crush buffer derives from the source, so re-render it for the new
+    // buffer when eight-bit is already armed (e.g. mode set from the URL
+    // before the first load).
+    if (this.audioMode === "eight_bit") {
+      this.renderEightBitBuffer();
+    }
     this.buffer = this.getActiveBuffer();
     this.offset = 0;
   }

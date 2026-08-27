@@ -497,6 +497,28 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdBuffers).toHaveLength(createdBeforeLoad + 2);
   });
 
+  it("renders the eight-bit buffer on load when the mode is already armed", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    player.setJukeboxAudioMode("eight_bit");
+    expect(player.getRenderedJukeboxAudioBuffer("eight_bit")).toBeNull();
+
+    const sourceBuffer = context.createBuffer(1, 8, 48_000) as AudioBuffer;
+    sourceBuffer.getChannelData(0).set([-1, -0.5, 0, 0.5, 1, 0.25, -0.25, 0.75]);
+    await player.loadBuffer(sourceBuffer);
+
+    const rendered = player.getRenderedJukeboxAudioBuffer("eight_bit");
+    expect(rendered).not.toBeNull();
+    expect(player.getBuffer()).toBe(rendered);
+
+    const nextBuffer = context.createBuffer(1, 8, 48_000) as AudioBuffer;
+    await player.loadBuffer(nextBuffer);
+    const nextRendered = player.getRenderedJukeboxAudioBuffer("eight_bit");
+    expect(nextRendered).not.toBeNull();
+    expect(nextRendered).not.toBe(rendered);
+    expect(player.getBuffer()).toBe(nextRendered);
+  });
+
   it("releases cached reverb impulses after switching away from reverb modes", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
