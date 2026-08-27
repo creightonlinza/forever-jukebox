@@ -1877,12 +1877,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         console.warn(`Swing render failed: ${String(err)}`);
-        setSwingPreparingState(false);
-        setSwingProgress(0);
-        setJukeboxAudioMode("off");
-        setExtrasForm((prev) => ({ ...prev, audioMode: "off" }));
-        player.setJukeboxAudioMode("off");
-        writeAudioModeToUrl("off", DEFAULT_AUDIO_MODE_INTENSITY, true);
+        resetAudioModeToOff(player);
         showShortcutToast(t("listen.swingFailed"));
       });
   }

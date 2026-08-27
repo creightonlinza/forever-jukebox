@@ -407,12 +407,15 @@ export function resetTuningDefaults(context: AppContext) {
     jukebox?.setData(data);
   }
   syncDeletedEdgeState(context);
-  const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
+  // Serialize am/ai only in jukebox mode — autocanonizer URLs carry no tuning.
+  const { jukeboxAudioMode, audioIntensity, playMode } = useAppStore.getState();
   const audioModeParams = new URLSearchParams({ am: jukeboxAudioMode });
   setAudioModeIntensityParam(audioModeParams, jukeboxAudioMode, audioIntensity);
   useAppStore.setState({
     tuningParams:
-      jukeboxAudioMode === "off" ? null : audioModeParams.toString(),
+      playMode !== "jukebox" || jukeboxAudioMode === "off"
+        ? null
+        : audioModeParams.toString(),
   });
   writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   updateTrackInfo(context);

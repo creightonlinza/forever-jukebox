@@ -173,13 +173,16 @@ export function applyTuningParamsToEngine(
       params.get("ai"),
       audioMode,
     );
+    // Record the selection in state, but only arm the shared player and
+    // cowbell overlay in jukebox mode — autocanonizer ignores tuning.
     useAppStore.setState({ jukeboxAudioMode: audioMode, audioIntensity });
-    if (audioMode === "cowbell") {
+    const inJukeboxMode = useAppStore.getState().playMode === "jukebox";
+    if (audioMode === "cowbell" && inJukeboxMode) {
       context.cowbellOverlay.enable();
     } else {
       context.cowbellOverlay.disable();
     }
-    if (audioMode !== "swing") {
+    if (audioMode !== "swing" && inJukeboxMode) {
       context.player.setJukeboxAudioMode(audioMode, audioIntensity);
     }
   }

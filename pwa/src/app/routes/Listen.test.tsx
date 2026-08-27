@@ -1319,6 +1319,53 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it("resets audio mode and intensity together when swing render fails", async () => {
+    vi.mocked(renderSwingBuffer).mockRejectedValueOnce(new Error("render failed"));
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-nightcore"));
+    await changeRange(
+      getRequired<HTMLInputElement>(rendered.container, "#audio-intensity"),
+      "150",
+    );
+    const clickApply = () =>
+      click(
+        Array.from(
+          rendered.container.querySelectorAll<HTMLButtonElement>(
+            ".tuning-footer .tab-btn",
+          ),
+        )[1] as HTMLButtonElement,
+      );
+    await clickApply();
+    expect(window.location.search).toContain("ai=150");
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-swing"));
+    await clickApply();
+    await settleEffects();
+
+    const player = playerInstances.at(-1) as unknown as {
+      setJukeboxAudioMode: ReturnType<typeof vi.fn>;
+    };
+    expect(player.setJukeboxAudioMode).toHaveBeenLastCalledWith("off", 100);
+    expect(window.location.search).not.toContain("am=");
+    expect(window.location.search).not.toContain("ai=");
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-nightcore"));
+    const slider = getRequired<HTMLInputElement>(
+      rendered.container,
+      "#audio-intensity",
+    );
+    expect(slider.value).toBe("100");
+    rendered.unmount();
+  });
+
   it("opens extras tab with E keyboard shortcut", async () => {
     const rendered = renderListen();
     await settleEffects();

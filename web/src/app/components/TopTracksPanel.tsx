@@ -344,7 +344,7 @@ function FavoritesList({ query }: { query: string }) {
                   }}
                 >
                   {titleText}
-                  {item.tuningParams ? (
+                  {item.tuningParams && item.playMode !== "autocanonizer" ? (
                     <>
                       {" "}
                       <span
