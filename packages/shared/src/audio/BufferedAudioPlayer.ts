@@ -121,12 +121,8 @@ export class BufferedAudioPlayer {
     this.originalBuffer = buffer;
     this.renderedModeBuffers = {};
     this.reverbImpulseBuffers.clear();
-    // The crush buffer derives from the source, so re-render it for the new
-    // buffer when eight-bit is already armed (e.g. mode set from the URL
-    // before the first load).
-    if (this.audioMode === "eight_bit") {
-      this.renderEightBitBuffer();
-    }
+    // Crush buffer derives from the source; re-render for the new buffer.
+    this.renderEightBitBuffer();
     this.buffer = this.getActiveBuffer();
     this.offset = 0;
   }
@@ -297,9 +293,11 @@ export class BufferedAudioPlayer {
     return this.renderedModeBuffers[this.audioMode] ?? this.originalBuffer;
   }
 
+  // No-op unless eight-bit is the active mode with a valid source buffer.
   private renderEightBitBuffer() {
     const settings = AUDIO_MODE_SETTINGS.eight_bit;
     if (
+      this.audioMode !== "eight_bit" ||
       !this.originalBuffer ||
       !Number.isFinite(this.originalBuffer.length) ||
       this.originalBuffer.length <= 0 ||
@@ -349,9 +347,7 @@ export class BufferedAudioPlayer {
     const settings = this.getActiveModeSettings();
     this.playbackRate = settings.rate;
     if (modeChanged) {
-      if (mode === "eight_bit") {
-        this.renderEightBitBuffer();
-      }
+      this.renderEightBitBuffer();
       this.releaseInactiveRenderedModeBuffers(mode);
       this.reverbImpulseBuffers.clear();
       this.buffer = this.getActiveBuffer();

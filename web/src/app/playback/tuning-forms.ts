@@ -4,6 +4,7 @@ import { storeAnchorHighlight } from "../anchorHighlight";
 import { storeBranchStatsEnabled } from "../extrasMode";
 import { useAppStore } from "../store";
 import {
+  appendAudioModeParams,
   getAnchorBranchIdFromUrl,
   getDeletedEdgeIdsFromUrl,
   resetAudioModeToOff,
@@ -16,7 +17,6 @@ import {
   audioModeChangeAffectsPlayback,
   audioModeSupportsIntensity,
   clampAudioModeIntensity,
-  setAudioModeIntensityParam,
 } from "@forever-jukebox/shared/audio/audioModes";
 import { trackEvent } from "../analytics";
 import {
@@ -409,13 +409,13 @@ export function resetTuningDefaults(context: AppContext) {
   syncDeletedEdgeState(context);
   // Serialize am/ai only in jukebox mode — autocanonizer URLs carry no tuning.
   const { jukeboxAudioMode, audioIntensity, playMode } = useAppStore.getState();
-  const audioModeParams = new URLSearchParams({ am: jukeboxAudioMode });
-  setAudioModeIntensityParam(audioModeParams, jukeboxAudioMode, audioIntensity);
+  const audioModeParams = new URLSearchParams();
+  if (playMode === "jukebox") {
+    appendAudioModeParams(audioModeParams, jukeboxAudioMode, audioIntensity);
+  }
+  const serialized = audioModeParams.toString();
   useAppStore.setState({
-    tuningParams:
-      playMode !== "jukebox" || jukeboxAudioMode === "off"
-        ? null
-        : audioModeParams.toString(),
+    tuningParams: serialized.length > 0 ? serialized : null,
   });
   writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   updateTrackInfo(context);

@@ -1238,7 +1238,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         setReadyFileKey(fileKey);
         await playerRef.current?.loadBuffer(result.audioBuffer);
         autocanonizerRef.current?.setAudio(
-          playerRef.current?.getBuffer() ?? null,
+          playerRef.current?.getSourceBuffer() ?? null,
           playerRef.current?.getContext() ?? null
         );
         initializeEngine(result.analysis);

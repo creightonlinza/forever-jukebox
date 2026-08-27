@@ -1333,11 +1333,10 @@ describe("Listen route behavior", () => {
     );
     const clickApply = () =>
       click(
-        Array.from(
-          rendered.container.querySelectorAll<HTMLButtonElement>(
-            ".tuning-footer .tab-btn",
-          ),
-        )[1] as HTMLButtonElement,
+        getRequired<HTMLButtonElement>(
+          rendered.container,
+          ".tuning-footer .tab-btn:last-child",
+        ),
       );
     await clickApply();
     expect(window.location.search).toContain("ai=150");
