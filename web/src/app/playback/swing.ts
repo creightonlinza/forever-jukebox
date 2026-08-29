@@ -2,7 +2,11 @@ import type { AppContext } from "../context";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
 import { useAppStore } from "../store";
-import { syncTuningParamsState, writeTuningParamsToUrl } from "../tuning";
+import {
+  resetAudioModeToOff,
+  syncTuningParamsState,
+  writeTuningParamsToUrl,
+} from "../tuning";
 import { showToast } from "../ui";
 import { updatePlayButton, updateVizVisibility } from "./status-ui";
 import { pausePlayback, startJukeboxPlayback } from "./transport";
@@ -101,8 +105,7 @@ export function prepareSwingMode(context: AppContext) {
       }
       console.warn(`Swing render failed: ${String(err)}`);
       useAppStore.setState({ swingPreparing: false });
-      useAppStore.setState({ jukeboxAudioMode: "off" });
-      context.player.setJukeboxAudioMode("off");
+      resetAudioModeToOff(context.player);
       useAppStore.setState({
         analysisStatusText: () => i18n.t("playback.swingFailedStatus"),
         analysisSpinning: false,

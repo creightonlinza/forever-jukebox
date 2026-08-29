@@ -4,6 +4,7 @@ import { storeAnchorHighlight } from "../anchorHighlight";
 import { storeBranchStatsEnabled } from "../extrasMode";
 import { useAppStore } from "../store";
 import {
+  appendAudioModeParams,
   getAnchorBranchIdFromUrl,
   getDeletedEdgeIdsFromUrl,
   resetAudioModeToOff,
@@ -16,7 +17,6 @@ import {
   audioModeChangeAffectsPlayback,
   audioModeSupportsIntensity,
   clampAudioModeIntensity,
-  setAudioModeIntensityParam,
 } from "@forever-jukebox/shared/audio/audioModes";
 import { trackEvent } from "../analytics";
 import {
@@ -336,8 +336,10 @@ export function applyTuningChanges(
   const previousForm = getTuningFormValues(context);
   const threshold = form.threshold;
   const computed = form.computedThreshold;
+  // The slider has no way to show "auto" — it displays the number the track resolved to — so
+  // setting it to that number is the same as never having moved it, and both build the same
+  // graph. Landing there returns the threshold to auto whatever it was before.
   const useAutoThreshold =
-    engine.getConfig().currentThreshold === 0 &&
     computed !== null &&
     Number.isFinite(computed) &&
     threshold === computed;
@@ -407,12 +409,15 @@ export function resetTuningDefaults(context: AppContext) {
     jukebox?.setData(data);
   }
   syncDeletedEdgeState(context);
-  const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
-  const audioModeParams = new URLSearchParams({ am: jukeboxAudioMode });
-  setAudioModeIntensityParam(audioModeParams, jukeboxAudioMode, audioIntensity);
+  // Serialize am/ai only in jukebox mode — autocanonizer URLs carry no tuning.
+  const { jukeboxAudioMode, audioIntensity, playMode } = useAppStore.getState();
+  const audioModeParams = new URLSearchParams();
+  if (playMode === "jukebox") {
+    appendAudioModeParams(audioModeParams, jukeboxAudioMode, audioIntensity);
+  }
+  const serialized = audioModeParams.toString();
   useAppStore.setState({
-    tuningParams:
-      jukeboxAudioMode === "off" ? null : audioModeParams.toString(),
+    tuningParams: serialized.length > 0 ? serialized : null,
   });
   writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
   updateTrackInfo(context);

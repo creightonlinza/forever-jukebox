@@ -8,6 +8,7 @@ import {
   DEFAULT_AUDIO_MODE_INTENSITY,
   parseAudioModeIntensityParam,
   setAudioModeIntensityParam,
+  type JukeboxAudioMode,
 } from "@forever-jukebox/shared/audio/audioModes";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
@@ -173,13 +174,16 @@ export function applyTuningParamsToEngine(
       params.get("ai"),
       audioMode,
     );
+    // Record the selection in state, but only arm the shared player and
+    // cowbell overlay in jukebox mode — autocanonizer ignores tuning.
     useAppStore.setState({ jukeboxAudioMode: audioMode, audioIntensity });
-    if (audioMode === "cowbell") {
+    const inJukeboxMode = useAppStore.getState().playMode === "jukebox";
+    if (audioMode === "cowbell" && inJukeboxMode) {
       context.cowbellOverlay.enable();
     } else {
       context.cowbellOverlay.disable();
     }
-    if (audioMode !== "swing") {
+    if (audioMode !== "swing" && inJukeboxMode) {
       context.player.setJukeboxAudioMode(audioMode, audioIntensity);
     }
   }
@@ -252,11 +256,21 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
     params.set("ab", `${anchorBranchId}`);
   }
   const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
-  if (jukeboxAudioMode !== "off") {
-    params.set("am", jukeboxAudioMode);
-    setAudioModeIntensityParam(params, jukeboxAudioMode, audioIntensity);
-  }
+  appendAudioModeParams(params, jukeboxAudioMode, audioIntensity);
   return params;
+}
+
+// Serializes the am/ai pair for URLs and stored tuning params; "off" emits
+// nothing.
+export function appendAudioModeParams(
+  params: URLSearchParams,
+  audioMode: JukeboxAudioMode,
+  audioIntensity: number,
+) {
+  if (audioMode !== "off") {
+    params.set("am", audioMode);
+    setAudioModeIntensityParam(params, audioMode, audioIntensity);
+  }
 }
 
 // The audio-mode reset shared by track loads and tuning resets: store slice

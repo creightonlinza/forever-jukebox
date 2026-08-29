@@ -182,6 +182,30 @@ describe("tuning params", () => {
     );
   });
 
+  it("records audio mode without arming the player outside jukebox mode", () => {
+    useAppStore.setState({ playMode: "autocanonizer" });
+    const context = createContext();
+    const params = new URLSearchParams("am=nightcore&ai=130");
+    const applied = applyTuningParamsToEngine(context, params);
+    expect(applied).toBe(true);
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("nightcore");
+    expect(useAppStore.getState().audioIntensity).toBe(130);
+    expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
+  });
+
+  it("does not enable the cowbell overlay outside jukebox mode", () => {
+    useAppStore.setState({ playMode: "autocanonizer" });
+    const context = createContext();
+    const applied = applyTuningParamsToEngine(
+      context,
+      new URLSearchParams("am=cowbell"),
+    );
+    expect(applied).toBe(true);
+    expect(context.cowbellOverlay.enable).not.toHaveBeenCalled();
+    expect(context.cowbellOverlay.disable).toHaveBeenCalledTimes(1);
+    expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
+  });
+
   it("applies audio intensity with a supported mode", () => {
     const context = createContext();
     const params = new URLSearchParams("am=nightcore&ai=130");

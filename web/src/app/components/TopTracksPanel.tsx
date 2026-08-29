@@ -344,7 +344,8 @@ function FavoritesList({ query }: { query: string }) {
                   }}
                 >
                   {titleText}
-                  {item.tuningParams ? (
+                  {item.tuningParams &&
+                  (item.playMode ?? "jukebox") === "jukebox" ? (
                     <>
                       {" "}
                       <span
