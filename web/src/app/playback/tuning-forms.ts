@@ -336,8 +336,10 @@ export function applyTuningChanges(
   const previousForm = getTuningFormValues(context);
   const threshold = form.threshold;
   const computed = form.computedThreshold;
+  // The slider has no way to show "auto" — it displays the number the track resolved to — so
+  // setting it to that number is the same as never having moved it, and both build the same
+  // graph. Landing there returns the threshold to auto whatever it was before.
   const useAutoThreshold =
-    engine.getConfig().currentThreshold === 0 &&
     computed !== null &&
     Number.isFinite(computed) &&
     threshold === computed;

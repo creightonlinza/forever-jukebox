@@ -381,6 +381,27 @@ describe("playback tuning", () => {
     expect(result.threshold).toBe(45);
   });
 
+  it("returns the threshold to auto when it is set back to the computed value", () => {
+    const context = createContext();
+    applyTuningChanges(
+      context,
+      formValues(context, { threshold: 45, computedThreshold: 30 }),
+    );
+    expect(context.engine.updateConfig).toHaveBeenLastCalledWith(
+      expect.objectContaining({ currentThreshold: 45 }),
+    );
+
+    // Landing on the computed value un-pins whatever the threshold was before, so the same
+    // gesture always means the same thing.
+    applyTuningChanges(
+      context,
+      formValues(context, { threshold: 30, computedThreshold: 30 }),
+    );
+    expect(context.engine.updateConfig).toHaveBeenLastCalledWith(
+      expect.objectContaining({ currentThreshold: 0 }),
+    );
+  });
+
   it("applies minimum jump distance while preserving the Any baseline", () => {
     const context = createContext();
     applyTuningChanges(
