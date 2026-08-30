@@ -2,10 +2,14 @@ import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { trackEvent } from "../analytics";
 import { setSleepTimer } from "../playback";
 import { useAppStore } from "../store";
 import { SettingsModal } from "./SettingsModal";
 
+vi.mock("../analytics", () => ({
+  trackEvent: vi.fn(),
+}));
 vi.mock("../playback", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../playback")>();
   return { ...actual, setSleepTimer: vi.fn() };
@@ -202,5 +206,43 @@ describe("SettingsModal", () => {
       useAppStore.setState({ settingsModalOpen: true });
     });
     expect(select().value).toBe("off");
+  });
+  it("reports the chosen sleep timer duration in minutes", async () => {
+    render(<SettingsModal />);
+    act(() => {
+      useAppStore.setState({ settingsModalOpen: true });
+    });
+    await userEvent.selectOptions(select(), String(FIFTEEN_MIN));
+    await userEvent.click(document.getElementById("sleep-timer-set")!);
+
+    expect(trackEvent).toHaveBeenCalledWith("sleep_timer", {
+      duration_min: "15",
+    });
+  });
+
+  it("reports a cleared sleep timer as off", async () => {
+    render(<SettingsModal />);
+    act(() => {
+      useAppStore.setState({ settingsModalOpen: true });
+    });
+    await userEvent.click(document.getElementById("sleep-timer-set")!);
+
+    expect(trackEvent).toHaveBeenCalledWith("sleep_timer", {
+      duration_min: "off",
+    });
+  });
+
+  it("reports the selected theme", async () => {
+    render(<SettingsModal />);
+    act(() => {
+      useAppStore.setState({ settingsModalOpen: true });
+    });
+    await userEvent.click(
+      document.querySelector<HTMLInputElement>(
+        'input[name="settings-theme"][value="light"]',
+      )!,
+    );
+
+    expect(trackEvent).toHaveBeenCalledWith("theme", { theme: "light" });
   });
 });

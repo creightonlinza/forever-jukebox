@@ -1,5 +1,6 @@
 import type { AppState } from "./context";
 import type { FavoriteTrack } from "./favorites";
+import { trackEvent } from "./analytics";
 import { isLikelyJobId } from "./identity";
 import { loadTrackById, loadTrackByJobId, togglePlayback } from "./playback";
 import { setPlayMode } from "./playback-ui";
@@ -44,8 +45,8 @@ export function clearPlaylist(): void {
   handleClearPlaylist();
 }
 
-export function addToPlaylist(track: PlaylistTrack): void {
-  handleAddToPlaylist(track);
+export function addToPlaylist(track: PlaylistTrack, source: string): void {
+  handleAddToPlaylist(track, source);
 }
 
 export function resetPlaylistActionsForTest(): void {
@@ -112,7 +113,7 @@ export function handleNormalTrackSelected(track: PlaylistTrack) {
     }
   }
 
-  function handleAddToPlaylist(track: PlaylistTrack) {
+  function handleAddToPlaylist(track: PlaylistTrack, source: string) {
     const result = addPlaylistTrack(
       useAppStore.getState().playlist,
       getCurrentPlaylistTrack(),
@@ -131,6 +132,11 @@ export function handleNormalTrackSelected(track: PlaylistTrack) {
       return;
     }
     updatePlaylist(result.playlist);
+    trackEvent("playlist_add", {
+      source,
+      track_id: track.id,
+      size: result.playlist.tracks.length,
+    });
     showToast(i18n.t("playlist.added"), { icon: "playlist_add_check" });
   }
 
@@ -147,6 +153,7 @@ export function handleNormalTrackSelected(track: PlaylistTrack) {
     if (!canMovePlaylistPrevious(useAppStore.getState().playlist) || isPlaylistLoadBlocked()) {
       return;
     }
+    trackEvent("playlist_navigate", { method: "prev" });
     void loadPlaylistIndex(useAppStore.getState().playlist.currentIndex - 1, {
       playAfterLoad: useAppStore.getState().isRunning,
     });
@@ -156,6 +163,7 @@ export function handleNormalTrackSelected(track: PlaylistTrack) {
     if (!canMovePlaylistNext(useAppStore.getState().playlist) || isPlaylistLoadBlocked()) {
       return;
     }
+    trackEvent("playlist_navigate", { method: "next" });
     void loadPlaylistIndex(useAppStore.getState().playlist.currentIndex + 1, {
       playAfterLoad: useAppStore.getState().isRunning,
     });
@@ -375,5 +383,6 @@ export async function loadPlaylistIndex(
     ) {
       return;
     }
+    trackEvent("playlist_navigate", { method: "pick" });
     void loadPlaylistIndex(index, { closeModal: true });
   }

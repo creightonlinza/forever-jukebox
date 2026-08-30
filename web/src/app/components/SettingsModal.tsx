@@ -6,6 +6,7 @@ import {
   resolveSupportedLanguage,
   supportedLanguageOptions,
 } from "../i18n";
+import { trackEvent } from "../analytics";
 import { SLEEP_TIMER_OPTIONS, setSleepTimer } from "../playback";
 import { useAppStore } from "../store";
 import type { ThemeName } from "../themeConfig";
@@ -88,6 +89,7 @@ export function SettingsModal() {
       : t("sleepTimer.off");
 
   const selectTheme = (nextTheme: ThemeName) => {
+    trackEvent("theme", { theme: nextTheme });
     setTheme(nextTheme);
   };
 
@@ -209,7 +211,14 @@ export function SettingsModal() {
                 type="button"
                 className="settings-timer-set"
                 onClick={() => {
-                  setSleepTimer(durationFromValue(pendingValue));
+                  const durationMs = durationFromValue(pendingValue);
+                  trackEvent("sleep_timer", {
+                    duration_min:
+                      durationMs === null
+                        ? "off"
+                        : String(Math.round(durationMs / 60000)),
+                  });
+                  setSleepTimer(durationMs);
                   close();
                 }}
               >

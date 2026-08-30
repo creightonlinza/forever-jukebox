@@ -82,6 +82,7 @@ describe("TopTracksPanel", () => {
     await userEvent.click(screen.getByLabelText("Add Song to playlist"));
     expect(h.addToPlaylist).toHaveBeenCalledWith(
       expect.objectContaining({ id: "a3f3c0dc73c6476c9db95c227f9206f2" }),
+      "top",
     );
     expect(h.selectTrack).not.toHaveBeenCalled();
   });

@@ -216,7 +216,10 @@ function SongList({
             >
               {label}
             </a>
-            <PlaylistAddButton track={playlistTrack} onAdd={addToPlaylist} />
+            <PlaylistAddButton
+              track={playlistTrack}
+              onAdd={(added) => addToPlaylist(added, tabId)}
+            />
           </li>
         );
       })}
@@ -365,7 +368,7 @@ function FavoritesList({ query }: { query: string }) {
               <td className="favorite-remove-cell">
                 <PlaylistAddButton
                   track={favoriteToPlaylistTrack(item, sourceType)}
-                  onAdd={addToPlaylist}
+                  onAdd={(added) => addToPlaylist(added, "favorites")}
                 />
                 <button
                   type="button"

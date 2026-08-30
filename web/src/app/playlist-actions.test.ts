@@ -6,6 +6,7 @@ import {
   togglePlayback,
   type PlaybackDeps,
 } from "./playback";
+import { trackEvent } from "./analytics";
 import { setPlayMode } from "./playback-ui";
 import { emptyPlaylist, type PlaylistTrack } from "./playlist";
 import { setAppRuntime, setPlaybackDeps } from "./runtime";
@@ -18,7 +19,9 @@ import {
   handleNormalTrackSelected,
   loadPlaylistIndex,
   playlistNext,
+  playlistPrevious,
   resetPlaylistActionsForTest,
+  selectPlaylistIndex,
 } from "./playlist-actions";
 import { setWindowUrl } from "./__tests__/test-utils";
 
@@ -34,6 +37,9 @@ vi.mock("./playback", async (importActual) => ({
 }));
 vi.mock("./playback-ui", () => ({
   setPlayMode: vi.fn(),
+}));
+vi.mock("./analytics", () => ({
+  trackEvent: vi.fn(),
 }));
 
 
@@ -103,13 +109,13 @@ describe("playlist handlers", () => {
       lastSourceProvider: "youtube",
       trackTitle: "Current",
     } as Partial<AppState>);
-    addToPlaylist(track("next"));
+    addToPlaylist(track("next"), "top");
     expect(useAppStore.getState().playlist.tracks.map((item) => item.id)).toEqual([
       "current",
       "next",
     ]);
 
-    addToPlaylist(track("next"));
+    addToPlaylist(track("next"), "top");
     expect(showToast).toHaveBeenCalledWith(
             "Already in playlist",
     );
@@ -120,7 +126,7 @@ describe("playlist handlers", () => {
       currentIndex: 0,
     }
     });
-    addToPlaylist(track("extra"));
+    addToPlaylist(track("extra"), "top");
     expect(showToast).toHaveBeenCalledWith(
             "Playlist is full.",
     );
@@ -128,7 +134,7 @@ describe("playlist handlers", () => {
 
   it("rejects an add with no current track without toasting success", () => {
     createDeps();
-    addToPlaylist(track("next"));
+    addToPlaylist(track("next"), "top");
 
     expect(showToast).toHaveBeenCalledWith(
             "Track cannot be added to playlist.",
@@ -143,7 +149,7 @@ describe("playlist handlers", () => {
       lastSourceProvider: "upload",
       trackTitle: "Upload",
     } as Partial<AppState>);
-    addToPlaylist(track("next"));
+    addToPlaylist(track("next"), "top");
 
     expect(useAppStore.getState().playlist.tracks[0]).toMatchObject({
       id: jobId,
@@ -157,7 +163,7 @@ describe("playlist handlers", () => {
       lastSourceProvider: "soundcloud",
       trackTitle: "Provider Track",
     } as Partial<AppState>);
-    addToPlaylist(track("next"));
+    addToPlaylist(track("next"), "top");
 
     expect(useAppStore.getState().playlist.tracks[0]).toMatchObject({
       id: "source-1",
@@ -171,7 +177,7 @@ describe("playlist handlers", () => {
       lastSourceProvider: "youtube",
       trackTitle: "Current",
     } as Partial<AppState>);
-    addToPlaylist({ ...track(""), id: "" });
+    addToPlaylist({ ...track(""), id: "" }, "top");
 
     expect(showToast).toHaveBeenCalledWith(
             "Track cannot be added to playlist.",
@@ -445,5 +451,108 @@ describe("playlist handlers", () => {
 
     expect(useAppStore.getState().playlist).toEqual(emptyPlaylist());
     expect(useAppStore.getState().playlistModalOpen).toBe(false);
+  });
+  it("reports a playlist add with its source and resulting size", () => {
+    createDeps({
+      lastTrackId: "current",
+      lastSourceProvider: "youtube",
+      trackTitle: "Current",
+    } as Partial<AppState>);
+    addToPlaylist(track("next"), "favorites");
+
+    expect(trackEvent).toHaveBeenCalledWith("playlist_add", {
+      source: "favorites",
+      track_id: "next",
+      size: 2,
+    });
+  });
+
+  it("does not report rejected playlist adds", () => {
+    createDeps({
+      lastTrackId: "current",
+      lastSourceProvider: "youtube",
+      trackTitle: "Current",
+    } as Partial<AppState>);
+    addToPlaylist(track("next"), "top");
+    vi.mocked(trackEvent).mockClear();
+
+    addToPlaylist(track("next"), "top");
+    useAppStore.setState({
+      playlist: {
+        tracks: Array.from({ length: 10 }, (_, index) => track(`${index}`)),
+        currentIndex: 0,
+      },
+    });
+    addToPlaylist(track("extra"), "top");
+
+    expect(trackEvent).not.toHaveBeenCalled();
+  });
+
+  it("reports each user-driven playlist navigation", () => {
+    createDeps({
+      playlist: {
+        tracks: [track("a"), track("b"), track("c")],
+        currentIndex: 1,
+      },
+    } as Partial<AppState>);
+
+    playlistNext();
+    expect(trackEvent).toHaveBeenCalledWith("playlist_navigate", {
+      method: "next",
+    });
+
+    resetPlaylistActionsForTest();
+    useAppStore.setState({
+      playlist: {
+        tracks: [track("a"), track("b"), track("c")],
+        currentIndex: 1,
+      },
+    });
+    playlistPrevious();
+    expect(trackEvent).toHaveBeenCalledWith("playlist_navigate", {
+      method: "prev",
+    });
+
+    resetPlaylistActionsForTest();
+    useAppStore.setState({
+      playlist: {
+        tracks: [track("a"), track("b"), track("c")],
+        currentIndex: 1,
+      },
+    });
+    selectPlaylistIndex(2);
+    expect(trackEvent).toHaveBeenCalledWith("playlist_navigate", {
+      method: "pick",
+    });
+  });
+
+  it("does not report the automatic advance when a track ends", async () => {
+    createDeps({
+      playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
+    } as Partial<AppState>);
+
+    await advanceAutocanonizerOnEnded();
+
+    expect(useAppStore.getState().playlist.currentIndex).toBe(1);
+    expect(trackEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not report a skip that is blocked by a pending load", () => {
+    createDeps({
+      playlist: {
+        tracks: [track("a"), track("b"), track("c")],
+        currentIndex: 0,
+      },
+    } as Partial<AppState>);
+    vi.mocked(loadTrackById).mockImplementation(
+      () =>
+        new Promise<boolean>(() => {
+          // Keep the first load pending.
+        }),
+    );
+    playlistNext();
+    playlistNext();
+
+    expect(trackEvent).toHaveBeenCalledTimes(1);
   });
 });
