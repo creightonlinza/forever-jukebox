@@ -15,7 +15,7 @@ describe("submitFeedback", () => {
     vi.useRealTimers();
   });
 
-  it("posts the three form fields to the form response endpoint", async () => {
+  it("posts the four form fields to the form response endpoint", async () => {
     await submitFeedback("Playback stalls on track change");
     const { url, init, body } = lastCall();
 
@@ -25,6 +25,7 @@ describe("submitFeedback", () => {
     expect(params.get("entry.1981349269")).toBe("Playback stalls on track change");
     expect(params.get("entry.921237093")).toMatch(/^Web /);
     expect(params.get("entry.1749929406")).not.toBeNull();
+    expect(params.get("entry.2053321578")).not.toBeNull();
   });
 
   it("encodes spaces as + rather than %20", async () => {

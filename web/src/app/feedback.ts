@@ -8,6 +8,7 @@ const ENTRY = {
   feedback: "entry.1981349269",
   appVersion: "entry.921237093",
   device: "entry.1749929406",
+  host: "entry.2053321578",
 } as const;
 
 const TIMEOUT_MS = 30_000;
@@ -26,6 +27,12 @@ function deviceSummary(): string {
   return parts.join(" | ");
 }
 
+// The app is self-hosted by others too, so reports arrive from deployments
+// whose code may have drifted; the origin identifies which one sent this.
+function hostSummary(): string {
+  return typeof location === "undefined" ? "" : location.origin;
+}
+
 // Google Forms sends no CORS headers, so the response is opaque: a resolved
 // fetch means the request reached Google, not that the row was recorded.
 // Genuine network failure (offline, DNS, timeout) still rejects.
@@ -34,6 +41,7 @@ export async function submitFeedback(text: string): Promise<boolean> {
     [ENTRY.feedback]: text,
     [ENTRY.appVersion]: `Web ${__APP_VERSION__}`,
     [ENTRY.device]: deviceSummary(),
+    [ENTRY.host]: hostSummary(),
   });
 
   // AbortSignal.timeout is unavailable on the legacy targets the bundle
