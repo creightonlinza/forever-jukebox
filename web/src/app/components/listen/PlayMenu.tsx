@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { isAdminMode } from "../../admin";
+import { isFavoriteTuningDrifted } from "../../favorite-drift";
 import { findCurrentFavorite } from "../../favorites";
 import { formatPlaybackTitle } from "../../format";
 import { useMarquee } from "../../hooks/useMarquee";
@@ -118,6 +119,7 @@ export function PlayMenu() {
   const lastSourceId = useAppStore((s) => s.lastSourceId);
   const lastSourceProvider = useAppStore((s) => s.lastSourceProvider);
   const favoriteToggleBusy = useAppStore((s) => s.favoriteToggleBusy);
+  const tuningParams = useAppStore((s) => s.tuningParams);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
     null,
   );
@@ -140,17 +142,36 @@ export function PlayMenu() {
       : "";
   useMarquee(titleRef, displayTitle);
 
-  const favoriteActive = Boolean(
-    findCurrentFavorite(favorites, {
-      lastTrackId,
-      lastJobId,
-      lastSourceId,
-      lastSourceProvider,
-    }),
+  const currentFavorite = useMemo(
+    () =>
+      findCurrentFavorite(favorites, {
+        lastTrackId,
+        lastJobId,
+        lastSourceId,
+        lastSourceProvider,
+      }),
+    [favorites, lastTrackId, lastJobId, lastSourceId, lastSourceProvider],
   );
-  const favoriteLabel = favoriteActive
-    ? t("playback.removeFavorite")
-    : t("playback.addFavorite");
+  const favoriteActive = Boolean(currentFavorite);
+  const favoriteDrifted = useMemo(() => {
+    // Bail before touching the runtime context so render is safe when the
+    // app context is not initialized yet.
+    if (!currentFavorite || !analysisLoaded) {
+      return false;
+    }
+    return isFavoriteTuningDrifted({
+      favorite: currentFavorite,
+      ready: analysisLoaded,
+      livePlayMode: playMode,
+      liveTuningParams: tuningParams,
+      defaults: getAppContext().defaultConfig,
+    });
+  }, [currentFavorite, analysisLoaded, playMode, tuningParams]);
+  const favoriteLabel = favoriteDrifted
+    ? t("playback.updateFavorite")
+    : favoriteActive
+      ? t("playback.removeFavorite")
+      : t("playback.addFavorite");
   const deleteLabel = adminMode
     ? t("delete.track")
     : t("delete.withinWindow");
@@ -269,6 +290,9 @@ export function PlayMenu() {
             >
               star
             </span>
+            {favoriteDrifted ? (
+              <span className="favorite-dot" aria-hidden="true" />
+            ) : null}
           </button>
         </div>
       </div>

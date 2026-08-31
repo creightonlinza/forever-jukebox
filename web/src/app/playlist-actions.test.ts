@@ -24,6 +24,7 @@ import {
   selectPlaylistIndex,
 } from "./playlist-actions";
 import { setWindowUrl } from "./__tests__/test-utils";
+import { DEFAULT_JUKEBOX_CONFIG } from "@forever-jukebox/shared";
 
 vi.mock("./ui", async (importActual) => ({
   ...(await importActual<typeof import("./ui")>()),
@@ -80,7 +81,9 @@ function createDeps(overrides?: Partial<AppState>) {
   if (overrides) {
     useAppStore.setState(overrides);
   }
-  const context = {} as unknown as AppContext;
+  const context = {
+    defaultConfig: { ...DEFAULT_JUKEBOX_CONFIG },
+  } as unknown as AppContext;
   const playbackDeps: PlaybackDeps = {
     setActiveTab: vi.fn(),
     navigateToTab: vi.fn(),

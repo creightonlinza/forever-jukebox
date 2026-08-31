@@ -3,6 +3,7 @@ import { useAppStore } from "./store";
 import {
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
   parsePinnedThreshold,
+  type JukeboxConfig,
 } from "@forever-jukebox/shared";
 import {
   DEFAULT_AUDIO_MODE_INTENSITY,
@@ -88,9 +89,7 @@ export function getTuningParamsFromUrl(): URLSearchParams {
   return filterTuningParams(new URLSearchParams(window.location.search));
 }
 
-export function getDeletedEdgeIdsFromUrl(): number[] {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get("d");
+function parseDeletedEdgeIds(raw: string | null): number[] {
   if (!raw) {
     return [];
   }
@@ -100,10 +99,21 @@ export function getDeletedEdgeIdsFromUrl(): number[] {
     .filter((value) => Number.isFinite(value) && value >= 0);
 }
 
+function parseAnchorBranchId(raw: string | null): number | null {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+export function getDeletedEdgeIdsFromUrl(): number[] {
+  return parseDeletedEdgeIds(
+    new URLSearchParams(window.location.search).get("d"),
+  );
+}
+
 export function getAnchorBranchIdFromUrl(): number | null {
-  const params = new URLSearchParams(window.location.search);
-  const raw = Number.parseInt(params.get("ab") ?? "", 10);
-  return Number.isFinite(raw) && raw >= 0 ? raw : null;
+  return parseAnchorBranchId(
+    new URLSearchParams(window.location.search).get("ab"),
+  );
 }
 
 export function getTuningParamsStringFromUrl(): string | null {
@@ -116,35 +126,41 @@ export function hasTuningParamsInUrl(): boolean {
   return serializeParams(getTuningParamsFromUrl()).length > 0;
 }
 
-export function applyTuningParamsToEngine(
-  context: AppContext,
+type ParsedTuning = {
+  config: JukeboxConfig;
+  // null when am is absent or invalid; "off" is a valid parsed value.
+  audioMode: JukeboxAudioMode | null;
+  audioIntensity: number;
+  deletedEdgeIds: number[];
+  anchorBranchId: number | null;
+};
+
+// The one parser for stored/URL tuning params: absent fields fall back to the
+// given defaults.
+function parseTuningParams(
   params: URLSearchParams,
-): boolean {
-  const hasTuningParam = TUNING_PARAM_KEYS.some((key) => params.has(key));
-  if (!hasTuningParam) {
-    return false;
-  }
-  const defaults = context.defaultConfig;
-  const nextConfig = { ...defaults };
+  defaults: JukeboxConfig,
+): ParsedTuning {
+  const config = { ...defaults };
   if (params.get("jb") === "1") {
-    nextConfig.justBackwards = true;
+    config.justBackwards = true;
   }
   if (params.get("lg") === "1") {
-    nextConfig.justLongBranches = true;
+    config.justLongBranches = true;
   }
   const minLongBranchPercent = Number.parseInt(params.get("bl") ?? "", 10);
   if (MIN_LONG_BRANCH_PERCENT_OPTIONS.has(minLongBranchPercent)) {
-    nextConfig.justLongBranches = true;
-    nextConfig.minLongBranchPercent = minLongBranchPercent;
-  } else if (nextConfig.justLongBranches) {
-    nextConfig.minLongBranchPercent =
+    config.justLongBranches = true;
+    config.minLongBranchPercent = minLongBranchPercent;
+  } else if (config.justLongBranches) {
+    config.minLongBranchPercent =
       defaults.minLongBranchPercent ?? DEFAULT_MIN_LONG_BRANCH_PERCENT;
   }
   if (params.get("sq") === "0") {
-    nextConfig.removeSequentialBranches = true;
+    config.removeSequentialBranches = true;
   }
   if (params.has("thresh")) {
-    nextConfig.currentThreshold = parsePinnedThreshold(params.get("thresh")) ?? 0;
+    config.currentThreshold = parsePinnedThreshold(params.get("thresh")) ?? 0;
   }
   if (params.has("bp")) {
     const fields = (params.get("bp") ?? "").split(",");
@@ -153,13 +169,13 @@ export function applyTuningParamsToEngine(
       const maxPct = Number.parseInt(fields[1] ?? "", 10);
       const deltaPct = Number.parseInt(fields[2] ?? "", 10);
       if (Number.isFinite(minPct)) {
-        nextConfig.minRandomBranchChance = mapPercentToRange(minPct, 0, 1);
+        config.minRandomBranchChance = mapPercentToRange(minPct, 0, 1);
       }
       if (Number.isFinite(maxPct)) {
-        nextConfig.maxRandomBranchChance = mapPercentToRange(maxPct, 0, 1);
+        config.maxRandomBranchChance = mapPercentToRange(maxPct, 0, 1);
       }
       if (Number.isFinite(deltaPct)) {
-        nextConfig.randomBranchChanceDelta = mapPercentToRange(
+        config.randomBranchChanceDelta = mapPercentToRange(
           deltaPct,
           MIN_RANDOM_BRANCH_DELTA,
           MAX_RANDOM_BRANCH_DELTA,
@@ -167,13 +183,31 @@ export function applyTuningParamsToEngine(
       }
     }
   }
-  context.engine.updateConfig(nextConfig);
   const audioMode = parseAudioMode(params.get("am"));
+  const audioIntensity = audioMode
+    ? parseAudioModeIntensityParam(params.get("ai"), audioMode)
+    : DEFAULT_AUDIO_MODE_INTENSITY;
+  return {
+    config,
+    audioMode,
+    audioIntensity,
+    deletedEdgeIds: parseDeletedEdgeIds(params.get("d")),
+    anchorBranchId: parseAnchorBranchId(params.get("ab")),
+  };
+}
+
+export function applyTuningParamsToEngine(
+  context: AppContext,
+  params: URLSearchParams,
+): boolean {
+  const hasTuningParam = TUNING_PARAM_KEYS.some((key) => params.has(key));
+  if (!hasTuningParam) {
+    return false;
+  }
+  const parsed = parseTuningParams(params, context.defaultConfig);
+  context.engine.updateConfig(parsed.config);
+  const { audioMode, audioIntensity } = parsed;
   if (audioMode) {
-    const audioIntensity = parseAudioModeIntensityParam(
-      params.get("ai"),
-      audioMode,
-    );
     // Record the selection in state, but only arm the shared player and
     // cowbell overlay in jukebox mode — autocanonizer ignores tuning.
     useAppStore.setState({ jukeboxAudioMode: audioMode, audioIntensity });
@@ -199,11 +233,18 @@ export function applyTuningParamsFromUrl(context: AppContext): boolean {
   return applied;
 }
 
-export function getTuningParamsFromEngine(context: AppContext): URLSearchParams {
+// The one builder for stored/URL tuning params: fixed key order, defaults
+// omitted, deleted edge ids sorted and deduped.
+function buildTuningParams(state: {
+  config: JukeboxConfig;
+  defaults: JukeboxConfig;
+  deletedEdgeIds: number[];
+  anchorBranchId: number | null;
+  audioMode: JukeboxAudioMode;
+  audioIntensity: number;
+}): URLSearchParams {
+  const { config, defaults } = state;
   const params = new URLSearchParams();
-  const config = context.engine.getConfig();
-  const defaults = context.defaultConfig;
-  const graph = context.engine.getGraphState();
   if (config.justBackwards) {
     params.set("jb", "1");
   }
@@ -245,19 +286,65 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
     );
     params.set("bp", `${minPct},${maxPct},${deltaPct}`);
   }
-  const deletedIds = graph
-    ? graph.allEdges.filter((edge) => edge.deleted).map((edge) => edge.id)
-    : useAppStore.getState().deletedEdgeIds;
+  const deletedIds = [...new Set(state.deletedEdgeIds)].sort((a, b) => a - b);
   if (deletedIds.length > 0) {
     params.set("d", deletedIds.join(","));
   }
-  const anchorBranchId = context.engine.getUserAnchorEdgeId?.() ?? null;
-  if (anchorBranchId !== null) {
-    params.set("ab", `${anchorBranchId}`);
+  if (state.anchorBranchId !== null) {
+    params.set("ab", `${state.anchorBranchId}`);
   }
-  const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
-  appendAudioModeParams(params, jukeboxAudioMode, audioIntensity);
+  appendAudioModeParams(params, state.audioMode, state.audioIntensity);
   return params;
+}
+
+export function getTuningParamsFromEngine(context: AppContext): URLSearchParams {
+  const graph = context.engine.getGraphState();
+  const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
+  return buildTuningParams({
+    config: context.engine.getConfig(),
+    defaults: context.defaultConfig,
+    deletedEdgeIds: graph
+      ? graph.allEdges.filter((edge) => edge.deleted).map((edge) => edge.id)
+      : useAppStore.getState().deletedEdgeIds,
+    anchorBranchId: context.engine.getUserAnchorEdgeId?.() ?? null,
+    audioMode: jukeboxAudioMode,
+    audioIntensity,
+  });
+}
+
+// Rewrites a stored tuning string through the one parser and one builder so
+// spelling differences (key order, legacy aliases, explicit defaults, escaped
+// commas, ah/unknown keys) collapse to a single canonical form.
+export function canonicalizeTuningParams(
+  raw: string | null | undefined,
+  defaults: JukeboxConfig,
+): string | null {
+  if (raw == null || raw.trim() === "") {
+    return null;
+  }
+  const params = filterTuningParams(new URLSearchParams(raw));
+  const parsed = parseTuningParams(params, defaults);
+  const built = buildTuningParams({
+    config: parsed.config,
+    defaults,
+    deletedEdgeIds: parsed.deletedEdgeIds,
+    anchorBranchId: parsed.anchorBranchId,
+    audioMode: parsed.audioMode ?? "off",
+    audioIntensity: parsed.audioIntensity,
+  });
+  const result = serializeParams(built);
+  return result.length > 0 ? result : null;
+}
+
+export function savedTuningParamsEquivalent(
+  a: string | null | undefined,
+  b: string | null | undefined,
+  defaults: JukeboxConfig,
+): boolean {
+  return (
+    canonicalizeTuningParams(a, defaults) ===
+    canonicalizeTuningParams(b, defaults)
+  );
 }
 
 // Serializes the am/ai pair for URLs and stored tuning params; "off" emits
