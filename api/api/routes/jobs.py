@@ -161,7 +161,6 @@ def _restart_retryable_failed_job(
             download_source_audio,
             job.id,
             source_url,
-            job.source_id,
             job.source_provider,
         )
         log_event(
@@ -265,7 +264,7 @@ def _create_source_job(
         source_id=source_id,
         source_url=source_url,
     )
-    background_tasks.add_task(download_source_audio, job_id, source_url, source_id, source_provider)
+    background_tasks.add_task(download_source_audio, job_id, source_url, source_provider)
     response_source_id = source_id if source_provider == "youtube" else None
     response_payload = AnalysisStartResponse(
         id=job_id,
@@ -335,7 +334,6 @@ def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
             download_source_audio,
             job.id,
             source_url,
-            job.source_id,
             job.source_provider,
         )
         log_event(

@@ -293,7 +293,7 @@ class JobRecoveryTests(unittest.TestCase):
                     task = background_tasks.tasks[0]
                     self.assertEqual(task.args[0], job_id)
                     self.assertEqual(task.args[1], source_url)
-                    self.assertEqual(task.args[3], provider)
+                    self.assertEqual(task.args[2], provider)
                 finally:
                     jobs.DB_PATH = original_db_path
 

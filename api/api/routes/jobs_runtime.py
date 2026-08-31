@@ -629,7 +629,6 @@ def _download_with_403_retry(
 def download_source_audio(
     job_id: str,
     source_url: str,
-    source_id: str | None = None,
     source_provider: str | None = None,
 ) -> None:
     try:
@@ -756,4 +755,4 @@ def download_source_audio(
 
 
 def download_youtube_audio(job_id: str, youtube_id: str) -> None:
-    download_source_audio(job_id, source_url_from_youtube_id(youtube_id), youtube_id, "youtube")
+    download_source_audio(job_id, source_url_from_youtube_id(youtube_id), "youtube")
