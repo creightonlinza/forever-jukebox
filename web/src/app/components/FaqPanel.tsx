@@ -207,6 +207,9 @@ export function FaqPanel() {
             New <strong>Report a bug</strong> option in Settings — send feedback or bug reports without leaving the app.
           </li>
           <li>
+            Favorited tracks now show a <strong>modified indicator</strong> near the star icon when current tuning options have changed from the saved tuning.
+          </li>
+          <li>
             Fixes: choosing audio files works again on <strong>iOS</strong>, and tuning no longer resets when switching Audio Modes.
           </li>
           <li>
