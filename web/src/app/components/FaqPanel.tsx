@@ -197,6 +197,23 @@ export function FaqPanel() {
             high-churn changelog that is never translated (untranslated tokens would
             just force a locale-completeness exemption). Adding a new entry is a plain
             JSX edit here. Keep the FAQ above fully tokenized. */}
+        <h4>August 2026</h4>
+        <ul>
+          <li>
+            There is now a native <strong>Android app</strong> —{" "}
+            <a href="https://play.google.com/store/apps/details?id=com.foreverjukebox.app.play" target="_blank" rel="noreferrer">get it on Google Play</a>. On every other platform, the offline app still installs straight from your browser.
+          </li>
+          <li>
+            New <strong>Report a bug</strong> option in Settings — send feedback or bug reports without leaving the app.
+          </li>
+          <li>
+            Fixes: choosing audio files works again on <strong>iOS</strong>, and tuning no longer resets when switching Audio Modes.
+          </li>
+          <li>
+            Improved reliability when <strong>fetching audio</strong> — fewer failed imports.
+          </li>
+        </ul>
+
         <h4>July 2026</h4>
         <p>July community feature request extravaganza — all suggested by you:</p>
         <ul>
