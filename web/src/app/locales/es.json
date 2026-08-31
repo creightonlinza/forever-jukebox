@@ -269,7 +269,16 @@
     "open": "Abrir configuración",
     "language": "Idioma",
     "theme": "Tema",
-    "sleepTimer": "Temporizador"
+    "sleepTimer": "Temporizador",
+    "reportBug": "Informar de un error"
+  },
+  "feedback": {
+    "title": "Comentarios y errores",
+    "description": "Cuéntanos qué falla, qué resulta confuso o qué te gustaría ver. La versión de la app y los datos del navegador se incluyen automáticamente.",
+    "placeholder": "¿Qué tienes en mente?",
+    "send": "Enviar",
+    "sent": "Gracias, tu comentario se ha enviado.",
+    "failed": "No se ha podido enviar tu comentario. Comprueba la conexión e inténtalo de nuevo."
   },
   "sleepTimer": {
     "timer": "Temporizador",
