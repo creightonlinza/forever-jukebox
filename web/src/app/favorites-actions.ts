@@ -17,6 +17,7 @@ import {
   type FavoriteTrack,
 } from "./favorites";
 import { trackEvent } from "./analytics";
+import { isFavoriteTuningDrifted } from "./favorite-drift";
 import { isLikelyJobId } from "./identity";
 import { loadTrackById, loadTrackByJobId } from "./playback";
 import { setPlayMode } from "./playback-ui";
@@ -29,6 +30,9 @@ import i18n from "./i18n";
 type FavoritesDelta = {
   added: FavoriteTrack[];
   removedIds: Set<string>;
+  // In-place edits to entries the server already has (e.g. re-captured
+  // tuning); applied as overwrites by id.
+  updated: FavoriteTrack[];
 };
 
 let syncUpdateInFlight = false;
@@ -206,7 +210,9 @@ export function updateFavorites(
 
   // Fold a later delta into an earlier queued one so the combined effect is
   // applied atomically on the next flush. `added` unions by key; `removedIds`
-  // unions; a later add cancels an earlier remove and vice versa.
+  // unions; a later add cancels an earlier remove and vice versa. `updated`
+  // keeps the latest edit per id; a remove or re-add supersedes it, and an
+  // update to a still-pending add folds into the add itself.
   function mergeFavoritesDeltas(
     base: FavoritesDelta,
     next: FavoritesDelta,
@@ -220,7 +226,23 @@ export function updateFavorites(
     next.added.forEach((item) => addedById.set(item.uniqueSongId, item));
     removedIds.forEach((id) => addedById.delete(id));
 
-    return { added: [...addedById.values()], removedIds };
+    const updatedById = new Map<string, FavoriteTrack>();
+    base.updated.forEach((item) => updatedById.set(item.uniqueSongId, item));
+    next.updated.forEach((item) => updatedById.set(item.uniqueSongId, item));
+    next.removedIds.forEach((id) => updatedById.delete(id));
+    next.added.forEach((item) => updatedById.delete(item.uniqueSongId));
+    updatedById.forEach((item, id) => {
+      if (addedById.has(id)) {
+        addedById.set(id, item);
+        updatedById.delete(id);
+      }
+    });
+
+    return {
+      added: [...addedById.values()],
+      removedIds,
+      updated: [...updatedById.values()],
+    };
   }
 
   async function syncFavoritesToBackend(delta: FavoritesDelta) {
@@ -278,6 +300,26 @@ export function updateFavorites(
     return Boolean(useAppStore.getState().appConfig?.allow_favorites_sync && useAppStore.getState().favoritesSyncCode);
   }
 
+  function normalizeTuningParamsField(
+    tuningParams: string | null | undefined,
+  ) {
+    return typeof tuningParams === "string" && tuningParams.trim()
+      ? tuningParams
+      : null;
+  }
+
+  function favoriteEntriesEqual(a: FavoriteTrack, b: FavoriteTrack) {
+    return (
+      a.title === b.title &&
+      a.artist === b.artist &&
+      a.duration === b.duration &&
+      a.sourceType === b.sourceType &&
+      normalizeTuningParamsField(a.tuningParams) ===
+        normalizeTuningParamsField(b.tuningParams) &&
+      (a.playMode ?? "jukebox") === (b.playMode ?? "jukebox")
+    );
+  }
+
   function computeFavoritesDelta(
     prevFavorites: FavoriteTrack[],
     nextFavorites: FavoriteTrack[],
@@ -288,17 +330,21 @@ export function updateFavorites(
     nextFavorites.forEach((item) => nextMap.set(item.uniqueSongId, item));
     const added: FavoriteTrack[] = [];
     const removedIds = new Set<string>();
+    const updated: FavoriteTrack[] = [];
     for (const key of prevMap.keys()) {
       if (!nextMap.has(key)) {
         removedIds.add(key);
       }
     }
     for (const [key, item] of nextMap.entries()) {
-      if (!prevMap.has(key)) {
+      const prevItem = prevMap.get(key);
+      if (!prevItem) {
         added.push(item);
+      } else if (!favoriteEntriesEqual(prevItem, item)) {
+        updated.push(item);
       }
     }
-    return { added, removedIds };
+    return { added, removedIds, updated };
   }
 
   function applyFavoritesDelta(
@@ -313,6 +359,18 @@ export function updateFavorites(
         continue;
       }
       next.push(favorite);
+    }
+    for (const favorite of delta.updated) {
+      const index = next.findIndex(
+        (item) => item.uniqueSongId === favorite.uniqueSongId,
+      );
+      if (index >= 0) {
+        next[index] = favorite;
+      } else {
+        // Edit beats remote delete: re-add so the echoed server state does
+        // not drop the just-updated favorite locally.
+        next.push(favorite);
+      }
     }
     return sortFavorites(next).slice(0, maxFavorites());
   }
@@ -532,6 +590,10 @@ export function removeFavoriteWithToast(favoriteId: string) {
     }
     const currentFavorite = getCurrentFavoriteMatch();
     if (currentFavorite) {
+      if (isCurrentFavoriteDrifted(currentFavorite)) {
+        await updateFavoriteTuning(currentFavorite);
+        return;
+      }
       const showLoading = shouldShowFavoriteToggleLoading();
       if (showLoading) {
         setFavoriteToggleLoading(true);
@@ -581,6 +643,59 @@ export function removeFavoriteWithToast(favoriteId: string) {
       } else {
         showToast(i18n.t("favorites.favorited"));
       }
+      if (showLoading) {
+        await waitForFavoritesSyncIdle();
+      }
+    } finally {
+      if (showLoading) {
+        setFavoriteToggleLoading(false);
+      }
+    }
+  }
+
+  function isCurrentFavoriteDrifted(favorite: FavoriteTrack) {
+    return isFavoriteTuningDrifted({
+      favorite,
+      ready: useAppStore.getState().analysisLoaded,
+      livePlayMode: useAppStore.getState().playMode,
+      liveTuningParams: useAppStore.getState().tuningParams,
+      defaults: getAppContext().defaultConfig,
+    });
+  }
+
+  // Re-captures tuning + play mode onto the matched favorite, keeping its
+  // stored id (which may be a legacy source id rather than the current one).
+  async function updateFavoriteTuning(currentFavorite: FavoriteTrack) {
+    const inJukeboxMode = useAppStore.getState().playMode === "jukebox";
+    // Only jukebox mode can capture tuning; outside it the stored tuning is
+    // carried over so a play mode change alone never discards it.
+    const capturedTuningParams = inJukeboxMode
+      ? getFavoriteTuningParams()
+      : null;
+    const playMode = inJukeboxMode ? undefined : ("autocanonizer" as const);
+    const showLoading = shouldShowFavoriteToggleLoading();
+    if (showLoading) {
+      setFavoriteToggleLoading(true);
+    }
+    try {
+      updateFavorites(
+        useAppStore.getState().favorites.map((item) =>
+          item.uniqueSongId === currentFavorite.uniqueSongId
+            ? {
+                ...item,
+                tuningParams: inJukeboxMode
+                  ? capturedTuningParams
+                  : (item.tuningParams ?? null),
+                playMode,
+              }
+            : item,
+        ),
+      );
+      trackEvent("favorite_update", {
+        track_id: currentFavorite.uniqueSongId,
+        track_title: currentFavorite.title,
+      });
+      showFavoriteToast(i18n.t("favorites.tuningUpdated"));
       if (showLoading) {
         await waitForFavoritesSyncIdle();
       }

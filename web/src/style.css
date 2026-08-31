@@ -1311,6 +1311,22 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   opacity: 0;
 }
 
+/* Tuning-drift dot: live tuning differs from the favorite's saved tuning. */
+.favorite-toggle .favorite-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.favorite-toggle.is-loading .favorite-dot {
+  opacity: 0;
+}
+
 .copy-toggle {
   background: transparent;
   border: none;

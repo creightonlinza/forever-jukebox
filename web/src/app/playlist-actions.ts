@@ -19,7 +19,11 @@ import {
 } from "./playlist";
 import { getAppContext, getPlaybackDeps } from "./runtime";
 import { useAppStore } from "./store";
-import { syncTuningParamsState, writeTuningParamsToUrl } from "./tuning";
+import {
+  savedTuningParamsEquivalent,
+  syncTuningParamsState,
+  writeTuningParamsToUrl,
+} from "./tuning";
 import { showToast } from "./ui";
 import i18n from "./i18n";
 
@@ -272,7 +276,11 @@ export async function loadPlaylistIndex(
           : null;
       if (
         playMode !== favoritePlayMode ||
-        tuningParams !== favoriteTuningParams
+        !savedTuningParamsEquivalent(
+          tuningParams,
+          favoriteTuningParams,
+          getAppContext().defaultConfig,
+        )
       ) {
         updatePlaylist(
           replaceActivePlaylistTrack(playlist, {

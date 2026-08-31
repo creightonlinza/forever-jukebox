@@ -4,10 +4,12 @@ import type { AppContext } from "./context";
 import type { JukeboxConfig } from "@forever-jukebox/shared/types";
 import {
   applyTuningParamsToEngine,
+  canonicalizeTuningParams,
   clearTuningParamsFromUrl,
   getAnchorBranchIdFromUrl,
   getDeletedEdgeIdsFromUrl,
   getTuningParamsFromEngine,
+  savedTuningParamsEquivalent,
   serializeParams,
   syncTuningParamsState,
   writeTuningParamsToUrl,
@@ -428,5 +430,76 @@ describe("threshold param round trip", () => {
       const once = readBack(raw);
       expect(readBack(once)).toBe(once);
     }
+  });
+});
+
+// Canonicalization equates stored strings that spell the same tuning
+// differently (other clients, older versions, hand-edited share links).
+describe("canonical tuning params", () => {
+  const defaults = createConfig();
+  const canon = (raw: string | null) => canonicalizeTuningParams(raw, defaults);
+  const equiv = (a: string | null, b: string | null) =>
+    savedTuningParamsEquivalent(a, b, defaults);
+
+  it("normalizes key order", () => {
+    expect(canon("thresh=45&jb=1")).toBe("jb=1&thresh=45");
+    expect(equiv("thresh=45&jb=1", "jb=1&thresh=45")).toBe(true);
+  });
+
+  it("equates legacy lg with its bl default", () => {
+    expect(equiv("lg=1", "bl=20")).toBe(true);
+  });
+
+  it("collapses explicitly written defaults to null", () => {
+    expect(canon("bp=18,50,10")).toBeNull();
+    expect(canon("thresh=0")).toBeNull();
+    expect(canon("am=off")).toBeNull();
+    expect(canon("sq=1")).toBeNull();
+  });
+
+  it("drops a default audio intensity", () => {
+    expect(equiv("am=nightcore&ai=100", "am=nightcore")).toBe(true);
+  });
+
+  it("decodes escaped commas", () => {
+    expect(equiv("bp=25%2C60%2C10", "bp=25,60,10")).toBe(true);
+    expect(canon("d=4%2C2")).toBe("d=2,4");
+  });
+
+  it("strips ah and unknown keys", () => {
+    expect(equiv("jb=1&ah=1", "jb=1")).toBe(true);
+    expect(equiv("jb=1&foo=bar", "jb=1")).toBe(true);
+  });
+
+  it("sorts and dedupes deleted edge ids", () => {
+    expect(canon("d=5,3,3")).toBe("d=3,5");
+    expect(equiv("d=5,3", "d=3,5")).toBe(true);
+  });
+
+  it("treats null, empty, and whitespace alike", () => {
+    expect(canon(null)).toBeNull();
+    expect(canon("")).toBeNull();
+    expect(canon("   ")).toBeNull();
+    expect(equiv(null, "")).toBe(true);
+    expect(equiv(null, "am=off")).toBe(true);
+  });
+
+  it("keeps every integer branch-probability percent intact", () => {
+    for (let pct = 0; pct <= 100; pct += 1) {
+      const raw = `bp=${pct},${pct},${pct}`;
+      const once = canon(raw);
+      expect(once).toBe(raw);
+      expect(canon(once)).toBe(once);
+    }
+  });
+
+  it("is a fixpoint for the live builder's output", () => {
+    const context = createContext();
+    applyTuningParamsToEngine(
+      context,
+      new URLSearchParams("jb=1&sq=0&thresh=45&bp=25,60,10&am=nightcore&ai=60"),
+    );
+    const live = serializeParams(getTuningParamsFromEngine(context));
+    expect(canon(live)).toBe(live);
   });
 });

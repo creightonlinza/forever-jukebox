@@ -15,11 +15,17 @@ import { useAppStore } from "./store";
 import {
   maybeAutoFavoriteUserSupplied,
   resetFavoritesActionsForTest,
+  toggleFavorite,
   updateFavorites,
 } from "./favorites-actions";
+import { DEFAULT_JUKEBOX_CONFIG } from "@forever-jukebox/shared";
+import { syncTuningParamsState } from "./tuning";
 
 vi.mock("./ui", () => ({ showToast: vi.fn() }));
-vi.mock("./tuning", () => ({
+// Keep the real canonicalizer (the drift check depends on it); stub only the
+// engine-touching pieces.
+vi.mock("./tuning", async (importActual) => ({
+  ...(await importActual<typeof import("./tuning")>()),
   syncTuningParamsState: vi.fn(() => null),
   writeTuningParamsToUrl: vi.fn(),
 }));
@@ -90,7 +96,9 @@ function createFakeElement(): FakeElement {
 const initialStoreState = useAppStore.getState();
 
 function setupFavorites(favorites: FavoriteTrack[]) {
-  const context = {} as AppContext;
+  const context = {
+    defaultConfig: { ...DEFAULT_JUKEBOX_CONFIG },
+  } as AppContext;
   setAppRuntime(context);
   useAppStore.setState(initialStoreState, true);
   useAppStore.setState({
@@ -124,6 +132,9 @@ async function flushMicrotasks(count = 5) {
 describe("favorites actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps implementations, so restore the factory default or a
+    // per-test return value leaks into every test declared after it.
+    vi.mocked(syncTuningParamsState).mockReturnValue(null);
     resetFavoritesActionsForTest();
     vi.stubGlobal("document", {
       createElement: vi.fn(() => createFakeElement()),
@@ -214,5 +225,158 @@ describe("favorites actions", () => {
     const ids = updateCalls[1].map((item) => item.uniqueSongId);
     expect(ids).toContain(b.uniqueSongId);
     expect(ids).not.toContain(a.uniqueSongId);
+  });
+
+  function enableSync() {
+    useAppStore.setState({
+      appConfig: { allow_favorites_sync: true } as never,
+      favoritesSyncCode: "code",
+    });
+  }
+
+  it("syncs an in-place tuning edit as an update", async () => {
+    const a = { ...favorite("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"), tuningParams: "thresh=30" };
+    const updateCalls: FavoriteTrack[][] = [];
+    vi.mocked(updateFavoritesSync).mockImplementation(
+      (_code: string, favorites: FavoriteTrack[]) => {
+        updateCalls.push(favorites);
+        return Promise.resolve({ favorites });
+      },
+    );
+    vi.mocked(fetchFavoritesSync).mockResolvedValue([a]);
+    setupFavorites([a]);
+    enableSync();
+
+    updateFavorites([{ ...a, tuningParams: "thresh=45" }]);
+    await flushMicrotasks();
+
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0]).toHaveLength(1);
+    expect(updateCalls[0][0].tuningParams).toBe("thresh=45");
+    // The server echo must not clobber the edit back to the stale tuning.
+    expect(useAppStore.getState().favorites[0].tuningParams).toBe("thresh=45");
+  });
+
+  it("re-adds an updated favorite the server no longer has", async () => {
+    const a = { ...favorite("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"), tuningParams: "thresh=30" };
+    const updateCalls: FavoriteTrack[][] = [];
+    vi.mocked(updateFavoritesSync).mockImplementation(
+      (_code: string, favorites: FavoriteTrack[]) => {
+        updateCalls.push(favorites);
+        return Promise.resolve({ favorites });
+      },
+    );
+    vi.mocked(fetchFavoritesSync).mockResolvedValue([]);
+    setupFavorites([a]);
+    enableSync();
+
+    updateFavorites([{ ...a, tuningParams: "thresh=45" }]);
+    await flushMicrotasks();
+
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0].map((item) => item.uniqueSongId)).toEqual([
+      a.uniqueSongId,
+    ]);
+    expect(useAppStore.getState().favorites).toHaveLength(1);
+  });
+
+  it("folds a queued update into a still-pending add", async () => {
+    const resolvers: Array<(value: { favorites?: FavoriteTrack[] }) => void> =
+      [];
+    const updateCalls: FavoriteTrack[][] = [];
+    vi.mocked(updateFavoritesSync).mockImplementation(
+      (_code: string, favorites: FavoriteTrack[]) => {
+        updateCalls.push(favorites);
+        return new Promise<{ favorites?: FavoriteTrack[] }>((resolve) => {
+          resolvers.push(resolve);
+        });
+      },
+    );
+    vi.mocked(fetchFavoritesSync).mockResolvedValue([]);
+    setupFavorites([]);
+    enableSync();
+    useAppStore.setState({ favorites: [] });
+
+    const a = favorite("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1");
+    const b = favorite("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2");
+
+    updateFavorites([a]); // starts sync #1 (adds A)
+    await flushMicrotasks();
+    updateFavorites([a, b]); // queue: add B
+    updateFavorites([a, { ...b, tuningParams: "jb=1" }]); // queue: edit B
+
+    resolvers[0]({ favorites: updateCalls[0] });
+    await flushMicrotasks();
+
+    expect(updateCalls).toHaveLength(2);
+    const pushedB = updateCalls[1].filter(
+      (item) => item.uniqueSongId === b.uniqueSongId,
+    );
+    expect(pushedB).toHaveLength(1);
+    expect(pushedB[0].tuningParams).toBe("jb=1");
+  });
+
+  it("updates a drifted favorite in place instead of removing it", async () => {
+    // Legacy source-id favorite: the update must keep the stored id.
+    const legacy = {
+      ...favorite("abc123def45"),
+      tuningParams: "thresh=30",
+    };
+    setupFavorites([legacy]);
+    useAppStore.setState({
+      analysisLoaded: true,
+      playMode: "jukebox",
+      tuningParams: "thresh=45",
+    });
+    vi.mocked(syncTuningParamsState).mockReturnValue("thresh=45");
+
+    toggleFavorite();
+    await flushMicrotasks();
+
+    const favorites = useAppStore.getState().favorites;
+    expect(favorites).toHaveLength(1);
+    expect(favorites[0].uniqueSongId).toBe("abc123def45");
+    expect(favorites[0].tuningParams).toBe("thresh=45");
+  });
+
+  it("keeps the saved tuning when only the play mode changed", async () => {
+    const tuned = {
+      ...favorite("a3f3c0dc73c6476c9db95c227f9206f2"),
+      tuningParams: "jb=1&thresh=45",
+    };
+    setupFavorites([tuned]);
+    useAppStore.setState({
+      analysisLoaded: true,
+      playMode: "autocanonizer",
+      tuningParams: null,
+    });
+
+    toggleFavorite();
+    await flushMicrotasks();
+
+    const favorites = useAppStore.getState().favorites;
+    expect(favorites).toHaveLength(1);
+    expect(favorites[0].playMode).toBe("autocanonizer");
+    // The mode switch alone must not discard the jukebox tuning.
+    expect(favorites[0].tuningParams).toBe("jb=1&thresh=45");
+  });
+
+  it("still removes a favorite whose tuning matches", async () => {
+    const a = {
+      ...favorite("a3f3c0dc73c6476c9db95c227f9206f2"),
+      tuningParams: "jb=1&thresh=45",
+    };
+    setupFavorites([a]);
+    useAppStore.setState({
+      analysisLoaded: true,
+      playMode: "jukebox",
+      // Same tuning spelled differently: equivalent, so the tap removes.
+      tuningParams: "thresh=45&jb=1",
+    });
+
+    toggleFavorite();
+    await flushMicrotasks();
+
+    expect(useAppStore.getState().favorites).toHaveLength(0);
   });
 });
