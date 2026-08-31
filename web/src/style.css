@@ -248,7 +248,7 @@ button,
 
 .settings-button-icon {
   font-variation-settings:
-    "FILL" 0,
+    "FILL" 1,
     "wght" 300,
     "GRAD" 0,
     "opsz" 24;
@@ -861,6 +861,27 @@ button.is-loading::after {
 
 .danger-button:hover {
   background: color-mix(in srgb, var(--danger) 14%, var(--surface-panel));
+}
+
+.feedback-panel {
+  width: min(460px, 90vw);
+}
+
+.feedback-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-panel);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.feedback-footer {
+  gap: 8px;
 }
 
 .settings-panel {
@@ -1515,6 +1536,15 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   color: var(--text);
   font-size: 30px;
   line-height: 1;
+}
+
+.modal-close.settings-report-bug .modal-close-icon {
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 30;
+  color: var(--danger);
 }
 
 .favorite-remove .favorite-remove-icon {

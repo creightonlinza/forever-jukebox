@@ -1,10 +1,18 @@
 import legacy from "@vitejs/plugin-legacy";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import pkg from "./package.json";
 
 export default defineConfig(() => {
   const enableLan = process.env.VITE_LAN === "1";
   return {
+    define: {
+      // Reported in feedback submissions; the date distinguishes deploys
+      // that share a package version.
+      __APP_VERSION__: JSON.stringify(
+        `${pkg.version} (${new Date().toISOString().slice(0, 10)})`,
+      ),
+    },
     plugins: [
       react(),
       legacy({

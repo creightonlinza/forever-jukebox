@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { trackEvent } from "../analytics";
 import { setSleepTimer } from "../playback";
 import { useAppStore } from "../store";
+import { SettingsButton } from "./Hero";
 import { SettingsModal } from "./SettingsModal";
 
 vi.mock("../analytics", () => ({
@@ -26,6 +27,7 @@ describe("SettingsModal", () => {
     act(() => {
       useAppStore.setState({
         settingsModalOpen: false,
+        feedbackModalOpen: false,
         theme: "dark",
         sleepTimer: {
           configuredDurationMs: null,
@@ -244,5 +246,46 @@ describe("SettingsModal", () => {
     );
 
     expect(trackEvent).toHaveBeenCalledWith("theme", { theme: "light" });
+  });
+
+  it("swaps settings for the feedback dialog from the bug button", async () => {
+    render(<SettingsModal />);
+    act(() => {
+      useAppStore.setState({ settingsModalOpen: true });
+    });
+    await userEvent.click(document.getElementById("settings-report-bug")!);
+
+    const state = useAppStore.getState();
+    expect(state.settingsModalOpen).toBe(false);
+    expect(state.feedbackModalOpen).toBe(true);
+  });
+
+  it("focuses Close, not the bug button, when opened", () => {
+    render(<SettingsModal />);
+    act(() => {
+      useAppStore.setState({ settingsModalOpen: true });
+    });
+    expect(document.activeElement).toBe(
+      document.getElementById("settings-close"),
+    );
+  });
+
+  it("hands focus to the settings gear before opening the feedback dialog", async () => {
+    render(
+      <>
+        <SettingsButton id="settings-open" />
+        <SettingsModal />
+      </>,
+    );
+    act(() => {
+      useAppStore.setState({ settingsModalOpen: true });
+    });
+    await userEvent.click(document.getElementById("settings-report-bug")!);
+
+    // The feedback modal captures this element as its focus-restore target,
+    // so it has to be one that outlives the settings modal.
+    expect(document.activeElement).toBe(
+      document.getElementById("settings-open"),
+    );
   });
 });

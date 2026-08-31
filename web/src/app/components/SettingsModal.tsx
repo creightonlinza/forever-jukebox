@@ -61,6 +61,7 @@ export function SettingsModal() {
   );
   const [pendingValue, setPendingValue] = useState("off");
   const appliedRef = useRef<number | null>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -69,6 +70,9 @@ export function SettingsModal() {
       );
       appliedRef.current = applied;
       setPendingValue(valueForDuration(applied));
+      // Modal focuses the first focusable child, which is the bug button;
+      // Close is the safer landing spot for an Enter press on open.
+      closeRef.current?.focus();
     }
   }, [open]);
 
@@ -81,6 +85,24 @@ export function SettingsModal() {
   }, [configuredDurationMs]);
 
   const close = () => useAppStore.setState({ settingsModalOpen: false });
+
+  // The feedback modal records its focus-restore target as it opens, and the
+  // bug button is hidden along with this modal in the same update; hand focus
+  // to the settings gear so closing the feedback modal returns there.
+  const openFeedback = () => {
+    const gear = Array.from(
+      document.querySelectorAll<HTMLElement>(".settings-button"),
+    ).find((button) =>
+      typeof button.checkVisibility === "function"
+        ? button.checkVisibility()
+        : true,
+    );
+    gear?.focus();
+    useAppStore.setState({
+      settingsModalOpen: false,
+      feedbackModalOpen: true,
+    });
+  };
   const countdown =
     remainingMs > 0
       ? t("sleepTimer.currentCountdown", {
@@ -104,21 +126,39 @@ export function SettingsModal() {
     >
       <div className="modal-header">
         <h2>{t("settings.title")}</h2>
-        <button
-          type="button"
-          id="settings-close"
-          className="modal-close"
-          aria-label={t("common.close")}
-          title={t("common.close")}
-          onClick={close}
-        >
-          <span
-            className="material-symbols-outlined modal-close-icon"
-            aria-hidden="true"
+        <div className="modal-header-actions">
+          <button
+            type="button"
+            id="settings-report-bug"
+            className="modal-close settings-report-bug"
+            aria-label={t("settings.reportBug")}
+            title={t("settings.reportBug")}
+            onClick={openFeedback}
           >
-            close
-          </span>
-        </button>
+            <span
+              className="material-symbols-outlined modal-close-icon"
+              aria-hidden="true"
+            >
+              bug_report
+            </span>
+          </button>
+          <button
+            type="button"
+            id="settings-close"
+            ref={closeRef}
+            className="modal-close"
+            aria-label={t("common.close")}
+            title={t("common.close")}
+            onClick={close}
+          >
+            <span
+              className="material-symbols-outlined modal-close-icon"
+              aria-hidden="true"
+            >
+              close
+            </span>
+          </button>
+        </div>
       </div>
       <div className="modal-body settings-body">
         <section className="settings-section">

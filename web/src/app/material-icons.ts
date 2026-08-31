@@ -3,6 +3,7 @@ export const MATERIAL_SYMBOL_ICON_NAMES = [
   "arrow_downward",
   "arrow_drop_down",
   "arrow_upward",
+  "bug_report",
   "check_circle",
   "close",
   "cloud",

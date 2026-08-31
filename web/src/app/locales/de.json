@@ -269,7 +269,16 @@
     "open": "Einstellungen öffnen",
     "language": "Sprache",
     "theme": "Darstellung",
-    "sleepTimer": "Sleep-Timer"
+    "sleepTimer": "Sleep-Timer",
+    "reportBug": "Fehler melden"
+  },
+  "feedback": {
+    "title": "Feedback & Fehlerberichte",
+    "description": "Sag uns, was kaputt ist, was verwirrt oder was du dir wünschst. App-Version und Browser-Details werden automatisch mitgesendet.",
+    "placeholder": "Was beschäftigt dich?",
+    "send": "Senden",
+    "sent": "Danke — dein Feedback wurde gesendet.",
+    "failed": "Feedback konnte nicht gesendet werden. Prüfe deine Verbindung und versuche es erneut."
   },
   "sleepTimer": {
     "timer": "Timer",

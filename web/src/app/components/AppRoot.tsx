@@ -13,6 +13,7 @@ import {
   handleWindowBlur as playbackHandleWindowBlur,
 } from "../playback-ui";
 import { FaqPanel } from "./FaqPanel";
+import { FeedbackModal } from "./FeedbackModal";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
 import { NavigationDriver } from "./NavigationDriver";
@@ -149,6 +150,7 @@ export function AppRoot() {
       <Toast />
       <TuningModal />
       <SettingsModal />
+      <FeedbackModal />
       <InfoModal />
       <PlaylistModal />
     </>
