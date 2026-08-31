@@ -53,7 +53,7 @@ ANALYSIS_MISSING_MESSAGE = "Analysis missing"
 NTFY_TOPIC_ENV = "NTFY_TOPIC_KEY"
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
-ALLOWED_UPLOAD_EXTS = {".m4a", ".webm", ".mp3", ".wav", ".flac", ".ogg", ".aac"}
+ALLOWED_UPLOAD_EXTS = {".m4a", ".webm", ".mp3", ".wav", ".flac", ".ogg", ".aac", ".opus", ".aiff"}
 
 logger = get_logger()
 YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
