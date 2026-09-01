@@ -150,9 +150,12 @@ test.describe("analysis poll lifecycle", () => {
 
     await page.goto(`/listen/${trackA.id}`);
     await expect(page.locator("#analysis-status")).toHaveText("Analyzing");
-    // let the third request (a hanging poll) go out
-    await page.waitForTimeout(POLL_INTERVAL_MS + 1_000);
-    expect(aHits).toBeGreaterThan(2);
+    // the third request is a poll the route handler holds open; waiting for it
+    // to be issued (rather than sleeping one interval) keeps the mid-fetch
+    // precondition intact when the machine is loaded.
+    await expect
+      .poll(() => aHits, { timeout: POLL_INTERVAL_MS * 4 })
+      .toBeGreaterThan(2);
 
     // record every status text from here on; switching tracks must never
     // flash an error from the cancelled load

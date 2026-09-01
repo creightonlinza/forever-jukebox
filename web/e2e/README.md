@@ -38,6 +38,18 @@ E2E_BASE_URL=https://<deployed-env> E2E_ALLOW_ANALYSIS=1 \
   npx playwright test e2e/youtube-analysis.spec.ts
 ```
 
+## The deterministic engine lock
+
+`engine-lock.spec.ts` pins engine output through the real UI. It serves the CC0
+analysis embedded in `test-fixtures/engine-parity/real-analysis-cases.json` via
+`page.route`, plus generated silence for the audio, so it needs no analyzed
+track in the backend and its numbers cannot drift with the local DB. The branch
+counts it asserts are the same fixture expectations that
+`packages/shared/src/engine/realAnalysisParityFixtures.test.ts` replays through
+the engine directly: a change in either layer alone fails. That unit test also
+pins the seeded playback sequence (which branch is taken, not just how many
+exist) and the edge ids the `d=` param deletes.
+
 ## Safety notes
 
 - Tests are read-mostly. The mutating flows that would write junk to a shared
@@ -57,3 +69,8 @@ E2E_BASE_URL=https://<deployed-env> E2E_ALLOW_ANALYSIS=1 \
 - Tuning **Reset preserves the `am` audio-mode param** while clearing the
   rest.
 - Leaving the play tab strips query params; returning restores them.
+- The CC0 fixture track computes a default threshold of 25 and the branch counts
+  pinned in `real-analysis-cases.json`; changing them needs an intentional
+  fixture update in both repos.
+- `d=` edge ids are engine construction order, so they only stay valid while the
+  precalculated edge list does.

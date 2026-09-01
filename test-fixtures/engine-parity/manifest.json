@@ -1,5 +1,5 @@
 {
-  "contract_version": 1,
+  "contract_version": 3,
   "files": {
     "analysis-normalization-cases.json": "686df5dd936661ea33eba8979916ce859b9c8c1e8e61602345930d9b27259f29",
     "anchor-cases.json": "75d6238771b20490d936b5e580603d4587a46fd52edfceca0d754d662890760e",
@@ -7,6 +7,7 @@
     "graph-output-cases.json": "05457197bb0be6904ea2cc20eaca6465594d81736d007175adaab32cc97f379c",
     "no-anchor-cases.json": "d738a7eb045847c81d11656b7d7e92e13b95fbaae025e7da33dbc1e3cc024f59",
     "path-repro-cases.json": "31641a6146fa1eb48ffa8c74cfdbaa968b50d058fb38de98914eacb3eb522823",
+    "real-analysis-cases.json": "4679bec5e6e519277fbd1723f4b86b5f0565df5cf74d061dfa145a797af42086",
     "rebuild-cases.json": "eb63da593be011108fe1c8ab09af9b16c1e91b3c14e9e68991c93034abb02783",
     "threshold-sweep-cases.json": "7f1ee96229bd9703c062a0c8f07b324805cb555bb561ef646aea3d8793a4806b"
   }
