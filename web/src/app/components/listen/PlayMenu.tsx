@@ -167,11 +167,12 @@ export function PlayMenu() {
       defaults: getAppContext().defaultConfig,
     });
   }, [currentFavorite, analysisLoaded, playMode, tuningParams]);
+  const favoriteToggleLabel = favoriteActive
+    ? t("playback.removeFavorite")
+    : t("playback.addFavorite");
   const favoriteLabel = favoriteDrifted
     ? t("playback.updateFavorite")
-    : favoriteActive
-      ? t("playback.removeFavorite")
-      : t("playback.addFavorite");
+    : favoriteToggleLabel;
   const deleteLabel = adminMode
     ? t("delete.track")
     : t("delete.withinWindow");
