@@ -12,10 +12,6 @@ import {
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import {
-  pickBinaryExportFile,
-  saveExportBinary,
-} from "@/shared/utils/exportJson";
-import {
   BufferedAudioPlayer,
   type JukeboxAudioMode,
 } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
@@ -40,28 +36,15 @@ import {
 import {
   createToastQueue,
 } from "@forever-jukebox/shared/ui/toastQueue";
-import {
-  backgroundClearTimeout,
-  backgroundSetTimeout,
-} from "@forever-jukebox/shared/background";
-import {
-  exportJukeboxAudio,
-  type JukeboxExportProgress,
-} from "@/shared/export";
 import { AutocanonizerController } from "@forever-jukebox/shared/autocanonizer/AutocanonizerController";
 import { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
 import type { ProgressStep } from "@/ui/components/ProgressSteps";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
-import { useWakeLock } from "./listen/useWakeLock";
 import { useMarquee } from "./listen/useMarquee";
 import { useTranslation } from "react-i18next";
 import { applyTheme, resolveStoredTheme, type ThemeName } from "../theme";
 import type { PlayMode, TuningModalTab } from "./listen/types";
-import {
-  resolveSleepTimerDuration,
-  type SleepTimerState,
-} from "./listen/sleepTimer";
 import {
   resolveAudioIntensityFromUrl,
   resolveAudioModeFromUrl,
@@ -80,7 +63,6 @@ import {
 import {
   STEP_ORDER,
   analysisStageLabel,
-  formatPlayVelocity,
   formatTrackTitle,
   playControlIcon,
   playControlText,
@@ -91,18 +73,8 @@ import {
   type ExtrasFormState,
   type TuneFormState,
 } from "./listen/tuning";
-import {
-  MAX_EXPORT_DURATION_SECONDS,
-  buildAudioExportName,
-  exportErrorMessage,
-  type ExportFormState,
-} from "./listen/exportAudio";
 import { deriveBranchStats, nextEdgeIndex } from "./listen/branches";
-import {
-  createSessionSeed,
-  isEditableTarget,
-  waitForNextPaint,
-} from "./listen/browser";
+import { createSessionSeed } from "./listen/browser";
 import {
   ShortcutToastStack,
   type ShortcutToastQueue,
@@ -118,6 +90,11 @@ import { TuningModal } from "./listen/TuningModal";
 import { VizInfo } from "./listen/VizInfo";
 import { VizTop } from "./listen/VizTop";
 import { VolumePopover } from "./listen/VolumePopover";
+import { useAudioExport } from "./listen/useAudioExport";
+import { useFullscreenSession } from "./listen/useFullscreenSession";
+import { useListenHotkeys } from "./listen/useListenHotkeys";
+import { useSleepTimer } from "./listen/useSleepTimer";
+import { useVizPopovers } from "./listen/useVizPopovers";
 
 export function Listen({ isActive = true }: { isActive?: boolean }) {
   const { t } = useTranslation();
@@ -153,16 +130,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
-  const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
-  const [isPanOpen, setIsPanOpen] = React.useState(false);
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
-  const [sleepTimer, setSleepTimerState] = React.useState<SleepTimerState>({
-    configuredDurationMs: null,
-    endTimeMs: null,
-    remainingMs: 0,
-  });
-  const [pendingSleepTimerDurationMs, setPendingSleepTimerDurationMs] =
-    React.useState<number | null>(null);
+  const {
+    sleepTimer,
+    pendingSleepTimerDurationMs,
+    setPendingSleepTimerDurationMs,
+    setSleepTimer,
+  } = useSleepTimer({ isSettingsOpen, onExpire: stopPlayback });
   const [theme, setTheme] = React.useState<ThemeName>(() =>
     resolveStoredTheme(),
   );
@@ -179,8 +152,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [swingProgress, setSwingProgress] = React.useState(0);
   const [tuningActiveTab, setTuningActiveTab] =
     React.useState<TuningModalTab>("tuning");
-  const [forceBranchActive, setForceBranchActive] = React.useState(false);
-  const [freezeBeatActive, setFreezeBeatActive] = React.useState(false);
   const [activeVizIndex, setActiveVizIndex] = React.useState(() =>
     resolveStoredVisualizationIndex(),
   );
@@ -214,16 +185,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     audioMode: initialAudioMode,
     audioIntensity: initialAudioIntensity,
   });
-  const [isExportOpen, setIsExportOpen] = React.useState(false);
-  const [isExporting, setIsExporting] = React.useState(false);
-  const [exportError, setExportError] = React.useState<string | null>(null);
-  const [exportProgress, setExportProgress] =
-    React.useState<JukeboxExportProgress | null>(null);
-  const [exportForm, setExportForm] = React.useState<ExportFormState>({
-    durationSeconds: 60,
-    format: "mp3",
-    bitrateKbps: 192,
-  });
 
   const vizPanelRef = React.useRef<HTMLDivElement | null>(null);
   const vizLayerRef = React.useRef<HTMLDivElement | null>(null);
@@ -253,16 +214,48 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const swingPreparingRef = React.useRef(false);
   const playTimerMsRef = React.useRef(0);
   const lastPlayStampRef = React.useRef<number | null>(null);
-  const sleepTimerTimeoutRef = React.useRef<number | null>(null);
-  const sleepTimerEndTimeRef = React.useRef<number | null>(null);
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
   const fingerprintRef = React.useRef<string | null>(null);
   const previousFileKeyRef = React.useRef<string | null>(null);
-  const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
-  const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
-  const panButtonRef = React.useRef<HTMLButtonElement | null>(null);
-  const panPanelRef = React.useRef<HTMLDivElement | null>(null);
-  const { requestWakeLock, releaseWakeLock } = useWakeLock();
+  const {
+    isVolumeOpen,
+    isPanOpen,
+    toggleVolume,
+    togglePan,
+    volumeButtonRef,
+    volumePanelRef,
+    panButtonRef,
+    panPanelRef,
+  } = useVizPopovers({ playMode });
+  const { isFullscreen, onToggleFullscreen, requestWakeLockIfFullscreen } =
+    useFullscreenSession({
+      vizPanelRef,
+      vizControllerRef,
+      autocanonizerRef,
+      playModeRef,
+    });
+  const {
+    isExportOpen,
+    isExporting,
+    exportError,
+    exportProgress,
+    exportForm,
+    setExportForm,
+    openExport,
+    closeExport,
+    resetExport,
+    handleExportJukeboxAudio,
+  } = useAudioExport({
+    file,
+    analysis,
+    analysisRef,
+    playerRef,
+    engineRef,
+    jukeboxAudioMode,
+    audioIntensity,
+    getSwingSourceIdentity: getCurrentSwingSourceIdentity,
+    t,
+  });
 
   // The queue owns stacking/dedupe/timers; ShortcutToastStack subscribes to
   // it directly so toast churn does not re-render this route.
@@ -278,18 +271,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     },
     [shortcutToastQueue],
   );
-
-  const requestWakeLockSafely = React.useCallback(() => {
-    requestWakeLock().catch((err) => {
-      console.warn(`Wake lock request failed: ${String(err)}`);
-    });
-  }, [requestWakeLock]);
-
-  const releaseWakeLockSafely = React.useCallback(() => {
-    releaseWakeLock().catch((err) => {
-      console.warn(`Wake lock release failed: ${String(err)}`);
-    });
-  }, [releaseWakeLock]);
 
   function setSwingPreparingState(preparing: boolean) {
     swingPreparingRef.current = preparing;
@@ -334,89 +315,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   function clearSelectedBranch() {
     setSelectedEdge(null);
     vizControllerRef.current?.setSelectedEdge(null);
-  }
-
-  function clearSleepTimerTimeout() {
-    if (sleepTimerTimeoutRef.current === null) {
-      return;
-    }
-    backgroundClearTimeout(sleepTimerTimeoutRef.current);
-    sleepTimerTimeoutRef.current = null;
-  }
-
-  function publishInactiveSleepTimer() {
-    sleepTimerEndTimeRef.current = null;
-    setSleepTimerState({
-      configuredDurationMs: null,
-      endTimeMs: null,
-      remainingMs: 0,
-    });
-  }
-
-  function expireSleepTimer(expectedEndTimeMs: number) {
-    if (sleepTimerEndTimeRef.current !== expectedEndTimeMs) {
-      return;
-    }
-    sleepTimerEndTimeRef.current = null;
-    setSleepTimerState({
-      configuredDurationMs: null,
-      endTimeMs: null,
-      remainingMs: 0,
-    });
-    clearSleepTimerTimeout();
-    stopPlayback();
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {
-        console.warn("Failed to exit fullscreen");
-      });
-    }
-  }
-
-  function scheduleSleepTimerTick(expectedEndTimeMs: number) {
-    clearSleepTimerTimeout();
-    const remainingMs = Math.max(0, expectedEndTimeMs - performance.now());
-    const nextDelayMs = remainingMs > 1000 ? 1000 : remainingMs;
-    sleepTimerTimeoutRef.current = backgroundSetTimeout(() => {
-      if (sleepTimerEndTimeRef.current !== expectedEndTimeMs) {
-        return;
-      }
-      const nextRemainingMs = Math.max(0, expectedEndTimeMs - performance.now());
-      setSleepTimerState((current) => {
-        if (current.endTimeMs !== expectedEndTimeMs) {
-          return current;
-        }
-        return {
-          configuredDurationMs: current.configuredDurationMs,
-          endTimeMs: expectedEndTimeMs,
-          remainingMs: nextRemainingMs,
-        };
-      });
-      if (nextRemainingMs <= 0) {
-        expireSleepTimer(expectedEndTimeMs);
-        return;
-      }
-      scheduleSleepTimerTick(expectedEndTimeMs);
-    }, nextDelayMs);
-  }
-
-  function setSleepTimer(durationMs: number | null) {
-    clearSleepTimerTimeout();
-    if (
-      durationMs === null ||
-      !Number.isFinite(durationMs) ||
-      durationMs <= 0
-    ) {
-      publishInactiveSleepTimer();
-      return;
-    }
-    const endTimeMs = performance.now() + durationMs;
-    sleepTimerEndTimeRef.current = endTimeMs;
-    setSleepTimerState({
-      configuredDurationMs: durationMs,
-      endTimeMs,
-      remainingMs: durationMs,
-    });
-    scheduleSleepTimerTick(endTimeMs);
   }
 
   function syncVizDataFromEngine() {
@@ -563,43 +461,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [finishOutSong]);
 
   React.useEffect(() => {
-    setPendingSleepTimerDurationMs(
-      resolveSleepTimerDuration(sleepTimer.configuredDurationMs),
-    );
-  }, [sleepTimer.configuredDurationMs]);
-
-  React.useEffect(() => {
-    if (isSettingsOpen) {
-      setPendingSleepTimerDurationMs(
-        resolveSleepTimerDuration(sleepTimer.configuredDurationMs),
-      );
-    }
-  }, [isSettingsOpen, sleepTimer.configuredDurationMs]);
-
-  React.useEffect(() => {
-    return () => {
-      clearSleepTimerTimeout();
-    };
-  }, []);
-
-  React.useEffect(() => {
     setIsListenLoading(isAnalyzing);
     return () => {
       setIsListenLoading(false);
     };
   }, [isAnalyzing, setIsListenLoading]);
-
-  React.useEffect(() => {
-    const duration = analysis?.track?.duration;
-    if (!duration || !Number.isFinite(duration) || duration <= 0) {
-      return;
-    }
-    const rounded = Math.max(5, Math.round(duration));
-    setExportForm((prev) => ({
-      ...prev,
-      durationSeconds: Math.min(MAX_EXPORT_DURATION_SECONDS, rounded),
-    }));
-  }, [analysis]);
 
   React.useEffect(() => {
     if (!file || !playerRef.current) {
@@ -640,10 +506,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     analysisRef.current = null;
     fingerprintRef.current = null;
     clearSelectedBranch();
-    setIsExportOpen(false);
-    setIsExporting(false);
-    setExportError(null);
-    setExportProgress(null);
+    resetExport();
 
     usecase
       .execute({
@@ -717,272 +580,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       window.clearInterval(id);
     };
   }, []);
-
-  React.useEffect(() => {
-    if (!isActive) {
-      engineRef.current?.setForceBranch(false);
-      engineRef.current?.setFreezeCurrentBeat(false);
-      setForceBranchActive(false);
-      setFreezeBeatActive(false);
-      return;
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (isTuningOpen || isInfoOpen || isExportOpen) {
-        return;
-      }
-      if (isEditableTarget(event.target)) {
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "e" || event.key === "E") &&
-        !event.repeat
-      ) {
-        event.preventDefault();
-        openTuningModalTab("extras");
-        return;
-      }
-      if (event.code === "Space") {
-        event.preventDefault();
-        togglePlayback();
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
-        selectedEdge
-      ) {
-        event.preventDefault();
-        selectAdjacentBranch(event.key === "ArrowRight" ? 1 : -1);
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "Delete" || event.key === "Backspace") &&
-        selectedEdge &&
-        !selectedEdge.deleted
-      ) {
-        event.preventDefault();
-        deleteSelectedBranch();
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "h" || event.key === "H") &&
-        !event.repeat
-      ) {
-        event.preventDefault();
-        const nextValue = !bringItHomeModeRef.current;
-        bringItHomeModeRef.current = nextValue;
-        setBringItHomeMode(nextValue);
-        engineRef.current?.setBringItHomeMode(nextValue);
-        if (nextValue) {
-          engineRef.current?.setForceBranch(false);
-          setForceBranchActive(false);
-        }
-        showShortcutToast(
-          nextValue
-            ? t("listen.bringHomeEnabled")
-            : t("listen.bringHomeDisabled"),
-        );
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "a" || event.key === "A") &&
-        !event.repeat
-      ) {
-        if (toggleSelectedAnchorBranch()) {
-          event.preventDefault();
-        }
-        return;
-      }
-      // Match brackets by typed character first, then by physical key
-      // position so layouts without direct bracket keys still work.
-      let bracketDirection = 0;
-      if (event.key === "[") {
-        bracketDirection = -1;
-      } else if (event.key === "]") {
-        bracketDirection = 1;
-      } else if (event.code === "BracketLeft") {
-        bracketDirection = -1;
-      } else if (event.code === "BracketRight") {
-        bracketDirection = 1;
-      }
-      if (playMode === "jukebox" && bracketDirection !== 0) {
-        event.preventDefault();
-        const engine = engineRef.current;
-        if (!engine) {
-          return;
-        }
-        const direction = bracketDirection;
-        const velocity = engine.getPlayVelocity() + direction;
-        engine.setPlayVelocity(velocity);
-        showShortcutToast(
-          t("listen.playVelocity", {
-            value: formatPlayVelocity(engine.getPlayVelocity()),
-          }),
-          "play-velocity",
-        );
-        return;
-      }
-      if (playMode === "jukebox" && event.key === "ArrowDown") {
-        event.preventDefault();
-        engineRef.current?.setPlayVelocity(0);
-        showShortcutToast(
-          t("listen.playVelocity", { value: "0" }),
-          "play-velocity",
-        );
-        return;
-      }
-      if (playMode === "jukebox" && event.key === "ArrowUp") {
-        event.preventDefault();
-        engineRef.current?.setPlayVelocity(1);
-        showShortcutToast(
-          t("listen.playVelocity", { value: "+1" }),
-          "play-velocity",
-        );
-        return;
-      }
-      if (playMode === "jukebox" && event.key === "Control") {
-        event.preventDefault();
-        engineRef.current?.setFreezeCurrentBeat(true);
-        setFreezeBeatActive(true);
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        event.key === "Shift" &&
-        isRunning &&
-        !bringItHomeModeRef.current
-      ) {
-        engineRef.current?.setForceBranch(true);
-        setForceBranchActive(true);
-      }
-    };
-
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "Control") {
-        engineRef.current?.setFreezeCurrentBeat(false);
-        setFreezeBeatActive(false);
-      }
-      if (playMode === "jukebox" && event.key === "Shift") {
-        engineRef.current?.setForceBranch(false);
-        setForceBranchActive(false);
-      }
-    };
-    const onBlur = () => {
-      engineRef.current?.setFreezeCurrentBeat(false);
-      engineRef.current?.setForceBranch(false);
-      setFreezeBeatActive(false);
-      setForceBranchActive(false);
-    };
-    // Blur alone can be missed on tab switches (e.g. Ctrl+T), leaving
-    // freeze/branch modes stuck; visibilitychange covers that path.
-    const onHotkeyVisibilityChange = () => {
-      if (document.hidden) {
-        onBlur();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", onBlur);
-    document.addEventListener("visibilitychange", onHotkeyVisibilityChange);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", onBlur);
-      document.removeEventListener(
-        "visibilitychange",
-        onHotkeyVisibilityChange,
-      );
-      engineRef.current?.setFreezeCurrentBeat(false);
-      engineRef.current?.setForceBranch(false);
-      setFreezeBeatActive(false);
-      setForceBranchActive(false);
-    };
-  }, [
-    selectedEdge,
-    isRunning,
-    isPaused,
-    isTuningOpen,
-    isInfoOpen,
-    isExportOpen,
-    playMode,
-    isActive,
-    showShortcutToast,
-  ]);
-
-  React.useEffect(() => {
-    const onFullscreen = () => {
-      const active = document.fullscreenElement === vizPanelRef.current;
-      setIsFullscreen(active);
-      if (playModeRef.current === "autocanonizer") {
-        autocanonizerRef.current?.resizeNow();
-      } else {
-        vizControllerRef.current?.resizeActive();
-      }
-      if (active) {
-        requestWakeLockSafely();
-      } else {
-        releaseWakeLockSafely();
-      }
-    };
-
-    const onVisibility = () => {
-      if (document.hidden) {
-        releaseWakeLockSafely();
-        return;
-      }
-      if (document.fullscreenElement === vizPanelRef.current) {
-        requestWakeLockSafely();
-      }
-    };
-
-    document.addEventListener("fullscreenchange", onFullscreen);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      document.removeEventListener("fullscreenchange", onFullscreen);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [releaseWakeLockSafely, requestWakeLockSafely]);
-
-  React.useEffect(() => {
-    if (!isVolumeOpen && !isPanOpen) {
-      return;
-    }
-    const onDocumentClick = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-      if (volumePanelRef.current?.contains(target)) {
-        return;
-      }
-      if (volumeButtonRef.current?.contains(target)) {
-        return;
-      }
-      if (panPanelRef.current?.contains(target)) {
-        return;
-      }
-      if (panButtonRef.current?.contains(target)) {
-        return;
-      }
-      setIsVolumeOpen(false);
-      setIsPanOpen(false);
-    };
-    document.addEventListener("click", onDocumentClick);
-    return () => {
-      document.removeEventListener("click", onDocumentClick);
-    };
-  }, [isVolumeOpen, isPanOpen]);
-
-  React.useEffect(() => {
-    if (playMode !== "autocanonizer") {
-      setIsPanOpen(false);
-    }
-  }, [playMode]);
 
   function stopPlayback() {
     cowbellOverlayRef.current?.cancelScheduledHits();
@@ -1382,9 +979,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     isPausedRef.current = false;
     setIsRunning(true);
     setIsPaused(false);
-    if (document.fullscreenElement === vizPanelRef.current) {
-      requestWakeLockSafely();
-    }
+    requestWakeLockIfFullscreen();
   };
 
   const togglePlayback = () => {
@@ -1438,9 +1033,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       isPausedRef.current = false;
       setIsRunning(true);
       setIsPaused(false);
-      if (document.fullscreenElement === vizPanelRef.current) {
-        requestWakeLockSafely();
-      }
+      requestWakeLockIfFullscreen();
       return;
     }
     if (!player.isPlaying()) {
@@ -1474,9 +1067,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     isPausedRef.current = false;
     setIsRunning(true);
     setIsPaused(false);
-    if (document.fullscreenElement === vizPanelRef.current) {
-      requestWakeLockSafely();
-    }
+    requestWakeLockIfFullscreen();
     return true;
   };
 
@@ -1724,183 +1315,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     autocanonizerRef.current?.setStreamPans(nextMain / 100, nextOther / 100);
   };
 
-  const onExportJukeboxAudio = async () => {
-    const activeAnalysis = analysisRef.current ?? analysis;
-    const player = playerRef.current;
-    const engine = engineRef.current;
-    if (!activeAnalysis || !player || !engine || !file) {
-      return;
-    }
-
-    const sourceBuffer = player.getSourceBuffer() ?? player.getBuffer();
-    if (!sourceBuffer) {
-      setExportError(t("export.bufferUnavailable"));
-      return;
-    }
-
-    const durationSeconds = Number(exportForm.durationSeconds);
-    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-      setExportError(t("export.positiveDuration"));
-      return;
-    }
-    if (durationSeconds > MAX_EXPORT_DURATION_SECONDS) {
-      setExportError(t("export.durationCap", {
-        minutes: MAX_EXPORT_DURATION_SECONDS / 60,
-      }));
-      return;
-    }
-
-    const requestedExtension = exportForm.format;
-    const requestedFilename = buildAudioExportName(file.name, requestedExtension);
-    const requestedDescription =
-      requestedExtension === "mp3"
-        ? t("export.mp3Description")
-        : t("export.wavDescription");
-    const requestedMimeType =
-      requestedExtension === "mp3" ? "audio/mpeg" : "audio/wav";
-
-    let pickedHandle: Awaited<ReturnType<typeof pickBinaryExportFile>> = null;
-    try {
-      pickedHandle = await pickBinaryExportFile(requestedFilename, {
-        mimeType: requestedMimeType,
-        description: requestedDescription,
-        extension: `.${requestedExtension}`,
-      });
-    } catch (err) {
-      const name = err instanceof DOMException ? err.name : "";
-      if (name === "AbortError") {
-        return;
-      }
-      console.warn(`Unable to open export save dialog: ${String(err)}`);
-      setExportError(t("export.saveDialogFailed"));
-      return;
-    }
-
-    setExportError(null);
-    setExportProgress({
-      stage: "planning",
-      message: { kind: "initializing" },
-      percent: 0,
-    });
-    setIsExporting(true);
-    await waitForNextPaint();
-
-    try {
-      let swingBuffer: AudioBuffer | undefined;
-      if (jukeboxAudioMode === "swing") {
-        const existingSwingBuffer = player.getRenderedJukeboxAudioBuffer("swing");
-        if (existingSwingBuffer) {
-          swingBuffer = existingSwingBuffer;
-        } else if (activeAnalysis.beats.length > 0) {
-          setExportProgress({
-            stage: "rendering",
-            message: { kind: "preparingSwing" },
-            percent: 2,
-          });
-          swingBuffer = await getOrCreateSwingBuffer(
-            sourceBuffer,
-            getCurrentSwingSourceIdentity(),
-            () =>
-              renderSwingBuffer(sourceBuffer, activeAnalysis.beats, {
-                onProgress: (progress) => {
-                  setExportProgress({
-                    stage: "rendering",
-                    message: { kind: "preparingSwing" },
-                    percent: 2 + Math.max(0, Math.min(1, progress)) * 6,
-                  });
-                },
-              }),
-          );
-          player.setRenderedJukeboxAudioBuffer("swing", swingBuffer);
-        } else {
-          throw new Error("Swing export requires beat analysis.");
-        }
-      }
-
-      const deletedEdges =
-        engine
-          .getGraphState()
-          ?.allEdges.filter((edge) => edge.deleted)
-          .map((edge) => ({ src: edge.src.which, dest: edge.dest.which })) ?? [];
-      const anchorEdge = engine.getUserAnchorEdge();
-
-      const result = await exportJukeboxAudio({
-        analysis: activeAnalysis,
-        sourceBuffer,
-        config: engine.getConfig(),
-        deletedEdges,
-        userAnchorEdge: anchorEdge
-          ? { src: anchorEdge.src.which, dest: anchorEdge.dest.which }
-          : null,
-        durationSeconds,
-        format: exportForm.format,
-        bitrateKbps: exportForm.format === "mp3" ? exportForm.bitrateKbps : undefined,
-        gain: player.getVolume(),
-        audioMode: jukeboxAudioMode,
-        audioIntensityPct: audioIntensity,
-        sectionStartBeatIndices: engine.getSectionStartBeatIndices(),
-        swingBuffer,
-        randomMode: "seeded",
-        seed: createSessionSeed(),
-        onProgress: (progress) => setExportProgress(progress),
-      });
-
-      const extension = result.extension;
-      const filename = buildAudioExportName(file.name, extension);
-      const description =
-        extension === "mp3"
-          ? t("export.mp3Description")
-          : t("export.wavDescription");
-      await saveExportBinary(
-        filename,
-        result.bytes,
-        {
-          mimeType: result.mimeType,
-          description,
-          extension: `.${extension}`,
-        },
-        extension === requestedExtension ? pickedHandle : null,
-      );
-      setIsExportOpen(false);
-    } catch (err) {
-      const name = err instanceof DOMException ? err.name : "";
-      if (name === "AbortError") {
-        return;
-      }
-      console.warn(`Audio export failed: ${String(err)}`);
-      setExportError(exportErrorMessage(err, t));
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportJukeboxAudio = () => {
-    onExportJukeboxAudio().catch((err) => {
-      console.warn(`Audio export failed: ${String(err)}`);
-      setExportError(exportErrorMessage(err, t));
-      setIsExporting(false);
-    });
-  };
-
-  const onToggleFullscreen = async () => {
-    if (!vizPanelRef.current) {
-      return;
-    }
-    if (document.fullscreenElement !== vizPanelRef.current) {
-      try {
-        await vizPanelRef.current.requestFullscreen();
-      } catch {
-        // ignore
-      }
-      return;
-    }
-    try {
-      await document.exitFullscreen();
-    } catch {
-      // ignore
-    }
-  };
-
   const onSetActiveViz = (index: number) => {
     if (playMode === "autocanonizer") {
       return;
@@ -1912,6 +1326,27 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     vizControllerRef.current?.setActiveIndex(index);
     setActiveVizIndex(index);
   };
+
+  const { forceBranchActive, freezeBeatActive } = useListenHotkeys({
+    isActive,
+    playMode,
+    selectedEdge,
+    isRunning,
+    isPaused,
+    isTuningOpen,
+    isInfoOpen,
+    isExportOpen,
+    engineRef,
+    bringItHomeModeRef,
+    setBringItHomeMode,
+    showShortcutToast,
+    t,
+    openTuningModalTab,
+    togglePlayback,
+    selectAdjacentBranch,
+    deleteSelectedBranch,
+    toggleSelectedAnchorBranch,
+  });
 
   const steps = React.useMemo<ProgressStep[]>(() => {
     const stageIndex = STEP_ORDER.indexOf(progressStage);
@@ -2016,11 +1451,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           isExporting={isExporting}
           onOpenTuning={() => openTuningModalTab("tuning")}
           onOpenInfo={() => setIsInfoOpen(true)}
-          onOpenExport={() => {
-            setExportError(null);
-            setExportProgress(null);
-            setIsExportOpen(true);
-          }}
+          onOpenExport={openExport}
         />
       ) : null}
 
@@ -2095,10 +1526,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   mainPan={autocanonizerMainPan}
                   otherPan={autocanonizerOtherPan}
                   onPanChange={onAutocanonizerStreamPanChange}
-                  onToggle={() => {
-                    setIsVolumeOpen(false);
-                    setIsPanOpen((prev) => !prev);
-                  }}
+                  onToggle={togglePan}
                 />
               ) : null}
               <VolumePopover
@@ -2107,10 +1535,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 buttonRef={volumeButtonRef}
                 volume={tuneForm.volume}
                 onVolumeChange={onVolumeChange}
-                onToggle={() => {
-                  setIsPanOpen(false);
-                  setIsVolumeOpen((prev) => !prev);
-                }}
+                onToggle={toggleVolume}
               />
               <button
                 id="fullscreen"
@@ -2142,7 +1567,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           isExporting={isExporting}
           progress={exportProgress}
           error={exportError}
-          onClose={() => setIsExportOpen(false)}
+          onClose={closeExport}
           onExport={handleExportJukeboxAudio}
         />
       ) : null}
