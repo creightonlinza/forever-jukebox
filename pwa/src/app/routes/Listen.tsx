@@ -14,10 +14,6 @@ import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/a
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import { formatDuration, formatTime } from "@/shared/utils/format";
 import {
-  safeLocalStorageGet,
-  safeLocalStorageSet,
-} from "@/shared/utils/safeStorage";
-import {
   pickBinaryExportFile,
   saveExportBinary,
 } from "@/shared/utils/exportJson";
@@ -27,15 +23,9 @@ import {
 } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOverlayService";
 import {
-  AUDIO_MODE_INTENSITY_PARAM,
   DEFAULT_AUDIO_MODE_INTENSITY,
-  MAX_AUDIO_MODE_INTENSITY,
-  MIN_AUDIO_MODE_INTENSITY,
   audioModeChangeAffectsPlayback,
-  audioModeSupportsIntensity,
   clampAudioModeIntensity,
-  parseAudioModeIntensityParam,
-  setAudioModeIntensityParam,
 } from "@forever-jukebox/shared/audio/audioModes";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
@@ -47,13 +37,10 @@ import {
   JukeboxEngine,
 } from "@forever-jukebox/shared";
 import {
-  DEFAULT_VISUALIZATION_INDEX,
-  VISUALIZATION_LABELS,
   visualizationSeparatesPairedEdges,
 } from "@forever-jukebox/shared/constants/visualization";
 import {
   createToastQueue,
-  type ToastQueue,
 } from "@forever-jukebox/shared/ui/toastQueue";
 import {
   backgroundClearTimeout,
@@ -75,609 +62,72 @@ import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useWakeLock } from "./listen/useWakeLock";
 import { useMarquee } from "./listen/useMarquee";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import {
   resolveSupportedLanguage,
   supportedLanguageOptions,
 } from "../i18n";
 import { applyTheme, resolveStoredTheme, type ThemeName } from "../theme";
-
-const STEP_ORDER: AnalyzeStage[] = [
-  "loading",
-  "decoding",
-  "beats",
-  "features",
-  "building",
-  "ready",
-];
-
-
-const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
-const VISUALIZATION_STORAGE_KEY = "fj-viz";
-const ANCHOR_HIGHLIGHT_STORAGE_KEY = "fj-highlight-anchor-branch";
-const BRANCH_STATS_STORAGE_KEY = "fj-branch-stats-enabled";
-const AUDIO_MODE_QUERY_KEY = "am";
-const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
-const MAX_RANDOM_BRANCH_DELTA = 0.2;
-const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
-const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
-type ShortcutToastQueue = ToastQueue<{ message: string }>;
-
-function ShortcutToastStack({ queue }: { queue: ShortcutToastQueue }) {
-  const toasts = React.useSyncExternalStore(queue.subscribe, queue.getItems);
-  return (
-    <div className="shortcut-toast-stack" role="status" aria-live="polite">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className={
-            toast.exiting ? "shortcut-toast exiting" : "shortcut-toast"
-          }
-        >
-          {toast.message}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-type PlayMode = "jukebox" | "autocanonizer";
-type TuningModalTab = "tuning" | "extras";
-type AudioExportFormat = "mp3" | "wav";
-
-type SleepTimerOption = {
-  durationMs: number | null;
-};
-
-type SleepTimerState = {
-  configuredDurationMs: number | null;
-  endTimeMs: number | null;
-  remainingMs: number;
-};
-
-const SLEEP_TIMER_OPTIONS: SleepTimerOption[] = [
-  { durationMs: null },
-  { durationMs: 15 * 60 * 1000 },
-  { durationMs: 30 * 60 * 1000 },
-  { durationMs: 45 * 60 * 1000 },
-  { durationMs: 60 * 60 * 1000 },
-  { durationMs: 2 * 60 * 60 * 1000 },
-];
-
-function getSleepTimerOptionValue(durationMs: number | null) {
-  return durationMs === null ? "off" : String(durationMs);
-}
-
-function getSleepTimerDurationFromValue(value: string) {
-  if (value === "off") {
-    return null;
-  }
-  const durationMs = Number(value);
-  const matchedOption = SLEEP_TIMER_OPTIONS.find(
-    (option) => option.durationMs === durationMs,
-  );
-  return matchedOption ? matchedOption.durationMs : null;
-}
-
-function resolveSleepTimerDuration(durationMs: number | null) {
-  return SLEEP_TIMER_OPTIONS.some((option) => option.durationMs === durationMs)
-    ? durationMs
-    : null;
-}
-
-function formatSleepTimerRemaining(remainingMs: number) {
-  return formatDuration(Math.ceil(Math.max(0, remainingMs) / 1000));
-}
-
-function exportProgressMessage(
-  message: JukeboxExportProgress["message"],
-  t: TFunction,
-) {
-  switch (message.kind) {
-    case "initializing":
-      return t("export.initializing");
-    case "preparingSwing":
-      return t("listen.preparingSwing");
-    case "planning":
-      return t("export.planning");
-    case "renderingChunk":
-      return t("export.renderingChunk", message);
-    case "encodingChunk":
-      return t("export.encodingChunk", message);
-    case "combiningChunks":
-      return t("export.combiningChunks");
-    case "renderingAudio":
-      return t("export.renderingAudio");
-    case "encodingFormat":
-      return t("export.encodingFormat", message);
-    case "finalizing":
-      return t("export.finalizing");
-  }
-}
-
-function exportErrorMessage(error: unknown, t: TFunction) {
-  const message = error instanceof Error ? error.message : String(error);
-  if (
-    message ===
-    "WAV export is too large for browser memory at this duration. Use MP3 for long exports."
-  ) {
-    return t("export.wavTooLarge");
-  }
-  if (message === "Swing export requires beat analysis.") {
-    return t("export.swingNeedsBeats");
-  }
-  return t("export.failed");
-}
-
-function sleepTimerOptionLabel(durationMs: number | null, t: TFunction) {
-  if (durationMs === null) {
-    return t("sleepTimer.off");
-  }
-  if (durationMs === 60 * 60 * 1000) {
-    return t("sleepTimer.oneHour");
-  }
-  if (durationMs === 2 * 60 * 60 * 1000) {
-    return t("sleepTimer.twoHours");
-  }
-  return t("sleepTimer.minutes", { count: durationMs / 60_000 });
-}
-
-type ExtrasFormState = {
-  branchStatsEnabled: boolean;
-  bringItHomeMode: boolean;
-  audioMode: JukeboxAudioMode;
-  audioIntensity: number;
-};
-
-type AudioModeSection = {
-  titleKey: "audioModes.playbackStyles" | "audioModes.remixToys";
-  options: JukeboxAudioMode[];
-};
-
-const AUDIO_MODE_SECTIONS: AudioModeSection[] = [
-  {
-    titleKey: "audioModes.playbackStyles",
-    options: [
-      "nightcore",
-      "daycore",
-      "vaporwave",
-      "eight_d",
-      "lofi",
-      "eight_bit",
-      "underwater",
-      "cathedral",
-    ],
-  },
-  {
-    titleKey: "audioModes.remixToys",
-    options: ["cowbell", "swing"],
-  },
-];
-
-function audioModeLabel(audioMode: JukeboxAudioMode, t: TFunction) {
-  const keys: Record<
-    JukeboxAudioMode,
-    | "common.off"
-    | "audioModes.nightcore"
-    | "audioModes.daycore"
-    | "audioModes.vaporwave"
-    | "audioModes.eightD"
-    | "audioModes.lofi"
-    | "audioModes.eightBit"
-    | "audioModes.underwater"
-    | "audioModes.cathedral"
-    | "audioModes.cowbell"
-    | "audioModes.swing"
-  > = {
-    off: "common.off",
-    nightcore: "audioModes.nightcore",
-    daycore: "audioModes.daycore",
-    vaporwave: "audioModes.vaporwave",
-    eight_d: "audioModes.eightD",
-    lofi: "audioModes.lofi",
-    eight_bit: "audioModes.eightBit",
-    underwater: "audioModes.underwater",
-    cathedral: "audioModes.cathedral",
-    cowbell: "audioModes.cowbell",
-    swing: "audioModes.swing",
-  };
-  return t(keys[audioMode]);
-}
-
-function formatAudioModeTitleLabel(audioMode: JukeboxAudioMode, t: TFunction) {
-  return audioModeLabel(audioMode, t).toLocaleLowerCase();
-}
-
-function getAudioModeInputId(mode: JukeboxAudioMode) {
-  return `audio-mode-${mode.replaceAll("_", "-")}`;
-}
-
-function AudioModeRadio({
-  option,
-  checked,
-  disabled,
-  onChange,
-  className = "",
-}: {
-  option: JukeboxAudioMode;
-  checked: boolean;
-  disabled: boolean;
-  onChange: () => void;
-  className?: string;
-}) {
-  const { t } = useTranslation();
-  return (
-    <label className={`audio-mode-option ${className}`.trim()}>
-      <input
-        id={getAudioModeInputId(option)}
-        type="radio"
-        name="audio-mode"
-        value={option}
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-      />
-      <span>{audioModeLabel(option, t)}</span>
-    </label>
-  );
-}
-
-function AudioModeSectionGroup({
-  section,
-  selectedAudioMode,
-  disabled,
-  onChange,
-  intensityPct,
-  onIntensityChange,
-}: {
-  section: AudioModeSection;
-  selectedAudioMode: JukeboxAudioMode;
-  disabled: boolean;
-  onChange: (mode: JukeboxAudioMode) => void;
-  intensityPct: number;
-  onIntensityChange: (intensityPct: number) => void;
-}) {
-  const { t } = useTranslation();
-  const showIntensity =
-    section.options.includes(selectedAudioMode) &&
-    audioModeSupportsIntensity(selectedAudioMode);
-  return (
-    <div className="audio-mode-section">
-      <div className="audio-mode-section-title">{t(section.titleKey)}</div>
-      <div className="audio-mode-section-options">
-        {section.options.map((option) => (
-          <AudioModeRadio
-            key={option}
-            option={option}
-            checked={selectedAudioMode === option}
-            disabled={disabled}
-            onChange={() => onChange(option)}
-          />
-        ))}
-      </div>
-      {showIntensity ? (
-        <label>
-          <div className="label-line">
-            <span>{t("audioModes.intensity")}</span>
-            <span>{intensityPct}%</span>
-          </div>
-          <input
-            id="audio-intensity"
-            type="range"
-            aria-label={t("audioModes.intensity")}
-            min={MIN_AUDIO_MODE_INTENSITY}
-            max={MAX_AUDIO_MODE_INTENSITY}
-            step={5}
-            value={intensityPct}
-            disabled={disabled}
-            onChange={(event) => onIntensityChange(Number(event.target.value))}
-          />
-        </label>
-      ) : null}
-    </div>
-  );
-}
-
-function AudioModeOptions({
-  selectedAudioMode,
-  disabled,
-  onChange,
-  intensityPct,
-  onIntensityChange,
-}: {
-  selectedAudioMode: JukeboxAudioMode;
-  disabled: boolean;
-  onChange: (mode: JukeboxAudioMode) => void;
-  intensityPct: number;
-  onIntensityChange: (intensityPct: number) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div
-      className="audio-mode-options"
-      role="radiogroup"
-      aria-label={t("tuning.audioMode")}
-    >
-      <AudioModeRadio
-        option="off"
-        className="audio-mode-default-option"
-        checked={selectedAudioMode === "off"}
-        disabled={disabled}
-        onChange={() => onChange("off")}
-      />
-      {AUDIO_MODE_SECTIONS.map((section) => (
-        <AudioModeSectionGroup
-          key={section.titleKey}
-          section={section}
-          selectedAudioMode={selectedAudioMode}
-          disabled={disabled}
-          onChange={onChange}
-          intensityPct={intensityPct}
-          onIntensityChange={onIntensityChange}
-        />
-      ))}
-    </div>
-  );
-}
-
-function getVisualizationLabel(index: number, t: TFunction) {
-  return VISUALIZATION_LABELS[index] ??
-    t("listen.visualizationNumber", { number: index + 1 });
-}
-
-function coerceVisualizationIndex(index: number) {
-  if (
-    Number.isFinite(index) &&
-    index >= 0 &&
-    index < VISUALIZATION_LABELS.length
-  ) {
-    return index;
-  }
-  return DEFAULT_VISUALIZATION_INDEX;
-}
-
-function buildAudioExportName(fileName: string, extension: string) {
-  const base = fileName.replace(/\.[^.]+$/, "").trim();
-  return `${base || "jukebox"}_forever.${extension}`;
-}
-
-function resolveStoredAnchorHighlight(): boolean {
-  const stored = safeLocalStorageGet(ANCHOR_HIGHLIGHT_STORAGE_KEY);
-  return stored === "1" || stored === "true";
-}
-
-function resolveStoredBranchStatsEnabled(): boolean {
-  const stored = safeLocalStorageGet(BRANCH_STATS_STORAGE_KEY);
-  return stored === "1" || stored === "true";
-}
-
-function storeAnchorHighlight(enabled: boolean) {
-  safeLocalStorageSet(ANCHOR_HIGHLIGHT_STORAGE_KEY, enabled ? "1" : "0");
-}
-
-function storeBranchStatsEnabled(enabled: boolean) {
-  safeLocalStorageSet(BRANCH_STATS_STORAGE_KEY, enabled ? "1" : "0");
-}
-
-function parseAudioMode(value: string | null): JukeboxAudioMode | null {
-  if (
-    value === "off" ||
-    value === "nightcore" ||
-    value === "daycore" ||
-    value === "vaporwave" ||
-    value === "eight_d" ||
-    value === "eight_bit" ||
-    value === "lofi" ||
-    value === "underwater" ||
-    value === "cathedral" ||
-    value === "cowbell" ||
-    value === "swing"
-  ) {
-    return value;
-  }
-  return null;
-}
-
-function resolveAudioModeFromUrl(): JukeboxAudioMode {
-  if (typeof window === "undefined") {
-    return "off";
-  }
-  const params = new URLSearchParams(window.location.search);
-  return parseAudioMode(params.get(AUDIO_MODE_QUERY_KEY)) ?? "off";
-}
-
-function resolveAudioIntensityFromUrl(): number {
-  if (typeof window === "undefined") {
-    return DEFAULT_AUDIO_MODE_INTENSITY;
-  }
-  const params = new URLSearchParams(window.location.search);
-  return parseAudioModeIntensityParam(
-    params.get(AUDIO_MODE_INTENSITY_PARAM),
-    parseAudioMode(params.get(AUDIO_MODE_QUERY_KEY)),
-  );
-}
-
-function writeAudioModeToUrl(
-  mode: JukeboxAudioMode,
-  intensityPct: number,
-  replace = true,
-) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const url = new URL(window.location.href);
-  if (mode === "off") {
-    url.searchParams.delete(AUDIO_MODE_QUERY_KEY);
-  } else {
-    url.searchParams.set(AUDIO_MODE_QUERY_KEY, mode);
-  }
-  setAudioModeIntensityParam(url.searchParams, mode, intensityPct);
-  if (replace) {
-    window.history.replaceState({}, "", url.toString());
-    return;
-  }
-  window.history.pushState({}, "", url.toString());
-}
-
-function formatTrackTitle(
-  baseTitle: string,
-  playMode: PlayMode,
-  audioMode: JukeboxAudioMode,
-  t: TFunction,
-) {
-  if (playMode === "autocanonizer") {
-    return `${baseTitle} (${t("listen.autocanonized")})`;
-  }
-  if (audioMode !== "off") {
-    return `${baseTitle} (${formatAudioModeTitleLabel(audioMode, t)})`;
-  }
-  return baseTitle;
-}
-
-type TuneFormState = {
-  threshold: number;
-  computedThreshold: number;
-  minProb: number;
-  maxProb: number;
-  ramp: number;
-  volume: number;
-  highlightAnchorBranch: boolean;
-  justBackwards: boolean;
-  minLongBranchPercent: number;
-  removeSequentialBranches: boolean;
-};
-
-function formatMinJumpDistance(percent: number, t: TFunction) {
-  return percent === 0
-    ? t("tuning.anyDistance")
-    : t("tuning.percentOfTrack", { percent });
-}
-
-type ExportFormState = {
-  durationSeconds: number;
-  format: AudioExportFormat;
-  bitrateKbps: number;
-};
-
-function createSessionSeed(): number {
-  if ("crypto" in globalThis && "getRandomValues" in globalThis.crypto) {
-    const arr = new Uint32Array(1);
-    globalThis.crypto.getRandomValues(arr);
-    return arr[0] >>> 0;
-  }
-  return Math.floor(Math.random() * 0xffffffff) >>> 0;
-}
-
-function waitForNextPaint(): Promise<void> {
-  if ("requestAnimationFrame" in window) {
-    return new Promise((resolve) => {
-      window.requestAnimationFrame(() => resolve());
-    });
-  }
-  return Promise.resolve();
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-  const tag = target.tagName.toLowerCase();
-  return (
-    tag === "input" ||
-    tag === "textarea" ||
-    tag === "button" ||
-    tag === "select" ||
-    tag === "a" ||
-    target.isContentEditable
-  );
-}
-
-function toSimilarityPercent(distance: number, maxDistance: number) {
-  if (!Number.isFinite(distance) || maxDistance <= 0) {
-    return 0;
-  }
-  const normalized = 1 - distance / maxDistance;
-  return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
-}
-
-function nextEdgeIndex(currentIndex: number, direction: number, edgeCount: number) {
-  if (currentIndex >= 0) {
-    return (currentIndex + direction + edgeCount) % edgeCount;
-  }
-  return direction > 0 ? 0 : edgeCount - 1;
-}
-
-function progressStepStatus(index: number, activeIndex: number): ProgressStep["status"] {
-  if (index < activeIndex) {
-    return "done";
-  }
-  return index === activeIndex ? "active" : "pending";
-}
-
-function analysisStageLabel(stage: AnalyzeStage, t: TFunction) {
-  const keys: Record<
-    Exclude<AnalyzeStage, "cached">,
-    | "analysis.loading"
-    | "analysis.decoding"
-    | "analysis.beats"
-    | "analysis.features"
-    | "analysis.segments"
-    | "analysis.building"
-    | "analysis.ready"
-  > = {
-    loading: "analysis.loading",
-    decoding: "analysis.decoding",
-    beats: "analysis.beats",
-    features: "analysis.features",
-    segments: "analysis.segments",
-    building: "analysis.building",
-    ready: "analysis.ready",
-  };
-  const normalizedStage: Exclude<AnalyzeStage, "cached"> =
-    stage === "cached" ? "ready" : stage;
-  return t(keys[normalizedStage]);
-}
-
-function playControlText({
-  swingPreparing,
-  isRunning,
-  isPaused,
-  t,
-}: {
-  swingPreparing: boolean;
-  isRunning: boolean;
-  isPaused: boolean;
-  t: TFunction;
-}) {
-  if (swingPreparing) {
-    return t("listen.preparingSwing");
-  }
-  if (isRunning) {
-    return t("listen.pause");
-  }
-  return isPaused ? t("listen.resume") : t("listen.play");
-}
-
-function playControlIcon(swingPreparing: boolean, isRunning: boolean) {
-  if (swingPreparing) {
-    return "hourglass_top";
-  }
-  return isRunning ? "pause" : "play_arrow";
-}
-
-function formatPlayVelocity(velocity: number) {
-  return velocity > 0 ? `+${velocity}` : `${velocity}`;
-}
-
-function branchDirection(edge: Edge, t: TFunction) {
-  if (edge.dest.which < edge.src.which) {
-    return t("listen.backward");
-  }
-  if (edge.dest.which > edge.src.which) {
-    return t("listen.forward");
-  }
-  return t("listen.sameBeat");
-}
+import type { PlayMode, TuningModalTab } from "./listen/types";
+import {
+  SLEEP_TIMER_OPTIONS,
+  formatSleepTimerRemaining,
+  getSleepTimerDurationFromValue,
+  getSleepTimerOptionValue,
+  resolveSleepTimerDuration,
+  sleepTimerOptionLabel,
+  type SleepTimerState,
+} from "./listen/sleepTimer";
+import {
+  resolveAudioIntensityFromUrl,
+  resolveAudioModeFromUrl,
+  writeAudioModeToUrl,
+} from "./listen/audioMode";
+import {
+  resolveStoredAnchorHighlight,
+  resolveStoredBranchStatsEnabled,
+  resolveStoredFinishOutSong,
+  resolveStoredVisualizationIndex,
+  storeAnchorHighlight,
+  storeBranchStatsEnabled,
+  storeFinishOutSong,
+  storeVisualizationIndex,
+} from "./listen/preferences";
+import {
+  STEP_ORDER,
+  analysisStageLabel,
+  formatPlayVelocity,
+  formatTrackTitle,
+  getVisualizationLabel,
+  playControlIcon,
+  playControlText,
+  progressStepStatus,
+} from "./listen/labels";
+import {
+  MIN_JUMP_DISTANCE_OPTIONS,
+  RANDOM_BRANCH_DELTA_PERCENT_SCALE,
+  formatMinJumpDistance,
+  type ExtrasFormState,
+  type TuneFormState,
+} from "./listen/tuning";
+import {
+  MAX_EXPORT_DURATION_SECONDS,
+  buildAudioExportName,
+  exportErrorMessage,
+  exportProgressMessage,
+  type AudioExportFormat,
+  type ExportFormState,
+} from "./listen/exportAudio";
+import { deriveBranchStats, nextEdgeIndex } from "./listen/branches";
+import {
+  createSessionSeed,
+  isEditableTarget,
+  waitForNextPaint,
+} from "./listen/browser";
+import { AudioModeOptions } from "./listen/AudioModeOptions";
+import {
+  ShortcutToastStack,
+  type ShortcutToastQueue,
+} from "./listen/ShortcutToastStack";
 
 export function Listen({ isActive = true }: { isActive?: boolean }) {
   const { t, i18n } = useTranslation();
@@ -741,21 +191,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     React.useState<TuningModalTab>("tuning");
   const [forceBranchActive, setForceBranchActive] = React.useState(false);
   const [freezeBeatActive, setFreezeBeatActive] = React.useState(false);
-  const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
-    const raw = safeLocalStorageGet(VISUALIZATION_STORAGE_KEY);
-    if (raw !== null) {
-      const parsed = Number.parseInt(raw, 10);
-      return coerceVisualizationIndex(parsed);
-    }
-    return DEFAULT_VISUALIZATION_INDEX;
-  });
+  const [activeVizIndex, setActiveVizIndex] = React.useState(() =>
+    resolveStoredVisualizationIndex(),
+  );
   const [playMode, setPlayMode] = React.useState<PlayMode>("jukebox");
   const [highlightAnchorBranch, setHighlightAnchorBranch] = React.useState<boolean>(
     () => resolveStoredAnchorHighlight(),
   );
-  const [finishOutSong, setFinishOutSong] = React.useState<boolean>(() => {
-    return safeLocalStorageGet(CANONIZER_FINISH_STORAGE_KEY) === "true";
-  });
+  const [finishOutSong, setFinishOutSong] = React.useState<boolean>(() =>
+    resolveStoredFinishOutSong(),
+  );
   const [tuneForm, setTuneForm] = React.useState<TuneFormState>({
     threshold: 0,
     computedThreshold: 0,
@@ -1034,7 +479,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [activeVizIndex]);
 
   React.useEffect(() => {
-    safeLocalStorageSet(VISUALIZATION_STORAGE_KEY, String(activeVizIndex));
+    storeVisualizationIndex(activeVizIndex);
   }, [activeVizIndex]);
 
   React.useEffect(() => {
@@ -1123,7 +568,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [playMode]);
 
   React.useEffect(() => {
-    safeLocalStorageSet(CANONIZER_FINISH_STORAGE_KEY, String(finishOutSong));
+    storeFinishOutSong(finishOutSong);
     autocanonizerRef.current?.setFinishOutSong(finishOutSong);
   }, [finishOutSong]);
 
@@ -2511,31 +1956,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       : t("listen.totalBeats");
   const branchStats =
     branchStatsEnabled && playMode === "jukebox" && selectedEdge
-      ? (() => {
-          const startSeconds = Math.max(0, selectedEdge.src.start);
-          const endSeconds = Math.max(0, selectedEdge.dest.start);
-          const startDisplaySeconds = Math.floor(startSeconds);
-          const endDisplaySeconds = Math.floor(endSeconds);
-          const deltaSeconds = endDisplaySeconds - startDisplaySeconds;
-          const maxDistance = Math.max(
-            1,
-            engineRef.current?.getConfig().maxBranchThreshold ?? 80,
-          );
-          const signedDelta =
-            `${deltaSeconds >= 0 ? "+" : "-"}${formatDuration(Math.abs(deltaSeconds))}`;
-          const beatDelta = selectedEdge.dest.which - selectedEdge.src.which;
-          return {
-            id: selectedEdge.id,
-            start: formatDuration(startDisplaySeconds),
-            end: formatDuration(endDisplaySeconds),
-            delta: signedDelta,
-            startBeat: String(selectedEdge.src.which),
-            endBeat: String(selectedEdge.dest.which),
-            beatDelta: `${beatDelta >= 0 ? "+" : "-"}${Math.abs(beatDelta)}`,
-            direction: branchDirection(selectedEdge, t),
-            similarity: `${toSimilarityPercent(selectedEdge.distance, maxDistance)}%`,
-          };
-        })()
+      ? deriveBranchStats(
+          selectedEdge,
+          Math.max(1, engineRef.current?.getConfig().maxBranchThreshold ?? 80),
+          t,
+        )
       : null;
 
   const closeSettings = () => setIsSettingsOpen(false);
