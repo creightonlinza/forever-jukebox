@@ -1,5 +1,4 @@
 import React from "react";
-import { createPortal } from "react-dom";
 import "@/app/i18n";
 import { Link } from "react-router-dom";
 import { AnalysisWorkerClient } from "@/core/infrastructure/analysis/AnalysisWorkerClient";
@@ -12,7 +11,6 @@ import {
 } from "@/core/infrastructure/cache/tuningStore";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
-import { formatDuration, formatTime } from "@/shared/utils/format";
 import {
   pickBinaryExportFile,
   saveExportBinary,
@@ -51,30 +49,17 @@ import {
   type JukeboxExportProgress,
 } from "@/shared/export";
 import { AutocanonizerController } from "@forever-jukebox/shared/autocanonizer/AutocanonizerController";
-import {
-  AUTOCANONIZER_MAIN_COLOR,
-  AUTOCANONIZER_OTHER_COLOR,
-} from "@forever-jukebox/shared/autocanonizer/AutocanonizerViz";
 import { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
-import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
+import type { ProgressStep } from "@/ui/components/ProgressSteps";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useWakeLock } from "./listen/useWakeLock";
 import { useMarquee } from "./listen/useMarquee";
 import { useTranslation } from "react-i18next";
-import {
-  resolveSupportedLanguage,
-  supportedLanguageOptions,
-} from "../i18n";
 import { applyTheme, resolveStoredTheme, type ThemeName } from "../theme";
 import type { PlayMode, TuningModalTab } from "./listen/types";
 import {
-  SLEEP_TIMER_OPTIONS,
-  formatSleepTimerRemaining,
-  getSleepTimerDurationFromValue,
-  getSleepTimerOptionValue,
   resolveSleepTimerDuration,
-  sleepTimerOptionLabel,
   type SleepTimerState,
 } from "./listen/sleepTimer";
 import {
@@ -97,15 +82,12 @@ import {
   analysisStageLabel,
   formatPlayVelocity,
   formatTrackTitle,
-  getVisualizationLabel,
   playControlIcon,
   playControlText,
   progressStepStatus,
 } from "./listen/labels";
 import {
-  MIN_JUMP_DISTANCE_OPTIONS,
   RANDOM_BRANCH_DELTA_PERCENT_SCALE,
-  formatMinJumpDistance,
   type ExtrasFormState,
   type TuneFormState,
 } from "./listen/tuning";
@@ -113,8 +95,6 @@ import {
   MAX_EXPORT_DURATION_SECONDS,
   buildAudioExportName,
   exportErrorMessage,
-  exportProgressMessage,
-  type AudioExportFormat,
   type ExportFormState,
 } from "./listen/exportAudio";
 import { deriveBranchStats, nextEdgeIndex } from "./listen/branches";
@@ -123,14 +103,24 @@ import {
   isEditableTarget,
   waitForNextPaint,
 } from "./listen/browser";
-import { AudioModeOptions } from "./listen/AudioModeOptions";
 import {
   ShortcutToastStack,
   type ShortcutToastQueue,
 } from "./listen/ShortcutToastStack";
+import { BranchStatsPopup } from "./listen/BranchStatsPopup";
+import { ExportModal } from "./listen/ExportModal";
+import { InfoModal } from "./listen/InfoModal";
+import { PanPopover } from "./listen/PanPopover";
+import { PlayMenu } from "./listen/PlayMenu";
+import { SettingsModal } from "./listen/SettingsModal";
+import { StatusPanel } from "./listen/StatusPanel";
+import { TuningModal } from "./listen/TuningModal";
+import { VizInfo } from "./listen/VizInfo";
+import { VizTop } from "./listen/VizTop";
+import { VolumePopover } from "./listen/VolumePopover";
 
 export function Listen({ isActive = true }: { isActive?: boolean }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const {
     file,
     setIsListenLoading,
@@ -1964,152 +1954,21 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       : null;
 
   const closeSettings = () => setIsSettingsOpen(false);
-  const languageCredit = t("translationByNameCredit");
-  const settingsModal = isSettingsOpen
-    ? createPortal(
-        <div
-          id="settings-modal"
-          className="modal open"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="settings-title"
-        >
-          <button
-            className="modal-backdrop"
-            type="button"
-            onClick={closeSettings}
-            aria-label={t("common.close")}
-          />
-          <div className="modal-panel settings-panel">
-            <div className="modal-header">
-              <h2 id="settings-title">{t("settings.title")}</h2>
-              <button
-                id="settings-close"
-                className="modal-close"
-                type="button"
-                onClick={closeSettings}
-                aria-label={t("common.close")}
-                title={t("common.close")}
-              >
-                <SymbolIcon className="modal-close-icon" name="close" />
-              </button>
-            </div>
-            <div className="modal-body settings-body">
-              <section className="settings-section">
-                <label className="settings-field" htmlFor="settings-language">
-                  <span className="label-line">{t("settings.language")}</span>
-                  <span className="viz-select-wrap settings-select-wrap">
-                    <select
-                      id="settings-language"
-                      className="viz-select settings-select"
-                      aria-label={t("settings.language")}
-                      value={resolveSupportedLanguage(i18n.resolvedLanguage)}
-                      onChange={(event) => {
-                        void i18n.changeLanguage(event.target.value);
-                      }}
-                    >
-                      {supportedLanguageOptions.map((option) => (
-                        <option key={option.code} value={option.code}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <SymbolIcon
-                      className="viz-select-arrow"
-                      name="arrow_drop_down"
-                    />
-                  </span>
-                  {languageCredit ? (
-                    <span className="hint">{languageCredit}</span>
-                  ) : null}
-                </label>
-              </section>
-
-              <section className="settings-section">
-                <fieldset className="settings-fieldset">
-                  <legend className="label-line">{t("settings.theme")}</legend>
-                  <div className="settings-theme-options">
-                    {(["light", "dark"] as const).map((option) => (
-                      <label key={option} className="settings-theme-option">
-                        <input
-                          type="radio"
-                          name="settings-theme"
-                          value={option}
-                          checked={theme === option}
-                          onChange={() => {
-                            setTheme(option);
-                            applyTheme(option);
-                            vizControllerRef.current?.refresh();
-                          }}
-                        />
-                        <span>{t(`common.${option}`)}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              </section>
-
-              <section className="settings-section">
-                <div className="label-line">{t("settings.sleepTimer")}</div>
-                <div id="sleep-timer-current" className="sleep-timer-current">
-                  {sleepTimer.remainingMs > 0
-                    ? t("sleepTimer.currentCountdown", {
-                        time: formatSleepTimerRemaining(sleepTimer.remainingMs),
-                      })
-                    : t("sleepTimer.off")}
-                </div>
-                <div className="settings-field">
-                  <label className="label-line" htmlFor="sleep-timer-select">
-                    {t("sleepTimer.timer")}
-                  </label>
-                  <div className="settings-timer-row">
-                    <span className="viz-select-wrap settings-select-wrap">
-                      <select
-                        id="sleep-timer-select"
-                        className="viz-select settings-select"
-                        value={getSleepTimerOptionValue(
-                          pendingSleepTimerDurationMs,
-                        )}
-                        onChange={(event) =>
-                          setPendingSleepTimerDurationMs(
-                            getSleepTimerDurationFromValue(event.target.value),
-                          )
-                        }
-                      >
-                        {SLEEP_TIMER_OPTIONS.map((option) => (
-                          <option
-                            key={getSleepTimerOptionValue(option.durationMs)}
-                            value={getSleepTimerOptionValue(option.durationMs)}
-                          >
-                            {sleepTimerOptionLabel(option.durationMs, t)}
-                          </option>
-                        ))}
-                      </select>
-                      <SymbolIcon
-                        className="viz-select-arrow"
-                        name="arrow_drop_down"
-                      />
-                    </span>
-                    <button
-                      id="sleep-timer-set"
-                      className="tab-btn settings-timer-set"
-                      type="button"
-                      onClick={() => {
-                        setSleepTimer(pendingSleepTimerDurationMs);
-                        closeSettings();
-                      }}
-                    >
-                      {t("common.set")}
-                    </button>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )
-    : null;
+  const settingsModal = isSettingsOpen ? (
+    <SettingsModal
+      theme={theme}
+      onThemeChange={(option) => {
+        setTheme(option);
+        applyTheme(option);
+        vizControllerRef.current?.refresh();
+      }}
+      sleepTimer={sleepTimer}
+      pendingSleepTimerDurationMs={pendingSleepTimerDurationMs}
+      onPendingSleepTimerDurationChange={setPendingSleepTimerDurationMs}
+      onSetSleepTimer={setSleepTimer}
+      onClose={closeSettings}
+    />
+  ) : null;
 
   // Computed before the early return (and file-guarded) so the marquee hooks
   // below run unconditionally on every render, keeping hook order stable.
@@ -2137,199 +1996,52 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   return (
     <>
       <section className="listen-page">
-      {isAnalyzing ? (
-        <div className="panel" id="play-status">
-          <ProgressSteps
-            steps={steps}
-            currentMessage={progressMessage}
-            currentProgress={progressPercent}
-          />
-        </div>
-      ) : null}
-      {!isAnalyzing && swingPreparing ? (
-        <div className="panel" id="play-status">
-          <div className="progress">
-            <div className="progress__header">
-              <p className="progress__title">
-                {t("listen.preparingSwingPercent", { percent: swingProgress })}
-              </p>
-              <p className="progress__message">{t("listen.addingSwing")}</p>
-            </div>
-            <div className="progress-bar" aria-hidden="true">
-              <div
-                className="progress-bar-fill"
-                style={{ width: `${swingProgress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <StatusPanel
+        isAnalyzing={isAnalyzing}
+        steps={steps}
+        progressMessage={progressMessage}
+        progressPercent={progressPercent}
+        swingPreparing={swingPreparing}
+        swingProgress={swingProgress}
+      />
 
       {error ? <div className="error">{error}</div> : null}
 
       {showPlaybackUi ? (
-        <div className="menu-bar">
-          <div className="menu-left">
-            <div className="play-title" ref={playTitleRef}></div>
-            {playMode === "jukebox" && bringItHomeMode ? (
-              <span className="bring-home-note">{t("listen.bringingHome")}</span>
-            ) : null}
-          </div>
-          <div className="menu-right">
-            <button
-              id="tuning"
-              className={`tune-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
-              type="button"
-              onClick={() => openTuningModalTab("tuning")}
-              disabled={!analysis || playMode === "autocanonizer"}
-              title={t("listen.tune")}
-              aria-label={t("listen.tune")}
-            >
-              <SymbolIcon className="tune-icon" name="tune" />
-            </button>
-            <button
-              id="track-info"
-              className={`info-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
-              type="button"
-              onClick={() => setIsInfoOpen(true)}
-              disabled={!analysis || playMode === "autocanonizer"}
-              title={t("listen.info")}
-              aria-label={t("listen.info")}
-            >
-              <SymbolIcon className="info-icon" name="info" />
-            </button>
-            <button
-              id="track-audio-export"
-              className={`copy-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
-              type="button"
-              onClick={() => {
-                setExportError(null);
-                setExportProgress(null);
-                setIsExportOpen(true);
-              }}
-              disabled={!analysis || isExporting || playMode === "autocanonizer"}
-              title={t("listen.exportAudio")}
-              aria-label={t("listen.exportAudio")}
-            >
-              <SymbolIcon className="copy-icon" name="download" />
-            </button>
-          </div>
-        </div>
+        <PlayMenu
+          playTitleRef={playTitleRef}
+          playMode={playMode}
+          bringItHomeMode={bringItHomeMode}
+          hasAnalysis={Boolean(analysis)}
+          isExporting={isExporting}
+          onOpenTuning={() => openTuningModalTab("tuning")}
+          onOpenInfo={() => setIsInfoOpen(true)}
+          onOpenExport={() => {
+            setExportError(null);
+            setExportProgress(null);
+            setIsExportOpen(true);
+          }}
+        />
       ) : null}
 
       <div id="viz-panel" ref={vizPanelRef} hidden={!showPlaybackUi}>
         <div id="jukebox-viz" className={`viz ${playMode === "autocanonizer" ? "is-canonizer" : ""}`}>
           {branchStats ? (
-            <div className="branch-stats-popup">
-              <div className="branch-stats-popup-header">
-                <div className="branch-stats-popup-title">
-                  Branch #{branchStats.id} stats
-                </div>
-                <button
-                  id="branch-stats-delete"
-                  className="branch-stats-delete"
-                  type="button"
-                  aria-label={t("listen.deleteBranch")}
-                  title={t("listen.deleteBranch")}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    deleteSelectedBranch();
-                  }}
-                  disabled={Boolean(selectedEdge?.deleted)}
-                >
-                  <SymbolIcon className="branch-stats-delete-icon" name="delete" />
-                </button>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.direction")}</span>
-                <span className="branch-stats-popup-value">{branchStats.direction}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.startTime")}</span>
-                <span className="branch-stats-popup-value">{branchStats.start}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.endTime")}</span>
-                <span className="branch-stats-popup-value">{branchStats.end}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.timeDifference")}</span>
-                <span className="branch-stats-popup-value">{branchStats.delta}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.startBeat")}</span>
-                <span className="branch-stats-popup-value">{branchStats.startBeat}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.endBeat")}</span>
-                <span className="branch-stats-popup-value">{branchStats.endBeat}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.beatDifference")}</span>
-                <span className="branch-stats-popup-value">{branchStats.beatDelta}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.branchMatch")}</span>
-                <span className="branch-stats-popup-value">{branchStats.similarity}</span>
-              </div>
-            </div>
+            <BranchStatsPopup
+              stats={branchStats}
+              deleteDisabled={Boolean(selectedEdge?.deleted)}
+              onDelete={deleteSelectedBranch}
+            />
           ) : null}
-          <div className="viz-top">
-            <div className="viz-actions">
-              <label className="viz-select-group" htmlFor="play-mode-select">
-                <span className="viz-select-wrap">
-                  <select
-                    id="play-mode-select"
-                    className="viz-select"
-                    aria-label={t("listen.mode")}
-                    value={playMode}
-                    onChange={(event) =>
-                      onSetPlayMode(
-                        event.target.value === "autocanonizer"
-                          ? "autocanonizer"
-                          : "jukebox"
-                      )
-                    }
-                  >
-                    <option value="autocanonizer">{t("listen.autocanonizer")}</option>
-                    <option value="jukebox">{t("listen.jukebox")}</option>
-                  </select>
-                  <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
-                </span>
-              </label>
-            </div>
-            <div className="viz-controls">
-              <label className="viz-select-group" htmlFor="viz-select">
-                <span className="viz-select-wrap">
-                  <select
-                    id="viz-select"
-                    className="viz-select"
-                    aria-label={t("listen.visualization")}
-                    value={String(activeVizIndex)}
-                    onChange={(event) => onSetActiveViz(Number(event.target.value))}
-                    disabled={playMode === "autocanonizer"}
-                  >
-                    {Array.from({ length: vizCount }, (_, index) => (
-                      <option key={index} value={index}>
-                        {getVisualizationLabel(index, t)}
-                      </option>
-                    ))}
-                  </select>
-                  <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
-                </span>
-              </label>
-            </div>
-            <label className="canonizer-finish">
-              <input
-                id="canonizer-finish"
-                type="checkbox"
-                checked={finishOutSong}
-                onChange={(event) => setFinishOutSong(event.target.checked)}
-              />
-              <span>{t("listen.finishTrack")}</span>
-            </label>
-          </div>
+          <VizTop
+            playMode={playMode}
+            onPlayModeChange={onSetPlayMode}
+            activeVizIndex={activeVizIndex}
+            vizCount={vizCount}
+            onActiveVizChange={onSetActiveViz}
+            finishOutSong={finishOutSong}
+            onFinishOutSongChange={setFinishOutSong}
+          />
           {forceBranchActive || freezeBeatActive ? (
             <div className="modifier-badges" role="status" aria-live="polite">
               {forceBranchActive ? (
@@ -2362,177 +2074,44 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   name={playIcon}
                 />
               </button>
-              <div className="viz-info">
-                <div className="viz-title" id="viz-now-playing" ref={vizTitleRef}></div>
-                <div className="viz-meta">
-                  <span
-                    id="autocanonizer-times"
-                    className={`autocanonizer-times ${playMode === "autocanonizer" ? "" : "is-hidden"}`}
-                  >
-                    <span
-                      id="autocanonizer-main-time"
-                      style={{ color: AUTOCANONIZER_MAIN_COLOR }}
-                    >
-                      {formatTime(autocanonizerMainSeconds)}
-                    </span>
-                    <span aria-hidden="true">–</span>
-                    <span
-                      id="autocanonizer-other-time"
-                      style={{ color: AUTOCANONIZER_OTHER_COLOR }}
-                    >
-                      {formatTime(autocanonizerOtherSeconds)}
-                    </span>
-                    <span aria-hidden="true">/</span>
-                    <span id="autocanonizer-total-time">
-                      {formatTime(analysis?.track?.duration ?? 0)}
-                    </span>
-                  </span>
-                  <span className="viz-meta-stats">
-                    <span>{t("listen.listenTime")}</span>
-                    <span>{formatDuration(listenSeconds)}</span>
-                    <span className={`viz-divider ${playMode === "autocanonizer" ? "is-hidden" : ""}`}>·</span>
-                    <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsLabel}</span>
-                    <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsPlayed}</span>
-                  </span>
-                  {playMode === "jukebox" && bringItHomeMode ? (
-                    <span className="bring-home-fullscreen-note">· Bringing it on home</span>
-                  ) : null}
-                </div>
-              </div>
+              <VizInfo
+                vizTitleRef={vizTitleRef}
+                playMode={playMode}
+                autocanonizerMainSeconds={autocanonizerMainSeconds}
+                autocanonizerOtherSeconds={autocanonizerOtherSeconds}
+                trackDurationSeconds={analysis?.track?.duration ?? 0}
+                listenSeconds={listenSeconds}
+                beatsLabel={beatsLabel}
+                beatsPlayed={beatsPlayed}
+                bringItHomeMode={bringItHomeMode}
+              />
             </div>
             <div className="viz-bottom-right">
               {playMode === "autocanonizer" ? (
-                <div className="pan-control-wrap">
-                  <div
-                    className={`pan-control-panel ${
-                      isPanOpen ? "" : "is-hidden"
-                    }`}
-                    ref={panPanelRef}
-                  >
-                    <label className="stream-pan-control">
-                      <div className="label-line">
-                        <span className="pan-end-label">
-                          {t("listen.balanceLeft")}
-                        </span>
-                        <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
-                          {t("listen.blueBalance")}
-                        </span>
-                        <span className="pan-end-label">
-                          {t("listen.balanceRight")}
-                        </span>
-                      </div>
-                      <input
-                        id="autocanonizer-main-pan"
-                        className="pan-slider stream-pan-slider"
-                        type="range"
-                        aria-label={t("listen.blueBalance")}
-                        min={-100}
-                        max={100}
-                        step={1}
-                        list="autocanonizer-pan-ticks"
-                        value={autocanonizerMainPan}
-                        style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
-                        onChange={(event) =>
-                          onAutocanonizerStreamPanChange(
-                            "main",
-                            Number(event.target.value),
-                          )
-                        }
-                      />
-                    </label>
-                    <label className="stream-pan-control">
-                      <div className="label-line">
-                        <span className="pan-end-label">
-                          {t("listen.balanceLeft")}
-                        </span>
-                        <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
-                          {t("listen.greenBalance")}
-                        </span>
-                        <span className="pan-end-label">
-                          {t("listen.balanceRight")}
-                        </span>
-                      </div>
-                      <input
-                        id="autocanonizer-other-pan"
-                        className="pan-slider stream-pan-slider"
-                        type="range"
-                        aria-label={t("listen.greenBalance")}
-                        min={-100}
-                        max={100}
-                        step={1}
-                        list="autocanonizer-pan-ticks"
-                        value={autocanonizerOtherPan}
-                        style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
-                        onChange={(event) =>
-                          onAutocanonizerStreamPanChange(
-                            "other",
-                            Number(event.target.value),
-                          )
-                        }
-                      />
-                    </label>
-                    <datalist id="autocanonizer-pan-ticks">
-                      <option value={-100} />
-                      <option value={0} />
-                      <option value={100} />
-                    </datalist>
-                  </div>
-                  <button
-                    id="autocanonizer-pan-button"
-                    className="volume-button pan-button"
-                    type="button"
-                    ref={panButtonRef}
-                    onClick={() => {
-                      setIsVolumeOpen(false);
-                      setIsPanOpen((prev) => !prev);
-                    }}
-                    title={t("listen.audioBalance")}
-                    aria-label={t("listen.audioBalance")}
-                  >
-                    <SymbolIcon className="pan-icon" name="swap_horiz" />
-                  </button>
-                </div>
-              ) : null}
-              <div className="volume-control-wrap">
-                <div
-                  className={`volume-control-panel ${
-                    isVolumeOpen ? "" : "is-hidden"
-                  }`}
-                  ref={volumePanelRef}
-                >
-                  <label>
-                    <input
-                      className="volume-slider"
-                      type="range"
-                      aria-label={t("listen.volume")}
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={tuneForm.volume}
-                      onChange={(event) =>
-                        onVolumeChange(Number(event.target.value))
-                      }
-                    />
-                    <div className="label-line">
-                      <span className="volume-value">{tuneForm.volume}</span>
-                    </div>
-                  </label>
-                </div>
-                <button
-                  id="volume-button"
-                  className="volume-button"
-                  type="button"
-                  ref={volumeButtonRef}
-                  onClick={() => {
-                    setIsPanOpen(false);
-                    setIsVolumeOpen((prev) => !prev);
+                <PanPopover
+                  isOpen={isPanOpen}
+                  panelRef={panPanelRef}
+                  buttonRef={panButtonRef}
+                  mainPan={autocanonizerMainPan}
+                  otherPan={autocanonizerOtherPan}
+                  onPanChange={onAutocanonizerStreamPanChange}
+                  onToggle={() => {
+                    setIsVolumeOpen(false);
+                    setIsPanOpen((prev) => !prev);
                   }}
-                  title={t("listen.volume")}
-                  aria-label={t("listen.volume")}
-                >
-                  <SymbolIcon className="volume-icon" name="volume_up" />
-                </button>
-              </div>
+                />
+              ) : null}
+              <VolumePopover
+                isOpen={isVolumeOpen}
+                panelRef={volumePanelRef}
+                buttonRef={volumeButtonRef}
+                volume={tuneForm.volume}
+                onVolumeChange={onVolumeChange}
+                onToggle={() => {
+                  setIsPanOpen(false);
+                  setIsVolumeOpen((prev) => !prev);
+                }}
+              />
               <button
                 id="fullscreen"
                 className="fullscreen-toggle"
@@ -2557,464 +2136,40 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       </div>
 
       {isExportOpen ? (
-        <div className="modal open">
-          <button
-            className="modal-backdrop"
-            type="button"
-            onClick={() => setIsExportOpen(false)}
-            aria-label={t("listen.closeExportDialog")}
-            disabled={isExporting}
-          />
-          <div className="modal-panel">
-            <div className="modal-header">
-              <h2>{t("export.title")}</h2>
-              <button
-                className="modal-close"
-                type="button"
-                onClick={() => setIsExportOpen(false)}
-                aria-label={t("common.close")}
-                title={t("common.close")}
-                disabled={isExporting}
-              >
-                <SymbolIcon className="modal-close-icon" name="close" />
-              </button>
-            </div>
-            <div className="modal-body export-body">
-              <p className="export-note">
-                {t("export.note")}
-              </p>
-              <label>
-                <div className="label-line">
-                  <span>{t("export.duration")}</span>
-                  <span>{formatDuration(exportForm.durationSeconds)}</span>
-                </div>
-                <input
-                  className="field-input"
-                  type="number"
-                  aria-label={t("export.duration")}
-                  min={5}
-                  max={MAX_EXPORT_DURATION_SECONDS}
-                  step={5}
-                  value={exportForm.durationSeconds}
-                  disabled={isExporting}
-                  onChange={(event) =>
-                    setExportForm((prev) => ({
-                      ...prev,
-                      durationSeconds: Number(event.target.value),
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                <div className="label-line">{t("export.format")}</div>
-                <select
-                  className="field-input"
-                  value={exportForm.format}
-                  disabled={isExporting}
-                  onChange={(event) =>
-                    setExportForm((prev) => ({
-                      ...prev,
-                      format: event.target.value as AudioExportFormat,
-                    }))
-                  }
-                >
-                  <option value="mp3">{t("export.mp3")}</option>
-                  <option value="wav">{t("export.wav")}</option>
-                </select>
-              </label>
-              {exportForm.format === "mp3" ? (
-                <label>
-                  <div className="label-line">
-                    <span>{t("export.bitrate")}</span>
-                    <span>{exportForm.bitrateKbps} kbps</span>
-                  </div>
-                  <input
-                    type="range"
-                    aria-label={t("export.bitrate")}
-                    min={64}
-                    max={320}
-                    step={32}
-                    value={exportForm.bitrateKbps}
-                    disabled={isExporting}
-                    onChange={(event) =>
-                      setExportForm((prev) => ({
-                        ...prev,
-                        bitrateKbps: Number(event.target.value),
-                      }))
-                    }
-                  />
-                </label>
-              ) : null}
-              {exportProgress ? (
-                <div className="export-status">
-                  {exportProgressMessage(exportProgress.message, t)} (
-                  {Math.round(exportProgress.percent)}%)
-                </div>
-              ) : null}
-              {exportError ? <div className="error">{exportError}</div> : null}
-            </div>
-            <div className="modal-footer">
-              <button
-                className="tab-btn"
-                type="button"
-                onClick={() => setIsExportOpen(false)}
-                disabled={isExporting}
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                className="tab-btn"
-                type="button"
-                onClick={handleExportJukeboxAudio}
-                disabled={isExporting}
-              >
-                {isExporting ? t("export.exporting") : t("export.action")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExportModal
+          form={exportForm}
+          setForm={setExportForm}
+          isExporting={isExporting}
+          progress={exportProgress}
+          error={exportError}
+          onClose={() => setIsExportOpen(false)}
+          onExport={handleExportJukeboxAudio}
+        />
       ) : null}
 
       {isTuningOpen ? (
-        <div className="modal open">
-          <button
-            className="modal-backdrop"
-            type="button"
-            onClick={() => setIsTuningOpen(false)}
-            aria-label={t("listen.closeTuningDialog")}
-          />
-          <div className="modal-panel">
-            <div className="modal-header">
-              <div className="modal-header-main">
-                <h2
-                  id="tuning-title"
-                  className={tuningActiveTab === "extras" ? "is-extras-active" : ""}
-                >
-                  <span id="tuning-title-text">
-                    {tuningActiveTab === "tuning"
-                      ? t("tuning.title")
-                      : t("tuning.extras")}
-                  </span>
-                </h2>
-                <div className="modal-tabs" aria-label={t("tuning.sections")}>
-                  <button
-                    id="tuning-tab-toggle"
-                    className={`modal-tab ${playMode !== "jukebox" ? "hidden" : ""}`}
-                    type="button"
-                    onClick={() =>
-                      setTuningActiveTab(tuningActiveTab === "tuning" ? "extras" : "tuning")
-                    }
-                    aria-label={
-                      tuningActiveTab === "tuning"
-                        ? t("tuning.switchToExtras")
-                        : t("tuning.switchToTuning")
-                    }
-                  >
-                    <SymbolIcon
-                      className="modal-tab-icon"
-                      name={tuningActiveTab === "tuning" ? "science" : "tune"}
-                    />
-                    <span id="tuning-tab-toggle-label">
-                      {tuningActiveTab === "tuning"
-                        ? t("tuning.extras")
-                        : t("tuning.title")}
-                    </span>
-                  </button>
-                </div>
-              </div>
-              <div className="modal-header-actions">
-                <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label={t("common.close")} title={t("common.close")}>
-                  <SymbolIcon className="modal-close-icon" name="close" />
-                </button>
-              </div>
-            </div>
-            <div className="modal-body">
-              <div id="tuning-panel-tuning" className={tuningActiveTab === "tuning" ? "" : "hidden"}>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.similarityThreshold")}</span>
-                    <span>{tuneForm.threshold}</span>
-                  </div>
-                  <div className="hint">
-                    <span>{t("tuning.computedThreshold")}</span>
-                    <span>{tuneForm.computedThreshold}</span>
-                  </div>
-                  <input
-                    type="range"
-                    aria-label={t("tuning.similarityThreshold")}
-                    min={2}
-                    max={80}
-                    step={1}
-                    value={tuneForm.threshold}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, threshold: Number(event.target.value) }))
-                    }
-                  />
-                </label>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.probabilityMin")}</span>
-                    <span>{tuneForm.minProb}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={2}
-                    value={tuneForm.minProb}
-                    aria-label={t("tuning.probabilityMin")}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, minProb: Number(event.target.value) }))
-                    }
-                  />
-                </label>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.probabilityMax")}</span>
-                    <span>{tuneForm.maxProb}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={2}
-                    value={tuneForm.maxProb}
-                    aria-label={t("tuning.probabilityMax")}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, maxProb: Number(event.target.value) }))
-                    }
-                  />
-                </label>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.rampSpeed")}</span>
-                    <span>{tuneForm.ramp}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={2}
-                    value={tuneForm.ramp}
-                    aria-label={t("tuning.rampSpeed")}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, ramp: Number(event.target.value) }))
-                    }
-                  />
-                </label>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.minJumpDistance")}</span>
-                    <span>
-                      {formatMinJumpDistance(tuneForm.minLongBranchPercent, t)}
-                    </span>
-                  </div>
-                  <div className="hint">
-                    {t("tuning.minJumpDistanceHint")}
-                  </div>
-                  <input
-                    id="min-jump-distance"
-                    type="range"
-                    min={0}
-                    max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
-                    step={1}
-                    value={Math.max(
-                      0,
-                      MIN_JUMP_DISTANCE_OPTIONS.indexOf(
-                        tuneForm.minLongBranchPercent as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
-                      ),
-                    )}
-                    aria-label={t("tuning.minJumpDistance")}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({
-                        ...prev,
-                        minLongBranchPercent:
-                          MIN_JUMP_DISTANCE_OPTIONS[
-                            Number(event.target.value)
-                          ] ?? 0,
-                      }))
-                    }
-                  />
-                </label>
-                <div className="checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={tuneForm.justBackwards}
-                      onChange={(event) =>
-                        setTuneForm((prev) => ({ ...prev, justBackwards: event.target.checked }))
-                      }
-                    />
-                    <span>{t("tuning.onlyReverse")}</span>
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={tuneForm.removeSequentialBranches}
-                      onChange={(event) =>
-                        setTuneForm((prev) => ({ ...prev, removeSequentialBranches: event.target.checked }))
-                      }
-                    />
-                    <span>{t("tuning.removeSequential")}</span>
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={tuneForm.highlightAnchorBranch}
-                      onChange={(event) =>
-                        setTuneForm((prev) => ({
-                          ...prev,
-                          highlightAnchorBranch: event.target.checked,
-                        }))
-                      }
-                    />
-                    <span>{t("tuning.highlightAnchor")}</span>
-                  </label>
-                </div>
-              </div>
-              <div id="tuning-panel-extras" className={tuningActiveTab === "extras" ? "" : "hidden"}>
-                <div className="checkbox-row extras-checkbox-row">
-                  <label>
-                    <input
-                      id="extras-enabled"
-                      type="checkbox"
-                      checked={extrasForm.branchStatsEnabled}
-                      onChange={(event) =>
-                        setExtrasForm((prev) => ({
-                          ...prev,
-                          branchStatsEnabled: event.target.checked,
-                        }))
-                      }
-                      disabled={playMode !== "jukebox"}
-                    />
-                    <span>{t("tuning.showBranchStats")}</span>
-                  </label>
-                  <label>
-                    <input
-                      id="bring-home-enabled"
-                      type="checkbox"
-                      checked={extrasForm.bringItHomeMode}
-                      onChange={(event) =>
-                        setExtrasForm((prev) => ({
-                          ...prev,
-                          bringItHomeMode: event.target.checked,
-                        }))
-                      }
-                      disabled={playMode !== "jukebox"}
-                    />
-                    <span>{t("tuning.bringItHome")}</span>
-                  </label>
-                </div>
-                <div id="jukebox-audio-mode-group" className="audio-mode-group">
-                  <div className="label-line">{t("tuning.audioMode")}</div>
-                  <AudioModeOptions
-                    selectedAudioMode={extrasForm.audioMode}
-                    disabled={playMode !== "jukebox"}
-                    onChange={(audioMode) =>
-                      setExtrasForm((prev) => ({ ...prev, audioMode }))
-                    }
-                    intensityPct={extrasForm.audioIntensity}
-                    onIntensityChange={(audioIntensity) =>
-                      setExtrasForm((prev) => ({ ...prev, audioIntensity }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer tuning-footer">
-              <button className="tab-btn" type="button" onClick={onResetTuningModal}>{t("common.reset")}</button>
-              <button className="tab-btn" type="button" onClick={onApplyTuningModal}>{t("common.apply")}</button>
-            </div>
-          </div>
-        </div>
+        <TuningModal
+          playMode={playMode}
+          activeTab={tuningActiveTab}
+          onTabChange={setTuningActiveTab}
+          tuneForm={tuneForm}
+          setTuneForm={setTuneForm}
+          extrasForm={extrasForm}
+          setExtrasForm={setExtrasForm}
+          onClose={() => setIsTuningOpen(false)}
+          onReset={onResetTuningModal}
+          onApply={onApplyTuningModal}
+        />
       ) : null}
 
       {isInfoOpen ? (
-        <div className="modal open">
-          <button
-            className="modal-backdrop"
-            type="button"
-            onClick={() => setIsInfoOpen(false)}
-            aria-label={t("listen.closeTrackInfoDialog")}
-          />
-          <div className="modal-panel">
-            <div className="modal-header">
-              <h2>{t("info.title")}</h2>
-              <button className="modal-close" type="button" onClick={() => setIsInfoOpen(false)} aria-label={t("common.close")} title={t("common.close")}>
-                <SymbolIcon className="modal-close-icon" name="close" />
-              </button>
-            </div>
-            <div className="modal-body info-body">
-              <div className="info-row">
-                <span className="info-label">{t("info.trackLength")}</span>
-                <span>{formatDuration(analysis?.track?.duration ?? 0)}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.totalBeats")}</span>
-                <span>{totalBeats}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.totalBranches")}</span>
-                <span>{totalBranches}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.deletedBranches")}</span>
-                <span>{deletedBranches}</span>
-              </div>
-              <h4>{t("info.keyboardCommands")}</h4>
-              <div className="info-row">
-                <span className="info-label">{t("info.space")}</span>
-                <span>{t("info.spaceAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.shift")}</span>
-                <span>{t("info.shiftAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.arrows")}</span>
-                <span>{t("info.arrowsAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">
-                  {t("info.velocity")}
-                  <span
-                    className="info-help"
-                    role="img"
-                    title={t("info.velocityNote")}
-                    aria-label={t("info.velocityNote")}
-                  >
-                    <SymbolIcon className="info-help-icon" name="help" />
-                  </span>
-                </span>
-                <span>{t("info.velocityAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.velocityReset")}</span>
-                <span>{t("info.velocityResetAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.freeze")}</span>
-                <span>{t("info.freezeAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.anchor")}</span>
-                <span>{t("info.anchorAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.delete")}</span>
-                <span>{t("info.deleteAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.extras")}</span>
-                <span>{t("info.extrasAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.home")}</span>
-                <span>{t("info.homeAction")}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <InfoModal
+          trackDurationSeconds={analysis?.track?.duration ?? 0}
+          totalBeats={totalBeats}
+          totalBranches={totalBranches}
+          deletedBranches={deletedBranches}
+          onClose={() => setIsInfoOpen(false)}
+        />
       ) : null}
       <ShortcutToastStack queue={shortcutToastQueue} />
       </section>
