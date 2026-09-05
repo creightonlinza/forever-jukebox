@@ -1,5 +1,4 @@
 import React from "react";
-import { createPortal } from "react-dom";
 import "@/app/i18n";
 import { Link } from "react-router-dom";
 import { AnalysisWorkerClient } from "@/core/infrastructure/analysis/AnalysisWorkerClient";
@@ -12,30 +11,15 @@ import {
 } from "@/core/infrastructure/cache/tuningStore";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
 import { AnalysisOutput } from "@/shared/analysis-schema";
-import { formatDuration, formatTime } from "@/shared/utils/format";
-import {
-  safeLocalStorageGet,
-  safeLocalStorageSet,
-} from "@/shared/utils/safeStorage";
-import {
-  pickBinaryExportFile,
-  saveExportBinary,
-} from "@/shared/utils/exportJson";
 import {
   BufferedAudioPlayer,
   type JukeboxAudioMode,
 } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOverlayService";
 import {
-  AUDIO_MODE_INTENSITY_PARAM,
   DEFAULT_AUDIO_MODE_INTENSITY,
-  MAX_AUDIO_MODE_INTENSITY,
-  MIN_AUDIO_MODE_INTENSITY,
   audioModeChangeAffectsPlayback,
-  audioModeSupportsIntensity,
   clampAudioModeIntensity,
-  parseAudioModeIntensityParam,
-  setAudioModeIntensityParam,
 } from "@forever-jukebox/shared/audio/audioModes";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
@@ -47,640 +31,73 @@ import {
   JukeboxEngine,
 } from "@forever-jukebox/shared";
 import {
-  DEFAULT_VISUALIZATION_INDEX,
-  VISUALIZATION_LABELS,
   visualizationSeparatesPairedEdges,
 } from "@forever-jukebox/shared/constants/visualization";
 import {
   createToastQueue,
-  type ToastQueue,
 } from "@forever-jukebox/shared/ui/toastQueue";
-import {
-  backgroundClearTimeout,
-  backgroundSetTimeout,
-} from "@forever-jukebox/shared/background";
-import {
-  exportJukeboxAudio,
-  type JukeboxExportProgress,
-} from "@/shared/export";
 import { AutocanonizerController } from "@forever-jukebox/shared/autocanonizer/AutocanonizerController";
-import {
-  AUTOCANONIZER_MAIN_COLOR,
-  AUTOCANONIZER_OTHER_COLOR,
-} from "@forever-jukebox/shared/autocanonizer/AutocanonizerViz";
 import { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
-import { ProgressSteps, ProgressStep } from "@/ui/components/ProgressSteps";
+import type { ProgressStep } from "@/ui/components/ProgressSteps";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
-import { useWakeLock } from "./listen/useWakeLock";
 import { useMarquee } from "./listen/useMarquee";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
-import {
-  resolveSupportedLanguage,
-  supportedLanguageOptions,
-} from "../i18n";
 import { applyTheme, resolveStoredTheme, type ThemeName } from "../theme";
-
-const STEP_ORDER: AnalyzeStage[] = [
-  "loading",
-  "decoding",
-  "beats",
-  "features",
-  "building",
-  "ready",
-];
-
-
-const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
-const VISUALIZATION_STORAGE_KEY = "fj-viz";
-const ANCHOR_HIGHLIGHT_STORAGE_KEY = "fj-highlight-anchor-branch";
-const BRANCH_STATS_STORAGE_KEY = "fj-branch-stats-enabled";
-const AUDIO_MODE_QUERY_KEY = "am";
-const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
-const MAX_RANDOM_BRANCH_DELTA = 0.2;
-const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
-const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
-type ShortcutToastQueue = ToastQueue<{ message: string }>;
-
-function ShortcutToastStack({ queue }: { queue: ShortcutToastQueue }) {
-  const toasts = React.useSyncExternalStore(queue.subscribe, queue.getItems);
-  return (
-    <div className="shortcut-toast-stack" role="status" aria-live="polite">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className={
-            toast.exiting ? "shortcut-toast exiting" : "shortcut-toast"
-          }
-        >
-          {toast.message}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-type PlayMode = "jukebox" | "autocanonizer";
-type TuningModalTab = "tuning" | "extras";
-type AudioExportFormat = "mp3" | "wav";
-
-type SleepTimerOption = {
-  durationMs: number | null;
-};
-
-type SleepTimerState = {
-  configuredDurationMs: number | null;
-  endTimeMs: number | null;
-  remainingMs: number;
-};
-
-const SLEEP_TIMER_OPTIONS: SleepTimerOption[] = [
-  { durationMs: null },
-  { durationMs: 15 * 60 * 1000 },
-  { durationMs: 30 * 60 * 1000 },
-  { durationMs: 45 * 60 * 1000 },
-  { durationMs: 60 * 60 * 1000 },
-  { durationMs: 2 * 60 * 60 * 1000 },
-];
-
-function getSleepTimerOptionValue(durationMs: number | null) {
-  return durationMs === null ? "off" : String(durationMs);
-}
-
-function getSleepTimerDurationFromValue(value: string) {
-  if (value === "off") {
-    return null;
-  }
-  const durationMs = Number(value);
-  const matchedOption = SLEEP_TIMER_OPTIONS.find(
-    (option) => option.durationMs === durationMs,
-  );
-  return matchedOption ? matchedOption.durationMs : null;
-}
-
-function resolveSleepTimerDuration(durationMs: number | null) {
-  return SLEEP_TIMER_OPTIONS.some((option) => option.durationMs === durationMs)
-    ? durationMs
-    : null;
-}
-
-function formatSleepTimerRemaining(remainingMs: number) {
-  return formatDuration(Math.ceil(Math.max(0, remainingMs) / 1000));
-}
-
-function exportProgressMessage(
-  message: JukeboxExportProgress["message"],
-  t: TFunction,
-) {
-  switch (message.kind) {
-    case "initializing":
-      return t("export.initializing");
-    case "preparingSwing":
-      return t("listen.preparingSwing");
-    case "planning":
-      return t("export.planning");
-    case "renderingChunk":
-      return t("export.renderingChunk", message);
-    case "encodingChunk":
-      return t("export.encodingChunk", message);
-    case "combiningChunks":
-      return t("export.combiningChunks");
-    case "renderingAudio":
-      return t("export.renderingAudio");
-    case "encodingFormat":
-      return t("export.encodingFormat", message);
-    case "finalizing":
-      return t("export.finalizing");
-  }
-}
-
-function exportErrorMessage(error: unknown, t: TFunction) {
-  const message = error instanceof Error ? error.message : String(error);
-  if (
-    message ===
-    "WAV export is too large for browser memory at this duration. Use MP3 for long exports."
-  ) {
-    return t("export.wavTooLarge");
-  }
-  if (message === "Swing export requires beat analysis.") {
-    return t("export.swingNeedsBeats");
-  }
-  return t("export.failed");
-}
-
-function sleepTimerOptionLabel(durationMs: number | null, t: TFunction) {
-  if (durationMs === null) {
-    return t("sleepTimer.off");
-  }
-  if (durationMs === 60 * 60 * 1000) {
-    return t("sleepTimer.oneHour");
-  }
-  if (durationMs === 2 * 60 * 60 * 1000) {
-    return t("sleepTimer.twoHours");
-  }
-  return t("sleepTimer.minutes", { count: durationMs / 60_000 });
-}
-
-type ExtrasFormState = {
-  branchStatsEnabled: boolean;
-  bringItHomeMode: boolean;
-  audioMode: JukeboxAudioMode;
-  audioIntensity: number;
-};
-
-type AudioModeSection = {
-  titleKey: "audioModes.playbackStyles" | "audioModes.remixToys";
-  options: JukeboxAudioMode[];
-};
-
-const AUDIO_MODE_SECTIONS: AudioModeSection[] = [
-  {
-    titleKey: "audioModes.playbackStyles",
-    options: [
-      "nightcore",
-      "daycore",
-      "vaporwave",
-      "eight_d",
-      "lofi",
-      "eight_bit",
-      "underwater",
-      "cathedral",
-    ],
-  },
-  {
-    titleKey: "audioModes.remixToys",
-    options: ["cowbell", "swing"],
-  },
-];
-
-function audioModeLabel(audioMode: JukeboxAudioMode, t: TFunction) {
-  const keys: Record<
-    JukeboxAudioMode,
-    | "common.off"
-    | "audioModes.nightcore"
-    | "audioModes.daycore"
-    | "audioModes.vaporwave"
-    | "audioModes.eightD"
-    | "audioModes.lofi"
-    | "audioModes.eightBit"
-    | "audioModes.underwater"
-    | "audioModes.cathedral"
-    | "audioModes.cowbell"
-    | "audioModes.swing"
-  > = {
-    off: "common.off",
-    nightcore: "audioModes.nightcore",
-    daycore: "audioModes.daycore",
-    vaporwave: "audioModes.vaporwave",
-    eight_d: "audioModes.eightD",
-    lofi: "audioModes.lofi",
-    eight_bit: "audioModes.eightBit",
-    underwater: "audioModes.underwater",
-    cathedral: "audioModes.cathedral",
-    cowbell: "audioModes.cowbell",
-    swing: "audioModes.swing",
-  };
-  return t(keys[audioMode]);
-}
-
-function formatAudioModeTitleLabel(audioMode: JukeboxAudioMode, t: TFunction) {
-  return audioModeLabel(audioMode, t).toLocaleLowerCase();
-}
-
-function getAudioModeInputId(mode: JukeboxAudioMode) {
-  return `audio-mode-${mode.replaceAll("_", "-")}`;
-}
-
-function AudioModeRadio({
-  option,
-  checked,
-  disabled,
-  onChange,
-  className = "",
-}: {
-  option: JukeboxAudioMode;
-  checked: boolean;
-  disabled: boolean;
-  onChange: () => void;
-  className?: string;
-}) {
-  const { t } = useTranslation();
-  return (
-    <label className={`audio-mode-option ${className}`.trim()}>
-      <input
-        id={getAudioModeInputId(option)}
-        type="radio"
-        name="audio-mode"
-        value={option}
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-      />
-      <span>{audioModeLabel(option, t)}</span>
-    </label>
-  );
-}
-
-function AudioModeSectionGroup({
-  section,
-  selectedAudioMode,
-  disabled,
-  onChange,
-  intensityPct,
-  onIntensityChange,
-}: {
-  section: AudioModeSection;
-  selectedAudioMode: JukeboxAudioMode;
-  disabled: boolean;
-  onChange: (mode: JukeboxAudioMode) => void;
-  intensityPct: number;
-  onIntensityChange: (intensityPct: number) => void;
-}) {
-  const { t } = useTranslation();
-  const showIntensity =
-    section.options.includes(selectedAudioMode) &&
-    audioModeSupportsIntensity(selectedAudioMode);
-  return (
-    <div className="audio-mode-section">
-      <div className="audio-mode-section-title">{t(section.titleKey)}</div>
-      <div className="audio-mode-section-options">
-        {section.options.map((option) => (
-          <AudioModeRadio
-            key={option}
-            option={option}
-            checked={selectedAudioMode === option}
-            disabled={disabled}
-            onChange={() => onChange(option)}
-          />
-        ))}
-      </div>
-      {showIntensity ? (
-        <label>
-          <div className="label-line">
-            <span>{t("audioModes.intensity")}</span>
-            <span>{intensityPct}%</span>
-          </div>
-          <input
-            id="audio-intensity"
-            type="range"
-            aria-label={t("audioModes.intensity")}
-            min={MIN_AUDIO_MODE_INTENSITY}
-            max={MAX_AUDIO_MODE_INTENSITY}
-            step={5}
-            value={intensityPct}
-            disabled={disabled}
-            onChange={(event) => onIntensityChange(Number(event.target.value))}
-          />
-        </label>
-      ) : null}
-    </div>
-  );
-}
-
-function AudioModeOptions({
-  selectedAudioMode,
-  disabled,
-  onChange,
-  intensityPct,
-  onIntensityChange,
-}: {
-  selectedAudioMode: JukeboxAudioMode;
-  disabled: boolean;
-  onChange: (mode: JukeboxAudioMode) => void;
-  intensityPct: number;
-  onIntensityChange: (intensityPct: number) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div
-      className="audio-mode-options"
-      role="radiogroup"
-      aria-label={t("tuning.audioMode")}
-    >
-      <AudioModeRadio
-        option="off"
-        className="audio-mode-default-option"
-        checked={selectedAudioMode === "off"}
-        disabled={disabled}
-        onChange={() => onChange("off")}
-      />
-      {AUDIO_MODE_SECTIONS.map((section) => (
-        <AudioModeSectionGroup
-          key={section.titleKey}
-          section={section}
-          selectedAudioMode={selectedAudioMode}
-          disabled={disabled}
-          onChange={onChange}
-          intensityPct={intensityPct}
-          onIntensityChange={onIntensityChange}
-        />
-      ))}
-    </div>
-  );
-}
-
-function getVisualizationLabel(index: number, t: TFunction) {
-  return VISUALIZATION_LABELS[index] ??
-    t("listen.visualizationNumber", { number: index + 1 });
-}
-
-function coerceVisualizationIndex(index: number) {
-  if (
-    Number.isFinite(index) &&
-    index >= 0 &&
-    index < VISUALIZATION_LABELS.length
-  ) {
-    return index;
-  }
-  return DEFAULT_VISUALIZATION_INDEX;
-}
-
-function buildAudioExportName(fileName: string, extension: string) {
-  const base = fileName.replace(/\.[^.]+$/, "").trim();
-  return `${base || "jukebox"}_forever.${extension}`;
-}
-
-function resolveStoredAnchorHighlight(): boolean {
-  const stored = safeLocalStorageGet(ANCHOR_HIGHLIGHT_STORAGE_KEY);
-  return stored === "1" || stored === "true";
-}
-
-function resolveStoredBranchStatsEnabled(): boolean {
-  const stored = safeLocalStorageGet(BRANCH_STATS_STORAGE_KEY);
-  return stored === "1" || stored === "true";
-}
-
-function storeAnchorHighlight(enabled: boolean) {
-  safeLocalStorageSet(ANCHOR_HIGHLIGHT_STORAGE_KEY, enabled ? "1" : "0");
-}
-
-function storeBranchStatsEnabled(enabled: boolean) {
-  safeLocalStorageSet(BRANCH_STATS_STORAGE_KEY, enabled ? "1" : "0");
-}
-
-function parseAudioMode(value: string | null): JukeboxAudioMode | null {
-  if (
-    value === "off" ||
-    value === "nightcore" ||
-    value === "daycore" ||
-    value === "vaporwave" ||
-    value === "eight_d" ||
-    value === "eight_bit" ||
-    value === "lofi" ||
-    value === "underwater" ||
-    value === "cathedral" ||
-    value === "cowbell" ||
-    value === "swing"
-  ) {
-    return value;
-  }
-  return null;
-}
-
-function resolveAudioModeFromUrl(): JukeboxAudioMode {
-  if (typeof window === "undefined") {
-    return "off";
-  }
-  const params = new URLSearchParams(window.location.search);
-  return parseAudioMode(params.get(AUDIO_MODE_QUERY_KEY)) ?? "off";
-}
-
-function resolveAudioIntensityFromUrl(): number {
-  if (typeof window === "undefined") {
-    return DEFAULT_AUDIO_MODE_INTENSITY;
-  }
-  const params = new URLSearchParams(window.location.search);
-  return parseAudioModeIntensityParam(
-    params.get(AUDIO_MODE_INTENSITY_PARAM),
-    parseAudioMode(params.get(AUDIO_MODE_QUERY_KEY)),
-  );
-}
-
-function writeAudioModeToUrl(
-  mode: JukeboxAudioMode,
-  intensityPct: number,
-  replace = true,
-) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const url = new URL(window.location.href);
-  if (mode === "off") {
-    url.searchParams.delete(AUDIO_MODE_QUERY_KEY);
-  } else {
-    url.searchParams.set(AUDIO_MODE_QUERY_KEY, mode);
-  }
-  setAudioModeIntensityParam(url.searchParams, mode, intensityPct);
-  if (replace) {
-    window.history.replaceState({}, "", url.toString());
-    return;
-  }
-  window.history.pushState({}, "", url.toString());
-}
-
-function formatTrackTitle(
-  baseTitle: string,
-  playMode: PlayMode,
-  audioMode: JukeboxAudioMode,
-  t: TFunction,
-) {
-  if (playMode === "autocanonizer") {
-    return `${baseTitle} (${t("listen.autocanonized")})`;
-  }
-  if (audioMode !== "off") {
-    return `${baseTitle} (${formatAudioModeTitleLabel(audioMode, t)})`;
-  }
-  return baseTitle;
-}
-
-type TuneFormState = {
-  threshold: number;
-  computedThreshold: number;
-  minProb: number;
-  maxProb: number;
-  ramp: number;
-  volume: number;
-  highlightAnchorBranch: boolean;
-  justBackwards: boolean;
-  minLongBranchPercent: number;
-  removeSequentialBranches: boolean;
-};
-
-function formatMinJumpDistance(percent: number, t: TFunction) {
-  return percent === 0
-    ? t("tuning.anyDistance")
-    : t("tuning.percentOfTrack", { percent });
-}
-
-type ExportFormState = {
-  durationSeconds: number;
-  format: AudioExportFormat;
-  bitrateKbps: number;
-};
-
-function createSessionSeed(): number {
-  if ("crypto" in globalThis && "getRandomValues" in globalThis.crypto) {
-    const arr = new Uint32Array(1);
-    globalThis.crypto.getRandomValues(arr);
-    return arr[0] >>> 0;
-  }
-  return Math.floor(Math.random() * 0xffffffff) >>> 0;
-}
-
-function waitForNextPaint(): Promise<void> {
-  if ("requestAnimationFrame" in window) {
-    return new Promise((resolve) => {
-      window.requestAnimationFrame(() => resolve());
-    });
-  }
-  return Promise.resolve();
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-  const tag = target.tagName.toLowerCase();
-  return (
-    tag === "input" ||
-    tag === "textarea" ||
-    tag === "button" ||
-    tag === "select" ||
-    tag === "a" ||
-    target.isContentEditable
-  );
-}
-
-function toSimilarityPercent(distance: number, maxDistance: number) {
-  if (!Number.isFinite(distance) || maxDistance <= 0) {
-    return 0;
-  }
-  const normalized = 1 - distance / maxDistance;
-  return Math.round(Math.max(0, Math.min(1, normalized)) * 100);
-}
-
-function nextEdgeIndex(currentIndex: number, direction: number, edgeCount: number) {
-  if (currentIndex >= 0) {
-    return (currentIndex + direction + edgeCount) % edgeCount;
-  }
-  return direction > 0 ? 0 : edgeCount - 1;
-}
-
-function progressStepStatus(index: number, activeIndex: number): ProgressStep["status"] {
-  if (index < activeIndex) {
-    return "done";
-  }
-  return index === activeIndex ? "active" : "pending";
-}
-
-function analysisStageLabel(stage: AnalyzeStage, t: TFunction) {
-  const keys: Record<
-    Exclude<AnalyzeStage, "cached">,
-    | "analysis.loading"
-    | "analysis.decoding"
-    | "analysis.beats"
-    | "analysis.features"
-    | "analysis.segments"
-    | "analysis.building"
-    | "analysis.ready"
-  > = {
-    loading: "analysis.loading",
-    decoding: "analysis.decoding",
-    beats: "analysis.beats",
-    features: "analysis.features",
-    segments: "analysis.segments",
-    building: "analysis.building",
-    ready: "analysis.ready",
-  };
-  const normalizedStage: Exclude<AnalyzeStage, "cached"> =
-    stage === "cached" ? "ready" : stage;
-  return t(keys[normalizedStage]);
-}
-
-function playControlText({
-  swingPreparing,
-  isRunning,
-  isPaused,
-  t,
-}: {
-  swingPreparing: boolean;
-  isRunning: boolean;
-  isPaused: boolean;
-  t: TFunction;
-}) {
-  if (swingPreparing) {
-    return t("listen.preparingSwing");
-  }
-  if (isRunning) {
-    return t("listen.pause");
-  }
-  return isPaused ? t("listen.resume") : t("listen.play");
-}
-
-function playControlIcon(swingPreparing: boolean, isRunning: boolean) {
-  if (swingPreparing) {
-    return "hourglass_top";
-  }
-  return isRunning ? "pause" : "play_arrow";
-}
-
-function formatPlayVelocity(velocity: number) {
-  return velocity > 0 ? `+${velocity}` : `${velocity}`;
-}
-
-function branchDirection(edge: Edge, t: TFunction) {
-  if (edge.dest.which < edge.src.which) {
-    return t("listen.backward");
-  }
-  if (edge.dest.which > edge.src.which) {
-    return t("listen.forward");
-  }
-  return t("listen.sameBeat");
-}
+import type { PlayMode, TuningModalTab } from "./listen/types";
+import {
+  resolveAudioIntensityFromUrl,
+  resolveAudioModeFromUrl,
+  writeAudioModeToUrl,
+} from "./listen/audioMode";
+import {
+  resolveStoredAnchorHighlight,
+  resolveStoredBranchStatsEnabled,
+  resolveStoredFinishOutSong,
+  resolveStoredVisualizationIndex,
+  storeAnchorHighlight,
+  storeBranchStatsEnabled,
+  storeFinishOutSong,
+  storeVisualizationIndex,
+} from "./listen/preferences";
+import {
+  STEP_ORDER,
+  analysisStageLabel,
+  formatTrackTitle,
+  playControlIcon,
+  playControlText,
+  progressStepStatus,
+} from "./listen/labels";
+import {
+  RANDOM_BRANCH_DELTA_PERCENT_SCALE,
+  type ExtrasFormState,
+  type TuneFormState,
+} from "./listen/tuning";
+import { deriveBranchStats, nextEdgeIndex } from "./listen/branches";
+import { createSessionSeed } from "./listen/browser";
+import {
+  ShortcutToastStack,
+  type ShortcutToastQueue,
+} from "./listen/ShortcutToastStack";
+import { BranchStatsPopup } from "./listen/BranchStatsPopup";
+import { ExportModal } from "./listen/ExportModal";
+import { InfoModal } from "./listen/InfoModal";
+import { PanPopover } from "./listen/PanPopover";
+import { PlayMenu } from "./listen/PlayMenu";
+import { SettingsModal } from "./listen/SettingsModal";
+import { StatusPanel } from "./listen/StatusPanel";
+import { TuningModal } from "./listen/TuningModal";
+import { VizInfo } from "./listen/VizInfo";
+import { VizTop } from "./listen/VizTop";
+import { VolumePopover } from "./listen/VolumePopover";
+import { useAudioExport } from "./listen/useAudioExport";
+import { useFullscreenSession } from "./listen/useFullscreenSession";
+import { useListenHotkeys } from "./listen/useListenHotkeys";
+import { useSleepTimer } from "./listen/useSleepTimer";
+import { useVizPopovers } from "./listen/useVizPopovers";
 
 export function Listen({ isActive = true }: { isActive?: boolean }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const {
     file,
     setIsListenLoading,
@@ -713,16 +130,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
-  const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
-  const [isPanOpen, setIsPanOpen] = React.useState(false);
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
-  const [sleepTimer, setSleepTimerState] = React.useState<SleepTimerState>({
-    configuredDurationMs: null,
-    endTimeMs: null,
-    remainingMs: 0,
-  });
-  const [pendingSleepTimerDurationMs, setPendingSleepTimerDurationMs] =
-    React.useState<number | null>(null);
+  const {
+    sleepTimer,
+    pendingSleepTimerDurationMs,
+    setPendingSleepTimerDurationMs,
+    setSleepTimer,
+  } = useSleepTimer({ isSettingsOpen, onExpire: stopPlayback });
   const [theme, setTheme] = React.useState<ThemeName>(() =>
     resolveStoredTheme(),
   );
@@ -739,23 +152,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [swingProgress, setSwingProgress] = React.useState(0);
   const [tuningActiveTab, setTuningActiveTab] =
     React.useState<TuningModalTab>("tuning");
-  const [forceBranchActive, setForceBranchActive] = React.useState(false);
-  const [freezeBeatActive, setFreezeBeatActive] = React.useState(false);
-  const [activeVizIndex, setActiveVizIndex] = React.useState(() => {
-    const raw = safeLocalStorageGet(VISUALIZATION_STORAGE_KEY);
-    if (raw !== null) {
-      const parsed = Number.parseInt(raw, 10);
-      return coerceVisualizationIndex(parsed);
-    }
-    return DEFAULT_VISUALIZATION_INDEX;
-  });
+  const [activeVizIndex, setActiveVizIndex] = React.useState(() =>
+    resolveStoredVisualizationIndex(),
+  );
   const [playMode, setPlayMode] = React.useState<PlayMode>("jukebox");
   const [highlightAnchorBranch, setHighlightAnchorBranch] = React.useState<boolean>(
     () => resolveStoredAnchorHighlight(),
   );
-  const [finishOutSong, setFinishOutSong] = React.useState<boolean>(() => {
-    return safeLocalStorageGet(CANONIZER_FINISH_STORAGE_KEY) === "true";
-  });
+  const [finishOutSong, setFinishOutSong] = React.useState<boolean>(() =>
+    resolveStoredFinishOutSong(),
+  );
   const [tuneForm, setTuneForm] = React.useState<TuneFormState>({
     threshold: 0,
     computedThreshold: 0,
@@ -778,16 +184,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     bringItHomeMode: false,
     audioMode: initialAudioMode,
     audioIntensity: initialAudioIntensity,
-  });
-  const [isExportOpen, setIsExportOpen] = React.useState(false);
-  const [isExporting, setIsExporting] = React.useState(false);
-  const [exportError, setExportError] = React.useState<string | null>(null);
-  const [exportProgress, setExportProgress] =
-    React.useState<JukeboxExportProgress | null>(null);
-  const [exportForm, setExportForm] = React.useState<ExportFormState>({
-    durationSeconds: 60,
-    format: "mp3",
-    bitrateKbps: 192,
   });
 
   const vizPanelRef = React.useRef<HTMLDivElement | null>(null);
@@ -818,16 +214,48 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const swingPreparingRef = React.useRef(false);
   const playTimerMsRef = React.useRef(0);
   const lastPlayStampRef = React.useRef<number | null>(null);
-  const sleepTimerTimeoutRef = React.useRef<number | null>(null);
-  const sleepTimerEndTimeRef = React.useRef<number | null>(null);
   const analysisRef = React.useRef<AnalysisOutput | null>(null);
   const fingerprintRef = React.useRef<string | null>(null);
   const previousFileKeyRef = React.useRef<string | null>(null);
-  const volumeButtonRef = React.useRef<HTMLButtonElement | null>(null);
-  const volumePanelRef = React.useRef<HTMLDivElement | null>(null);
-  const panButtonRef = React.useRef<HTMLButtonElement | null>(null);
-  const panPanelRef = React.useRef<HTMLDivElement | null>(null);
-  const { requestWakeLock, releaseWakeLock } = useWakeLock();
+  const {
+    isVolumeOpen,
+    isPanOpen,
+    toggleVolume,
+    togglePan,
+    volumeButtonRef,
+    volumePanelRef,
+    panButtonRef,
+    panPanelRef,
+  } = useVizPopovers({ playMode });
+  const { isFullscreen, onToggleFullscreen, requestWakeLockIfFullscreen } =
+    useFullscreenSession({
+      vizPanelRef,
+      vizControllerRef,
+      autocanonizerRef,
+      playModeRef,
+    });
+  const {
+    isExportOpen,
+    isExporting,
+    exportError,
+    exportProgress,
+    exportForm,
+    setExportForm,
+    openExport,
+    closeExport,
+    resetExport,
+    handleExportJukeboxAudio,
+  } = useAudioExport({
+    file,
+    analysis,
+    analysisRef,
+    playerRef,
+    engineRef,
+    jukeboxAudioMode,
+    audioIntensity,
+    getSwingSourceIdentity: getCurrentSwingSourceIdentity,
+    t,
+  });
 
   // The queue owns stacking/dedupe/timers; ShortcutToastStack subscribes to
   // it directly so toast churn does not re-render this route.
@@ -843,18 +271,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     },
     [shortcutToastQueue],
   );
-
-  const requestWakeLockSafely = React.useCallback(() => {
-    requestWakeLock().catch((err) => {
-      console.warn(`Wake lock request failed: ${String(err)}`);
-    });
-  }, [requestWakeLock]);
-
-  const releaseWakeLockSafely = React.useCallback(() => {
-    releaseWakeLock().catch((err) => {
-      console.warn(`Wake lock release failed: ${String(err)}`);
-    });
-  }, [releaseWakeLock]);
 
   function setSwingPreparingState(preparing: boolean) {
     swingPreparingRef.current = preparing;
@@ -899,89 +315,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   function clearSelectedBranch() {
     setSelectedEdge(null);
     vizControllerRef.current?.setSelectedEdge(null);
-  }
-
-  function clearSleepTimerTimeout() {
-    if (sleepTimerTimeoutRef.current === null) {
-      return;
-    }
-    backgroundClearTimeout(sleepTimerTimeoutRef.current);
-    sleepTimerTimeoutRef.current = null;
-  }
-
-  function publishInactiveSleepTimer() {
-    sleepTimerEndTimeRef.current = null;
-    setSleepTimerState({
-      configuredDurationMs: null,
-      endTimeMs: null,
-      remainingMs: 0,
-    });
-  }
-
-  function expireSleepTimer(expectedEndTimeMs: number) {
-    if (sleepTimerEndTimeRef.current !== expectedEndTimeMs) {
-      return;
-    }
-    sleepTimerEndTimeRef.current = null;
-    setSleepTimerState({
-      configuredDurationMs: null,
-      endTimeMs: null,
-      remainingMs: 0,
-    });
-    clearSleepTimerTimeout();
-    stopPlayback();
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {
-        console.warn("Failed to exit fullscreen");
-      });
-    }
-  }
-
-  function scheduleSleepTimerTick(expectedEndTimeMs: number) {
-    clearSleepTimerTimeout();
-    const remainingMs = Math.max(0, expectedEndTimeMs - performance.now());
-    const nextDelayMs = remainingMs > 1000 ? 1000 : remainingMs;
-    sleepTimerTimeoutRef.current = backgroundSetTimeout(() => {
-      if (sleepTimerEndTimeRef.current !== expectedEndTimeMs) {
-        return;
-      }
-      const nextRemainingMs = Math.max(0, expectedEndTimeMs - performance.now());
-      setSleepTimerState((current) => {
-        if (current.endTimeMs !== expectedEndTimeMs) {
-          return current;
-        }
-        return {
-          configuredDurationMs: current.configuredDurationMs,
-          endTimeMs: expectedEndTimeMs,
-          remainingMs: nextRemainingMs,
-        };
-      });
-      if (nextRemainingMs <= 0) {
-        expireSleepTimer(expectedEndTimeMs);
-        return;
-      }
-      scheduleSleepTimerTick(expectedEndTimeMs);
-    }, nextDelayMs);
-  }
-
-  function setSleepTimer(durationMs: number | null) {
-    clearSleepTimerTimeout();
-    if (
-      durationMs === null ||
-      !Number.isFinite(durationMs) ||
-      durationMs <= 0
-    ) {
-      publishInactiveSleepTimer();
-      return;
-    }
-    const endTimeMs = performance.now() + durationMs;
-    sleepTimerEndTimeRef.current = endTimeMs;
-    setSleepTimerState({
-      configuredDurationMs: durationMs,
-      endTimeMs,
-      remainingMs: durationMs,
-    });
-    scheduleSleepTimerTick(endTimeMs);
   }
 
   function syncVizDataFromEngine() {
@@ -1034,7 +367,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [activeVizIndex]);
 
   React.useEffect(() => {
-    safeLocalStorageSet(VISUALIZATION_STORAGE_KEY, String(activeVizIndex));
+    storeVisualizationIndex(activeVizIndex);
   }, [activeVizIndex]);
 
   React.useEffect(() => {
@@ -1123,29 +456,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [playMode]);
 
   React.useEffect(() => {
-    safeLocalStorageSet(CANONIZER_FINISH_STORAGE_KEY, String(finishOutSong));
+    storeFinishOutSong(finishOutSong);
     autocanonizerRef.current?.setFinishOutSong(finishOutSong);
   }, [finishOutSong]);
-
-  React.useEffect(() => {
-    setPendingSleepTimerDurationMs(
-      resolveSleepTimerDuration(sleepTimer.configuredDurationMs),
-    );
-  }, [sleepTimer.configuredDurationMs]);
-
-  React.useEffect(() => {
-    if (isSettingsOpen) {
-      setPendingSleepTimerDurationMs(
-        resolveSleepTimerDuration(sleepTimer.configuredDurationMs),
-      );
-    }
-  }, [isSettingsOpen, sleepTimer.configuredDurationMs]);
-
-  React.useEffect(() => {
-    return () => {
-      clearSleepTimerTimeout();
-    };
-  }, []);
 
   React.useEffect(() => {
     setIsListenLoading(isAnalyzing);
@@ -1153,18 +466,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       setIsListenLoading(false);
     };
   }, [isAnalyzing, setIsListenLoading]);
-
-  React.useEffect(() => {
-    const duration = analysis?.track?.duration;
-    if (!duration || !Number.isFinite(duration) || duration <= 0) {
-      return;
-    }
-    const rounded = Math.max(5, Math.round(duration));
-    setExportForm((prev) => ({
-      ...prev,
-      durationSeconds: Math.min(MAX_EXPORT_DURATION_SECONDS, rounded),
-    }));
-  }, [analysis]);
 
   React.useEffect(() => {
     if (!file || !playerRef.current) {
@@ -1205,10 +506,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     analysisRef.current = null;
     fingerprintRef.current = null;
     clearSelectedBranch();
-    setIsExportOpen(false);
-    setIsExporting(false);
-    setExportError(null);
-    setExportProgress(null);
+    resetExport();
 
     usecase
       .execute({
@@ -1282,272 +580,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       window.clearInterval(id);
     };
   }, []);
-
-  React.useEffect(() => {
-    if (!isActive) {
-      engineRef.current?.setForceBranch(false);
-      engineRef.current?.setFreezeCurrentBeat(false);
-      setForceBranchActive(false);
-      setFreezeBeatActive(false);
-      return;
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (isTuningOpen || isInfoOpen || isExportOpen) {
-        return;
-      }
-      if (isEditableTarget(event.target)) {
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "e" || event.key === "E") &&
-        !event.repeat
-      ) {
-        event.preventDefault();
-        openTuningModalTab("extras");
-        return;
-      }
-      if (event.code === "Space") {
-        event.preventDefault();
-        togglePlayback();
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
-        selectedEdge
-      ) {
-        event.preventDefault();
-        selectAdjacentBranch(event.key === "ArrowRight" ? 1 : -1);
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "Delete" || event.key === "Backspace") &&
-        selectedEdge &&
-        !selectedEdge.deleted
-      ) {
-        event.preventDefault();
-        deleteSelectedBranch();
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "h" || event.key === "H") &&
-        !event.repeat
-      ) {
-        event.preventDefault();
-        const nextValue = !bringItHomeModeRef.current;
-        bringItHomeModeRef.current = nextValue;
-        setBringItHomeMode(nextValue);
-        engineRef.current?.setBringItHomeMode(nextValue);
-        if (nextValue) {
-          engineRef.current?.setForceBranch(false);
-          setForceBranchActive(false);
-        }
-        showShortcutToast(
-          nextValue
-            ? t("listen.bringHomeEnabled")
-            : t("listen.bringHomeDisabled"),
-        );
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        (event.key === "a" || event.key === "A") &&
-        !event.repeat
-      ) {
-        if (toggleSelectedAnchorBranch()) {
-          event.preventDefault();
-        }
-        return;
-      }
-      // Match brackets by typed character first, then by physical key
-      // position so layouts without direct bracket keys still work.
-      let bracketDirection = 0;
-      if (event.key === "[") {
-        bracketDirection = -1;
-      } else if (event.key === "]") {
-        bracketDirection = 1;
-      } else if (event.code === "BracketLeft") {
-        bracketDirection = -1;
-      } else if (event.code === "BracketRight") {
-        bracketDirection = 1;
-      }
-      if (playMode === "jukebox" && bracketDirection !== 0) {
-        event.preventDefault();
-        const engine = engineRef.current;
-        if (!engine) {
-          return;
-        }
-        const direction = bracketDirection;
-        const velocity = engine.getPlayVelocity() + direction;
-        engine.setPlayVelocity(velocity);
-        showShortcutToast(
-          t("listen.playVelocity", {
-            value: formatPlayVelocity(engine.getPlayVelocity()),
-          }),
-          "play-velocity",
-        );
-        return;
-      }
-      if (playMode === "jukebox" && event.key === "ArrowDown") {
-        event.preventDefault();
-        engineRef.current?.setPlayVelocity(0);
-        showShortcutToast(
-          t("listen.playVelocity", { value: "0" }),
-          "play-velocity",
-        );
-        return;
-      }
-      if (playMode === "jukebox" && event.key === "ArrowUp") {
-        event.preventDefault();
-        engineRef.current?.setPlayVelocity(1);
-        showShortcutToast(
-          t("listen.playVelocity", { value: "+1" }),
-          "play-velocity",
-        );
-        return;
-      }
-      if (playMode === "jukebox" && event.key === "Control") {
-        event.preventDefault();
-        engineRef.current?.setFreezeCurrentBeat(true);
-        setFreezeBeatActive(true);
-        return;
-      }
-      if (
-        playMode === "jukebox" &&
-        event.key === "Shift" &&
-        isRunning &&
-        !bringItHomeModeRef.current
-      ) {
-        engineRef.current?.setForceBranch(true);
-        setForceBranchActive(true);
-      }
-    };
-
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "Control") {
-        engineRef.current?.setFreezeCurrentBeat(false);
-        setFreezeBeatActive(false);
-      }
-      if (playMode === "jukebox" && event.key === "Shift") {
-        engineRef.current?.setForceBranch(false);
-        setForceBranchActive(false);
-      }
-    };
-    const onBlur = () => {
-      engineRef.current?.setFreezeCurrentBeat(false);
-      engineRef.current?.setForceBranch(false);
-      setFreezeBeatActive(false);
-      setForceBranchActive(false);
-    };
-    // Blur alone can be missed on tab switches (e.g. Ctrl+T), leaving
-    // freeze/branch modes stuck; visibilitychange covers that path.
-    const onHotkeyVisibilityChange = () => {
-      if (document.hidden) {
-        onBlur();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", onBlur);
-    document.addEventListener("visibilitychange", onHotkeyVisibilityChange);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", onBlur);
-      document.removeEventListener(
-        "visibilitychange",
-        onHotkeyVisibilityChange,
-      );
-      engineRef.current?.setFreezeCurrentBeat(false);
-      engineRef.current?.setForceBranch(false);
-      setFreezeBeatActive(false);
-      setForceBranchActive(false);
-    };
-  }, [
-    selectedEdge,
-    isRunning,
-    isPaused,
-    isTuningOpen,
-    isInfoOpen,
-    isExportOpen,
-    playMode,
-    isActive,
-    showShortcutToast,
-  ]);
-
-  React.useEffect(() => {
-    const onFullscreen = () => {
-      const active = document.fullscreenElement === vizPanelRef.current;
-      setIsFullscreen(active);
-      if (playModeRef.current === "autocanonizer") {
-        autocanonizerRef.current?.resizeNow();
-      } else {
-        vizControllerRef.current?.resizeActive();
-      }
-      if (active) {
-        requestWakeLockSafely();
-      } else {
-        releaseWakeLockSafely();
-      }
-    };
-
-    const onVisibility = () => {
-      if (document.hidden) {
-        releaseWakeLockSafely();
-        return;
-      }
-      if (document.fullscreenElement === vizPanelRef.current) {
-        requestWakeLockSafely();
-      }
-    };
-
-    document.addEventListener("fullscreenchange", onFullscreen);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      document.removeEventListener("fullscreenchange", onFullscreen);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [releaseWakeLockSafely, requestWakeLockSafely]);
-
-  React.useEffect(() => {
-    if (!isVolumeOpen && !isPanOpen) {
-      return;
-    }
-    const onDocumentClick = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-      if (volumePanelRef.current?.contains(target)) {
-        return;
-      }
-      if (volumeButtonRef.current?.contains(target)) {
-        return;
-      }
-      if (panPanelRef.current?.contains(target)) {
-        return;
-      }
-      if (panButtonRef.current?.contains(target)) {
-        return;
-      }
-      setIsVolumeOpen(false);
-      setIsPanOpen(false);
-    };
-    document.addEventListener("click", onDocumentClick);
-    return () => {
-      document.removeEventListener("click", onDocumentClick);
-    };
-  }, [isVolumeOpen, isPanOpen]);
-
-  React.useEffect(() => {
-    if (playMode !== "autocanonizer") {
-      setIsPanOpen(false);
-    }
-  }, [playMode]);
 
   function stopPlayback() {
     cowbellOverlayRef.current?.cancelScheduledHits();
@@ -1947,9 +979,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     isPausedRef.current = false;
     setIsRunning(true);
     setIsPaused(false);
-    if (document.fullscreenElement === vizPanelRef.current) {
-      requestWakeLockSafely();
-    }
+    requestWakeLockIfFullscreen();
   };
 
   const togglePlayback = () => {
@@ -2003,9 +1033,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       isPausedRef.current = false;
       setIsRunning(true);
       setIsPaused(false);
-      if (document.fullscreenElement === vizPanelRef.current) {
-        requestWakeLockSafely();
-      }
+      requestWakeLockIfFullscreen();
       return;
     }
     if (!player.isPlaying()) {
@@ -2039,9 +1067,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     isPausedRef.current = false;
     setIsRunning(true);
     setIsPaused(false);
-    if (document.fullscreenElement === vizPanelRef.current) {
-      requestWakeLockSafely();
-    }
+    requestWakeLockIfFullscreen();
     return true;
   };
 
@@ -2289,183 +1315,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     autocanonizerRef.current?.setStreamPans(nextMain / 100, nextOther / 100);
   };
 
-  const onExportJukeboxAudio = async () => {
-    const activeAnalysis = analysisRef.current ?? analysis;
-    const player = playerRef.current;
-    const engine = engineRef.current;
-    if (!activeAnalysis || !player || !engine || !file) {
-      return;
-    }
-
-    const sourceBuffer = player.getSourceBuffer() ?? player.getBuffer();
-    if (!sourceBuffer) {
-      setExportError(t("export.bufferUnavailable"));
-      return;
-    }
-
-    const durationSeconds = Number(exportForm.durationSeconds);
-    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-      setExportError(t("export.positiveDuration"));
-      return;
-    }
-    if (durationSeconds > MAX_EXPORT_DURATION_SECONDS) {
-      setExportError(t("export.durationCap", {
-        minutes: MAX_EXPORT_DURATION_SECONDS / 60,
-      }));
-      return;
-    }
-
-    const requestedExtension = exportForm.format;
-    const requestedFilename = buildAudioExportName(file.name, requestedExtension);
-    const requestedDescription =
-      requestedExtension === "mp3"
-        ? t("export.mp3Description")
-        : t("export.wavDescription");
-    const requestedMimeType =
-      requestedExtension === "mp3" ? "audio/mpeg" : "audio/wav";
-
-    let pickedHandle: Awaited<ReturnType<typeof pickBinaryExportFile>> = null;
-    try {
-      pickedHandle = await pickBinaryExportFile(requestedFilename, {
-        mimeType: requestedMimeType,
-        description: requestedDescription,
-        extension: `.${requestedExtension}`,
-      });
-    } catch (err) {
-      const name = err instanceof DOMException ? err.name : "";
-      if (name === "AbortError") {
-        return;
-      }
-      console.warn(`Unable to open export save dialog: ${String(err)}`);
-      setExportError(t("export.saveDialogFailed"));
-      return;
-    }
-
-    setExportError(null);
-    setExportProgress({
-      stage: "planning",
-      message: { kind: "initializing" },
-      percent: 0,
-    });
-    setIsExporting(true);
-    await waitForNextPaint();
-
-    try {
-      let swingBuffer: AudioBuffer | undefined;
-      if (jukeboxAudioMode === "swing") {
-        const existingSwingBuffer = player.getRenderedJukeboxAudioBuffer("swing");
-        if (existingSwingBuffer) {
-          swingBuffer = existingSwingBuffer;
-        } else if (activeAnalysis.beats.length > 0) {
-          setExportProgress({
-            stage: "rendering",
-            message: { kind: "preparingSwing" },
-            percent: 2,
-          });
-          swingBuffer = await getOrCreateSwingBuffer(
-            sourceBuffer,
-            getCurrentSwingSourceIdentity(),
-            () =>
-              renderSwingBuffer(sourceBuffer, activeAnalysis.beats, {
-                onProgress: (progress) => {
-                  setExportProgress({
-                    stage: "rendering",
-                    message: { kind: "preparingSwing" },
-                    percent: 2 + Math.max(0, Math.min(1, progress)) * 6,
-                  });
-                },
-              }),
-          );
-          player.setRenderedJukeboxAudioBuffer("swing", swingBuffer);
-        } else {
-          throw new Error("Swing export requires beat analysis.");
-        }
-      }
-
-      const deletedEdges =
-        engine
-          .getGraphState()
-          ?.allEdges.filter((edge) => edge.deleted)
-          .map((edge) => ({ src: edge.src.which, dest: edge.dest.which })) ?? [];
-      const anchorEdge = engine.getUserAnchorEdge();
-
-      const result = await exportJukeboxAudio({
-        analysis: activeAnalysis,
-        sourceBuffer,
-        config: engine.getConfig(),
-        deletedEdges,
-        userAnchorEdge: anchorEdge
-          ? { src: anchorEdge.src.which, dest: anchorEdge.dest.which }
-          : null,
-        durationSeconds,
-        format: exportForm.format,
-        bitrateKbps: exportForm.format === "mp3" ? exportForm.bitrateKbps : undefined,
-        gain: player.getVolume(),
-        audioMode: jukeboxAudioMode,
-        audioIntensityPct: audioIntensity,
-        sectionStartBeatIndices: engine.getSectionStartBeatIndices(),
-        swingBuffer,
-        randomMode: "seeded",
-        seed: createSessionSeed(),
-        onProgress: (progress) => setExportProgress(progress),
-      });
-
-      const extension = result.extension;
-      const filename = buildAudioExportName(file.name, extension);
-      const description =
-        extension === "mp3"
-          ? t("export.mp3Description")
-          : t("export.wavDescription");
-      await saveExportBinary(
-        filename,
-        result.bytes,
-        {
-          mimeType: result.mimeType,
-          description,
-          extension: `.${extension}`,
-        },
-        extension === requestedExtension ? pickedHandle : null,
-      );
-      setIsExportOpen(false);
-    } catch (err) {
-      const name = err instanceof DOMException ? err.name : "";
-      if (name === "AbortError") {
-        return;
-      }
-      console.warn(`Audio export failed: ${String(err)}`);
-      setExportError(exportErrorMessage(err, t));
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportJukeboxAudio = () => {
-    onExportJukeboxAudio().catch((err) => {
-      console.warn(`Audio export failed: ${String(err)}`);
-      setExportError(exportErrorMessage(err, t));
-      setIsExporting(false);
-    });
-  };
-
-  const onToggleFullscreen = async () => {
-    if (!vizPanelRef.current) {
-      return;
-    }
-    if (document.fullscreenElement !== vizPanelRef.current) {
-      try {
-        await vizPanelRef.current.requestFullscreen();
-      } catch {
-        // ignore
-      }
-      return;
-    }
-    try {
-      await document.exitFullscreen();
-    } catch {
-      // ignore
-    }
-  };
-
   const onSetActiveViz = (index: number) => {
     if (playMode === "autocanonizer") {
       return;
@@ -2477,6 +1326,27 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     vizControllerRef.current?.setActiveIndex(index);
     setActiveVizIndex(index);
   };
+
+  const { forceBranchActive, freezeBeatActive } = useListenHotkeys({
+    isActive,
+    playMode,
+    selectedEdge,
+    isRunning,
+    isPaused,
+    isTuningOpen,
+    isInfoOpen,
+    isExportOpen,
+    engineRef,
+    bringItHomeModeRef,
+    setBringItHomeMode,
+    showShortcutToast,
+    t,
+    openTuningModalTab,
+    togglePlayback,
+    selectAdjacentBranch,
+    deleteSelectedBranch,
+    toggleSelectedAnchorBranch,
+  });
 
   const steps = React.useMemo<ProgressStep[]>(() => {
     const stageIndex = STEP_ORDER.indexOf(progressStage);
@@ -2511,180 +1381,29 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       : t("listen.totalBeats");
   const branchStats =
     branchStatsEnabled && playMode === "jukebox" && selectedEdge
-      ? (() => {
-          const startSeconds = Math.max(0, selectedEdge.src.start);
-          const endSeconds = Math.max(0, selectedEdge.dest.start);
-          const startDisplaySeconds = Math.floor(startSeconds);
-          const endDisplaySeconds = Math.floor(endSeconds);
-          const deltaSeconds = endDisplaySeconds - startDisplaySeconds;
-          const maxDistance = Math.max(
-            1,
-            engineRef.current?.getConfig().maxBranchThreshold ?? 80,
-          );
-          const signedDelta =
-            `${deltaSeconds >= 0 ? "+" : "-"}${formatDuration(Math.abs(deltaSeconds))}`;
-          const beatDelta = selectedEdge.dest.which - selectedEdge.src.which;
-          return {
-            id: selectedEdge.id,
-            start: formatDuration(startDisplaySeconds),
-            end: formatDuration(endDisplaySeconds),
-            delta: signedDelta,
-            startBeat: String(selectedEdge.src.which),
-            endBeat: String(selectedEdge.dest.which),
-            beatDelta: `${beatDelta >= 0 ? "+" : "-"}${Math.abs(beatDelta)}`,
-            direction: branchDirection(selectedEdge, t),
-            similarity: `${toSimilarityPercent(selectedEdge.distance, maxDistance)}%`,
-          };
-        })()
+      ? deriveBranchStats(
+          selectedEdge,
+          Math.max(1, engineRef.current?.getConfig().maxBranchThreshold ?? 80),
+          t,
+        )
       : null;
 
   const closeSettings = () => setIsSettingsOpen(false);
-  const languageCredit = t("translationByNameCredit");
-  const settingsModal = isSettingsOpen
-    ? createPortal(
-        <div
-          id="settings-modal"
-          className="modal open"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="settings-title"
-        >
-          <button
-            className="modal-backdrop"
-            type="button"
-            onClick={closeSettings}
-            aria-label={t("common.close")}
-          />
-          <div className="modal-panel settings-panel">
-            <div className="modal-header">
-              <h2 id="settings-title">{t("settings.title")}</h2>
-              <button
-                id="settings-close"
-                className="modal-close"
-                type="button"
-                onClick={closeSettings}
-                aria-label={t("common.close")}
-                title={t("common.close")}
-              >
-                <SymbolIcon className="modal-close-icon" name="close" />
-              </button>
-            </div>
-            <div className="modal-body settings-body">
-              <section className="settings-section">
-                <label className="settings-field" htmlFor="settings-language">
-                  <span className="label-line">{t("settings.language")}</span>
-                  <span className="viz-select-wrap settings-select-wrap">
-                    <select
-                      id="settings-language"
-                      className="viz-select settings-select"
-                      aria-label={t("settings.language")}
-                      value={resolveSupportedLanguage(i18n.resolvedLanguage)}
-                      onChange={(event) => {
-                        void i18n.changeLanguage(event.target.value);
-                      }}
-                    >
-                      {supportedLanguageOptions.map((option) => (
-                        <option key={option.code} value={option.code}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <SymbolIcon
-                      className="viz-select-arrow"
-                      name="arrow_drop_down"
-                    />
-                  </span>
-                  {languageCredit ? (
-                    <span className="hint">{languageCredit}</span>
-                  ) : null}
-                </label>
-              </section>
-
-              <section className="settings-section">
-                <fieldset className="settings-fieldset">
-                  <legend className="label-line">{t("settings.theme")}</legend>
-                  <div className="settings-theme-options">
-                    {(["light", "dark"] as const).map((option) => (
-                      <label key={option} className="settings-theme-option">
-                        <input
-                          type="radio"
-                          name="settings-theme"
-                          value={option}
-                          checked={theme === option}
-                          onChange={() => {
-                            setTheme(option);
-                            applyTheme(option);
-                            vizControllerRef.current?.refresh();
-                          }}
-                        />
-                        <span>{t(`common.${option}`)}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              </section>
-
-              <section className="settings-section">
-                <div className="label-line">{t("settings.sleepTimer")}</div>
-                <div id="sleep-timer-current" className="sleep-timer-current">
-                  {sleepTimer.remainingMs > 0
-                    ? t("sleepTimer.currentCountdown", {
-                        time: formatSleepTimerRemaining(sleepTimer.remainingMs),
-                      })
-                    : t("sleepTimer.off")}
-                </div>
-                <div className="settings-field">
-                  <label className="label-line" htmlFor="sleep-timer-select">
-                    {t("sleepTimer.timer")}
-                  </label>
-                  <div className="settings-timer-row">
-                    <span className="viz-select-wrap settings-select-wrap">
-                      <select
-                        id="sleep-timer-select"
-                        className="viz-select settings-select"
-                        value={getSleepTimerOptionValue(
-                          pendingSleepTimerDurationMs,
-                        )}
-                        onChange={(event) =>
-                          setPendingSleepTimerDurationMs(
-                            getSleepTimerDurationFromValue(event.target.value),
-                          )
-                        }
-                      >
-                        {SLEEP_TIMER_OPTIONS.map((option) => (
-                          <option
-                            key={getSleepTimerOptionValue(option.durationMs)}
-                            value={getSleepTimerOptionValue(option.durationMs)}
-                          >
-                            {sleepTimerOptionLabel(option.durationMs, t)}
-                          </option>
-                        ))}
-                      </select>
-                      <SymbolIcon
-                        className="viz-select-arrow"
-                        name="arrow_drop_down"
-                      />
-                    </span>
-                    <button
-                      id="sleep-timer-set"
-                      className="tab-btn settings-timer-set"
-                      type="button"
-                      onClick={() => {
-                        setSleepTimer(pendingSleepTimerDurationMs);
-                        closeSettings();
-                      }}
-                    >
-                      {t("common.set")}
-                    </button>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )
-    : null;
+  const settingsModal = isSettingsOpen ? (
+    <SettingsModal
+      theme={theme}
+      onThemeChange={(option) => {
+        setTheme(option);
+        applyTheme(option);
+        vizControllerRef.current?.refresh();
+      }}
+      sleepTimer={sleepTimer}
+      pendingSleepTimerDurationMs={pendingSleepTimerDurationMs}
+      onPendingSleepTimerDurationChange={setPendingSleepTimerDurationMs}
+      onSetSleepTimer={setSleepTimer}
+      onClose={closeSettings}
+    />
+  ) : null;
 
   // Computed before the early return (and file-guarded) so the marquee hooks
   // below run unconditionally on every render, keeping hook order stable.
@@ -2712,199 +1431,48 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   return (
     <>
       <section className="listen-page">
-      {isAnalyzing ? (
-        <div className="panel" id="play-status">
-          <ProgressSteps
-            steps={steps}
-            currentMessage={progressMessage}
-            currentProgress={progressPercent}
-          />
-        </div>
-      ) : null}
-      {!isAnalyzing && swingPreparing ? (
-        <div className="panel" id="play-status">
-          <div className="progress">
-            <div className="progress__header">
-              <p className="progress__title">
-                {t("listen.preparingSwingPercent", { percent: swingProgress })}
-              </p>
-              <p className="progress__message">{t("listen.addingSwing")}</p>
-            </div>
-            <div className="progress-bar" aria-hidden="true">
-              <div
-                className="progress-bar-fill"
-                style={{ width: `${swingProgress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <StatusPanel
+        isAnalyzing={isAnalyzing}
+        steps={steps}
+        progressMessage={progressMessage}
+        progressPercent={progressPercent}
+        swingPreparing={swingPreparing}
+        swingProgress={swingProgress}
+      />
 
       {error ? <div className="error">{error}</div> : null}
 
       {showPlaybackUi ? (
-        <div className="menu-bar">
-          <div className="menu-left">
-            <div className="play-title" ref={playTitleRef}></div>
-            {playMode === "jukebox" && bringItHomeMode ? (
-              <span className="bring-home-note">{t("listen.bringingHome")}</span>
-            ) : null}
-          </div>
-          <div className="menu-right">
-            <button
-              id="tuning"
-              className={`tune-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
-              type="button"
-              onClick={() => openTuningModalTab("tuning")}
-              disabled={!analysis || playMode === "autocanonizer"}
-              title={t("listen.tune")}
-              aria-label={t("listen.tune")}
-            >
-              <SymbolIcon className="tune-icon" name="tune" />
-            </button>
-            <button
-              id="track-info"
-              className={`info-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
-              type="button"
-              onClick={() => setIsInfoOpen(true)}
-              disabled={!analysis || playMode === "autocanonizer"}
-              title={t("listen.info")}
-              aria-label={t("listen.info")}
-            >
-              <SymbolIcon className="info-icon" name="info" />
-            </button>
-            <button
-              id="track-audio-export"
-              className={`copy-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
-              type="button"
-              onClick={() => {
-                setExportError(null);
-                setExportProgress(null);
-                setIsExportOpen(true);
-              }}
-              disabled={!analysis || isExporting || playMode === "autocanonizer"}
-              title={t("listen.exportAudio")}
-              aria-label={t("listen.exportAudio")}
-            >
-              <SymbolIcon className="copy-icon" name="download" />
-            </button>
-          </div>
-        </div>
+        <PlayMenu
+          playTitleRef={playTitleRef}
+          playMode={playMode}
+          bringItHomeMode={bringItHomeMode}
+          hasAnalysis={Boolean(analysis)}
+          isExporting={isExporting}
+          onOpenTuning={() => openTuningModalTab("tuning")}
+          onOpenInfo={() => setIsInfoOpen(true)}
+          onOpenExport={openExport}
+        />
       ) : null}
 
       <div id="viz-panel" ref={vizPanelRef} hidden={!showPlaybackUi}>
         <div id="jukebox-viz" className={`viz ${playMode === "autocanonizer" ? "is-canonizer" : ""}`}>
           {branchStats ? (
-            <div className="branch-stats-popup">
-              <div className="branch-stats-popup-header">
-                <div className="branch-stats-popup-title">
-                  Branch #{branchStats.id} stats
-                </div>
-                <button
-                  id="branch-stats-delete"
-                  className="branch-stats-delete"
-                  type="button"
-                  aria-label={t("listen.deleteBranch")}
-                  title={t("listen.deleteBranch")}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    deleteSelectedBranch();
-                  }}
-                  disabled={Boolean(selectedEdge?.deleted)}
-                >
-                  <SymbolIcon className="branch-stats-delete-icon" name="delete" />
-                </button>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.direction")}</span>
-                <span className="branch-stats-popup-value">{branchStats.direction}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.startTime")}</span>
-                <span className="branch-stats-popup-value">{branchStats.start}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.endTime")}</span>
-                <span className="branch-stats-popup-value">{branchStats.end}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.timeDifference")}</span>
-                <span className="branch-stats-popup-value">{branchStats.delta}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.startBeat")}</span>
-                <span className="branch-stats-popup-value">{branchStats.startBeat}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.endBeat")}</span>
-                <span className="branch-stats-popup-value">{branchStats.endBeat}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.beatDifference")}</span>
-                <span className="branch-stats-popup-value">{branchStats.beatDelta}</span>
-              </div>
-              <div className="branch-stats-popup-row">
-                <span className="branch-stats-popup-label">{t("listen.branchMatch")}</span>
-                <span className="branch-stats-popup-value">{branchStats.similarity}</span>
-              </div>
-            </div>
+            <BranchStatsPopup
+              stats={branchStats}
+              deleteDisabled={Boolean(selectedEdge?.deleted)}
+              onDelete={deleteSelectedBranch}
+            />
           ) : null}
-          <div className="viz-top">
-            <div className="viz-actions">
-              <label className="viz-select-group" htmlFor="play-mode-select">
-                <span className="viz-select-wrap">
-                  <select
-                    id="play-mode-select"
-                    className="viz-select"
-                    aria-label={t("listen.mode")}
-                    value={playMode}
-                    onChange={(event) =>
-                      onSetPlayMode(
-                        event.target.value === "autocanonizer"
-                          ? "autocanonizer"
-                          : "jukebox"
-                      )
-                    }
-                  >
-                    <option value="autocanonizer">{t("listen.autocanonizer")}</option>
-                    <option value="jukebox">{t("listen.jukebox")}</option>
-                  </select>
-                  <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
-                </span>
-              </label>
-            </div>
-            <div className="viz-controls">
-              <label className="viz-select-group" htmlFor="viz-select">
-                <span className="viz-select-wrap">
-                  <select
-                    id="viz-select"
-                    className="viz-select"
-                    aria-label={t("listen.visualization")}
-                    value={String(activeVizIndex)}
-                    onChange={(event) => onSetActiveViz(Number(event.target.value))}
-                    disabled={playMode === "autocanonizer"}
-                  >
-                    {Array.from({ length: vizCount }, (_, index) => (
-                      <option key={index} value={index}>
-                        {getVisualizationLabel(index, t)}
-                      </option>
-                    ))}
-                  </select>
-                  <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
-                </span>
-              </label>
-            </div>
-            <label className="canonizer-finish">
-              <input
-                id="canonizer-finish"
-                type="checkbox"
-                checked={finishOutSong}
-                onChange={(event) => setFinishOutSong(event.target.checked)}
-              />
-              <span>{t("listen.finishTrack")}</span>
-            </label>
-          </div>
+          <VizTop
+            playMode={playMode}
+            onPlayModeChange={onSetPlayMode}
+            activeVizIndex={activeVizIndex}
+            vizCount={vizCount}
+            onActiveVizChange={onSetActiveViz}
+            finishOutSong={finishOutSong}
+            onFinishOutSongChange={setFinishOutSong}
+          />
           {forceBranchActive || freezeBeatActive ? (
             <div className="modifier-badges" role="status" aria-live="polite">
               {forceBranchActive ? (
@@ -2937,177 +1505,38 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                   name={playIcon}
                 />
               </button>
-              <div className="viz-info">
-                <div className="viz-title" id="viz-now-playing" ref={vizTitleRef}></div>
-                <div className="viz-meta">
-                  <span
-                    id="autocanonizer-times"
-                    className={`autocanonizer-times ${playMode === "autocanonizer" ? "" : "is-hidden"}`}
-                  >
-                    <span
-                      id="autocanonizer-main-time"
-                      style={{ color: AUTOCANONIZER_MAIN_COLOR }}
-                    >
-                      {formatTime(autocanonizerMainSeconds)}
-                    </span>
-                    <span aria-hidden="true">–</span>
-                    <span
-                      id="autocanonizer-other-time"
-                      style={{ color: AUTOCANONIZER_OTHER_COLOR }}
-                    >
-                      {formatTime(autocanonizerOtherSeconds)}
-                    </span>
-                    <span aria-hidden="true">/</span>
-                    <span id="autocanonizer-total-time">
-                      {formatTime(analysis?.track?.duration ?? 0)}
-                    </span>
-                  </span>
-                  <span className="viz-meta-stats">
-                    <span>{t("listen.listenTime")}</span>
-                    <span>{formatDuration(listenSeconds)}</span>
-                    <span className={`viz-divider ${playMode === "autocanonizer" ? "is-hidden" : ""}`}>·</span>
-                    <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsLabel}</span>
-                    <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsPlayed}</span>
-                  </span>
-                  {playMode === "jukebox" && bringItHomeMode ? (
-                    <span className="bring-home-fullscreen-note">· Bringing it on home</span>
-                  ) : null}
-                </div>
-              </div>
+              <VizInfo
+                vizTitleRef={vizTitleRef}
+                playMode={playMode}
+                autocanonizerMainSeconds={autocanonizerMainSeconds}
+                autocanonizerOtherSeconds={autocanonizerOtherSeconds}
+                trackDurationSeconds={analysis?.track?.duration ?? 0}
+                listenSeconds={listenSeconds}
+                beatsLabel={beatsLabel}
+                beatsPlayed={beatsPlayed}
+                bringItHomeMode={bringItHomeMode}
+              />
             </div>
             <div className="viz-bottom-right">
               {playMode === "autocanonizer" ? (
-                <div className="pan-control-wrap">
-                  <div
-                    className={`pan-control-panel ${
-                      isPanOpen ? "" : "is-hidden"
-                    }`}
-                    ref={panPanelRef}
-                  >
-                    <label className="stream-pan-control">
-                      <div className="label-line">
-                        <span className="pan-end-label">
-                          {t("listen.balanceLeft")}
-                        </span>
-                        <span style={{ color: AUTOCANONIZER_MAIN_COLOR }}>
-                          {t("listen.blueBalance")}
-                        </span>
-                        <span className="pan-end-label">
-                          {t("listen.balanceRight")}
-                        </span>
-                      </div>
-                      <input
-                        id="autocanonizer-main-pan"
-                        className="pan-slider stream-pan-slider"
-                        type="range"
-                        aria-label={t("listen.blueBalance")}
-                        min={-100}
-                        max={100}
-                        step={1}
-                        list="autocanonizer-pan-ticks"
-                        value={autocanonizerMainPan}
-                        style={{ accentColor: AUTOCANONIZER_MAIN_COLOR }}
-                        onChange={(event) =>
-                          onAutocanonizerStreamPanChange(
-                            "main",
-                            Number(event.target.value),
-                          )
-                        }
-                      />
-                    </label>
-                    <label className="stream-pan-control">
-                      <div className="label-line">
-                        <span className="pan-end-label">
-                          {t("listen.balanceLeft")}
-                        </span>
-                        <span style={{ color: AUTOCANONIZER_OTHER_COLOR }}>
-                          {t("listen.greenBalance")}
-                        </span>
-                        <span className="pan-end-label">
-                          {t("listen.balanceRight")}
-                        </span>
-                      </div>
-                      <input
-                        id="autocanonizer-other-pan"
-                        className="pan-slider stream-pan-slider"
-                        type="range"
-                        aria-label={t("listen.greenBalance")}
-                        min={-100}
-                        max={100}
-                        step={1}
-                        list="autocanonizer-pan-ticks"
-                        value={autocanonizerOtherPan}
-                        style={{ accentColor: AUTOCANONIZER_OTHER_COLOR }}
-                        onChange={(event) =>
-                          onAutocanonizerStreamPanChange(
-                            "other",
-                            Number(event.target.value),
-                          )
-                        }
-                      />
-                    </label>
-                    <datalist id="autocanonizer-pan-ticks">
-                      <option value={-100} />
-                      <option value={0} />
-                      <option value={100} />
-                    </datalist>
-                  </div>
-                  <button
-                    id="autocanonizer-pan-button"
-                    className="volume-button pan-button"
-                    type="button"
-                    ref={panButtonRef}
-                    onClick={() => {
-                      setIsVolumeOpen(false);
-                      setIsPanOpen((prev) => !prev);
-                    }}
-                    title={t("listen.audioBalance")}
-                    aria-label={t("listen.audioBalance")}
-                  >
-                    <SymbolIcon className="pan-icon" name="swap_horiz" />
-                  </button>
-                </div>
+                <PanPopover
+                  isOpen={isPanOpen}
+                  panelRef={panPanelRef}
+                  buttonRef={panButtonRef}
+                  mainPan={autocanonizerMainPan}
+                  otherPan={autocanonizerOtherPan}
+                  onPanChange={onAutocanonizerStreamPanChange}
+                  onToggle={togglePan}
+                />
               ) : null}
-              <div className="volume-control-wrap">
-                <div
-                  className={`volume-control-panel ${
-                    isVolumeOpen ? "" : "is-hidden"
-                  }`}
-                  ref={volumePanelRef}
-                >
-                  <label>
-                    <input
-                      className="volume-slider"
-                      type="range"
-                      aria-label={t("listen.volume")}
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={tuneForm.volume}
-                      onChange={(event) =>
-                        onVolumeChange(Number(event.target.value))
-                      }
-                    />
-                    <div className="label-line">
-                      <span className="volume-value">{tuneForm.volume}</span>
-                    </div>
-                  </label>
-                </div>
-                <button
-                  id="volume-button"
-                  className="volume-button"
-                  type="button"
-                  ref={volumeButtonRef}
-                  onClick={() => {
-                    setIsPanOpen(false);
-                    setIsVolumeOpen((prev) => !prev);
-                  }}
-                  title={t("listen.volume")}
-                  aria-label={t("listen.volume")}
-                >
-                  <SymbolIcon className="volume-icon" name="volume_up" />
-                </button>
-              </div>
+              <VolumePopover
+                isOpen={isVolumeOpen}
+                panelRef={volumePanelRef}
+                buttonRef={volumeButtonRef}
+                volume={tuneForm.volume}
+                onVolumeChange={onVolumeChange}
+                onToggle={toggleVolume}
+              />
               <button
                 id="fullscreen"
                 className="fullscreen-toggle"
@@ -3132,464 +1561,40 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       </div>
 
       {isExportOpen ? (
-        <div className="modal open">
-          <button
-            className="modal-backdrop"
-            type="button"
-            onClick={() => setIsExportOpen(false)}
-            aria-label={t("listen.closeExportDialog")}
-            disabled={isExporting}
-          />
-          <div className="modal-panel">
-            <div className="modal-header">
-              <h2>{t("export.title")}</h2>
-              <button
-                className="modal-close"
-                type="button"
-                onClick={() => setIsExportOpen(false)}
-                aria-label={t("common.close")}
-                title={t("common.close")}
-                disabled={isExporting}
-              >
-                <SymbolIcon className="modal-close-icon" name="close" />
-              </button>
-            </div>
-            <div className="modal-body export-body">
-              <p className="export-note">
-                {t("export.note")}
-              </p>
-              <label>
-                <div className="label-line">
-                  <span>{t("export.duration")}</span>
-                  <span>{formatDuration(exportForm.durationSeconds)}</span>
-                </div>
-                <input
-                  className="field-input"
-                  type="number"
-                  aria-label={t("export.duration")}
-                  min={5}
-                  max={MAX_EXPORT_DURATION_SECONDS}
-                  step={5}
-                  value={exportForm.durationSeconds}
-                  disabled={isExporting}
-                  onChange={(event) =>
-                    setExportForm((prev) => ({
-                      ...prev,
-                      durationSeconds: Number(event.target.value),
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                <div className="label-line">{t("export.format")}</div>
-                <select
-                  className="field-input"
-                  value={exportForm.format}
-                  disabled={isExporting}
-                  onChange={(event) =>
-                    setExportForm((prev) => ({
-                      ...prev,
-                      format: event.target.value as AudioExportFormat,
-                    }))
-                  }
-                >
-                  <option value="mp3">{t("export.mp3")}</option>
-                  <option value="wav">{t("export.wav")}</option>
-                </select>
-              </label>
-              {exportForm.format === "mp3" ? (
-                <label>
-                  <div className="label-line">
-                    <span>{t("export.bitrate")}</span>
-                    <span>{exportForm.bitrateKbps} kbps</span>
-                  </div>
-                  <input
-                    type="range"
-                    aria-label={t("export.bitrate")}
-                    min={64}
-                    max={320}
-                    step={32}
-                    value={exportForm.bitrateKbps}
-                    disabled={isExporting}
-                    onChange={(event) =>
-                      setExportForm((prev) => ({
-                        ...prev,
-                        bitrateKbps: Number(event.target.value),
-                      }))
-                    }
-                  />
-                </label>
-              ) : null}
-              {exportProgress ? (
-                <div className="export-status">
-                  {exportProgressMessage(exportProgress.message, t)} (
-                  {Math.round(exportProgress.percent)}%)
-                </div>
-              ) : null}
-              {exportError ? <div className="error">{exportError}</div> : null}
-            </div>
-            <div className="modal-footer">
-              <button
-                className="tab-btn"
-                type="button"
-                onClick={() => setIsExportOpen(false)}
-                disabled={isExporting}
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                className="tab-btn"
-                type="button"
-                onClick={handleExportJukeboxAudio}
-                disabled={isExporting}
-              >
-                {isExporting ? t("export.exporting") : t("export.action")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExportModal
+          form={exportForm}
+          setForm={setExportForm}
+          isExporting={isExporting}
+          progress={exportProgress}
+          error={exportError}
+          onClose={closeExport}
+          onExport={handleExportJukeboxAudio}
+        />
       ) : null}
 
       {isTuningOpen ? (
-        <div className="modal open">
-          <button
-            className="modal-backdrop"
-            type="button"
-            onClick={() => setIsTuningOpen(false)}
-            aria-label={t("listen.closeTuningDialog")}
-          />
-          <div className="modal-panel">
-            <div className="modal-header">
-              <div className="modal-header-main">
-                <h2
-                  id="tuning-title"
-                  className={tuningActiveTab === "extras" ? "is-extras-active" : ""}
-                >
-                  <span id="tuning-title-text">
-                    {tuningActiveTab === "tuning"
-                      ? t("tuning.title")
-                      : t("tuning.extras")}
-                  </span>
-                </h2>
-                <div className="modal-tabs" aria-label={t("tuning.sections")}>
-                  <button
-                    id="tuning-tab-toggle"
-                    className={`modal-tab ${playMode !== "jukebox" ? "hidden" : ""}`}
-                    type="button"
-                    onClick={() =>
-                      setTuningActiveTab(tuningActiveTab === "tuning" ? "extras" : "tuning")
-                    }
-                    aria-label={
-                      tuningActiveTab === "tuning"
-                        ? t("tuning.switchToExtras")
-                        : t("tuning.switchToTuning")
-                    }
-                  >
-                    <SymbolIcon
-                      className="modal-tab-icon"
-                      name={tuningActiveTab === "tuning" ? "science" : "tune"}
-                    />
-                    <span id="tuning-tab-toggle-label">
-                      {tuningActiveTab === "tuning"
-                        ? t("tuning.extras")
-                        : t("tuning.title")}
-                    </span>
-                  </button>
-                </div>
-              </div>
-              <div className="modal-header-actions">
-                <button className="modal-close" type="button" onClick={() => setIsTuningOpen(false)} aria-label={t("common.close")} title={t("common.close")}>
-                  <SymbolIcon className="modal-close-icon" name="close" />
-                </button>
-              </div>
-            </div>
-            <div className="modal-body">
-              <div id="tuning-panel-tuning" className={tuningActiveTab === "tuning" ? "" : "hidden"}>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.similarityThreshold")}</span>
-                    <span>{tuneForm.threshold}</span>
-                  </div>
-                  <div className="hint">
-                    <span>{t("tuning.computedThreshold")}</span>
-                    <span>{tuneForm.computedThreshold}</span>
-                  </div>
-                  <input
-                    type="range"
-                    aria-label={t("tuning.similarityThreshold")}
-                    min={2}
-                    max={80}
-                    step={1}
-                    value={tuneForm.threshold}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, threshold: Number(event.target.value) }))
-                    }
-                  />
-                </label>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.probabilityMin")}</span>
-                    <span>{tuneForm.minProb}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={2}
-                    value={tuneForm.minProb}
-                    aria-label={t("tuning.probabilityMin")}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, minProb: Number(event.target.value) }))
-                    }
-                  />
-                </label>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.probabilityMax")}</span>
-                    <span>{tuneForm.maxProb}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={2}
-                    value={tuneForm.maxProb}
-                    aria-label={t("tuning.probabilityMax")}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, maxProb: Number(event.target.value) }))
-                    }
-                  />
-                </label>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.rampSpeed")}</span>
-                    <span>{tuneForm.ramp}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={2}
-                    value={tuneForm.ramp}
-                    aria-label={t("tuning.rampSpeed")}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({ ...prev, ramp: Number(event.target.value) }))
-                    }
-                  />
-                </label>
-                <label>
-                  <div className="label-line">
-                    <span>{t("tuning.minJumpDistance")}</span>
-                    <span>
-                      {formatMinJumpDistance(tuneForm.minLongBranchPercent, t)}
-                    </span>
-                  </div>
-                  <div className="hint">
-                    {t("tuning.minJumpDistanceHint")}
-                  </div>
-                  <input
-                    id="min-jump-distance"
-                    type="range"
-                    min={0}
-                    max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
-                    step={1}
-                    value={Math.max(
-                      0,
-                      MIN_JUMP_DISTANCE_OPTIONS.indexOf(
-                        tuneForm.minLongBranchPercent as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
-                      ),
-                    )}
-                    aria-label={t("tuning.minJumpDistance")}
-                    onChange={(event) =>
-                      setTuneForm((prev) => ({
-                        ...prev,
-                        minLongBranchPercent:
-                          MIN_JUMP_DISTANCE_OPTIONS[
-                            Number(event.target.value)
-                          ] ?? 0,
-                      }))
-                    }
-                  />
-                </label>
-                <div className="checkbox-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={tuneForm.justBackwards}
-                      onChange={(event) =>
-                        setTuneForm((prev) => ({ ...prev, justBackwards: event.target.checked }))
-                      }
-                    />
-                    <span>{t("tuning.onlyReverse")}</span>
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={tuneForm.removeSequentialBranches}
-                      onChange={(event) =>
-                        setTuneForm((prev) => ({ ...prev, removeSequentialBranches: event.target.checked }))
-                      }
-                    />
-                    <span>{t("tuning.removeSequential")}</span>
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={tuneForm.highlightAnchorBranch}
-                      onChange={(event) =>
-                        setTuneForm((prev) => ({
-                          ...prev,
-                          highlightAnchorBranch: event.target.checked,
-                        }))
-                      }
-                    />
-                    <span>{t("tuning.highlightAnchor")}</span>
-                  </label>
-                </div>
-              </div>
-              <div id="tuning-panel-extras" className={tuningActiveTab === "extras" ? "" : "hidden"}>
-                <div className="checkbox-row extras-checkbox-row">
-                  <label>
-                    <input
-                      id="extras-enabled"
-                      type="checkbox"
-                      checked={extrasForm.branchStatsEnabled}
-                      onChange={(event) =>
-                        setExtrasForm((prev) => ({
-                          ...prev,
-                          branchStatsEnabled: event.target.checked,
-                        }))
-                      }
-                      disabled={playMode !== "jukebox"}
-                    />
-                    <span>{t("tuning.showBranchStats")}</span>
-                  </label>
-                  <label>
-                    <input
-                      id="bring-home-enabled"
-                      type="checkbox"
-                      checked={extrasForm.bringItHomeMode}
-                      onChange={(event) =>
-                        setExtrasForm((prev) => ({
-                          ...prev,
-                          bringItHomeMode: event.target.checked,
-                        }))
-                      }
-                      disabled={playMode !== "jukebox"}
-                    />
-                    <span>{t("tuning.bringItHome")}</span>
-                  </label>
-                </div>
-                <div id="jukebox-audio-mode-group" className="audio-mode-group">
-                  <div className="label-line">{t("tuning.audioMode")}</div>
-                  <AudioModeOptions
-                    selectedAudioMode={extrasForm.audioMode}
-                    disabled={playMode !== "jukebox"}
-                    onChange={(audioMode) =>
-                      setExtrasForm((prev) => ({ ...prev, audioMode }))
-                    }
-                    intensityPct={extrasForm.audioIntensity}
-                    onIntensityChange={(audioIntensity) =>
-                      setExtrasForm((prev) => ({ ...prev, audioIntensity }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer tuning-footer">
-              <button className="tab-btn" type="button" onClick={onResetTuningModal}>{t("common.reset")}</button>
-              <button className="tab-btn" type="button" onClick={onApplyTuningModal}>{t("common.apply")}</button>
-            </div>
-          </div>
-        </div>
+        <TuningModal
+          playMode={playMode}
+          activeTab={tuningActiveTab}
+          onTabChange={setTuningActiveTab}
+          tuneForm={tuneForm}
+          setTuneForm={setTuneForm}
+          extrasForm={extrasForm}
+          setExtrasForm={setExtrasForm}
+          onClose={() => setIsTuningOpen(false)}
+          onReset={onResetTuningModal}
+          onApply={onApplyTuningModal}
+        />
       ) : null}
 
       {isInfoOpen ? (
-        <div className="modal open">
-          <button
-            className="modal-backdrop"
-            type="button"
-            onClick={() => setIsInfoOpen(false)}
-            aria-label={t("listen.closeTrackInfoDialog")}
-          />
-          <div className="modal-panel">
-            <div className="modal-header">
-              <h2>{t("info.title")}</h2>
-              <button className="modal-close" type="button" onClick={() => setIsInfoOpen(false)} aria-label={t("common.close")} title={t("common.close")}>
-                <SymbolIcon className="modal-close-icon" name="close" />
-              </button>
-            </div>
-            <div className="modal-body info-body">
-              <div className="info-row">
-                <span className="info-label">{t("info.trackLength")}</span>
-                <span>{formatDuration(analysis?.track?.duration ?? 0)}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.totalBeats")}</span>
-                <span>{totalBeats}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.totalBranches")}</span>
-                <span>{totalBranches}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.deletedBranches")}</span>
-                <span>{deletedBranches}</span>
-              </div>
-              <h4>{t("info.keyboardCommands")}</h4>
-              <div className="info-row">
-                <span className="info-label">{t("info.space")}</span>
-                <span>{t("info.spaceAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.shift")}</span>
-                <span>{t("info.shiftAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.arrows")}</span>
-                <span>{t("info.arrowsAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">
-                  {t("info.velocity")}
-                  <span
-                    className="info-help"
-                    role="img"
-                    title={t("info.velocityNote")}
-                    aria-label={t("info.velocityNote")}
-                  >
-                    <SymbolIcon className="info-help-icon" name="help" />
-                  </span>
-                </span>
-                <span>{t("info.velocityAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.velocityReset")}</span>
-                <span>{t("info.velocityResetAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.freeze")}</span>
-                <span>{t("info.freezeAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.anchor")}</span>
-                <span>{t("info.anchorAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.delete")}</span>
-                <span>{t("info.deleteAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.extras")}</span>
-                <span>{t("info.extrasAction")}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t("info.home")}</span>
-                <span>{t("info.homeAction")}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <InfoModal
+          trackDurationSeconds={analysis?.track?.duration ?? 0}
+          totalBeats={totalBeats}
+          totalBranches={totalBranches}
+          deletedBranches={deletedBranches}
+          onClose={() => setIsInfoOpen(false)}
+        />
       ) : null}
       <ShortcutToastStack queue={shortcutToastQueue} />
       </section>
