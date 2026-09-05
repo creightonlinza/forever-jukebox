@@ -40,6 +40,7 @@ suite (`cd web && npm run test:e2e`) — see [`web/e2e/README.md`](./web/e2e/REA
 ## Android App (standalone repo)
 
 - Source + releases: [creightonlinza/forever-jukebox-android](https://github.com/creightonlinza/forever-jukebox-android)
+- Two builds: the Google Play app is offline-only. The GitHub Releases build is a manual install that also connects to a running Forever Jukebox server (enter the server URL in the app).
 
 ## Docker (production)
 

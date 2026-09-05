@@ -7,6 +7,9 @@ import { showToast } from "../ui";
 import { Trans, useTranslation } from "react-i18next";
 import { HeroSocials } from "./Hero";
 
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.foreverjukebox.app.play";
+const ANDROID_RELEASES_URL = "https://github.com/creightonlinza/forever-jukebox-android/releases";
+
 function formatMegabytes(bytes: number) {
   const mb = Math.max(0, bytes) / (1024 * 1024);
   const rounded = mb.toFixed(1);
@@ -182,7 +185,20 @@ export function FaqPanel() {
         <p>
           <Trans
             i18nKey="faq.offlineBody"
-            components={{ offline: <a href="/offline/" target="_blank" onClick={() => trackEvent("open_pwa", { source: "faq" })}>Forever Jukebox Offline app</a> }}
+            components={{
+              offline: <a href="/offline/" target="_blank" onClick={() => trackEvent("open_pwa", { source: "faq" })}>Forever Jukebox Offline app</a>,
+              play: <a href={PLAY_STORE_URL} target="_blank" rel="noreferrer">Google Play</a>,
+            }}
+          />
+        </p>
+        <p>
+          <Trans
+            i18nKey="faq.offlineAndroid"
+            values={{ server: window.location.origin }}
+            components={{
+              releases: <a href={ANDROID_RELEASES_URL} target="_blank" rel="noreferrer">GitHub Releases</a>,
+              server: <code className="faq-server-url" />,
+            }}
           />
         </p>
 
@@ -201,7 +217,8 @@ export function FaqPanel() {
         <ul>
           <li>
             There is now a native <strong>Android app</strong> —{" "}
-            <a href="https://play.google.com/store/apps/details?id=com.foreverjukebox.app.play" target="_blank" rel="noreferrer">get it on Google Play</a>. On every other platform, the offline app still installs straight from your browser.
+            <a href={PLAY_STORE_URL} target="_blank" rel="noreferrer">get it on Google Play</a>. A full build that can also connect to a Forever Jukebox server is available from{" "}
+            <a href={ANDROID_RELEASES_URL} target="_blank" rel="noreferrer">GitHub Releases</a> (manual install). On every other platform, the offline app still installs straight from your browser.
           </li>
           <li>
             New <strong>Report a bug</strong> option in Settings — send feedback or bug reports without leaving the app.
