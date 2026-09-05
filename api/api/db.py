@@ -406,26 +406,27 @@ def claim_notify_state(db_path: Path, key: str, expected: Optional[str], value: 
     return int(cur.rowcount or 0) > 0
 
 
-def recent_youtube_failure_errors(db_path: Path, since_iso: str) -> list[str]:
-    """Errors of YouTube jobs currently failed since the given timestamp.
+def recent_youtube_failures(db_path: Path, after_iso: str) -> list[tuple[str, str]]:
+    """(updated_at, error) of YouTube jobs currently failed after the given timestamp.
 
-    Retried jobs reuse their row, so failures the user retried to success
-    no longer appear here.
+    The bound is exclusive so a caller can pass the newest row it has already
+    handled. Retried jobs reuse their row, so failures the user retried to
+    success no longer appear here.
     """
     with _connect(db_path) as conn:
         rows = conn.execute(
             """
-            SELECT j.error
+            SELECT j.updated_at, j.error
             FROM jobs j
             JOIN sources s ON s.id = j.source_ref
             WHERE s.provider = 'youtube'
               AND j.status = 'failed'
               AND j.error IS NOT NULL
-              AND j.updated_at >= ?
+              AND j.updated_at > ?
             """,
-            (since_iso,),
+            (after_iso,),
         ).fetchall()
-    return [str(row[0]) for row in rows]
+    return [(str(row[0]), str(row[1])) for row in rows]
 
 
 def get_job(db_path: Path, job_id: str) -> Optional[Job]:

@@ -16,7 +16,7 @@ from api.db import (
 )
 from api.routes import jobs_runtime as jobs_runtime_module
 from api.routes.jobs_runtime import (
-    NOTIFY_LAST_SENT_KEY,
+    NOTIFY_WATERMARK_KEY,
     maybe_notify_youtube_failures,
     youtube_block_signal,
 )
@@ -99,9 +99,9 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
             conn.execute("UPDATE jobs SET updated_at = ? WHERE id = ?", (updated_at, job_id))
             conn.commit()
 
-    def _set_last_sent(self, value: str) -> None:
+    def _set_watermark(self, value: str) -> None:
         self.assertTrue(
-            claim_notify_state(self.db_path, NOTIFY_LAST_SENT_KEY, None, value)
+            claim_notify_state(self.db_path, NOTIFY_WATERMARK_KEY, None, value)
         )
 
     def _sent_message(self) -> str:
@@ -118,7 +118,7 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
         self._seed_failures(4)
         maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
-        self.assertIsNone(get_notify_state(self.db_path, NOTIFY_LAST_SENT_KEY))
+        self.assertIsNone(get_notify_state(self.db_path, NOTIFY_WATERMARK_KEY))
 
     def test_threshold_pings_with_count_and_breakdown(self) -> None:
         self._seed_failures(3)
@@ -131,7 +131,7 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
         self.assertIn("in the last 24.0h", message)
         self.assertIn("403 x3", message)
         self.assertIn("bot-check x2", message)
-        self.assertIsNotNone(get_notify_state(self.db_path, NOTIFY_LAST_SENT_KEY))
+        self.assertIsNotNone(get_notify_state(self.db_path, NOTIFY_WATERMARK_KEY))
 
     def test_non_youtube_failures_do_not_count(self) -> None:
         self._seed_failures(5, provider="soundcloud")
@@ -157,21 +157,21 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
 
     def test_cooldown_suppresses_ping(self) -> None:
         self._seed_failures(5)
-        self._set_last_sent(_utc_iso(timedelta(hours=-1)))
+        self._set_watermark(_utc_iso(timedelta(hours=-1)))
         maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
 
-    def test_expired_cooldown_reports_pile_since_last_ping(self) -> None:
+    def test_expired_cooldown_reports_pile_since_the_watermark(self) -> None:
         self._seed_failures(7)
-        self._set_last_sent(_utc_iso(timedelta(hours=-7)))
+        self._set_watermark(_utc_iso(timedelta(hours=-7)))
         maybe_notify_youtube_failures(self.db_path)
         message = self._sent_message()
         self.assertIn("7 YouTube download failures logged", message)
         self.assertIn("in the last 7.0h", message)
 
-    def test_failures_before_last_ping_do_not_count(self) -> None:
+    def test_failures_before_the_watermark_do_not_count(self) -> None:
         job_ids = self._seed_failures(7)
-        self._set_last_sent(_utc_iso(timedelta(hours=-7)))
+        self._set_watermark(_utc_iso(timedelta(hours=-7)))
         for job_id in job_ids[:3]:
             self._set_updated_at(job_id, _utc_iso(timedelta(hours=-8)))
         maybe_notify_youtube_failures(self.db_path)
@@ -186,9 +186,40 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
         maybe_notify_youtube_failures(self.db_path)
         self.assertEqual(self.send_mock.call_count, 1)
 
+    def test_watermark_records_the_newest_counted_failure(self) -> None:
+        job_ids = self._seed_failures(5)
+        newest = _utc_iso(timedelta(minutes=-1))
+        self._set_updated_at(job_ids[0], newest)
+        for job_id in job_ids[1:]:
+            self._set_updated_at(job_id, _utc_iso(timedelta(minutes=-5)))
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertEqual(get_notify_state(self.db_path, NOTIFY_WATERMARK_KEY), newest)
+
+    def test_failures_landing_during_the_check_are_reported_once(self) -> None:
+        self._seed_failures(5)
+        # The check samples `now` before it queries; a failure committed in
+        # between is newer than that sample.
+        sampled_now = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+        class _EarlyClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return sampled_now
+
+        with patch.object(jobs_runtime_module, "NOTIFY_MIN_INTERVAL_S", 0.0):
+            with patch.object(jobs_runtime_module, "datetime", _EarlyClock):
+                maybe_notify_youtube_failures(self.db_path)
+            self.assertIn("5 YouTube download failures", self._sent_message())
+
+            self.send_mock.reset_mock()
+            self._reset_throttle()
+            self._seed_failures(5, start=5)
+            maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("5 YouTube download failures", self._sent_message())
+
     def test_window_is_capped_even_after_a_long_quiet_period(self) -> None:
         job_ids = self._seed_failures(5)
-        self._set_last_sent(_utc_iso(timedelta(hours=-200)))
+        self._set_watermark(_utc_iso(timedelta(hours=-200)))
         self._set_updated_at(job_ids[0], _utc_iso(timedelta(hours=-30)))
         maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
