@@ -69,4 +69,4 @@ Notes:
   the yt-dlp plugin auto-detects it. The pip plugin pin in `api/requirements.txt` and
   `BGUTIL_POT_VERSION` in the `Dockerfile` must be bumped together. Local dev needs no
   setup (yt-dlp degrades gracefully without the server); to get tokens locally, run
-  `docker run --rm -d -p 4416:4416 brainicism/bgutil-ytdlp-pot-provider:1.3.1`.
+  `docker run --rm -d -p 127.0.0.1:4416:4416 brainicism/bgutil-ytdlp-pot-provider:2.0.0`.

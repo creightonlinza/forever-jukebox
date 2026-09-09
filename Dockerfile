@@ -18,7 +18,7 @@ RUN npm run build --workspace=web && npm run build --workspace=pwa
 # bgutil-ytdlp-pot-provider plugin in api/requirements.txt.
 # amd64 + Debian bookworm so the canvas native dep matches the runtime stage.
 FROM --platform=linux/amd64 denoland/deno:debian AS bgutil-build
-ARG BGUTIL_POT_VERSION=1.3.1
+ARG BGUTIL_POT_VERSION=2.0.0
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 RUN git clone --depth 1 --branch "${BGUTIL_POT_VERSION}" \
