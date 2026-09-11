@@ -20,6 +20,7 @@ import {
   loadPlaylistIndex,
   playlistNext,
   playlistPrevious,
+  removePlaylistIndex,
   resetPlaylistActionsForTest,
   selectPlaylistIndex,
 } from "./playlist-actions";
@@ -187,13 +188,30 @@ describe("playlist handlers", () => {
     );
   });
 
-  it("clears inactive saved playlists on normal track selection", () => {
+  it("replaces inactive saved playlists with the selected track", () => {
     createDeps({
       playlist: { tracks: [track("a"), track("b")], currentIndex: -1 },
     } as Partial<AppState>);
     handleNormalTrackSelected(track("outside"));
 
-    expect(useAppStore.getState().playlist).toEqual(emptyPlaylist());
+    expect(useAppStore.getState().playlist).toEqual({
+      tracks: [track("outside")],
+      currentIndex: 0,
+    });
+  });
+
+  it("closes the modal when a removal drops below two tracks", () => {
+    createDeps({
+      playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
+      playlistModalOpen: true,
+    } as Partial<AppState>);
+    removePlaylistIndex(1);
+
+    expect(useAppStore.getState().playlist).toEqual({
+      tracks: [track("a")],
+      currentIndex: 0,
+    });
+    expect(useAppStore.getState().playlistModalOpen).toBe(false);
   });
 
   it("replaces the active playlist item on normal track selection", () => {
@@ -446,14 +464,27 @@ describe("playlist handlers", () => {
     expect(loadTrackById).not.toHaveBeenCalled();
   });
 
-  it("clears the playlist from the modal action", () => {
+  it("clears the playlist down to the current track from the modal action", () => {
     createDeps({
-      playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
+      playlist: { tracks: [track("a"), track("b")], currentIndex: 1 },
+      playlistModalOpen: true,
+    } as Partial<AppState>);
+    clearPlaylist();
+
+    expect(useAppStore.getState().playlist).toEqual({
+      tracks: [track("b")],
+      currentIndex: 0,
+    });
+    expect(useAppStore.getState().playlistModalOpen).toBe(false);
+  });
+
+  it("empties an inactive saved playlist from the modal action", () => {
+    createDeps({
+      playlist: { tracks: [track("a"), track("b")], currentIndex: -1, resumeIndex: 0 },
     } as Partial<AppState>);
     clearPlaylist();
 
     expect(useAppStore.getState().playlist).toEqual(emptyPlaylist());
-    expect(useAppStore.getState().playlistModalOpen).toBe(false);
   });
   it("reports a playlist add with its source and resulting size", () => {
     createDeps({

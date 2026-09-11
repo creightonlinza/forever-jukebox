@@ -10,7 +10,6 @@ import {
   canMovePlaylistNext,
   canMovePlaylistPrevious,
   emptyPlaylist,
-  hasInactiveSavedPlaylist,
   isPlaylistActive,
   removePlaylistTrack,
   replaceActivePlaylistTrack,
@@ -112,9 +111,7 @@ export function handleNormalTrackSelected(track: PlaylistTrack) {
       updatePlaylist(replaceActivePlaylistTrack(useAppStore.getState().playlist, track));
       return;
     }
-    if (hasInactiveSavedPlaylist(useAppStore.getState().playlist)) {
-      updatePlaylist(emptyPlaylist());
-    }
+    updatePlaylist({ tracks: [track], currentIndex: 0 });
   }
 
   function handleAddToPlaylist(track: PlaylistTrack, source: string) {
@@ -148,8 +145,13 @@ export function handleNormalTrackSelected(track: PlaylistTrack) {
     useAppStore.setState({ playlistModalOpen: false });
   }
 
+  // Clearing keeps the playing track as the sole entry so it can be resumed.
   function handleClearPlaylist() {
-    updatePlaylist(emptyPlaylist());
+    const playlist = useAppStore.getState().playlist;
+    const current = isPlaylistActive(playlist)
+      ? playlist.tracks[playlist.currentIndex]
+      : null;
+    updatePlaylist(current ? { tracks: [current], currentIndex: 0 } : emptyPlaylist());
     handleClosePlaylist();
   }
 
@@ -377,7 +379,12 @@ export async function loadPlaylistIndex(
     if (!Number.isInteger(index)) {
       return;
     }
-    updatePlaylist(removePlaylistTrack(useAppStore.getState().playlist, index));
+    const next = removePlaylistTrack(useAppStore.getState().playlist, index);
+    updatePlaylist(next);
+    // The open button hides below two tracks, so the modal closes with it.
+    if (next.tracks.length < 2) {
+      handleClosePlaylist();
+    }
   }
 
   function selectPlaylistIndexInternal(index: number) {

@@ -1,9 +1,14 @@
 import { Profiler } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { useAppStore } from "../../store";
+import { loadPlaylistIndex } from "../../playlist-actions";
 import { StatusPanel } from "./StatusPanel";
 import { VizInfo } from "./VizInfo";
+
+vi.mock("../../playlist-actions", () => ({
+  loadPlaylistIndex: vi.fn(async () => true),
+}));
 
 describe("VizInfo", () => {
   beforeEach(() => {
@@ -252,5 +257,55 @@ describe("StatusPanel", () => {
     expect(button.classList.contains("hidden")).toBe(false);
     button.click();
     expect(useAppStore.getState().playlistModalOpen).toBe(true);
+  });
+
+  it("shows the continue-listening shortcut for the saved resume track", () => {
+    render(<StatusPanel />);
+    const button = document.getElementById("continue-listening")!;
+    const saved = document.getElementById("saved-playlist")!;
+    expect(button.classList.contains("hidden")).toBe(true);
+    act(() => {
+      useAppStore.setState({
+        playlist: {
+          tracks: [
+            {
+              id: "a",
+              sourceType: "youtube",
+              title: "Solo Track",
+              artist: "",
+              duration: null,
+            },
+          ],
+          currentIndex: -1,
+          resumeIndex: 0,
+        },
+      });
+    });
+    expect(button.classList.contains("hidden")).toBe(false);
+    expect(saved.classList.contains("hidden")).toBe(true);
+    expect(button.textContent).toContain("Solo Track");
+    button.click();
+    expect(loadPlaylistIndex).toHaveBeenCalledWith(0);
+
+    act(() => {
+      useAppStore.setState({
+        playlist: {
+          tracks: [
+            { id: "a", sourceType: "youtube", title: "A", artist: "", duration: null },
+            { id: "b", sourceType: "youtube", title: "B", artist: "", duration: null },
+          ],
+          currentIndex: -1,
+          resumeIndex: 1,
+        },
+      });
+    });
+    expect(button.classList.contains("hidden")).toBe(false);
+    expect(saved.classList.contains("hidden")).toBe(false);
+    expect(button.textContent).toContain("B");
+
+    act(() => {
+      useAppStore.setState({ lastTrackId: "a" });
+    });
+    expect(button.classList.contains("hidden")).toBe(true);
   });
 });

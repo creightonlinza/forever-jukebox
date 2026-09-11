@@ -1875,6 +1875,9 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   border-radius: 8px;
   padding: 8px 10px;
   white-space: nowrap;
+  max-width: min(60vw, 28rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .playlist-panel {

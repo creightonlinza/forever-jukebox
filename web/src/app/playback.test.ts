@@ -2431,7 +2431,7 @@ describe("playback loading", () => {
     expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
   });
 
-  it("clears inactive saved playlists on normal track loads", async () => {
+  it("replaces inactive saved playlists on normal track loads", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const context = createContext();
     useAppStore.setState({
@@ -2459,9 +2459,49 @@ describe("playback loading", () => {
 
     await loadTrackById(context, deps, "outside");
 
-    expect(useAppStore.getState().playlist.tracks).toEqual([]);
-    expect(useAppStore.getState().playlist.currentIndex).toBe(-1);
+    expect(useAppStore.getState().playlist.tracks.map((t) => t.id)).toEqual(["outside"]);
+    expect(useAppStore.getState().playlist.currentIndex).toBe(0);
     expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
+  });
+
+  it("makes a normal load on an empty store a single-track playlist", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const context = createContext();
+    const deps = createLoadDeps();
+
+    await loadTrackById(context, deps, "solo");
+
+    expect(useAppStore.getState().playlist.tracks.map((t) => t.id)).toEqual(["solo"]);
+    expect(useAppStore.getState().playlist.currentIndex).toBe(0);
+    expect(JSON.parse(localStorage.getItem("fj-playlist")!)).toMatchObject({
+      lastIndex: 0,
+    });
+  });
+
+  it("replaces a single-track playlist on preserved route loads", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const context = createContext();
+    useAppStore.setState({
+      playlist: {
+        tracks: [
+          {
+            id: "solo",
+            sourceType: "youtube",
+            title: "Solo",
+            artist: "",
+            duration: null,
+          },
+        ],
+        currentIndex: -1,
+        resumeIndex: 0,
+      },
+    });
+    const deps = createLoadDeps();
+
+    await loadTrackById(context, deps, "outside", { preservePlaylist: true });
+
+    expect(useAppStore.getState().playlist.tracks.map((t) => t.id)).toEqual(["outside"]);
+    expect(useAppStore.getState().playlist.currentIndex).toBe(0);
   });
 
   it("returns false on missing audio without calling repair endpoint", async () => {
