@@ -1,81 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { trackEvent } from "../analytics";
-import { clearCachedAudio, getCachedAudioBytes } from "../cache";
 import { pathForFaqSubtab, type FaqSubtabId } from "../tabs";
-import { showToast } from "../ui";
 import { Trans, useTranslation } from "react-i18next";
 import { HeroSocials } from "./Hero";
 
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.foreverjukebox.app.play";
 const ANDROID_RELEASES_URL = "https://github.com/creightonlinza/forever-jukebox-android/releases";
-
-function formatMegabytes(bytes: number) {
-  const mb = Math.max(0, bytes) / (1024 * 1024);
-  const rounded = mb.toFixed(1);
-  return rounded.endsWith(".0") ? rounded.slice(0, -2) : rounded;
-}
-
-function CachedAudioClearButton() {
-  const { t } = useTranslation();
-  const [label, setLabel] = useState(() => t("faq.clearSize", { size: 0 }));
-  const [disabled, setDisabled] = useState(false);
-  const location = useLocation();
-
-  const refresh = useCallback(async () => {
-    try {
-      const bytes = await getCachedAudioBytes();
-      setLabel(t("faq.clearSize", { size: formatMegabytes(bytes) }));
-      setDisabled(bytes <= 0);
-    } catch (err) {
-      console.warn(`Cache size failed: ${String(err)}`);
-      setLabel(t("faq.clearSize", { size: 0 }));
-      setDisabled(true);
-    }
-  }, [t]);
-
-  // This component only mounts inside the FAQ tab, so refresh once on mount
-  // and again when moving between FAQ subtabs.
-  useEffect(() => {
-    refresh().catch((err) => {
-      console.warn(`Cache size refresh failed: ${String(err)}`);
-    });
-  }, [location, refresh]);
-
-  const handleClear = async () => {
-    setDisabled(true);
-    setLabel(t("faq.clearing"));
-    try {
-      await clearCachedAudio();
-      showToast(t("faq.cachedCleared"));
-    } catch (err) {
-      console.warn(`Cache clear failed: ${String(err)}`);
-      showToast(t("faq.cachedClearFailed"));
-    } finally {
-      refresh().catch((err) => {
-        console.warn(`Cache size refresh failed: ${String(err)}`);
-      });
-    }
-  };
-
-  const handleClearClick = () => {
-    handleClear().catch((err) => {
-      console.warn(`Cache clear failed: ${String(err)}`);
-      showToast(t("faq.cachedClearFailed"));
-    });
-  };
-
-  return (
-    <button
-      id="cached-audio-clear"
-      type="button"
-      disabled={disabled}
-      onClick={handleClearClick}
-    >
-      {label}
-    </button>
-  );
-}
 
 export function FaqPanel() {
   const { t } = useTranslation();
@@ -201,9 +131,6 @@ export function FaqPanel() {
             }}
           />
         </p>
-
-        <h4>{t("faq.cachedAudio")}</h4>
-        <CachedAudioClearButton />
       </div>
       <div
         className={subtab === "whats-new" ? "faq faq-updates" : "faq faq-updates hidden"}

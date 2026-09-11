@@ -1,6 +1,6 @@
 import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { trackEvent } from "../analytics";
 import { setSleepTimer } from "../playback";
@@ -10,6 +10,10 @@ import { SettingsModal } from "./SettingsModal";
 
 vi.mock("../analytics", () => ({
   trackEvent: vi.fn(),
+}));
+vi.mock("../cache", () => ({
+  getCachedAudioBytes: vi.fn(async () => 12.5 * 1024 * 1024),
+  clearCachedAudio: vi.fn(async () => {}),
 }));
 vi.mock("../playback", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../playback")>();
@@ -287,5 +291,22 @@ describe("SettingsModal", () => {
     expect(document.activeElement).toBe(
       document.getElementById("settings-open"),
     );
+  });
+
+  it("shows the cached-audio size and clears it", async () => {
+    const cache = await import("../cache");
+    render(<SettingsModal />);
+    act(() => {
+      useAppStore.setState({ settingsModalOpen: true });
+    });
+    const button = await screen.findByText("Clear 12.5MB");
+    await userEvent.click(button);
+    expect(cache.clearCachedAudio).toHaveBeenCalled();
+    await waitFor(() => {
+      const toasts = useAppStore.getState().toasts;
+      expect(toasts[toasts.length - 1]?.message).toBe(
+        "Cached audio cleared.",
+      );
+    });
   });
 });
