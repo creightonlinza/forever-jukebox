@@ -2098,6 +2098,8 @@ describe("playback loading", () => {
     expect(useAppStore.getState().lastTrackId).toBe(jobId);
     expect(useAppStore.getState().lastJobId).toBe(jobId);
     expect(useAppStore.getState().lastSourceProvider).toBeNull();
+    expect(deps.setActiveTab).toHaveBeenCalledTimes(1);
+    expect(deps.setActiveTab).toHaveBeenCalledWith("play");
     expect(deps.onTrackChange).toHaveBeenCalledWith(jobId);
     expect((fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
       `/api/analysis/${jobId}`,
@@ -2580,7 +2582,8 @@ describe("playback loading", () => {
       100,
       "Calculating pathways",
     ]);
-    expect(deps.setActiveTab).toHaveBeenCalledWith("play");
+    // finishing a load never switches tabs; only selection does
+    expect(deps.setActiveTab).not.toHaveBeenCalled();
   });
 
   it("shows a generic load error when polling returns missing analysis", async () => {
