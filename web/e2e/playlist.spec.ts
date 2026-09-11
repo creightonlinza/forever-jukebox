@@ -192,7 +192,7 @@ test.describe("playlists", () => {
     await expect(page.locator("#viz-now-playing")).toContainText("(daycore)");
   });
 
-  test("playlist modal: Escape closes, remove disabled for current, clear empties", async ({
+  test("playlist modal: Escape closes, remove disabled for current, clear keeps current", async ({
     page,
     request,
     baseURL,
@@ -201,8 +201,8 @@ test.describe("playlists", () => {
     const third = await getNthFixtureTrack(request, baseURL!, 2);
     await loadFirstTopTrack(page);
     await page.locator('[data-tab-button="top"]').click();
-    // three tracks: removal below 2 dissolves the playlist entirely, so a
-    // 3-track list is the smallest that survives a removal
+    // three tracks: removal below 2 closes the modal, so a 3-track list is
+    // the smallest that keeps it open after a removal
     for (const track of [second, third]) {
       const row = page
         .locator(`a[data-track-id="${track.id}"]`)
@@ -226,23 +226,23 @@ test.describe("playlists", () => {
     await items.nth(2).locator(".playlist-remove").click();
     await expect(items).toHaveCount(2);
 
-    // clearing closes the modal and hides the controls
+    // clearing closes the modal, hides the controls and keeps only the
+    // playing track so it can be resumed later
     await page.locator("#playlist-clear").click();
     await expect(modal).not.toHaveClass(/\bopen\b/);
     await expect(page.locator("#playlist-open")).toHaveClass(/is-hidden/);
-    // an empty playlist removes the storage key outright
-    expect(
-      await page.evaluate(() => localStorage.getItem("fj-playlist")),
-    ).toBeNull();
+    const stored = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("fj-playlist") ?? "{}"),
+    );
+    expect(stored.tracks).toHaveLength(1);
+    expect(stored.lastIndex).toBe(0);
   });
 
-  test("removing below two tracks dissolves the playlist", async ({
+  test("removing below two tracks keeps the current track and hides playlist UI", async ({
     page,
     request,
     baseURL,
   }) => {
-    // Pinned: a playlist needs >=2 tracks to exist; removing the second-to-
-    // last track empties it (removePlaylistTrack → emptyPlaylist()).
     const second = await getSecondFixtureTrack(request, baseURL!);
     await loadFirstTopTrack(page);
     await page.locator('[data-tab-button="top"]').click();
@@ -258,13 +258,13 @@ test.describe("playlists", () => {
     const items = page.locator(".playlist-item");
     await expect(items).toHaveCount(2);
     await items.nth(1).locator(".playlist-remove").click();
-    await expect(page.locator("#playlist-modal")).toContainText(
-      "No playlist yet.",
+    await expect(page.locator("#playlist-modal")).not.toHaveClass(/\bopen\b/);
+    await expect(page.locator("#playlist-open")).toHaveClass(/is-hidden/);
+    const stored = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("fj-playlist") ?? "{}"),
     );
-    await expect(page.locator("#playlist-clear")).toBeDisabled();
-    expect(
-      await page.evaluate(() => localStorage.getItem("fj-playlist")),
-    ).toBeNull();
+    expect(stored.tracks).toHaveLength(1);
+    expect(stored.lastIndex).toBe(0);
   });
 
   test("saved playlist resurfaces after reload via the status-row button", async ({
@@ -290,9 +290,45 @@ test.describe("playlists", () => {
     await page.locator('[data-tab-button="play"]').click();
     const saved = page.locator("#saved-playlist");
     await expect(saved).not.toHaveClass(/\bhidden\b/);
+    // the continue shortcut resumes at the last position (the first track)
+    const cont = page.locator("#continue-listening");
+    await expect(cont).not.toHaveClass(/\bhidden\b/);
+    await expect(cont).toContainText("Continue listening");
     await saved.click();
     await expect(page.locator("#playlist-modal")).toHaveClass(/\bopen\b/);
     await expect(page.locator(".playlist-item")).toHaveCount(2);
+    await page.keyboard.press("Escape");
+
+    await cont.click();
+    await waitForTrackLoaded(page);
+    await expect(page.locator("#playlist-open")).toHaveAttribute(
+      "title",
+      "Playlist (1/2)",
+    );
+  });
+
+  test("a single track resurfaces after reload via continue listening", async ({
+    page,
+  }) => {
+    const trackId = await loadFirstTopTrack(page);
+    const stored = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("fj-playlist") ?? "{}"),
+    );
+    expect(stored.tracks).toHaveLength(1);
+    expect(stored.tracks[0].id).toBe(trackId);
+
+    await page.goto("/listen");
+    await expect(page).toHaveURL(/\/$/);
+    await page.locator('[data-tab-button="play"]').click();
+    await expect(page.locator("#saved-playlist")).toHaveClass(/\bhidden\b/);
+    const cont = page.locator("#continue-listening");
+    await expect(cont).not.toHaveClass(/\bhidden\b/);
+    await expect(cont).toContainText(stored.tracks[0].title);
+    await cont.click();
+    await waitForTrackLoaded(page);
+    await expect(page).toHaveURL(new RegExp(`/listen/${trackId}`));
+    // playlist UI stays hidden for a single track
+    await expect(page.locator("#playlist-open")).toHaveClass(/is-hidden/);
   });
 
   test("playlist add buttons stay hidden until a track is loaded", async ({

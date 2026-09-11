@@ -17,6 +17,8 @@ export type PlaylistTrack = {
 export type PlaylistState = {
   tracks: PlaylistTrack[];
   currentIndex: number;
+  // Position to resume from when the playlist is inactive after a reload.
+  resumeIndex?: number;
 };
 
 export type PlaylistAddStatus =
@@ -45,6 +47,23 @@ export function isPlaylistActive(playlist: PlaylistState) {
 
 export function hasInactiveSavedPlaylist(playlist: PlaylistState) {
   return playlist.tracks.length >= 2 && !isPlaylistActive(playlist);
+}
+
+// Index of the track to resume, or null when active or out of range.
+export function getResumeIndex(playlist: PlaylistState): number | null {
+  if (isPlaylistActive(playlist)) {
+    return null;
+  }
+  const index = playlist.resumeIndex;
+  if (
+    typeof index !== "number" ||
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index >= playlist.tracks.length
+  ) {
+    return null;
+  }
+  return index;
 }
 
 export function hasPlaylistControls(playlist: PlaylistState) {
@@ -184,9 +203,6 @@ export function replaceActivePlaylistTrack(
       nextCurrentIndex -= 1;
     }
   }
-  if (nextTracks.length < 2) {
-    return emptyPlaylist();
-  }
   return { tracks: nextTracks, currentIndex: nextCurrentIndex };
 }
 
@@ -201,14 +217,16 @@ export function removePlaylistTrack(
     return playlist;
   }
   const nextTracks = playlist.tracks.filter((_, itemIndex) => itemIndex !== index);
-  if (nextTracks.length < 2) {
-    return emptyPlaylist();
-  }
   const nextCurrentIndex =
     playlist.currentIndex > index
       ? playlist.currentIndex - 1
       : playlist.currentIndex;
-  return { tracks: nextTracks, currentIndex: nextCurrentIndex };
+  const next: PlaylistState = { tracks: nextTracks, currentIndex: nextCurrentIndex };
+  const resumeIndex = playlist.resumeIndex;
+  if (typeof resumeIndex === "number" && resumeIndex !== index) {
+    next.resumeIndex = resumeIndex > index ? resumeIndex - 1 : resumeIndex;
+  }
+  return next;
 }
 
 function parseStoredPlaylistTracks(parsed: PlaylistTrack[] | { tracks?: PlaylistTrack[] }) {
@@ -224,27 +242,42 @@ export function loadPlaylist(): PlaylistState {
     return emptyPlaylist();
   }
   try {
-    const parsed = JSON.parse(raw) as { tracks?: PlaylistTrack[] };
+    const parsed = JSON.parse(raw) as {
+      tracks?: PlaylistTrack[];
+      lastIndex?: number;
+    };
     const rawTracks = parseStoredPlaylistTracks(parsed);
     const tracks = normalizePlaylistTracks(rawTracks).slice(0, PLAYLIST_MAX_TRACKS);
-    if (tracks.length < 2) {
+    if (tracks.length === 0) {
       localStorage.removeItem(PLAYLIST_STORAGE_KEY);
       return emptyPlaylist();
     }
-    return { tracks, currentIndex: -1 };
+    const lastIndex = Array.isArray(parsed) ? undefined : parsed.lastIndex;
+    const resumeIndex =
+      typeof lastIndex === "number" &&
+      Number.isInteger(lastIndex) &&
+      lastIndex >= 0 &&
+      lastIndex < tracks.length
+        ? lastIndex
+        : 0;
+    return { tracks, currentIndex: -1, resumeIndex };
   } catch {
     return emptyPlaylist();
   }
 }
 
 export function savePlaylist(playlist: PlaylistState) {
-  if (playlist.tracks.length < 2) {
+  if (playlist.tracks.length === 0) {
     localStorage.removeItem(PLAYLIST_STORAGE_KEY);
     return;
   }
+  const tracks = playlist.tracks.slice(0, PLAYLIST_MAX_TRACKS);
+  const lastIndex = isPlaylistActive(playlist)
+    ? Math.min(playlist.currentIndex, tracks.length - 1)
+    : getResumeIndex(playlist);
   localStorage.setItem(
     PLAYLIST_STORAGE_KEY,
-    JSON.stringify({ tracks: playlist.tracks.slice(0, PLAYLIST_MAX_TRACKS) }),
+    JSON.stringify(lastIndex === null ? { tracks } : { tracks, lastIndex }),
   );
 }
 

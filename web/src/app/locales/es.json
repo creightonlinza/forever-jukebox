@@ -156,6 +156,7 @@
     "title": "Playlist",
     "saved": "Playlist guardada",
     "savedWithPosition": "Playlist ({{current}}/{{total}})",
+    "continueListening": "Seguir escuchando: {{title}}",
     "none": "Aún no hay playlist.",
     "clear": "Vaciar playlist",
     "add": "Añadir a la playlist"

@@ -1,4 +1,5 @@
-import { hasInactiveSavedPlaylist } from "../../playlist";
+import { getResumeIndex, hasInactiveSavedPlaylist } from "../../playlist";
+import { loadPlaylistIndex } from "../../playlist-actions";
 import { useAppStore } from "../../store";
 import { retryTrack } from "../../track-select";
 import { useTranslation } from "react-i18next";
@@ -22,13 +23,16 @@ export function StatusPanel() {
   const swingPreparing = useAppStore((s) => s.swingPreparing);
 
   const panelHidden = audioLoaded && analysisLoaded && !swingPreparing;
-  const showSavedPlaylist =
-    hasInactiveSavedPlaylist(playlist) &&
+  const noTrackLoaded =
     !audioLoaded &&
     !analysisLoaded &&
     !audioLoadInFlight &&
     !lastTrackId &&
     !lastJobId;
+  const showSavedPlaylist = hasInactiveSavedPlaylist(playlist) && noTrackLoaded;
+  const resumeIndex = getResumeIndex(playlist);
+  const resumeTrack = resumeIndex === null ? null : playlist.tracks[resumeIndex];
+  const showContinue = resumeTrack !== null && noTrackLoaded;
 
   return (
     <div className={panelHidden ? "panel hidden" : "panel"} id="play-status">
@@ -67,6 +71,22 @@ export function StatusPanel() {
         onClick={() => useAppStore.setState({ playlistModalOpen: true })}
       >
         {t("playlist.saved")}
+      </button>
+      <button
+        id="continue-listening"
+        className={
+          showContinue
+            ? "saved-playlist-button"
+            : "saved-playlist-button hidden"
+        }
+        type="button"
+        onClick={() => {
+          if (resumeIndex !== null) {
+            void loadPlaylistIndex(resumeIndex);
+          }
+        }}
+      >
+        {t("playlist.continueListening", { title: resumeTrack?.title ?? "" })}
       </button>
       </div>
     </div>

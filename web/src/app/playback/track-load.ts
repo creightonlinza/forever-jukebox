@@ -27,7 +27,6 @@ import { translateJobProgress } from "../job-progress";
 import {
   activatePlaylistTrack,
   emptyPlaylist,
-  hasInactiveSavedPlaylist,
   isPlaylistActive,
   PLAYLIST_MAX_TRACKS,
   playlistTrackKey,
@@ -710,19 +709,23 @@ function handlePlaylistForNormalTrackLoad(
   }
   const playlist = useAppStore.getState().playlist ?? emptyPlaylist();
   useAppStore.setState({ playlist: playlist });
+  const track =
+    options?.selectedTrack ?? playlistTrackFromLoadSource(source, useAppStore.getState().tuningParams);
   if (isPlaylistActive(playlist)) {
-    const track =
-      options?.selectedTrack ?? playlistTrackFromLoadSource(source, useAppStore.getState().tuningParams);
     useAppStore.setState({ playlist: replaceActivePlaylistTrack(playlist, track) });
     savePlaylist(useAppStore.getState().playlist);
     deps.onPlaylistChange?.();
     return;
   }
-  if (hasInactiveSavedPlaylist(playlist)) {
-    useAppStore.setState({ playlist: emptyPlaylist() });
-    savePlaylist(useAppStore.getState().playlist);
-    deps.onPlaylistChange?.();
-  }
+  setSingleTrackPlaylist(deps, track);
+}
+
+// A normal load outside an active playlist makes the loaded track the sole
+// playlist entry, replacing any inactive saved playlist.
+function setSingleTrackPlaylist(deps: PlaybackDeps, track: PlaylistTrack) {
+  useAppStore.setState({ playlist: { tracks: [track], currentIndex: 0 } });
+  savePlaylist(useAppStore.getState().playlist);
+  deps.onPlaylistChange?.();
 }
 
 function reconcilePreservedPlaylistTrack(
@@ -734,6 +737,10 @@ function reconcilePreservedPlaylistTrack(
   const playlist = useAppStore.getState().playlist ?? emptyPlaylist();
   useAppStore.setState({ playlist: playlist });
   if (playlist.tracks.length < 2) {
+    setSingleTrackPlaylist(
+      deps,
+      playlistTrackFromLoadSource(source, useAppStore.getState().tuningParams),
+    );
     return;
   }
   const sourceKey = playlistTrackKey(playlistTrackIdentityFromLoadSource(source));

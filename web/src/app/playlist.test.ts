@@ -7,6 +7,7 @@ import {
   canMovePlaylistNext,
   canMovePlaylistPrevious,
   emptyPlaylist,
+  getResumeIndex,
   hasInactiveSavedPlaylist,
   loadPlaylist,
   playlistTrackKey,
@@ -137,40 +138,95 @@ describe("playlist", () => {
     expect(next.tracks.map((item) => item.id)).toEqual(["b", "c"]);
   });
 
-  it("does not remove current track and clears when fewer than two remain", () => {
+  it("does not remove current track and keeps a single remaining track", () => {
     const playlist = {
       tracks: [track("a"), track("b")],
       currentIndex: 0,
     };
 
     expect(removePlaylistTrack(playlist, 0)).toBe(playlist);
-    expect(removePlaylistTrack(playlist, 1)).toEqual(emptyPlaylist());
+    expect(removePlaylistTrack(playlist, 1)).toEqual({
+      tracks: [track("a")],
+      currentIndex: 0,
+    });
   });
 
-  it("saves, restores as inactive, and ignores malformed payloads", () => {
+  it("adjusts the resume index when removing from an inactive playlist", () => {
+    const playlist = {
+      tracks: [track("a"), track("b"), track("c")],
+      currentIndex: -1,
+      resumeIndex: 2,
+    };
+
+    expect(removePlaylistTrack(playlist, 0)).toEqual({
+      tracks: [track("b"), track("c")],
+      currentIndex: -1,
+      resumeIndex: 1,
+    });
+    expect(removePlaylistTrack(playlist, 2)).toEqual({
+      tracks: [track("a"), track("b")],
+      currentIndex: -1,
+    });
+  });
+
+  it("saves, restores as inactive with the last position, and ignores malformed payloads", () => {
     const playlist = {
       tracks: [track("a"), track("b")],
       currentIndex: 1,
     };
 
     savePlaylist(playlist);
+    expect(JSON.parse(localStorage.getItem(PLAYLIST_STORAGE_KEY)!)).toEqual({
+      tracks: playlist.tracks,
+      lastIndex: 1,
+    });
     expect(loadPlaylist()).toEqual({
       tracks: playlist.tracks,
       currentIndex: -1,
+      resumeIndex: 1,
     });
 
     localStorage.setItem(PLAYLIST_STORAGE_KEY, "{nope");
     expect(loadPlaylist()).toEqual(emptyPlaylist());
   });
 
-  it("clears saved playlists with fewer than two valid tracks", () => {
-    const store = setLocalStorage();
+  it("restores single-track playlists and defaults the resume index", () => {
     localStorage.setItem(
       PLAYLIST_STORAGE_KEY,
       JSON.stringify({ tracks: [track("a")] }),
     );
+    expect(loadPlaylist()).toEqual({
+      tracks: [track("a")],
+      currentIndex: -1,
+      resumeIndex: 0,
+    });
+
+    localStorage.setItem(
+      PLAYLIST_STORAGE_KEY,
+      JSON.stringify({ tracks: [track("a"), track("b")], lastIndex: 5 }),
+    );
+    expect(loadPlaylist().resumeIndex).toBe(0);
+  });
+
+  it("clears saved playlists with no valid tracks", () => {
+    const store = setLocalStorage();
+    localStorage.setItem(
+      PLAYLIST_STORAGE_KEY,
+      JSON.stringify({ tracks: [{ id: "", sourceType: "youtube" }] }),
+    );
 
     expect(loadPlaylist()).toEqual(emptyPlaylist());
     expect(store.has(PLAYLIST_STORAGE_KEY)).toBe(false);
+
+    savePlaylist(emptyPlaylist());
+    expect(store.has(PLAYLIST_STORAGE_KEY)).toBe(false);
+  });
+
+  it("reports the resume index only for inactive in-range playlists", () => {
+    const tracks = [track("a"), track("b")];
+    expect(getResumeIndex({ tracks, currentIndex: -1, resumeIndex: 1 })).toBe(1);
+    expect(getResumeIndex({ tracks, currentIndex: 0, resumeIndex: 1 })).toBeNull();
+    expect(getResumeIndex({ tracks, currentIndex: -1, resumeIndex: 2 })).toBeNull();
+    expect(getResumeIndex({ tracks, currentIndex: -1 })).toBeNull();
   });
 });
