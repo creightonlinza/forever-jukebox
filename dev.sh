@@ -337,6 +337,9 @@ pids=()
 run_prefixed() {
   local name="$1"
   shift
+  # Runs in a server subshell. Without pipefail, a server killed by SIGTERM
+  # on shutdown yields the sed status, so bash prints no "Done" job notice.
+  set +o pipefail
   if command -v stdbuf >/dev/null 2>&1; then
     stdbuf -oL -eL "$@" 2>&1 | sed -e "s/^/[$name] /"
   else
@@ -386,10 +389,16 @@ start_pwa() {
 }
 
 cleanup() {
+  trap - INT TERM EXIT
   echo "Shutting down..."
+  # Signal the servers, not their subshells or sed prefixers, so each
+  # subshell stays alive until its pipeline drains and `wait` blocks
+  # until all shutdown output has been printed.
   for pid in "${pids[@]:-}"; do
-    kill "$pid" 2>/dev/null || true
-    kill -- "-$pid" 2>/dev/null || true
+    for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+      [[ "$(ps -o comm= -p "$child" 2>/dev/null)" == "sed" ]] && continue
+      kill -TERM "$child" 2>/dev/null || true
+    done
   done
   pkill -f "worker/worker.py" 2>/dev/null || true
   pkill -f "uvicorn api.main:app" 2>/dev/null || true
