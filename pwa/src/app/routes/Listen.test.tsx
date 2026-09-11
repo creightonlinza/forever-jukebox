@@ -120,6 +120,8 @@ vi.mock("@/core/infrastructure/audio/AudioDecoder", () => ({
 
 vi.mock("@/core/infrastructure/cache/analysisCache", () => ({
   createAnalysisCache: () => ({}),
+  getAnalysisCacheBytes: vi.fn(async () => 12.5 * 1024 * 1024),
+  clearAllAnalysisCache: vi.fn(async () => {}),
 }));
 
 vi.mock("@/core/application/usecases/analyzeAudio", () => ({
@@ -880,6 +882,28 @@ describe("Listen route behavior", () => {
     );
     rendered.rerender();
     expect(document.body.querySelector("#settings-modal")).toBeNull();
+    rendered.unmount();
+  });
+
+  it("clears the analysis cache from settings", async () => {
+    const cache = await import("@/core/infrastructure/cache/analysisCache");
+    mockAppState.isSettingsOpen = true;
+    const rendered = renderListen();
+    await settleEffects();
+
+    const settingsModal = getRequired<HTMLDivElement>(
+      document.body,
+      "#settings-modal",
+    );
+    const clearButton = getRequired<HTMLButtonElement>(
+      settingsModal,
+      "#cached-analysis-clear",
+    );
+    expect(clearButton.textContent).toBe("Clear 12.5MB");
+    expect(clearButton.disabled).toBe(false);
+    await click(clearButton);
+    await settleEffects();
+    expect(cache.clearAllAnalysisCache).toHaveBeenCalled();
     rendered.unmount();
   });
 

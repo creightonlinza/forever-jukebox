@@ -273,7 +273,12 @@
     "language": "Language",
     "theme": "Theme",
     "sleepTimer": "Sleep Timer",
-    "reportBug": "Report a bug"
+    "reportBug": "Report a bug",
+    "cachedAudio": "Cached Audio",
+    "clearSize": "Clear {{size}}MB",
+    "clearing": "Clearing...",
+    "cachedCleared": "Cached audio cleared.",
+    "cachedClearFailed": "Unable to clear cached audio."
   },
   "feedback": {
     "title": "Feedback & Bug Reporting",
@@ -366,11 +371,6 @@
     "playlistsLocal": "Playlists are saved only in this browser. They do not sync across devices or accounts.",
     "offlineTitle": "Installable Apps",
     "offlineBody": "For local/offline analysis and playback, open the <offline>Forever Jukebox Offline app</offline> and install it from your browser. On Android, a native offline app is also on <play>Google Play</play>.",
-    "offlineAndroid": "Android users can instead install a full build from <releases>GitHub Releases</releases> (manual install) that can also connect to a Forever Jukebox server; enter <server>{{server}}</server> as the server URL to use this instance.",
-    "cachedAudio": "Cached Audio",
-    "clearSize": "Clear {{size}}MB",
-    "clearing": "Clearing...",
-    "cachedCleared": "Cached audio cleared.",
-    "cachedClearFailed": "Unable to clear cached audio."
+    "offlineAndroid": "Android users can instead install a full build from <releases>GitHub Releases</releases> (manual install) that can also connect to a Forever Jukebox server; enter <server>{{server}}</server> as the server URL to use this instance."
   }
 }

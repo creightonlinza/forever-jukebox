@@ -153,7 +153,11 @@
     "open": "Abrir configuración",
     "language": "Idioma",
     "theme": "Tema",
-    "sleepTimer": "Temporizador"
+    "sleepTimer": "Temporizador",
+    "cachedAnalysis": "Análisis en caché",
+    "clearing": "Borrando...",
+    "clearSize": "Borrar {{size}} MB",
+    "clearFailed": "No se pudo borrar la caché de análisis."
   },
   "sleepTimer": {
     "timer": "Temporizador",
@@ -231,10 +235,7 @@
     "tuneTypes": "Configura una distancia mínima de salto para filtrar las ramas según la distancia entre beats de la pista y utiliza las demás opciones para controlar el comportamiento del algoritmo.",
     "tuneDelete": "Selecciona una rama en la visualización y elimínala.",
     "storageTitle": "¿Dónde se guarda el análisis?",
-    "storageBody": "El análisis se almacena localmente en tu navegador. Puedes eliminar el análisis de una pista desde la pantalla de inicio o borrar toda la caché de análisis pulsando el siguiente botón:",
-    "clearing": "Borrando...",
-    "clearSize": "Borrar {{size}} MB",
-    "clearFailed": "No se pudo borrar la caché de análisis."
+    "storageBody": "El análisis se almacena localmente en tu navegador. Puedes eliminar el análisis de una pista desde la pantalla de inicio o borrar toda la caché de análisis desde Ajustes."
   },
   "manifest": {
     "description": "Forever Jukebox para audio local sin conexión."

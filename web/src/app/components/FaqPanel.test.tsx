@@ -1,14 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { useAppStore } from "../store";
 import { FaqPanel } from "./FaqPanel";
-
-vi.mock("../cache", () => ({
-  getCachedAudioBytes: vi.fn(async () => 12.5 * 1024 * 1024),
-  clearCachedAudio: vi.fn(async () => {}),
-}));
 
 function renderFaqPanel(initialPath = "/faq") {
   const router = createMemoryRouter(
@@ -76,19 +71,5 @@ describe("FaqPanel", () => {
     });
     await userEvent.click(faqButton!);
     expect(router.state.location.pathname).toBe("/faq");
-  });
-
-  it("shows the cached-audio size and clears it", async () => {
-    const cache = await import("../cache");
-    renderFaqPanel("/faq");
-    const button = await screen.findByText("Clear 12.5MB");
-    await userEvent.click(button);
-    expect(cache.clearCachedAudio).toHaveBeenCalled();
-    await waitFor(() => {
-      const toasts = useAppStore.getState().toasts;
-      expect(toasts[toasts.length - 1]?.message).toBe(
-        "Cached audio cleared.",
-      );
-    });
   });
 });

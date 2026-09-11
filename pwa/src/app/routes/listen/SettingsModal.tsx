@@ -1,5 +1,10 @@
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import {
+  clearAllAnalysisCache,
+  getAnalysisCacheBytes,
+} from "@/core/infrastructure/cache/analysisCache";
 import {
   resolveSupportedLanguage,
   supportedLanguageOptions,
@@ -14,6 +19,72 @@ import {
   sleepTimerOptionLabel,
   type SleepTimerState,
 } from "./sleepTimer";
+
+function formatMegabytes(bytes: number) {
+  const mb = Math.max(0, bytes) / (1024 * 1024);
+  const rounded = mb.toFixed(1);
+  return rounded.endsWith(".0") ? rounded.slice(0, -2) : rounded;
+}
+
+function ClearCacheButton() {
+  const { t } = useTranslation();
+  const [usageBytes, setUsageBytes] = useState(0);
+  const [isLoadingUsage, setIsLoadingUsage] = useState(true);
+  const [isClearing, setIsClearing] = useState(false);
+  const [cacheMessage, setCacheMessage] = useState<string | null>(null);
+
+  const refreshUsage = useCallback(async () => {
+    setIsLoadingUsage(true);
+    try {
+      const bytes = await getAnalysisCacheBytes();
+      setUsageBytes(bytes);
+    } catch (err) {
+      console.warn(`Failed to load cache usage: ${String(err)}`);
+      setUsageBytes(0);
+    } finally {
+      setIsLoadingUsage(false);
+    }
+  }, []);
+
+  // The modal mounts fresh each time it opens, so a mount-time refresh
+  // always reflects the current cache size.
+  useEffect(() => {
+    refreshUsage().catch((err) => {
+      console.warn(`Failed to refresh cache usage: ${String(err)}`);
+    });
+  }, [refreshUsage]);
+
+  const onClearCache = useCallback(async () => {
+    setIsClearing(true);
+    setCacheMessage(null);
+    try {
+      await clearAllAnalysisCache();
+      await refreshUsage();
+    } catch (err) {
+      console.warn(`Failed to clear analysis cache: ${String(err)}`);
+      setCacheMessage(t("settings.clearFailed"));
+    } finally {
+      setIsClearing(false);
+    }
+  }, [refreshUsage, t]);
+
+  return (
+    <>
+      <button
+        id="cached-analysis-clear"
+        className="tab-btn settings-timer-set"
+        type="button"
+        disabled={isClearing || isLoadingUsage || usageBytes <= 0}
+        onClick={onClearCache}
+      >
+        {isClearing
+          ? t("settings.clearing")
+          : t("settings.clearSize", { size: formatMegabytes(usageBytes) })}
+      </button>
+      {cacheMessage ? <p className="hint">{cacheMessage}</p> : null}
+    </>
+  );
+}
 
 export function SettingsModal({
   theme,
@@ -167,6 +238,11 @@ export function SettingsModal({
                 </button>
               </div>
             </div>
+          </section>
+
+          <section className="settings-section">
+            <div className="label-line">{t("settings.cachedAnalysis")}</div>
+            <ClearCacheButton />
           </section>
         </div>
       </div>

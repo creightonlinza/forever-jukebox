@@ -153,7 +153,11 @@
     "open": "Open settings",
     "language": "Language",
     "theme": "Theme",
-    "sleepTimer": "Sleep Timer"
+    "sleepTimer": "Sleep Timer",
+    "cachedAnalysis": "Cached Analysis",
+    "clearing": "Clearing...",
+    "clearSize": "Clear {{size}}MB",
+    "clearFailed": "Unable to clear analysis cache."
   },
   "sleepTimer": {
     "timer": "Timer",
@@ -231,10 +235,7 @@
     "tuneTypes": "Set a minimum jump distance to filter branches by beat distance across the track, and use the checkboxes for other branch types.",
     "tuneDelete": "Select a branch in the visualization and delete it.",
     "storageTitle": "Where is analysis stored?",
-    "storageBody": "Analysis is stored locally in your browser. You can clear individual track analysis on the Home screen, or all cached analysis by clicking the button below:",
-    "clearing": "Clearing...",
-    "clearSize": "Clear {{size}}MB",
-    "clearFailed": "Unable to clear analysis cache."
+    "storageBody": "Analysis is stored locally in your browser. You can clear individual track analysis on the Home screen, or all cached analysis from Settings."
   },
   "manifest": {
     "description": "Offline-first Forever Jukebox for local audio."

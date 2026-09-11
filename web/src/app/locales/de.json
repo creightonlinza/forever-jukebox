@@ -273,7 +273,12 @@
     "language": "Sprache",
     "theme": "Darstellung",
     "sleepTimer": "Sleep-Timer",
-    "reportBug": "Fehler melden"
+    "reportBug": "Fehler melden",
+    "cachedAudio": "Gecachte Audiodaten",
+    "clearSize": "{{size}}MB leeren",
+    "clearing": "Wird geleert...",
+    "cachedCleared": "Gecachte Audiodaten geleert.",
+    "cachedClearFailed": "Gecachte Audiodaten konnten nicht geleert werden."
   },
   "feedback": {
     "title": "Feedback & Fehlerberichte",
@@ -366,11 +371,6 @@
     "playlistsLocal": "Playlists werden nur lokal in deinem Browser gespeichert. Sie werden nicht zwischen Geräten oder Konten synchronisiert.",
     "offlineTitle": "Installierbare Apps",
     "offlineBody": "Für lokale/Offline-Analyse und -Wiedergabe, öffne die <offline>Forever Jukebox Offline-App</offline> und installiere sie in deinem Browser. Auf Android gibt es außerdem eine native Offline-App bei <play>Google Play</play>.",
-    "offlineAndroid": "Android-Nutzer können stattdessen eine Vollversion aus den <releases>GitHub Releases</releases> installieren (manuelle Installation), die sich zusätzlich mit einem Forever-Jukebox-Server verbinden kann; gib <server>{{server}}</server> als Server-URL ein, um diese Instanz zu nutzen.",
-    "cachedAudio": "Gecachte Audiodaten",
-    "clearSize": "{{size}}MB leeren",
-    "clearing": "Wird geleert...",
-    "cachedCleared": "Gecachte Audiodaten geleert.",
-    "cachedClearFailed": "Gecachte Audiodaten konnten nicht geleert werden."
+    "offlineAndroid": "Android-Nutzer können stattdessen eine Vollversion aus den <releases>GitHub Releases</releases> installieren (manuelle Installation), die sich zusätzlich mit einem Forever-Jukebox-Server verbinden kann; gib <server>{{server}}</server> als Server-URL ein, um diese Instanz zu nutzen."
   }
 }

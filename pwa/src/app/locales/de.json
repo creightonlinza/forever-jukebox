@@ -153,7 +153,11 @@
     "open": "Einstellungen öffnen",
     "language": "Sprache",
     "theme": "Darstellung",
-    "sleepTimer": "Sleep-Timer"
+    "sleepTimer": "Sleep-Timer",
+    "cachedAnalysis": "Gecachte Analysen",
+    "clearing": "Wird geleert...",
+    "clearSize": "{{size}}MB leeren",
+    "clearFailed": "Analyse-Cache konnte nicht geleert werden."
   },
   "sleepTimer": {
     "timer": "Timer",
@@ -231,10 +235,7 @@
     "tuneTypes": "Lege eine Mindest-Sprungdistanz fest, um Sprungpfade nach Beat-Distanz über den Song hinweg zu filtern, und nutze die Checkboxen für andere Sprungpfad-Typen.",
     "tuneDelete": "Wähle einen Sprungpfad in der Visualisierung aus und lösche ihn.",
     "storageTitle": "Wo wird die Analyse gespeichert?",
-    "storageBody": "Die Analyse wird lokal in deinem Browser gespeichert. Du kannst einzelne Track-Analysen unter Start löschen, oder alle gecachten Analysen durch Klicken auf den Button unten:",
-    "clearing": "Wird geleert...",
-    "clearSize": "{{size}}MB leeren",
-    "clearFailed": "Analyse-Cache konnte nicht geleert werden."
+    "storageBody": "Die Analyse wird lokal in deinem Browser gespeichert. Du kannst einzelne Track-Analysen unter Start löschen, oder alle gecachten Analysen in den Einstellungen."
   },
   "manifest": {
     "description": "Eine vollständig offline nutzbare Forever Jukebox für lokale Audiodateien."

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import { clearCachedAudio, getCachedAudioBytes } from "../cache";
 import { formatDuration } from "../format";
 import {
   resolveSupportedLanguage,
@@ -10,6 +11,7 @@ import { trackEvent } from "../analytics";
 import { SLEEP_TIMER_OPTIONS, setSleepTimer } from "../playback";
 import { useAppStore } from "../store";
 import type { ThemeName } from "../themeConfig";
+import { showToast } from "../ui";
 import { Modal } from "./Modal";
 
 function valueForDuration(durationMs: number | null) {
@@ -46,6 +48,77 @@ function sleepTimerLabel(durationMs: number | null, t: TFunction) {
     return t("sleepTimer.twoHours");
   }
   return t("sleepTimer.minutes", { count: durationMs / 60_000 });
+}
+
+function formatMegabytes(bytes: number) {
+  const mb = Math.max(0, bytes) / (1024 * 1024);
+  const rounded = mb.toFixed(1);
+  return rounded.endsWith(".0") ? rounded.slice(0, -2) : rounded;
+}
+
+function CachedAudioClearButton({ open }: { open: boolean }) {
+  const { t } = useTranslation();
+  const [label, setLabel] = useState(() =>
+    t("settings.clearSize", { size: 0 }),
+  );
+  const [disabled, setDisabled] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const bytes = await getCachedAudioBytes();
+      setLabel(t("settings.clearSize", { size: formatMegabytes(bytes) }));
+      setDisabled(bytes <= 0);
+    } catch (err) {
+      console.warn(`Cache size failed: ${String(err)}`);
+      setLabel(t("settings.clearSize", { size: 0 }));
+      setDisabled(true);
+    }
+  }, [t]);
+
+  // The modal stays mounted while closed, so refresh each time it opens.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    refresh().catch((err) => {
+      console.warn(`Cache size refresh failed: ${String(err)}`);
+    });
+  }, [open, refresh]);
+
+  const handleClear = async () => {
+    setDisabled(true);
+    setLabel(t("settings.clearing"));
+    try {
+      await clearCachedAudio();
+      showToast(t("settings.cachedCleared"));
+    } catch (err) {
+      console.warn(`Cache clear failed: ${String(err)}`);
+      showToast(t("settings.cachedClearFailed"));
+    } finally {
+      refresh().catch((err) => {
+        console.warn(`Cache size refresh failed: ${String(err)}`);
+      });
+    }
+  };
+
+  const handleClearClick = () => {
+    handleClear().catch((err) => {
+      console.warn(`Cache clear failed: ${String(err)}`);
+      showToast(t("settings.cachedClearFailed"));
+    });
+  };
+
+  return (
+    <button
+      id="cached-audio-clear"
+      type="button"
+      className="settings-timer-set"
+      disabled={disabled}
+      onClick={handleClearClick}
+    >
+      {label}
+    </button>
+  );
 }
 
 export function SettingsModal() {
@@ -266,6 +339,11 @@ export function SettingsModal() {
               </button>
             </div>
           </div>
+        </section>
+
+        <section className="settings-section">
+          <div className="label-line">{t("settings.cachedAudio")}</div>
+          <CachedAudioClearButton open={open} />
         </section>
       </div>
     </Modal>

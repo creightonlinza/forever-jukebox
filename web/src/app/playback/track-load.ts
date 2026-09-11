@@ -436,7 +436,6 @@ export async function pollAnalysis(
           i18n.t("status.calculatingPathways"),
         );
         if (applyAnalysisResult(context, response, deps.onAnalysisLoaded)) {
-          deps.setActiveTab("play");
           return;
         }
       }
@@ -500,7 +499,6 @@ async function continueTrackLoadWithResponse(
     if (!applyAnalysisResult(context, response, deps.onAnalysisLoaded)) {
       return false;
     }
-    deps.setActiveTab("play");
     return true;
   }
   return false;
