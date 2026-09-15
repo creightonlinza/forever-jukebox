@@ -406,27 +406,45 @@ def claim_notify_state(db_path: Path, key: str, expected: Optional[str], value: 
     return int(cur.rowcount or 0) > 0
 
 
-def recent_youtube_failures(db_path: Path, after_iso: str) -> list[tuple[str, str]]:
-    """(updated_at, error) of YouTube jobs currently failed after the given timestamp.
+def youtube_jobs_finished_between(
+    db_path: Path, after_iso: str, through_iso: str
+) -> list[tuple[str, str, Optional[str]]]:
+    """(updated_at, status, error) of YouTube jobs that completed or failed in (after, through].
 
-    The bound is exclusive so a caller can pass the newest row it has already
-    handled. Retried jobs reuse their row, so failures the user retried to
-    success no longer appear here.
+    Retried jobs reuse their row, so a failure the user retried to success no
+    longer appears as one.
     """
     with _connect(db_path) as conn:
         rows = conn.execute(
             """
-            SELECT j.updated_at, j.error
+            SELECT j.updated_at, j.status, j.error
             FROM jobs j
             JOIN sources s ON s.id = j.source_ref
             WHERE s.provider = 'youtube'
-              AND j.status = 'failed'
-              AND j.error IS NOT NULL
+              AND j.status IN ('complete', 'failed')
               AND j.updated_at > ?
+              AND j.updated_at <= ?
+            ORDER BY j.updated_at
             """,
-            (after_iso,),
+            (after_iso, through_iso),
         ).fetchall()
-    return [(str(row[0]), str(row[1])) for row in rows]
+    return [(str(row[0]), str(row[1]), row[2]) for row in rows]
+
+
+def latest_youtube_success(db_path: Path, through_iso: str) -> Optional[str]:
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT MAX(j.updated_at)
+            FROM jobs j
+            JOIN sources s ON s.id = j.source_ref
+            WHERE s.provider = 'youtube'
+              AND j.status = 'complete'
+              AND j.updated_at <= ?
+            """,
+            (through_iso,),
+        ).fetchone()
+    return str(row[0]) if row and row[0] else None
 
 
 def get_job(db_path: Path, job_id: str) -> Optional[Job]:
@@ -439,11 +457,12 @@ def get_job(db_path: Path, job_id: str) -> Optional[Job]:
 
 
 def set_job_status(db_path: Path, job_id: str, status: str, error: Optional[str] = None) -> None:
-    now = _utc_now()
     with _connect(db_path) as conn:
+        # Stamp under the write lock so concurrent writers commit in stamp order.
+        conn.execute("BEGIN IMMEDIATE")
         conn.execute(
             "UPDATE jobs SET status = ?, error = ?, updated_at = ? WHERE id = ?",
-            (status, error, now, job_id),
+            (status, error, _utc_now(), job_id),
         )
         conn.commit()
 

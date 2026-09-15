@@ -21,10 +21,11 @@ from ..db import (
     delete_job,
     get_job,
     get_notify_state,
-    recent_youtube_failures,
+    latest_youtube_success,
     set_job_progress,
     set_job_status,
     update_job_track_metadata,
+    youtube_jobs_finished_between,
 )
 from ..env import env_positive_float
 from ..paths import DB_PATH, STORAGE_ROOT
@@ -449,13 +450,11 @@ AGE_RESTRICTED_PATTERNS = (
     "age restriction",
 )
 
-NOTIFY_FAILURE_THRESHOLD = 5
-NOTIFY_MIN_INTERVAL_S = 6 * 3600.0
-NOTIFY_MAX_WINDOW_S = 24 * 3600.0
+NOTIFY_DIGEST_INTERVAL_S = 6 * 3600.0
+NOTIFY_FAILURE_THRESHOLD = 3
 NOTIFY_CHECK_INTERVAL_S = 60.0
-# Holds the updated_at of the newest failure already reported, so the next
-# ping starts strictly after it.
-NOTIFY_WATERMARK_KEY = "youtube_last_ntfy_at"
+# Instant the last digest period closed; the next period starts there.
+NOTIFY_PERIOD_START_KEY = "youtube_digest_period_start"
 # curl caps itself; subprocess gets a wider guard so curl exits on its own first.
 NTFY_TIMEOUT_S = 10.0
 
@@ -495,15 +494,49 @@ def _send_ntfy(topic_key: str, message: str) -> None:
         return
 
 
-def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
-    """Ping ntfy when blocked-looking YouTube failures pile up.
+def _fmt_clock(moment: datetime) -> str:
+    return f"{moment.hour:02d}:{moment.minute:02d}"
 
-    Counts YouTube jobs still failed since the newest failure the last ping
-    reported, over a window of at most NOTIFY_MAX_WINDOW_S, and notifies once
-    the count reaches NOTIFY_FAILURE_THRESHOLD, at most once per
-    NOTIFY_MIN_INTERVAL_S. Safe to call every worker-loop iteration; the DB is
-    only queried every NOTIFY_CHECK_INTERVAL_S, and concurrent workers claim
-    the send slot so only one of them pings.
+
+MONTH_ABBREVIATIONS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _fmt_moment(moment: datetime) -> str:
+    return f"{MONTH_ABBREVIATIONS[moment.month - 1]} {moment.day} {_fmt_clock(moment)}"
+
+
+def _utc_moment(iso: str | None) -> datetime | None:
+    moment = parse_timestamp(iso)
+    if moment is None:
+        return None
+    return moment.astimezone(timezone.utc) if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def _fmt_utc(iso: str) -> str:
+    moment = _utc_moment(iso)
+    return f"{_fmt_moment(moment)} UTC" if moment else iso
+
+
+def _fmt_span(first_iso: str, last_iso: str) -> str:
+    first = _utc_moment(first_iso)
+    last = _utc_moment(last_iso)
+    if first is None or last is None:
+        return f"{first_iso}\u2013{last_iso}"
+    if first.date() != last.date():
+        return f"{_fmt_moment(first)}\u2013{_fmt_moment(last)} UTC"
+    if _fmt_clock(first) == _fmt_clock(last):
+        return f"{_fmt_moment(first)} UTC"
+    return f"{_fmt_moment(first)}\u2013{_fmt_clock(last)} UTC"
+
+
+def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
+    """Close a digest period every NOTIFY_DIGEST_INTERVAL_S and report its blocked YouTube failures.
+
+    A period runs from the close of the previous one to now. Its digest goes
+    out only when at least NOTIFY_FAILURE_THRESHOLD failures in it are still
+    marked failed. Safe to call every worker-loop iteration; the DB is only
+    queried every NOTIFY_CHECK_INTERVAL_S, and concurrent workers claim the
+    period so only one of them pings.
     """
     global _next_notify_check_monotonic
     topic_key = os.environ.get(NTFY_TOPIC_ENV)
@@ -514,36 +547,44 @@ def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
         return
     _next_notify_check_monotonic = mono + NOTIFY_CHECK_INTERVAL_S
     now = datetime.now(timezone.utc)
-    stored_watermark = get_notify_state(db_path, NOTIFY_WATERMARK_KEY)
-    watermark = parse_timestamp(stored_watermark)
-    if watermark is not None and watermark.tzinfo is None:
-        watermark = watermark.replace(tzinfo=timezone.utc)
-    if watermark is not None and (now - watermark).total_seconds() < NOTIFY_MIN_INTERVAL_S:
+    stored_start = get_notify_state(db_path, NOTIFY_PERIOD_START_KEY)
+    period_start = _utc_moment(stored_start)
+    if period_start is not None and (now - period_start).total_seconds() < NOTIFY_DIGEST_INTERVAL_S:
         return
-    window_start = now - timedelta(seconds=NOTIFY_MAX_WINDOW_S)
-    since = max(watermark, window_start) if watermark is not None else window_start
+    since = period_start or now - timedelta(seconds=NOTIFY_DIGEST_INTERVAL_S)
+    finished = youtube_jobs_finished_between(db_path, since.isoformat(), now.isoformat())
+    if not claim_notify_state(db_path, NOTIFY_PERIOD_START_KEY, stored_start, now.isoformat()):
+        return
     blocked = [
         (updated_at, label)
-        for updated_at, error in recent_youtube_failures(db_path, since.isoformat())
-        if (label := youtube_block_signal(error)) is not None
+        for updated_at, status, error in finished
+        if status == "failed" and (label := youtube_block_signal(error)) is not None
     ]
     if len(blocked) < NOTIFY_FAILURE_THRESHOLD:
         return
-    # Newest counted failure; the next query starts strictly after it.
-    next_watermark = max(updated_at for updated_at, _ in blocked)
-    if not claim_notify_state(
-        db_path, NOTIFY_WATERMARK_KEY, stored_watermark, next_watermark
-    ):
-        return
+    first_failure = blocked[0][0]
+    newest_failure = blocked[-1][0]
+    completes = [updated_at for updated_at, status, _ in finished if status == "complete"]
+    attempts = len(blocked) + sum(1 for at in completes if first_failure <= at <= newest_failure)
+    recovered = sum(1 for at in completes if at > newest_failure)
+    last_success = max(completes) if completes else latest_youtube_success(db_path, now.isoformat())
+    if recovered:
+        noun = "success" if recovered == 1 else "successes"
+        recovery = f"Recovered: {recovered} {noun} since, last {_fmt_utc(last_success)}."
+    elif last_success:
+        recovery = f"No successful download since {_fmt_utc(last_success)}."
+    else:
+        recovery = "No successful download on record."
     counts = Counter(label for _, label in blocked)
     breakdown = ", ".join(f"{label} x{count}" for label, count in counts.most_common())
-    hours = (now - since).total_seconds() / 3600.0
     message = (
-        f"[Forever Jukebox] {len(blocked)} YouTube download failures logged "
-        f"in the last {hours:.1f}h ({breakdown})"
+        f"[Forever Jukebox] YouTube: {len(blocked)} of {attempts} failed "
+        f"{_fmt_span(first_failure, newest_failure)} ({breakdown}). {recovery}"
     )
     _send_ntfy(topic_key, message)
-    log_event("ntfy_youtube_failures", count=len(blocked), window_h=round(hours, 1))
+    log_event(
+        "ntfy_youtube_failures", count=len(blocked), attempts=attempts, recovered=recovered
+    )
 
 
 def _write_failure_log(job_id: str, message: str) -> None:

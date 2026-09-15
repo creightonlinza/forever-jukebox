@@ -16,7 +16,7 @@ from api.db import (
 )
 from api.routes import jobs_runtime as jobs_runtime_module
 from api.routes.jobs_runtime import (
-    NOTIFY_WATERMARK_KEY,
+    NOTIFY_PERIOD_START_KEY,
     maybe_notify_youtube_failures,
     youtube_block_signal,
 )
@@ -74,10 +74,11 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
     def _reset_throttle(self) -> None:
         jobs_runtime_module._next_notify_check_monotonic = 0.0
 
-    def _seed_failures(
+    def _seed_jobs(
         self,
         count: int,
-        error: str = "ERROR: unable to download video data: HTTP Error 403: Forbidden",
+        status: str = "failed",
+        error: str | None = "ERROR: unable to download video data: HTTP Error 403: Forbidden",
         provider: str = "youtube",
         start: int = 0,
     ) -> list[str]:
@@ -90,23 +91,44 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
                 source_id=f"vid{index:08d}",
                 source_provider=provider,
             )
-            set_job_status(self.db_path, job_id, "failed", error)
+            if status != "queued":
+                set_job_status(self.db_path, job_id, status, error if status == "failed" else None)
             job_ids.append(job_id)
         return job_ids
 
-    def _set_updated_at(self, job_id: str, updated_at: str) -> None:
+    def _backdate(self, job_id: str, at: str) -> None:
         with db_module._connect(self.db_path) as conn:
-            conn.execute("UPDATE jobs SET updated_at = ? WHERE id = ?", (updated_at, job_id))
+            conn.execute(
+                "UPDATE jobs SET created_at = ?, updated_at = ? WHERE id = ?", (at, at, job_id)
+            )
             conn.commit()
 
-    def _set_watermark(self, value: str) -> None:
-        self.assertTrue(
-            claim_notify_state(self.db_path, NOTIFY_WATERMARK_KEY, None, value)
-        )
+    def _set_state(self, key: str, value: str) -> None:
+        self.assertTrue(claim_notify_state(self.db_path, key, None, value))
 
     def _sent_message(self) -> str:
         self.assertEqual(self.send_mock.call_count, 1)
         return self.send_mock.call_args[0][1]
+
+    @staticmethod
+    def _clock(iso: str):
+        frozen = datetime.fromisoformat(iso)
+
+        class _FixedClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return frozen
+
+        return patch.object(jobs_runtime_module, "datetime", _FixedClock)
+
+    def _period_close_time(self) -> str:
+        start = datetime.fromisoformat(get_notify_state(self.db_path, NOTIFY_PERIOD_START_KEY))
+        return (start + timedelta(seconds=jobs_runtime_module.NOTIFY_DIGEST_INTERVAL_S)).isoformat()
+
+    def _close_period_now(self) -> None:
+        self._reset_throttle()
+        with self._clock(self._period_close_time()):
+            maybe_notify_youtube_failures(self.db_path)
 
     def test_no_topic_env_short_circuits_before_db(self) -> None:
         missing_db = Path("/nonexistent") / "jobs.db"
@@ -114,134 +136,215 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
             maybe_notify_youtube_failures(missing_db)
         self.send_mock.assert_not_called()
 
-    def test_below_threshold_stays_silent(self) -> None:
-        self._seed_failures(4)
+    def test_closing_a_period_records_its_end_even_when_silent(self) -> None:
+        self._seed_jobs(3, status="complete")
         maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
-        self.assertIsNone(get_notify_state(self.db_path, NOTIFY_WATERMARK_KEY))
+        self.assertIsNotNone(get_notify_state(self.db_path, NOTIFY_PERIOD_START_KEY))
 
-    def test_threshold_pings_with_count_and_breakdown(self) -> None:
-        self._seed_failures(3)
-        self._seed_failures(
-            2, error="ERROR: Sign in to confirm you're not a bot", start=3
-        )
+    def test_below_threshold_stays_silent(self) -> None:
+        self._seed_jobs(2)
+        maybe_notify_youtube_failures(self.db_path)
+        self.send_mock.assert_not_called()
+
+    def test_threshold_sends_a_digest(self) -> None:
+        self._seed_jobs(3)
         maybe_notify_youtube_failures(self.db_path)
         message = self._sent_message()
-        self.assertIn("5 YouTube download failures logged", message)
-        self.assertIn("in the last 24.0h", message)
+        self.assertIn("3 of 3 failed", message)
+        self.assertIn("(403 x3)", message)
+        self.assertIn("No successful download on record.", message)
+
+    def test_breakdown_lists_each_block_label(self) -> None:
+        self._seed_jobs(3)
+        self._seed_jobs(2, error="ERROR: Sign in to confirm you're not a bot", start=3)
+        maybe_notify_youtube_failures(self.db_path)
+        message = self._sent_message()
+        self.assertIn("5 of 5 failed", message)
         self.assertIn("403 x3", message)
         self.assertIn("bot-check x2", message)
-        self.assertIsNotNone(get_notify_state(self.db_path, NOTIFY_WATERMARK_KEY))
 
     def test_non_youtube_failures_do_not_count(self) -> None:
-        self._seed_failures(5, provider="soundcloud")
+        self._seed_jobs(5, provider="soundcloud")
         maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
 
     def test_non_block_errors_do_not_count(self) -> None:
-        self._seed_failures(5, error="ERROR: Sign in to confirm your age")
+        self._seed_jobs(5, error="ERROR: Sign in to confirm your age")
         maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
 
-    def test_retried_to_success_leaves_the_count(self) -> None:
-        job_ids = self._seed_failures(5)
+    def test_retried_to_success_drops_out(self) -> None:
+        job_ids = self._seed_jobs(3)
         set_job_status(self.db_path, job_ids[0], "complete", None)
         maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
 
-    def test_failures_older_than_first_run_window_do_not_count(self) -> None:
-        job_ids = self._seed_failures(5)
-        self._set_updated_at(job_ids[0], _utc_iso(timedelta(hours=-25)))
-        maybe_notify_youtube_failures(self.db_path)
-        self.send_mock.assert_not_called()
-
-    def test_cooldown_suppresses_ping(self) -> None:
-        self._seed_failures(5)
-        self._set_watermark(_utc_iso(timedelta(hours=-1)))
-        maybe_notify_youtube_failures(self.db_path)
-        self.send_mock.assert_not_called()
-
-    def test_expired_cooldown_reports_pile_since_the_watermark(self) -> None:
-        self._seed_failures(7)
-        self._set_watermark(_utc_iso(timedelta(hours=-7)))
+    def test_attempts_count_completes_and_block_failures_in_the_failure_span(self) -> None:
+        self._seed_jobs(2)
+        self._seed_jobs(1, status="complete", start=2)
+        self._seed_jobs(1, error="ERROR: Sign in to confirm your age", start=3)
+        self._seed_jobs(1, start=4)
         maybe_notify_youtube_failures(self.db_path)
         message = self._sent_message()
-        self.assertIn("7 YouTube download failures logged", message)
-        self.assertIn("in the last 7.0h", message)
+        self.assertIn("3 of 4 failed", message)
+        self.assertIn("No successful download since", message)
 
-    def test_failures_before_the_watermark_do_not_count(self) -> None:
-        job_ids = self._seed_failures(7)
-        self._set_watermark(_utc_iso(timedelta(hours=-7)))
-        for job_id in job_ids[:3]:
-            self._set_updated_at(job_id, _utc_iso(timedelta(hours=-8)))
+    def test_non_block_failures_are_not_counted_as_attempts(self) -> None:
+        self._seed_jobs(3)
+        self._seed_jobs(1, error="ERROR: Sign in to confirm your age", start=3)
+        maybe_notify_youtube_failures(self.db_path)
+        message = self._sent_message()
+        self.assertIn("3 of 3 failed", message)
+        self.assertIn("No successful download on record.", message)
+
+    def test_legacy_watermark_key_is_ignored(self) -> None:
+        job_ids = self._seed_jobs(4)
+        self._set_state("youtube_last_ntfy_at", _utc_iso(timedelta(hours=-30)))
+        self._backdate(job_ids[0], _utc_iso(timedelta(hours=-20)))
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("3 of 3 failed", self._sent_message())
+
+    def test_attempts_exclude_jobs_still_queued(self) -> None:
+        self._seed_jobs(3)
+        self._seed_jobs(2, status="queued", start=3)
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("3 of 3 failed", self._sent_message())
+
+    def test_attempts_exclude_successes_outside_the_failure_span(self) -> None:
+        self._seed_jobs(4, status="complete")
+        self._seed_jobs(3, start=4)
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("3 of 3 failed", self._sent_message())
+
+    def test_recovery_line_counts_successes_after_the_newest_failure(self) -> None:
+        self._seed_jobs(3)
+        self._seed_jobs(3, status="complete", start=3)
+        maybe_notify_youtube_failures(self.db_path)
+        message = self._sent_message()
+        self.assertIn("3 of 3 failed", message)
+        self.assertIn("Recovered: 3 successes since, last ", message)
+
+    def test_recovery_line_uses_singular_for_one_success(self) -> None:
+        self._seed_jobs(3)
+        self._seed_jobs(1, status="complete", start=3)
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("Recovered: 1 success since, last ", self._sent_message())
+
+    def test_open_period_is_left_alone(self) -> None:
+        self._seed_jobs(5)
+        self._set_state(NOTIFY_PERIOD_START_KEY, _utc_iso(timedelta(hours=-1)))
         maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
+
+    def test_failures_before_the_period_do_not_count(self) -> None:
+        job_ids = self._seed_jobs(7)
+        self._set_state(NOTIFY_PERIOD_START_KEY, _utc_iso(timedelta(hours=-7)))
+        for job_id in job_ids[:3]:
+            self._backdate(job_id, _utc_iso(timedelta(hours=-8)))
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("4 of 4 failed", self._sent_message())
+
+    def test_period_covers_everything_since_the_previous_close(self) -> None:
+        job_ids = self._seed_jobs(3)
+        self._set_state(NOTIFY_PERIOD_START_KEY, _utc_iso(timedelta(hours=-7)))
+        self._backdate(job_ids[0], _utc_iso(timedelta(hours=-6, minutes=-30)))
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("3 of 3 failed", self._sent_message())
+
+    def test_first_period_only_looks_back_one_interval(self) -> None:
+        job_ids = self._seed_jobs(5)
+        self._backdate(job_ids[0], _utc_iso(timedelta(hours=-7)))
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("4 of 4 failed", self._sent_message())
+
+    def test_naive_stored_period_start_is_treated_as_utc(self) -> None:
+        self._seed_jobs(3)
+        naive = (datetime.now(timezone.utc) - timedelta(hours=7)).replace(tzinfo=None)
+        self._set_state(NOTIFY_PERIOD_START_KEY, naive.isoformat())
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("3 of 3 failed", self._sent_message())
+
+    def test_sub_threshold_failures_do_not_carry_into_the_next_period(self) -> None:
+        self._set_state(NOTIFY_PERIOD_START_KEY, _utc_iso(timedelta(hours=-7)))
+        self._seed_jobs(2)
+        maybe_notify_youtube_failures(self.db_path)
+        self._seed_jobs(2, start=2)
+        self._close_period_now()
+        self.send_mock.assert_not_called()
+
+    def test_reported_failures_are_not_reported_again(self) -> None:
+        self._set_state(NOTIFY_PERIOD_START_KEY, _utc_iso(timedelta(hours=-7)))
+        self._seed_jobs(3)
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("3 of 3 failed", self._sent_message())
+        self._close_period_now()
+        self.assertEqual(self.send_mock.call_count, 1)
+
+    def test_failures_landing_after_the_period_closes_go_to_the_next_one(self) -> None:
+        self._set_state(NOTIFY_PERIOD_START_KEY, _utc_iso(timedelta(hours=-7)))
+        self._seed_jobs(3)
+        # The check samples `now` before it queries; a failure committed in
+        # between is newer than that sample.
+        with self._clock(_utc_iso(timedelta(seconds=-1))):
+            maybe_notify_youtube_failures(self.db_path)
+        self.send_mock.assert_not_called()
+        self._seed_jobs(3, start=3)
+        self._close_period_now()
+        self.assertIn("6 of 6 failed", self._sent_message())
 
     def test_check_throttle_skips_repeat_calls(self) -> None:
         maybe_notify_youtube_failures(self.db_path)
-        self._seed_failures(5)
-        maybe_notify_youtube_failures(self.db_path)
-        self.send_mock.assert_not_called()
-        self._reset_throttle()
-        maybe_notify_youtube_failures(self.db_path)
+        self._seed_jobs(3)
+        with self._clock(self._period_close_time()):
+            maybe_notify_youtube_failures(self.db_path)
+            self.send_mock.assert_not_called()
+            self._reset_throttle()
+            maybe_notify_youtube_failures(self.db_path)
         self.assertEqual(self.send_mock.call_count, 1)
 
-    def test_watermark_records_the_newest_counted_failure(self) -> None:
-        job_ids = self._seed_failures(5)
-        newest = _utc_iso(timedelta(minutes=-1))
-        self._set_updated_at(job_ids[0], newest)
-        for job_id in job_ids[1:]:
-            self._set_updated_at(job_id, _utc_iso(timedelta(minutes=-5)))
-        maybe_notify_youtube_failures(self.db_path)
-        self.assertEqual(get_notify_state(self.db_path, NOTIFY_WATERMARK_KEY), newest)
-
-    def test_failures_landing_during_the_check_are_reported_once(self) -> None:
-        self._seed_failures(5)
-        # The check samples `now` before it queries; a failure committed in
-        # between is newer than that sample.
-        sampled_now = datetime.now(timezone.utc) - timedelta(seconds=1)
-
-        class _EarlyClock(datetime):
-            @classmethod
-            def now(cls, tz=None):
-                return sampled_now
-
-        with patch.object(jobs_runtime_module, "NOTIFY_MIN_INTERVAL_S", 0.0):
-            with patch.object(jobs_runtime_module, "datetime", _EarlyClock):
-                maybe_notify_youtube_failures(self.db_path)
-            self.assertIn("5 YouTube download failures", self._sent_message())
-
-            self.send_mock.reset_mock()
-            self._reset_throttle()
-            self._seed_failures(5, start=5)
-            maybe_notify_youtube_failures(self.db_path)
-        self.assertIn("5 YouTube download failures", self._sent_message())
-
-    def test_window_is_capped_even_after_a_long_quiet_period(self) -> None:
-        job_ids = self._seed_failures(5)
-        self._set_watermark(_utc_iso(timedelta(hours=-200)))
-        self._set_updated_at(job_ids[0], _utc_iso(timedelta(hours=-30)))
-        maybe_notify_youtube_failures(self.db_path)
-        self.send_mock.assert_not_called()
-
-        self._reset_throttle()
-        self._set_updated_at(job_ids[0], _utc_iso(timedelta(hours=-1)))
-        maybe_notify_youtube_failures(self.db_path)
-        self.assertIn("in the last 24.0h", self._sent_message())
-
     def test_losing_the_claim_skips_the_send(self) -> None:
-        self._seed_failures(5)
+        self._seed_jobs(3)
         with patch.object(jobs_runtime_module, "claim_notify_state", return_value=False):
             maybe_notify_youtube_failures(self.db_path)
         self.send_mock.assert_not_called()
 
     def test_notify_state_claim_is_single_winner(self) -> None:
-        init_db(self.db_path)
         self.assertTrue(claim_notify_state(self.db_path, "k", None, "v1"))
         self.assertFalse(claim_notify_state(self.db_path, "k", None, "v2"))
         self.assertFalse(claim_notify_state(self.db_path, "k", "stale", "v3"))
         self.assertTrue(claim_notify_state(self.db_path, "k", "v1", "v2"))
         self.assertEqual(get_notify_state(self.db_path, "k"), "v2")
+
+    def _seed_fixed_span(self, *stamps: str) -> None:
+        job_ids = self._seed_jobs(len(stamps))
+        for job_id, stamp in zip(job_ids, stamps):
+            self._backdate(job_id, stamp)
+        self._set_state(NOTIFY_PERIOD_START_KEY, "2026-09-12T00:00:00+00:00")
+
+    def test_span_is_rendered_in_utc(self) -> None:
+        self._seed_fixed_span(
+            "2026-09-13T07:14:02+00:00", "2026-09-13T07:20:46+00:00", "2026-09-13T08:21:53+00:00"
+        )
+        with self._clock("2026-09-13T09:00:00+00:00"):
+            maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("3 of 3 failed Sep 13 07:14\u201308:21 UTC (403 x3)", self._sent_message())
+
+    def test_span_crossing_midnight_names_both_days(self) -> None:
+        self._seed_fixed_span(
+            "2026-09-12T23:50:00+00:00", "2026-09-13T00:10:00+00:00", "2026-09-13T00:30:00+00:00"
+        )
+        with self._clock("2026-09-13T01:00:00+00:00"):
+            maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("failed Sep 12 23:50\u2013Sep 13 00:30 UTC", self._sent_message())
+
+    def test_span_within_one_minute_is_one_moment(self) -> None:
+        self._seed_fixed_span(
+            "2026-09-13T13:25:45+00:00", "2026-09-13T13:25:50+00:00", "2026-09-13T13:25:55+00:00"
+        )
+        with self._clock("2026-09-13T14:00:00+00:00"):
+            maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("3 of 3 failed Sep 13 13:25 UTC (403 x3)", self._sent_message())
 
 
 if __name__ == "__main__":
