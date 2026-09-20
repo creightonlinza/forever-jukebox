@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createFavoritesSync,
   deleteJob,
+  dismissTrackReport,
+  fetchReportedTracks,
+  reportTrack,
   fetchAnalysis,
   searchSpotify,
   searchYoutube,
@@ -415,6 +418,36 @@ describe("api", () => {
     await expect(deleteJob("job1", "secret")).resolves.toBeUndefined();
 
     expect(fetch).toHaveBeenCalledWith("/api/jobs/job1", {
+      method: "DELETE",
+      headers: { "X-Admin-Key": "secret" },
+    });
+  });
+
+  it("reports a track with the chosen reason", async () => {
+    (fetch as any).mockResolvedValueOnce(createResponse(200, { status: "ok" }));
+
+    await expect(reportTrack("job1", "bad_audio")).resolves.toBeUndefined();
+
+    expect(fetch).toHaveBeenCalledWith("/api/reports/job1", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "bad_audio" }),
+    });
+  });
+
+  it("sends the admin key when listing and dismissing reports", async () => {
+    const items = [
+      { id: "job1", reason: "other", reported_at: "2026-09-01T00:00:00+00:00" },
+    ];
+    (fetch as any).mockResolvedValueOnce(createResponse(200, { items }));
+    await expect(fetchReportedTracks("secret")).resolves.toEqual(items);
+    expect(fetch).toHaveBeenCalledWith("/api/reports", {
+      headers: { "X-Admin-Key": "secret" },
+    });
+
+    (fetch as any).mockResolvedValueOnce(createResponse(200, { status: "ok" }));
+    await expect(dismissTrackReport("job1", "secret")).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenLastCalledWith("/api/reports/job1", {
       method: "DELETE",
       headers: { "X-Admin-Key": "secret" },
     });

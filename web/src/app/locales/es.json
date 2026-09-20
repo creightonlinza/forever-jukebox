@@ -170,6 +170,20 @@
     "trackQuestion": "¿Eliminar pista?",
     "withinWindow": "Eliminar dentro de los 30 minutos posteriores a la creación"
   },
+  "report": {
+    "title": "Reportar pista",
+    "button": "Reportar",
+    "reported": "Pista reportada",
+    "failed": "No se pudo reportar la pista",
+    "dismiss": "Descartar reporte",
+    "dismissNamed": "Descartar reporte de {{title}}",
+    "dismissFailed": "No se pudo descartar el reporte",
+    "reasons": {
+      "wrong_track": "Canción, versión o título incorrecto (en vivo, remix, cover, mal etiquetada, etc.)",
+      "bad_audio": "Audio defectuoso (mala calidad, cortado o incompleto)",
+      "other": "Otro"
+    }
+  },
   "playback": {
     "play": "Reproducir",
     "pause": "Pausa",
@@ -343,7 +357,11 @@
     "trendingError": "Tendencias",
     "recentError": "Reproducciones recientes",
     "unavailable": "{{section}} no disponible: {{error}}",
-    "refreshTitle": "Actualizar"
+    "refreshTitle": "Actualizar",
+    "reported": "Reportadas",
+    "loadingReported": "Cargando pistas reportadas...",
+    "emptyReported": "No hay pistas reportadas.",
+    "reportedError": "Pistas reportadas"
   },
   "faq": {
     "whatsNew": "Novedades",

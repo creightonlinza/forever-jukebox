@@ -17,7 +17,7 @@ export type AppState = {
   activeTabId: TabId;
   activeVizIndex: number;
   playMode: "jukebox" | "autocanonizer";
-  topSongsTab: "top" | "trending" | "recent" | "favorites";
+  topSongsTab: "top" | "trending" | "recent" | "reported" | "favorites";
   searchTab: "search" | "upload";
   favorites: FavoriteTrack[];
   playlist: PlaylistState;

@@ -65,6 +65,17 @@ export type TopSongItem = {
   source_provider?: string;
 };
 
+export type TrackReportReason = "wrong_track" | "bad_audio" | "other";
+
+export type ReportedTrackItem = {
+  id: string;
+  title?: string | null;
+  artist?: string | null;
+  source_provider?: string | null;
+  reason: string;
+  reported_at: string;
+};
+
 export type AppConfig = {
   allow_user_upload: boolean;
   allow_user_url: boolean;
@@ -324,6 +335,28 @@ export async function deleteJob(jobId: string, adminKey?: string | null) {
     (error as Error & { status?: number }).status = response.status;
     throw error;
   }
+}
+
+export async function reportTrack(jobId: string, reason: TrackReportReason) {
+  await fetchJson(`/api/reports/${encodeURIComponent(jobId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function fetchReportedTracks(adminKey: string) {
+  const data = await fetchJson("/api/reports", {
+    headers: { "X-Admin-Key": adminKey },
+  });
+  return Array.isArray(data?.items) ? (data.items as ReportedTrackItem[]) : [];
+}
+
+export async function dismissTrackReport(jobId: string, adminKey: string) {
+  await fetchJson(`/api/reports/${encodeURIComponent(jobId)}`, {
+    method: "DELETE",
+    headers: { "X-Admin-Key": adminKey },
+  });
 }
 
 export async function fetchJobBySource(

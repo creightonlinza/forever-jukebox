@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isAdminMode } from "../../admin";
+import { reportTrack, type TrackReportReason } from "../../api";
 import { isFavoriteTuningDrifted } from "../../favorite-drift";
 import { findCurrentFavorite } from "../../favorites";
 import { formatPlaybackTitle } from "../../format";
@@ -14,7 +15,8 @@ import {
 } from "../../delete-job";
 import { toggleFavorite } from "../../favorites-actions";
 import { copyShortUrl } from "../../playback-ui";
-import { Modal } from "../Modal";
+import { showToast } from "../../ui";
+import { Modal, ModalHeader } from "../Modal";
 import { useTranslation } from "react-i18next";
 
 function DeleteConfirmModal({
@@ -102,6 +104,99 @@ function DeleteConfirmModal({
   );
 }
 
+const TRACK_REPORT_REASONS: TrackReportReason[] = [
+  "wrong_track",
+  "bad_audio",
+  "other",
+];
+
+function ReportTrackModal({
+  jobId,
+  onClose,
+}: {
+  jobId: string | null;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [reason, setReason] = useState<TrackReportReason | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const close = () => {
+    if (busy) {
+      return;
+    }
+    setReason(null);
+    onClose();
+  };
+
+  const submit = async () => {
+    if (busy || !jobId || !reason) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await reportTrack(jobId, reason);
+      showToast(t("report.reported"), { icon: "flag" });
+    } catch {
+      showToast(t("report.failed"), { tone: "error" });
+    } finally {
+      setBusy(false);
+      setReason(null);
+      onClose();
+    }
+  };
+
+  return (
+    <Modal
+      id="report-track-modal"
+      open={jobId !== null}
+      onClose={close}
+      panelClassName="report-track-panel"
+    >
+      <ModalHeader
+        title={t("report.title")}
+        closeId="report-track-close"
+        onClose={close}
+      />
+      <div className="modal-body report-reasons" role="radiogroup">
+        {TRACK_REPORT_REASONS.map((value) => (
+          <label key={value} className="report-reason">
+            <input
+              type="radio"
+              name="report-reason"
+              value={value}
+              checked={reason === value}
+              disabled={busy}
+              onChange={() => setReason(value)}
+            />
+            <span>{t(`report.reasons.${value}`)}</span>
+          </label>
+        ))}
+      </div>
+      <div className="modal-footer">
+        <button
+          id="report-track-cancel"
+          type="button"
+          disabled={busy}
+          onClick={close}
+        >
+          {t("common.cancel")}
+        </button>
+        <button
+          id="report-track-submit"
+          className={busy ? "danger-button is-loading" : "danger-button"}
+          type="button"
+          disabled={busy || !reason}
+          aria-busy={busy}
+          onClick={() => void submit()}
+        >
+          {t("report.button")}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 export function PlayMenu() {
   const { t } = useTranslation();
   const audioLoaded = useAppStore((s) => s.audioLoaded);
@@ -123,7 +218,9 @@ export function PlayMenu() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
     null,
   );
+  const [reportJobId, setReportJobId] = useState<string | null>(null);
   const deleteButtonRef = useRef<HTMLButtonElement | null>(null);
+  const reportButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleRef = useRef<HTMLDivElement | null>(null);
 
   const hidden = !(audioLoaded && analysisLoaded) || swingPreparing;
@@ -228,6 +325,26 @@ export function PlayMenu() {
           </button>
           <button
             type="button"
+            id="report-track"
+            ref={reportButtonRef}
+            className={
+              deleteEligible || adminMode || !lastJobId
+                ? "report-toggle hidden"
+                : "report-toggle"
+            }
+            aria-label={t("report.title")}
+            title={t("report.title")}
+            onClick={() => setReportJobId(lastJobId)}
+          >
+            <span
+              className="material-symbols-outlined report-icon"
+              aria-hidden="true"
+            >
+              flag
+            </span>
+          </button>
+          <button
+            type="button"
             id="tuning"
             className={isCanonizer ? "tune-toggle is-hidden" : "tune-toggle"}
             disabled={isCanonizer}
@@ -302,6 +419,13 @@ export function PlayMenu() {
         onClosed={() => {
           setPendingDelete(null);
           deleteButtonRef.current?.focus();
+        }}
+      />
+      <ReportTrackModal
+        jobId={reportJobId}
+        onClose={() => {
+          setReportJobId(null);
+          reportButtonRef.current?.focus();
         }}
       />
     </>
