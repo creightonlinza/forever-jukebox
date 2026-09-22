@@ -201,6 +201,24 @@ Fetch recently played songs (defaults to 10):
 curl "/api/recent?limit=10"
 ```
 
+Report a bad track (`reason` is `wrong_track`, `bad_audio`, or `other`; only the first report per track is kept):
+
+```bash
+curl -X POST "/api/reports/<id>" -H "Content-Type: application/json" -d '{"reason":"bad_audio"}'
+```
+
+List reported tracks (admin):
+
+```bash
+curl "/api/reports" -H "X-Admin-Key: $ADMIN_KEY"
+```
+
+Dismiss a track report (admin):
+
+```bash
+curl -X DELETE "/api/reports/<id>" -H "X-Admin-Key: $ADMIN_KEY"
+```
+
 Create a favorites sync code:
 
 ```bash

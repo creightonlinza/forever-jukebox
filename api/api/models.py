@@ -69,6 +69,23 @@ class RecentSongsResponse(BaseModel):
     items: list[TopSongItem]
 
 
+class TrackReportRequest(BaseModel):
+    reason: Literal["wrong_track", "bad_audio", "other"]
+
+
+class ReportedTrackItem(BaseModel):
+    id: str
+    title: str | None = None
+    artist: str | None = None
+    source_provider: str | None = None
+    reason: str
+    reported_at: str
+
+
+class ReportedTracksResponse(BaseModel):
+    items: list[ReportedTrackItem]
+
+
 class PlayCountResponse(BaseModel):
     id: str
     play_count: int

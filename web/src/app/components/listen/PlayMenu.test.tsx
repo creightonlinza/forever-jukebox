@@ -10,6 +10,14 @@ const h = vi.hoisted(() => ({
   performDelete: vi.fn(),
   toggleFavorite: vi.fn(),
   copyShortUrl: vi.fn(),
+  reportTrack: vi.fn(),
+  showToast: vi.fn(),
+}));
+
+vi.mock("../../api", () => ({ reportTrack: h.reportTrack }));
+vi.mock("../../ui", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../ui")>()),
+  showToast: h.showToast,
 }));
 
 vi.mock("../../delete-job", () => ({
@@ -37,6 +45,9 @@ describe("PlayMenu", () => {
     h.performDelete.mockResolvedValue(undefined);
     h.toggleFavorite.mockReset();
     h.copyShortUrl.mockReset();
+    h.reportTrack.mockReset();
+    h.reportTrack.mockResolvedValue(undefined);
+    h.showToast.mockReset();
     act(() => {
       useAppStore.setState({
         audioLoaded: true,
@@ -143,6 +154,52 @@ describe("PlayMenu", () => {
     expect(button()?.getAttribute("title")).toBe(
       "Delete within 30 minutes of creation",
     );
+  });
+
+  it("shows the report button only when the delete button is hidden", () => {
+    render(<PlayMenu />);
+    const button = () => document.getElementById("report-track");
+    expect(button()?.classList.contains("hidden")).toBe(false);
+    act(() => {
+      useAppStore.setState({ deleteEligible: true });
+    });
+    expect(button()?.classList.contains("hidden")).toBe(true);
+  });
+
+  it("hides the report button in admin mode", () => {
+    localStorage.setItem(ADMIN_KEY_STORAGE_KEY, "secret");
+    render(<PlayMenu />);
+    expect(
+      document.getElementById("report-track")?.classList.contains("hidden"),
+    ).toBe(true);
+  });
+
+  it("reports the track with the chosen reason and closes the modal", async () => {
+    const user = userEvent.setup();
+    render(<PlayMenu />);
+    const modal = () => document.getElementById("report-track-modal");
+    const submit = () =>
+      document.getElementById("report-track-submit") as HTMLButtonElement;
+
+    await user.click(document.getElementById("report-track")!);
+    expect(modal()?.classList.contains("open")).toBe(true);
+    expect(submit().disabled).toBe(true);
+
+    await user.click(
+      document.querySelector<HTMLInputElement>(
+        'input[name="report-reason"][value="bad_audio"]',
+      )!,
+    );
+    expect(submit().disabled).toBe(false);
+    await user.click(submit());
+
+    expect(h.reportTrack).toHaveBeenCalledWith("job1", "bad_audio");
+    await waitFor(() => {
+      expect(modal()?.classList.contains("open")).toBe(false);
+    });
+    expect(h.showToast).toHaveBeenCalledWith("Track reported", {
+      icon: "flag",
+    });
   });
 
   it("opens the confirm modal and performs the delete", async () => {

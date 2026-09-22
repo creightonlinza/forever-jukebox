@@ -170,6 +170,20 @@
     "trackQuestion": "Song löschen?",
     "withinWindow": "Innerhalb von 30 Minuten nach Erstellung löschen"
   },
+  "report": {
+    "title": "Titel melden",
+    "button": "Melden",
+    "reported": "Titel gemeldet",
+    "failed": "Titel konnte nicht gemeldet werden",
+    "dismiss": "Meldung verwerfen",
+    "dismissNamed": "Meldung für {{title}} verwerfen",
+    "dismissFailed": "Meldung konnte nicht verworfen werden",
+    "reasons": {
+      "wrong_track": "Falscher Song, falsche Version oder falscher Titel (Live, Remix, Cover, falsch beschriftet usw.)",
+      "bad_audio": "Schlechtes Audio (schlechte Qualität, abgeschnitten oder unvollständig)",
+      "other": "Sonstiges"
+    }
+  },
   "playback": {
     "play": "Abspielen",
     "pause": "Pausieren",
@@ -343,7 +357,11 @@
     "trendingError": "Trending-Songs",
     "recentError": "Zuletzt gespielt",
     "unavailable": "{{section}} nicht verfügbar: {{error}}",
-    "refreshTitle": "Aktualisieren"
+    "refreshTitle": "Aktualisieren",
+    "reported": "Gemeldet",
+    "loadingReported": "Gemeldete Titel werden geladen...",
+    "emptyReported": "Keine gemeldeten Titel.",
+    "reportedError": "Gemeldete Titel"
   },
   "faq": {
     "whatsNew": "Was ist neu",

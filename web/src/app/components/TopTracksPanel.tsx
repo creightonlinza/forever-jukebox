@@ -6,7 +6,15 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
-import { fetchRecentSongs, fetchTopSongs, fetchTrendingSongs } from "../api";
+import { getAdminKey, isAdminMode } from "../admin";
+import {
+  dismissTrackReport,
+  fetchRecentSongs,
+  fetchReportedTracks,
+  fetchTopSongs,
+  fetchTrendingSongs,
+  type ReportedTrackItem,
+} from "../api";
 import { TOP_SONGS_LIMIT } from "../constants";
 import { formatErrorForDisplay } from "../errorDisplay";
 import {
@@ -27,7 +35,7 @@ import {
   type TopSongsListTabId,
 } from "../store";
 import { urlForTrack } from "../tabs";
-import { blurMouseActivatedControl } from "../ui";
+import { blurMouseActivatedControl, showToast } from "../ui";
 import {
   createSyncCode,
   enterSyncCode,
@@ -41,7 +49,7 @@ import { selectTrack } from "../track-select";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 
-type TopSongsTabId = "top" | "trending" | "recent" | "favorites";
+type TopSongsTabId = "top" | "trending" | "recent" | "reported" | "favorites";
 
 const LIST_CONFIG: Record<
   TopSongsListTabId,
@@ -105,6 +113,8 @@ function topSongsTitle(subtab: TopSongsTabId) {
       return i18n.t("topTracks.trending");
     case "recent":
       return i18n.t("topTracks.recent");
+    case "reported":
+      return i18n.t("topTracks.reported");
     case "favorites":
       return i18n.t("common.favorites");
   }
@@ -220,6 +230,151 @@ function SongList({
               track={playlistTrack}
               onAdd={(added) => addToPlaylist(added, tabId)}
             />
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+type ReportedListState =
+  | { kind: "message"; text: () => string }
+  | { kind: "loaded"; items: ReportedTrackItem[] };
+
+function ReportedList({
+  active,
+  reloadToken,
+}: {
+  active: boolean;
+  reloadToken: number;
+}) {
+  const { t } = useTranslation();
+  const [state, setState] = useState<ReportedListState>({
+    kind: "message",
+    text: () => i18n.t("topTracks.loadingReported"),
+  });
+
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+    let cancelled = false;
+    setState({
+      kind: "message",
+      text: () => i18n.t("topTracks.loadingReported"),
+    });
+    fetchReportedTracks(getAdminKey() ?? "")
+      .then((items) => {
+        if (cancelled) {
+          return;
+        }
+        setState(
+          items.length === 0
+            ? {
+                kind: "message",
+                text: () => i18n.t("topTracks.emptyReported"),
+              }
+            : { kind: "loaded", items },
+        );
+      })
+      .catch((err) => {
+        if (cancelled) {
+          return;
+        }
+        setState({
+          kind: "message",
+          text: () =>
+            i18n.t("topTracks.unavailable", {
+              section: i18n.t("topTracks.reportedError"),
+              error: formatErrorForDisplay(err),
+            }),
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, reloadToken]);
+
+  const dismiss = async (jobId: string) => {
+    try {
+      await dismissTrackReport(jobId, getAdminKey() ?? "");
+    } catch {
+      showToast(t("report.dismissFailed"), { tone: "error" });
+      return;
+    }
+    setState((prev) => {
+      if (prev.kind !== "loaded") {
+        return prev;
+      }
+      const items = prev.items.filter((item) => item.id !== jobId);
+      return items.length === 0
+        ? { kind: "message", text: () => i18n.t("topTracks.emptyReported") }
+        : { kind: "loaded", items };
+    });
+  };
+
+  const className = active ? "top-list" : "top-list hidden";
+  if (state.kind === "message") {
+    return (
+      <ol className={className} id="reported-songs">
+        {state.text()}
+      </ol>
+    );
+  }
+  return (
+    <ol className={className} id="reported-songs">
+      {state.items.map((item) => {
+        const title = item.title || t("common.untitled");
+        const artist = item.artist || "";
+        const label = artist ? `${title} — ${artist}` : title;
+        const reportedDate = new Date(item.reported_at);
+        const dateLabel = Number.isNaN(reportedDate.getTime())
+          ? item.reported_at
+          : reportedDate.toLocaleDateString();
+        const playlistTrack: PlaylistTrack = {
+          id: item.id,
+          sourceType: normalizePlaylistSourceType(item.source_provider ?? ""),
+          title,
+          artist,
+          duration: null,
+        };
+        return (
+          <li key={item.id} className="top-list-item">
+            <a
+              href={`/listen/${encodeURIComponent(item.id)}`}
+              data-track-id={item.id}
+              onClick={(event) => {
+                event.preventDefault();
+                trackEvent("select_track", {
+                  source: "reported",
+                  track_id: item.id,
+                  track_title: title,
+                });
+                selectTrack(item.id, playlistTrack);
+              }}
+            >
+              {label}
+            </a>
+            <span className="reported-meta">
+              {dateLabel} ·{" "}
+              {t(`report.reasons.${item.reason}`, {
+                defaultValue: item.reason,
+              })}
+            </span>
+            <button
+              type="button"
+              className="reported-dismiss"
+              title={t("report.dismiss")}
+              aria-label={t("report.dismissNamed", { title })}
+              onClick={() => void dismiss(item.id)}
+            >
+              <span
+                className="material-symbols-outlined reported-dismiss-icon"
+                aria-hidden="true"
+              >
+                close
+              </span>
+            </button>
           </li>
         );
       })}
@@ -729,6 +884,8 @@ export function TopTracksPanel() {
     useAppStore((s) => s.appConfig?.max_favorites) ?? maxFavorites();
   const lists = useAppStore((s) => s.topSongsLists);
   const [query, setQuery] = useState("");
+  const [reportedReloadToken, setReportedReloadToken] = useState(0);
+  const adminMode = isAdminMode();
   const loadList = useCallback(
     async (tabId: TopSongsListTabId, force = false) => {
       const state = useAppStore.getState();
@@ -773,7 +930,7 @@ export function TopTracksPanel() {
   );
 
   useEffect(() => {
-    if (subtab !== "favorites") {
+    if (subtab !== "favorites" && subtab !== "reported") {
       loadList(subtab).catch((err) => {
         console.warn(`Top tracks load failed: ${String(err)}`);
       });
@@ -781,6 +938,18 @@ export function TopTracksPanel() {
   }, [subtab, loadList]);
 
   const title = topSongsTitle(subtab);
+
+  const favoritesSubtabContent = (
+    <>
+      <span
+        className="material-symbols-outlined subtab-icon subtab-icon-filled"
+        aria-hidden="true"
+      >
+        star
+      </span>
+      <span>{t("common.favorites")}</span>
+    </>
+  );
 
   const subtabButton = (tabId: TopSongsTabId, content: React.ReactNode) => (
     <button
@@ -800,17 +969,13 @@ export function TopTracksPanel() {
         {subtabButton("trending", t("topTracks.trending"))}
         {subtabButton("recent", t("topTracks.recents"))}
         <span className="subtab-spacer" aria-hidden="true"></span>
-        {subtabButton(
-          "favorites",
-          <>
-            <span
-              className="material-symbols-outlined subtab-icon subtab-icon-filled"
-              aria-hidden="true"
-            >
-              star
-            </span>
-            <span>{t("common.favorites")}</span>
-          </>,
+        {adminMode ? (
+          <div className="subtab-stack">
+            {subtabButton("favorites", favoritesSubtabContent)}
+            {subtabButton("reported", t("topTracks.reported"))}
+          </div>
+        ) : (
+          subtabButton("favorites", favoritesSubtabContent)
         )}
       </div>
       <div className="panel-title panel-title-row">
@@ -836,7 +1001,9 @@ export function TopTracksPanel() {
           aria-label={t("topTracks.refresh", { title })}
           title={t("topTracks.refreshTitle")}
           onClick={() => {
-            if (subtab !== "favorites") {
+            if (subtab === "reported") {
+              setReportedReloadToken((token) => token + 1);
+            } else if (subtab !== "favorites") {
               loadList(subtab, true).catch((err) => {
                 console.warn(`Top tracks refresh failed: ${String(err)}`);
               });
@@ -884,6 +1051,12 @@ export function TopTracksPanel() {
         state={lists.recent}
         hidden={subtab !== "recent"}
       />
+      {adminMode ? (
+        <ReportedList
+          active={subtab === "reported"}
+          reloadToken={reportedReloadToken}
+        />
+      ) : null}
       <div
         className={
           subtab === "favorites" ? "favorites-list" : "favorites-list hidden"

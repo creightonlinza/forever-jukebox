@@ -446,6 +446,21 @@ a:focus-visible {
   flex: 1;
 }
 
+.subtabs:has(.subtab-stack) {
+  align-items: flex-start;
+}
+
+.subtab-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.subtab-stack .subtab-btn {
+  justify-content: center;
+}
+
 .subtab-btn {
   padding: 6px 12px;
   border-radius: 8px;
@@ -865,6 +880,29 @@ button.is-loading::after {
   gap: 8px;
 }
 
+.report-track-panel {
+  width: min(420px, 90vw);
+}
+
+.report-track-panel .modal-footer {
+  gap: 8px;
+}
+
+.report-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-reason {
+  display: flex;
+  flex-direction: row;
+  padding-bottom: 0;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
 .danger-button {
   border-color: var(--danger);
   color: var(--danger);
@@ -1093,6 +1131,40 @@ button.is-loading::after {
   top: 50%;
   right: 4px;
   transform: translateY(-50%);
+}
+
+.reported-meta {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.reported-dismiss {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.reported-dismiss:hover {
+  background: var(--surface-control);
+  color: var(--text);
+}
+
+.reported-dismiss-icon {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .top-list > li:hover,
@@ -1391,8 +1463,29 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   position: relative;
 }
 
-.delete-toggle.hidden {
+.delete-toggle.hidden,
+.report-toggle.hidden {
   display: none;
+}
+
+.report-toggle {
+  background: transparent;
+  border: none;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.report-toggle .report-icon {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 30;
+  color: var(--danger);
+  font-size: 30px;
+  line-height: 1;
 }
 
 .delete-toggle .delete-icon {
@@ -1467,6 +1560,7 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 .playlist-control,
 .favorites-sync-button,
 .delete-toggle,
+.report-toggle,
 .volume-button,
 .fullscreen-toggle,
 .modal-close {

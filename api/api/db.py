@@ -505,6 +505,7 @@ def delete_job(db_path: Path, job_id: str) -> None:
         row = conn.execute(SELECT_JOB_SOURCE_REF_SQL, (job_id,)).fetchone()
         source_ref = row[0] if row else None
         conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+        conn.execute("DELETE FROM reported_tracks WHERE job_id = ?", (job_id,))
         if source_ref:
             remaining = conn.execute(
                 "SELECT COUNT(*) FROM jobs WHERE source_ref = ?",
@@ -837,3 +838,44 @@ def get_recent_tracks(db_path: Path, limit: int = 10) -> list[dict]:
             (limit,),
         ).fetchall()
     return [_top_track_from_row(row) for row in rows]
+
+
+def report_track(db_path: Path, job_id: str, reason: str) -> None:
+    # Keeps the first report per job; unknown jobs are ignored.
+    with _connect(db_path) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO reported_tracks (job_id, reason, created_at) "
+            "SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM jobs WHERE id = ?)",
+            (job_id, reason, _utc_now(), job_id),
+        )
+        conn.commit()
+
+
+def get_reported_tracks(db_path: Path) -> list[dict]:
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT r.job_id, s.track_title, s.track_artist, s.provider, r.reason, r.created_at
+            FROM reported_tracks r
+            JOIN jobs j ON j.id = r.job_id
+            JOIN sources s ON s.id = j.source_ref
+            ORDER BY r.created_at DESC, r.job_id
+            """
+        ).fetchall()
+    return [
+        {
+            "id": row[0],
+            "title": row[1],
+            "artist": row[2],
+            "source_provider": row[3],
+            "reason": row[4],
+            "reported_at": row[5],
+        }
+        for row in rows
+    ]
+
+
+def delete_track_report(db_path: Path, job_id: str) -> None:
+    with _connect(db_path) as conn:
+        conn.execute("DELETE FROM reported_tracks WHERE job_id = ?", (job_id,))
+        conn.commit()

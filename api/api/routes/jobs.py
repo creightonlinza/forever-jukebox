@@ -15,13 +15,16 @@ from ..db import (
     count_queued_jobs_ahead,
     create_job,
     delete_job,
+    delete_track_report,
     get_job,
     get_job_by_source,
     get_job_by_source_url,
     get_job_by_track,
     get_recent_tracks,
+    get_reported_tracks,
     get_top_tracks,
     increment_job_plays,
+    report_track,
     restart_failed_job,
     set_job_play_count,
     set_job_progress,
@@ -38,7 +41,9 @@ from ..models import (
     PlayCountResponse,
     PlayCountUpdate,
     RecentSongsResponse,
+    ReportedTracksResponse,
     TopSongsResponse,
+    TrackReportRequest,
 )
 from ..paths import DB_PATH, STORAGE_ROOT
 from ..route_responses import error_responses
@@ -660,6 +665,31 @@ def get_recent_songs(limit: int = Query(10, ge=1, le=50)) -> JSONResponse:
     items = get_recent_tracks(DB_PATH, limit=limit)
     payload = RecentSongsResponse(items=items)
     return JSONResponse(payload.model_dump(), status_code=200)
+
+
+@router.post("/api/reports/{job_id}")
+def report_track_by_id(job_id: str, payload: TrackReportRequest) -> JSONResponse:
+    report_track(DB_PATH, job_id, payload.reason)
+    return JSONResponse({"status": "ok"}, status_code=200)
+
+
+@router.get("/api/reports", responses=error_responses(403))
+def get_track_reports(
+    admin_key: str | None = Header(None, alias=ADMIN_KEY_HEADER),
+) -> JSONResponse:
+    require_admin_key(admin_key)
+    payload = ReportedTracksResponse(items=get_reported_tracks(DB_PATH))
+    return JSONResponse(payload.model_dump(), status_code=200)
+
+
+@router.delete("/api/reports/{job_id}", responses=error_responses(403))
+def delete_track_report_by_id(
+    job_id: str,
+    admin_key: str | None = Header(None, alias=ADMIN_KEY_HEADER),
+) -> JSONResponse:
+    require_admin_key(admin_key)
+    delete_track_report(DB_PATH, job_id)
+    return JSONResponse({"status": "ok"}, status_code=200)
 
 
 @router.get(

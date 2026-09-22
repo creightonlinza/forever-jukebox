@@ -170,6 +170,20 @@
     "trackQuestion": "Delete track?",
     "withinWindow": "Delete within 30 minutes of creation"
   },
+  "report": {
+    "title": "Report track",
+    "button": "Report",
+    "reported": "Track reported",
+    "failed": "Unable to report track",
+    "dismiss": "Dismiss report",
+    "dismissNamed": "Dismiss report for {{title}}",
+    "dismissFailed": "Unable to dismiss report",
+    "reasons": {
+      "wrong_track": "Wrong song, version, or title (live, remix, cover, mislabeled, etc.)",
+      "bad_audio": "Bad audio (poor quality, cut off, or incomplete)",
+      "other": "Other"
+    }
+  },
   "playback": {
     "play": "Play",
     "pause": "Pause",
@@ -343,7 +357,11 @@
     "trendingError": "Trending tracks",
     "recentError": "Recent plays",
     "unavailable": "{{section}} unavailable: {{error}}",
-    "refreshTitle": "Refresh"
+    "refreshTitle": "Refresh",
+    "reported": "Reported",
+    "loadingReported": "Loading reported tracks...",
+    "emptyReported": "No reported tracks.",
+    "reportedError": "Reported tracks"
   },
   "faq": {
     "whatsNew": "What's New",
