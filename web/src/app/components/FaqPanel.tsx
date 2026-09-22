@@ -140,6 +140,19 @@ export function FaqPanel() {
             high-churn changelog that is never translated (untranslated tokens would
             just force a locale-completeness exemption). Adding a new entry is a plain
             JSX edit here. Keep the FAQ above fully tokenized. */}
+        <h4>September 2026</h4>
+        <ul>
+          <li>
+            New <strong>Report track</strong> flag on the Listen screen — flag a track that's the wrong song/version, so the instance admin can review it.
+          </li>
+          <li>
+            <strong>Continue listening</strong> — pick up the last played track from your last visit right from the Listen screen.
+          </li>
+          <li>
+            <strong>Clear cached audio</strong> has moved to the Settings menu.
+          </li>
+        </ul>
+
         <h4>August 2026</h4>
         <ul>
           <li>
