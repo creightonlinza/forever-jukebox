@@ -168,6 +168,23 @@ describe("cache", () => {
     expect(cached).toBeNull();
   });
 
+  it("still deletes the track when the instrumental cache is unavailable", async () => {
+    const rejecting = { open: () => Promise.reject(new Error("blocked")) };
+    vi.stubGlobal("caches", rejecting);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { deleteCachedTrack, readCachedTrack, updateCachedTrack } =
+        await import("./cache");
+      await updateCachedTrack("abc", { jobId: "job1" });
+      await deleteCachedTrack("abc");
+      expect(await readCachedTrack("abc")).toBeNull();
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("saves and loads app config", async () => {
     const { loadAppConfig, saveAppConfig } = await import("./cache");
     await saveAppConfig({ theme: "light" });

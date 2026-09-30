@@ -98,9 +98,12 @@ export async function updateCachedTrack(
   });
 }
 
-// Removes the track's audio and its stored instrumental.
+// Removes the track's audio and its stored instrumental. Cache Storage
+// failures are logged so they never block the audio removal.
 export async function deleteCachedTrack(trackId: string) {
-  await deleteInstrumentalTrack(trackId);
+  await deleteInstrumentalTrack(trackId).catch((err: unknown) => {
+    console.warn(`Instrumental cache delete failed: ${String(err)}`);
+  });
   const db = await openTrackCacheDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(trackCacheStore, "readwrite");
@@ -139,7 +142,9 @@ export async function getCachedAudioBytes(): Promise<number> {
 }
 
 export async function clearCachedAudio() {
-  await clearInstrumentalTracks();
+  await clearInstrumentalTracks().catch((err: unknown) => {
+    console.warn(`Instrumental cache clear failed: ${String(err)}`);
+  });
   const db = await openTrackCacheDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(trackCacheStore, "readwrite");

@@ -46,7 +46,9 @@ export async function clearAllAnalysisCache(): Promise<void> {
     await clearAllIndexedDbAnalysis();
   }
   clearAllTuning();
-  await clearInstrumentalTracks();
+  await clearInstrumentalTracks().catch((err: unknown) => {
+    console.warn(`Instrumental cache clear failed: ${String(err)}`);
+  });
 }
 
 // Remove a single cached analysis along with its auto-saved tuning and stored
@@ -54,7 +56,9 @@ export async function clearAllAnalysisCache(): Promise<void> {
 export async function deleteCachedAnalysis(fingerprint: string): Promise<void> {
   await createAnalysisCache().clear(fingerprint);
   removeTuning(fingerprint);
-  await deleteInstrumentalTrack(fingerprint);
+  await deleteInstrumentalTrack(fingerprint).catch((err: unknown) => {
+    console.warn(`Instrumental cache delete failed: ${String(err)}`);
+  });
 }
 
 export async function listCachedAnalysisTracks(): Promise<CachedAnalysisTrack[]> {

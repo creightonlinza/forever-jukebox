@@ -80,6 +80,16 @@ describe("stored instrumentals follow the analysis cache", () => {
     expect(instrumentals.clearInstrumentalTracks).toHaveBeenCalledTimes(1);
   });
 
+  it("still removes the analysis when the instrumental delete fails", async () => {
+    instrumentals.deleteInstrumentalTrack.mockRejectedValueOnce(new Error("blocked"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const dir = stubOpfs();
+    await expect(deleteCachedAnalysis("abc")).resolves.toBeUndefined();
+    expect(dir.removeEntry).toHaveBeenCalledWith("abc.json");
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("deletes the instrumental stored under a fingerprint", async () => {
     const dir = stubOpfs();
     await deleteCachedAnalysis("abc");
