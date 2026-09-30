@@ -66,18 +66,23 @@ export function analysisStageLabel(stage: AnalyzeStage, t: TFunction) {
   return t(keys[normalizedStage]);
 }
 
+export type PreparingAudioMode = "swing" | "instrumental" | null;
+
 export function playControlText({
-  swingPreparing,
+  preparingMode,
   isRunning,
   isPaused,
   t,
 }: {
-  swingPreparing: boolean;
+  preparingMode: PreparingAudioMode;
   isRunning: boolean;
   isPaused: boolean;
   t: TFunction;
 }) {
-  if (swingPreparing) {
+  if (preparingMode === "instrumental") {
+    return t("listen.preparingInstrumental");
+  }
+  if (preparingMode === "swing") {
     return t("listen.preparingSwing");
   }
   if (isRunning) {
@@ -86,8 +91,8 @@ export function playControlText({
   return isPaused ? t("listen.resume") : t("listen.play");
 }
 
-export function playControlIcon(swingPreparing: boolean, isRunning: boolean) {
-  if (swingPreparing) {
+export function playControlIcon(preparing: boolean, isRunning: boolean) {
+  if (preparing) {
     return "hourglass_top";
   }
   return isRunning ? "pause" : "play_arrow";

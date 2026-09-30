@@ -258,10 +258,13 @@ export class BufferedAudioPlayer {
     if (activeMode !== "swing") {
       delete this.renderedModeBuffers.swing;
     }
+    if (activeMode !== "instrumental") {
+      delete this.renderedModeBuffers.instrumental;
+    }
   }
 
   setRenderedJukeboxAudioBuffer(
-    mode: Extract<JukeboxAudioMode, "eight_bit" | "swing">,
+    mode: Extract<JukeboxAudioMode, "eight_bit" | "swing" | "instrumental">,
     buffer: AudioBuffer,
   ) {
     this.renderedModeBuffers[mode] = buffer;
@@ -284,7 +287,7 @@ export class BufferedAudioPlayer {
   }
 
   getRenderedJukeboxAudioBuffer(
-    mode: Extract<JukeboxAudioMode, "eight_bit" | "swing">,
+    mode: Extract<JukeboxAudioMode, "eight_bit" | "swing" | "instrumental">,
   ): AudioBuffer | null {
     return this.renderedModeBuffers[mode] ?? null;
   }

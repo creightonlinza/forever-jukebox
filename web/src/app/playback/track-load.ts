@@ -57,6 +57,8 @@ import {
   updateTrackInfo,
   updateVizVisibility,
 } from "./status-ui";
+import { maybePrepareInstrumentalMode } from "./instrumental";
+import { cancelInstrumentalRender } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { maybePrepareSwingMode } from "./swing";
 import { stopPlayback } from "./transport";
 import {
@@ -166,10 +168,11 @@ export function resetForNewTrack(
   }
   cowbellOverlay.disable();
   cowbellOverlay.setSectionStartBeatIndices([]);
+  cancelInstrumentalRender();
   useAppStore.setState({
-    swingRenderToken: useAppStore.getState().swingRenderToken + (1),
+    audioModeRenderToken: useAppStore.getState().audioModeRenderToken + (1),
   });
-  useAppStore.setState({ swingPreparing: false });
+  useAppStore.setState({ audioModePreparing: false });
   cancelPoll();
   useAppStore.setState({ shiftBranching: false });
   engine.setForceBranch(false);
@@ -264,6 +267,7 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     updateVizVisibility();
     updateTrackInfo(context);
     maybePrepareSwingMode(context);
+    maybePrepareInstrumentalMode(context);
     const cacheId = useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId;
     if (cacheId) {
       updateCachedTrack(cacheId, { audio: buffer, jobId }).catch((err) => {
@@ -310,6 +314,7 @@ export function applyAnalysisResult(
   useAppStore.setState({ analysisLoaded: true });
   updateVizVisibility();
   maybePrepareSwingMode(context);
+  maybePrepareInstrumentalMode(context);
   const resultTrack = response.result.track ?? null;
   const track = resultTrack ?? response.track;
   const title = track?.title;
@@ -897,6 +902,7 @@ export async function tryLoadCachedAudio(
     updateVizVisibility();
     updateTrackInfo(context);
     maybePrepareSwingMode(context);
+    maybePrepareInstrumentalMode(context);
     return true;
   } catch (err) {
     console.warn(`Cache lookup failed: ${String(err)}`);

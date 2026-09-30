@@ -44,7 +44,7 @@ describe("VizContainer", () => {
       useAppStore.setState({
         audioLoaded: false,
         analysisLoaded: false,
-        swingPreparing: false,
+        audioModePreparing: false,
         playMode: "jukebox",
         branchStats: null,
         playlist: { tracks: [], currentIndex: -1 },

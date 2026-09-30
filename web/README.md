@@ -35,7 +35,7 @@ Audio results are cached locally in IndexedDB when available; browsers may evict
 data under storage pressure.
 
 ## Extras audio modes
-- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `eight_bit`, `lofi`, `underwater`, `cathedral`, `cowbell`, `swing`.
+- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `eight_bit`, `lofi`, `underwater`, `cathedral`, `cowbell`, `swing`, `instrumental`.
 - UI labels/tooltips:
   - Normal
   - Nightcore (Fast & Bright)
@@ -48,9 +48,26 @@ data under storage pressure.
   - Cathedral (Cathedral Reverb)
   - More Cowbell
   - Swing (pre-renders a pitch-preserved swung buffer with Rubber Band WASM)
+  - Instrumental (pre-renders a vocals-removed buffer; see below)
 - More Cowbell and Swing are beat-aware remix toys inspired by Echo Nest Remix:
   https://github.com/echonest/remix
 - Shared listen URLs can include `am=<mode>` (for example `am=nightcore`).
+
+### Instrumental mode
+`instrumental` removes vocals in the browser with the UVR MDX-Net Inst HQ 3 model on ONNX
+Runtime Web. The pipeline lives in `packages/shared/src/audio/instrumental*.ts` and is
+shared with the PWA.
+
+- Desktop browsers with WebGPU only. It is hidden on phones and tablets, where the model
+  exhausts memory, and without WebGPU, where it takes several times the track's length.
+- The worker and runtime load when the mode is selected. The model (67 MB) downloads from
+  Hugging Face on first use and is kept in Cache Storage (`fj-instrumental-models`).
+- Rendered instrumentals are kept in Cache Storage (`fj-instrumental-tracks`) so a track
+  is only separated once, as WebM/Opus at 160 kbps where the browser's WebCodecs encoder
+  supports it and otherwise as 16-bit PCM. Entries are decoded with `decodeAudioData`,
+  the same path as streamed tracks. Like cached track audio there is no cap; they count
+  toward the cached-audio size in Settings and are removed with the track's cached audio.
+- A failed render shows a toast and returns to Normal mode.
 
 ## Keyboard shortcuts
 - Space: play/pause while on the Listen tab.

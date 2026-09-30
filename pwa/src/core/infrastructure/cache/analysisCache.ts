@@ -1,6 +1,11 @@
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import { clearAllTuning, removeTuning } from "./tuningStore";
+import {
+  clearInstrumentalTracks,
+  deleteInstrumentalTrack,
+  getInstrumentalTrackBytes,
+} from "@forever-jukebox/shared/audio/instrumentalTrackCache";
 
 const DB_NAME = "forever-jukebox-pwa";
 const STORE_NAME = "analysis";
@@ -25,11 +30,13 @@ export function createAnalysisCache(): AnalysisCachePort {
   return new IndexedDbAnalysisCache();
 }
 
+// Covers analysis plus the instrumentals rendered for cached tracks.
 export async function getAnalysisCacheBytes(): Promise<number> {
-  if (isOpfsAvailable()) {
-    return getOpfsAnalysisBytes();
-  }
-  return getIndexedDbAnalysisBytes();
+  const analysisBytes = isOpfsAvailable()
+    ? await getOpfsAnalysisBytes()
+    : await getIndexedDbAnalysisBytes();
+  const instrumentalBytes = await getInstrumentalTrackBytes().catch(() => 0);
+  return analysisBytes + instrumentalBytes;
 }
 
 export async function clearAllAnalysisCache(): Promise<void> {
@@ -39,13 +46,15 @@ export async function clearAllAnalysisCache(): Promise<void> {
     await clearAllIndexedDbAnalysis();
   }
   clearAllTuning();
+  await clearInstrumentalTracks();
 }
 
-// Remove a single cached analysis along with its auto-saved tuning. Kept beside
-// clearAllAnalysisCache so analysis + tuning removal stay in one place.
+// Remove a single cached analysis along with its auto-saved tuning and stored
+// instrumental (all keyed by fingerprint), so removal stays in one place.
 export async function deleteCachedAnalysis(fingerprint: string): Promise<void> {
   await createAnalysisCache().clear(fingerprint);
   removeTuning(fingerprint);
+  await deleteInstrumentalTrack(fingerprint);
 }
 
 export async function listCachedAnalysisTracks(): Promise<CachedAnalysisTrack[]> {

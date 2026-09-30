@@ -17,14 +17,14 @@ import { VizTop } from "./VizTop";
 export function VizContainer() {
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
-  const swingPreparing = useAppStore((s) => s.swingPreparing);
+  const audioModePreparing = useAppStore((s) => s.audioModePreparing);
   const playMode = useAppStore((s) => s.playMode);
   const vizStatsPulseId = useAppStore((s) => s.vizStatsPulseId);
   const vizPanelRef = useRef<HTMLDivElement | null>(null);
   const vizLayerRef = useRef<HTMLDivElement | null>(null);
   const canonizerLayerRef = useRef<HTMLDivElement | null>(null);
 
-  const visible = audioLoaded && analysisLoaded && !swingPreparing;
+  const visible = audioLoaded && analysisLoaded && !audioModePreparing;
 
   // Child refs attach before this parent ref, so the layer nodes are ready.
   const handlePanelRef = useCallback(

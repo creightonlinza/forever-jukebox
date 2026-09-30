@@ -48,8 +48,8 @@ export type AppState = {
   branchStatsEnabled: boolean;
   jukeboxAudioMode: JukeboxAudioMode;
   audioIntensity: number;
-  swingPreparing: boolean;
-  swingRenderToken: number;
+  audioModePreparing: boolean;
+  audioModeRenderToken: number;
   selectedEdge: Edge | null;
   trackDurationSec: number | null;
   trackTitle: string | null;

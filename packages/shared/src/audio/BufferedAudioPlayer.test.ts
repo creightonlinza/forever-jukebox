@@ -563,6 +563,25 @@ describe("BufferedAudioPlayer", () => {
     player.stop();
   });
 
+  it("plays the rendered instrumental buffer and releases it on mode change", async () => {
+    const context = new MockAudioContext();
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    const sourceBuffer = { duration: 2 } as AudioBuffer;
+    const instrumentalBuffer = { duration: 2 } as AudioBuffer;
+    await player.loadBuffer(sourceBuffer);
+    player.setRenderedJukeboxAudioBuffer("instrumental", instrumentalBuffer);
+    player.setJukeboxAudioMode("instrumental");
+    player.play();
+
+    expect(player.getPlaybackRate()).toBe(1);
+    expect(context.createdSources[0]?.buffer).toBe(instrumentalBuffer);
+
+    player.stop();
+    player.setJukeboxAudioMode("off");
+    expect(player.getRenderedJukeboxAudioBuffer("instrumental")).toBeNull();
+    expect(player.getBuffer()).toBe(sourceBuffer);
+  });
+
   it("keeps off mode off the limiter and routes boosting modes through it", () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);

@@ -9,6 +9,7 @@ import {
   AUDIO_MODE_SECTIONS,
   audioModeLabel,
   getAudioModeInputId,
+  isAudioModeOffered,
   type AudioModeSection,
 } from "./audioMode";
 
@@ -65,7 +66,7 @@ function AudioModeSectionGroup({
     <div className="audio-mode-section">
       <div className="audio-mode-section-title">{t(section.titleKey)}</div>
       <div className="audio-mode-section-options">
-        {section.options.map((option) => (
+        {section.options.filter(isAudioModeOffered).map((option) => (
           <AudioModeRadio
             key={option}
             option={option}

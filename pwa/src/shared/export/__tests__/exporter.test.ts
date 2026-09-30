@@ -280,7 +280,7 @@ describe("exportJukeboxAudio progress", () => {
       sampleRate: 10,
       numberOfChannels: 2,
     } as AudioBuffer;
-    const swingBuffer = {
+    const renderedBuffer = {
       duration: 4,
       sampleRate: 10,
       numberOfChannels: 2,
@@ -289,7 +289,7 @@ describe("exportJukeboxAudio progress", () => {
     await exportJukeboxAudio({
       analysis: mockAnalysis,
       sourceBuffer,
-      swingBuffer,
+      renderedBuffer,
       config: mockConfig,
       durationSeconds: 4,
       format: "wav",
@@ -300,7 +300,65 @@ describe("exportJukeboxAudio progress", () => {
       bufferDurationSeconds: 4,
     });
     expect(vi.mocked(renderJukeboxAudio).mock.calls[0]?.[0]?.sourceBuffer).toBe(
-      swingBuffer,
+      renderedBuffer,
+    );
+  });
+
+  it("uses the rendered buffer when exporting instrumental mode", async () => {
+    vi.mocked(planJukeboxPath).mockReturnValue({
+      segments: [],
+      renderDurationSeconds: 4,
+    });
+    vi.mocked(renderJukeboxAudio).mockResolvedValue({} as AudioBuffer);
+    vi.mocked(encodeAudioBufferWithFfmpeg).mockResolvedValue({
+      bytes: new Uint8Array([10, 11]),
+      extension: "wav",
+      mimeType: "audio/wav",
+    });
+    const sourceBuffer = { duration: 8, sampleRate: 10, numberOfChannels: 2 } as AudioBuffer;
+    const renderedBuffer = { duration: 8, sampleRate: 10, numberOfChannels: 2 } as AudioBuffer;
+
+    await exportJukeboxAudio({
+      analysis: mockAnalysis,
+      sourceBuffer,
+      renderedBuffer,
+      config: mockConfig,
+      durationSeconds: 4,
+      format: "wav",
+      audioMode: "instrumental",
+    });
+
+    expect(vi.mocked(renderJukeboxAudio).mock.calls[0]?.[0]?.sourceBuffer).toBe(
+      renderedBuffer,
+    );
+  });
+
+  it("ignores a rendered buffer for modes that play the source", async () => {
+    vi.mocked(planJukeboxPath).mockReturnValue({
+      segments: [],
+      renderDurationSeconds: 4,
+    });
+    vi.mocked(renderJukeboxAudio).mockResolvedValue({} as AudioBuffer);
+    vi.mocked(encodeAudioBufferWithFfmpeg).mockResolvedValue({
+      bytes: new Uint8Array([10, 11]),
+      extension: "wav",
+      mimeType: "audio/wav",
+    });
+    const sourceBuffer = { duration: 8, sampleRate: 10, numberOfChannels: 2 } as AudioBuffer;
+    const renderedBuffer = { duration: 8, sampleRate: 10, numberOfChannels: 2 } as AudioBuffer;
+
+    await exportJukeboxAudio({
+      analysis: mockAnalysis,
+      sourceBuffer,
+      renderedBuffer,
+      config: mockConfig,
+      durationSeconds: 4,
+      format: "wav",
+      audioMode: "nightcore",
+    });
+
+    expect(vi.mocked(renderJukeboxAudio).mock.calls[0]?.[0]?.sourceBuffer).toBe(
+      sourceBuffer,
     );
   });
 });

@@ -201,7 +201,7 @@ export function PlayMenu() {
   const { t } = useTranslation();
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
-  const swingPreparing = useAppStore((s) => s.swingPreparing);
+  const audioModePreparing = useAppStore((s) => s.audioModePreparing);
   const playMode = useAppStore((s) => s.playMode);
   const audioMode = useAppStore((s) => s.jukeboxAudioMode);
   const trackTitle = useAppStore((s) => s.trackTitle);
@@ -223,7 +223,7 @@ export function PlayMenu() {
   const reportButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleRef = useRef<HTMLDivElement | null>(null);
 
-  const hidden = !(audioLoaded && analysisLoaded) || swingPreparing;
+  const hidden = !(audioLoaded && analysisLoaded) || audioModePreparing;
   const isCanonizer = playMode === "autocanonizer";
   const adminMode = isAdminMode();
   const displayTitle =

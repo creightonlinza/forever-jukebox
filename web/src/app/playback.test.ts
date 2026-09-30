@@ -57,6 +57,10 @@ vi.mock("./playback", async (importActual) => ({
 }));
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
+import {
+  cancelInstrumentalRender,
+  renderInstrumentalBuffer,
+} from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { ADMIN_KEY_STORAGE_KEY } from "./admin";
 
 vi.mock("@forever-jukebox/shared/audio/swingBufferCache", () => ({
@@ -71,6 +75,12 @@ vi.mock("@forever-jukebox/shared/audio/swingBufferCache", () => ({
 
 vi.mock("@forever-jukebox/shared/audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(async () => ({ duration: 120 }) as AudioBuffer),
+}));
+
+vi.mock("@forever-jukebox/shared/audio/instrumentalRenderer", async (importActual) => ({
+  ...(await importActual<typeof import("@forever-jukebox/shared/audio/instrumentalRenderer")>()),
+  renderInstrumentalBuffer: vi.fn(() => new Promise<AudioBuffer>(() => {})),
+  cancelInstrumentalRender: vi.fn(),
 }));
 
 vi.mock("./cache", () => ({
@@ -130,6 +140,9 @@ beforeEach(() => {
     ) => render(),
   );
   vi.mocked(renderSwingBuffer).mockResolvedValue({ duration: 120 } as AudioBuffer);
+  vi.mocked(renderInstrumentalBuffer).mockImplementation(
+    () => new Promise<AudioBuffer>(() => {}),
+  );
 });
 
 afterEach(() => {
@@ -701,6 +714,43 @@ describe("playback tuning", () => {
     expect(context.engine.play).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().isRunning).toBe(true);
     expect(useAppStore.getState().isPaused).toBe(false);
+  });
+
+  it("cancels an instrumental render when another mode is applied", () => {
+    const context = createContext();
+    const sourceBuffer = { duration: 120 } as AudioBuffer;
+    useAppStore.setState({
+      playMode: "jukebox",
+      audioLoaded: true,
+      analysisLoaded: true,
+    });
+    vi.mocked(context.player.getSourceBuffer).mockReturnValue(sourceBuffer);
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "instrumental",
+    });
+
+    expect(renderInstrumentalBuffer).toHaveBeenCalledWith(
+      sourceBuffer,
+      null,
+      expect.any(Function),
+    );
+    expect(cancelInstrumentalRender).not.toHaveBeenCalled();
+    expect(useAppStore.getState().audioModePreparing).toBe(true);
+    expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
+
+    applyExtrasChanges(context, {
+      ...getExtrasFormValues(),
+      audioMode: "nightcore",
+    });
+
+    expect(cancelInstrumentalRender).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().audioModePreparing).toBe(false);
+    expect(context.player.setJukeboxAudioMode).toHaveBeenLastCalledWith(
+      "nightcore",
+      100,
+    );
   });
 
   it("applies bring it home mode from extras controls", () => {
@@ -1296,7 +1346,7 @@ describe("playback controls", () => {
     useAppStore.setState({ audioLoaded: true });
     useAppStore.setState({ analysisLoaded: true });
     useAppStore.setState({ jukeboxAudioMode: "swing" });
-    useAppStore.setState({ swingPreparing: true });
+    useAppStore.setState({ audioModePreparing: true });
     (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
 
     togglePlayback(context);
@@ -1306,12 +1356,46 @@ describe("playback controls", () => {
     expect(useAppStore.getState().isRunning).toBe(false);
   });
 
+  it("blocks jukebox playback while instrumental mode is preparing", () => {
+    const context = createContext();
+    useAppStore.setState({ audioLoaded: true });
+    useAppStore.setState({ analysisLoaded: true });
+    useAppStore.setState({ jukeboxAudioMode: "instrumental" });
+    useAppStore.setState({ audioModePreparing: true });
+    (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
+
+    togglePlayback(context);
+
+    expect(context.engine.play).not.toHaveBeenCalled();
+    expect(context.engine.startJukebox).not.toHaveBeenCalled();
+    expect(useAppStore.getState().isRunning).toBe(false);
+  });
+
+  it("blocks beat-start playback while instrumental mode is preparing", () => {
+    const context = createContext();
+    useAppStore.setState({ playMode: "jukebox" });
+    useAppStore.setState({ jukeboxAudioMode: "instrumental" });
+    useAppStore.setState({ audioModePreparing: true });
+    useAppStore.setState({
+      vizData: {
+        beats: [{ start: 2, duration: 1 }],
+        edges: [],
+      } as unknown as AppState["vizData"],
+    });
+    (context.player.getDuration as ReturnType<typeof vi.fn>).mockReturnValue(120);
+
+    startJukeboxFromBeat(context, 0);
+
+    expect(context.player.seek).not.toHaveBeenCalled();
+    expect(context.engine.startJukebox).not.toHaveBeenCalled();
+  });
+
   it("shows only loading status panel while swing mode is preparing", () => {
     createContext();
     useAppStore.setState({ audioLoaded: true });
     useAppStore.setState({ analysisLoaded: true });
     useAppStore.setState({ jukeboxAudioMode: "swing" });
-    useAppStore.setState({ swingPreparing: true });
+    useAppStore.setState({ audioModePreparing: true });
 
     updateVizVisibility();
   });
@@ -1320,7 +1404,7 @@ describe("playback controls", () => {
     const context = createContext();
     useAppStore.setState({ playMode: "jukebox" });
     useAppStore.setState({ jukeboxAudioMode: "swing" });
-    useAppStore.setState({ swingPreparing: true });
+    useAppStore.setState({ audioModePreparing: true });
     useAppStore.setState({
       vizData: {
       beats: [{ start: 2, duration: 1 }],

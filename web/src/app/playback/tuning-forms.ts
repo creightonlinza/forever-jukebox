@@ -24,6 +24,11 @@ import {
   updatePlayButton,
   updateTrackInfo,
 } from "./status-ui";
+import {
+  canPrepareInstrumentalMode,
+  prepareInstrumentalMode,
+} from "./instrumental";
+import { cancelInstrumentalRender } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { canPrepareSwingMode, prepareSwingMode } from "./swing";
 import i18n from "../i18n";
 
@@ -171,6 +176,9 @@ export function applyExtrasChanges(
   } else {
     cowbellOverlay.disable();
   }
+  if (nextAudioMode !== "instrumental") {
+    cancelInstrumentalRender();
+  }
   if (nextAudioMode === "swing") {
     player.setJukeboxAudioModeIntensity(nextAudioIntensity);
     if (canPrepareSwingMode(context)) {
@@ -180,11 +188,20 @@ export function applyExtrasChanges(
         icon: "hourglass_top",
       });
     }
+  } else if (nextAudioMode === "instrumental") {
+    player.setJukeboxAudioModeIntensity(nextAudioIntensity);
+    if (canPrepareInstrumentalMode(context)) {
+      prepareInstrumentalMode(context);
+    } else {
+      showToast(i18n.t("playback.instrumentalWhenLoaded"), {
+        icon: "hourglass_top",
+      });
+    }
   } else {
     useAppStore.setState({
-      swingRenderToken: useAppStore.getState().swingRenderToken + (1),
+      audioModeRenderToken: useAppStore.getState().audioModeRenderToken + (1),
     });
-    useAppStore.setState({ swingPreparing: false });
+    useAppStore.setState({ audioModePreparing: false });
     player.setJukeboxAudioMode(nextAudioMode, nextAudioIntensity);
     if (
       audioModeChangeAffectsPlayback(
@@ -225,10 +242,11 @@ export function resetExtrasDefaults(context: AppContext): ExtrasApplyResult {
   useAppStore.setState({ branchStats: null });
   storeBranchStatsEnabled(false);
   cowbellOverlay.disable();
+  cancelInstrumentalRender();
   useAppStore.setState({
-    swingRenderToken: useAppStore.getState().swingRenderToken + (1),
+    audioModeRenderToken: useAppStore.getState().audioModeRenderToken + (1),
   });
-  useAppStore.setState({ swingPreparing: false });
+  useAppStore.setState({ audioModePreparing: false });
   resetAudioModeToOff(player);
   if (previousAudioMode !== "off") {
     trackAudioModeChange("off", useAppStore.getState().audioIntensity);

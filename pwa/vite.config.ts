@@ -91,7 +91,19 @@ export default defineConfig(({ command }) => {
                 maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
                 cleanupOutdatedCaches: true,
                 globPatterns: ["**/*.{js,css,html,wasm,json,webmanifest,png,svg,ico,ttf,woff,woff2,wav}"],
+                // The ONNX runtime only serves the desktop-only Instrumental
+                // mode, so it is fetched on first use rather than at install.
+                globIgnores: ["**/ort-wasm-*.wasm"],
                 runtimeCaching: [
+                  {
+                    urlPattern: ({ url }) => /\/ort-wasm-[^/]*\.wasm$/.test(url.pathname),
+                    handler: "CacheFirst",
+                    // One runtime build at a time; an upgrade evicts the old file.
+                    options: {
+                      cacheName: "fj-onnx-runtime",
+                      expiration: { maxEntries: 1 },
+                    },
+                  },
                   {
                     urlPattern: ({ request }) =>
                       request.mode === "navigate" ||

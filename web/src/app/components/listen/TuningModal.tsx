@@ -16,6 +16,7 @@ import {
   type TuningFormValues,
 } from "../../playback";
 import { applyExtrasAndSync } from "../../playback-ui";
+import { isInstrumentalModeAvailable } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { Modal } from "../Modal";
@@ -36,7 +37,8 @@ const AUDIO_MODE_OPTIONS: Array<{
     | "audioModes.underwater"
     | "audioModes.cathedral"
     | "audioModes.cowbell"
-    | "audioModes.swing";
+    | "audioModes.swing"
+    | "audioModes.instrumental";
   section: "default" | "styles" | "toys";
 }> = [
   { id: "audio-mode-off", value: "off", labelKey: "common.off", section: "default" },
@@ -53,6 +55,12 @@ const AUDIO_MODE_OPTIONS: Array<{
     id: "audio-mode-swing",
     value: "swing",
     labelKey: "audioModes.swing",
+    section: "toys",
+  },
+  {
+    id: "audio-mode-instrumental",
+    value: "instrumental",
+    labelKey: "audioModes.instrumental",
     section: "toys",
   },
 ];
@@ -452,7 +460,10 @@ export function TuningModal() {
                   <div className="audio-mode-section-title">{t("tuning.remixToys")}</div>
                   <div className="audio-mode-section-options">
                     {AUDIO_MODE_OPTIONS.filter(
-                      (option) => option.section === "toys",
+                      (option) =>
+                        option.section === "toys" &&
+                        (option.value !== "instrumental" ||
+                          isInstrumentalModeAvailable()),
                     ).map(audioModeOption)}
                   </div>
                 </div>

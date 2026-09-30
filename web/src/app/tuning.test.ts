@@ -135,6 +135,40 @@ describe("tuning params", () => {
     expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
   });
 
+  it("ignores instrumental mode on a phone", () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (Linux; Android 16; Pixel 10) Mobile",
+      maxTouchPoints: 5,
+      gpu: {},
+    });
+    const context = createContext();
+    applyTuningParamsToEngine(context, new URLSearchParams("am=instrumental"));
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("off");
+    expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("ignores instrumental mode without WebGPU", () => {
+    vi.stubGlobal("navigator", { userAgent: "Macintosh", maxTouchPoints: 0 });
+    const context = createContext();
+    applyTuningParamsToEngine(context, new URLSearchParams("am=instrumental"));
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("off");
+    vi.unstubAllGlobals();
+  });
+
+  it("records instrumental mode without arming the player until it renders", () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Macintosh",
+      maxTouchPoints: 0,
+      gpu: {},
+    });
+    const context = createContext();
+    applyTuningParamsToEngine(context, new URLSearchParams("am=instrumental"));
+    expect(useAppStore.getState().jukeboxAudioMode).toBe("instrumental");
+    expect(context.player.setJukeboxAudioMode).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it("applies eight-bit audio mode from params", () => {
     const context = createContext();
     const params = new URLSearchParams("am=eight_bit");

@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
+import { isInstrumentalModeAvailable } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import {
   AUDIO_MODE_INTENSITY_PARAM,
   DEFAULT_AUDIO_MODE_INTENSITY,
@@ -30,7 +31,7 @@ export const AUDIO_MODE_SECTIONS: AudioModeSection[] = [
   },
   {
     titleKey: "audioModes.remixToys",
-    options: ["cowbell", "swing"],
+    options: ["cowbell", "swing", "instrumental"],
   },
 ];
 
@@ -48,6 +49,7 @@ export function audioModeLabel(audioMode: JukeboxAudioMode, t: TFunction) {
     | "audioModes.cathedral"
     | "audioModes.cowbell"
     | "audioModes.swing"
+    | "audioModes.instrumental"
   > = {
     off: "common.off",
     nightcore: "audioModes.nightcore",
@@ -60,6 +62,7 @@ export function audioModeLabel(audioMode: JukeboxAudioMode, t: TFunction) {
     cathedral: "audioModes.cathedral",
     cowbell: "audioModes.cowbell",
     swing: "audioModes.swing",
+    instrumental: "audioModes.instrumental",
   };
   return t(keys[audioMode]);
 }
@@ -72,7 +75,15 @@ export function getAudioModeInputId(mode: JukeboxAudioMode) {
   return `audio-mode-${mode.replaceAll("_", "-")}`;
 }
 
+// Modes hidden on this device parse to null so shared links fall back.
+export function isAudioModeOffered(mode: JukeboxAudioMode): boolean {
+  return mode !== "instrumental" || isInstrumentalModeAvailable();
+}
+
 export function parseAudioMode(value: string | null): JukeboxAudioMode | null {
+  if (value === "instrumental") {
+    return isAudioModeOffered(value) ? value : null;
+  }
   if (
     value === "off" ||
     value === "nightcore" ||

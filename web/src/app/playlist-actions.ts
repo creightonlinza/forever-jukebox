@@ -331,7 +331,7 @@ export async function loadPlaylistIndex(
       useAppStore.getState().audioLoadInFlight ||
       useAppStore.getState().analysisPollInFlight ||
       playlistLoadInFlight ||
-      useAppStore.getState().swingPreparing
+      useAppStore.getState().audioModePreparing
     );
   }
 

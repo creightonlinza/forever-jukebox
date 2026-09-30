@@ -21,6 +21,7 @@
     "fixtures:manifest": "node scripts/update-parity-manifest.mjs"
   },
   "dependencies": {
+    "onnxruntime-web": "1.30.0",
     "rubberband-wasm": "^3.3.0"
   },
   "devDependencies": {

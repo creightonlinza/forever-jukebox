@@ -33,14 +33,14 @@ export function VizTop() {
   const activeVizIndex = useAppStore((s) => s.activeVizIndex);
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
-  const swingPreparing = useAppStore((s) => s.swingPreparing);
+  const audioModePreparing = useAppStore((s) => s.audioModePreparing);
   const [finishOutSong, setFinishOutSong] = useState(
     () => localStorage.getItem(CANONIZER_FINISH_KEY) === "true",
   );
 
   const vizSelectDisabled =
     !(audioLoaded && analysisLoaded) ||
-    swingPreparing ||
+    audioModePreparing ||
     playMode === "autocanonizer";
   // On the very first render the controllers are not constructed yet (the
   // ref handoff happens at commit); fall back to the static label count.

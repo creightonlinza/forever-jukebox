@@ -15,10 +15,14 @@ vi.mock("./status-ui", () => ({
   updateTrackInfo: vi.fn(),
   updateVizVisibility: vi.fn(),
 }));
+vi.mock("./instrumental", () => ({
+  maybePrepareInstrumentalMode: vi.fn(),
+}));
 vi.mock("./swing", () => ({ maybePrepareSwingMode: vi.fn() }));
 vi.mock("./transport", () => ({ stopPlayback: vi.fn() }));
 
 import { readCachedTrack } from "../cache";
+import { maybePrepareInstrumentalMode } from "./instrumental";
 import { maybePrepareSwingMode } from "./swing";
 import { updateTrackInfo, updateVizVisibility } from "./status-ui";
 import { tryLoadCachedAudio } from "./track-load";
@@ -78,6 +82,7 @@ describe("tryLoadCachedAudio", () => {
     expect(useAppStore.getState().audioLoadInFlight).toBe(false);
     // Swing prep runs on the cached buffer; viz/info refresh.
     expect(maybePrepareSwingMode).toHaveBeenCalledWith(context);
+    expect(maybePrepareInstrumentalMode).toHaveBeenCalledWith(context);
     expect(updateVizVisibility).toHaveBeenCalled();
     expect(updateTrackInfo).toHaveBeenCalledWith(context);
   });

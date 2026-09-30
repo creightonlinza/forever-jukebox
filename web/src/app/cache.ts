@@ -1,3 +1,9 @@
+import {
+  clearInstrumentalTracks,
+  deleteInstrumentalTrack,
+  getInstrumentalTrackBytes,
+} from "@forever-jukebox/shared/audio/instrumentalTrackCache";
+
 const trackCacheDbName = "forever-jukebox-cache";
 const trackCacheStore = "tracks";
 const appConfigStore = "app-config";
@@ -92,7 +98,9 @@ export async function updateCachedTrack(
   });
 }
 
+// Removes the track's audio and its stored instrumental.
 export async function deleteCachedTrack(trackId: string) {
+  await deleteInstrumentalTrack(trackId);
   const db = await openTrackCacheDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(trackCacheStore, "readwrite");
@@ -104,13 +112,15 @@ export async function deleteCachedTrack(trackId: string) {
   });
 }
 
+// Covers cached track audio and stored instrumentals.
 export async function getCachedAudioBytes(): Promise<number> {
   const db = await openTrackCacheDb();
+  const instrumentalBytes = await getInstrumentalTrackBytes().catch(() => 0);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(trackCacheStore, "readonly");
     const store = tx.objectStore(trackCacheStore);
     const request = store.openCursor();
-    let totalBytes = 0;
+    let totalBytes = instrumentalBytes;
     request.onsuccess = () => {
       const cursor = request.result;
       if (!cursor) {
@@ -129,6 +139,7 @@ export async function getCachedAudioBytes(): Promise<number> {
 }
 
 export async function clearCachedAudio() {
+  await clearInstrumentalTracks();
   const db = await openTrackCacheDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(trackCacheStore, "readwrite");

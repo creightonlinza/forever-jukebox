@@ -12,17 +12,21 @@ import type { TFunction } from "i18next";
 
 function playButtonLabel({
   isBlocked,
+  isInstrumental,
   isRunning,
   isPaused,
   t,
 }: {
   isBlocked: boolean;
+  isInstrumental: boolean;
   isRunning: boolean;
   isPaused: boolean;
   t: TFunction;
 }) {
   if (isBlocked) {
-    return t("playback.preparingSwing");
+    return isInstrumental
+      ? t("playback.preparingInstrumental")
+      : t("playback.preparingSwing");
   }
   if (isRunning) {
     return t("playback.pause");
@@ -45,7 +49,7 @@ export function PlayControls() {
   const isPaused = useAppStore((s) => s.isPaused);
   const playMode = useAppStore((s) => s.playMode);
   const audioMode = useAppStore((s) => s.jukeboxAudioMode);
-  const swingPreparing = useAppStore((s) => s.swingPreparing);
+  const audioModePreparing = useAppStore((s) => s.audioModePreparing);
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const audioLoadInFlight = useAppStore((s) => s.audioLoadInFlight);
@@ -54,18 +58,27 @@ export function PlayControls() {
   const playlist = useAppStore((s) => s.playlist);
 
   // Derive the play button's label, icon and visibility from playback state.
+  const isInstrumental = audioMode === "instrumental";
   const isBlocked =
-    playMode === "jukebox" && audioMode === "swing" && swingPreparing;
-  const playLabel = playButtonLabel({ isBlocked, isRunning, isPaused, t });
+    playMode === "jukebox" &&
+    (audioMode === "swing" || isInstrumental) &&
+    audioModePreparing;
+  const playLabel = playButtonLabel({
+    isBlocked,
+    isInstrumental,
+    isRunning,
+    isPaused,
+    t,
+  });
   const playIcon = playButtonIcon(isBlocked, isRunning);
-  const playHidden = !(audioLoaded && analysisLoaded) || swingPreparing;
+  const playHidden = !(audioLoaded && analysisLoaded) || audioModePreparing;
 
   const active = hasActivePlaylistControls(playlist);
   const playlistBusy =
     audioLoadInFlight ||
     analysisPollInFlight ||
     playlistLoadBusy ||
-    swingPreparing;
+    audioModePreparing;
 
   return (
     <>

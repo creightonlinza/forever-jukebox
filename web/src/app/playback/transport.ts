@@ -13,12 +13,28 @@ import i18n from "../i18n";
 
 let listenTimerId: number | null = null;
 
-export function isPlaybackBlockedForSwing() {
-  const { playMode, jukeboxAudioMode, swingPreparing } =
+// Swing and Instrumental pre-render their buffers; playback waits for that.
+export function isPlaybackBlockedForAudioMode() {
+  const { playMode, jukeboxAudioMode, audioModePreparing } =
     useAppStore.getState();
   return (
-    playMode === "jukebox" && jukeboxAudioMode === "swing" && swingPreparing
+    playMode === "jukebox" &&
+    (jukeboxAudioMode === "swing" || jukeboxAudioMode === "instrumental") &&
+    audioModePreparing
   );
+}
+
+function showPreparingToast() {
+  const { jukeboxAudioMode } = useAppStore.getState();
+  showToast(
+    i18n.t(
+      jukeboxAudioMode === "instrumental"
+        ? "playback.preparingInstrumental"
+        : "playback.preparingSwingEllipsis",
+    ),
+    { icon: "hourglass_top" },
+  );
+  updatePlayButton();
 }
 
 export function startListenTimer() {
@@ -110,11 +126,8 @@ export function startJukeboxPlayback(context: AppContext, resetSession: boolean)
   if (!jukebox) {
     return;
   }
-  if (isPlaybackBlockedForSwing()) {
-    showToast(i18n.t("playback.preparingSwingEllipsis"), {
-      icon: "hourglass_top",
-    });
-    updatePlayButton();
+  if (isPlaybackBlockedForAudioMode()) {
+    showPreparingToast();
     return;
   }
   if (player.getDuration() === null) {
@@ -183,11 +196,8 @@ export function startJukeboxFromBeat(context: AppContext, index: number) {
   if (useAppStore.getState().playMode !== "jukebox") {
     return;
   }
-  if (isPlaybackBlockedForSwing()) {
-    showToast(i18n.t("playback.preparingSwingEllipsis"), {
-      icon: "hourglass_top",
-    });
-    updatePlayButton();
+  if (isPlaybackBlockedForAudioMode()) {
+    showPreparingToast();
     return;
   }
   if (player.getDuration() === null) {

@@ -22,7 +22,7 @@ export {
   type TuningModalTab,
 } from "./status-ui";
 export {
-  isPlaybackBlockedForSwing,
+  isPlaybackBlockedForAudioMode,
   startAutocanonizerPlayback,
   startJukeboxFromBeat,
   startListenTimer,

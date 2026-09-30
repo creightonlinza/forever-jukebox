@@ -67,7 +67,7 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
 
 ## Extras audio modes
 
-- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `eight_bit`, `lofi`, `underwater`, `cathedral`, `cowbell`, `swing`.
+- Available modes: `off`, `nightcore`, `daycore`, `vaporwave`, `eight_d`, `eight_bit`, `lofi`, `underwater`, `cathedral`, `cowbell`, `swing`, `instrumental`.
 - UI labels/tooltips:
   - Nightcore (Fast & Bright)
   - Daycore (Slow & Deep)
@@ -79,6 +79,11 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
   - Cathedral (Cathedral Reverb)
   - More Cowbell
   - Swing (pre-renders a pitch-preserved swung buffer with Rubber Band WASM)
+  - Instrumental (pre-renders a vocals-removed buffer with the shared MDX-Net/ONNX
+    Runtime Web pipeline; desktop browsers with WebGPU only). The 27 MB runtime and the
+    67 MB model are fetched on first use, not at install, and cached from then on.
+    Rendered instrumentals are stored by analysis fingerprint and follow the cached
+    analysis: they count toward its size and are removed with it, per track or all.
 - URL param support: `am=<mode>` (example: `?am=nightcore`).
 - Branch stats toggle is stored in localStorage (`fj-branch-stats-enabled`).
 - Audio mode selection is URL-driven and not persisted in localStorage.

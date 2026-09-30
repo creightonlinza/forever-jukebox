@@ -1,6 +1,4 @@
 import type { AppContext } from "../context";
-import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
-import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
 import { useAppStore } from "../store";
 import {
   resetAudioModeToOff,
@@ -8,79 +6,87 @@ import {
   writeTuningParamsToUrl,
 } from "../tuning";
 import { showToast } from "../ui";
+import {
+  renderInstrumentalBuffer,
+  type InstrumentalProgress,
+} from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { updatePlayButton, updateVizVisibility } from "./status-ui";
 import { pausePlayback, startJukeboxPlayback } from "./transport";
 import i18n from "../i18n";
 
-function getCurrentSwingSourceIdentity(): string | null {
+function getCurrentTrackId(): string | null {
   const { lastTrackId, lastJobId } = useAppStore.getState();
   return lastTrackId ?? lastJobId ?? null;
 }
 
-export function canPrepareSwingMode(context: AppContext) {
-  const { playMode, audioLoaded, analysisLoaded, vizData } =
-    useAppStore.getState();
+// Requires analysis as well as audio so a track load prepares only once.
+export function canPrepareInstrumentalMode(context: AppContext) {
+  const { playMode, audioLoaded, analysisLoaded } = useAppStore.getState();
   return (
     playMode === "jukebox" &&
     audioLoaded &&
     analysisLoaded &&
-    context.player.getSourceBuffer() !== null &&
-    vizData !== null &&
-    vizData.beats.length > 0
+    context.player.getSourceBuffer() !== null
   );
 }
 
-export function prepareSwingMode(context: AppContext) {
-  if (useAppStore.getState().jukeboxAudioMode !== "swing") {
+function phaseStatusText(phase: InstrumentalProgress["phase"]) {
+  return phase === "download"
+    ? () => i18n.t("playback.instrumentalDownloading")
+    : () => i18n.t("playback.instrumentalSeparating");
+}
+
+export function prepareInstrumentalMode(context: AppContext) {
+  if (useAppStore.getState().jukeboxAudioMode !== "instrumental") {
     return;
   }
   const sourceBuffer = context.player.getSourceBuffer();
-  const beats = useAppStore.getState().vizData?.beats;
-  if (!sourceBuffer || !beats || beats.length === 0) {
+  if (!sourceBuffer) {
     return;
   }
   const resumeAfterPrepare = useAppStore.getState().isRunning;
   if (useAppStore.getState().isRunning) {
     pausePlayback(context);
   }
+  // The preparing flag and render token are shared with swing; the two modes
+  // are mutually exclusive.
   const renderToken = useAppStore.getState().audioModeRenderToken + 1;
   useAppStore.setState({ audioModeRenderToken: renderToken });
   useAppStore.setState({ audioModePreparing: true });
   useAppStore.setState({
-    analysisStatusText: () => i18n.t("playback.swingAdding"),
+    analysisStatusText: () => i18n.t("playback.preparingInstrumental"),
     analysisSpinning: true,
-    analysisProgressText: "0%",
+    analysisProgressText: "",
   });
   updateVizVisibility();
   updatePlayButton();
 
-  const sourceIdentity = getCurrentSwingSourceIdentity();
-  getOrCreateSwingBuffer(sourceBuffer, sourceIdentity, () =>
-    renderSwingBuffer(sourceBuffer, beats, {
-      onProgress: (progress) => {
-        if (
-          useAppStore.getState().audioModeRenderToken !== renderToken ||
-          useAppStore.getState().jukeboxAudioMode !== "swing"
-        ) {
-          return;
-        }
-        const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
-        useAppStore.setState({ analysisProgressText: `${percent}%` });
-      },
-    }),
+  const isStale = () =>
+    useAppStore.getState().audioModeRenderToken !== renderToken ||
+    useAppStore.getState().jukeboxAudioMode !== "instrumental";
+
+  renderInstrumentalBuffer(
+    sourceBuffer,
+    getCurrentTrackId(),
+    ({ phase, progress }) => {
+      if (isStale()) {
+        return;
+      }
+      const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
+      useAppStore.setState({
+        analysisStatusText: phaseStatusText(phase),
+        analysisProgressText: `${percent}%`,
+      });
+    },
   )
     .then((buffer) => {
-      if (
-        useAppStore.getState().audioModeRenderToken !== renderToken ||
-        useAppStore.getState().jukeboxAudioMode !== "swing"
-      ) {
+      if (isStale()) {
         return;
       }
       useAppStore.setState({ audioModePreparing: false });
-      context.player.setRenderedJukeboxAudioBuffer("swing", buffer);
-      context.player.setJukeboxAudioMode("swing");
+      context.player.setRenderedJukeboxAudioBuffer("instrumental", buffer);
+      context.player.setJukeboxAudioMode("instrumental");
       useAppStore.setState({
-        analysisStatusText: () => i18n.t("playback.swingReady"),
         analysisSpinning: false,
         analysisProgressText: "",
       });
@@ -93,21 +99,20 @@ export function prepareSwingMode(context: AppContext) {
         resumeAfterPrepare &&
         useAppStore.getState().isPaused &&
         useAppStore.getState().playMode === "jukebox" &&
-        useAppStore.getState().jukeboxAudioMode === "swing" &&
         !useAppStore.getState().isRunning
       ) {
         startJukeboxPlayback(context, false);
       }
     })
     .catch((err: unknown) => {
-      if (useAppStore.getState().audioModeRenderToken !== renderToken) {
+      if (isStale()) {
         return;
       }
-      console.warn(`Swing render failed: ${String(err)}`);
+      console.warn(`Instrumental render failed: ${String(err)}`);
       useAppStore.setState({ audioModePreparing: false });
       resetAudioModeToOff(context.player);
       useAppStore.setState({
-        analysisStatusText: () => i18n.t("playback.swingFailedStatus"),
+        analysisStatusText: () => i18n.t("playback.instrumentalFailed"),
         analysisSpinning: false,
         analysisProgressText: "",
       });
@@ -115,19 +120,19 @@ export function prepareSwingMode(context: AppContext) {
       syncTuningParamsState(context);
       writeTuningParamsToUrl(useAppStore.getState().tuningParams, true);
       updatePlayButton();
-      showToast(i18n.t("playback.swingFailed"), {
+      showToast(i18n.t("playback.instrumentalFailed"), {
         icon: "error",
         tone: "error",
       });
     });
 }
 
-export function maybePrepareSwingMode(context: AppContext) {
-  if (useAppStore.getState().jukeboxAudioMode !== "swing") {
+export function maybePrepareInstrumentalMode(context: AppContext) {
+  if (useAppStore.getState().jukeboxAudioMode !== "instrumental") {
     return;
   }
-  if (!canPrepareSwingMode(context)) {
+  if (!canPrepareInstrumentalMode(context)) {
     return;
   }
-  prepareSwingMode(context);
+  prepareInstrumentalMode(context);
 }
