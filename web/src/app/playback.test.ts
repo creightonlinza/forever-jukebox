@@ -2188,6 +2188,31 @@ describe("playback loading", () => {
     expect(useAppStore.getState().analysisRetryJobId).toBe(jobId);
   });
 
+  it("clears the in-flight retry when it ends in a bot-check block", async () => {
+    const context = createContext();
+    const deps = createLoadDeps();
+    const jobId = "e4f3c0dc73c6476c9db95c227f9206f2";
+    const fetchMock = fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: "failed",
+        id: jobId,
+        source_id: "abc123def45",
+        source_provider: "youtube",
+        error: "ERROR: Unable to reach YouTube",
+        error_code: "youtube_unreachable",
+      }),
+    } as Response);
+    useAppStore.setState({ retryInFlightJobId: jobId });
+
+    await loadTrackById(context, deps, jobId);
+
+    expect(useAppStore.getState().retryInFlightJobId).toBeNull();
+    expect(useAppStore.getState().analysisRetryJobId).toBeNull();
+  });
+
   it("does not re-offer the retry link when a user retry fails again", async () => {
     const context = createContext();
     const deps = createLoadDeps();

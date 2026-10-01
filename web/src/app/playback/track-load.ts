@@ -75,11 +75,11 @@ function offerRetryLinkForFailure(
   response: AnalysisResponse | null,
   jobId: string,
 ): void {
-  if (!isRetryableFetchFailure(response)) {
-    return;
-  }
-  if (useAppStore.getState().retryInFlightJobId === jobId) {
+  const retried = useAppStore.getState().retryInFlightJobId === jobId;
+  if (retried) {
     useAppStore.setState({ retryInFlightJobId: null });
+  }
+  if (retried || !isRetryableFetchFailure(response)) {
     return;
   }
   useAppStore.setState({ analysisRetryJobId: jobId });

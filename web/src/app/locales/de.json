@@ -106,7 +106,8 @@
   "errors": {
     "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut oder erstelle ein Issue auf GitHub.",
     "loadingFailed": "Laden fehlgeschlagen.",
-    "sourceFetchFailed": "Abruf von {{source}} fehlgeschlagen."
+    "sourceFetchFailed": "Abruf von {{source}} fehlgeschlagen.",
+    "youtubeBlocked": "YouTube blockiert diesen Server vorübergehend. Bitte versuche es später erneut."
   },
   "favorites": {
     "syncFailed": "Favoriten-Synchronisierung fehlgeschlagen.",

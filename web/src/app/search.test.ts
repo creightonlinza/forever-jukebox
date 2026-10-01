@@ -212,6 +212,25 @@ describe("search flows", () => {
     expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
   });
 
+  it("offers no retry link for a YouTube bot-check block", async () => {
+    const context = createContext();
+    const deps = createDeps();
+    (api.fetchJobByTrack as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "failed",
+      id: "job-b",
+      source_id: "yt-b",
+      error: "ERROR: Unable to reach YouTube",
+      error_code: "youtube_unreachable",
+      source_provider: "youtube",
+    });
+    await tryLoadExistingTrackByName(context, deps, "Song", "Artist");
+    expect(localizedCalls(deps.setAnalysisStatus)).toContainEqual([
+      "YouTube is temporarily blocking this server. Please try again later.",
+      false,
+    ]);
+    expect(useAppStore.getState().analysisRetryJobId).toBeNull();
+  });
+
   it("starts youtube analysis flow", async () => {
     const context = createContext();
     useAppStore.setState({ tuningParams: "jb=1" });
