@@ -8,6 +8,8 @@ const TRACK_CACHE = "fj-instrumental-tracks";
 const TRACK_URL_PREFIX = "/instrumental-track/";
 const WEBM_TYPE = "audio/webm";
 const PCM_TYPE = "application/octet-stream";
+// Records the entry's size so listing sizes never reads a body.
+const BYTES_HEADER = "x-fj-bytes";
 const BYTES_PER_FRAME = 4;
 const INT16_SCALE = 32_767;
 // Lossy entries come back through the decoder a few frames off; anything
@@ -103,12 +105,16 @@ export async function writeInstrumentalTrack(
     return;
   }
   const webm = await encodeWebmOrNull(channels, sampleRate);
+  const body = webm ?? encodeInstrumentalTrack(channels);
   const cache = await caches.open(TRACK_CACHE);
-  // Unbounded, like the cached track audio; the browser evicts under pressure.
+  // No cap here; callers that limit their cache count these sizes themselves.
   await cache.put(
     trackUrl(trackId),
-    new Response(webm ?? encodeInstrumentalTrack(channels), {
-      headers: { "content-type": webm ? WEBM_TYPE : PCM_TYPE },
+    new Response(body, {
+      headers: {
+        "content-type": webm ? WEBM_TYPE : PCM_TYPE,
+        [BYTES_HEADER]: String(body.byteLength),
+      },
     }),
   );
 }
@@ -121,15 +127,39 @@ export async function deleteInstrumentalTrack(trackId: string) {
   await cache.delete(trackUrl(trackId));
 }
 
-export async function getInstrumentalTrackBytes(): Promise<number> {
+// Stored size of each instrumental, by track id. Entries without a recorded
+// size are measured from their body.
+export async function listInstrumentalTrackBytes(): Promise<
+  Map<string, number>
+> {
+  const sizes = new Map<string, number>();
   if (!hasCacheStorage()) {
-    return 0;
+    return sizes;
   }
   const cache = await caches.open(TRACK_CACHE);
-  let totalBytes = 0;
   for (const request of await cache.keys()) {
     const response = await cache.match(request);
-    totalBytes += (await response?.blob())?.size ?? 0;
+    if (!response) {
+      continue;
+    }
+    const recorded = Number(response.headers.get(BYTES_HEADER));
+    const bytes =
+      Number.isFinite(recorded) && recorded > 0
+        ? recorded
+        : (await response.blob()).size;
+    const { pathname } = new URL(request.url, "http://localhost");
+    sizes.set(
+      decodeURIComponent(pathname.slice(TRACK_URL_PREFIX.length)),
+      bytes,
+    );
+  }
+  return sizes;
+}
+
+export async function getInstrumentalTrackBytes(): Promise<number> {
+  let totalBytes = 0;
+  for (const bytes of (await listInstrumentalTrackBytes()).values()) {
+    totalBytes += bytes;
   }
   return totalBytes;
 }

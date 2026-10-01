@@ -65,8 +65,9 @@ shared with the PWA.
 - Rendered instrumentals are kept in Cache Storage (`fj-instrumental-tracks`) so a track
   is only separated once, as WebM/Opus at 160 kbps where the browser's WebCodecs encoder
   supports it and otherwise as 16-bit PCM. Entries are decoded with `decodeAudioData`,
-  the same path as streamed tracks. Like cached track audio there is no cap; they count
-  toward the cached-audio size in Settings and are removed with the track's cached audio.
+  the same path as streamed tracks. A stored instrumental counts as part of its track
+  in the audio cache: toward the size in Settings and the 500 MB cap, and it is removed
+  with the track's cached audio, including on eviction.
 - A failed render shows a toast and returns to Normal mode.
 
 ## Keyboard shortcuts

@@ -290,6 +290,43 @@ describe("cache", () => {
     expect(await getCachedAudioBytes()).toBe(400 * mb);
   });
 
+  it("counts stored instrumentals toward the cap and evicts them with the track", async () => {
+    // Cache Storage holding instrumentals by size header only.
+    const sizes = new Map([
+      ["/instrumental-track/old", 150 * mb],
+      ["/instrumental-track/orphan", 10 * mb],
+    ]);
+    vi.stubGlobal("caches", {
+      open: async () => ({
+        keys: async () => [...sizes.keys()].map((url) => ({ url })),
+        match: async ({ url }: { url: string }) =>
+          new Response(null, {
+            headers: { "x-fj-bytes": String(sizes.get(url)) },
+          }),
+        delete: async (url: string) => sizes.delete(url),
+      }),
+    });
+    try {
+      const { getCachedAudioBytes, readCachedTrack, updateCachedTrack } =
+        await import("./cache");
+      const now = vi.spyOn(Date, "now");
+      now.mockReturnValue(1);
+      await updateCachedTrack("old", { audio: new ArrayBuffer(200 * mb) });
+      expect(await getCachedAudioBytes()).toBe(360 * mb);
+      now.mockReturnValue(2);
+      await updateCachedTrack("new", { audio: new ArrayBuffer(200 * mb) });
+      now.mockRestore();
+
+      // 560 MB with both: the audio-less instrumental goes first, then "old".
+      expect(await readCachedTrack("old")).toBeNull();
+      expect((await readCachedTrack("new"))?.audio).toBeDefined();
+      expect(sizes.size).toBe(0);
+      expect(await getCachedAudioBytes()).toBe(200 * mb);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("measures tracks that have no meta record and evicts them first", async () => {
     const { getCachedAudioBytes, readCachedTrack, updateCachedTrack } =
       await import("./cache");

@@ -12,6 +12,7 @@ import {
   deleteInstrumentalTrack,
   encodeInstrumentalTrack,
   getInstrumentalTrackBytes,
+  listInstrumentalTrackBytes,
   readInstrumentalTrack,
   writeInstrumentalTrack,
 } from "./instrumentalTrackCache";
@@ -21,7 +22,7 @@ import type { StereoChannels } from "./audioResample";
 function createCacheStorage() {
   const stores = new Map<
     string,
-    Map<string, { bytes: ArrayBuffer; type: string }>
+    Map<string, { bytes: ArrayBuffer; headers: [string, string][] }>
   >();
   const open = async (name: string) => {
     let entries = stores.get(name);
@@ -36,15 +37,13 @@ function createCacheStorage() {
       match: async (key: string | { url: string }) => {
         const entry = store.get(urlOf(key));
         return entry
-          ? new Response(entry.bytes.slice(0), {
-              headers: { "content-type": entry.type },
-            })
+          ? new Response(entry.bytes.slice(0), { headers: entry.headers })
           : undefined;
       },
       put: async (key: string, response: Response) => {
         store.set(key, {
           bytes: await response.arrayBuffer(),
-          type: response.headers.get("content-type") ?? "",
+          headers: [...response.headers.entries()],
         });
       },
       delete: async (key: string | { url: string }) =>
@@ -137,6 +136,24 @@ describe("instrumental track cache", () => {
     await clearInstrumentalTracks();
     expect(await getInstrumentalTrackBytes()).toBe(0);
     expect(await readInstrumentalTrack("track-1", 8, 44_100)).toBeNull();
+  });
+
+  it("lists each stored track's size by id", async () => {
+    await writeInstrumentalTrack("track-1", channels(8), 44_100);
+    await writeInstrumentalTrack("file name.mp3:12:34", channels(4), 44_100);
+    expect([...(await listInstrumentalTrackBytes())]).toEqual([
+      ["track-1", 32],
+      ["file name.mp3:12:34", 16],
+    ]);
+  });
+
+  it("measures an entry stored without a recorded size", async () => {
+    const cache = await caches.open("fj-instrumental-tracks");
+    await cache.put(
+      "/instrumental-track/legacy",
+      new Response(new Uint8Array(12)),
+    );
+    expect((await listInstrumentalTrackBytes()).get("legacy")).toBe(12);
   });
 
   it("deletes one stored track and leaves the rest", async () => {

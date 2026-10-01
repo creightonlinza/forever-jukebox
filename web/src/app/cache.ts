@@ -1,7 +1,7 @@
 import {
   clearInstrumentalTracks,
   deleteInstrumentalTrack,
-  getInstrumentalTrackBytes,
+  listInstrumentalTrackBytes,
 } from "@forever-jukebox/shared/audio/instrumentalTrackCache";
 
 const trackCacheDbName = "forever-jukebox-cache";
@@ -20,7 +20,7 @@ export type CachedTrack = {
 };
 
 // Size and last-used time of each cached track, stored apart from the audio so
-// eviction never loads buffers.
+// eviction never loads buffers. Listings add the track's stored instrumental.
 type CachedTrackMeta = { trackId: string; bytes: number; updatedAt: number };
 
 let trackCacheDbPromise: Promise<IDBDatabase> | null = null;
@@ -275,7 +275,26 @@ async function listCachedAudioEntries(): Promise<CachedTrackMeta[]> {
       entries.push(backfilled);
     }
   }
-  return entries;
+  return withInstrumentalBytes(entries);
+}
+
+// A track's stored instrumental shares its id, so it counts toward the track's
+// size and is evicted with it. One without cached audio is listed as oldest.
+async function withInstrumentalBytes(
+  entries: CachedTrackMeta[]
+): Promise<CachedTrackMeta[]> {
+  const instrumentals = await listInstrumentalTrackBytes().catch(
+    () => new Map<string, number>(),
+  );
+  const merged = entries.map((entry) => {
+    const bytes = entry.bytes + (instrumentals.get(entry.trackId) ?? 0);
+    instrumentals.delete(entry.trackId);
+    return { ...entry, bytes };
+  });
+  for (const [trackId, bytes] of instrumentals) {
+    merged.push({ trackId, bytes, updatedAt: 0 });
+  }
+  return merged;
 }
 
 async function backfillTrackMeta(
@@ -298,8 +317,7 @@ async function backfillTrackMeta(
 
 // Covers cached track audio and stored instrumentals.
 export async function getCachedAudioBytes(): Promise<number> {
-  const instrumentalBytes = await getInstrumentalTrackBytes().catch(() => 0);
-  return sumBytes(await listCachedAudioEntries()) + instrumentalBytes;
+  return sumBytes(await listCachedAudioEntries());
 }
 
 // Deletes least-recently-used audio until the total fits maxBytes; keepId is
