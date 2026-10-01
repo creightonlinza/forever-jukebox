@@ -28,7 +28,6 @@ const FRAME_TOLERANCE = 0.001;
 // Counts deletions so a save that was encoding meanwhile is dropped.
 let clearCount = 0;
 const deleteCounts = new Map<string, number>();
-let reportedNoEncoder = false;
 const storedCopies = new WeakSet<AudioBuffer>();
 
 function deletionEpoch(trackId: string) {
@@ -84,10 +83,6 @@ export async function writeRenderedTrack(
     return;
   }
   if (!(await canEncodeOpusWebm())) {
-    if (!reportedNoEncoder) {
-      reportedNoEncoder = true;
-      console.info("[rendered-track] not stored: no Opus encoder in this browser");
-    }
     return;
   }
   const epoch = deletionEpoch(trackId);
