@@ -15,8 +15,9 @@ import {
   isRetryableFetchFailure,
 } from "../analysisStatus";
 import {
-  deleteCachedTrack,
+  moveCachedTrack,
   readCachedTrack,
+  touchCachedTrack,
   updateCachedTrack,
 } from "../cache";
 import { ANALYSIS_POLL_INTERVAL_MS } from "../constants";
@@ -552,15 +553,9 @@ async function migrateCachedAudioForResponse(
   }
   for (const previousKey of previousKeys) {
     try {
-      const cached = await readCachedTrack(previousKey);
-      if (!cached?.audio) {
+      if (!(await moveCachedTrack(previousKey, response.id))) {
         continue;
       }
-      await updateCachedTrack(response.id, {
-        audio: cached.audio,
-        jobId: cached.jobId ?? response.id,
-      });
-      await deleteCachedTrack(previousKey);
       await tryLoadCachedAudio(context, response.id);
       return;
     } catch (err) {
@@ -891,6 +886,9 @@ export async function tryLoadCachedAudio(
       return false;
     }
     useAppStore.setState({ lastJobId: cached.jobId ?? null });
+    touchCachedTrack(trackId, cached.audio.byteLength).catch((err) => {
+      console.warn(`Cache touch failed: ${String(err)}`);
+    });
     autocanonizer?.setAudio(player.getBuffer(), player.getContext());
     useAppStore.setState({ audioLoaded: true });
     useAppStore.setState({ audioLoadInFlight: false });

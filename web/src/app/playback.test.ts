@@ -77,6 +77,8 @@ vi.mock("./cache", () => ({
   readCachedTrack: vi.fn(async () => null),
   updateCachedTrack: vi.fn(async () => undefined),
   deleteCachedTrack: vi.fn(async () => undefined),
+  moveCachedTrack: vi.fn(async () => false),
+  touchCachedTrack: vi.fn(async () => undefined),
 }));
 
 

@@ -99,7 +99,12 @@ export class AnalyzeAudioUseCase {
     });
 
     const validated = validateAnalysis(analysis);
-    await this.cache.set(fingerprint, validated);
+    try {
+      await this.cache.set(fingerprint, validated);
+    } catch (err) {
+      // Caching is best-effort; a storage failure must not discard the analysis.
+      console.warn(`Analysis cache save failed: ${String(err)}`);
+    }
     reportProgress("ready", 100, "Ready");
 
     return { analysis: validated, audioBuffer, fingerprint, fromCache: false };

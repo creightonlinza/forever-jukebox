@@ -62,6 +62,30 @@ describe("AnalyzeAudioUseCase", () => {
     expect(cache.set).toHaveBeenCalled();
   });
 
+  it("returns the analysis when the cache write fails", async () => {
+    const analysisPort: AnalysisPort = {
+      analyze: vi.fn(async () => analysis),
+    };
+    const cache: AnalysisCachePort = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {
+        throw new Error("quota");
+      }),
+      clear: vi.fn(async () => undefined),
+    };
+    const decoder: AudioDecoderPort = {
+      decode: vi.fn(async () => makeDecodedAudio()),
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const usecase = new AnalyzeAudioUseCase(analysisPort, cache, decoder);
+    const result = await usecase.execute({ file: makeFile() });
+    warn.mockRestore();
+
+    expect(result.analysis).toEqual(analysis);
+    expect(result.fromCache).toBe(false);
+  });
+
   it("returns cached analysis when available", async () => {
     const analysisPort: AnalysisPort = {
       analyze: vi.fn(async () => analysis),
