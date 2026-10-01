@@ -196,6 +196,11 @@
     "swingReady": "Modo Swing listo.",
     "swingFailedStatus": "El modo Swing falló.",
     "swingWhenLoaded": "El modo Swing se preparará cuando el audio esté cargado",
+    "preparingInstrumental": "Preparando el modo Instrumental",
+    "instrumentalDownloading": "Descargando el modelo instrumental...",
+    "instrumentalSeparating": "Eliminando las voces de la pista...",
+    "instrumentalFailed": "El modo Instrumental falló. Usando el modo Normal.",
+    "instrumentalWhenLoaded": "El modo Instrumental se preparará cuando el audio esté cargado",
     "anchorSet": "Rama ancla establecida",
     "anchorReset": "Rama ancla reiniciada",
     "anchorRequiresBackward": "El ancla requiere una rama hacia atrás",
@@ -255,7 +260,8 @@
     "underwater": "Bajo el agua",
     "cathedral": "Catedral",
     "cowbell": "Más cencerros",
-    "swing": "Swing"
+    "swing": "Swing",
+    "instrumental": "Instrumental"
   },
   "tuning": {
     "title": "Ajustes",
@@ -378,7 +384,7 @@
     "tuneTypes": "Configura una distancia mínima de salto para filtrar las ramas según la distancia entre beats de la pista y usa las casillas para los demás tipos de ramas.",
     "tuneDelete": "Haz clic en una rama en la visualización y pulsa Eliminar para quitarla.",
     "modesTitle": "¿Qué son los modos de audio extra?",
-    "modesBody": "Extras puede reproducir el Jukebox de forma normal, acelerarlo con Nightcore, ralentizarlo y hacerlo más grave con Daycore, amortiguarlo y ralentizarlo con Vaporwave, añadir sonido envolvente con Audio 8D, triturarlo con 8 bits, darle un sonido LoFi filtrado, sumergirlo con Bajo el agua o bañarlo en la reverberación de Catedral. Más cencerros y Swing son herramientas de remix sincronizadas con el beat, inspiradas en <remix>Echo Nest Remix</remix>.",
+    "modesBody": "Extras puede reproducir el Jukebox de forma normal, acelerarlo con Nightcore, ralentizarlo y hacerlo más grave con Daycore, amortiguarlo y ralentizarlo con Vaporwave, añadir sonido envolvente con Audio 8D, triturarlo con 8 bits, darle un sonido LoFi filtrado, sumergirlo con Bajo el agua o bañarlo en la reverberación de Catedral. Más cencerros y Swing son herramientas de remix sincronizadas con el beat, inspiradas en <remix>Echo Nest Remix</remix>. Instrumental elimina las voces de una pista con un modelo de separación en el propio dispositivo (solo navegadores de escritorio).",
     "favoritesTitle": "¿Cómo funcionan los Favoritos?",
     "favoritesSave": "Los favoritos se guardan o se quitan haciendo clic en el icono de estrella de una pista. Se almacenan localmente en tu navegador y, opcionalmente, se pueden sincronizar entre dispositivos con un código obtenido en el menú de sincronización de favoritos.",
     "favoritesTuning": "Al marcar una pista como favorita también se guardan sus ajustes y ramas eliminadas, de modo que al volver a cargarla se restauran tus parámetros.",

@@ -93,6 +93,12 @@
     "preparingSwingEllipsis": "Preparando el modo Swing...",
     "swingFailed": "El modo Swing falló. Usando el modo Normal.",
     "swingWhenLoaded": "El modo Swing se preparará cuando el audio esté cargado",
+    "preparingInstrumental": "Preparando el modo Instrumental",
+    "preparingInstrumentalEllipsis": "Preparando el modo Instrumental...",
+    "instrumentalFailed": "El modo Instrumental falló. Usando el modo Normal.",
+    "instrumentalWhenLoaded": "El modo Instrumental se preparará cuando el audio esté cargado",
+    "instrumentalDownloading": "Descargando el modelo instrumental...",
+    "instrumentalSeparating": "Eliminando las voces de la pista...",
     "anchorSet": "Rama ancla establecida",
     "anchorReset": "Rama ancla reiniciada",
     "anchorRequiresBackward": "El ancla requiere una rama hacia atrás",
@@ -107,6 +113,7 @@
     "sameBeat": "Mismo beat",
     "autocanonized": "autocanonizado",
     "preparingSwingPercent": "Preparando modo Swing: {{percent}}%",
+    "preparingInstrumentalPercent": "Preparando modo Instrumental: {{percent}}%",
     "closeExportDialog": "Cerrar diálogo de exportación",
     "closeTuningDialog": "Cerrar diálogo de ajuste",
     "closeTrackInfoDialog": "Cerrar diálogo de información de pista"
@@ -124,7 +131,8 @@
     "underwater": "Bajo el agua",
     "cathedral": "Catedral",
     "cowbell": "Más cencerros",
-    "swing": "Swing"
+    "swing": "Swing",
+    "instrumental": "Instrumental"
   },
   "tuning": {
     "title": "Ajustes",

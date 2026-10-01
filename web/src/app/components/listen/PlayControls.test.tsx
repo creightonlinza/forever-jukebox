@@ -46,7 +46,7 @@ describe("PlayControls", () => {
         isPaused: false,
         playMode: "jukebox",
         jukeboxAudioMode: "off",
-        swingPreparing: false,
+        audioModePreparing: false,
         audioLoaded: true,
         analysisLoaded: true,
         audioLoadInFlight: false,
@@ -81,10 +81,26 @@ describe("PlayControls", () => {
     render(<PlayControls />);
     const button = document.getElementById("viz-play") as HTMLButtonElement;
     act(() => {
-      useAppStore.setState({ jukeboxAudioMode: "swing", swingPreparing: true });
+      useAppStore.setState({ jukeboxAudioMode: "swing", audioModePreparing: true });
     });
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("aria-label")).toBe("Preparing Swing mode");
+    expect(button.classList.contains("hidden")).toBe(true);
+  });
+
+  it("blocks and hides while instrumental is preparing", () => {
+    render(<PlayControls />);
+    const button = document.getElementById("viz-play") as HTMLButtonElement;
+    act(() => {
+      useAppStore.setState({
+        jukeboxAudioMode: "instrumental",
+        audioModePreparing: true,
+      });
+    });
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-label")).toBe(
+      "Preparing Instrumental mode",
+    );
     expect(button.classList.contains("hidden")).toBe(true);
   });
 
@@ -123,7 +139,7 @@ describe("VizTop", () => {
         activeVizIndex: 1,
         audioLoaded: true,
         analysisLoaded: true,
-        swingPreparing: false,
+        audioModePreparing: false,
       });
     });
   });

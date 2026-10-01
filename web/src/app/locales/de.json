@@ -196,6 +196,11 @@
     "swingReady": "Swing-Modus bereit.",
     "swingFailedStatus": "Swing-Modus fehlgeschlagen.",
     "swingWhenLoaded": "Swing-Modus wird vorbereitet, sobald die Audiodaten geladen sind",
+    "preparingInstrumental": "Instrumental-Modus wird vorbereitet",
+    "instrumentalDownloading": "Instrumental-Modell wird heruntergeladen...",
+    "instrumentalSeparating": "Gesang wird aus dem Song entfernt...",
+    "instrumentalFailed": "Instrumental-Modus fehlgeschlagen. Normaler Modus wird verwendet.",
+    "instrumentalWhenLoaded": "Instrumental-Modus wird vorbereitet, sobald die Audiodaten geladen sind",
     "anchorSet": "Anker-Sprungpfad festgelegt",
     "anchorReset": "Anker-Sprungpfad zurückgesetzt",
     "anchorRequiresBackward": "Anker benötigt einen rückwärtsgerichteten Sprungpfad",
@@ -255,7 +260,8 @@
     "underwater": "Unterwasser",
     "cathedral": "Kathedrale",
     "cowbell": "Mehr Kuhglocken",
-    "swing": "Swing"
+    "swing": "Swing",
+    "instrumental": "Instrumental"
   },
   "tuning": {
     "title": "Tuning",
@@ -378,7 +384,7 @@
     "tuneTypes": "Lege eine Mindest-Sprungdistanz fest, um Sprungpfade nach Beat-Distanz über den Song hinweg zu filtern, und nutze die Checkboxen für andere Sprungpfad-Typen.",
     "tuneDelete": "Klicke auf einen Sprungpfad in der Visualisierung und drücke dann Entf, um ihn zu entfernen.",
     "modesTitle": "Was sind die zusätzlichen Audio-Modi?",
-    "modesBody": "Extras können die Jukebox normal abspielen, sie mit Nightcore beschleunigen, mit Daycore verlangsamen und vertiefen, mit Vaporwave dämpfen und verlangsamen, räumliches Panning mit 8D-Audio hinzufügen, mit 8-Bit bitcrushen, einen gefilterten LoFi-Sound hinzufügen, sie mit Unterwasser abtauchen lassen oder mit Kathedralen-Hall versehen. Mehr Kuhglocken und Swing sind beat-bewusste Remix-Spielzeuge, inspiriert von <remix>Echo Nest Remix</remix>.",
+    "modesBody": "Extras können die Jukebox normal abspielen, sie mit Nightcore beschleunigen, mit Daycore verlangsamen und vertiefen, mit Vaporwave dämpfen und verlangsamen, räumliches Panning mit 8D-Audio hinzufügen, mit 8-Bit bitcrushen, einen gefilterten LoFi-Sound hinzufügen, sie mit Unterwasser abtauchen lassen oder mit Kathedralen-Hall versehen. Mehr Kuhglocken und Swing sind beat-bewusste Remix-Spielzeuge, inspiriert von <remix>Echo Nest Remix</remix>. Instrumental entfernt den Gesang eines Songs mit einem Trennungsmodell direkt auf dem Gerät (nur Desktop-Browser).",
     "favoritesTitle": "Wie funktionieren Favoriten?",
     "favoritesSave": "Favoriten werden durch Klicken auf das Stern-Symbol bei einem Song gespeichert/entfernt. Sie werden lokal in deinem Browser gespeichert und können optional über einen Synchronisierungscode aus dem Favoriten-Synchronisierungsmenü zwischen Geräten synchronisiert werden.",
     "favoritesTuning": "Beim Favorisieren eines Songs werden auch Tuning und gelöschte Sprungpfade gespeichert, sodass diese Parameter beim erneuten Laden wiederhergestellt werden.",

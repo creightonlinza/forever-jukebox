@@ -9,7 +9,8 @@ export type JukeboxAudioMode =
   | "underwater"
   | "cathedral"
   | "cowbell"
-  | "swing";
+  | "swing"
+  | "instrumental";
 
 export type AudioModeSettings = {
   rate: number;
@@ -112,6 +113,14 @@ export const AUDIO_MODE_SETTINGS: Record<JukeboxAudioMode, AudioModeSettings> = 
     pan: false,
   },
   swing: {
+    rate: 1,
+    highPassFrequency: null,
+    lowPassFrequency: null,
+    useBandPass: false,
+    reverbMix: 0,
+    pan: false,
+  },
+  instrumental: {
     rate: 1,
     highPassFrequency: null,
     lowPassFrequency: null,

@@ -71,7 +71,7 @@ describe("prepareSwingMode resume guard", () => {
       playMode: "jukebox",
       isRunning: true,
       isPaused: false,
-      swingRenderToken: 0,
+      audioModeRenderToken: 0,
       vizData: { beats: [{}, {}] } as never,
     });
     startJukeboxPlayback.mockClear();

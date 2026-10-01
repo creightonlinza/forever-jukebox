@@ -49,6 +49,7 @@ export function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
     cathedral: i18n.t("audioModes.cathedral"),
     cowbell: i18n.t("audioModes.cowbell"),
     swing: i18n.t("audioModes.swing"),
+    instrumental: i18n.t("audioModes.instrumental"),
   };
   return labels[audioMode].toLocaleLowerCase();
 }

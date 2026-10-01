@@ -24,6 +24,8 @@ export function exportProgressMessage(
       return t("export.initializing");
     case "preparingSwing":
       return t("listen.preparingSwing");
+    case "preparingInstrumental":
+      return t("listen.preparingInstrumental");
     case "planning":
       return t("export.planning");
     case "renderingChunk":

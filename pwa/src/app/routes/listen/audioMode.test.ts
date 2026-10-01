@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_AUDIO_MODE_INTENSITY } from "@forever-jukebox/shared/audio/audioModes";
+
+vi.mock("@forever-jukebox/shared/audio/instrumentalRenderer", () => ({
+  isInstrumentalModeAvailable: vi.fn(() => false),
+}));
+import { isInstrumentalModeAvailable } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import {
+  isAudioModeOffered,
   parseAudioMode,
   resolveAudioIntensityFromUrl,
   resolveAudioModeFromUrl,
@@ -40,6 +46,16 @@ describe("audio mode URL helpers", () => {
     expect(parseAudioMode("eight-bit")).toBeNull();
     expect(parseAudioMode("")).toBeNull();
     expect(parseAudioMode(null)).toBeNull();
+  });
+
+  it("offers instrumental mode only where the renderer allows it", () => {
+    expect(isAudioModeOffered("instrumental")).toBe(false);
+    expect(parseAudioMode("instrumental")).toBeNull();
+    expect(isAudioModeOffered("swing")).toBe(true);
+
+    vi.mocked(isInstrumentalModeAvailable).mockReturnValue(true);
+    expect(isAudioModeOffered("instrumental")).toBe(true);
+    expect(parseAudioMode("instrumental")).toBe("instrumental");
   });
 
   it("reads mode and intensity from the URL with defaults", () => {

@@ -1,3 +1,10 @@
+import {
+  clearRenderedTracks,
+  deleteRenderedTracks,
+  moveRenderedTracks,
+  listRenderedTrackBytes,
+} from "@forever-jukebox/shared/audio/renderedTrackCache";
+
 const trackCacheDbName = "forever-jukebox-cache";
 const trackCacheStore = "tracks";
 const trackMetaStore = "track-meta";
@@ -14,7 +21,7 @@ export type CachedTrack = {
 };
 
 // Size and last-used time of each cached track, stored apart from the audio so
-// eviction never loads buffers.
+// eviction never loads buffers. Listings add the track's stored rendered copies.
 type CachedTrackMeta = { trackId: string; bytes: number; updatedAt: number };
 
 let trackCacheDbPromise: Promise<IDBDatabase> | null = null;
@@ -230,10 +237,20 @@ export async function moveCachedTrack(
     moved = true;
   };
   await done;
+  if (moved) {
+    await moveRenderedTracks(fromId, toId).catch((err: unknown) => {
+      console.warn(`Rendered track move failed: ${String(err)}`);
+    });
+  }
   return moved;
 }
 
+// Removes the track's audio and its stored rendered copies. Cache Storage
+// failures are logged so they never block the audio removal.
 export async function deleteCachedTrack(trackId: string) {
+  await deleteRenderedTracks(trackId).catch((err: unknown) => {
+    console.warn(`Rendered track delete failed: ${String(err)}`);
+  });
   const { tracks, meta, done } = await openTrackTransaction("readwrite");
   tracks.delete(trackId);
   meta.delete(trackId);
@@ -258,7 +275,26 @@ async function listCachedAudioEntries(): Promise<CachedTrackMeta[]> {
       entries.push(backfilled);
     }
   }
-  return entries;
+  return withRenderedBytes(entries);
+}
+
+// A track's rendered copies share its id, so they count toward the track's
+// size and are evicted with it. Copies without cached audio are listed as oldest.
+async function withRenderedBytes(
+  entries: CachedTrackMeta[]
+): Promise<CachedTrackMeta[]> {
+  const rendered = await listRenderedTrackBytes().catch(
+    () => new Map<string, number>(),
+  );
+  const merged = entries.map((entry) => {
+    const bytes = entry.bytes + (rendered.get(entry.trackId) ?? 0);
+    rendered.delete(entry.trackId);
+    return { ...entry, bytes };
+  });
+  for (const [trackId, bytes] of rendered) {
+    merged.push({ trackId, bytes, updatedAt: 0 });
+  }
+  return merged;
 }
 
 async function backfillTrackMeta(
@@ -279,6 +315,7 @@ async function backfillTrackMeta(
   return entry;
 }
 
+// Covers cached track audio and stored rendered copies.
 export async function getCachedAudioBytes(): Promise<number> {
   return sumBytes(await listCachedAudioEntries());
 }
@@ -302,6 +339,9 @@ async function evictOldestAudio(maxBytes: number, keepId: string) {
 }
 
 export async function clearCachedAudio() {
+  await clearRenderedTracks().catch((err: unknown) => {
+    console.warn(`Rendered track clear failed: ${String(err)}`);
+  });
   const { tracks, meta, done } = await openTrackTransaction("readwrite");
   tracks.clear();
   meta.clear();

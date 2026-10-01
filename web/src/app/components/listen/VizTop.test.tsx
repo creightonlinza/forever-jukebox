@@ -35,7 +35,7 @@ describe("VizTop", () => {
         activeVizIndex: 1,
         audioLoaded: true,
         analysisLoaded: true,
-        swingPreparing: false,
+        audioModePreparing: false,
       });
     });
   });

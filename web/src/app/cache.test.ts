@@ -223,6 +223,23 @@ describe("cache", () => {
     expect(cached).toBeNull();
   });
 
+  it("still deletes the track when the instrumental cache is unavailable", async () => {
+    const rejecting = { open: () => Promise.reject(new Error("blocked")) };
+    vi.stubGlobal("caches", rejecting);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { deleteCachedTrack, readCachedTrack, updateCachedTrack } =
+        await import("./cache");
+      await updateCachedTrack("abc", { jobId: "job1" });
+      await deleteCachedTrack("abc");
+      expect(await readCachedTrack("abc")).toBeNull();
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("saves and loads app config", async () => {
     const { loadAppConfig, saveAppConfig } = await import("./cache");
     await saveAppConfig({ theme: "light" });
@@ -271,6 +288,44 @@ describe("cache", () => {
     expect((await readCachedTrack("old"))?.audio).toBeDefined();
     expect((await readCachedTrack("new"))?.audio).toBeDefined();
     expect(await getCachedAudioBytes()).toBe(400 * mb);
+  });
+
+  it("counts rendered copies toward the cap and evicts them with the track", async () => {
+    // Cache Storage holding rendered copies by size header only.
+    const sizes = new Map([
+      ["/rendered-track/instrumental/old", 100 * mb],
+      ["/rendered-track/swing/old", 50 * mb],
+      ["/rendered-track/swing/orphan", 10 * mb],
+    ]);
+    vi.stubGlobal("caches", {
+      open: async () => ({
+        keys: async () => [...sizes.keys()].map((url) => ({ url })),
+        match: async ({ url }: { url: string }) =>
+          new Response(null, {
+            headers: { "x-fj-bytes": String(sizes.get(url)) },
+          }),
+        delete: async (url: string) => sizes.delete(url),
+      }),
+    });
+    try {
+      const { getCachedAudioBytes, readCachedTrack, updateCachedTrack } =
+        await import("./cache");
+      const now = vi.spyOn(Date, "now");
+      now.mockReturnValue(1);
+      await updateCachedTrack("old", { audio: new ArrayBuffer(200 * mb) });
+      expect(await getCachedAudioBytes()).toBe(360 * mb);
+      now.mockReturnValue(2);
+      await updateCachedTrack("new", { audio: new ArrayBuffer(200 * mb) });
+      now.mockRestore();
+
+      // 560 MB with both: the audio-less copy goes first, then "old".
+      expect(await readCachedTrack("old")).toBeNull();
+      expect((await readCachedTrack("new"))?.audio).toBeDefined();
+      expect(sizes.size).toBe(0);
+      expect(await getCachedAudioBytes()).toBe(200 * mb);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("measures tracks that have no meta record and evicts them first", async () => {
@@ -328,6 +383,32 @@ describe("cache", () => {
     expect((await readCachedTrack("other"))?.audio).toBeDefined();
     expect(await getCachedAudioBytes()).toBe(500 * mb);
     expect(await moveCachedTrack("missing", "to")).toBe(false);
+  });
+
+  it("moves rendered copies with a moved track and drops them with a deleted one", async () => {
+    const stored = new Set(["/rendered-track/swing/from"]);
+    vi.stubGlobal("caches", {
+      open: async () => ({
+        match: async (url: string) =>
+          stored.has(url) ? new Response(null) : undefined,
+        put: async (url: string) => {
+          stored.add(url);
+        },
+        delete: async (url: string) => stored.delete(url),
+      }),
+    });
+    try {
+      const { deleteCachedTrack, moveCachedTrack, updateCachedTrack } =
+        await import("./cache");
+      await updateCachedTrack("from", { audio: new ArrayBuffer(8) });
+      await moveCachedTrack("from", "to");
+      await moveCachedTrack("missing", "elsewhere");
+      expect([...stored]).toEqual(["/rendered-track/swing/to"]);
+      await deleteCachedTrack("to");
+      expect(stored.size).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("evicts and retries once when a write hits the quota", async () => {

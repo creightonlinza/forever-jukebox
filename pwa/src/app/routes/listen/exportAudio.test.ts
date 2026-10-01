@@ -38,6 +38,7 @@ describe("audio export helpers", () => {
     const cases: Array<[JukeboxExportProgress["message"], string]> = [
       [{ kind: "initializing" }, "export.initializing"],
       [{ kind: "preparingSwing" }, "listen.preparingSwing"],
+      [{ kind: "preparingInstrumental" }, "listen.preparingInstrumental"],
       [{ kind: "planning" }, "export.planning"],
       [
         { kind: "renderingChunk", chunk: 2, total: 5 },

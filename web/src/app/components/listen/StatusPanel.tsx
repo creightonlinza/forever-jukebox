@@ -20,9 +20,9 @@ export function StatusPanel() {
   const lastTrackId = useAppStore((s) => s.lastTrackId);
   const lastJobId = useAppStore((s) => s.lastJobId);
 
-  const swingPreparing = useAppStore((s) => s.swingPreparing);
+  const audioModePreparing = useAppStore((s) => s.audioModePreparing);
 
-  const panelHidden = audioLoaded && analysisLoaded && !swingPreparing;
+  const panelHidden = audioLoaded && analysisLoaded && !audioModePreparing;
   const noTrackLoaded =
     !audioLoaded &&
     !analysisLoaded &&

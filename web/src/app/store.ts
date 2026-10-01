@@ -390,8 +390,8 @@ const createPlaybackSlice: Slice<
     | "bringItHomeMode"
     | "jukeboxAudioMode"
     | "audioIntensity"
-    | "swingPreparing"
-    | "swingRenderToken"
+    | "audioModePreparing"
+    | "audioModeRenderToken"
     | "sleepTimer"
   >
 > = () => ({
@@ -411,8 +411,8 @@ const createPlaybackSlice: Slice<
   bringItHomeMode: false,
   jukeboxAudioMode: "off",
   audioIntensity: 100,
-  swingPreparing: false,
-  swingRenderToken: 0,
+  audioModePreparing: false,
+  audioModeRenderToken: 0,
   sleepTimer: defaultSleepTimer,
 });
 

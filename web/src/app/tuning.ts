@@ -1,4 +1,5 @@
 import type { AppContext } from "./context";
+import { isInstrumentalModeAvailable } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { useAppStore } from "./store";
 import {
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
@@ -42,6 +43,9 @@ function parseAudioMode(raw: string | null) {
     raw === "cowbell" ||
     raw === "swing"
   ) {
+    return raw;
+  }
+  if (raw === "instrumental" && isInstrumentalModeAvailable()) {
     return raw;
   }
   return null;
@@ -217,7 +221,11 @@ export function applyTuningParamsToEngine(
     } else {
       context.cowbellOverlay.disable();
     }
-    if (audioMode !== "swing" && inJukeboxMode) {
+    if (
+      audioMode !== "swing" &&
+      audioMode !== "instrumental" &&
+      inJukeboxMode
+    ) {
       context.player.setJukeboxAudioMode(audioMode, audioIntensity);
     }
   }

@@ -6,6 +6,11 @@ import { Listen } from "./Listen";
 import { VISUALIZATION_LABELS } from "@forever-jukebox/shared/constants/visualization";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
+import {
+  cancelInstrumentalRender,
+  isInstrumentalModeAvailable,
+  renderInstrumentalBuffer,
+} from "@forever-jukebox/shared/audio/instrumentalRenderer";
 
 const exportMocks = vi.hoisted(() => ({
   exportJukeboxAudio: vi.fn(),
@@ -122,6 +127,7 @@ vi.mock("@/core/infrastructure/cache/analysisCache", () => ({
   createAnalysisCache: () => ({}),
   getAnalysisCacheBytes: vi.fn(async () => 12.5 * 1024 * 1024),
   clearAllAnalysisCache: vi.fn(async () => {}),
+  trimRenderedTracks: vi.fn(async () => {}),
 }));
 
 vi.mock("@/core/application/usecases/analyzeAudio", () => ({
@@ -138,6 +144,7 @@ vi.mock("@/core/application/usecases/analyzeAudio", () => ({
       return {
         analysis: mockAnalysis,
         audioBuffer: {} as AudioBuffer,
+        fingerprint: "fp-test",
         fromCache: false,
       };
     }
@@ -233,6 +240,12 @@ vi.mock("@forever-jukebox/shared/audio/swingBufferCache", () => ({
 
 vi.mock("@forever-jukebox/shared/audio/swingRenderer", () => ({
   renderSwingBuffer: vi.fn(async () => ({ duration: 4 }) as AudioBuffer),
+}));
+
+vi.mock("@forever-jukebox/shared/audio/instrumentalRenderer", () => ({
+  isInstrumentalModeAvailable: vi.fn(() => true),
+  renderInstrumentalBuffer: vi.fn(async () => ({ duration: 4 }) as AudioBuffer),
+  cancelInstrumentalRender: vi.fn(),
 }));
 
 vi.mock("@/shared/export", () => ({
@@ -1184,6 +1197,46 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it("renders swing afresh for a WAV export and from the store for MP3", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-swing"));
+    await click(
+      getRequired<HTMLButtonElement>(
+        rendered.container,
+        ".tuning-footer .tab-btn:last-child",
+      ),
+    );
+    await settleEffects();
+
+    const exportWith = async (format: string) => {
+      vi.mocked(renderSwingBuffer).mockClear();
+      await click(getRequired<HTMLButtonElement>(rendered.container, "#track-audio-export"));
+      const formatSelect = Array.from(
+        rendered.container.querySelectorAll<HTMLSelectElement>("select"),
+      ).find((select) => select.querySelector('option[value="wav"]'));
+      if (!formatSelect) {
+        throw new Error("Expected export format select");
+      }
+      await changeSelect(formatSelect, format);
+      await click(
+        getRequired<HTMLButtonElement>(
+          rendered.container,
+          ".modal-footer .tab-btn:last-child",
+        ),
+      );
+      await settleEffects();
+      return vi.mocked(renderSwingBuffer).mock.calls.at(-1)?.[2];
+    };
+
+    expect(await exportWith("wav")).toMatchObject({ trackId: null });
+    expect(await exportWith("mp3")).toMatchObject({ trackId: "fp-test" });
+    rendered.unmount();
+  });
+
   it("applies extras settings and updates title/url", async () => {
     const rendered = renderListen();
     await settleEffects();
@@ -1338,9 +1391,119 @@ describe("Listen route behavior", () => {
     expect(engine.pauseJukebox).toHaveBeenCalledTimes(1);
     expect(engine.startJukebox).toHaveBeenLastCalledWith(false);
     expect(engine.play).toHaveBeenCalledTimes(2);
+    // Stored by analysis fingerprint so cached-analysis removal covers it.
+    expect(vi.mocked(renderSwingBuffer).mock.calls.at(-1)?.[2]).toMatchObject({
+      trackId: "fp-test",
+    });
+    // Loading a track trims stored renders to the cap, sparing its own.
+    const cache = await import("@/core/infrastructure/cache/analysisCache");
+    expect(cache.trimRenderedTracks).toHaveBeenCalledWith("fp-test");
     expect(playButton.getAttribute("aria-label")).toBe("Pause");
     expect(window.location.search).toContain("am=swing");
     rendered.unmount();
+  });
+
+  it("prepares instrumental mode, swaps the rendered buffer in and resumes", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    const playButton = getRequired<HTMLButtonElement>(rendered.container, "#viz-play");
+    await click(playButton);
+    expect(playButton.getAttribute("aria-label")).toBe("Pause");
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-instrumental"));
+    const footerButtons = Array.from(
+      rendered.container.querySelectorAll<HTMLButtonElement>(".tuning-footer .tab-btn")
+    );
+    await click(footerButtons[1] as HTMLButtonElement);
+    await settleEffects();
+
+    const player = playerInstances.at(-1) as unknown as {
+      setRenderedJukeboxAudioBuffer: ReturnType<typeof vi.fn>;
+      setJukeboxAudioMode: ReturnType<typeof vi.fn>;
+    };
+    expect(vi.mocked(renderInstrumentalBuffer)).toHaveBeenCalledTimes(1);
+    // Stored by analysis fingerprint so cached-analysis removal covers it.
+    expect(vi.mocked(renderInstrumentalBuffer).mock.calls[0]?.[1]).toBe("fp-test");
+    expect(player.setRenderedJukeboxAudioBuffer).toHaveBeenCalledWith(
+      "instrumental",
+      { duration: 4 },
+    );
+    expect(player.setJukeboxAudioMode).toHaveBeenLastCalledWith("instrumental");
+    const engine = engineInstances[0];
+    expect(engine?.pauseJukebox).toHaveBeenCalledTimes(1);
+    expect(engine?.startJukebox).toHaveBeenLastCalledWith(false);
+    expect(playButton.getAttribute("aria-label")).toBe("Pause");
+    expect(window.location.search).toContain("am=instrumental");
+    rendered.unmount();
+  });
+
+  it("returns to normal mode when the instrumental render fails", async () => {
+    vi.mocked(renderInstrumentalBuffer).mockRejectedValueOnce(new Error("no gpu"));
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-instrumental"));
+    await click(
+      getRequired<HTMLButtonElement>(rendered.container, ".tuning-footer .tab-btn:last-child"),
+    );
+    await settleEffects();
+
+    const player = playerInstances.at(-1) as unknown as {
+      setJukeboxAudioMode: ReturnType<typeof vi.fn>;
+    };
+    expect(player.setJukeboxAudioMode).toHaveBeenLastCalledWith("off", 100);
+    expect(window.location.search).not.toContain("am=");
+    rendered.unmount();
+  });
+
+  it("cancels an instrumental render when another mode is applied", async () => {
+    vi.mocked(renderInstrumentalBuffer).mockImplementationOnce(
+      () => new Promise<AudioBuffer>(() => {}),
+    );
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-instrumental"));
+    const clickApply = () =>
+      click(
+        getRequired<HTMLButtonElement>(rendered.container, ".tuning-footer .tab-btn:last-child"),
+      );
+    await clickApply();
+    await settleEffects();
+    expect(getRequired<HTMLButtonElement>(rendered.container, "#viz-play").getAttribute("aria-label")).toBe(
+      "Preparing Instrumental mode",
+    );
+
+    // The playback controls are hidden while preparing; the shortcut still opens Extras.
+    await keydown("e", "KeyE");
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-nightcore"));
+    await clickApply();
+    await settleEffects();
+
+    expect(vi.mocked(cancelInstrumentalRender)).toHaveBeenCalled();
+    expect(getRequired<HTMLButtonElement>(rendered.container, "#viz-play").getAttribute("aria-label")).toBe(
+      "Play",
+    );
+    rendered.unmount();
+  });
+
+  it("hides the instrumental option where the renderer does not allow it", async () => {
+    vi.mocked(isInstrumentalModeAvailable).mockReturnValue(false);
+    const rendered = renderListen();
+    await settleEffects();
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    expect(rendered.container.querySelector("#audio-mode-instrumental")).toBeNull();
+    expect(rendered.container.querySelector("#audio-mode-swing")).not.toBeNull();
+    rendered.unmount();
+    vi.mocked(isInstrumentalModeAvailable).mockReturnValue(true);
   });
 
   it("resets audio mode and intensity together when swing render fails", async () => {

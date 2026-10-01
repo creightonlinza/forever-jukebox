@@ -196,6 +196,11 @@
     "swingReady": "Swing mode ready.",
     "swingFailedStatus": "Swing mode failed.",
     "swingWhenLoaded": "Swing mode will prepare once audio is loaded",
+    "preparingInstrumental": "Preparing Instrumental mode",
+    "instrumentalDownloading": "Downloading the instrumental model...",
+    "instrumentalSeparating": "Removing vocals from the track...",
+    "instrumentalFailed": "Instrumental mode failed. Using Normal mode.",
+    "instrumentalWhenLoaded": "Instrumental mode will prepare once audio is loaded",
     "anchorSet": "Anchor branch set",
     "anchorReset": "Anchor branch reset",
     "anchorRequiresBackward": "Anchor requires a backward branch",
@@ -255,7 +260,8 @@
     "underwater": "Underwater",
     "cathedral": "Cathedral",
     "cowbell": "More Cowbell",
-    "swing": "Swing"
+    "swing": "Swing",
+    "instrumental": "Instrumental"
   },
   "tuning": {
     "title": "Tuning",
@@ -378,7 +384,7 @@
     "tuneTypes": "Set a minimum jump distance to filter branches by beat distance across the track, and use the checkboxes for other branch types.",
     "tuneDelete": "Click a branch in the visualization, then press Delete to remove it.",
     "modesTitle": "What are the extra audio modes?",
-    "modesBody": "Extras can play the Jukebox normally, speed it up with Nightcore, slow and deepen it with Daycore, muffle and slow it with Vaporwave, add spatial panning with 8D Audio, bitcrush it with 8-Bit, add a filtered LoFi sound, submerge it with Underwater, or wash it through Cathedral reverb. More Cowbell and Swing are beat-aware remix toys inspired by <remix>Echo Nest Remix</remix>.",
+    "modesBody": "Extras can play the Jukebox normally, speed it up with Nightcore, slow and deepen it with Daycore, muffle and slow it with Vaporwave, add spatial panning with 8D Audio, bitcrush it with 8-Bit, add a filtered LoFi sound, submerge it with Underwater, or wash it through Cathedral reverb. More Cowbell and Swing are beat-aware remix toys inspired by <remix>Echo Nest Remix</remix>. Instrumental removes the vocals from a track with an on-device separation model (desktop browsers only).",
     "favoritesTitle": "How do Favorites work?",
     "favoritesSave": "Favorites are saved/unsaved by clicking the star icon on a track. They are stored locally in your browser and can optionally be synced across devices using a sync code obtained from the Favorites sync menu.",
     "favoritesTuning": "When you favorite a track, its tuning and deleted branches are saved too, so future loads restore your chosen parameters.",

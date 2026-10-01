@@ -15,6 +15,11 @@ import type {
 } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
+import {
+  cancelInstrumentalRender,
+  renderInstrumentalBuffer,
+} from "@forever-jukebox/shared/audio/instrumentalRenderer";
+import { isStoredCopy } from "@forever-jukebox/shared/audio/renderedTrackCache";
 import type { JukeboxEngine } from "@forever-jukebox/shared";
 import { createSessionSeed, waitForNextPaint } from "./browser";
 import {
@@ -33,7 +38,8 @@ export function useAudioExport({
   engineRef,
   jukeboxAudioMode,
   audioIntensity,
-  getSwingSourceIdentity,
+  getSourceIdentity,
+  getRenderedTrackId,
   t,
 }: {
   file: File | null;
@@ -43,7 +49,9 @@ export function useAudioExport({
   engineRef: React.MutableRefObject<JukeboxEngine | null>;
   jukeboxAudioMode: JukeboxAudioMode;
   audioIntensity: number;
-  getSwingSourceIdentity: () => string | null;
+  getSourceIdentity: () => string | null;
+  // Rendered copies are stored by analysis fingerprint, like cached analysis.
+  getRenderedTrackId: () => string | null;
   t: TFunction;
 }) {
   const [isExportOpen, setIsExportOpen] = React.useState(false);
@@ -148,32 +156,71 @@ export function useAudioExport({
     await waitForNextPaint();
 
     try {
-      let swingBuffer: AudioBuffer | undefined;
+      let renderedBuffer: AudioBuffer | undefined;
+      // A WAV export renders afresh instead of using a stored lossy copy.
+      const lossless = requestedExtension === "wav";
+      const reusable = (buffer: AudioBuffer | null) =>
+        buffer && !(lossless && isStoredCopy(buffer)) ? buffer : null;
+      if (jukeboxAudioMode === "instrumental") {
+        const existing = reusable(
+          player.getRenderedJukeboxAudioBuffer("instrumental"),
+        );
+        if (existing) {
+          renderedBuffer = existing;
+        } else {
+          if (lossless) {
+            cancelInstrumentalRender();
+          }
+          setExportProgress({
+            stage: "rendering",
+            message: { kind: "preparingInstrumental" },
+            percent: 2,
+          });
+          renderedBuffer = await renderInstrumentalBuffer(
+            sourceBuffer,
+            lossless ? null : getRenderedTrackId(),
+            ({ progress }) => {
+              setExportProgress({
+                stage: "rendering",
+                message: { kind: "preparingInstrumental" },
+                percent: 2 + Math.max(0, Math.min(1, progress)) * 6,
+              });
+            },
+          );
+          player.setRenderedJukeboxAudioBuffer("instrumental", renderedBuffer);
+        }
+      }
       if (jukeboxAudioMode === "swing") {
-        const existingSwingBuffer = player.getRenderedJukeboxAudioBuffer("swing");
+        const existingSwingBuffer = reusable(
+          player.getRenderedJukeboxAudioBuffer("swing"),
+        );
         if (existingSwingBuffer) {
-          swingBuffer = existingSwingBuffer;
+          renderedBuffer = existingSwingBuffer;
         } else if (activeAnalysis.beats.length > 0) {
           setExportProgress({
             stage: "rendering",
             message: { kind: "preparingSwing" },
             percent: 2,
           });
-          swingBuffer = await getOrCreateSwingBuffer(
-            sourceBuffer,
-            getSwingSourceIdentity(),
-            () =>
-              renderSwingBuffer(sourceBuffer, activeAnalysis.beats, {
-                onProgress: (progress) => {
-                  setExportProgress({
-                    stage: "rendering",
-                    message: { kind: "preparingSwing" },
-                    percent: 2 + Math.max(0, Math.min(1, progress)) * 6,
-                  });
-                },
-              }),
-          );
-          player.setRenderedJukeboxAudioBuffer("swing", swingBuffer);
+          const renderSwing = (trackId: string | null) =>
+            renderSwingBuffer(sourceBuffer, activeAnalysis.beats, {
+              trackId,
+              onProgress: (progress) => {
+                setExportProgress({
+                  stage: "rendering",
+                  message: { kind: "preparingSwing" },
+                  percent: 2 + Math.max(0, Math.min(1, progress)) * 6,
+                });
+              },
+            });
+          renderedBuffer = lossless
+            ? await renderSwing(null)
+            : await getOrCreateSwingBuffer(
+                sourceBuffer,
+                getSourceIdentity(),
+                () => renderSwing(getRenderedTrackId()),
+              );
+          player.setRenderedJukeboxAudioBuffer("swing", renderedBuffer);
         } else {
           throw new Error("Swing export requires beat analysis.");
         }
@@ -201,7 +248,7 @@ export function useAudioExport({
         audioMode: jukeboxAudioMode,
         audioIntensityPct: audioIntensity,
         sectionStartBeatIndices: engine.getSectionStartBeatIndices(),
-        swingBuffer,
+        renderedBuffer,
         randomMode: "seeded",
         seed: createSessionSeed(),
         onProgress: (progress) => setExportProgress(progress),

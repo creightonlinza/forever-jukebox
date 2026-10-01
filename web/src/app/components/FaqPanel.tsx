@@ -140,6 +140,13 @@ export function FaqPanel() {
             high-churn changelog that is never translated (untranslated tokens would
             just force a locale-completeness exemption). Adding a new entry is a plain
             JSX edit here. Keep the FAQ above fully tokenized. */}
+        <h4>October 2026</h4>
+        <ul>
+          <li>
+            New <strong>Instrumental</strong> remix toy in Extras — removes the vocals from a track, right in your browser. Desktop browsers with WebGPU only (Chrome, Edge, Safari). The first use downloads a 67 MB model. Separated tracks are saved on your device where the browser supports it, so they load instantly next time.
+          </li>
+        </ul>
+
         <h4>September 2026</h4>
         <ul>
           <li>

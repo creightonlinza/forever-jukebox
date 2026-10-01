@@ -174,7 +174,7 @@ describe("StatusPanel", () => {
         audioLoaded: false,
         analysisLoaded: false,
         audioLoadInFlight: false,
-        swingPreparing: false,
+        audioModePreparing: false,
         lastTrackId: null,
         lastJobId: null,
         playlist: { tracks: [], currentIndex: -1 },
@@ -222,7 +222,7 @@ describe("StatusPanel", () => {
     });
     expect(container.classList.contains("hidden")).toBe(true);
     act(() => {
-      useAppStore.setState({ swingPreparing: true });
+      useAppStore.setState({ audioModePreparing: true });
     });
     expect(container.classList.contains("hidden")).toBe(false);
   });

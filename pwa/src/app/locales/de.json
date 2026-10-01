@@ -93,6 +93,12 @@
     "preparingSwingEllipsis": "Swing-Modus wird vorbereitet...",
     "swingFailed": "Swing-Modus fehlgeschlagen. Normaler Modus wird verwendet.",
     "swingWhenLoaded": "Swing-Modus wird vorbereitet, sobald die Audiodaten geladen sind",
+    "preparingInstrumental": "Instrumental-Modus wird vorbereitet",
+    "preparingInstrumentalEllipsis": "Instrumental-Modus wird vorbereitet...",
+    "instrumentalFailed": "Instrumental-Modus fehlgeschlagen. Normaler Modus wird verwendet.",
+    "instrumentalWhenLoaded": "Instrumental-Modus wird vorbereitet, sobald die Audiodaten geladen sind",
+    "instrumentalDownloading": "Instrumental-Modell wird heruntergeladen...",
+    "instrumentalSeparating": "Gesang wird aus dem Song entfernt...",
     "anchorSet": "Anker-Sprungpfad festgelegt",
     "anchorReset": "Anker-Sprungpfad zurückgesetzt",
     "anchorRequiresBackward": "Anker benötigt einen rückwärtsgerichteten Sprungpfad",
@@ -107,6 +113,7 @@
     "sameBeat": "Selber Beat",
     "autocanonized": "autokanonisiert",
     "preparingSwingPercent": "Bereite Swing-Modus vor: {{percent}}%",
+    "preparingInstrumentalPercent": "Bereite Instrumental-Modus vor: {{percent}}%",
     "closeExportDialog": "Export-Panel schließen",
     "closeTuningDialog": "Tuning-Panel schließen",
     "closeTrackInfoDialog": "Song-Info-Panel schließen"
@@ -124,7 +131,8 @@
     "underwater": "Unterwasser",
     "cathedral": "Kathedrale",
     "cowbell": "Mehr Kuhglocken",
-    "swing": "Swing"
+    "swing": "Swing",
+    "instrumental": "Instrumental"
   },
   "tuning": {
     "title": "Tuning",

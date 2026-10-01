@@ -26,6 +26,7 @@ export interface JukeboxExportProgress {
   message:
     | { kind: "initializing" }
     | { kind: "preparingSwing" }
+    | { kind: "preparingInstrumental" }
     | { kind: "planning" }
     | { kind: "renderingChunk"; chunk: number; total: number }
     | { kind: "encodingChunk"; chunk: number; total: number }
@@ -49,7 +50,8 @@ export interface ExportJukeboxAudioOptions {
   audioMode: JukeboxAudioMode;
   audioIntensityPct?: number;
   sectionStartBeatIndices?: number[];
-  swingBuffer?: AudioBuffer;
+  // Pre-rendered source for modes that play a rendered copy of the track.
+  renderedBuffer?: AudioBuffer;
   randomMode?: RandomMode;
   seed?: number;
   onProgress?: (progress: JukeboxExportProgress) => void;
@@ -85,8 +87,9 @@ export async function exportJukeboxAudio(
 ): Promise<ExportJukeboxAudioResult> {
   report(options.onProgress, "planning", { kind: "planning" }, 2);
   const sourceBuffer =
-    options.audioMode === "swing" && options.swingBuffer
-      ? options.swingBuffer
+    (options.audioMode === "swing" || options.audioMode === "instrumental") &&
+    options.renderedBuffer
+      ? options.renderedBuffer
       : options.sourceBuffer;
   const audioModeSettings = getAudioModeSettings(
     options.audioMode,

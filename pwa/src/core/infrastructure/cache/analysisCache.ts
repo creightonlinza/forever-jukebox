@@ -1,9 +1,16 @@
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import { clearAllTuning, removeTuning } from "./tuningStore";
+import {
+  clearRenderedTracks,
+  deleteRenderedTracks,
+  evictOldestRenderedTracks,
+  getRenderedTrackBytes,
+} from "@forever-jukebox/shared/audio/renderedTrackCache";
 
 const DB_NAME = "forever-jukebox-pwa";
 const STORE_NAME = "analysis";
+const MAX_RENDERED_TRACK_BYTES = 500 * 1024 * 1024;
 let analysisDbPromise: Promise<IDBDatabase> | null = null;
 
 type CacheBackend = AnalysisCachePort;
@@ -25,11 +32,13 @@ export function createAnalysisCache(): AnalysisCachePort {
   return new IndexedDbAnalysisCache();
 }
 
+// Covers analysis plus the rendered copies stored for cached tracks.
 export async function getAnalysisCacheBytes(): Promise<number> {
-  if (isOpfsAvailable()) {
-    return getOpfsAnalysisBytes();
-  }
-  return getIndexedDbAnalysisBytes();
+  const analysisBytes = isOpfsAvailable()
+    ? await getOpfsAnalysisBytes()
+    : await getIndexedDbAnalysisBytes();
+  const renderedBytes = await getRenderedTrackBytes().catch(() => 0);
+  return analysisBytes + renderedBytes;
 }
 
 export async function clearAllAnalysisCache(): Promise<void> {
@@ -39,13 +48,25 @@ export async function clearAllAnalysisCache(): Promise<void> {
     await clearAllIndexedDbAnalysis();
   }
   clearAllTuning();
+  await clearRenderedTracks().catch((err: unknown) => {
+    console.warn(`Rendered track clear failed: ${String(err)}`);
+  });
 }
 
-// Remove a single cached analysis along with its auto-saved tuning. Kept beside
-// clearAllAnalysisCache so analysis + tuning removal stay in one place.
+// Keeps stored renders within the cap by dropping the ones stored longest
+// ago; the given track's renders are spared.
+export async function trimRenderedTracks(keepFingerprint: string): Promise<void> {
+  await evictOldestRenderedTracks(MAX_RENDERED_TRACK_BYTES, keepFingerprint);
+}
+
+// Remove a single cached analysis along with its auto-saved tuning and stored
+// rendered copies (all keyed by fingerprint), so removal stays in one place.
 export async function deleteCachedAnalysis(fingerprint: string): Promise<void> {
   await createAnalysisCache().clear(fingerprint);
   removeTuning(fingerprint);
+  await deleteRenderedTracks(fingerprint).catch((err: unknown) => {
+    console.warn(`Rendered track delete failed: ${String(err)}`);
+  });
 }
 
 export async function listCachedAnalysisTracks(): Promise<CachedAnalysisTrack[]> {

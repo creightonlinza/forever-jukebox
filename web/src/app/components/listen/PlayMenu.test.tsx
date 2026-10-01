@@ -52,7 +52,7 @@ describe("PlayMenu", () => {
       useAppStore.setState({
         audioLoaded: true,
         analysisLoaded: true,
-        swingPreparing: false,
+        audioModePreparing: false,
         playMode: "jukebox",
         jukeboxAudioMode: "off",
         trackTitle: "Song",
