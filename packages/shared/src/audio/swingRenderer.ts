@@ -1,5 +1,6 @@
 import { fitStereoToSource, type StereoChannels } from "./audioResample";
 import {
+  markStoredCopy,
   readRenderedTrack,
   writeRenderedTrack,
   type RenderedTrackKey,
@@ -79,10 +80,12 @@ export async function renderSwingBuffer(
     throwIfAborted(options.signal);
     if (stored) {
       options.onProgress?.(1);
-      return toAudioBuffer(
+      const buffer = toAudioBuffer(
         sourceBuffer,
         fitStereoToSource(length, numberOfChannels, stored[0], stored[1]),
       );
+      markStoredCopy(buffer);
+      return buffer;
     }
   }
   const sourceChannels = Array.from(

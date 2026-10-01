@@ -385,14 +385,16 @@ describe("cache", () => {
     expect(await moveCachedTrack("missing", "to")).toBe(false);
   });
 
-  it("drops the rendered copies of a moved or deleted track", async () => {
-    const deleted: string[] = [];
+  it("moves rendered copies with a moved track and drops them with a deleted one", async () => {
+    const stored = new Set(["/rendered-track/swing/from"]);
     vi.stubGlobal("caches", {
       open: async () => ({
-        delete: async (url: string) => {
-          deleted.push(url);
-          return true;
+        match: async (url: string) =>
+          stored.has(url) ? new Response(null) : undefined,
+        put: async (url: string) => {
+          stored.add(url);
         },
+        delete: async (url: string) => stored.delete(url),
       }),
     });
     try {
@@ -401,13 +403,9 @@ describe("cache", () => {
       await updateCachedTrack("from", { audio: new ArrayBuffer(8) });
       await moveCachedTrack("from", "to");
       await moveCachedTrack("missing", "elsewhere");
+      expect([...stored]).toEqual(["/rendered-track/swing/to"]);
       await deleteCachedTrack("to");
-      expect(deleted).toEqual([
-        "/rendered-track/instrumental/from",
-        "/rendered-track/swing/from",
-        "/rendered-track/instrumental/to",
-        "/rendered-track/swing/to",
-      ]);
+      expect(stored.size).toBe(0);
     } finally {
       vi.unstubAllGlobals();
     }

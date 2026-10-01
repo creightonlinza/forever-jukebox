@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const trackCache = vi.hoisted(() => ({
   readRenderedTrack: vi.fn(),
   writeRenderedTrack: vi.fn(),
+  markStoredCopy: vi.fn(),
 }));
 vi.mock("./renderedTrackCache", () => trackCache);
 
@@ -160,6 +161,7 @@ describe("renderInstrumentalBuffer", () => {
   beforeEach(() => {
     trackCache.readRenderedTrack.mockReset().mockResolvedValue(null);
     trackCache.writeRenderedTrack.mockReset().mockResolvedValue(undefined);
+    trackCache.markStoredCopy.mockReset();
     FakeWorker.instances = [];
     vi.stubGlobal("Worker", FakeWorker);
     vi.stubGlobal("AudioBuffer", FakeAudioBuffer);
@@ -361,6 +363,7 @@ describe("renderInstrumentalBuffer", () => {
     );
     expect(FakeWorker.instances).toHaveLength(0);
     expect(trackCache.writeRenderedTrack).not.toHaveBeenCalled();
+    expect(trackCache.markStoredCopy).toHaveBeenCalledWith(rendered);
     expect(Array.from(rendered.getChannelData(0))).toEqual([1, 2, 3, 4]);
     expect(Array.from(rendered.getChannelData(1))).toEqual([5, 6, 7, 8]);
   });
@@ -377,8 +380,9 @@ describe("renderInstrumentalBuffer", () => {
     FakeWorker.instances[0].onmessage?.({
       data: { type: "result", left, right },
     });
-    await pending;
+    const rendered = await pending;
 
+    expect(trackCache.markStoredCopy).not.toHaveBeenCalledWith(rendered);
     expect(trackCache.writeRenderedTrack).toHaveBeenCalledWith(
       { kind: "instrumental", trackId: "track-1" },
       [left, right],

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const trackCache = vi.hoisted(() => ({
   readRenderedTrack: vi.fn(),
   writeRenderedTrack: vi.fn(),
+  markStoredCopy: vi.fn(),
 }));
 vi.mock("./renderedTrackCache", () => trackCache);
 
@@ -179,6 +180,7 @@ describe("renderSwingBuffer storage", () => {
   beforeEach(() => {
     trackCache.readRenderedTrack.mockReset().mockResolvedValue(null);
     trackCache.writeRenderedTrack.mockReset().mockResolvedValue(undefined);
+    trackCache.markStoredCopy.mockReset();
     vi.stubGlobal("AudioBuffer", FakeAudioBuffer);
   });
 
@@ -204,6 +206,7 @@ describe("renderSwingBuffer storage", () => {
     expect(adapter.calls).toHaveLength(0);
     expect(trackCache.writeRenderedTrack).not.toHaveBeenCalled();
     expect(onProgress).toHaveBeenLastCalledWith(1);
+    expect(trackCache.markStoredCopy).toHaveBeenCalledWith(rendered);
     expect(rendered.length).toBe(20);
     expect(rendered.getChannelData(0)[19]).toBe(0.25);
     expect(rendered.getChannelData(1)[0]).toBe(0.75);
@@ -216,6 +219,7 @@ describe("renderSwingBuffer storage", () => {
     });
 
     expect(trackCache.writeRenderedTrack).toHaveBeenCalledTimes(1);
+    expect(trackCache.markStoredCopy).not.toHaveBeenCalled();
     const [storedKey, channels, sampleRate] =
       trackCache.writeRenderedTrack.mock.calls[0];
     expect(storedKey).toEqual(key);

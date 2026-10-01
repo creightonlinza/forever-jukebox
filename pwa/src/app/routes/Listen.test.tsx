@@ -1197,6 +1197,46 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it("renders swing afresh for a WAV export and from the store for MP3", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-swing"));
+    await click(
+      getRequired<HTMLButtonElement>(
+        rendered.container,
+        ".tuning-footer .tab-btn:last-child",
+      ),
+    );
+    await settleEffects();
+
+    const exportWith = async (format: string) => {
+      vi.mocked(renderSwingBuffer).mockClear();
+      await click(getRequired<HTMLButtonElement>(rendered.container, "#track-audio-export"));
+      const formatSelect = Array.from(
+        rendered.container.querySelectorAll<HTMLSelectElement>("select"),
+      ).find((select) => select.querySelector('option[value="wav"]'));
+      if (!formatSelect) {
+        throw new Error("Expected export format select");
+      }
+      await changeSelect(formatSelect, format);
+      await click(
+        getRequired<HTMLButtonElement>(
+          rendered.container,
+          ".modal-footer .tab-btn:last-child",
+        ),
+      );
+      await settleEffects();
+      return vi.mocked(renderSwingBuffer).mock.calls.at(-1)?.[2];
+    };
+
+    expect(await exportWith("wav")).toMatchObject({ trackId: null });
+    expect(await exportWith("mp3")).toMatchObject({ trackId: "fp-test" });
+    rendered.unmount();
+  });
+
   it("applies extras settings and updates title/url", async () => {
     const rendered = renderListen();
     await settleEffects();

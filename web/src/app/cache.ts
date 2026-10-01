@@ -1,6 +1,7 @@
 import {
   clearRenderedTracks,
   deleteRenderedTracks,
+  moveRenderedTracks,
   listRenderedTrackBytes,
 } from "@forever-jukebox/shared/audio/renderedTrackCache";
 
@@ -237,9 +238,8 @@ export async function moveCachedTrack(
   };
   await done;
   if (moved) {
-    // Rendered copies are keyed by the old id; the new id renders again.
-    await deleteRenderedTracks(fromId).catch((err: unknown) => {
-      console.warn(`Rendered track delete failed: ${String(err)}`);
+    await moveRenderedTracks(fromId, toId).catch((err: unknown) => {
+      console.warn(`Rendered track move failed: ${String(err)}`);
     });
   }
   return moved;

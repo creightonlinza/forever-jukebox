@@ -1,9 +1,8 @@
 import { canEncodeOpusWebm, decodeToStereo, encodeOpusWebm } from "./opusWebm";
 import type { StereoChannels } from "./audioResample";
 
-// Pre-rendered copies of a track (instrumental, swing), kept in Cache Storage
-// under the track's id as WebM/Opus. Nothing is stored where the browser
-// cannot encode it; the mode then renders each time.
+// Pre-rendered copies of a track, kept in Cache Storage under its id as
+// WebM/Opus. Browsers that cannot encode it store nothing and render each time.
 export type RenderedTrackKind = "instrumental" | "swing";
 
 export type RenderedTrackKey = {
@@ -25,6 +24,25 @@ const KINDS: readonly RenderedTrackKind[] = ["instrumental", "swing"];
 // Entries come back through the decoder a few frames off; anything
 // further apart is a different recording under the same id.
 const FRAME_TOLERANCE = 0.001;
+
+// Counts deletions so a save that was encoding meanwhile is dropped.
+let clearCount = 0;
+const deleteCounts = new Map<string, number>();
+let reportedNoEncoder = false;
+const storedCopies = new WeakSet<AudioBuffer>();
+
+function deletionEpoch(trackId: string) {
+  return `${clearCount}:${deleteCounts.get(trackId) ?? 0}`;
+}
+
+// Marks a buffer as decoded from a stored (lossy) copy.
+export function markStoredCopy(buffer: AudioBuffer) {
+  storedCopies.add(buffer);
+}
+
+export function isStoredCopy(buffer: AudioBuffer) {
+  return storedCopies.has(buffer);
+}
 
 function hasCacheStorage() {
   return typeof caches !== "undefined";
@@ -62,10 +80,21 @@ export async function writeRenderedTrack(
   channels: StereoChannels,
   sampleRate: number,
 ) {
-  if (!hasCacheStorage() || !(await canEncodeOpusWebm())) {
+  if (!hasCacheStorage()) {
     return;
   }
+  if (!(await canEncodeOpusWebm())) {
+    if (!reportedNoEncoder) {
+      reportedNoEncoder = true;
+      console.info("[rendered-track] not stored: no Opus encoder in this browser");
+    }
+    return;
+  }
+  const epoch = deletionEpoch(trackId);
   const body = await encodeOpusWebm(channels, sampleRate);
+  if (deletionEpoch(trackId) !== epoch) {
+    return;
+  }
   const cache = await caches.open(TRACK_CACHE);
   await cache.put(
     trackUrl(kind, trackId),
@@ -82,12 +111,28 @@ export async function writeRenderedTrack(
 
 // Removes every rendered copy stored for the track.
 export async function deleteRenderedTracks(trackId: string) {
+  deleteCounts.set(trackId, (deleteCounts.get(trackId) ?? 0) + 1);
   if (!hasCacheStorage()) {
     return;
   }
   const cache = await caches.open(TRACK_CACHE);
   for (const kind of KINDS) {
     await cache.delete(trackUrl(kind, trackId));
+  }
+}
+
+// Re-keys the track's rendered copies to a new id.
+export async function moveRenderedTracks(fromId: string, toId: string) {
+  if (!hasCacheStorage()) {
+    return;
+  }
+  const cache = await caches.open(TRACK_CACHE);
+  for (const kind of KINDS) {
+    const response = await cache.match(trackUrl(kind, fromId));
+    if (response) {
+      await cache.put(trackUrl(kind, toId), response);
+      await cache.delete(trackUrl(kind, fromId));
+    }
   }
 }
 
@@ -161,6 +206,7 @@ export async function getRenderedTrackBytes(): Promise<number> {
 }
 
 export async function clearRenderedTracks() {
+  clearCount += 1;
   if (!hasCacheStorage()) {
     return;
   }

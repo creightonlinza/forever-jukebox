@@ -4,14 +4,11 @@ export type StereoChannels = [
 ];
 
 // Resamples with the browser's own converter via an offline graph.
-export async function resampleStereo(
+async function renderResampled(
   channels: StereoChannels,
   fromRate: number,
   toRate: number,
-): Promise<StereoChannels> {
-  if (fromRate === toRate) {
-    return channels;
-  }
+): Promise<AudioBuffer> {
   const length = Math.ceil((channels[0].length * toRate) / fromRate);
   const offline = new OfflineAudioContext(channels.length, length, toRate);
   const buffer = offline.createBuffer(
@@ -26,11 +23,36 @@ export async function resampleStereo(
   source.buffer = buffer;
   source.connect(offline.destination);
   source.start();
-  const rendered = await offline.startRendering();
+  return offline.startRendering();
+}
+
+export async function resampleStereo(
+  channels: StereoChannels,
+  fromRate: number,
+  toRate: number,
+): Promise<StereoChannels> {
+  if (fromRate === toRate) {
+    return channels;
+  }
+  const rendered = await renderResampled(channels, fromRate, toRate);
   return [
     new Float32Array(rendered.getChannelData(0)),
     new Float32Array(rendered.getChannelData(1)),
   ];
+}
+
+// Same conversion without copying out: the result aliases the rendered
+// buffer, so it is for reading only.
+export async function resampleStereoViews(
+  channels: StereoChannels,
+  fromRate: number,
+  toRate: number,
+): Promise<StereoChannels> {
+  if (fromRate === toRate) {
+    return channels;
+  }
+  const rendered = await renderResampled(channels, fromRate, toRate);
+  return [rendered.getChannelData(0), rendered.getChannelData(1)];
 }
 
 // Shapes stereo channels to a source's length and channel count (mono or

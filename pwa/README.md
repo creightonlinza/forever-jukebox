@@ -86,7 +86,8 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
   `fj-rendered-tracks`, WebM/Opus) so a track is only rendered once; browsers without a
   WebCodecs Opus encoder store nothing. They follow the cached analysis: they count
   toward its size and are removed with it, per track or all. Stored renders are capped
-  at 500 MB; loading a track drops the ones stored longest ago beyond that.
+  at 500 MB; loading a track drops the ones stored longest ago beyond that. A WAV export
+  renders afresh rather than using a stored copy.
 - URL param support: `am=<mode>` (example: `?am=nightcore`).
 - Branch stats toggle is stored in localStorage (`fj-branch-stats-enabled`).
 - Audio mode selection is URL-driven and not persisted in localStorage.

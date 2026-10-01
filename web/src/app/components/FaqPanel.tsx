@@ -143,7 +143,7 @@ export function FaqPanel() {
         <h4>October 2026</h4>
         <ul>
           <li>
-            New <strong>Instrumental</strong> remix toy in Extras — removes the vocals from a track, right in your browser. Desktop browsers with WebGPU only (Chrome, Edge, Safari). The first use downloads a 67 MB model, and each track is separated once and kept on your device.
+            New <strong>Instrumental</strong> remix toy in Extras — removes the vocals from a track, right in your browser. Desktop browsers with WebGPU only (Chrome, Edge, Safari). The first use downloads a 67 MB model. Separated tracks are saved on your device where the browser supports it, so they load instantly next time.
           </li>
         </ul>
 

@@ -1,4 +1,4 @@
-import { resampleStereo, type StereoChannels } from "./audioResample";
+import { resampleStereoViews, type StereoChannels } from "./audioResample";
 
 // Opus always codes at 48 kHz; other rates are converted on the way in.
 export const OPUS_SAMPLE_RATE = 48_000;
@@ -6,6 +6,9 @@ const OPUS_BITRATE = 160_000;
 const OPUS_CHANNELS = 2;
 // Frames per AudioData handed to the encoder (multiple of Opus's 20 ms).
 const ENCODE_BLOCK_FRAMES = 48_000;
+// Blocks the encoder may hold before more are handed over.
+const MAX_ENCODE_QUEUE = 8;
+const ENCODE_QUEUE_POLL_MS = 4;
 const CLUSTER_MS = 5_000;
 // Opus decoders need this much audio before a seek point to converge.
 const SEEK_PRE_ROLL_NS = 80_000_000;
@@ -209,6 +212,7 @@ type EncodedChunk = {
 type ChunkMetadata = { decoderConfig?: { description?: BufferSource } };
 type AudioDataLike = { close(): void };
 type AudioEncoderLike = {
+  encodeQueueSize?: number;
   configure(config: EncoderConfig): void;
   encode(data: AudioDataLike): void;
   flush(): Promise<void>;
@@ -267,7 +271,7 @@ export async function encodeOpusWebm(
   if (!codecs) {
     throw new Error("WebCodecs audio encoding is not available");
   }
-  const [left, right] = await resampleStereo(
+  const [left, right] = await resampleStereoViews(
     channels,
     sampleRate,
     OPUS_SAMPLE_RATE,
@@ -314,6 +318,9 @@ export async function encodeOpusWebm(
     });
     encoder.encode(block);
     block.close();
+    while (!failure && (encoder.encodeQueueSize ?? 0) > MAX_ENCODE_QUEUE) {
+      await new Promise((resolve) => setTimeout(resolve, ENCODE_QUEUE_POLL_MS));
+    }
   }
   await encoder.flush();
   encoder.close();

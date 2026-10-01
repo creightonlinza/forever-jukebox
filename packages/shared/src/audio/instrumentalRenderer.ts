@@ -3,7 +3,11 @@ import {
   resampleStereo,
   type StereoChannels,
 } from "./audioResample";
-import { readRenderedTrack, writeRenderedTrack } from "./renderedTrackCache";
+import {
+  markStoredCopy,
+  readRenderedTrack,
+  writeRenderedTrack,
+} from "./renderedTrackCache";
 
 export type InstrumentalProgress = {
   phase: "download" | "separate";
@@ -20,6 +24,7 @@ type WorkerMessage =
 type Job = {
   cancelled: boolean;
   downloading: boolean;
+  fromStore: boolean;
   worker: Worker | null;
   reject: ((err: Error) => void) | null;
 };
@@ -144,6 +149,7 @@ async function separate(
     ).catch(() => null);
     throwIfCancelled(job);
     if (stored) {
+      job.fromStore = true;
       return stored;
     }
   }
@@ -205,6 +211,9 @@ async function render(
   fitted.forEach((channel, channelIndex) => {
     renderedBuffer.copyToChannel(channel, channelIndex);
   });
+  if (job.fromStore) {
+    markStoredCopy(renderedBuffer);
+  }
   return renderedBuffer;
 }
 
@@ -223,6 +232,7 @@ export function renderInstrumentalBuffer(
   const job: Job = {
     cancelled: false,
     downloading: false,
+    fromStore: false,
     worker: null,
     reject: null,
   };

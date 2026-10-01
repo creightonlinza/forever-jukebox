@@ -11,7 +11,10 @@ import {
   deleteRenderedTracks,
   evictOldestRenderedTracks,
   getRenderedTrackBytes,
+  isStoredCopy,
   listRenderedTrackBytes,
+  markStoredCopy,
+  moveRenderedTracks,
   readRenderedTrack,
   writeRenderedTrack,
 } from "./renderedTrackCache";
@@ -214,6 +217,56 @@ describe("rendered track cache", () => {
       await readRenderedTrack(instrumental("track-2"), 4, 44_100),
     ).not.toBeNull();
     await deleteRenderedTracks("track-missing");
+  });
+
+  it("drops a save whose track was deleted or cleared while it encoded", async () => {
+    let finishEncode: (bytes: ArrayBuffer) => void = () => undefined;
+    const encoding = () =>
+      new Promise<ArrayBuffer>((resolve) => {
+        finishEncode = resolve;
+      });
+
+    opus.encodeOpusWebm.mockImplementationOnce(encoding);
+    const deleted = writeRenderedTrack(instrumental("track-1"), channels(8), 44_100);
+    await vi.waitFor(() => expect(opus.encodeOpusWebm).toHaveBeenCalledTimes(1));
+    await deleteRenderedTracks("track-1");
+    finishEncode(new ArrayBuffer(8));
+    await deleted;
+
+    opus.encodeOpusWebm.mockImplementationOnce(encoding);
+    const cleared = writeRenderedTrack(instrumental("track-2"), channels(8), 44_100);
+    await vi.waitFor(() => expect(opus.encodeOpusWebm).toHaveBeenCalledTimes(2));
+    await clearRenderedTracks();
+    finishEncode(new ArrayBuffer(8));
+    await cleared;
+
+    expect(await getRenderedTrackBytes()).toBe(0);
+    await writeRenderedTrack(instrumental("track-1"), channels(8), 44_100);
+    expect(await getRenderedTrackBytes()).toBe(64);
+  });
+
+  it("re-keys a track's rendered copies to a new id", async () => {
+    const swing = { kind: "swing" as const, trackId: "from", signature: "a" };
+    await writeRenderedTrack(instrumental("from"), channels(8, 0.25), 44_100);
+    await writeRenderedTrack(swing, channels(8, 0.75), 44_100);
+
+    await moveRenderedTracks("from", "to");
+    await moveRenderedTracks("missing", "elsewhere");
+
+    expect([...(await listRenderedTrackBytes())]).toEqual([["to", 128]]);
+    expect((await readRenderedTrack(instrumental("to"), 8, 44_100))?.[0][0]).toBe(
+      0.25,
+    );
+    expect(
+      (await readRenderedTrack({ ...swing, trackId: "to" }, 8, 44_100))?.[0][0],
+    ).toBe(0.75);
+  });
+
+  it("remembers which buffers came from a stored copy", () => {
+    const stored = {} as AudioBuffer;
+    markStoredCopy(stored);
+    expect(isStoredCopy(stored)).toBe(true);
+    expect(isStoredCopy({} as AudioBuffer)).toBe(false);
   });
 
   it("evicts the tracks stored longest ago beyond the cap, sparing the kept one", async () => {
