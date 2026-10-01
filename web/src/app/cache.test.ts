@@ -4,117 +4,157 @@ import { setWindowUrl } from "./__tests__/test-utils";
 type RequestHandler = () => void;
 
 class MockRequest<T = unknown> {
-  result: T | null = null;
+  result: T | null | undefined = null;
   error: Error | null = null;
   onsuccess: RequestHandler | null = null;
   onerror: RequestHandler | null = null;
   onupgradeneeded: RequestHandler | null = null;
+  onblocked: RequestHandler | null = null;
+}
+
+type StoreData = { keyPath: string; records: Map<string, unknown> };
+
+class MockTransaction {
+  error: Error | null = null;
+  oncomplete: RequestHandler | null = null;
+  onabort: RequestHandler | null = null;
+  private pending = 0;
+  private settled = false;
+
+  constructor(
+    private db: MockDb,
+    private mode: string,
+  ) {}
+
+  objectStore(name: string) {
+    return new MockStore(this.db.storeData(name), this, name);
+  }
+
+  // Runs a request, then completes the transaction once no requests remain.
+  run<T>(work: () => T): MockRequest<T> {
+    const request = new MockRequest<T>();
+    this.pending += 1;
+    queueMicrotask(() => {
+      if (this.settled) {
+        return;
+      }
+      try {
+        request.result = work();
+        request.onsuccess?.();
+      } catch (err) {
+        request.error = err as Error;
+        request.onerror?.();
+        this.settled = true;
+        this.error = err as Error;
+        this.onabort?.();
+        return;
+      }
+      this.pending -= 1;
+      queueMicrotask(() => {
+        if (this.pending === 0 && !this.settled) {
+          this.settled = true;
+          this.oncomplete?.();
+        }
+      });
+    });
+    return request;
+  }
+
+  takePutFailure(storeName: string): Error | null {
+    if (this.mode !== "readwrite") {
+      return null;
+    }
+    return this.db.takePutFailure(storeName);
+  }
 }
 
 class MockStore {
-  constructor(private store: Map<string, unknown>) {}
+  constructor(
+    private data: StoreData,
+    private tx: MockTransaction,
+    private name: string,
+  ) {}
 
   get(key: string) {
-    const request = new MockRequest();
-    queueMicrotask(() => {
-      request.result = this.store.get(key) ?? null;
-      request.onsuccess?.();
-    });
-    return request;
+    return this.tx.run(() => this.data.records.get(key));
   }
 
-  put(value: { trackId?: string; youtubeId?: string; key?: string }) {
-    const request = new MockRequest();
-    queueMicrotask(() => {
-      const storeKey = value.youtubeId ?? value.key;
-      if (storeKey) {
-        this.store.set(storeKey, value);
-        request.onsuccess?.();
-      } else {
-        request.error = new Error("Missing key");
-        request.onerror?.();
+  getKey(key: string) {
+    return this.tx.run(() => (this.data.records.has(key) ? key : undefined));
+  }
+
+  getAllKeys() {
+    return this.tx.run(() => Array.from(this.data.records.keys()));
+  }
+
+  getAll() {
+    return this.tx.run(() => Array.from(this.data.records.values()));
+  }
+
+  put(value: Record<string, unknown>) {
+    return this.tx.run(() => {
+      const failure = this.tx.takePutFailure(this.name);
+      if (failure) {
+        throw failure;
       }
+      const storeKey = value[this.data.keyPath];
+      if (typeof storeKey !== "string") {
+        throw new Error("Missing key");
+      }
+      this.data.records.set(storeKey, value);
     });
-    return request;
   }
 
   delete(key: string) {
-    const request = new MockRequest();
-    queueMicrotask(() => {
-      this.store.delete(key);
-      request.onsuccess?.();
+    return this.tx.run(() => {
+      this.data.records.delete(key);
     });
-    return request;
   }
 
   clear() {
-    const request = new MockRequest();
-    queueMicrotask(() => {
-      this.store.clear();
-      request.onsuccess?.();
+    return this.tx.run(() => {
+      this.data.records.clear();
     });
-    return request;
-  }
-
-  openCursor() {
-    const request = new MockRequest();
-    const entries = Array.from(this.store.values());
-    let index = 0;
-    const makeCursor = () => ({
-      value: entries[index],
-      continue: () => {
-        index += 1;
-        queueMicrotask(() => {
-          if (index >= entries.length) {
-            request.result = null;
-          } else {
-            request.result = makeCursor();
-          }
-          request.onsuccess?.();
-        });
-      },
-    });
-    queueMicrotask(() => {
-      request.result = entries.length > 0 ? makeCursor() : null;
-      request.onsuccess?.();
-    });
-    return request;
   }
 }
 
 class MockDb {
   version = 1;
-  private storeNames = new Set<string>();
+  putFailures = new Map<string, Error>();
+  private stores = new Map<string, StoreData>();
   objectStoreNames = {
-    contains: (name: string) => this.storeNames.has(name),
+    contains: (name: string) => this.stores.has(name),
   };
-  private stores = new Map<string, Map<string, unknown>>();
 
-  createObjectStore(name: string) {
-    this.storeNames.add(name);
-    if (!this.stores.has(name)) {
-      this.stores.set(name, new Map());
-    }
+  createObjectStore(name: string, options: { keyPath: string }) {
+    this.stores.set(name, { keyPath: options.keyPath, records: new Map() });
   }
 
-  transaction(name: string) {
-    if (!this.stores.has(name)) {
-      this.stores.set(name, new Map());
+  storeData(name: string): StoreData {
+    const data = this.stores.get(name);
+    if (!data) {
+      throw new Error(`Unknown store ${name}`);
     }
-    return {
-      objectStore: (storeName: string) => {
-        if (!this.stores.has(storeName)) {
-          this.stores.set(storeName, new Map());
-        }
-        return new MockStore(this.stores.get(storeName) ?? new Map());
-      },
-    };
+    return data;
   }
+
+  takePutFailure(storeName: string): Error | null {
+    const failure = this.putFailures.get(storeName) ?? null;
+    this.putFailures.delete(storeName);
+    return failure;
+  }
+
+  transaction(_names: string | string[], mode = "readonly") {
+    return new MockTransaction(this, mode);
+  }
+
+  close() {}
 }
 
 function createIndexedDb() {
   const dbs = new Map<string, MockDb>();
   return {
+    dbs,
     open: (name: string, version: number) => {
       const request = new MockRequest<MockDb>();
       queueMicrotask(() => {
@@ -134,6 +174,21 @@ function createIndexedDb() {
       return request;
     },
   };
+}
+
+const mb = 1024 * 1024;
+
+function cacheDb(): MockDb {
+  const db = (globalThis.window as any).indexedDB.dbs.get(
+    "forever-jukebox-cache",
+  );
+  return db as MockDb;
+}
+
+function quotaError() {
+  const error = new Error("full");
+  error.name = "QuotaExceededError";
+  return error;
 }
 
 describe("cache", () => {
@@ -209,5 +264,150 @@ describe("cache", () => {
     expect(await getCachedAudioBytes()).toBe(0);
     expect(await readCachedTrack("abc")).toBeNull();
     expect(await loadAppConfig()).toEqual({ theme: "dark" });
+  });
+
+  it("evicts least-recently-used audio beyond the cap", async () => {
+    const {
+      getCachedAudioBytes,
+      readCachedTrack,
+      touchCachedTrack,
+      updateCachedTrack,
+    } = await import("./cache");
+    const now = vi.spyOn(Date, "now");
+    now.mockReturnValue(1);
+    await updateCachedTrack("old", { audio: new ArrayBuffer(200 * mb) });
+    now.mockReturnValue(2);
+    await updateCachedTrack("mid", { audio: new ArrayBuffer(200 * mb) });
+    now.mockReturnValue(3);
+    await touchCachedTrack("old", 200 * mb);
+    now.mockReturnValue(4);
+    await updateCachedTrack("new", { audio: new ArrayBuffer(200 * mb) });
+    now.mockRestore();
+
+    expect(await readCachedTrack("mid")).toBeNull();
+    expect((await readCachedTrack("old"))?.audio).toBeDefined();
+    expect((await readCachedTrack("new"))?.audio).toBeDefined();
+    expect(await getCachedAudioBytes()).toBe(400 * mb);
+  });
+
+  it("measures tracks that have no meta record and evicts them first", async () => {
+    const { getCachedAudioBytes, readCachedTrack, updateCachedTrack } =
+      await import("./cache");
+    await updateCachedTrack("recent", { audio: new ArrayBuffer(200 * mb) });
+    cacheDb()
+      .storeData("tracks")
+      .records.set("legacy", {
+        youtubeId: "legacy",
+        audio: new ArrayBuffer(200 * mb),
+      });
+    expect(await getCachedAudioBytes()).toBe(400 * mb);
+    expect(cacheDb().storeData("track-meta").records.get("legacy")).toEqual({
+      trackId: "legacy",
+      bytes: 200 * mb,
+      updatedAt: 0,
+    });
+
+    await updateCachedTrack("new", { audio: new ArrayBuffer(200 * mb) });
+    expect(await readCachedTrack("legacy")).toBeNull();
+    expect((await readCachedTrack("recent"))?.audio).toBeDefined();
+  });
+
+  it("does not recreate a deleted track when touched", async () => {
+    const {
+      deleteCachedTrack,
+      getCachedAudioBytes,
+      readCachedTrack,
+      touchCachedTrack,
+      updateCachedTrack,
+    } = await import("./cache");
+    await updateCachedTrack("abc", { audio: new ArrayBuffer(1024) });
+    await deleteCachedTrack("abc");
+    await touchCachedTrack("abc", 1024);
+    expect(await readCachedTrack("abc")).toBeNull();
+    expect(await getCachedAudioBytes()).toBe(0);
+  });
+
+  it("moves cached audio to a new id without evicting", async () => {
+    const {
+      getCachedAudioBytes,
+      moveCachedTrack,
+      readCachedTrack,
+      updateCachedTrack,
+    } = await import("./cache");
+    await updateCachedTrack("other", { audio: new ArrayBuffer(300 * mb) });
+    await updateCachedTrack("from", { audio: new ArrayBuffer(200 * mb) });
+
+    expect(await moveCachedTrack("from", "to")).toBe(true);
+    expect(await readCachedTrack("from")).toBeNull();
+    const moved = await readCachedTrack("to");
+    expect(moved?.audio?.byteLength).toBe(200 * mb);
+    expect(moved?.jobId).toBe("to");
+    expect((await readCachedTrack("other"))?.audio).toBeDefined();
+    expect(await getCachedAudioBytes()).toBe(500 * mb);
+    expect(await moveCachedTrack("missing", "to")).toBe(false);
+  });
+
+  it("drops the stored instrumental of a moved or deleted track", async () => {
+    const deleted: string[] = [];
+    vi.stubGlobal("caches", {
+      open: async () => ({
+        delete: async (url: string) => {
+          deleted.push(url);
+          return true;
+        },
+      }),
+    });
+    try {
+      const { deleteCachedTrack, moveCachedTrack, updateCachedTrack } =
+        await import("./cache");
+      await updateCachedTrack("from", { audio: new ArrayBuffer(8) });
+      await moveCachedTrack("from", "to");
+      await moveCachedTrack("missing", "elsewhere");
+      await deleteCachedTrack("to");
+      expect(deleted).toEqual([
+        "/instrumental-track/from",
+        "/instrumental-track/to",
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("evicts and retries once when a write hits the quota", async () => {
+    const { readCachedTrack, updateCachedTrack } = await import("./cache");
+    const now = vi.spyOn(Date, "now");
+    now.mockReturnValue(1);
+    await updateCachedTrack("old", { audio: new ArrayBuffer(4096) });
+    now.mockReturnValue(2);
+    await updateCachedTrack("mid", { audio: new ArrayBuffer(4096) });
+    now.mockReturnValue(3);
+    cacheDb().putFailures.set("tracks", quotaError());
+    await updateCachedTrack("new", { audio: new ArrayBuffer(2048) });
+    now.mockRestore();
+
+    expect(await readCachedTrack("old")).toBeNull();
+    expect((await readCachedTrack("mid"))?.audio).toBeDefined();
+    expect((await readCachedTrack("new"))?.audio).toBeDefined();
+  });
+
+  it("keeps the cache when evicting cannot make room", async () => {
+    const { readCachedTrack, updateCachedTrack } = await import("./cache");
+    await updateCachedTrack("small", { audio: new ArrayBuffer(1024) });
+    cacheDb().putFailures.set("tracks", quotaError());
+    await expect(
+      updateCachedTrack("big", { audio: new ArrayBuffer(4096) }),
+    ).rejects.toThrow("full");
+    expect((await readCachedTrack("small"))?.audio).toBeDefined();
+    expect(await readCachedTrack("big")).toBeNull();
+  });
+
+  it("does not evict on a non-quota write failure", async () => {
+    const { readCachedTrack, updateCachedTrack } = await import("./cache");
+    await updateCachedTrack("old", { audio: new ArrayBuffer(4096) });
+    cacheDb().putFailures.set("tracks", new Error("boom"));
+    await expect(
+      updateCachedTrack("new", { audio: new ArrayBuffer(1024) }),
+    ).rejects.toThrow("boom");
+    expect((await readCachedTrack("old"))?.audio).toBeDefined();
   });
 });

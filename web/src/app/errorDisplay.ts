@@ -12,14 +12,15 @@ export type ErrorDisplayOptions = {
 const FETCH_FAILURE_CODES = new Set([
   "download_unavailable",
   "youtube_unavailable",
-  "youtube_unreachable",
 ]);
+
+// YouTube refused this server (bot check); every YouTube fetch fails until it lifts.
+const YOUTUBE_BLOCKED_CODE = "youtube_unreachable";
 
 const FETCH_FAILURE_MESSAGES = new Set([
   "request failed",
   "unable to download video data.",
   "this video is not available on youtube.",
-  "unable to reach youtube",
 ]);
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -68,7 +69,7 @@ function sourceLabel(sourceProvider: string | null | undefined): string | null {
 }
 
 function isSourceFetchFailure(message: string, code: string | null): boolean {
-  if (code && FETCH_FAILURE_CODES.has(code)) {
+  if (code && (FETCH_FAILURE_CODES.has(code) || code === YOUTUBE_BLOCKED_CODE)) {
     return true;
   }
   const normalized = message.toLowerCase();
@@ -88,6 +89,10 @@ export function formatErrorForDisplay(
 ): string {
   const message = cleanErrorMessage(value, options.fallback);
   const code = options.errorCode ?? errorCode(value);
+  const provider = options.sourceProvider?.toLowerCase();
+  if (code === YOUTUBE_BLOCKED_CODE && (!provider || provider === "youtube")) {
+    return i18n.t("errors.youtubeBlocked");
+  }
   const label = sourceLabel(options.sourceProvider);
   if (label && isSourceFetchFailure(message, code)) {
     return i18n.t("errors.sourceFetchFailed", { source: label });

@@ -106,7 +106,8 @@
   "errors": {
     "generic": "Something went wrong. Please try again or report an issue on GitHub.",
     "loadingFailed": "Loading failed.",
-    "sourceFetchFailed": "{{source}} fetch failed."
+    "sourceFetchFailed": "{{source}} fetch failed.",
+    "youtubeBlocked": "YouTube is temporarily blocking this server. Please try again later."
   },
   "favorites": {
     "syncFailed": "Favorites sync failed.",

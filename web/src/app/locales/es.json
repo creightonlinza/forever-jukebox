@@ -106,7 +106,8 @@
   "errors": {
     "generic": "Algo salió mal. Inténtalo de nuevo o reporta un problema en GitHub.",
     "loadingFailed": "La carga falló.",
-    "sourceFetchFailed": "La descarga desde {{source}} falló."
+    "sourceFetchFailed": "La descarga desde {{source}} falló.",
+    "youtubeBlocked": "YouTube está bloqueando temporalmente este servidor. Inténtalo de nuevo más tarde."
   },
   "favorites": {
     "syncFailed": "La sincronización de favoritos falló.",

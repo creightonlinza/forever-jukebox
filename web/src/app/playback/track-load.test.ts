@@ -5,7 +5,8 @@ import { useAppStore } from "../store";
 vi.mock("../cache", () => ({
   readCachedTrack: vi.fn(),
   updateCachedTrack: vi.fn(),
-  deleteCachedTrack: vi.fn(),
+  moveCachedTrack: vi.fn(),
+  touchCachedTrack: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("./status-ui", () => ({
   closeInfo: vi.fn(),

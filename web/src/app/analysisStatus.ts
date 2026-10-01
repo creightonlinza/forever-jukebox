@@ -17,14 +17,9 @@ export function isAnalysisFailed(
   return response?.status === "failed";
 }
 
-// Transient YouTube fetch failures (intermittent 403s and "not a bot"
-// unreachable errors) usually succeed on a retry, so they get a retry link
-// in the status panel. Permanent failures (video unavailable, age
-// restricted, too long) are excluded.
-const RETRYABLE_FETCH_ERROR_CODES = new Set([
-  "download_unavailable",
-  "youtube_unreachable",
-]);
+// Only intermittent YouTube 403s get a retry link; bot-check blocks and
+// permanent failures would fail again.
+const RETRYABLE_FETCH_ERROR_CODES = new Set(["download_unavailable"]);
 
 export function isRetryableFetchFailure(
   response: AnalysisResponse | null,
