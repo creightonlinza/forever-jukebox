@@ -406,6 +406,38 @@ def claim_notify_state(db_path: Path, key: str, expected: Optional[str], value: 
     return int(cur.rowcount or 0) > 0
 
 
+def set_notify_state(db_path: Path, key: str, value: str) -> None:
+    with _connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO notify_state (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+        conn.commit()
+
+
+def first_youtube_success_after(db_path: Path, after_iso: str, through_iso: str) -> Optional[str]:
+    """Earliest completion in (after, through] of a YouTube job also requested after `after`.
+
+    Requiring the request to be newer leaves out re-analysis of audio already on disk.
+    """
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT MIN(j.updated_at)
+            FROM jobs j
+            JOIN sources s ON s.id = j.source_ref
+            WHERE s.provider = 'youtube'
+              AND j.status = 'complete'
+              AND j.created_at > ?
+              AND j.updated_at > ?
+              AND j.updated_at <= ?
+            """,
+            (after_iso, after_iso, through_iso),
+        ).fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
 def youtube_jobs_finished_between(
     db_path: Path, after_iso: str, through_iso: str
 ) -> list[tuple[str, str, Optional[str]]]:

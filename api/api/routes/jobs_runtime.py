@@ -7,6 +7,7 @@ import math
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import time
 from collections import Counter
@@ -19,11 +20,13 @@ from urllib.parse import urlsplit, urlunsplit
 from ..db import (
     claim_notify_state,
     delete_job,
+    first_youtube_success_after,
     get_job,
     get_notify_state,
     latest_youtube_success,
     set_job_progress,
     set_job_status,
+    set_notify_state,
     update_job_track_metadata,
     youtube_jobs_finished_between,
 )
@@ -455,6 +458,9 @@ NOTIFY_FAILURE_THRESHOLD = 3
 NOTIFY_CHECK_INTERVAL_S = 60.0
 # Instant the last digest period closed; the next period starts there.
 NOTIFY_PERIOD_START_KEY = "youtube_digest_period_start"
+# "<newest failure>|<last success before it>" from a digest with no success after it;
+# empty once recovery is reported.
+NOTIFY_RECOVERY_PENDING_KEY = "youtube_recovery_pending"
 # curl caps itself; subprocess gets a wider guard so curl exits on its own first.
 NTFY_TIMEOUT_S = 10.0
 
@@ -473,10 +479,10 @@ def youtube_block_signal(raw: str | None) -> str | None:
     return None
 
 
-def _send_ntfy(topic_key: str, message: str) -> None:
+def _send_ntfy(topic_key: str, message: str) -> bool:
     """Post to ntfy, capped by a timeout so a stalled call cannot block a caller."""
     try:
-        subprocess.run(
+        result = subprocess.run(
             [
                 "curl",
                 "--max-time",
@@ -491,7 +497,8 @@ def _send_ntfy(topic_key: str, message: str) -> None:
             timeout=NTFY_TIMEOUT_S * 2,
         )
     except Exception:
-        return
+        return False
+    return result.returncode == 0
 
 
 def _fmt_clock(moment: datetime) -> str:
@@ -529,14 +536,36 @@ def _fmt_span(first_iso: str, last_iso: str) -> str:
     return f"{_fmt_moment(first)}\u2013{_fmt_clock(last)} UTC"
 
 
+def _notify_youtube_recovery(db_path: Path, topic_key: str, now: datetime) -> None:
+    """Report the first YouTube success after a digest that had none to report."""
+    pending = get_notify_state(db_path, NOTIFY_RECOVERY_PENDING_KEY)
+    if not pending:
+        return
+    newest_failure, _, previous_success = pending.partition("|")
+    first_success = first_youtube_success_after(db_path, newest_failure, now.isoformat())
+    if first_success is None:
+        return
+    if not claim_notify_state(db_path, NOTIFY_RECOVERY_PENDING_KEY, pending, ""):
+        return
+    message = f"[Forever Jukebox] YouTube recovered: download succeeded {_fmt_utc(first_success)}"
+    if previous_success:
+        message += f", first since {_fmt_utc(previous_success)}"
+    if not _send_ntfy(topic_key, f"{message}."):
+        # Re-arm so a later check retries the ping.
+        claim_notify_state(db_path, NOTIFY_RECOVERY_PENDING_KEY, "", pending)
+        return
+    log_event("ntfy_youtube_recovered")
+
+
 def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
     """Close a digest period every NOTIFY_DIGEST_INTERVAL_S and report its blocked YouTube failures.
 
     A period runs from the close of the previous one to now. Its digest goes
     out only when at least NOTIFY_FAILURE_THRESHOLD failures in it are still
-    marked failed. Safe to call every worker-loop iteration; the DB is only
-    queried every NOTIFY_CHECK_INTERVAL_S, and concurrent workers claim the
-    period so only one of them pings.
+    marked failed. A digest with no success after its newest failure is
+    followed by one recovery ping at the first success. Safe to call every
+    worker-loop iteration; the DB is only queried every
+    NOTIFY_CHECK_INTERVAL_S, and concurrent workers claim each send.
     """
     global _next_notify_check_monotonic
     topic_key = os.environ.get(NTFY_TOPIC_ENV)
@@ -547,6 +576,10 @@ def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
         return
     _next_notify_check_monotonic = mono + NOTIFY_CHECK_INTERVAL_S
     now = datetime.now(timezone.utc)
+    try:
+        _notify_youtube_recovery(db_path, topic_key, now)
+    except sqlite3.Error as exc:
+        log_event("ntfy_youtube_recovery_check_failed", error=str(exc))
     stored_start = get_notify_state(db_path, NOTIFY_PERIOD_START_KEY)
     period_start = _utc_moment(stored_start)
     if period_start is not None and (now - period_start).total_seconds() < NOTIFY_DIGEST_INTERVAL_S:
@@ -575,6 +608,10 @@ def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
         recovery = f"No successful download since {_fmt_utc(last_success)}."
     else:
         recovery = "No successful download on record."
+    if not recovered:
+        set_notify_state(
+            db_path, NOTIFY_RECOVERY_PENDING_KEY, f"{newest_failure}|{last_success or ''}"
+        )
     counts = Counter(label for _, label in blocked)
     breakdown = ", ".join(f"{label} x{count}" for label, count in counts.most_common())
     message = (

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,7 @@ from api.db import (
 from api.routes import jobs_runtime as jobs_runtime_module
 from api.routes.jobs_runtime import (
     NOTIFY_PERIOD_START_KEY,
+    NOTIFY_RECOVERY_PENDING_KEY,
     maybe_notify_youtube_failures,
     youtube_block_signal,
 )
@@ -315,6 +317,117 @@ class MaybeNotifyYoutubeFailuresTests(unittest.TestCase):
         self.assertFalse(claim_notify_state(self.db_path, "k", "stale", "v3"))
         self.assertTrue(claim_notify_state(self.db_path, "k", "v1", "v2"))
         self.assertEqual(get_notify_state(self.db_path, "k"), "v2")
+
+    def _recheck(self) -> None:
+        self._reset_throttle()
+        maybe_notify_youtube_failures(self.db_path)
+
+    def test_first_success_after_an_unrecovered_digest_pings_once(self) -> None:
+        self._seed_jobs(1, status="complete")
+        self._seed_jobs(3, start=1)
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("No successful download since", self._sent_message())
+        self.send_mock.reset_mock()
+
+        self._seed_jobs(2, start=4)
+        self._recheck()
+        self.send_mock.assert_not_called()
+
+        self._seed_jobs(2, status="complete", start=6)
+        self._recheck()
+        message = self._sent_message()
+        self.assertIn("YouTube recovered: download succeeded ", message)
+        self.assertIn(", first since ", message)
+        self.assertTrue(message.endswith("UTC."))
+
+        self._seed_jobs(1, status="complete", start=8)
+        self._recheck()
+        self.assertEqual(self.send_mock.call_count, 1)
+
+    def test_recovery_ping_without_any_earlier_success(self) -> None:
+        self._seed_jobs(3)
+        maybe_notify_youtube_failures(self.db_path)
+        self.send_mock.reset_mock()
+        self._seed_jobs(1, status="complete", start=3)
+        self._recheck()
+        message = self._sent_message()
+        self.assertIn("YouTube recovered: download succeeded ", message)
+        self.assertNotIn("first since", message)
+
+    def test_digest_that_already_reports_recovery_sends_no_follow_up(self) -> None:
+        self._seed_jobs(3)
+        self._seed_jobs(1, status="complete", start=3)
+        maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("Recovered: 1 success since", self._sent_message())
+        self.assertFalse(get_notify_state(self.db_path, NOTIFY_RECOVERY_PENDING_KEY))
+        self._seed_jobs(1, status="complete", start=4)
+        self._recheck()
+        self.assertEqual(self.send_mock.call_count, 1)
+
+    def test_losing_the_recovery_claim_skips_the_ping(self) -> None:
+        self._seed_jobs(3)
+        maybe_notify_youtube_failures(self.db_path)
+        self.send_mock.reset_mock()
+        self._seed_jobs(1, status="complete", start=3)
+        with patch.object(jobs_runtime_module, "claim_notify_state", return_value=False):
+            self._recheck()
+        self.send_mock.assert_not_called()
+
+    def _unrecovered_digest(self, count: int = 3, start: int = 0) -> None:
+        self._seed_jobs(count, start=start)
+        if get_notify_state(self.db_path, NOTIFY_PERIOD_START_KEY):
+            self._close_period_now()
+        else:
+            maybe_notify_youtube_failures(self.db_path)
+        self.assertIn("No successful download", self._sent_message())
+        self.send_mock.reset_mock()
+
+    def test_each_unrecovered_digest_gets_its_own_recovery_ping(self) -> None:
+        self._unrecovered_digest()
+        self._seed_jobs(1, status="complete", start=3)
+        self._recheck()
+        self.assertIn("YouTube recovered", self._sent_message())
+        self.send_mock.reset_mock()
+
+        self._unrecovered_digest(start=4)
+        self._seed_jobs(1, status="complete", start=7)
+        self._recheck()
+        self.assertIn("YouTube recovered", self._sent_message())
+
+    def test_second_unrecovered_digest_keeps_the_marker_armed(self) -> None:
+        self._unrecovered_digest()
+        self._unrecovered_digest(start=3)
+        self._seed_jobs(1, status="complete", start=6)
+        self._recheck()
+        self.assertIn("YouTube recovered", self._sent_message())
+
+    def test_failed_recovery_send_is_retried(self) -> None:
+        self._unrecovered_digest()
+        self._seed_jobs(1, status="complete", start=3)
+        self.send_mock.return_value = False
+        self._recheck()
+        self.assertEqual(self.send_mock.call_count, 1)
+        self.send_mock.return_value = True
+        self._recheck()
+        self.assertEqual(self.send_mock.call_count, 2)
+        self._recheck()
+        self.assertEqual(self.send_mock.call_count, 2)
+
+    def test_reanalysis_of_an_older_job_is_not_recovery(self) -> None:
+        old_job = self._seed_jobs(1, status="complete")[0]
+        self._unrecovered_digest(start=1)
+        set_job_status(self.db_path, old_job, "queued", None)
+        set_job_status(self.db_path, old_job, "complete", None)
+        self._recheck()
+        self.send_mock.assert_not_called()
+
+    def test_recovery_check_survives_a_database_error(self) -> None:
+        self._unrecovered_digest()
+        with patch.object(
+            jobs_runtime_module, "first_youtube_success_after", side_effect=sqlite3.OperationalError("locked")
+        ):
+            self._recheck()
+        self.send_mock.assert_not_called()
 
     def _seed_fixed_span(self, *stamps: str) -> None:
         job_ids = self._seed_jobs(len(stamps))
