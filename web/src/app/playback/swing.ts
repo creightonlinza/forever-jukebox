@@ -57,6 +57,7 @@ export function prepareSwingMode(context: AppContext) {
   const sourceIdentity = getCurrentSwingSourceIdentity();
   getOrCreateSwingBuffer(sourceBuffer, sourceIdentity, () =>
     renderSwingBuffer(sourceBuffer, beats, {
+      trackId: sourceIdentity,
       onProgress: (progress) => {
         if (
           useAppStore.getState().audioModeRenderToken !== renderToken ||

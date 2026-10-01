@@ -127,6 +127,7 @@ vi.mock("@/core/infrastructure/cache/analysisCache", () => ({
   createAnalysisCache: () => ({}),
   getAnalysisCacheBytes: vi.fn(async () => 12.5 * 1024 * 1024),
   clearAllAnalysisCache: vi.fn(async () => {}),
+  trimRenderedTracks: vi.fn(async () => {}),
 }));
 
 vi.mock("@/core/application/usecases/analyzeAudio", () => ({
@@ -1350,6 +1351,13 @@ describe("Listen route behavior", () => {
     expect(engine.pauseJukebox).toHaveBeenCalledTimes(1);
     expect(engine.startJukebox).toHaveBeenLastCalledWith(false);
     expect(engine.play).toHaveBeenCalledTimes(2);
+    // Stored by analysis fingerprint so cached-analysis removal covers it.
+    expect(vi.mocked(renderSwingBuffer).mock.calls.at(-1)?.[2]).toMatchObject({
+      trackId: "fp-test",
+    });
+    // Loading a track trims stored renders to the cap, sparing its own.
+    const cache = await import("@/core/infrastructure/cache/analysisCache");
+    expect(cache.trimRenderedTracks).toHaveBeenCalledWith("fp-test");
     expect(playButton.getAttribute("aria-label")).toBe("Pause");
     expect(window.location.search).toContain("am=swing");
     rendered.unmount();

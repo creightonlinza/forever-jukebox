@@ -700,6 +700,7 @@ describe("playback tuning", () => {
     vi.mocked(context.player.getDuration).mockReturnValue(120);
     vi.mocked(context.player.getSourceBuffer).mockReturnValue(sourceBuffer);
     vi.mocked(renderSwingBuffer).mockResolvedValue(swingBuffer);
+    useAppStore.setState({ lastTrackId: "track-1" });
 
     applyExtrasChanges(context, {
       ...getExtrasFormValues(),
@@ -707,6 +708,12 @@ describe("playback tuning", () => {
     });
     await flushMicrotasks();
 
+    // Stored under the track id so the swing render is reused next time.
+    expect(vi.mocked(renderSwingBuffer)).toHaveBeenLastCalledWith(
+      sourceBuffer,
+      expect.anything(),
+      expect.objectContaining({ trackId: "track-1" }),
+    );
     expect(context.engine.pauseJukebox).toHaveBeenCalledTimes(1);
     expect(context.player.setRenderedJukeboxAudioBuffer).toHaveBeenCalledWith(
       "swing",

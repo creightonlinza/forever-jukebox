@@ -4,6 +4,7 @@ import {
   deleteCachedAnalysis,
   getAnalysisCacheBytes,
   MemoryAnalysisCache,
+  trimRenderedTracks,
 } from "../analysisCache";
 import { createTestAnalysis } from "@/shared/analysis-schema/testData";
 
@@ -27,11 +28,12 @@ describe("MemoryAnalysisCache", () => {
 });
 
 const instrumentals = vi.hoisted(() => ({
-  clearInstrumentalTracks: vi.fn(async () => undefined),
-  deleteInstrumentalTrack: vi.fn(async () => undefined),
-  getInstrumentalTrackBytes: vi.fn(async () => 0),
+  clearRenderedTracks: vi.fn(async () => undefined),
+  deleteRenderedTracks: vi.fn(async () => undefined),
+  evictOldestRenderedTracks: vi.fn(async () => undefined),
+  getRenderedTrackBytes: vi.fn(async () => 0),
 }));
-vi.mock("@forever-jukebox/shared/audio/instrumentalTrackCache", () => instrumentals);
+vi.mock("@forever-jukebox/shared/audio/renderedTrackCache", () => instrumentals);
 
 // Fake OPFS root: an analysis directory with one 10-byte file.
 function stubOpfs() {
@@ -55,9 +57,9 @@ function stubOpfs() {
 
 describe("stored instrumentals follow the analysis cache", () => {
   beforeEach(() => {
-    instrumentals.clearInstrumentalTracks.mockClear();
-    instrumentals.deleteInstrumentalTrack.mockClear();
-    instrumentals.getInstrumentalTrackBytes.mockReset().mockResolvedValue(0);
+    instrumentals.clearRenderedTracks.mockClear();
+    instrumentals.deleteRenderedTracks.mockClear();
+    instrumentals.getRenderedTrackBytes.mockReset().mockResolvedValue(0);
     stubOpfs();
   });
 
@@ -66,22 +68,30 @@ describe("stored instrumentals follow the analysis cache", () => {
   });
 
   it("counts instrumental bytes with the analysis bytes", async () => {
-    instrumentals.getInstrumentalTrackBytes.mockResolvedValue(5);
+    instrumentals.getRenderedTrackBytes.mockResolvedValue(5);
     expect(await getAnalysisCacheBytes()).toBe(15);
   });
 
   it("still reports analysis bytes when the instrumental count fails", async () => {
-    instrumentals.getInstrumentalTrackBytes.mockRejectedValue(new Error("no cache"));
+    instrumentals.getRenderedTrackBytes.mockRejectedValue(new Error("no cache"));
     expect(await getAnalysisCacheBytes()).toBe(10);
+  });
+
+  it("trims stored renders to 500 MB, sparing the given track", async () => {
+    await trimRenderedTracks("abc");
+    expect(instrumentals.evictOldestRenderedTracks).toHaveBeenCalledWith(
+      500 * 1024 * 1024,
+      "abc",
+    );
   });
 
   it("clears instrumentals with the whole cache", async () => {
     await clearAllAnalysisCache();
-    expect(instrumentals.clearInstrumentalTracks).toHaveBeenCalledTimes(1);
+    expect(instrumentals.clearRenderedTracks).toHaveBeenCalledTimes(1);
   });
 
   it("still removes the analysis when the instrumental delete fails", async () => {
-    instrumentals.deleteInstrumentalTrack.mockRejectedValueOnce(new Error("blocked"));
+    instrumentals.deleteRenderedTracks.mockRejectedValueOnce(new Error("blocked"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const dir = stubOpfs();
     await expect(deleteCachedAnalysis("abc")).resolves.toBeUndefined();
@@ -94,6 +104,6 @@ describe("stored instrumentals follow the analysis cache", () => {
     const dir = stubOpfs();
     await deleteCachedAnalysis("abc");
     expect(dir.removeEntry).toHaveBeenCalledWith("abc.json");
-    expect(instrumentals.deleteInstrumentalTrack).toHaveBeenCalledWith("abc");
+    expect(instrumentals.deleteRenderedTracks).toHaveBeenCalledWith("abc");
   });
 });

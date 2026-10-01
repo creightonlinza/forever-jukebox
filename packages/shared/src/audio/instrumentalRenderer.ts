@@ -1,8 +1,9 @@
-import { resampleStereo, type StereoChannels } from "./audioResample";
 import {
-  readInstrumentalTrack,
-  writeInstrumentalTrack,
-} from "./instrumentalTrackCache";
+  fitStereoToSource,
+  resampleStereo,
+  type StereoChannels,
+} from "./audioResample";
+import { readRenderedTrack, writeRenderedTrack } from "./renderedTrackCache";
 
 export type InstrumentalProgress = {
   phase: "download" | "separate";
@@ -59,34 +60,6 @@ export function isInstrumentalModeAvailable(): boolean {
     "gpu" in navigator &&
     !isMobileDevice()
   );
-}
-
-// The separator may return a few frames more or fewer than it was given;
-// the result must match the source geometry so beat times stay valid.
-export function fitInstrumentalChannels(
-  length: number,
-  numberOfChannels: number,
-  left: Float32Array,
-  right: Float32Array,
-): Float32Array<ArrayBuffer>[] {
-  if (numberOfChannels < 1 || numberOfChannels > MAX_CHANNELS) {
-    throw new Error(
-      `Instrumental mode supports mono or stereo audio, got ${numberOfChannels} channels`,
-    );
-  }
-  if (numberOfChannels === 1) {
-    const mono = new Float32Array(length);
-    const frames = Math.min(length, left.length, right.length);
-    for (let idx = 0; idx < frames; idx += 1) {
-      mono[idx] = (left[idx] + right[idx]) / 2;
-    }
-    return [mono];
-  }
-  return [left, right].map((channel) => {
-    const fitted = new Float32Array(length);
-    fitted.set(channel.subarray(0, Math.min(length, channel.length)));
-    return fitted;
-  });
 }
 
 function runSeparation(
@@ -164,8 +137,8 @@ async function separate(
 ): Promise<StereoChannels> {
   const frames = channels[0].length;
   if (trackId) {
-    const stored = await readInstrumentalTrack(
-      trackId,
+    const stored = await readRenderedTrack(
+      { kind: "instrumental", trackId },
       frames,
       SEPARATOR_SAMPLE_RATE,
     ).catch(() => null);
@@ -176,7 +149,11 @@ async function separate(
   }
   const separated = await runSeparation(job, channels);
   if (trackId && separated[0].length === frames) {
-    writeInstrumentalTrack(trackId, separated, SEPARATOR_SAMPLE_RATE).catch((err: unknown) => {
+    writeRenderedTrack(
+      { kind: "instrumental", trackId },
+      separated,
+      SEPARATOR_SAMPLE_RATE,
+    ).catch((err: unknown) => {
       console.warn(`Instrumental cache save failed: ${String(err)}`);
     });
   }
@@ -213,7 +190,8 @@ async function render(
     );
     throwIfCancelled(job);
   }
-  const fitted = fitInstrumentalChannels(
+  // The separator may return a few frames more or fewer than it was given.
+  const fitted = fitStereoToSource(
     length,
     numberOfChannels,
     separated[0],

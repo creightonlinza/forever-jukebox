@@ -3,6 +3,7 @@ import {
   clampSwingAmount,
   DEFAULT_SWING_AMOUNT,
   getSwingSegmentsForBeat,
+  getSwingSignature,
 } from "./swingTiming";
 
 describe("swing timing", () => {
@@ -47,5 +48,19 @@ describe("swing timing", () => {
     expect(first.inputDuration).toBe(1);
     expect(second.inputStart).toBe(5);
     expect(second.inputDuration).toBe(1);
+  });
+
+  it("signs a render by its beat grid and swing amount", () => {
+    const beats = [
+      { start: 0, duration: 0.5 },
+      { start: 0.5, duration: 0.5 },
+    ];
+    const signature = getSwingSignature(beats);
+    expect(getSwingSignature(beats.map((beat) => ({ ...beat })))).toBe(signature);
+    expect(getSwingSignature(beats, 0.5)).not.toBe(signature);
+    expect(getSwingSignature(beats.slice(0, 1))).not.toBe(signature);
+    expect(
+      getSwingSignature([beats[0], { start: 0.52, duration: 0.48 }]),
+    ).not.toBe(signature);
   });
 });

@@ -32,3 +32,31 @@ export async function resampleStereo(
     new Float32Array(rendered.getChannelData(1)),
   ];
 }
+
+// Shapes stereo channels to a source's length and channel count (mono or
+// stereo), so a rendered copy keeps the source's geometry and beat times.
+export function fitStereoToSource(
+  length: number,
+  numberOfChannels: number,
+  left: Float32Array,
+  right: Float32Array,
+): Float32Array<ArrayBuffer>[] {
+  if (numberOfChannels < 1 || numberOfChannels > 2) {
+    throw new Error(
+      `Expected mono or stereo audio, got ${numberOfChannels} channels`,
+    );
+  }
+  if (numberOfChannels === 1) {
+    const mono = new Float32Array(length);
+    const frames = Math.min(length, left.length, right.length);
+    for (let idx = 0; idx < frames; idx += 1) {
+      mono[idx] = (left[idx] + right[idx]) / 2;
+    }
+    return [mono];
+  }
+  return [left, right].map((channel) => {
+    const fitted = new Float32Array(length);
+    fitted.set(channel.subarray(0, Math.min(length, channel.length)));
+    return fitted;
+  });
+}

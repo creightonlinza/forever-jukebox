@@ -1,8 +1,8 @@
 import {
-  clearInstrumentalTracks,
-  deleteInstrumentalTrack,
-  listInstrumentalTrackBytes,
-} from "@forever-jukebox/shared/audio/instrumentalTrackCache";
+  clearRenderedTracks,
+  deleteRenderedTracks,
+  listRenderedTrackBytes,
+} from "@forever-jukebox/shared/audio/renderedTrackCache";
 
 const trackCacheDbName = "forever-jukebox-cache";
 const trackCacheStore = "tracks";
@@ -20,7 +20,7 @@ export type CachedTrack = {
 };
 
 // Size and last-used time of each cached track, stored apart from the audio so
-// eviction never loads buffers. Listings add the track's stored instrumental.
+// eviction never loads buffers. Listings add the track's stored rendered copies.
 type CachedTrackMeta = { trackId: string; bytes: number; updatedAt: number };
 
 let trackCacheDbPromise: Promise<IDBDatabase> | null = null;
@@ -237,19 +237,19 @@ export async function moveCachedTrack(
   };
   await done;
   if (moved) {
-    // The stored instrumental is keyed by the old id; the new id renders again.
-    await deleteInstrumentalTrack(fromId).catch((err: unknown) => {
-      console.warn(`Instrumental cache delete failed: ${String(err)}`);
+    // Rendered copies are keyed by the old id; the new id renders again.
+    await deleteRenderedTracks(fromId).catch((err: unknown) => {
+      console.warn(`Rendered track delete failed: ${String(err)}`);
     });
   }
   return moved;
 }
 
-// Removes the track's audio and its stored instrumental. Cache Storage
+// Removes the track's audio and its stored rendered copies. Cache Storage
 // failures are logged so they never block the audio removal.
 export async function deleteCachedTrack(trackId: string) {
-  await deleteInstrumentalTrack(trackId).catch((err: unknown) => {
-    console.warn(`Instrumental cache delete failed: ${String(err)}`);
+  await deleteRenderedTracks(trackId).catch((err: unknown) => {
+    console.warn(`Rendered track delete failed: ${String(err)}`);
   });
   const { tracks, meta, done } = await openTrackTransaction("readwrite");
   tracks.delete(trackId);
@@ -275,23 +275,23 @@ async function listCachedAudioEntries(): Promise<CachedTrackMeta[]> {
       entries.push(backfilled);
     }
   }
-  return withInstrumentalBytes(entries);
+  return withRenderedBytes(entries);
 }
 
-// A track's stored instrumental shares its id, so it counts toward the track's
-// size and is evicted with it. One without cached audio is listed as oldest.
-async function withInstrumentalBytes(
+// A track's rendered copies share its id, so they count toward the track's
+// size and are evicted with it. Copies without cached audio are listed as oldest.
+async function withRenderedBytes(
   entries: CachedTrackMeta[]
 ): Promise<CachedTrackMeta[]> {
-  const instrumentals = await listInstrumentalTrackBytes().catch(
+  const rendered = await listRenderedTrackBytes().catch(
     () => new Map<string, number>(),
   );
   const merged = entries.map((entry) => {
-    const bytes = entry.bytes + (instrumentals.get(entry.trackId) ?? 0);
-    instrumentals.delete(entry.trackId);
+    const bytes = entry.bytes + (rendered.get(entry.trackId) ?? 0);
+    rendered.delete(entry.trackId);
     return { ...entry, bytes };
   });
-  for (const [trackId, bytes] of instrumentals) {
+  for (const [trackId, bytes] of rendered) {
     merged.push({ trackId, bytes, updatedAt: 0 });
   }
   return merged;
@@ -315,7 +315,7 @@ async function backfillTrackMeta(
   return entry;
 }
 
-// Covers cached track audio and stored instrumentals.
+// Covers cached track audio and stored rendered copies.
 export async function getCachedAudioBytes(): Promise<number> {
   return sumBytes(await listCachedAudioEntries());
 }
@@ -339,8 +339,8 @@ async function evictOldestAudio(maxBytes: number, keepId: string) {
 }
 
 export async function clearCachedAudio() {
-  await clearInstrumentalTracks().catch((err: unknown) => {
-    console.warn(`Instrumental cache clear failed: ${String(err)}`);
+  await clearRenderedTracks().catch((err: unknown) => {
+    console.warn(`Rendered track clear failed: ${String(err)}`);
   });
   const { tracks, meta, done } = await openTrackTransaction("readwrite");
   tracks.clear();

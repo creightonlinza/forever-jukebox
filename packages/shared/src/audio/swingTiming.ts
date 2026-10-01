@@ -50,3 +50,17 @@ export function getSwingSegmentsForBeat(
     },
   ];
 }
+
+// Identifies the beat grid and swing amount a render was made from.
+export function getSwingSignature(
+  beats: BeatLike[],
+  swingAmount = DEFAULT_SWING_AMOUNT,
+): string {
+  let hash = 2166136261;
+  for (const beat of beats) {
+    for (const seconds of [beat.start, beat.duration]) {
+      hash = Math.imul(hash ^ Math.round(seconds * 1000), 16777619) >>> 0;
+    }
+  }
+  return `${clampSwingAmount(swingAmount)}:${beats.length}:${hash.toString(16)}`;
+}

@@ -290,11 +290,12 @@ describe("cache", () => {
     expect(await getCachedAudioBytes()).toBe(400 * mb);
   });
 
-  it("counts stored instrumentals toward the cap and evicts them with the track", async () => {
-    // Cache Storage holding instrumentals by size header only.
+  it("counts rendered copies toward the cap and evicts them with the track", async () => {
+    // Cache Storage holding rendered copies by size header only.
     const sizes = new Map([
-      ["/instrumental-track/old", 150 * mb],
-      ["/instrumental-track/orphan", 10 * mb],
+      ["/rendered-track/instrumental/old", 100 * mb],
+      ["/rendered-track/swing/old", 50 * mb],
+      ["/rendered-track/swing/orphan", 10 * mb],
     ]);
     vi.stubGlobal("caches", {
       open: async () => ({
@@ -317,7 +318,7 @@ describe("cache", () => {
       await updateCachedTrack("new", { audio: new ArrayBuffer(200 * mb) });
       now.mockRestore();
 
-      // 560 MB with both: the audio-less instrumental goes first, then "old".
+      // 560 MB with both: the audio-less copy goes first, then "old".
       expect(await readCachedTrack("old")).toBeNull();
       expect((await readCachedTrack("new"))?.audio).toBeDefined();
       expect(sizes.size).toBe(0);
@@ -384,7 +385,7 @@ describe("cache", () => {
     expect(await moveCachedTrack("missing", "to")).toBe(false);
   });
 
-  it("drops the stored instrumental of a moved or deleted track", async () => {
+  it("drops the rendered copies of a moved or deleted track", async () => {
     const deleted: string[] = [];
     vi.stubGlobal("caches", {
       open: async () => ({
@@ -402,8 +403,10 @@ describe("cache", () => {
       await moveCachedTrack("missing", "elsewhere");
       await deleteCachedTrack("to");
       expect(deleted).toEqual([
-        "/instrumental-track/from",
-        "/instrumental-track/to",
+        "/rendered-track/instrumental/from",
+        "/rendered-track/swing/from",
+        "/rendered-track/instrumental/to",
+        "/rendered-track/swing/to",
       ]);
     } finally {
       vi.unstubAllGlobals();

@@ -1,7 +1,14 @@
+import { fitStereoToSource, type StereoChannels } from "./audioResample";
+import {
+  readRenderedTrack,
+  writeRenderedTrack,
+  type RenderedTrackKey,
+} from "./renderedTrackCache";
 import { RubberBandWorkerAdapter } from "./rubberBandAdapter";
 import {
   DEFAULT_SWING_AMOUNT,
   getSwingSegmentsForBeat,
+  getSwingSignature,
   type BeatLike,
 } from "./swingTiming";
 import type { TimeStretchAdapter } from "./timeStretch";
@@ -10,6 +17,8 @@ export type RenderSwingOptions = {
   adapter?: TimeStretchAdapter;
   signal?: AbortSignal;
   swingAmount?: number;
+  // Keys the stored render so a track is only swung once; omitted skips storage.
+  trackId?: string | null;
   onProgress?: (progress: number) => void;
 };
 
@@ -23,11 +32,59 @@ type FrameSegment = {
 const JOIN_FADE_SECONDS = 0.004;
 const MAX_JOIN_FADE_FRACTION = 0.25;
 
+// Stored renders hold stereo, so sources with more channels are not stored.
+function storedTrackKey(
+  sourceBuffer: AudioBuffer,
+  beats: BeatLike[],
+  options: RenderSwingOptions,
+): RenderedTrackKey | null {
+  if (!options.trackId || sourceBuffer.numberOfChannels > 2) {
+    return null;
+  }
+  return {
+    kind: "swing",
+    trackId: options.trackId,
+    signature: getSwingSignature(beats, options.swingAmount),
+  };
+}
+
+function toAudioBuffer(sourceBuffer: AudioBuffer, channels: Float32Array[]) {
+  const renderedBuffer = new AudioBuffer({
+    length: sourceBuffer.length,
+    numberOfChannels: sourceBuffer.numberOfChannels,
+    sampleRate: sourceBuffer.sampleRate,
+  });
+  channels.forEach((channel, channelIndex) => {
+    renderedBuffer.copyToChannel(
+      channel as Float32Array<ArrayBuffer>,
+      channelIndex,
+    );
+  });
+  return renderedBuffer;
+}
+
+// Reuses the track's stored swing render when there is one; otherwise renders
+// and stores the result. Storage failures never fail a render.
 export async function renderSwingBuffer(
   sourceBuffer: AudioBuffer,
   beats: BeatLike[],
   options: RenderSwingOptions = {},
 ): Promise<AudioBuffer> {
+  const { length, numberOfChannels, sampleRate } = sourceBuffer;
+  const storedKey = storedTrackKey(sourceBuffer, beats, options);
+  if (storedKey) {
+    const stored = await readRenderedTrack(storedKey, length, sampleRate).catch(
+      () => null,
+    );
+    throwIfAborted(options.signal);
+    if (stored) {
+      options.onProgress?.(1);
+      return toAudioBuffer(
+        sourceBuffer,
+        fitStereoToSource(length, numberOfChannels, stored[0], stored[1]),
+      );
+    }
+  }
   const sourceChannels = Array.from(
     { length: sourceBuffer.numberOfChannels },
     (_, channelIndex) =>
@@ -40,18 +97,16 @@ export async function renderSwingBuffer(
     options,
   );
   throwIfAborted(options.signal);
-  const renderedBuffer = new AudioBuffer({
-    length: sourceBuffer.length,
-    numberOfChannels: sourceBuffer.numberOfChannels,
-    sampleRate: sourceBuffer.sampleRate,
-  });
-  renderedChannels.forEach((channel, channelIndex) => {
-    renderedBuffer.copyToChannel(
-      channel as Float32Array<ArrayBuffer>,
-      channelIndex,
-    );
-  });
-  return renderedBuffer;
+  if (storedKey) {
+    const stereo = [
+      renderedChannels[0],
+      renderedChannels[1] ?? renderedChannels[0],
+    ] as StereoChannels;
+    writeRenderedTrack(storedKey, stereo, sampleRate).catch((err: unknown) => {
+      console.warn(`Swing cache save failed: ${String(err)}`);
+    });
+  }
+  return toAudioBuffer(sourceBuffer, renderedChannels);
 }
 
 export async function renderSwingChannels(

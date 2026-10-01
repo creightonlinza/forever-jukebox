@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const trackCache = vi.hoisted(() => ({
-  readInstrumentalTrack: vi.fn(),
-  writeInstrumentalTrack: vi.fn(),
+  readRenderedTrack: vi.fn(),
+  writeRenderedTrack: vi.fn(),
 }));
-vi.mock("./instrumentalTrackCache", () => trackCache);
+vi.mock("./renderedTrackCache", () => trackCache);
 
 import {
   cancelInstrumentalRender,
-  fitInstrumentalChannels,
   isInstrumentalModeAvailable,
   renderInstrumentalBuffer,
 } from "./instrumentalRenderer";
+import { fitStereoToSource } from "./audioResample";
 
 class FakeAudioBuffer {
   length: number;
@@ -65,9 +65,9 @@ function createSource(
   }) as unknown as AudioBuffer;
 }
 
-describe("fitInstrumentalChannels", () => {
+describe("fitStereoToSource", () => {
   it("truncates channels longer than the source", () => {
-    const [left, right] = fitInstrumentalChannels(
+    const [left, right] = fitStereoToSource(
       2,
       2,
       new Float32Array([1, 2, 3]),
@@ -78,7 +78,7 @@ describe("fitInstrumentalChannels", () => {
   });
 
   it("zero-pads channels shorter than the source", () => {
-    const [left, right] = fitInstrumentalChannels(
+    const [left, right] = fitStereoToSource(
       3,
       2,
       new Float32Array([1, 2]),
@@ -89,7 +89,7 @@ describe("fitInstrumentalChannels", () => {
   });
 
   it("averages to one channel for mono sources", () => {
-    const channels = fitInstrumentalChannels(
+    const channels = fitStereoToSource(
       2,
       1,
       new Float32Array([1, 3]),
@@ -101,7 +101,7 @@ describe("fitInstrumentalChannels", () => {
 
   it("rejects sources with more than two channels", () => {
     expect(() =>
-      fitInstrumentalChannels(2, 6, new Float32Array(2), new Float32Array(2)),
+      fitStereoToSource(2, 6, new Float32Array(2), new Float32Array(2)),
     ).toThrow(/mono or stereo/);
   });
 });
@@ -158,8 +158,8 @@ describe("isInstrumentalModeAvailable", () => {
 
 describe("renderInstrumentalBuffer", () => {
   beforeEach(() => {
-    trackCache.readInstrumentalTrack.mockReset().mockResolvedValue(null);
-    trackCache.writeInstrumentalTrack.mockReset().mockResolvedValue(undefined);
+    trackCache.readRenderedTrack.mockReset().mockResolvedValue(null);
+    trackCache.writeRenderedTrack.mockReset().mockResolvedValue(undefined);
     FakeWorker.instances = [];
     vi.stubGlobal("Worker", FakeWorker);
     vi.stubGlobal("AudioBuffer", FakeAudioBuffer);
@@ -343,7 +343,7 @@ describe("renderInstrumentalBuffer", () => {
   });
 
   it("uses the track's stored instrumental instead of separating", async () => {
-    trackCache.readInstrumentalTrack.mockResolvedValue([
+    trackCache.readRenderedTrack.mockResolvedValue([
       new Float32Array([1, 2, 3, 4]),
       new Float32Array([5, 6, 7, 8]),
     ]);
@@ -354,13 +354,13 @@ describe("renderInstrumentalBuffer", () => {
       vi.fn(),
     );
 
-    expect(trackCache.readInstrumentalTrack).toHaveBeenCalledWith(
-      "track-1",
+    expect(trackCache.readRenderedTrack).toHaveBeenCalledWith(
+      { kind: "instrumental", trackId: "track-1" },
       4,
       44_100,
     );
     expect(FakeWorker.instances).toHaveLength(0);
-    expect(trackCache.writeInstrumentalTrack).not.toHaveBeenCalled();
+    expect(trackCache.writeRenderedTrack).not.toHaveBeenCalled();
     expect(Array.from(rendered.getChannelData(0))).toEqual([1, 2, 3, 4]);
     expect(Array.from(rendered.getChannelData(1))).toEqual([5, 6, 7, 8]);
   });
@@ -379,8 +379,8 @@ describe("renderInstrumentalBuffer", () => {
     });
     await pending;
 
-    expect(trackCache.writeInstrumentalTrack).toHaveBeenCalledWith(
-      "track-1",
+    expect(trackCache.writeRenderedTrack).toHaveBeenCalledWith(
+      { kind: "instrumental", trackId: "track-1" },
       [left, right],
       44_100,
     );
@@ -388,8 +388,8 @@ describe("renderInstrumentalBuffer", () => {
 
   it("still renders when storage fails", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    trackCache.readInstrumentalTrack.mockRejectedValue(new Error("no storage"));
-    trackCache.writeInstrumentalTrack.mockRejectedValue(new Error("quota"));
+    trackCache.readRenderedTrack.mockRejectedValue(new Error("no storage"));
+    trackCache.writeRenderedTrack.mockRejectedValue(new Error("quota"));
     const pending = renderInstrumentalBuffer(
       createSource(2),
       "track-1",

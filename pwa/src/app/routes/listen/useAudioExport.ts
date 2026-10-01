@@ -35,7 +35,7 @@ export function useAudioExport({
   jukeboxAudioMode,
   audioIntensity,
   getSourceIdentity,
-  getInstrumentalTrackId,
+  getRenderedTrackId,
   t,
 }: {
   file: File | null;
@@ -46,8 +46,8 @@ export function useAudioExport({
   jukeboxAudioMode: JukeboxAudioMode;
   audioIntensity: number;
   getSourceIdentity: () => string | null;
-  // Instrumentals are stored by analysis fingerprint, like cached analysis.
-  getInstrumentalTrackId: () => string | null;
+  // Rendered copies are stored by analysis fingerprint, like cached analysis.
+  getRenderedTrackId: () => string | null;
   t: TFunction;
 }) {
   const [isExportOpen, setIsExportOpen] = React.useState(false);
@@ -165,7 +165,7 @@ export function useAudioExport({
           });
           renderedBuffer = await renderInstrumentalBuffer(
             sourceBuffer,
-            getInstrumentalTrackId(),
+            getRenderedTrackId(),
             ({ progress }) => {
               setExportProgress({
                 stage: "rendering",
@@ -192,6 +192,7 @@ export function useAudioExport({
             getSourceIdentity(),
             () =>
               renderSwingBuffer(sourceBuffer, activeAnalysis.beats, {
+                trackId: getRenderedTrackId(),
                 onProgress: (progress) => {
                   setExportProgress({
                     stage: "rendering",

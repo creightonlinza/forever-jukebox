@@ -47,7 +47,8 @@ data under storage pressure.
   - Underwater (Heavy Low-Pass)
   - Cathedral (Cathedral Reverb)
   - More Cowbell
-  - Swing (pre-renders a pitch-preserved swung buffer with Rubber Band WASM)
+  - Swing (pre-renders a pitch-preserved swung buffer with Rubber Band WASM; the render
+    is stored per track, see below)
   - Instrumental (pre-renders a vocals-removed buffer; see below)
 - More Cowbell and Swing are beat-aware remix toys inspired by Echo Nest Remix:
   https://github.com/echonest/remix
@@ -62,13 +63,20 @@ shared with the PWA.
   exhausts memory, and without WebGPU, where it takes several times the track's length.
 - The worker and runtime load when the mode is selected. The model (67 MB) downloads from
   Hugging Face on first use and is kept in Cache Storage (`fj-instrumental-models`).
-- Rendered instrumentals are kept in Cache Storage (`fj-instrumental-tracks`) so a track
-  is only separated once, as WebM/Opus at 160 kbps where the browser's WebCodecs encoder
-  supports it and otherwise as 16-bit PCM. Entries are decoded with `decodeAudioData`,
-  the same path as streamed tracks. A stored instrumental counts as part of its track
-  in the audio cache: toward the size in Settings and the 500 MB cap, and it is removed
-  with the track's cached audio, including on eviction.
 - A failed render shows a toast and returns to Normal mode.
+
+### Stored renders
+Instrumental and Swing renders are kept in Cache Storage (`fj-rendered-tracks`,
+`packages/shared/src/audio/renderedTrackCache.ts`) so a track is only rendered once.
+
+- Stored as WebM/Opus at 160 kbps (about 5 MB per 3-minute track), encoded with
+  WebCodecs. Browsers without that encoder store nothing and render each time. Entries
+  are decoded with `decodeAudioData`, the same path as streamed tracks.
+- A Swing render is tied to the beat grid and swing amount it was made from; a changed
+  analysis renders again.
+- A stored render counts as part of its track in the audio cache: toward the size in
+  Settings and the 500 MB cap, and it is removed with the track's cached audio,
+  including on eviction.
 
 ## Keyboard shortcuts
 - Space: play/pause while on the Listen tab.

@@ -82,8 +82,11 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
   - Instrumental (pre-renders a vocals-removed buffer with the shared MDX-Net/ONNX
     Runtime Web pipeline; desktop browsers with WebGPU only). The 27 MB runtime and the
     67 MB model are fetched on first use, not at install, and cached from then on.
-    Rendered instrumentals are stored by analysis fingerprint and follow the cached
-    analysis: they count toward its size and are removed with it, per track or all.
+- Swing and Instrumental renders are stored by analysis fingerprint (Cache Storage,
+  `fj-rendered-tracks`, WebM/Opus) so a track is only rendered once; browsers without a
+  WebCodecs Opus encoder store nothing. They follow the cached analysis: they count
+  toward its size and are removed with it, per track or all. Stored renders are capped
+  at 500 MB; loading a track drops the ones stored longest ago beyond that.
 - URL param support: `am=<mode>` (example: `?am=nightcore`).
 - Branch stats toggle is stored in localStorage (`fj-branch-stats-enabled`).
 - Audio mode selection is URL-driven and not persisted in localStorage.

@@ -3,7 +3,10 @@ import "@/app/i18n";
 import { Link } from "react-router-dom";
 import { AnalysisWorkerClient } from "@/core/infrastructure/analysis/AnalysisWorkerClient";
 import { AudioDecoder } from "@/core/infrastructure/audio/AudioDecoder";
-import { createAnalysisCache } from "@/core/infrastructure/cache/analysisCache";
+import {
+  createAnalysisCache,
+  trimRenderedTracks,
+} from "@/core/infrastructure/cache/analysisCache";
 import {
   loadTuning,
   removeTuning,
@@ -263,7 +266,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     jukeboxAudioMode,
     audioIntensity,
     getSourceIdentity: getCurrentSourceIdentity,
-    getInstrumentalTrackId: () => fingerprintRef.current,
+    getRenderedTrackId: () => fingerprintRef.current,
     t,
   });
 
@@ -552,6 +555,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         }
         analysisRef.current = result.analysis;
         fingerprintRef.current = result.fingerprint;
+        trimRenderedTracks(result.fingerprint).catch((err: unknown) => {
+          console.warn(`Rendered track trim failed: ${String(err)}`);
+        });
         setAnalysis(result.analysis);
         setReadyFileKey(fileKey);
         await playerRef.current?.loadBuffer(result.audioBuffer);
@@ -900,6 +906,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
     getOrCreateSwingBuffer(sourceBuffer, getCurrentSourceIdentity(), () =>
       renderSwingBuffer(sourceBuffer, beats, {
+        trackId: fingerprintRef.current,
         onProgress: (progress) => {
           if (
             renderTokenRef.current !== renderToken ||
