@@ -385,13 +385,12 @@ function ReportedList({
 function FavoritesList({ query }: { query: string }) {
   const { t } = useTranslation();
   const favorites = useAppStore((s) => s.favorites);
-  const [sort, setSort] = useState<FavoritesDisplaySort>({
-    key: "title",
-    direction: "asc",
-  });
+  const sort = useAppStore((s) => s.favoritesSort);
 
   const handleSortClick = (key: FavoritesDisplaySort["key"]) => {
-    setSort((prev) => nextFavoritesSort(prev, key));
+    useAppStore.setState((s) => ({
+      favoritesSort: nextFavoritesSort(s.favoritesSort, key),
+    }));
   };
 
   const select = (item: FavoriteTrack) => {

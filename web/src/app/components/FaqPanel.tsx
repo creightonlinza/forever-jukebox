@@ -143,7 +143,7 @@ export function FaqPanel() {
         <h4>October 2026</h4>
         <ul>
           <li>
-            New <strong>Instrumental</strong> remix toy in Extras — removes the vocals from a track, right in your browser. Desktop browsers with WebGPU only (Chrome, Edge, Safari). The first use downloads a 67 MB model. Separated tracks are saved on your device where the browser supports it, so they load instantly next time.
+            New <strong>Instrumental</strong> remix toy in Extras — removes vocals right in your browser. Desktop browsers with WebGPU only; first use downloads a 67 MB model.
           </li>
         </ul>
 
@@ -154,9 +154,6 @@ export function FaqPanel() {
           </li>
           <li>
             <strong>Continue listening</strong> — pick up the last played track from your last visit right from the Listen screen.
-          </li>
-          <li>
-            <strong>Clear cached audio</strong> has moved to the Settings menu.
           </li>
         </ul>
 
@@ -172,12 +169,6 @@ export function FaqPanel() {
           </li>
           <li>
             Favorited tracks now show a <strong>modified indicator</strong> near the star icon when current tuning options have changed from the saved tuning.
-          </li>
-          <li>
-            Fixes: choosing audio files works again on <strong>iOS</strong>, and tuning no longer resets when switching Audio Modes.
-          </li>
-          <li>
-            Improved reliability when <strong>fetching audio</strong> — fewer failed imports.
           </li>
         </ul>
 
@@ -214,9 +205,6 @@ export function FaqPanel() {
           </li>
           <li>
             Added local <strong>Playlists</strong>: queue up to 10 tracks, then skip between them from the Listen screen. More info in the FAQ.
-          </li>
-          <li>
-            <strong>Rewrote the app in React</strong> — please report any issues.
           </li>
         </ul>
 
@@ -259,9 +247,6 @@ export function FaqPanel() {
           </li>
           <li>
             <strong>Bring It Home mode</strong> (press H on your keyboard to toggle) was added for a more linear playback option that finishes the track cleanly.
-          </li>
-          <li>
-            The backend moved to <strong>madmom-beats-lite</strong>, improving progress reporting and memory footprint, while maintaining quality analysis.
           </li>
         </ul>
 

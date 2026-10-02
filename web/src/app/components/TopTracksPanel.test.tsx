@@ -62,6 +62,7 @@ describe("TopTracksPanel", () => {
         topSongsTab: "top",
         favorites: [],
         favoritesSyncCode: null,
+        favoritesSort: { key: "title", direction: "asc" },
         appConfig: null,
       });
       useAppStore.getState().resetTopSongsCache();
@@ -258,6 +259,41 @@ describe("TopTracksPanel", () => {
       screen.getByLabelText("Remove Alpha from Favorites"),
     );
     expect(h.removeFavoriteWithToast).toHaveBeenCalledWith("fav1");
+  });
+
+  it("keeps the favorites sort across unmount and remount", async () => {
+    act(() => {
+      useAppStore.setState({
+        topSongsTab: "favorites",
+        favorites: [
+          {
+            uniqueSongId: "fav1",
+            title: "Alpha",
+            artist: "Zed",
+            duration: null,
+            sourceType: "youtube",
+          },
+          {
+            uniqueSongId: "fav2",
+            title: "Beta",
+            artist: "Ann",
+            duration: null,
+            sourceType: "youtube",
+          },
+        ],
+      });
+    });
+    const rows = () =>
+      Array.from(document.querySelectorAll(".favorite-row")).map(
+        (row) => row.querySelector("a")?.textContent?.trim(),
+      );
+    const { unmount } = render(<TopTracksPanel />);
+    await userEvent.click(screen.getByText("Artist"));
+    expect(rows()).toEqual(["Beta", "Alpha"]);
+    unmount();
+
+    render(<TopTracksPanel />);
+    expect(rows()).toEqual(["Beta", "Alpha"]);
   });
 
   it("shows sync controls only on favorites with sync allowed", async () => {

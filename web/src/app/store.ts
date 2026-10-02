@@ -3,6 +3,7 @@ import type { ToastQueueItem } from "@forever-jukebox/shared/ui/toastQueue";
 import i18n from "./i18n";
 import type { SpotifySearchItem, YoutubeSearchItem } from "./api";
 import type { AppState, SleepTimerState, TabId } from "./context";
+import type { FavoritesDisplaySort } from "./favorites";
 import type { ThemeName } from "./themeConfig";
 import type { MaterialSymbolIconName } from "./material-icons";
 import { DEFAULT_VISUALIZATION_INDEX } from "./constants";
@@ -110,6 +111,7 @@ type ShellSlice = {
   topSongsLists: Record<TopSongsListTabId, TopSongsListState>;
   topSongsLoadedTabs: TopSongsListTabId[];
   topSongsInFlightTabs: TopSongsListTabId[];
+  favoritesSort: FavoritesDisplaySort;
   // Listen-panel modal/menu state. Open flags live here so the imperative
   // flows (openExtras hotkey, playlist buttons, resetForNewTrack) can drive
   // the React modals.
@@ -212,6 +214,7 @@ const createUiSlice: Slice<
     | "topSongsLists"
     | "topSongsLoadedTabs"
     | "topSongsInFlightTabs"
+    | "favoritesSort"
     | "tuningModalOpen"
     | "tuningModalTab"
     | "infoModalOpen"
@@ -269,6 +272,7 @@ const createUiSlice: Slice<
     topSongsLists: createDefaultTopSongsLists(),
     topSongsLoadedTabs: [],
     topSongsInFlightTabs: [],
+    favoritesSort: { key: "title", direction: "asc" },
     tuningModalOpen: false,
     tuningModalTab: "tuning",
     infoModalOpen: false,
