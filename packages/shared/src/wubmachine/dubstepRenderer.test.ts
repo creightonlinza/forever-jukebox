@@ -99,14 +99,14 @@ describe("renderDubstepRemix", () => {
     expect(trackCache.writeRenderedTrack).toHaveBeenCalledTimes(1);
   });
 
-  it("stretches each slice onto the grid when beatGrid is set", async () => {
+  it("stretches each slice onto the 140 BPM grid", async () => {
     const adapter = new FakeStretchAdapter();
     const source = new Float32Array(16 * SAMPLE_RATE).fill(0.5);
     const { channels, parts } = await renderDubstepRemix(
       [source],
       SAMPLE_RATE,
       makeAnalysis(),
-      { adapter, loadSample, beatGrid: true },
+      { adapter, loadSample },
     );
     // One stretch per distinct slice: 16 intro beats + half and quarter cuts
     // of beats 8, 12 and 14 (whole beats 0 and 4 repeat), then 8 + 4 + 4
@@ -160,11 +160,8 @@ describe("renderDubstepRemix", () => {
       },
     );
 
-    // Intro and the section's shared slice list: 16s of source at 120 -> 140 BPM.
-    expect(adapter.calls).toEqual([
-      { inputFrames: 16000, targetFrameCount: 13714 },
-      { inputFrames: 16000, targetFrameCount: 13714 },
-    ]);
+    // The section's slice list is shared by the drop and the break.
+    expect(adapter.calls).toHaveLength(16 + 3 + 16);
     expect(new Set(loaded).size).toBe(loaded.length);
     expect(channels[0]).toHaveLength(3 * BED_FRAMES + ENDING_FRAMES);
     expect(parts.map((part) => part.kind)).toEqual([
@@ -178,8 +175,9 @@ describe("renderDubstepRemix", () => {
     expect(channels[1]).toEqual(channels[0]);
 
     const mix = plan.parts[1]!.mix;
-    // Drop: wub + half-length splash averaged, over the stretched source.
-    expect(channels[0][BED_FRAMES]).toBeCloseTo(mix + (1 - mix));
+    // Drop: wub + half-length splash averaged, over the stretched source
+    // (past the 2 ms slice fade-in).
+    expect(channels[0][BED_FRAMES + 5]).toBeCloseTo(mix + (1 - mix));
     expect(channels[0][2 * BED_FRAMES - 1]).toBeCloseTo(0.5 * mix + (1 - mix));
     // Ending: the sample alone.
     expect(channels[0][3 * BED_FRAMES]).toBe(1);
@@ -193,7 +191,7 @@ describe("renderDubstepRemix", () => {
       [source],
       SAMPLE_RATE,
       makeAnalysis(),
-      { adapter, loadSample, beatGrid: true },
+      { adapter, loadSample },
     );
     expect(adapter.calls.every((call) => call.inputFrames > 0)).toBe(true);
     expect(adapter.calls.length).toBeLessThan(16 + 3 + 16);
@@ -240,7 +238,6 @@ describe("renderDubstepRemix", () => {
         {
           adapter,
           loadSample,
-          beatGrid: true,
           trackId: "track-1",
           signal: controller.signal,
         },

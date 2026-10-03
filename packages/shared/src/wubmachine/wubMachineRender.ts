@@ -2,22 +2,21 @@ import { parseAnalysis } from "../engine/analysis";
 import { markStoredCopy } from "../audio/renderedTrackCache";
 import { RubberBandWorkerAdapter } from "../audio/rubberBandAdapter";
 import type { TimeStretchAdapter } from "../audio/timeStretch";
+import type { DubstepPlanOptions } from "./dubstepArrangement";
 import {
   renderDubstepRemix,
   type DubstepRenderedPart,
-  type RenderDubstepOptions,
 } from "./dubstepRenderer";
 import { dubstepSampleUrl } from "./dubstepSamples";
 
 // The house arrangement; each option is described on DubstepPlanOptions.
 export const WUB_MACHINE_ARRANGEMENT = {
   contiguous: true,
-  beatGrid: true,
   sectionBudget: true,
   skipQuiet: true,
   contrast: true,
   fills: true,
-} satisfies Partial<RenderDubstepOptions>;
+} satisfies DubstepPlanOptions;
 
 export type WubMachineRender = {
   buffer: AudioBuffer;

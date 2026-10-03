@@ -20,8 +20,6 @@ type Stereo = [Float32Array, Float32Array];
 
 export type RenderDubstepOptions = DubstepPlanOptions & {
   adapter: TimeStretchAdapter;
-  // Stretch each slice onto the 140 BPM grid instead of each part as a whole.
-  beatGrid?: boolean;
   // Resolves a sample path from the plan to PCM at the render sample rate.
   loadSample: (path: string) => Promise<Float32Array[]>;
   signal?: AbortSignal;
@@ -82,27 +80,6 @@ function fadeEdges(
       channel[tail] = (channel[tail] as number) * gain;
     }
   }
-}
-
-// Lays the slices end to end, unstretched.
-function concatSlices(
-  source: Stereo,
-  sampleRate: number,
-  slices: SourceSlice[],
-): Stereo {
-  const ranges = slices.map((slice) =>
-    sliceFrames(slice, sampleRate, source[0].length),
-  );
-  const total = ranges.reduce((sum, [start, stop]) => sum + stop - start, 0);
-  const out: Stereo = [new Float32Array(total), new Float32Array(total)];
-  let offset = 0;
-  for (const [start, stop] of ranges) {
-    out[0].set(source[0].subarray(start, stop), offset);
-    out[1].set(source[1].subarray(start, stop), offset);
-    fadeEdges(out, sampleRate, offset, stop - start);
-    offset += stop - start;
-  }
-  return out;
 }
 
 function throwIfAborted(signal: AbortSignal | undefined) {
@@ -214,7 +191,6 @@ function planSignature(plan: DubstepPlan): string {
     hash = Math.imul(hash ^ Math.round(value * 1000), 16777619) >>> 0;
   };
   mix(plan.tonic);
-  mix(plan.timeRatio ?? 0);
   for (const part of plan.parts) {
     mix(part.mix);
     for (const slice of part.slices) {
@@ -222,7 +198,7 @@ function planSignature(plan: DubstepPlan): string {
       mix(slice.duration);
     }
   }
-  return `1:${plan.parts.length}:${hash.toString(16)}`;
+  return `2:${plan.parts.length}:${hash.toString(16)}`;
 }
 
 // Parts over source audio are 8 bars each; the ending takes what remains.
@@ -273,46 +249,6 @@ function concatParts(parts: Stereo[]): Stereo {
   return channels;
 }
 
-// Stretches a part's slices, as a whole at the plan's ratio or slice by slice
-// onto the grid; `onProgress` reports the share of the part done.
-async function stretchPart(
-  source: Stereo,
-  sampleRate: number,
-  slices: SourceSlice[],
-  plan: DubstepPlan,
-  partFrames: number,
-  options: RenderDubstepOptions,
-  onProgress: (withinPart: number) => void,
-): Promise<Stereo> {
-  if (options.beatGrid) {
-    let done = 0;
-    return stretchToGrid(
-      source,
-      sampleRate,
-      slices,
-      options.adapter,
-      options.signal,
-      () => {
-        done += 1;
-        onProgress(done / slices.length);
-      },
-    );
-  }
-  const pieces = concatSlices(source, sampleRate, slices);
-  const targetFrameCount =
-    plan.timeRatio === null
-      ? partFrames
-      : Math.round(pieces[0].length * plan.timeRatio);
-  return stretchRange(
-    pieces,
-    sampleRate,
-    0,
-    pieces[0].length,
-    targetFrameCount,
-    options.adapter,
-  );
-}
-
 // Loads each sample once per render.
 function sampleLoader(load: RenderDubstepOptions["loadSample"]) {
   const samples = new Map<string, Promise<Stereo>>();
@@ -333,7 +269,6 @@ export async function renderDubstepRemix(
   options: RenderDubstepOptions,
 ): Promise<DubstepRender> {
   const plan = planDubstepRemix(analysis, options);
-  const beatGrid = options.beatGrid ?? false;
   // Parts over source audio are exactly 8 bars, whatever the decoded samples'
   // lengths; the ending keeps its sample's length.
   const partFrames = Math.round(
@@ -343,7 +278,7 @@ export async function renderDubstepRemix(
     ? {
         kind: "dubstep",
         trackId: options.trackId,
-        signature: `${beatGrid ? "g" : "w"}:${planSignature(plan)}`,
+        signature: planSignature(plan),
       }
     : null;
   const stored = storedKey
@@ -383,14 +318,17 @@ export async function renderDubstepRemix(
     const bed = mixBed(samples, partFrames);
     let under = stretched.get(part.slices);
     if (!under) {
-      under = await stretchPart(
+      let done = 0;
+      under = await stretchToGrid(
         source,
         sampleRate,
         part.slices,
-        plan,
-        partFrames,
-        options,
-        reportProgress,
+        options.adapter,
+        options.signal,
+        () => {
+          done += 1;
+          reportProgress(done / part.slices.length);
+        },
       );
       stretched.set(part.slices, under);
     }

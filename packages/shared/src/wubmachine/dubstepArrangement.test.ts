@@ -101,7 +101,6 @@ describe("planDubstepRemix", () => {
       "section 2 break",
       "ending",
     ]);
-    expect(plan.timeRatio).toBeCloseTo(120 / 140);
   });
 
   it("stutters the intro over 32 beats", () => {
@@ -230,8 +229,6 @@ describe("planDubstepRemix", () => {
   it("copes with tracks the analysis barely describes", () => {
     const bare = planDubstepRemix({ sections: [], beats: [], segments: [] });
     expect(bare.parts.map((part) => part.kind)).toEqual(["intro", "ending"]);
-    expect(bare.sourceTempo).toBe(140);
-    expect(bare.timeRatio).toBe(1);
     expect(bare.parts[0]!.slices.every((s) => s.duration === 0)).toBe(true);
 
     // Too few beats: the intro is cut from 16 equal slices of the track.
@@ -241,16 +238,9 @@ describe("planDubstepRemix", () => {
       segments: [],
       track: { duration: 32, tempo: 100 },
     });
-    expect(short.sourceTempo).toBeCloseTo(30);
     expect(short.parts[0]!.slices[1]).toEqual({ start: 2, duration: 2, beats: 1 });
     // Beats exist but no segment matches: every section beat is used.
     expect(short.parts[1]!.slices.every((s) => s.start === 0)).toBe(true);
-  });
-
-  it("fits parts to eight bars when the track is not in four", () => {
-    const waltz = makeAnalysis(() => 0);
-    waltz.track = { duration: 32, tempo: 120, time_signature: 3 };
-    expect(planDubstepRemix(waltz).timeRatio).toBeNull();
   });
 
   it("leaves out sections far quieter than the track", () => {

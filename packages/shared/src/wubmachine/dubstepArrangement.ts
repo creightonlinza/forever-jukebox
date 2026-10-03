@@ -81,9 +81,6 @@ export type DubstepPart = {
 
 export type DubstepPlan = {
   tonic: number;
-  sourceTempo: number;
-  // Stretched over unstretched source length; null fits each part to 8 bars.
-  timeRatio: number | null;
   parts: DubstepPart[];
 };
 
@@ -512,16 +509,9 @@ export function planDubstepRemix(
   if (options.skipQuiet) {
     analysis = { ...analysis, sections: dropQuietSections(analysis) };
   }
-  const { sections, beats, segments, track } = analysis;
+  const { sections, segments, track } = analysis;
   const lastSegment = segments[segments.length - 1];
   const duration = track?.duration ?? (lastSegment ? end(lastSegment) : 0);
-  const estimatedTempo =
-    beats.length < 16 || !track?.tempo ? (60 * 16) / duration : track.tempo;
-  // Without a usable tempo the source plays unstretched.
-  const sourceTempo =
-    Number.isFinite(estimatedTempo) && estimatedTempo > 0
-      ? estimatedTempo
-      : DUBSTEP_TEMPO;
   const tonic = options.tonic ?? estimateTonic(segments);
   const key = KEY_FILES[tonic] as string;
 
@@ -594,11 +584,5 @@ export function planDubstepRemix(
     mix: 1,
   });
 
-  return {
-    tonic,
-    sourceTempo,
-    timeRatio:
-      (track?.time_signature ?? 4) === 4 ? sourceTempo / DUBSTEP_TEMPO : null,
-    parts,
-  };
+  return { tonic, parts };
 }
