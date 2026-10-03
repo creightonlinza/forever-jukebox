@@ -1,3 +1,4 @@
+import type { PlayMode } from "./context";
 import type { PlaylistTrack } from "./playlist";
 import i18n from "./i18n";
 
@@ -10,7 +11,7 @@ export type FavoriteTrack = {
   tuningParams?: string | null;
   // Play mode the track was favorited in. Absent on favorites that predate
   // autocanonizer support, which are therefore treated as jukebox.
-  playMode?: "jukebox" | "autocanonizer";
+  playMode?: PlayMode;
 };
 
 export type FavoritesDisplaySort = {
@@ -165,6 +166,11 @@ export function saveFavoritesSyncCode(code: string) {
     return;
   }
   localStorage.setItem(FAVORITES_SYNC_KEY, trimmed);
+}
+
+// Jukebox is the implicit default and is not stored.
+export function storedPlayMode(playMode: PlayMode): PlayMode | undefined {
+  return playMode === "jukebox" ? undefined : playMode;
 }
 
 export function favoriteToPlaylistTrack(

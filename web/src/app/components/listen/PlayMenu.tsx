@@ -224,7 +224,8 @@ export function PlayMenu() {
   const titleRef = useRef<HTMLDivElement | null>(null);
 
   const hidden = !(audioLoaded && analysisLoaded) || audioModePreparing;
-  const isCanonizer = playMode === "autocanonizer";
+  // Tuning and track info describe the jukebox graph.
+  const hideJukeboxTools = playMode !== "jukebox";
   const adminMode = isAdminMode();
   const displayTitle =
     trackTitle || trackArtist
@@ -346,8 +347,8 @@ export function PlayMenu() {
           <button
             type="button"
             id="tuning"
-            className={isCanonizer ? "tune-toggle is-hidden" : "tune-toggle"}
-            disabled={isCanonizer}
+            className={hideJukeboxTools ? "tune-toggle is-hidden" : "tune-toggle"}
+            disabled={hideJukeboxTools}
             aria-label={t("playback.tune")}
             title={t("playback.tune")}
             onClick={() => openTuning(getAppContext())}
@@ -362,7 +363,7 @@ export function PlayMenu() {
           <button
             type="button"
             id="track-info"
-            className={isCanonizer ? "info-toggle is-hidden" : "info-toggle"}
+            className={hideJukeboxTools ? "info-toggle is-hidden" : "info-toggle"}
             aria-label={t("playback.info")}
             title={t("playback.info")}
             onClick={() => openInfo(getAppContext())}

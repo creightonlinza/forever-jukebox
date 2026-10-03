@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import type { PlayMode } from "../../context";
 import { attachViz, getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { ModifierBadges } from "../ModifierBadges";
@@ -7,6 +8,12 @@ import { PlayControls } from "./PlayControls";
 import { VizBottomRight } from "./VizBottomRight";
 import { VizInfo } from "./VizInfo";
 import { VizTop } from "./VizTop";
+
+const VIZ_CLASS_NAMES: Record<PlayMode, string> = {
+  jukebox: "viz",
+  autocanonizer: "viz is-canonizer",
+  wubmachine: "viz is-wubmachine",
+};
 
 // Hosts the viz canvases. The #viz-layer/#canonizer-layer divs are bare,
 // stable JSX nodes — React renders them once and NEVER remounts them (no
@@ -23,6 +30,7 @@ export function VizContainer() {
   const vizPanelRef = useRef<HTMLDivElement | null>(null);
   const vizLayerRef = useRef<HTMLDivElement | null>(null);
   const canonizerLayerRef = useRef<HTMLDivElement | null>(null);
+  const wubMachineLayerRef = useRef<HTMLDivElement | null>(null);
 
   const visible = audioLoaded && analysisLoaded && !audioModePreparing;
 
@@ -30,11 +38,17 @@ export function VizContainer() {
   const handlePanelRef = useCallback(
     (node: HTMLDivElement | null) => {
       vizPanelRef.current = node;
-      if (node && vizLayerRef.current && canonizerLayerRef.current) {
+      if (
+        node &&
+        vizLayerRef.current &&
+        canonizerLayerRef.current &&
+        wubMachineLayerRef.current
+      ) {
         attachViz({
           vizPanel: node,
           vizLayer: vizLayerRef.current,
           canonizerLayer: canonizerLayerRef.current,
+          wubMachineLayer: wubMachineLayerRef.current,
         });
       }
     },
@@ -52,6 +66,7 @@ export function VizContainer() {
       const ctx = getAppContext();
       ctx.jukebox?.resizeNow();
       ctx.autocanonizer?.resizeNow();
+      ctx.wubmachine?.resizeNow();
     };
     if (
       typeof (globalThis as { ResizeObserver?: unknown }).ResizeObserver !==
@@ -75,6 +90,8 @@ export function VizContainer() {
     const ctx = getAppContext();
     if (playMode === "autocanonizer") {
       ctx.autocanonizer?.resizeNow();
+    } else if (playMode === "wubmachine") {
+      ctx.wubmachine?.resizeNow();
     } else {
       ctx.jukebox?.resizeActive();
     }
@@ -88,7 +105,7 @@ export function VizContainer() {
     >
       <div
         id="jukebox-viz"
-        className={playMode === "autocanonizer" ? "viz is-canonizer" : "viz"}
+        className={VIZ_CLASS_NAMES[playMode]}
       >
         <BranchStatsPopup />
         <ModifierBadges />
@@ -100,6 +117,11 @@ export function VizContainer() {
           id="canonizer-layer"
           className="canonizer-layer"
           ref={canonizerLayerRef}
+        ></div>
+        <div
+          id="wubmachine-layer"
+          className="wubmachine-layer"
+          ref={wubMachineLayerRef}
         ></div>
         <div
           className={vizStatsPulseId > 0 ? "viz-bottom pulse" : "viz-bottom"}

@@ -29,7 +29,11 @@ export function getAppContext(): AppContext {
 }
 
 export function getAttachedAppContext(): AttachedAppContext | null {
-  if (!appContext?.jukebox || !appContext.autocanonizer) {
+  if (
+    !appContext?.jukebox ||
+    !appContext.autocanonizer ||
+    !appContext.wubmachine
+  ) {
     return null;
   }
   return appContext as AttachedAppContext;
@@ -52,6 +56,7 @@ export type AttachVizNodes = {
   vizPanel: HTMLElement;
   vizLayer: HTMLDivElement;
   canonizerLayer: HTMLDivElement;
+  wubMachineLayer: HTMLDivElement;
 };
 
 let attachVizFn: ((nodes: AttachVizNodes) => void) | null = null;

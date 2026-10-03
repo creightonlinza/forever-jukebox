@@ -1,0 +1,170 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+const trackCache = vi.hoisted(() => ({
+  readRenderedTrack: vi.fn(),
+  writeRenderedTrack: vi.fn(),
+}));
+vi.mock("../audio/renderedTrackCache", () => trackCache);
+
+import type { DubstepAnalysis } from "./dubstepArrangement";
+import { renderDubstepRemix } from "./dubstepRenderer";
+import type { TimeStretchAdapter } from "../audio/timeStretch";
+
+const SAMPLE_RATE = 1000;
+// 8 bars at 140 BPM.
+const BED_FRAMES = 13714;
+const ENDING_FRAMES = 500;
+
+class FakeStretchAdapter implements TimeStretchAdapter {
+  calls: Array<{ inputFrames: number; targetFrameCount: number }> = [];
+
+  async stretchSegment(
+    channels: Float32Array[],
+    _sampleRate: number,
+    targetFrameCount: number,
+  ): Promise<Float32Array[]> {
+    this.calls.push({
+      inputFrames: channels[0]?.length ?? 0,
+      targetFrameCount,
+    });
+    return channels.map(() => new Float32Array(targetFrameCount).fill(1));
+  }
+}
+
+function makeAnalysis(): DubstepAnalysis {
+  const beats = Array.from({ length: 32 }, (_, i) => ({
+    start: i * 0.5,
+    duration: 0.5,
+  }));
+  const pitches = new Array<number>(12).fill(0.1);
+  pitches[0] = 1;
+  return {
+    sections: [{ start: 0, duration: 16 }],
+    beats,
+    segments: beats.map((beat, which) => ({
+      start: beat.start + 0.125,
+      duration: 0.5,
+      confidence: 1,
+      loudness_start: -60,
+      loudness_max: -10,
+      loudness_max_time: 0,
+      pitches,
+      timbre: new Array<number>(12).fill(0),
+      which,
+    })),
+    track: { duration: 16, tempo: 120, time_signature: 4 },
+  };
+}
+
+describe("renderDubstepRemix", () => {
+  beforeEach(() => {
+    trackCache.readRenderedTrack.mockReset().mockResolvedValue(null);
+    trackCache.writeRenderedTrack.mockReset().mockResolvedValue(undefined);
+  });
+
+  const loadSample = async (path: string) => [
+    new Float32Array(
+      path.startsWith("splash-ends") ? ENDING_FRAMES : BED_FRAMES,
+    ).fill(1),
+  ];
+
+  it("stores a render under its track id and reuses it", async () => {
+    const source = new Float32Array(16 * SAMPLE_RATE).fill(0.5);
+    const first = await renderDubstepRemix([source], SAMPLE_RATE, makeAnalysis(), {
+      adapter: new FakeStretchAdapter(),
+      loadSample,
+      trackId: "track-1",
+    });
+    const [key, stored] = trackCache.writeRenderedTrack.mock.calls[0]!;
+    expect(key).toMatchObject({ kind: "dubstep", trackId: "track-1" });
+    expect(stored).toBe(first.channels);
+
+    trackCache.readRenderedTrack.mockResolvedValue(first.channels);
+    const adapter = new FakeStretchAdapter();
+    const second = await renderDubstepRemix(
+      [source],
+      SAMPLE_RATE,
+      makeAnalysis(),
+      { adapter, loadSample, trackId: "track-1" },
+    );
+    expect(trackCache.readRenderedTrack).toHaveBeenLastCalledWith(
+      key,
+      null,
+      SAMPLE_RATE,
+    );
+    expect(adapter.calls).toEqual([]);
+    expect(second.channels).toBe(first.channels);
+    expect(second.parts).toEqual(first.parts);
+    expect(trackCache.writeRenderedTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not touch storage without a track id", async () => {
+    await renderDubstepRemix(
+      [new Float32Array(16 * SAMPLE_RATE)],
+      SAMPLE_RATE,
+      makeAnalysis(),
+      { adapter: new FakeStretchAdapter(), loadSample },
+    );
+    expect(trackCache.readRenderedTrack).not.toHaveBeenCalled();
+    expect(trackCache.writeRenderedTrack).not.toHaveBeenCalled();
+  });
+
+  it("stretches each slice list once and mixes it under the sample beds", async () => {
+    const adapter = new FakeStretchAdapter();
+    const loaded: string[] = [];
+    const source = new Float32Array(16 * SAMPLE_RATE).fill(0.5);
+
+    const { channels, plan, parts } = await renderDubstepRemix(
+      [source],
+      SAMPLE_RATE,
+      makeAnalysis(),
+      {
+        adapter,
+        loadSample: async (path) => {
+          loaded.push(path);
+          const frames = path.startsWith("splash-ends")
+            ? ENDING_FRAMES
+            : path.startsWith("splashes")
+              ? BED_FRAMES / 2
+              : BED_FRAMES + 100;
+          return [new Float32Array(frames).fill(1)];
+        },
+      },
+    );
+
+    // Intro and the section's shared slice list: 16s of source at 120 -> 140 BPM.
+    expect(adapter.calls).toEqual([
+      { inputFrames: 16000, targetFrameCount: 13714 },
+      { inputFrames: 16000, targetFrameCount: 13714 },
+    ]);
+    expect(new Set(loaded).size).toBe(loaded.length);
+    expect(channels[0]).toHaveLength(3 * BED_FRAMES + ENDING_FRAMES);
+    expect(parts.map((part) => part.kind)).toEqual([
+      "intro",
+      "drop",
+      "break",
+      "ending",
+    ]);
+    expect(parts[3]!.start).toBeCloseTo((3 * BED_FRAMES) / SAMPLE_RATE);
+    expect(parts[3]!.duration).toBeCloseTo(ENDING_FRAMES / SAMPLE_RATE);
+    expect(channels[1]).toEqual(channels[0]);
+
+    const mix = plan.parts[1]!.mix;
+    // Drop: wub + half-length splash averaged, over the stretched source.
+    expect(channels[0][BED_FRAMES]).toBeCloseTo(mix + (1 - mix));
+    expect(channels[0][2 * BED_FRAMES - 1]).toBeCloseTo(0.5 * mix + (1 - mix));
+    // Ending: the sample alone.
+    expect(channels[0][3 * BED_FRAMES]).toBe(1);
+  });
+
+  it("stops when aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      renderDubstepRemix([new Float32Array(100)], SAMPLE_RATE, makeAnalysis(), {
+        adapter: new FakeStretchAdapter(),
+        loadSample: async () => [new Float32Array(10)],
+        signal: controller.signal,
+      }),
+    ).rejects.toThrow("cancelled");
+  });
+});

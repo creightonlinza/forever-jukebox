@@ -249,6 +249,20 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     setVisible: vi.fn(),
     resizeNow: vi.fn(),
   };
+  const wubmachine = {
+    setVolume: vi.fn(),
+    setLoop: vi.fn(),
+    setRemix: vi.fn(),
+    setOnTick: vi.fn(),
+    setOnEnded: vi.fn(),
+    setOnSelect: vi.fn(),
+    setVisible: vi.fn(),
+    resizeNow: vi.fn(),
+    isReady: vi.fn(() => false),
+    play: vi.fn(),
+    pause: vi.fn(),
+    stop: vi.fn(),
+  };
   const jukebox = {
     setData: vi.fn(),
     setAnchorHighlightEnabled: vi.fn(),
@@ -273,6 +287,7 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     engine: engine as unknown as AppContext["engine"],
     player: player as unknown as AppContext["player"],
     autocanonizer: autocanonizer as unknown as AppContext["autocanonizer"],
+    wubmachine: wubmachine as unknown as AppContext["wubmachine"],
     jukebox: jukebox as unknown as AppContext["jukebox"],
     cowbellOverlay: cowbellOverlay as unknown as AppContext["cowbellOverlay"],
     defaultConfig: engineConfig as unknown as AppContext["defaultConfig"],
@@ -1522,6 +1537,35 @@ describe("playback controls", () => {
     expect(context.autocanonizer.startAtIndex).toHaveBeenCalledWith(1);
     expect(useAppStore.getState().playTimerMs).toBe(3000);
     expect(useAppStore.getState().lastPlayStamp).toBe(1000);
+  });
+
+  it("plays, seeks and pauses the Wub Machine remix", () => {
+    const context = createContext();
+    const wubmachine = context.wubmachine as unknown as Record<
+      "isReady" | "play" | "pause" | "setOnSelect",
+      ReturnType<typeof vi.fn>
+    >;
+    initializePlayback();
+    useAppStore.setState({ playMode: "wubmachine" });
+
+    togglePlayback(context);
+    expect(wubmachine.play).not.toHaveBeenCalled();
+    expect(useAppStore.getState().isRunning).toBe(false);
+
+    wubmachine.isReady.mockReturnValue(true);
+    togglePlayback(context);
+    expect(wubmachine.play).toHaveBeenLastCalledWith(undefined);
+    expect(useAppStore.getState().isRunning).toBe(true);
+
+    const onSelect = wubmachine.setOnSelect.mock.calls[0]?.[0] as (
+      seconds: number,
+    ) => void;
+    onSelect(42);
+    expect(wubmachine.play).toHaveBeenLastCalledWith(42);
+
+    togglePlayback(context);
+    expect(wubmachine.pause).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().isPaused).toBe(true);
   });
 
   it("draws the promoted jump target before moving a caught-up cursor", () => {

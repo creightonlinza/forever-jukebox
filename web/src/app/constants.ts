@@ -17,3 +17,4 @@ export const TOP_SONGS_LIMIT = 25;
 // and the reader (VizTop's checkbox seed) can never drift apart.
 export const VIZ_STORAGE_KEY = "fj-viz";
 export const CANONIZER_FINISH_KEY = "fj-canonizer-finish";
+export const WUB_MACHINE_LOOP_KEY = "fj-wub-machine-loop";

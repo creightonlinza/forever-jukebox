@@ -81,6 +81,7 @@ export function setMasterVolume(context: AppContext, volumePct: number) {
   const volume = volumePct / 100;
   context.player.setVolume(volume);
   context.autocanonizer?.setVolume(volume);
+  context.wubmachine?.setVolume(volume);
   context.cowbellOverlay.setVolume(volume);
 }
 

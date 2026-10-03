@@ -55,6 +55,7 @@ function createContext(
       setJukeboxAudioModeIntensity: vi.fn(),
     } as unknown as AppContext["player"],
     autocanonizer: {} as unknown as AppContext["autocanonizer"],
+    wubmachine: {} as unknown as AppContext["wubmachine"],
     jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
     cowbellOverlay: {
       enable: vi.fn(),

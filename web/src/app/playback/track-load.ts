@@ -61,6 +61,11 @@ import {
 import { maybePrepareInstrumentalMode } from "./instrumental";
 import { cancelInstrumentalRender } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { maybePrepareSwingMode } from "./swing";
+import {
+  maybePrepareWubMachine,
+  resetWubMachine,
+  setWubMachineAnalysis,
+} from "./wubmachine";
 import { stopPlayback } from "./transport";
 import {
   applyAnchorBranchFromUrl,
@@ -210,6 +215,7 @@ export function resetForNewTrack(
     stopPlayback(context);
   }
   autocanonizer?.reset();
+  resetWubMachine(context);
   if (shouldClearTuning) {
     useAppStore.setState({ tuningParams: null });
     clearTuningParamsFromUrl(true);
@@ -269,6 +275,7 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     updateTrackInfo(context);
     maybePrepareSwingMode(context);
     maybePrepareInstrumentalMode(context);
+    maybePrepareWubMachine(context);
     const cacheId = useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId;
     if (cacheId) {
       updateCachedTrack(cacheId, { audio: buffer, jobId }).catch((err) => {
@@ -303,6 +310,7 @@ export function applyAnalysisResult(
   applyDeletedEdgesFromUrl(context);
   applyAnchorBranchFromUrl(context);
   autocanonizer.setAnalysis(response.result, response.result.track?.duration);
+  setWubMachineAnalysis(response.result);
   useAppStore.setState({ vizData: engine.getVisualizationData() });
   const data = useAppStore.getState().vizData;
   if (data) {
@@ -316,6 +324,7 @@ export function applyAnalysisResult(
   updateVizVisibility();
   maybePrepareSwingMode(context);
   maybePrepareInstrumentalMode(context);
+  maybePrepareWubMachine(context);
   const resultTrack = response.result.track ?? null;
   const track = resultTrack ?? response.track;
   const title = track?.title;
@@ -901,6 +910,7 @@ export async function tryLoadCachedAudio(
     updateTrackInfo(context);
     maybePrepareSwingMode(context);
     maybePrepareInstrumentalMode(context);
+    maybePrepareWubMachine(context);
     return true;
   } catch (err) {
     console.warn(`Cache lookup failed: ${String(err)}`);

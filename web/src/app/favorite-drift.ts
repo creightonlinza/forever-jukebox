@@ -1,4 +1,5 @@
 import type { JukeboxConfig } from "@forever-jukebox/shared";
+import type { PlayMode } from "./context";
 import type { FavoriteTrack } from "./favorites";
 import { savedTuningParamsEquivalent } from "./tuning";
 
@@ -11,7 +12,7 @@ export function isFavoriteTuningDrifted(input: {
   favorite: FavoriteTrack | null;
   // False until the track's analysis is loaded and tuning state reflects it.
   ready: boolean;
-  livePlayMode: "jukebox" | "autocanonizer";
+  livePlayMode: PlayMode;
   liveTuningParams: string | null;
   defaults: JukeboxConfig;
 }): boolean {
