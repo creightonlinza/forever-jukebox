@@ -251,48 +251,92 @@ function introSlices(analysis: DubstepAnalysis, duration: number) {
   ];
 }
 
-// The `count` consecutive beats of the section holding the most pool beats;
-// ties go to a window starting on a bar line, then to the earliest.
-function contiguousRun(
-  analysis: DubstepAnalysis,
-  section: Quantum,
-  pool: Quantum[],
-  count: number,
-): Quantum[] {
-  const beats = beatsInSection(analysis, section);
-  if (beats.length <= count) {
-    return beats;
-  }
-  const members = new Set(pool);
-  const barStarts = new Set((analysis.bars ?? []).map((bar) => bar.start));
-  let best = 0;
+const PHRASE_BEATS = 16;
+const PHRASE_SLOTS = [8, 4, 4];
+
+type Pools = [Quantum[], Quantum[], Quantum[]];
+
+// Start of the unused 16-beat window that best follows the pool order
+// (8 tonic beats, 4 a minor third up, 4 a major sixth up); ties go to a window
+// starting on a bar line, then to the earliest. Null once no window is free.
+function bestWindow(
+  beats: Quantum[],
+  pools: Pools,
+  barStarts: Set<number>,
+  used: Set<Quantum>,
+): number | null {
+  const members = pools.map((pool) => new Set(pool));
+  let best: number | null = null;
   let bestScore = -1;
-  for (let start = 0; start + count <= beats.length; start += 1) {
-    let score = barStarts.has((beats[start] as Quantum).start) ? 0.5 : 0;
-    for (let i = start; i < start + count; i += 1) {
-      if (members.has(beats[i] as Quantum)) {
+  for (let start = 0; start + PHRASE_BEATS <= beats.length; start += 1) {
+    const window = beats.slice(start, start + PHRASE_BEATS);
+    if (window.some((beat) => used.has(beat))) {
+      continue;
+    }
+    let score = barStarts.has((window[0] as Quantum).start) ? 0.5 : 0;
+    let slot = 0;
+    let slotEnd = PHRASE_SLOTS[0] as number;
+    window.forEach((beat, i) => {
+      if (i >= slotEnd) {
+        slot += 1;
+        slotEnd += PHRASE_SLOTS[slot] as number;
+      }
+      if (members[slot]?.has(beat)) {
         score += 1;
       }
-    }
+    });
     if (score > bestScore) {
       bestScore = score;
       best = start;
     }
   }
-  return beats.slice(best, best + count);
+  return best;
 }
 
-// 16 beats, played twice: 8 on the tonic, 4 a minor third up, 4 a major sixth
-// up. Cycles through each pool in order, or, with `contiguous`, plays the run
-// of section beats richest in that pool.
-function sectionSlices(
+function cycle(beats: Quantum[], count: number) {
+  return Array.from(
+    { length: count },
+    (_, i) => beats[i % beats.length] as Quantum,
+  );
+}
+
+// Up to `count` non-overlapping phrases of the section, chosen by pool fit
+// and played in song order. A section shorter than a phrase cycles its beats.
+function contiguousPhrases(
+  analysis: DubstepAnalysis,
+  section: Quantum,
+  pools: Pools,
+  count: number,
+): Quantum[][] {
+  const beats = beatsInSection(analysis, section);
+  const barStarts = new Set((analysis.bars ?? []).map((bar) => bar.start));
+  const used = new Set<Quantum>();
+  const starts: number[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const start = bestWindow(beats, pools, barStarts, used);
+    if (start === null) {
+      break;
+    }
+    starts.push(start);
+    beats.slice(start, start + PHRASE_BEATS).forEach((beat) => used.add(beat));
+  }
+  if (starts.length === 0) {
+    return [cycle(beats, PHRASE_BEATS)];
+  }
+  return starts
+    .sort((a, b) => a - b)
+    .map((start) => beats.slice(start, start + PHRASE_BEATS));
+}
+
+// Beat pools for the section: tonic, +3 and +9, each falling back to the
+// fullest pool, then to any pitch, then to every beat of the section.
+function sectionPools(
   analysis: DubstepAnalysis,
   sectionIndex: number,
   tonic: number,
-  contiguous: boolean,
-): SourceSlice[] | null {
+): Pools | null {
   const find = (pitch: number) => searchSamples(analysis, sectionIndex, pitch);
-  let [s1, s2, s3] = [
+  const [s1, s2, s3] = [
     find(tonic),
     find((tonic + 3) % 12),
     find((tonic + 9) % 12),
@@ -304,32 +348,107 @@ function sectionSlices(
   if (biggest.length === 0) {
     biggest = beatsInSection(
       analysis,
-      analysis.sections[sectionIndex] as SourceSlice,
+      analysis.sections[sectionIndex] as Quantum,
     );
   }
   if (biggest.length === 0) {
     return null;
   }
-  s1 = s1.length > 0 ? s1 : biggest;
-  s2 = s2.length > 0 ? s2 : biggest;
-  s3 = s3.length > 0 ? s3 : biggest;
-  const bar: Quantum[] = [];
-  if (contiguous) {
-    const section = analysis.sections[sectionIndex] as Quantum;
-    const run = (pool: Quantum[], count: number) =>
-      contiguousRun(analysis, section, pool, count);
-    const phrase = [...run(s1, 8), ...run(s2, 4), ...run(s3, 4)];
-    for (let i = 0; i < 16; i += 1) {
-      bar.push(phrase[i % phrase.length] as Quantum);
-    }
-  } else {
-    for (let i = 0; i < 16; i += 1) {
-      const pool = i < 8 ? s1 : i < 12 ? s2 : s3;
+  return [
+    s1.length > 0 ? s1 : biggest,
+    s2.length > 0 ? s2 : biggest,
+    s3.length > 0 ? s3 : biggest,
+  ];
+}
+
+// Source beats for each of the section's `partCount` parts, 32 per part.
+// The original cycles through each pool in order and repeats one 16-beat
+// bar everywhere; `contiguous` instead walks the section phrase by phrase.
+function sectionParts(
+  analysis: DubstepAnalysis,
+  sectionIndex: number,
+  tonic: number,
+  partCount: number,
+  contiguous: boolean,
+): SourceSlice[][] | null {
+  const pools = sectionPools(analysis, sectionIndex, tonic);
+  if (!pools) {
+    return null;
+  }
+  if (!contiguous) {
+    const bar: Quantum[] = [];
+    for (let i = 0; i < PHRASE_BEATS; i += 1) {
+      const pool = i < 8 ? pools[0] : i < 12 ? pools[1] : pools[2];
       bar.push(pool[i % pool.length] as Quantum);
     }
+    const slices = [...bar, ...bar].map(wholeBeat);
+    return Array.from({ length: partCount }, () => slices);
   }
-  const slices = bar.map(wholeBeat);
-  return [...slices, ...slices];
+  const phrases = contiguousPhrases(
+    analysis,
+    analysis.sections[sectionIndex] as Quantum,
+    pools,
+    partCount * 2,
+  );
+  return Array.from({ length: partCount }, (_, part) =>
+    [
+      ...(phrases[(part * 2) % phrases.length] as Quantum[]),
+      ...(phrases[(part * 2 + 1) % phrases.length] as Quantum[]),
+    ].map(wholeBeat),
+  );
+}
+
+// Parts a section earns by length: under 12 bars a drop alone, under 24 bars
+// a drop and a break, longer sections two of each.
+function sectionPartCount(beatCount: number) {
+  if (beatCount < 48) {
+    return 1;
+  }
+  return beatCount < 96 ? 2 : 4;
+}
+
+const MIN_SECTION_BEATS = 16;
+const QUIET_SECTION_DB = 15;
+
+// Folds sections shorter than four bars into the section after them (the
+// last one into the section before it).
+function mergeShortSections(analysis: DubstepAnalysis): Quantum[] {
+  const merged: Quantum[] = [];
+  let pending: Quantum | null = null;
+  for (const section of analysis.sections) {
+    const combined: Quantum = pending
+      ? { start: pending.start, duration: end(section) - pending.start }
+      : section;
+    if (beatsInSection(analysis, combined).length < MIN_SECTION_BEATS) {
+      pending = combined;
+      continue;
+    }
+    merged.push(combined);
+    pending = null;
+  }
+  if (pending) {
+    const last = merged.pop();
+    merged.push(
+      last
+        ? { start: last.start, duration: end(pending) - last.start }
+        : pending,
+    );
+  }
+  return merged;
+}
+
+// Drops sections whose peak loudness sits well under the track's.
+function dropQuietSections(analysis: DubstepAnalysis): Quantum[] {
+  const reference = trackLoudness(analysis.segments);
+  return analysis.sections.filter((section) => {
+    const spanned = analysis.segments.filter(
+      (segment) => end(segment) > section.start && segment.start < end(section),
+    );
+    return (
+      spanned.length > 0 &&
+      trackLoudness(spanned) >= reference - QUIET_SECTION_DB
+    );
+  });
 }
 
 export type DubstepPlanOptions = {
@@ -337,12 +456,24 @@ export type DubstepPlanOptions = {
   contiguous?: boolean;
   // Pitch class (0 = C) to remix in; estimated from the track when omitted.
   tonic?: number;
+  // Size each section's share of the remix by its length instead of a fixed
+  // drop and break, folding very short sections into their neighbours.
+  sectionBudget?: boolean;
+  // Leave out sections far quieter than the track.
+  skipQuiet?: boolean;
 };
 
 export function planDubstepRemix(
-  analysis: DubstepAnalysis,
+  input: DubstepAnalysis,
   options: DubstepPlanOptions = {},
 ): DubstepPlan {
+  let analysis = input;
+  if (options.sectionBudget) {
+    analysis = { ...analysis, sections: mergeShortSections(analysis) };
+  }
+  if (options.skipQuiet) {
+    analysis = { ...analysis, sections: dropQuietSections(analysis) };
+  }
   const { sections, beats, segments, track } = analysis;
   const lastSegment = segments[segments.length - 1];
   const duration = track?.duration ?? (lastSegment ? end(lastSegment) : 0);
@@ -361,29 +492,33 @@ export function planDubstepRemix(
       mix: mixFactor(analysis, intro),
     },
   ];
-  sections.forEach((_, j) => {
-    const slices = sectionSlices(analysis, j, tonic, options.contiguous ?? false);
-    if (!slices) {
+  sections.forEach((section, j) => {
+    const partCount = options.sectionBudget
+      ? sectionPartCount(beatsInSection(analysis, section).length)
+      : 2;
+    const sectionSlices = sectionParts(
+      analysis,
+      j,
+      tonic,
+      partCount,
+      options.contiguous ?? false,
+    );
+    if (!sectionSlices) {
       return;
     }
-    const mix = mixFactor(analysis, slices);
     const splash = SPLASH_ORDER[(j + 1) % SPLASH_ORDER.length] as number;
-    parts.push(
-      {
-        kind: "drop",
-        label: `section ${j + 1} drop`,
-        samples: [`wubs/${key}`, splashName(splash)],
+    sectionSlices.forEach((slices, p) => {
+      const drop = p % 2 === 0;
+      parts.push({
+        kind: drop ? "drop" : "break",
+        label: `section ${j + 1} ${drop ? "drop" : "break"}`,
+        samples: drop
+          ? [`wubs/${key}`, splashName(splash)]
+          : [`break-ends/${key}`, "hats"],
         slices,
-        mix,
-      },
-      {
-        kind: "break",
-        label: `section ${j + 1} break`,
-        samples: [`break-ends/${key}`, "hats"],
-        slices,
-        mix,
-      },
-    );
+        mix: mixFactor(analysis, slices),
+      });
+    });
   });
   parts.push({
     kind: "ending",
