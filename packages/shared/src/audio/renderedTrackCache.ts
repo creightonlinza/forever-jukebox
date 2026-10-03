@@ -3,7 +3,7 @@ import type { StereoChannels } from "./audioResample";
 
 // Pre-rendered copies of a track, kept in Cache Storage under its id as
 // WebM/Opus. Browsers that cannot encode it store nothing and render each time.
-export type RenderedTrackKind = "instrumental" | "swing";
+export type RenderedTrackKind = "dubstep" | "instrumental" | "swing";
 
 export type RenderedTrackKey = {
   kind: RenderedTrackKind;
@@ -20,7 +20,11 @@ const WEBM_TYPE = "audio/webm";
 const BYTES_HEADER = "x-fj-bytes";
 const SIGNATURE_HEADER = "x-fj-signature";
 const STORED_AT_HEADER = "x-fj-stored-at";
-const KINDS: readonly RenderedTrackKind[] = ["instrumental", "swing"];
+const KINDS: readonly RenderedTrackKind[] = [
+  "dubstep",
+  "instrumental",
+  "swing",
+];
 // Entries come back through the decoder a few frames off; anything
 // further apart is a different recording under the same id.
 const FRAME_TOLERANCE = 0.001;
@@ -52,10 +56,11 @@ function trackUrl(kind: RenderedTrackKind, trackId: string) {
 }
 
 // Null unless a render of `frames` frames at `sampleRate` with the key's
-// signature is stored. Decoded channels come back at `sampleRate`.
+// signature is stored; a null `frames` accepts any length. Decoded channels
+// come back at `sampleRate`.
 export async function readRenderedTrack(
   { kind, trackId, signature = "" }: RenderedTrackKey,
-  frames: number,
+  frames: number | null,
   sampleRate: number,
 ): Promise<StereoChannels | null> {
   if (!hasCacheStorage()) {
@@ -70,6 +75,9 @@ export async function readRenderedTrack(
     return null;
   }
   const channels = await decodeToStereo(await response.arrayBuffer(), sampleRate);
+  if (frames === null) {
+    return channels;
+  }
   const tolerance = frames * FRAME_TOLERANCE + 1;
   return Math.abs(channels[0].length - frames) <= tolerance ? channels : null;
 }

@@ -12,6 +12,8 @@ export function VizInfo({
   playMode,
   autocanonizerMainSeconds,
   autocanonizerOtherSeconds,
+  wubMachineSeconds,
+  wubMachineDurationSeconds,
   trackDurationSeconds,
   listenSeconds,
   beatsLabel,
@@ -22,6 +24,8 @@ export function VizInfo({
   playMode: PlayMode;
   autocanonizerMainSeconds: number;
   autocanonizerOtherSeconds: number;
+  wubMachineSeconds: number;
+  wubMachineDurationSeconds: number;
   trackDurationSeconds: number;
   listenSeconds: number;
   beatsLabel: string;
@@ -29,6 +33,7 @@ export function VizInfo({
   bringItHomeMode: boolean;
 }) {
   const { t } = useTranslation();
+  const hideBeats = playMode !== "jukebox";
   return (
     <div className="viz-info">
       <div className="viz-title" id="viz-now-playing" ref={vizTitleRef}></div>
@@ -55,12 +60,22 @@ export function VizInfo({
             {formatTime(trackDurationSeconds)}
           </span>
         </span>
+        <span
+          id="wubmachine-times"
+          className={`autocanonizer-times ${playMode === "wubmachine" ? "" : "is-hidden"}`}
+        >
+          <span id="wubmachine-time">{formatTime(wubMachineSeconds)}</span>
+          <span aria-hidden="true">/</span>
+          <span id="wubmachine-total-time">
+            {formatTime(wubMachineDurationSeconds)}
+          </span>
+        </span>
         <span className="viz-meta-stats">
           <span>{t("listen.listenTime")}</span>
           <span>{formatDuration(listenSeconds)}</span>
-          <span className={`viz-divider ${playMode === "autocanonizer" ? "is-hidden" : ""}`}>·</span>
-          <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsLabel}</span>
-          <span className={playMode === "autocanonizer" ? "is-hidden" : ""}>{beatsPlayed}</span>
+          <span className={`viz-divider ${hideBeats ? "is-hidden" : ""}`}>·</span>
+          <span className={hideBeats ? "is-hidden" : ""}>{beatsLabel}</span>
+          <span className={hideBeats ? "is-hidden" : ""}>{beatsPlayed}</span>
         </span>
         {playMode === "jukebox" && bringItHomeMode ? (
           <span className="bring-home-fullscreen-note">· Bringing it on home</span>

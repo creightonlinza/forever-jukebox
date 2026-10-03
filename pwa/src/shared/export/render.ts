@@ -50,7 +50,7 @@ function createOfflineContext(
   }
 }
 
-function createOutputBuffer(
+export function createOutputBuffer(
   channels: number,
   length: number,
   sampleRate: number,
@@ -70,7 +70,7 @@ function createOutputBuffer(
   }
 }
 
-function clampGain(value: number): number {
+export function clampGain(value: number): number {
   if (!Number.isFinite(value)) {
     return 1;
   }

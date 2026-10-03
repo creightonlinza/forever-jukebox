@@ -1,6 +1,7 @@
 import React from "react";
 import type { AutocanonizerController } from "@forever-jukebox/shared/autocanonizer/AutocanonizerController";
 import type { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
+import type { WubMachineController } from "@forever-jukebox/shared/wubmachine/WubMachineController";
 import type { PlayMode } from "./types";
 import { useWakeLock } from "./useWakeLock";
 
@@ -10,11 +11,13 @@ export function useFullscreenSession({
   vizPanelRef,
   vizControllerRef,
   autocanonizerRef,
+  wubmachineRef,
   playModeRef,
 }: {
   vizPanelRef: React.RefObject<HTMLDivElement>;
   vizControllerRef: React.RefObject<JukeboxController>;
   autocanonizerRef: React.RefObject<AutocanonizerController>;
+  wubmachineRef: React.RefObject<WubMachineController>;
   playModeRef: React.MutableRefObject<PlayMode>;
 }) {
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -38,6 +41,8 @@ export function useFullscreenSession({
       setIsFullscreen(active);
       if (playModeRef.current === "autocanonizer") {
         autocanonizerRef.current?.resizeNow();
+      } else if (playModeRef.current === "wubmachine") {
+        wubmachineRef.current?.resizeNow();
       } else {
         vizControllerRef.current?.resizeActive();
       }

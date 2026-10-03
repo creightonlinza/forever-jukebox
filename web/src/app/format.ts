@@ -62,6 +62,9 @@ export function formatPlaybackTitle(
   if (playMode === "autocanonizer") {
     return `${baseTitle} (${i18n.t("playback.autocanonized")})`;
   }
+  if (playMode === "wubmachine") {
+    return `${baseTitle} (${i18n.t("playback.wubMachineRemix")})`;
+  }
   if (audioMode !== "off") {
     return `${baseTitle} (${formatAudioModeLabel(audioMode)})`;
   }

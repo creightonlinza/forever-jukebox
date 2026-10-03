@@ -171,7 +171,7 @@ class FavoriteTrack(BaseModel):
     tuningParams: str | None = None
     # Play mode the track was favorited in; absent/None on legacy favorites,
     # which predate autocanonizer favorites and are treated as jukebox.
-    playMode: Literal["jukebox", "autocanonizer"] | None = None
+    playMode: Literal["jukebox", "autocanonizer", "wubmachine"] | None = None
 
     # The model enumerates every field the client persists, so unknown keys are
     # dropped rather than stored verbatim. Adding a new favorite field requires

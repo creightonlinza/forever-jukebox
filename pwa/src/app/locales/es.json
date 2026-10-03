@@ -116,7 +116,15 @@
     "preparingInstrumentalPercent": "Preparando modo Instrumental: {{percent}}%",
     "closeExportDialog": "Cerrar diálogo de exportación",
     "closeTuningDialog": "Cerrar diálogo de ajuste",
-    "closeTrackInfoDialog": "Cerrar diálogo de información de pista"
+    "closeTrackInfoDialog": "Cerrar diálogo de información de pista",
+    "wubMachine": "Wub Machine",
+    "wubMachineRemix": "remix de Wub Machine",
+    "preparingWubMachine": "Creando el remix de Wub Machine",
+    "preparingWubMachineEllipsis": "Creando el remix de Wub Machine...",
+    "preparingWubMachinePercent": "Creando el remix de Wub Machine: {{percent}}%",
+    "buildingWubMachine": "Troceando la pista en drops y breaks...",
+    "wubMachineFailed": "El remix de Wub Machine falló. Pulsa reproducir para reintentar.",
+    "loopTrack": "Repetir la canción"
   },
   "audioModes": {
     "playbackStyles": "Estilos de reproducción",
@@ -231,7 +239,10 @@
     "saveDialogFailed": "No se pudo abrir el diálogo para guardar el archivo.",
     "swingNeedsBeats": "Un archivo con Swing añadido requiere análisis de beats.",
     "failed": "No se pudo exportar el audio.",
-    "wavTooLarge": "El archivo exportado en WAV es demasiado grande para la memoria de tu navegador con esta duración. Prefiere exportar en MP3 para estos casos."
+    "wavTooLarge": "El archivo exportado en WAV es demasiado grande para la memoria de tu navegador con esta duración. Prefiere exportar en MP3 para estos casos.",
+    "wubMachineNote": "Exporta el remix completo de Wub Machine con el volumen actual.",
+    "remixLength": "Duración del remix:",
+    "preparingWubMachine": "Creando el remix de Wub Machine"
   },
   "faq": {
     "whatTitle": "¿Qué es Forever Jukebox?",

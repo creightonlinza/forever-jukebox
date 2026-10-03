@@ -116,7 +116,15 @@
     "preparingInstrumentalPercent": "Bereite Instrumental-Modus vor: {{percent}}%",
     "closeExportDialog": "Export-Panel schließen",
     "closeTuningDialog": "Tuning-Panel schließen",
-    "closeTrackInfoDialog": "Song-Info-Panel schließen"
+    "closeTrackInfoDialog": "Song-Info-Panel schließen",
+    "wubMachine": "Wub Machine",
+    "wubMachineRemix": "Wub-Machine-Remix",
+    "preparingWubMachine": "Wub-Machine-Remix wird erstellt",
+    "preparingWubMachineEllipsis": "Wub-Machine-Remix wird erstellt...",
+    "preparingWubMachinePercent": "Wub-Machine-Remix wird erstellt: {{percent}}%",
+    "buildingWubMachine": "Der Song wird in Drops und Breaks zerlegt...",
+    "wubMachineFailed": "Wub-Machine-Remix fehlgeschlagen. Zum erneuten Versuch auf Play drücken.",
+    "loopTrack": "Song wiederholen"
   },
   "audioModes": {
     "playbackStyles": "Wiedergabestile",
@@ -231,7 +239,10 @@
     "saveDialogFailed": "Dateispeicher-Dialog konnte nicht geöffnet werden.",
     "swingNeedsBeats": "Swing-Export erfordert Beat-Analyse.",
     "failed": "Audio-Export fehlgeschlagen.",
-    "wavTooLarge": "WAV-Export ist für den Browser-Speicher bei dieser Dauer zu groß. Verwende MP3 für lange Exporte."
+    "wavTooLarge": "WAV-Export ist für den Browser-Speicher bei dieser Dauer zu groß. Verwende MP3 für lange Exporte.",
+    "wubMachineNote": "Exportiert den gesamten Wub-Machine-Remix mit der aktuellen Lautstärke.",
+    "remixLength": "Remix-Länge:",
+    "preparingWubMachine": "Wub-Machine-Remix wird erstellt"
   },
   "faq": {
     "whatTitle": "Was ist die Forever Jukebox?",

@@ -29,6 +29,9 @@ export function formatTrackTitle(
   if (playMode === "autocanonizer") {
     return `${baseTitle} (${t("listen.autocanonized")})`;
   }
+  if (playMode === "wubmachine") {
+    return `${baseTitle} (${t("listen.wubMachineRemix")})`;
+  }
   if (audioMode !== "off") {
     return `${baseTitle} (${formatAudioModeTitleLabel(audioMode, t)})`;
   }
@@ -66,7 +69,7 @@ export function analysisStageLabel(stage: AnalyzeStage, t: TFunction) {
   return t(keys[normalizedStage]);
 }
 
-export type PreparingAudioMode = "swing" | "instrumental" | null;
+export type PreparingAudioMode = "swing" | "instrumental" | "wubmachine" | null;
 
 export function playControlText({
   preparingMode,
@@ -84,6 +87,9 @@ export function playControlText({
   }
   if (preparingMode === "swing") {
     return t("listen.preparingSwing");
+  }
+  if (preparingMode === "wubmachine") {
+    return t("listen.preparingWubMachine");
   }
   if (isRunning) {
     return t("listen.pause");

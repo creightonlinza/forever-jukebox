@@ -1,4 +1,4 @@
-import type { TabId } from "./context";
+import type { PlayMode, TabId } from "./context";
 import { serializeParams } from "./tuning";
 
 export type FaqSubtabId = "faq" | "whats-new";
@@ -36,7 +36,7 @@ export function urlForTrack(
   trackId: string,
   baseUrl: string,
   tuningParams?: string | null,
-  playMode?: "jukebox" | "autocanonizer",
+  playMode?: PlayMode,
 ) {
   const url = new URL(pathForTrack(trackId, tuningParams, playMode), baseUrl);
   return url.toString();
@@ -49,7 +49,7 @@ export function pathForFaqSubtab(subtabId: FaqSubtabId) {
 export function pathForTrack(
   trackId: string,
   tuningParams?: string | null,
-  playMode?: "jukebox" | "autocanonizer",
+  playMode?: PlayMode,
 ) {
   return `${pathForTab("play", trackId)}${buildSearchParams(
     tuningParams,
@@ -59,14 +59,14 @@ export function pathForTrack(
 
 export function buildSearchParams(
   tuningParams?: string | null,
-  playMode?: "jukebox" | "autocanonizer",
+  playMode?: PlayMode,
 ) {
   const params =
-    playMode === "autocanonizer"
+    playMode && playMode !== "jukebox"
       ? new URLSearchParams()
       : new URLSearchParams(tuningParams ?? "");
-  if (playMode === "autocanonizer") {
-    params.set("mode", "autocanonizer");
+  if (playMode && playMode !== "jukebox") {
+    params.set("mode", playMode);
   } else {
     params.delete("mode");
   }

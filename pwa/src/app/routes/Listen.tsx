@@ -44,6 +44,11 @@ import {
   createToastQueue,
 } from "@forever-jukebox/shared/ui/toastQueue";
 import { AutocanonizerController } from "@forever-jukebox/shared/autocanonizer/AutocanonizerController";
+import { WubMachineController } from "@forever-jukebox/shared/wubmachine/WubMachineController";
+import {
+  renderWubMachineBuffer,
+  type WubMachineRender,
+} from "@forever-jukebox/shared/wubmachine/wubMachineRender";
 import { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
 import type { ProgressStep } from "@/ui/components/ProgressSteps";
@@ -62,10 +67,12 @@ import {
   resolveStoredBranchStatsEnabled,
   resolveStoredFinishOutSong,
   resolveStoredVisualizationIndex,
+  resolveStoredWubMachineLoop,
   storeAnchorHighlight,
   storeBranchStatsEnabled,
   storeFinishOutSong,
   storeVisualizationIndex,
+  storeWubMachineLoop,
 } from "./listen/preferences";
 import {
   STEP_ORDER,
@@ -104,6 +111,12 @@ import { useListenHotkeys } from "./listen/useListenHotkeys";
 import { useSleepTimer } from "./listen/useSleepTimer";
 import { useVizPopovers } from "./listen/useVizPopovers";
 
+const VIZ_CLASS_NAMES: Record<PlayMode, string> = {
+  jukebox: "",
+  autocanonizer: "is-canonizer",
+  wubmachine: "is-wubmachine",
+};
+
 export function Listen({ isActive = true }: { isActive?: boolean }) {
   const { t } = useTranslation();
   const {
@@ -135,6 +148,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     React.useState(0);
   const [autocanonizerMainPan, setAutocanonizerMainPan] = React.useState(0);
   const [autocanonizerOtherPan, setAutocanonizerOtherPan] = React.useState(0);
+  const [wubMachineSeconds, setWubMachineSeconds] = React.useState(0);
+  const [wubMachineDurationSeconds, setWubMachineDurationSeconds] =
+    React.useState(0);
+  const [loopTrack, setLoopTrack] = React.useState<boolean>(() =>
+    resolveStoredWubMachineLoop(),
+  );
   const [selectedEdge, setSelectedEdge] = React.useState<Edge | null>(null);
   const [isTuningOpen, setIsTuningOpen] = React.useState(false);
   const [isInfoOpen, setIsInfoOpen] = React.useState(false);
@@ -201,8 +220,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const vizPanelRef = React.useRef<HTMLDivElement | null>(null);
   const vizLayerRef = React.useRef<HTMLDivElement | null>(null);
   const canonizerLayerRef = React.useRef<HTMLDivElement | null>(null);
+  const wubMachineLayerRef = React.useRef<HTMLDivElement | null>(null);
   const vizControllerRef = React.useRef<JukeboxController | null>(null);
   const autocanonizerRef = React.useRef<AutocanonizerController | null>(null);
+  const wubmachineRef = React.useRef<WubMachineController | null>(null);
+  // The loaded track's remix, kept across mode switches until the track changes.
+  const wubMachineRenderRef = React.useRef<WubMachineRender | null>(null);
+  const wubMachineAbortRef = React.useRef<AbortController | null>(null);
   const engineRef = React.useRef<JukeboxEngine | null>(null);
   const playerRef = React.useRef<BufferedAudioPlayer | null>(null);
   const cowbellOverlayRef = React.useRef<CowbellOverlayService | null>(null);
@@ -244,6 +268,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       vizPanelRef,
       vizControllerRef,
       autocanonizerRef,
+      wubmachineRef,
       playModeRef,
     });
   const {
@@ -263,10 +288,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     analysisRef,
     playerRef,
     engineRef,
+    playMode,
     jukeboxAudioMode,
     audioIntensity,
     getSourceIdentity: getCurrentSourceIdentity,
     getRenderedTrackId: () => fingerprintRef.current,
+    getWubMachineRender: () => wubMachineRenderRef.current,
+    renderWubMachine: renderWubMachineForExport,
     t,
   });
 
@@ -296,6 +324,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   function stopPreparing() {
     renderTokenRef.current += 1;
     cancelInstrumentalRender();
+    wubMachineAbortRef.current?.abort();
+    wubMachineAbortRef.current = null;
     setPreparingState(null);
   }
 
@@ -330,6 +360,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setBeatsPlayed(0);
     setAutocanonizerMainSeconds(0);
     setAutocanonizerOtherSeconds(0);
+    setWubMachineSeconds(0);
   }
 
   function clearSelectedBranch() {
@@ -394,13 +425,19 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [activeVizIndex]);
 
   React.useEffect(() => {
-    if (!vizLayerRef.current || !canonizerLayerRef.current) {
+    if (
+      !vizLayerRef.current ||
+      !canonizerLayerRef.current ||
+      !wubMachineLayerRef.current
+    ) {
       return;
     }
     const controller = new JukeboxController(vizLayerRef.current);
     const autocanonizer = new AutocanonizerController(canonizerLayerRef.current);
+    const wubmachine = new WubMachineController(wubMachineLayerRef.current);
     vizControllerRef.current = controller;
     autocanonizerRef.current = autocanonizer;
+    wubmachineRef.current = wubmachine;
 
     controller.setActiveIndex(activeVizIndex);
     controller.setVisible(playModeRef.current === "jukebox");
@@ -430,9 +467,40 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       startAutocanonizerPlayback(index, { resetSession: false });
     });
 
+    wubmachine.setVisible(playModeRef.current === "wubmachine");
+    wubmachine.setLoop(loopTrack);
+    wubmachine.setVolume(playerRef.current?.getVolume() ?? 1);
+    wubmachine.setOnTick((seconds) => {
+      // Fires every frame; the display only changes once a second.
+      setWubMachineSeconds((prev) =>
+        prev === Math.floor(seconds) ? prev : Math.floor(seconds),
+      );
+    });
+    wubmachine.setOnEnded(() => {
+      if (!isRunningRef.current) {
+        return;
+      }
+      stopPlayback();
+    });
+    wubmachine.setOnSelect((seconds) => {
+      if (playModeRef.current !== "wubmachine") {
+        return;
+      }
+      startWubMachinePlayback(seconds, { resetSession: false });
+    });
+    const render = wubMachineRenderRef.current;
+    if (render) {
+      wubmachine.setRemix(
+        render.buffer,
+        playerRef.current?.getContext() ?? null,
+        render.parts,
+      );
+    }
+
     const resizeObserver = new ResizeObserver(() => {
       controller.resizeActive();
       autocanonizer.resizeNow();
+      wubmachine.resizeNow();
     });
     resizeObserver.observe(vizPanelRef.current ?? vizLayerRef.current);
 
@@ -440,8 +508,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       resizeObserver.disconnect();
       controller.destroy();
       autocanonizer.destroy();
+      wubmachine.destroy();
       vizControllerRef.current = null;
       autocanonizerRef.current = null;
+      wubmachineRef.current = null;
     };
   }, [file]);
 
@@ -471,12 +541,20 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     playModeRef.current = playMode;
     vizControllerRef.current?.setVisible(playMode === "jukebox");
     autocanonizerRef.current?.setVisible(playMode === "autocanonizer");
+    wubmachineRef.current?.setVisible(playMode === "wubmachine");
     if (playMode === "autocanonizer") {
       autocanonizerRef.current?.resizeNow();
+    } else if (playMode === "wubmachine") {
+      wubmachineRef.current?.resizeNow();
     } else {
       vizControllerRef.current?.resizeActive();
     }
   }, [playMode]);
+
+  React.useEffect(() => {
+    storeWubMachineLoop(loopTrack);
+    wubmachineRef.current?.setLoop(loopTrack);
+  }, [loopTrack]);
 
   React.useEffect(() => {
     storeFinishOutSong(finishOutSong);
@@ -516,6 +594,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engineRef.current?.setPlayVelocity(1);
     engineRef.current?.setBringItHomeMode(false);
     autocanonizerRef.current?.stop();
+    stopPreparing();
+    wubMachineRenderRef.current = null;
+    wubmachineRef.current?.setRemix(null, null);
+    setWubMachineDurationSeconds(0);
     resetPlaybackSessionMetrics();
     setIsRunning(false);
     setIsPaused(false);
@@ -560,7 +642,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         });
         setAnalysis(result.analysis);
         setReadyFileKey(fileKey);
-        await playerRef.current?.loadBuffer(result.audioBuffer);
+        playerRef.current?.loadBuffer(result.audioBuffer);
         autocanonizerRef.current?.setAudio(
           playerRef.current?.getSourceBuffer() ?? null,
           playerRef.current?.getContext() ?? null
@@ -578,6 +660,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           playerRef.current?.setJukeboxAudioMode("instrumental");
           maybePrepareInstrumentalMode();
         }
+        maybePrepareWubMachine();
       })
       .catch((err) => {
         if (cancelled) {
@@ -618,6 +701,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       playerRef.current?.stop();
       autocanonizerRef.current?.resetVisualization();
     }
+    wubmachineRef.current?.stop();
     engineRef.current?.stopJukebox();
     engineRef.current?.resetStats();
     resetPlaybackSessionMetrics();
@@ -664,15 +748,22 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (isRunningRef.current || isPausedRef.current) {
       stopPlayback();
     }
+    if (playModeRef.current === "wubmachine") {
+      cancelWubMachineRender();
+    }
     playModeRef.current = mode;
     setPlayMode(mode);
     setAutocanonizerMainSeconds(0);
     setAutocanonizerOtherSeconds(0);
-    if (mode === "autocanonizer") {
+    setWubMachineSeconds(0);
+    if (mode !== "jukebox") {
       setIsTuningOpen(false);
       setIsInfoOpen(false);
       setTuningActiveTab("tuning");
       clearSelectedBranch();
+    }
+    if (mode === "wubmachine") {
+      maybePrepareWubMachine();
     }
   };
 
@@ -861,6 +952,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }
 
   function isPlaybackBlockedForAudioMode() {
+    if (playModeRef.current === "wubmachine") {
+      return preparingModeRef.current === "wubmachine";
+    }
     return (
       playModeRef.current === "jukebox" &&
       preparingModeRef.current !== null &&
@@ -868,14 +962,117 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     );
   }
 
+  function preparingToastKey() {
+    if (playModeRef.current === "wubmachine") {
+      return "listen.preparingWubMachineEllipsis" as const;
+    }
+    return jukeboxAudioMode === "instrumental"
+      ? ("listen.preparingInstrumentalEllipsis" as const)
+      : ("listen.preparingSwingEllipsis" as const);
+  }
+
   function showPreparingToast() {
-    showShortcutToast(
-      t(
-        jukeboxAudioMode === "instrumental"
-          ? "listen.preparingInstrumentalEllipsis"
-          : "listen.preparingSwingEllipsis",
-      ),
+    showShortcutToast(t(preparingToastKey()));
+  }
+
+  // Stops a Wub Machine render in flight; a finished remix is kept.
+  function cancelWubMachineRender() {
+    if (!wubMachineAbortRef.current) {
+      return;
+    }
+    wubMachineAbortRef.current.abort();
+    wubMachineAbortRef.current = null;
+    if (preparingModeRef.current === "wubmachine") {
+      setPreparingState(null);
+    }
+  }
+
+  // Renders the loaded track's remix once, while Wub Machine mode is selected.
+  function maybePrepareWubMachine() {
+    const player = playerRef.current;
+    const sourceBuffer = player?.getSourceBuffer();
+    if (
+      playModeRef.current !== "wubmachine" ||
+      !player ||
+      !sourceBuffer ||
+      !analysisRef.current ||
+      wubMachineRenderRef.current ||
+      wubMachineAbortRef.current
+    ) {
+      return;
+    }
+    const abort = new AbortController();
+    wubMachineAbortRef.current = abort;
+    const renderToken = renderTokenRef.current + 1;
+    renderTokenRef.current = renderToken;
+    setPreparingState("wubmachine");
+    const isStale = () =>
+      wubMachineAbortRef.current !== abort ||
+      renderTokenRef.current !== renderToken;
+
+    renderWubMachineBuffer(sourceBuffer, player.getContext(), analysisRef.current, {
+      trackId: fingerprintRef.current,
+      signal: abort.signal,
+      onProgress: (progress) => {
+        if (!isStale()) {
+          setPreparingProgress(
+            Math.max(0, Math.min(100, Math.round(progress * 100))),
+          );
+        }
+      },
+    })
+      .then((render) => {
+        if (isStale()) {
+          return;
+        }
+        wubMachineAbortRef.current = null;
+        wubMachineRenderRef.current = render;
+        wubmachineRef.current?.setRemix(
+          render.buffer,
+          player.getContext(),
+          render.parts,
+        );
+        setWubMachineSeconds(0);
+        setWubMachineDurationSeconds(render.buffer.duration);
+        setPreparingState(null);
+      })
+      .catch((err: unknown) => {
+        if (isStale()) {
+          return;
+        }
+        wubMachineAbortRef.current = null;
+        console.warn(`Wub Machine render failed: ${String(err)}`);
+        setPreparingState(null);
+        showShortcutToast(t("listen.wubMachineFailed"));
+      });
+  }
+
+  // Export renders a fresh copy when it must not reuse the stored one.
+  async function renderWubMachineForExport(
+    storeCopy: boolean,
+    onProgress: (progress: number) => void,
+  ) {
+    const player = playerRef.current;
+    const sourceBuffer = player?.getSourceBuffer();
+    if (!player || !sourceBuffer || !analysisRef.current) {
+      throw new Error("Wub Machine export needs a loaded track.");
+    }
+    const render = await renderWubMachineBuffer(
+      sourceBuffer,
+      player.getContext(),
+      analysisRef.current,
+      { trackId: storeCopy ? fingerprintRef.current : null, onProgress },
     );
+    if (!wubMachineRenderRef.current) {
+      wubMachineRenderRef.current = render;
+      wubmachineRef.current?.setRemix(
+        render.buffer,
+        player.getContext(),
+        render.parts,
+      );
+      setWubMachineDurationSeconds(render.buffer.duration);
+    }
+    return render;
   }
 
   function maybePrepareSwingMode() {
@@ -1049,6 +1246,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (playModeRef.current === "autocanonizer") {
       autocanonizerRef.current?.stop();
       player.stop();
+    } else if (playModeRef.current === "wubmachine") {
+      wubmachineRef.current?.pause();
     } else {
       engine.pauseJukebox();
       engine.syncToPlaybackPosition();
@@ -1107,11 +1306,53 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       startAutocanonizerPlayback(startIndex, { resetSession: !isPaused });
       return;
     }
+    if (playMode === "wubmachine") {
+      startWubMachinePlayback(null, { resetSession: !isPaused });
+      return;
+    }
     if (isPaused) {
       startJukeboxPlayback(false);
       return;
     }
     startJukeboxPlayback(true);
+  };
+
+  // Plays the remix from `seconds`, or from the paused position (the start
+  // after a stop) when `seconds` is null.
+  const startWubMachinePlayback = (
+    seconds: number | null,
+    options?: { resetSession?: boolean },
+  ) => {
+    const wubmachine = wubmachineRef.current;
+    const player = playerRef.current;
+    if (!wubmachine || !player) {
+      return false;
+    }
+    if (isPlaybackBlockedForAudioMode()) {
+      showPreparingToast();
+      return false;
+    }
+    if (!wubmachine.isReady()) {
+      maybePrepareWubMachine();
+      return false;
+    }
+    const resetSession = options?.resetSession ?? true;
+    player.stop();
+    cowbellOverlayRef.current?.cancelScheduledHits();
+    engineRef.current?.stopJukebox();
+    if (resetSession) {
+      resetPlaybackSessionMetrics();
+    }
+    wubmachine.play(seconds ?? undefined);
+    if (resetSession || !isRunningRef.current) {
+      lastPlayStampRef.current = performance.now();
+    }
+    isRunningRef.current = true;
+    isPausedRef.current = false;
+    setIsRunning(true);
+    setIsPaused(false);
+    requestWakeLockIfFullscreen();
+    return true;
   };
 
   const startFromBeat = (index: number, analysisData?: AnalysisOutput | null) => {
@@ -1285,6 +1526,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const volume = tuneForm.volume / 100;
     player.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
+    wubmachineRef.current?.setVolume(volume);
     cowbellOverlayRef.current?.setVolume(volume);
     syncTuneFormFromEngine(tuneForm.highlightAnchorBranch);
     persistCurrentTuning();
@@ -1423,6 +1665,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     const volume = value / 100;
     playerRef.current?.setVolume(volume);
     autocanonizerRef.current?.setVolume(volume);
+    wubmachineRef.current?.setVolume(volume);
     cowbellOverlayRef.current?.setVolume(volume);
   };
 
@@ -1440,7 +1683,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   };
 
   const onSetActiveViz = (index: number) => {
-    if (playMode === "autocanonizer") {
+    if (playMode !== "jukebox") {
       return;
     }
     const count = vizControllerRef.current?.getCount() ?? 1;
@@ -1581,7 +1824,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       ) : null}
 
       <div id="viz-panel" ref={vizPanelRef} hidden={!showPlaybackUi}>
-        <div id="jukebox-viz" className={`viz ${playMode === "autocanonizer" ? "is-canonizer" : ""}`}>
+        <div id="jukebox-viz" className={`viz ${VIZ_CLASS_NAMES[playMode]}`}>
           {branchStats ? (
             <BranchStatsPopup
               stats={branchStats}
@@ -1597,6 +1840,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
             onActiveVizChange={onSetActiveViz}
             finishOutSong={finishOutSong}
             onFinishOutSongChange={setFinishOutSong}
+            loopTrack={loopTrack}
+            onLoopTrackChange={setLoopTrack}
           />
           {forceBranchActive || freezeBeatActive ? (
             <div className="modifier-badges" role="status" aria-live="polite">
@@ -1614,6 +1859,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           ) : null}
           <div id="viz-layer" className="viz-layer" ref={vizLayerRef} />
           <div id="canonizer-layer" className="canonizer-layer" ref={canonizerLayerRef} />
+          <div id="wubmachine-layer" className="wubmachine-layer" ref={wubMachineLayerRef} />
           <div className="viz-bottom" id="viz-stats">
             <div className="viz-bottom-left">
               <button
@@ -1635,6 +1881,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
                 playMode={playMode}
                 autocanonizerMainSeconds={autocanonizerMainSeconds}
                 autocanonizerOtherSeconds={autocanonizerOtherSeconds}
+                wubMachineSeconds={wubMachineSeconds}
+                wubMachineDurationSeconds={wubMachineDurationSeconds}
                 trackDurationSeconds={analysis?.track?.duration ?? 0}
                 listenSeconds={listenSeconds}
                 beatsLabel={beatsLabel}
@@ -1694,6 +1942,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           error={exportError}
           onClose={closeExport}
           onExport={handleExportJukeboxAudio}
+          playMode={playMode}
+          remixDurationSeconds={wubMachineDurationSeconds}
         />
       ) : null}
 

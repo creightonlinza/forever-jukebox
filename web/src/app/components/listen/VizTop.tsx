@@ -1,12 +1,18 @@
 import { useState } from "react";
-import { CANONIZER_FINISH_KEY, VISUALIZATION_LABELS } from "../../constants";
+import {
+  CANONIZER_FINISH_KEY,
+  VISUALIZATION_LABELS,
+  WUB_MACHINE_LOOP_KEY,
+} from "../../constants";
 import { trackEvent } from "../../analytics";
 import { getAppContext } from "../../runtime";
+import type { PlayMode } from "../../context";
 import { useAppStore } from "../../store";
 import {
   setActiveVisualization,
   setCanonizerFinish,
   setPlayMode,
+  setWubMachineLoop,
 } from "../../playback-ui";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -25,8 +31,8 @@ function getVisualizationSelectEntries(count: number, t: TFunction) {
   );
 }
 
-// The viz-top controls: play-mode select, visualization select and the
-// autocanonizer finish-out checkbox. Rendered into the .viz-top container.
+// The viz-top controls: play-mode select, visualization select, the
+// autocanonizer finish-out checkbox and the Wub Machine loop checkbox. Rendered into the .viz-top container.
 export function VizTop() {
   const { t } = useTranslation();
   const playMode = useAppStore((s) => s.playMode);
@@ -37,11 +43,14 @@ export function VizTop() {
   const [finishOutSong, setFinishOutSong] = useState(
     () => localStorage.getItem(CANONIZER_FINISH_KEY) === "true",
   );
+  const [loopTrack, setLoopTrack] = useState(
+    () => localStorage.getItem(WUB_MACHINE_LOOP_KEY) === "true",
+  );
 
   const vizSelectDisabled =
     !(audioLoaded && analysisLoaded) ||
     audioModePreparing ||
-    playMode === "autocanonizer";
+    playMode !== "jukebox";
   // On the very first render the controllers are not constructed yet (the
   // ref handoff happens at commit); fall back to the static label count.
   const entries = getVisualizationSelectEntries(
@@ -59,16 +68,11 @@ export function VizTop() {
               className="viz-select"
               aria-label={t("playback.mode")}
               value={playMode}
-              onChange={(event) =>
-                setPlayMode(
-                  event.target.value === "autocanonizer"
-                    ? "autocanonizer"
-                    : "jukebox",
-                )
-              }
+              onChange={(event) => setPlayMode(event.target.value as PlayMode)}
             >
               <option value="autocanonizer">{t("playback.autocanonizer")}</option>
               <option value="jukebox">{t("playback.jukebox")}</option>
+              <option value="wubmachine">{t("playback.wubMachine")}</option>
             </select>
             <span
               className="material-symbols-outlined viz-select-arrow"
@@ -126,6 +130,18 @@ export function VizTop() {
           }}
         />
         <span>{t("playback.finishTrack")}</span>
+      </label>
+      <label className="wubmachine-loop">
+        <input
+          type="checkbox"
+          id="wubmachine-loop"
+          checked={loopTrack}
+          onChange={(event) => {
+            setLoopTrack(event.target.checked);
+            setWubMachineLoop(event.target.checked);
+          }}
+        />
+        <span>{t("playback.loopTrack")}</span>
       </label>
     </>
   );

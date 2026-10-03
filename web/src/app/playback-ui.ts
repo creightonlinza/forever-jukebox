@@ -3,17 +3,21 @@ import type { Edge } from "@forever-jukebox/shared/types";
 import {
   CANONIZER_FINISH_KEY,
   VIZ_STORAGE_KEY,
+  WUB_MACHINE_LOOP_KEY,
   visualizationSeparatesPairedEdges,
 } from "./constants";
 import { trackEvent } from "./analytics";
 import { formatErrorForDisplay } from "./errorDisplay";
 import { formatDuration } from "./format";
-import type { AppContext } from "./context";
+import type { AppContext, PlayMode } from "./context";
 import {
   applyExtrasChanges,
+  cancelWubMachineRender,
+  maybePrepareWubMachine,
   openExtras,
   startAutocanonizerPlayback,
   startJukeboxFromBeat,
+  startWubMachinePlayback,
   stopPlayback,
   syncDeletedEdgeState,
   togglePlayback,
@@ -153,7 +157,7 @@ export function initializePlayback(): void {
     if (!context) {
       return;
     }
-    const { autocanonizer, engine, jukebox, player } = context;
+    const { autocanonizer, engine, jukebox, player, wubmachine } = context;
     setPlayMode("jukebox");
     setBringItHomeMode(useAppStore.getState().bringItHomeMode);
     syncExtrasPopup(null);
@@ -192,7 +196,8 @@ export function initializePlayback(): void {
         autocanonizerOtherSeconds: cursorTimes.otherSeconds,
       });
     });
-    autocanonizer.setOnEnded(() => {
+    // A track that plays to its end hands over to the next playlist track.
+    const handleLinearTrackEnded = () => {
       if (!useAppStore.getState().isRunning) {
         return;
       }
@@ -208,12 +213,29 @@ export function initializePlayback(): void {
             stopPlayback(context);
           }
         });
-    });
+    };
+    autocanonizer.setOnEnded(handleLinearTrackEnded);
     autocanonizer.setOnSelect((index) => {
       if (useAppStore.getState().playMode !== "autocanonizer") {
         return;
       }
       startAutocanonizerPlayback(context, index, { resetSession: false });
+    });
+
+    wubmachine.setLoop(localStorage.getItem(WUB_MACHINE_LOOP_KEY) === "true");
+    wubmachine.setOnTick((seconds) => {
+      // Fires every frame; the display only changes once a second.
+      const wubMachineSeconds = Math.floor(seconds);
+      if (useAppStore.getState().wubMachineSeconds !== wubMachineSeconds) {
+        useAppStore.setState({ wubMachineSeconds });
+      }
+    });
+    wubmachine.setOnEnded(handleLinearTrackEnded);
+    wubmachine.setOnSelect((seconds) => {
+      if (useAppStore.getState().playMode !== "wubmachine") {
+        return;
+      }
+      startWubMachinePlayback(context, seconds, { resetSession: false });
     });
 
     engine.onUpdate((engineState) => {
@@ -278,6 +300,15 @@ export function setCanonizerFinish(checked: boolean): void {
     const { autocanonizer } = context;
     localStorage.setItem(CANONIZER_FINISH_KEY, String(checked));
     autocanonizer.setFinishOutSong(checked);
+  }
+
+export function setWubMachineLoop(checked: boolean): void {
+    const context = getAttachedAppContext();
+    if (!context) {
+      return;
+    }
+    localStorage.setItem(WUB_MACHINE_LOOP_KEY, String(checked));
+    context.wubmachine.setLoop(checked);
   }
 
   function selectAdjacentBranch(direction: -1 | 1) {
@@ -381,7 +412,7 @@ export function handleKeydown(event: KeyboardEvent): void {
       openExtras(context);
       return;
     }
-    if (useAppStore.getState().playMode === "autocanonizer") {
+    if (useAppStore.getState().playMode !== "jukebox") {
       return;
     }
     if ((event.key === "h" || event.key === "H") && !event.repeat) {
@@ -487,7 +518,7 @@ export function handleKeyup(event: KeyboardEvent): void {
       engine.setFreezeCurrentBeat(false);
       useAppStore.setState({ freezeBeat: false });
     }
-    if (useAppStore.getState().playMode === "autocanonizer") {
+    if (useAppStore.getState().playMode !== "jukebox") {
       return;
     }
     if (event.key === "Shift" && useAppStore.getState().shiftBranching) {
@@ -515,7 +546,7 @@ export function handleBeatSelect(index: number): void {
       return;
     }
     const { jukebox } = context;
-    if (useAppStore.getState().playMode === "autocanonizer") {
+    if (useAppStore.getState().playMode !== "jukebox") {
       return;
     }
     const { vizData } = useAppStore.getState();
@@ -536,7 +567,7 @@ export function handleEdgeSelect(edge: Edge | null): void {
       return;
     }
     const { jukebox } = context;
-    if (useAppStore.getState().playMode === "autocanonizer") {
+    if (useAppStore.getState().playMode !== "jukebox") {
       return;
     }
     useAppStore.setState({ selectedEdge: edge });
@@ -571,8 +602,9 @@ export function copyShortUrl(): void {
         url.searchParams.set(key, value);
       });
     }
-    if (useAppStore.getState().playMode === "autocanonizer") {
-      url.searchParams.set("mode", "autocanonizer");
+    const { playMode } = useAppStore.getState();
+    if (playMode !== "jukebox") {
+      url.searchParams.set("mode", playMode);
     }
     const shortUrl = url.toString();
     try {
@@ -606,21 +638,21 @@ export function setActiveVisualization(index: number): void {
     localStorage.setItem(VIZ_STORAGE_KEY, String(useAppStore.getState().activeVizIndex));
   }
 
-  function getPlayModeFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("mode") === "autocanonizer" ? "autocanonizer" : "jukebox";
+  function getPlayModeFromUrl(): PlayMode {
+    const mode = new URLSearchParams(window.location.search).get("mode");
+    return mode === "autocanonizer" || mode === "wubmachine" ? mode : "jukebox";
   }
 
 export function applyModeFromUrl(): void {
     setPlayMode(getPlayModeFromUrl());
   }
 
-export function setPlayMode(mode: "jukebox" | "autocanonizer"): void {
+export function setPlayMode(mode: PlayMode): void {
     const context = getAttachedAppContext();
     if (!context) {
       return;
     }
-    const { autocanonizer, jukebox } = context;
+    const { autocanonizer, jukebox, wubmachine } = context;
     if (useAppStore.getState().playMode === mode) {
       return;
     }
@@ -628,6 +660,7 @@ export function setPlayMode(mode: "jukebox" | "autocanonizer"): void {
       stopPlayback(context);
     }
     context.cowbellOverlay.cancelScheduledHits();
+    cancelWubMachineRender();
     useAppStore.setState({
       playMode: mode,
       autocanonizerMainSeconds: 0,
@@ -639,7 +672,9 @@ export function setPlayMode(mode: "jukebox" | "autocanonizer"): void {
       useAppStore.setState({ tuningModalTab: "tuning" });
     }
     autocanonizer.setVisible(mode === "autocanonizer");
+    wubmachine.setVisible(mode === "wubmachine");
     jukebox.setVisible(mode === "jukebox");
+    maybePrepareWubMachine(context);
     syncExtrasPopup(useAppStore.getState().selectedEdge);
     if (useAppStore.getState().activeTabId === "play") {
       const currentId = getCurrentTrackId();

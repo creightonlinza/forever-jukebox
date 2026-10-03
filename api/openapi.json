@@ -109,7 +109,8 @@
               {
                 "enum": [
                   "jukebox",
-                  "autocanonizer"
+                  "autocanonizer",
+                  "wubmachine"
                 ],
                 "type": "string"
               },

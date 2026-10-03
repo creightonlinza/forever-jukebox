@@ -1,3 +1,5 @@
+import type { PlayMode } from "./context";
+import { storedPlayMode } from "./favorites";
 import i18n from "./i18n";
 
 export type PlaylistSourceType = "youtube" | "soundcloud" | "bandcamp" | "upload";
@@ -11,7 +13,7 @@ export type PlaylistTrack = {
   tuningParams?: string | null;
   // Play mode to load this track in. Absent means jukebox (the default), so
   // previously saved playlists and search/top tracks need no data migration.
-  playMode?: "jukebox" | "autocanonizer";
+  playMode?: PlayMode;
 };
 
 export type PlaylistState = {
@@ -113,10 +115,10 @@ export function normalizePlaylistTrack(track: PlaylistTrack): PlaylistTrack | nu
   if (tuningParams) {
     normalized.tuningParams = tuningParams;
   }
-  // Only autocanonizer is stored; jukebox is the implicit default, keeping
-  // existing saved playlists byte-for-byte unchanged.
-  if (track.playMode === "autocanonizer") {
-    normalized.playMode = "autocanonizer";
+  // Keeps existing saved playlists byte-for-byte unchanged.
+  const playMode = storedPlayMode(track.playMode ?? "jukebox");
+  if (playMode) {
+    normalized.playMode = playMode;
   }
   return normalized;
 }

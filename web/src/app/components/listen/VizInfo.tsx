@@ -18,11 +18,13 @@ export function VizInfo() {
   const audioMode = useAppStore((s) => s.jukeboxAudioMode);
   const bringItHomeMode = useAppStore((s) => s.bringItHomeMode);
   const trackDurationSec = useAppStore((s) => s.trackDurationSec);
+  const wubMachineDurationSec = useAppStore((s) => s.wubMachineDurationSec);
   const titleRef = useRef<HTMLDivElement | null>(null);
   const listenTimeRef = useRef<HTMLSpanElement | null>(null);
   const beatsPlayedRef = useRef<HTMLSpanElement | null>(null);
   const mainCursorTimeRef = useRef<HTMLSpanElement | null>(null);
   const otherCursorTimeRef = useRef<HTMLSpanElement | null>(null);
+  const wubCursorTimeRef = useRef<HTMLSpanElement | null>(null);
 
   // listenTimeText (~5Hz) and beatsPlayedText (engine-rate) change far too
   // often to drive React renders — each would re-run the title/marquee work
@@ -45,6 +47,11 @@ export function VizInfo() {
     if (otherCursorTimeRef.current) {
       otherCursorTimeRef.current.textContent = formatCursorTime(
         seed.autocanonizerOtherSeconds,
+      );
+    }
+    if (wubCursorTimeRef.current) {
+      wubCursorTimeRef.current.textContent = formatCursorTime(
+        seed.wubMachineSeconds,
       );
     }
     return useAppStore.subscribe((state, prev) => {
@@ -76,6 +83,14 @@ export function VizInfo() {
           state.autocanonizerOtherSeconds,
         );
       }
+      if (
+        state.wubMachineSeconds !== prev.wubMachineSeconds &&
+        wubCursorTimeRef.current
+      ) {
+        wubCursorTimeRef.current.textContent = formatCursorTime(
+          state.wubMachineSeconds,
+        );
+      }
     });
   }, []);
 
@@ -93,6 +108,8 @@ export function VizInfo() {
   useMarquee(titleRef, displayTitle);
 
   const isCanonizer = playMode === "autocanonizer";
+  const isWubMachine = playMode === "wubmachine";
+  const hideBeats = playMode !== "jukebox";
   const bringHomeVisible = playMode === "jukebox" && bringItHomeMode;
   const beatsLabel =
     audioMode === "cowbell"
@@ -125,24 +142,38 @@ export function VizInfo() {
             {formatCursorTime(trackDurationSec ?? 0)}
           </span>
         </span>
+        <span
+          id="wubmachine-times"
+          className={
+            isWubMachine
+              ? "autocanonizer-times"
+              : "autocanonizer-times is-hidden"
+          }
+        >
+          <span id="wubmachine-time" ref={wubCursorTimeRef}></span>
+          <span aria-hidden="true">/</span>
+          <span id="wubmachine-total-time">
+            {formatCursorTime(wubMachineDurationSec)}
+          </span>
+        </span>
         <span className="viz-meta-stats">
           <span>{t("playback.listenTime")}</span>
           <span id="listen-time" ref={listenTimeRef}></span>
           <span
             id="viz-beats-divider"
-            className={isCanonizer ? "viz-divider is-hidden" : "viz-divider"}
+            className={hideBeats ? "viz-divider is-hidden" : "viz-divider"}
           >
             ·
           </span>
           <span
             id="viz-beats-label"
-            className={isCanonizer ? "is-hidden" : undefined}
+            className={hideBeats ? "is-hidden" : undefined}
           >
             {beatsLabel}
           </span>
           <span
             id="beats-played"
-            className={isCanonizer ? "is-hidden" : undefined}
+            className={hideBeats ? "is-hidden" : undefined}
             ref={beatsPlayedRef}
           ></span>
         </span>

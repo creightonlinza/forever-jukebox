@@ -2,6 +2,7 @@ import { JukeboxEngine } from "@forever-jukebox/shared";
 import { BufferedAudioPlayer } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOverlayService";
 import { AutocanonizerController } from "@forever-jukebox/shared/autocanonizer/AutocanonizerController";
+import { WubMachineController } from "@forever-jukebox/shared/wubmachine/WubMachineController";
 import { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import { applyThemeVariables, resolveStoredTheme } from "./theme";
 import { resolveStoredAnchorHighlight } from "./anchorHighlight";
@@ -98,6 +99,7 @@ export function initRuntime(): void {
     engine,
     player,
     autocanonizer: null,
+    wubmachine: null,
     jukebox: null,
     cowbellOverlay,
     defaultConfig,
@@ -174,6 +176,7 @@ export function initRuntime(): void {
     const autocanonizer = new AutocanonizerController(nodes.canonizerLayer);
     const jukebox = new JukeboxController(nodes.vizLayer);
     context.autocanonizer = autocanonizer;
+    context.wubmachine = new WubMachineController(nodes.wubMachineLayer);
     context.jukebox = jukebox;
     const { autocanonizerMainPan, autocanonizerOtherPan } =
       useAppStore.getState();
