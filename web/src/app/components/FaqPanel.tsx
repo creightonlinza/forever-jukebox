@@ -143,7 +143,7 @@ export function FaqPanel() {
         <h4>October 2026</h4>
         <ul>
           <li>
-            New <strong>Wub Machine</strong> play mode — a dubstep remix of any track, built right in your browser from Peter Sobot's <a href="https://github.com/psobot/wub-machine" target="_blank" rel="noreferrer">Wub Machine</a>. Tick <strong>Loop the track</strong> to keep the drops coming.
+            New <strong>Wub Machine</strong> play mode — a dubstep remix of any track, built right in your browser, based on Peter Sobot's <a href="https://github.com/psobot/wub-machine" target="_blank" rel="noreferrer">Wub Machine</a>.
           </li>
           <li>
             New <strong>Instrumental</strong> remix toy in Extras — removes vocals right in your browser. Desktop browsers with WebGPU only; first use downloads a 67 MB model.
