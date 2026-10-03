@@ -1,4 +1,5 @@
 import type { PlayMode } from "./context";
+import { storedPlayMode } from "./favorites";
 import i18n from "./i18n";
 
 export type PlaylistSourceType = "youtube" | "soundcloud" | "bandcamp" | "upload";
@@ -114,10 +115,10 @@ export function normalizePlaylistTrack(track: PlaylistTrack): PlaylistTrack | nu
   if (tuningParams) {
     normalized.tuningParams = tuningParams;
   }
-  // Jukebox is the implicit default and is not stored, keeping existing
-  // saved playlists byte-for-byte unchanged.
-  if (track.playMode === "autocanonizer" || track.playMode === "wubmachine") {
-    normalized.playMode = track.playMode;
+  // Keeps existing saved playlists byte-for-byte unchanged.
+  const playMode = storedPlayMode(track.playMode ?? "jukebox");
+  if (playMode) {
+    normalized.playMode = playMode;
   }
   return normalized;
 }

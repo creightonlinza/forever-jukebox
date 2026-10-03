@@ -9,10 +9,7 @@ import {
 } from "./dubstepRenderer";
 import { dubstepSampleUrl } from "./dubstepSamples";
 
-// The house arrangement. Departures from the original Wub Machine: phrases
-// are runs of consecutive beats stretched onto the 140 BPM grid, sections
-// earn parts by length, near-silent sections are left out, drops and breaks
-// contrast, and fills lead into drops.
+// The house arrangement; each option is described on DubstepPlanOptions.
 export const WUB_MACHINE_ARRANGEMENT = {
   contiguous: true,
   beatGrid: true,

@@ -27,6 +27,7 @@ export class WubMachineViz {
   private visible = false;
   private width = 0;
   private height = 0;
+  private playheadColor = "#ffffff";
   private onSelect: ((seconds: number) => void) | null = null;
 
   constructor(container: HTMLElement) {
@@ -96,6 +97,9 @@ export class WubMachineViz {
     this.canvas.style.width = `${rect.width}px`;
     this.canvas.style.height = `${rect.height}px`;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.playheadColor =
+      getComputedStyle(this.container).getPropertyValue("--text").trim() ||
+      this.playheadColor;
     this.draw();
   }
 
@@ -168,10 +172,7 @@ export class WubMachineViz {
       ctx.fill();
     }
 
-    const text =
-      getComputedStyle(this.container).getPropertyValue("--text").trim() ||
-      "#ffffff";
-    ctx.fillStyle = text;
+    ctx.fillStyle = this.playheadColor;
     ctx.fillRect(playheadX - 1, blockTop - 6, 2, blockHeight + 12);
   }
 }

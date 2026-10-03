@@ -301,14 +301,18 @@ function cycle(beats: Quantum[], count: number) {
 }
 
 // Up to `count` non-overlapping phrases of the section, chosen by pool fit
-// and played in song order. A section shorter than a phrase cycles its beats.
+// and played in song order. A section shorter than a phrase cycles its beats;
+// one without beats yields null.
 function contiguousPhrases(
   analysis: DubstepAnalysis,
   section: Quantum,
   pools: Pools,
   count: number,
-): Quantum[][] {
+): Quantum[][] | null {
   const beats = beatsInSection(analysis, section);
+  if (beats.length === 0) {
+    return null;
+  }
   const barStarts = new Set((analysis.bars ?? []).map((bar) => bar.start));
   const used = new Set<Quantum>();
   const starts: number[] = [];
@@ -390,6 +394,9 @@ function sectionParts(
     pools,
     partCount * 2,
   );
+  if (!phrases) {
+    return null;
+  }
   return Array.from({ length: partCount }, (_, part) =>
     [
       ...(phrases[(part * 2) % phrases.length] as Quantum[]),

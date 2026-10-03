@@ -151,7 +151,7 @@ export class WubMachineController {
     }
     this.haltSource();
     if (context.state === "suspended") {
-      void context.resume();
+      context.resume().catch(() => undefined);
     }
     if (!this.gain) {
       this.gain = context.createGain();

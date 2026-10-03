@@ -275,4 +275,19 @@ describe("planDubstepRemix", () => {
     expect(sparsePlan.parts[1]!.slices).toHaveLength(32);
     expect(sparsePlan.parts[1]!.slices.every((s) => s.start < 16.5)).toBe(true);
   });
+
+  it("skips a section without beats even when later sections match", () => {
+    const analysis = makeAnalysis(() => 0);
+    analysis.sections = [
+      { start: 0.1, duration: 0.25 },
+      { start: 0.35, duration: 31.65 },
+    ];
+    const plan = planDubstepRemix(analysis, { contiguous: true, tonic: 0 });
+    expect(plan.parts.map((part) => part.label)).toEqual([
+      "intro",
+      "section 2 drop",
+      "section 2 break",
+      "ending",
+    ]);
+  });
 });

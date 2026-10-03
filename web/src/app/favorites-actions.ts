@@ -164,9 +164,9 @@ export async function createSyncCode(): Promise<string> {
         sourceType,
         tuningParams,
       };
-      // Only the non-default mode is stored; absence means jukebox.
-      if (item.playMode === "autocanonizer" || item.playMode === "wubmachine") {
-        entry.playMode = item.playMode;
+      const playMode = storedPlayMode(item.playMode ?? "jukebox");
+      if (playMode) {
+        entry.playMode = playMode;
       }
       normalized.push(entry);
     }

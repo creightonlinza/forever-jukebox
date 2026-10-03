@@ -19,7 +19,7 @@ import {
   planCowbellExportEvents,
   projectCowbellEventsIntoWindow,
 } from "./cowbellExport";
-import { createOutputBuffer, renderJukeboxAudio } from "./render";
+import { clampGain, createOutputBuffer, renderJukeboxAudio } from "./render";
 
 export interface JukeboxExportProgress {
   stage: "planning" | "rendering" | "encoding";
@@ -327,7 +327,7 @@ export async function exportRenderedAudio(
   if (buffer.length === 0) {
     throw new Error("Cannot encode empty audio buffer.");
   }
-  const gain = Math.max(0, Math.min(1, options.gain ?? 1));
+  const gain = clampGain(options.gain ?? 1);
   const renderedDurationSeconds = buffer.duration;
   let encoded;
 

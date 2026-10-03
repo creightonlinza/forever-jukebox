@@ -70,7 +70,7 @@ export function createOutputBuffer(
   }
 }
 
-function clampGain(value: number): number {
+export function clampGain(value: number): number {
   if (!Number.isFinite(value)) {
     return 1;
   }
