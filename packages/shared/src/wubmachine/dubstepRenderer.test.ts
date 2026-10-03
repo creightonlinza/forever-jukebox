@@ -97,6 +97,33 @@ describe("renderDubstepRemix", () => {
     expect(trackCache.writeRenderedTrack).toHaveBeenCalledTimes(1);
   });
 
+  it("stretches each slice onto the grid when beatGrid is set", async () => {
+    const adapter = new FakeStretchAdapter();
+    const source = new Float32Array(16 * SAMPLE_RATE).fill(0.5);
+    const { channels, parts } = await renderDubstepRemix(
+      [source],
+      SAMPLE_RATE,
+      makeAnalysis(),
+      { adapter, loadSample, beatGrid: true },
+    );
+    // One stretch per distinct slice: 16 intro beats + half and quarter cuts
+    // of beats 8, 12 and 14 (whole beats 0 and 4 repeat), then 8 + 4 + 4
+    // section beats shared by the drop and the break.
+    expect(adapter.calls).toHaveLength(16 + 3 + 16);
+    const beat = (60 / 140) * SAMPLE_RATE;
+    expect(adapter.calls[0]).toEqual({
+      inputFrames: 500,
+      targetFrameCount: Math.round(beat),
+    });
+    expect(adapter.calls[16]).toEqual({
+      inputFrames: 250,
+      targetFrameCount: Math.round(beat / 2),
+    });
+    expect(adapter.calls[17]!.targetFrameCount).toBe(Math.round(beat / 4));
+    expect(channels[0]).toHaveLength(3 * BED_FRAMES + ENDING_FRAMES);
+    expect(parts[1]!.duration).toBeCloseTo(BED_FRAMES / SAMPLE_RATE);
+  });
+
   it("does not touch storage without a track id", async () => {
     await renderDubstepRemix(
       [new Float32Array(16 * SAMPLE_RATE)],

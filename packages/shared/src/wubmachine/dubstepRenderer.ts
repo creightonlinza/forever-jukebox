@@ -5,6 +5,7 @@ import {
   type DubstepAnalysis,
   type DubstepPartKind,
   type DubstepPlan,
+  type DubstepPlanOptions,
   type SourceSlice,
 } from "./dubstepArrangement";
 import {
@@ -17,8 +18,10 @@ import type { TimeStretchAdapter } from "../audio/timeStretch";
 
 type Stereo = [Float32Array, Float32Array];
 
-export type RenderDubstepOptions = {
+export type RenderDubstepOptions = DubstepPlanOptions & {
   adapter: TimeStretchAdapter;
+  // Stretch each slice onto the 140 BPM grid instead of each part as a whole.
+  beatGrid?: boolean;
   // Resolves a sample path from the plan to PCM at the render sample rate.
   loadSample: (path: string) => Promise<Float32Array[]>;
   signal?: AbortSignal;
@@ -49,39 +52,97 @@ function toStereo(channels: Float32Array[]): Stereo {
   return [left, channels[1] ?? left];
 }
 
-// Lays the slices end to end, with a short fade at each edge to avoid clicks.
+function sliceFrames(slice: SourceSlice, sampleRate: number, length: number) {
+  const start = Math.min(length, Math.floor(slice.start * sampleRate));
+  const stop = Math.min(
+    length,
+    Math.floor((slice.start + slice.duration) * sampleRate),
+  );
+  return [start, Math.max(start, stop)] as const;
+}
+
+// Short fades at both ends of `[offset, offset + length)` to avoid clicks.
+function fadeEdges(
+  channels: Stereo,
+  sampleRate: number,
+  offset: number,
+  length: number,
+) {
+  const fade = Math.min(
+    Math.round(SLICE_FADE_SECONDS * sampleRate),
+    Math.floor(length / 4),
+  );
+  for (const channel of channels) {
+    for (let i = 0; i < fade; i += 1) {
+      const gain = i / fade;
+      channel[offset + i] = (channel[offset + i] as number) * gain;
+      const tail = offset + length - 1 - i;
+      channel[tail] = (channel[tail] as number) * gain;
+    }
+  }
+}
+
+// Lays the slices end to end, unstretched.
 function concatSlices(
   source: Stereo,
   sampleRate: number,
   slices: SourceSlice[],
 ): Stereo {
-  const sourceLength = source[0].length;
-  const ranges = slices.map((slice) => {
-    const start = Math.min(sourceLength, Math.floor(slice.start * sampleRate));
-    const stop = Math.min(
-      sourceLength,
-      Math.floor((slice.start + slice.duration) * sampleRate),
-    );
-    return [start, Math.max(start, stop)] as const;
-  });
+  const ranges = slices.map((slice) =>
+    sliceFrames(slice, sampleRate, source[0].length),
+  );
   const total = ranges.reduce((sum, [start, stop]) => sum + stop - start, 0);
   const out: Stereo = [new Float32Array(total), new Float32Array(total)];
-  const maxFade = Math.round(SLICE_FADE_SECONDS * sampleRate);
   let offset = 0;
   for (const [start, stop] of ranges) {
-    const length = stop - start;
-    const fade = Math.min(maxFade, Math.floor(length / 4));
-    for (let channel = 0; channel < 2; channel += 1) {
-      const target = out[channel as 0 | 1];
-      target.set(source[channel as 0 | 1].subarray(start, stop), offset);
-      for (let i = 0; i < fade; i += 1) {
-        const gain = i / fade;
-        target[offset + i] = (target[offset + i] as number) * gain;
-        const tail = offset + length - 1 - i;
-        target[tail] = (target[tail] as number) * gain;
-      }
+    out[0].set(source[0].subarray(start, stop), offset);
+    out[1].set(source[1].subarray(start, stop), offset);
+    fadeEdges(out, sampleRate, offset, stop - start);
+    offset += stop - start;
+  }
+  return out;
+}
+
+// Stretches every slice to its own share of the 140 BPM grid, so each beat
+// lands where the samples expect it. Identical slices are stretched once.
+async function stretchToGrid(
+  source: Stereo,
+  sampleRate: number,
+  slices: SourceSlice[],
+  adapter: TimeStretchAdapter,
+  onSlice: () => void,
+): Promise<Stereo> {
+  const beatFrames = (sampleRate * 60) / DUBSTEP_TEMPO;
+  const pieces = new Map<string, Promise<Stereo>>();
+  const stretchSlice = (slice: SourceSlice) => {
+    const key = `${slice.start}:${slice.duration}:${slice.beats}`;
+    let piece = pieces.get(key);
+    if (!piece) {
+      const [start, stop] = sliceFrames(slice, sampleRate, source[0].length);
+      piece = adapter
+        .stretchSegment(
+          [source[0].slice(start, stop), source[1].slice(start, stop)],
+          sampleRate,
+          Math.round(slice.beats * beatFrames),
+        )
+        .then(toStereo);
+      pieces.set(key, piece);
     }
-    offset += length;
+    return piece;
+  };
+  const stretched: Stereo[] = [];
+  for (const slice of slices) {
+    stretched.push(await stretchSlice(slice));
+    onSlice();
+  }
+  const total = stretched.reduce((sum, piece) => sum + piece[0].length, 0);
+  const out: Stereo = [new Float32Array(total), new Float32Array(total)];
+  let offset = 0;
+  for (const piece of stretched) {
+    out[0].set(piece[0], offset);
+    out[1].set(piece[1], offset);
+    fadeEdges(out, sampleRate, offset, piece[0].length);
+    offset += piece[0].length;
   }
   return out;
 }
@@ -155,7 +216,8 @@ export async function renderDubstepRemix(
   analysis: DubstepAnalysis,
   options: RenderDubstepOptions,
 ): Promise<DubstepRender> {
-  const plan = planDubstepRemix(analysis);
+  const plan = planDubstepRemix(analysis, options);
+  const beatGrid = options.beatGrid ?? false;
   // Parts over source audio are exactly 8 bars, whatever the decoded samples'
   // lengths; the ending keeps its sample's length.
   const partFrames = Math.round(
@@ -165,7 +227,7 @@ export async function renderDubstepRemix(
     ? {
         kind: "dubstep",
         trackId: options.trackId,
-        signature: planSignature(plan),
+        signature: `${beatGrid ? "g" : "w"}:${planSignature(plan)}`,
       }
     : null;
   if (storedKey) {
@@ -194,25 +256,48 @@ export async function renderDubstepRemix(
     return sample;
   };
   const stretched = new Map<SourceSlice[], Stereo>();
+  let partsDone = 0;
+  const reportProgress = (withinPart: number) => {
+    options.onProgress?.((partsDone + withinPart) / plan.parts.length);
+  };
   const stretchSlices = async (slices: SourceSlice[]) => {
     const cached = stretched.get(slices);
     if (cached) {
       return cached;
     }
-    const pieces = concatSlices(source, sampleRate, slices);
-    const targetFrameCount =
-      plan.timeRatio === null
-        ? partFrames
-        : Math.round(pieces[0].length * plan.timeRatio);
-    const result = toStereo(
-      await options.adapter.stretchSegment(pieces, sampleRate, targetFrameCount),
-    );
+    let result: Stereo;
+    if (beatGrid) {
+      let done = 0;
+      result = await stretchToGrid(
+        source,
+        sampleRate,
+        slices,
+        options.adapter,
+        () => {
+          done += 1;
+          reportProgress(done / slices.length);
+        },
+      );
+    } else {
+      const pieces = concatSlices(source, sampleRate, slices);
+      const targetFrameCount =
+        plan.timeRatio === null
+          ? partFrames
+          : Math.round(pieces[0].length * plan.timeRatio);
+      result = toStereo(
+        await options.adapter.stretchSegment(
+          pieces,
+          sampleRate,
+          targetFrameCount,
+        ),
+      );
+    }
     stretched.set(slices, result);
     return result;
   };
 
   const rendered: Stereo[] = [];
-  options.onProgress?.(0);
+  reportProgress(0);
   for (const part of plan.parts) {
     throwIfAborted(options.signal);
     const samples = await Promise.all(part.samples.map(loadSample));
@@ -236,7 +321,8 @@ export async function renderDubstepRemix(
       }
     }
     rendered.push(bed);
-    options.onProgress?.(rendered.length / plan.parts.length);
+    partsDone += 1;
+    reportProgress(0);
   }
   throwIfAborted(options.signal);
 

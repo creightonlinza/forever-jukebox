@@ -53,11 +53,15 @@ const MINOR_PROFILE = [
   6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17,
 ];
 
-export type SourceSlice = { start: number; duration: number };
+export type Quantum = { start: number; duration: number };
+
+// A stretch of source audio and the number of remix beats it fills.
+export type SourceSlice = Quantum & { beats: number };
 
 export type DubstepAnalysis = {
-  sections: SourceSlice[];
-  beats: SourceSlice[];
+  sections: Quantum[];
+  bars?: Quantum[];
+  beats: Quantum[];
   segments: Segment[];
   track?: TrackMeta;
 };
@@ -83,7 +87,7 @@ export type DubstepPlan = {
   parts: DubstepPart[];
 };
 
-function end(quantum: SourceSlice) {
+function end(quantum: Quantum) {
   return quantum.start + quantum.duration;
 }
 
@@ -134,7 +138,7 @@ function hasPitchMax(segment: Segment, pitch: number) {
   return segment.pitches.every((other) => value >= other);
 }
 
-function beatsInSection(analysis: DubstepAnalysis, section: SourceSlice) {
+function beatsInSection(analysis: DubstepAnalysis, section: Quantum) {
   return analysis.beats.filter(
     (beat) => beat.start >= section.start && beat.start < end(section),
   );
@@ -144,9 +148,9 @@ function beatsInSection(analysis: DubstepAnalysis, section: SourceSlice) {
 // pitch is `pitch` and which spans the start of a beat of the section.
 function getSamples(
   analysis: DubstepAnalysis,
-  section: SourceSlice,
+  section: Quantum,
   pitch: number,
-): SourceSlice[] {
+): Quantum[] {
   const beats = beatsInSection(analysis, section);
   const segmentEnds = analysis.segments
     .filter(
@@ -170,17 +174,17 @@ function searchSamples(
   analysis: DubstepAnalysis,
   sectionIndex: number,
   pitch: number,
-): SourceSlice[] {
+): Quantum[] {
   const { sections } = analysis;
   let j = sectionIndex;
   let key = pitch;
-  let found = getSamples(analysis, sections[j] as SourceSlice, key);
+  let found = getSamples(analysis, sections[j] as Quantum, key);
   for (let tries = 0; tries < 5; tries += 1) {
     if (found.length > 0) {
       return found;
     }
     key = (key + 7) % 12;
-    found = getSamples(analysis, sections[j] as SourceSlice, key);
+    found = getSamples(analysis, sections[j] as Quantum, key);
   }
   for (let tries = 0; tries < 5; tries += 1) {
     if (found.length > 0) {
@@ -188,7 +192,7 @@ function searchSamples(
     }
     j = (j + 1) % sections.length;
     key = (key + 2) % 12;
-    found = getSamples(analysis, sections[j] as SourceSlice, key);
+    found = getSamples(analysis, sections[j] as Quantum, key);
   }
   return found;
 }
@@ -204,9 +208,9 @@ function trackLoudness(segments: Segment[]) {
 }
 
 // Bed gain from the mean peak loudness (dB) of the segments the slices span.
-export function mixFactor(analysis: DubstepAnalysis, slices: SourceSlice[]) {
-  const rangeStart = (slices[0] as SourceSlice).start;
-  const rangeEnd = end(slices[slices.length - 1] as SourceSlice);
+export function mixFactor(analysis: DubstepAnalysis, slices: Quantum[]) {
+  const rangeStart = (slices[0] as Quantum).start;
+  const rangeEnd = end(slices[slices.length - 1] as Quantum);
   const spanned = analysis.segments.filter(
     (segment) => end(segment) > rangeStart && segment.start < rangeEnd,
   );
@@ -215,19 +219,25 @@ export function mixFactor(analysis: DubstepAnalysis, slices: SourceSlice[]) {
   return Math.max(MIN_MIX, Math.min(MAX_MIX, mix));
 }
 
+function wholeBeat(beat: Quantum): SourceSlice {
+  return { start: beat.start, duration: beat.duration, beats: 1 };
+}
+
 function introSlices(analysis: DubstepAnalysis, duration: number) {
-  let beats = analysis.beats.slice(0, 16);
+  let beats = analysis.beats.slice(0, 16).map(wholeBeat);
   if (beats.length < 16) {
     const length = duration / 16;
     beats = Array.from({ length: 16 }, (_, i) => ({
       start: i * length,
       duration: length,
+      beats: 1,
     }));
   }
   const at = (index: number) => beats[index] as SourceSlice;
   const cut = (beat: SourceSlice, divisor: number): SourceSlice => ({
     start: beat.start,
     duration: beat.duration / divisor,
+    beats: 1 / divisor,
   });
   const repeat = (slice: SourceSlice, count: number) =>
     Array.from({ length: count }, () => slice);
@@ -241,11 +251,45 @@ function introSlices(analysis: DubstepAnalysis, duration: number) {
   ];
 }
 
-// 16 beats, played twice: 8 on the tonic, 4 a minor third up, 4 a major sixth up.
+// The `count` consecutive beats of the section holding the most pool beats;
+// ties go to a window starting on a bar line, then to the earliest.
+function contiguousRun(
+  analysis: DubstepAnalysis,
+  section: Quantum,
+  pool: Quantum[],
+  count: number,
+): Quantum[] {
+  const beats = beatsInSection(analysis, section);
+  if (beats.length <= count) {
+    return beats;
+  }
+  const members = new Set(pool);
+  const barStarts = new Set((analysis.bars ?? []).map((bar) => bar.start));
+  let best = 0;
+  let bestScore = -1;
+  for (let start = 0; start + count <= beats.length; start += 1) {
+    let score = barStarts.has((beats[start] as Quantum).start) ? 0.5 : 0;
+    for (let i = start; i < start + count; i += 1) {
+      if (members.has(beats[i] as Quantum)) {
+        score += 1;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = start;
+    }
+  }
+  return beats.slice(best, best + count);
+}
+
+// 16 beats, played twice: 8 on the tonic, 4 a minor third up, 4 a major sixth
+// up. Cycles through each pool in order, or, with `contiguous`, plays the run
+// of section beats richest in that pool.
 function sectionSlices(
   analysis: DubstepAnalysis,
   sectionIndex: number,
   tonic: number,
+  contiguous: boolean,
 ): SourceSlice[] | null {
   const find = (pitch: number) => searchSamples(analysis, sectionIndex, pitch);
   let [s1, s2, s3] = [
@@ -269,21 +313,42 @@ function sectionSlices(
   s1 = s1.length > 0 ? s1 : biggest;
   s2 = s2.length > 0 ? s2 : biggest;
   s3 = s3.length > 0 ? s3 : biggest;
-  const bar: SourceSlice[] = [];
-  for (let i = 0; i < 16; i += 1) {
-    const pool = i < 8 ? s1 : i < 12 ? s2 : s3;
-    bar.push(pool[i % pool.length] as SourceSlice);
+  const bar: Quantum[] = [];
+  if (contiguous) {
+    const section = analysis.sections[sectionIndex] as Quantum;
+    const run = (pool: Quantum[], count: number) =>
+      contiguousRun(analysis, section, pool, count);
+    const phrase = [...run(s1, 8), ...run(s2, 4), ...run(s3, 4)];
+    for (let i = 0; i < 16; i += 1) {
+      bar.push(phrase[i % phrase.length] as Quantum);
+    }
+  } else {
+    for (let i = 0; i < 16; i += 1) {
+      const pool = i < 8 ? s1 : i < 12 ? s2 : s3;
+      bar.push(pool[i % pool.length] as Quantum);
+    }
   }
-  return [...bar, ...bar];
+  const slices = bar.map(wholeBeat);
+  return [...slices, ...slices];
 }
 
-export function planDubstepRemix(analysis: DubstepAnalysis): DubstepPlan {
+export type DubstepPlanOptions = {
+  // Play runs of consecutive beats instead of cycling through scattered ones.
+  contiguous?: boolean;
+  // Pitch class (0 = C) to remix in; estimated from the track when omitted.
+  tonic?: number;
+};
+
+export function planDubstepRemix(
+  analysis: DubstepAnalysis,
+  options: DubstepPlanOptions = {},
+): DubstepPlan {
   const { sections, beats, segments, track } = analysis;
   const lastSegment = segments[segments.length - 1];
   const duration = track?.duration ?? (lastSegment ? end(lastSegment) : 0);
   const sourceTempo =
     beats.length < 16 || !track?.tempo ? (60 * 16) / duration : track.tempo;
-  const tonic = estimateTonic(segments);
+  const tonic = options.tonic ?? estimateTonic(segments);
   const key = KEY_FILES[tonic] as string;
 
   const intro = introSlices(analysis, duration);
@@ -297,7 +362,7 @@ export function planDubstepRemix(analysis: DubstepAnalysis): DubstepPlan {
     },
   ];
   sections.forEach((_, j) => {
-    const slices = sectionSlices(analysis, j, tonic);
+    const slices = sectionSlices(analysis, j, tonic, options.contiguous ?? false);
     if (!slices) {
       return;
     }

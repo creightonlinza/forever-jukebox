@@ -84,9 +84,10 @@ describe("planDubstepRemix", () => {
     expect(intro.slices).toHaveLength(48);
     const total = intro.slices.reduce((sum, s) => sum + s.duration, 0);
     expect(total).toBeCloseTo(32 * 0.5);
-    expect(intro.slices[16]).toBe(analysis.beats[0]);
-    expect(intro.slices[24]).toEqual({ start: 4, duration: 0.25 });
-    expect(intro.slices[40]).toEqual({ start: 7, duration: 0.125 });
+    expect(intro.slices[16]).toEqual({ start: 0, duration: 0.5, beats: 1 });
+    expect(intro.slices[24]).toEqual({ start: 4, duration: 0.25, beats: 0.5 });
+    expect(intro.slices[40]).toEqual({ start: 7, duration: 0.125, beats: 0.25 });
+    expect(intro.slices.reduce((sum, s) => sum + s.beats, 0)).toBe(32);
   });
 
   it("picks section beats by segment pitch: tonic, +3, +9", () => {
@@ -116,6 +117,38 @@ describe("planDubstepRemix", () => {
       slices: [],
       mix: 1,
     });
+  });
+
+  it("plays runs of consecutive beats when contiguous", () => {
+    // Section 2 (beats 32..63): tonic beats are 33, 37, ..., so the run of 8
+    // richest in them is any 8-beat window; bar lines (every 4 beats from
+    // beat 32) break the tie toward the earliest bar start.
+    const bars = Array.from({ length: 16 }, (_, i) => ({
+      start: i * 2,
+      duration: 2,
+    }));
+    const contiguous = planDubstepRemix({ ...analysis, bars }, {
+      contiguous: true,
+    });
+    const starts = contiguous.parts[3]!.slices.map((s) => s.start / 0.5);
+    expect(starts.slice(0, 8)).toEqual([32, 33, 34, 35, 36, 37, 38, 39]);
+    // +3 and +9 pools (beats 34, 38, ... and 35, 39, ...) each fill 4 beats
+    // from one bar.
+    expect(starts.slice(8, 12)).toEqual([32, 33, 34, 35]);
+    expect(starts.slice(12, 16)).toEqual([32, 33, 34, 35]);
+    expect(starts.slice(16)).toEqual(starts.slice(0, 16));
+    expect(contiguous.parts[3]!.slices.every((s) => s.beats === 1)).toBe(true);
+  });
+
+  it("favours the window with the most matching beats", () => {
+    // Tonic only on beats 44..51 of section 2; everything else is G.
+    const sparse = makeAnalysis((beat) =>
+      beat >= 43 && beat < 51 ? 0 : 7,
+    );
+    const starts = planDubstepRemix(sparse, { contiguous: true, tonic: 0 })
+      .parts[3]!.slices.slice(0, 8)
+      .map((s) => s.start / 0.5);
+    expect(starts).toEqual([44, 45, 46, 47, 48, 49, 50, 51]);
   });
 
   it("falls back to other pitches when a section lacks the tonic", () => {

@@ -89,6 +89,10 @@ export function maybePrepareWubMachine(context: AppContext) {
     parseAnalysis(analysisResult),
     {
       adapter,
+      // Departures from the original Wub Machine: phrases are runs of
+      // consecutive beats, each stretched onto the 140 BPM grid.
+      contiguous: true,
+      beatGrid: true,
       signal: render.signal,
       trackId:
         useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId,
