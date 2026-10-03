@@ -98,7 +98,7 @@ export class BufferedAudioPlayer {
     this.rebuildSourceChain();
   }
 
-  async loadBuffer(buffer: AudioBuffer) {
+  loadBuffer(buffer: AudioBuffer) {
     this.loadGeneration += 1;
     this.applyLoadedBuffer(buffer);
   }

@@ -79,16 +79,18 @@ export async function listCachedAnalysisTracks(): Promise<CachedAnalysisTrack[]>
 export class MemoryAnalysisCache implements AnalysisCachePort {
   private readonly store = new Map<string, AnalysisOutput>();
 
-  async get(fingerprint: string) {
-    return this.store.get(fingerprint) ?? null;
+  get(fingerprint: string) {
+    return Promise.resolve(this.store.get(fingerprint) ?? null);
   }
 
-  async set(fingerprint: string, analysis: AnalysisOutput) {
+  set(fingerprint: string, analysis: AnalysisOutput) {
     this.store.set(fingerprint, analysis);
+    return Promise.resolve();
   }
 
-  async clear(fingerprint: string) {
+  clear(fingerprint: string) {
     this.store.delete(fingerprint);
+    return Promise.resolve();
   }
 }
 

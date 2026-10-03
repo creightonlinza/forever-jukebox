@@ -40,7 +40,7 @@ function ensureEssentia() {
   return essentiaInstance;
 }
 
-self.onmessage = async (event: MessageEvent<AnalyzeMessage>) => {
+self.onmessage = (event: MessageEvent<AnalyzeMessage>) => {
   if (event.data?.type !== "analyze") {
     return;
   }

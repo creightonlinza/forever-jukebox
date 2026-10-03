@@ -642,7 +642,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         });
         setAnalysis(result.analysis);
         setReadyFileKey(fileKey);
-        await playerRef.current?.loadBuffer(result.audioBuffer);
+        playerRef.current?.loadBuffer(result.audioBuffer);
         autocanonizerRef.current?.setAudio(
           playerRef.current?.getSourceBuffer() ?? null,
           playerRef.current?.getContext() ?? null
