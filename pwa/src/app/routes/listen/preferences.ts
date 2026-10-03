@@ -8,6 +8,7 @@ import {
 } from "@forever-jukebox/shared/constants/visualization";
 
 const CANONIZER_FINISH_STORAGE_KEY = "fj-canonizer-finish";
+const WUB_MACHINE_LOOP_STORAGE_KEY = "fj-wub-machine-loop";
 const VISUALIZATION_STORAGE_KEY = "fj-viz";
 const ANCHOR_HIGHLIGHT_STORAGE_KEY = "fj-highlight-anchor-branch";
 const BRANCH_STATS_STORAGE_KEY = "fj-branch-stats-enabled";
@@ -42,6 +43,14 @@ export function resolveStoredFinishOutSong(): boolean {
 
 export function storeFinishOutSong(enabled: boolean) {
   safeLocalStorageSet(CANONIZER_FINISH_STORAGE_KEY, String(enabled));
+}
+
+export function resolveStoredWubMachineLoop(): boolean {
+  return safeLocalStorageGet(WUB_MACHINE_LOOP_STORAGE_KEY) === "true";
+}
+
+export function storeWubMachineLoop(enabled: boolean) {
+  safeLocalStorageSet(WUB_MACHINE_LOOP_STORAGE_KEY, String(enabled));
 }
 
 export function resolveStoredAnchorHighlight(): boolean {

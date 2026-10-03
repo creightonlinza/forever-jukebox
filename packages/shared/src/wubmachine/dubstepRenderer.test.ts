@@ -94,6 +94,8 @@ describe("renderDubstepRemix", () => {
     expect(adapter.calls).toEqual([]);
     expect(second.channels).toBe(first.channels);
     expect(second.parts).toEqual(first.parts);
+    expect(first.stored).toBe(false);
+    expect(second.stored).toBe(true);
     expect(trackCache.writeRenderedTrack).toHaveBeenCalledTimes(1);
   });
 
@@ -181,6 +183,70 @@ describe("renderDubstepRemix", () => {
     expect(channels[0][2 * BED_FRAMES - 1]).toBeCloseTo(0.5 * mix + (1 - mix));
     // Ending: the sample alone.
     expect(channels[0][3 * BED_FRAMES]).toBe(1);
+  });
+
+  it("fills slices past the end of the source with silence on the grid", async () => {
+    const adapter = new FakeStretchAdapter();
+    // Only the first 4 s of the 16 s the analysis describes exist.
+    const source = new Float32Array(4 * SAMPLE_RATE).fill(0.5);
+    const { channels, parts } = await renderDubstepRemix(
+      [source],
+      SAMPLE_RATE,
+      makeAnalysis(),
+      { adapter, loadSample, beatGrid: true },
+    );
+    expect(adapter.calls.every((call) => call.inputFrames > 0)).toBe(true);
+    expect(adapter.calls.length).toBeLessThan(16 + 3 + 16);
+    expect(channels[0]).toHaveLength(3 * BED_FRAMES + ENDING_FRAMES);
+    expect(parts.map((part) => part.duration)).toEqual([
+      BED_FRAMES / SAMPLE_RATE,
+      BED_FRAMES / SAMPLE_RATE,
+      BED_FRAMES / SAMPLE_RATE,
+      ENDING_FRAMES / SAMPLE_RATE,
+    ]);
+  });
+
+  it("fits a stretch that comes back the wrong length", async () => {
+    const adapter: TimeStretchAdapter = {
+      stretchSegment: async (channels) => channels.map((c) => c.slice(0, 10)),
+    };
+    const { channels, parts, plan } = await renderDubstepRemix(
+      [new Float32Array(16 * SAMPLE_RATE).fill(1)],
+      SAMPLE_RATE,
+      makeAnalysis(),
+      { adapter, loadSample },
+    );
+    expect(channels[0]).toHaveLength(3 * BED_FRAMES + ENDING_FRAMES);
+    expect(parts[1]!.start).toBeCloseTo(BED_FRAMES / SAMPLE_RATE);
+    // Short stretch: source under the bed for 10 frames, then the bed alone.
+    const mix = parts.length ? plan.parts[1]!.mix : 0;
+    expect(channels[0][BED_FRAMES + 5]).toBeCloseTo(mix + (1 - mix));
+    expect(channels[0][BED_FRAMES + 20]).toBeCloseTo(mix);
+  });
+
+  it("aborts between slices and never stores a partial render", async () => {
+    const controller = new AbortController();
+    const adapter: TimeStretchAdapter = {
+      stretchSegment: async (channels, _rate, frames) => {
+        controller.abort();
+        return channels.map(() => new Float32Array(frames));
+      },
+    };
+    await expect(
+      renderDubstepRemix(
+        [new Float32Array(16 * SAMPLE_RATE)],
+        SAMPLE_RATE,
+        makeAnalysis(),
+        {
+          adapter,
+          loadSample,
+          beatGrid: true,
+          trackId: "track-1",
+          signal: controller.signal,
+        },
+      ),
+    ).rejects.toThrow("cancelled");
+    expect(trackCache.writeRenderedTrack).not.toHaveBeenCalled();
   });
 
   it("stops when aborted", async () => {

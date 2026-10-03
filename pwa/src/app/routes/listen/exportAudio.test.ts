@@ -16,6 +16,7 @@ describe("audio export helpers", () => {
     expect(buildAudioExportName("a.b.c", "wav")).toBe("a.b_forever.wav");
     expect(buildAudioExportName(".mp3", "wav")).toBe("jukebox_forever.wav");
     expect(buildAudioExportName("  ", "mp3")).toBe("jukebox_forever.mp3");
+    expect(buildAudioExportName("song.wav", "mp3", "wub")).toBe("song_wub.mp3");
   });
 
   it("maps the exporter's error strings to translation keys", () => {

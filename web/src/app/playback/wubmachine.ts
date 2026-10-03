@@ -1,7 +1,4 @@
-import { parseAnalysis } from "@forever-jukebox/shared";
-import { RubberBandWorkerAdapter } from "@forever-jukebox/shared/audio/rubberBandAdapter";
-import { renderDubstepRemix } from "@forever-jukebox/shared/wubmachine/dubstepRenderer";
-import { dubstepSampleUrl } from "@forever-jukebox/shared/wubmachine/dubstepSamples";
+import { renderWubMachineBuffer } from "@forever-jukebox/shared/wubmachine/wubMachineRender";
 import type { AppContext } from "../context";
 import i18n from "../i18n";
 import { useAppStore } from "../store";
@@ -31,12 +28,6 @@ export function resetWubMachine(context: AppContext) {
   analysisResult = null;
   context.wubmachine?.setRemix(null, null);
   useAppStore.setState({ wubMachineSeconds: 0, wubMachineDurationSec: 0 });
-}
-
-function channelsOf(buffer: AudioBuffer) {
-  return Array.from({ length: buffer.numberOfChannels }, (_, index) =>
-    buffer.getChannelData(index),
-  );
 }
 
 // Renders the loaded track's remix once, while Wub Machine mode is selected.
@@ -70,7 +61,6 @@ export function maybePrepareWubMachine(context: AppContext) {
   updatePlayButton();
 
   const audioContext = player.getContext();
-  const adapter = new RubberBandWorkerAdapter();
   const finish = (statusKey: "wubMachineReady" | "wubMachineFailedStatus") => {
     activeRender = null;
     useAppStore.setState({
@@ -82,55 +72,22 @@ export function maybePrepareWubMachine(context: AppContext) {
     updateVizVisibility();
     updatePlayButton();
   };
-  // The source and the decoded samples share the context's sample rate.
-  renderDubstepRemix(
-    channelsOf(sourceBuffer),
-    sourceBuffer.sampleRate,
-    parseAnalysis(analysisResult),
-    {
-      adapter,
-      // Departures from the original Wub Machine: phrases are runs of
-      // consecutive beats stretched onto the 140 BPM grid, sections earn
-      // parts by length, near-silent sections are left out, drops and
-      // breaks contrast, and fills lead into drops.
-      contiguous: true,
-      beatGrid: true,
-      sectionBudget: true,
-      skipQuiet: true,
-      contrast: true,
-      fills: true,
-      signal: render.signal,
-      trackId:
-        useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId,
-      loadSample: async (name) => {
-        const response = await fetch(dubstepSampleUrl(name));
-        if (!response.ok) {
-          throw new Error(`Sample download failed (${response.status})`);
-        }
-        return channelsOf(
-          await audioContext.decodeAudioData(await response.arrayBuffer()),
-        );
-      },
-      onProgress: (progress) => {
-        if (activeRender === render) {
-          useAppStore.setState({
-            analysisProgressText: `${Math.round(progress * 100)}%`,
-          });
-        }
-      },
+  renderWubMachineBuffer(sourceBuffer, audioContext, analysisResult, {
+    signal: render.signal,
+    trackId:
+      useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId,
+    onProgress: (progress) => {
+      if (activeRender === render) {
+        useAppStore.setState({
+          analysisProgressText: `${Math.round(progress * 100)}%`,
+        });
+      }
     },
-  )
-    .then(({ channels, sampleRate, parts }) => {
+  })
+    .then(({ buffer, parts }) => {
       if (activeRender !== render) {
         return;
       }
-      const buffer = new AudioBuffer({
-        length: channels[0].length,
-        numberOfChannels: 2,
-        sampleRate,
-      });
-      buffer.copyToChannel(channels[0] as Float32Array<ArrayBuffer>, 0);
-      buffer.copyToChannel(channels[1] as Float32Array<ArrayBuffer>, 1);
       wubmachine.setRemix(buffer, audioContext, parts);
       useAppStore.setState({
         wubMachineSeconds: 0,
@@ -148,8 +105,5 @@ export function maybePrepareWubMachine(context: AppContext) {
         icon: "error",
         tone: "error",
       });
-    })
-    .finally(() => {
-      adapter.dispose();
     });
 }

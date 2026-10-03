@@ -507,8 +507,13 @@ export function planDubstepRemix(
   const { sections, beats, segments, track } = analysis;
   const lastSegment = segments[segments.length - 1];
   const duration = track?.duration ?? (lastSegment ? end(lastSegment) : 0);
-  const sourceTempo =
+  const estimatedTempo =
     beats.length < 16 || !track?.tempo ? (60 * 16) / duration : track.tempo;
+  // Without a usable tempo the source plays unstretched.
+  const sourceTempo =
+    Number.isFinite(estimatedTempo) && estimatedTempo > 0
+      ? estimatedTempo
+      : DUBSTEP_TEMPO;
   const tonic = options.tonic ?? estimateTonic(segments);
   const key = KEY_FILES[tonic] as string;
 

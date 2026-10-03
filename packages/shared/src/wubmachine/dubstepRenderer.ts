@@ -43,6 +43,8 @@ export type DubstepRender = {
   sampleRate: number;
   plan: DubstepPlan;
   parts: DubstepRenderedPart[];
+  // True when decoded from the stored (lossy) copy instead of rendered.
+  stored: boolean;
 };
 
 const SLICE_FADE_SECONDS = 0.002;
@@ -103,6 +105,44 @@ function concatSlices(
   return out;
 }
 
+function throwIfAborted(signal: AbortSignal | undefined) {
+  if (signal?.aborted) {
+    throw new DOMException("Dubstep rendering was cancelled", "AbortError");
+  }
+}
+
+// Pads with silence or trims so the piece is exactly `frames` long.
+function fitLength(channels: Stereo, frames: number): Stereo {
+  return channels.map((channel) => {
+    if (channel.length === frames) {
+      return channel;
+    }
+    const fitted = new Float32Array(frames);
+    fitted.set(channel.subarray(0, frames));
+    return fitted;
+  }) as Stereo;
+}
+
+// Stretches `[start, stop)` of the source to `frames`; silence when empty.
+async function stretchRange(
+  source: Stereo,
+  sampleRate: number,
+  start: number,
+  stop: number,
+  frames: number,
+  adapter: TimeStretchAdapter,
+): Promise<Stereo> {
+  if (stop <= start || frames <= 0) {
+    return [new Float32Array(frames), new Float32Array(frames)];
+  }
+  const stretched = await adapter.stretchSegment(
+    [source[0].slice(start, stop), source[1].slice(start, stop)],
+    sampleRate,
+    frames,
+  );
+  return fitLength(toStereo(stretched), frames);
+}
+
 // Stretches every slice to its own share of the 140 BPM grid, so each beat
 // lands where the samples expect it. Identical slices are stretched once.
 async function stretchToGrid(
@@ -110,6 +150,7 @@ async function stretchToGrid(
   sampleRate: number,
   slices: SourceSlice[],
   adapter: TimeStretchAdapter,
+  signal: AbortSignal | undefined,
   onSlice: () => void,
 ): Promise<Stereo> {
   const beatFrames = (sampleRate * 60) / DUBSTEP_TEMPO;
@@ -119,19 +160,21 @@ async function stretchToGrid(
     let piece = pieces.get(key);
     if (!piece) {
       const [start, stop] = sliceFrames(slice, sampleRate, source[0].length);
-      piece = adapter
-        .stretchSegment(
-          [source[0].slice(start, stop), source[1].slice(start, stop)],
-          sampleRate,
-          Math.round(slice.beats * beatFrames),
-        )
-        .then(toStereo);
+      piece = stretchRange(
+        source,
+        sampleRate,
+        start,
+        stop,
+        Math.round(slice.beats * beatFrames),
+        adapter,
+      );
       pieces.set(key, piece);
     }
     return piece;
   };
   const stretched: Stereo[] = [];
   for (const slice of slices) {
+    throwIfAborted(signal);
     stretched.push(await stretchSlice(slice));
     onSlice();
   }
@@ -204,12 +247,6 @@ function layoutParts(
   });
 }
 
-function throwIfAborted(signal: AbortSignal | undefined) {
-  if (signal?.aborted) {
-    throw new DOMException("Dubstep rendering was cancelled", "AbortError");
-  }
-}
-
 export async function renderDubstepRemix(
   sourceChannels: Float32Array[],
   sampleRate: number,
@@ -242,6 +279,7 @@ export async function renderDubstepRemix(
         sampleRate,
         plan,
         parts: layoutParts(plan, sampleRate, partFrames, stored[0].length),
+        stored: true,
       };
     }
   }
@@ -273,6 +311,7 @@ export async function renderDubstepRemix(
         sampleRate,
         slices,
         options.adapter,
+        options.signal,
         () => {
           done += 1;
           reportProgress(done / slices.length);
@@ -284,12 +323,13 @@ export async function renderDubstepRemix(
         plan.timeRatio === null
           ? partFrames
           : Math.round(pieces[0].length * plan.timeRatio);
-      result = toStereo(
-        await options.adapter.stretchSegment(
-          pieces,
-          sampleRate,
-          targetFrameCount,
-        ),
+      result = await stretchRange(
+        pieces,
+        sampleRate,
+        0,
+        pieces[0].length,
+        targetFrameCount,
+        options.adapter,
       );
     }
     stretched.set(slices, result);
@@ -348,5 +388,6 @@ export async function renderDubstepRemix(
     sampleRate,
     plan,
     parts: layoutParts(plan, sampleRate, partFrames, total),
+    stored: false,
   };
 }

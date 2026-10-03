@@ -50,7 +50,7 @@ function createOfflineContext(
   }
 }
 
-function createOutputBuffer(
+export function createOutputBuffer(
   channels: number,
   length: number,
   sampleRate: number,

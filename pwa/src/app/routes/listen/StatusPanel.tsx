@@ -25,7 +25,9 @@ export function StatusPanel({
   const preparingTitle =
     preparingMode === "instrumental"
       ? t("listen.preparingInstrumentalPercent", { percent: preparingProgress })
-      : t("listen.preparingSwingPercent", { percent: preparingProgress });
+      : preparingMode === "wubmachine"
+        ? t("listen.preparingWubMachinePercent", { percent: preparingProgress })
+        : t("listen.preparingSwingPercent", { percent: preparingProgress });
   const preparingMessage =
     preparingMode === "instrumental"
       ? t(
@@ -33,7 +35,9 @@ export function StatusPanel({
             ? "listen.instrumentalDownloading"
             : "listen.instrumentalSeparating",
         )
-      : t("listen.addingSwing");
+      : preparingMode === "wubmachine"
+        ? t("listen.buildingWubMachine")
+        : t("listen.addingSwing");
   return (
     <>
       {isAnalyzing ? (

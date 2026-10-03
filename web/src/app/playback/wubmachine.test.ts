@@ -3,34 +3,21 @@ import type { AppContext } from "../context";
 import { useAppStore } from "../store";
 
 type Render = {
-  channels: [Float32Array, Float32Array];
-  sampleRate: number;
+  buffer: { duration: number };
   parts: Array<{ kind: string; label: string; start: number; duration: number }>;
 };
 let resolveRender!: (render: Render) => void;
 let rejectRender!: (err: Error) => void;
-const renderDubstepRemix = vi.fn(
+const renderWubMachineBuffer = vi.fn(
   (..._args: unknown[]) =>
     new Promise<Render>((resolve, reject) => {
       resolveRender = resolve;
       rejectRender = reject;
     }),
 );
-const disposeAdapter = vi.fn();
 
-vi.mock("@forever-jukebox/shared", () => ({
-  parseAnalysis: (raw: unknown) => raw,
-}));
-vi.mock("@forever-jukebox/shared/audio/rubberBandAdapter", () => ({
-  RubberBandWorkerAdapter: class {
-    dispose = disposeAdapter;
-  },
-}));
-vi.mock("@forever-jukebox/shared/wubmachine/dubstepRenderer", () => ({
-  renderDubstepRemix: (...args: unknown[]) => renderDubstepRemix(...args),
-}));
-vi.mock("@forever-jukebox/shared/wubmachine/dubstepSamples", () => ({
-  dubstepSampleUrl: (name: string) => `/samples/${name}.webm`,
+vi.mock("@forever-jukebox/shared/wubmachine/wubMachineRender", () => ({
+  renderWubMachineBuffer: (...args: unknown[]) => renderWubMachineBuffer(...args),
 }));
 const showToast = vi.fn();
 vi.mock("../ui", () => ({
@@ -48,18 +35,9 @@ import {
   setWubMachineAnalysis,
 } from "./wubmachine";
 
-class FakeAudioBuffer {
-  readonly duration: number;
-  constructor(options: { length: number; sampleRate: number }) {
-    this.duration = options.length / options.sampleRate;
-  }
-  copyToChannel() {}
-}
-
 const initialStoreState = useAppStore.getState();
 const render: Render = {
-  channels: [new Float32Array(2000), new Float32Array(2000)],
-  sampleRate: 1000,
+  buffer: { duration: 2 },
   parts: [{ kind: "intro", label: "intro", start: 0, duration: 2 }],
 };
 
@@ -91,7 +69,6 @@ function createContext() {
 describe("maybePrepareWubMachine", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal("AudioBuffer", FakeAudioBuffer);
     useAppStore.setState(initialStoreState, true);
     const { context } = createContext();
     resetWubMachine(context);
@@ -106,41 +83,41 @@ describe("maybePrepareWubMachine", () => {
   it("does nothing outside Wub Machine mode", () => {
     useAppStore.setState({ playMode: "jukebox" });
     maybePrepareWubMachine(createContext().context);
-    expect(renderDubstepRemix).not.toHaveBeenCalled();
+    expect(renderWubMachineBuffer).not.toHaveBeenCalled();
   });
 
   it("renders once and hands the remix to the controller", async () => {
     const { context, wubmachine } = createContext();
     maybePrepareWubMachine(context);
     maybePrepareWubMachine(context);
-    expect(renderDubstepRemix).toHaveBeenCalledTimes(1);
+    expect(renderWubMachineBuffer).toHaveBeenCalledTimes(1);
+    expect(renderWubMachineBuffer.mock.calls[0]?.[2]).toEqual({ beats: [] });
     expect(useAppStore.getState().audioModePreparing).toBe(true);
 
     resolveRender(render);
     await flushMicrotasks();
 
     expect(wubmachine.setRemix).toHaveBeenLastCalledWith(
-      expect.any(FakeAudioBuffer),
+      render.buffer,
       expect.anything(),
       render.parts,
     );
     expect(useAppStore.getState().audioModePreparing).toBe(false);
     expect(useAppStore.getState().wubMachineDurationSec).toBe(2);
-    expect(disposeAdapter).toHaveBeenCalledTimes(1);
   });
 
   it("skips the render when the remix is already loaded", () => {
     const { context, wubmachine } = createContext();
     wubmachine.isReady.mockReturnValue(true);
     maybePrepareWubMachine(context);
-    expect(renderDubstepRemix).not.toHaveBeenCalled();
+    expect(renderWubMachineBuffer).not.toHaveBeenCalled();
   });
 
   it("drops a render cancelled by leaving the mode", async () => {
     const { context, wubmachine } = createContext();
     maybePrepareWubMachine(context);
     const signal = (
-      renderDubstepRemix.mock.calls[0]?.[3] as { signal: AbortSignal }
+      renderWubMachineBuffer.mock.calls[0]?.[3] as { signal: AbortSignal }
     ).signal;
     cancelWubMachineRender();
     expect(signal.aborted).toBe(true);
@@ -148,11 +125,7 @@ describe("maybePrepareWubMachine", () => {
 
     resolveRender(render);
     await flushMicrotasks();
-    expect(wubmachine.setRemix).not.toHaveBeenCalledWith(
-      expect.any(FakeAudioBuffer),
-      expect.anything(),
-      expect.anything(),
-    );
+    expect(wubmachine.setRemix).not.toHaveBeenCalled();
   });
 
   it("reports a failed render and allows a retry", async () => {
@@ -164,6 +137,6 @@ describe("maybePrepareWubMachine", () => {
     expect(showToast).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().audioModePreparing).toBe(false);
     maybePrepareWubMachine(context);
-    expect(renderDubstepRemix).toHaveBeenCalledTimes(2);
+    expect(renderWubMachineBuffer).toHaveBeenCalledTimes(2);
   });
 });

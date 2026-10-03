@@ -6,6 +6,7 @@ import { Listen } from "./Listen";
 import { VISUALIZATION_LABELS } from "@forever-jukebox/shared/constants/visualization";
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
+import { markStoredCopy } from "@forever-jukebox/shared/audio/renderedTrackCache";
 import {
   cancelInstrumentalRender,
   isInstrumentalModeAvailable,
@@ -14,8 +15,12 @@ import {
 
 const exportMocks = vi.hoisted(() => ({
   exportJukeboxAudio: vi.fn(),
+  exportRenderedAudio: vi.fn(),
   pickBinaryExportFile: vi.fn(),
   saveExportBinary: vi.fn(),
+}));
+const wubMachineMocks = vi.hoisted(() => ({
+  renderWubMachineBuffer: vi.fn(),
 }));
 
 const mockAppState = {
@@ -38,6 +43,18 @@ type MockAutocanonizerInstance = {
 };
 
 const autocanonizerInstances: MockAutocanonizerInstance[] = [];
+type MockWubMachineInstance = {
+  setRemix: ReturnType<typeof vi.fn>;
+  setLoop: ReturnType<typeof vi.fn>;
+  setVolume: ReturnType<typeof vi.fn>;
+  play: ReturnType<typeof vi.fn>;
+  pause: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+  emitTick: (seconds: number) => void;
+  emitEnded: () => void;
+  emitSelect: (seconds: number) => void;
+};
+const wubMachineInstances: MockWubMachineInstance[] = [];
 type MockPlayerInstance = {
   emitEnded: () => void;
   getAudioMode: () => string;
@@ -250,6 +267,55 @@ vi.mock("@forever-jukebox/shared/audio/instrumentalRenderer", () => ({
 
 vi.mock("@/shared/export", () => ({
   exportJukeboxAudio: exportMocks.exportJukeboxAudio,
+  exportRenderedAudio: exportMocks.exportRenderedAudio,
+}));
+
+vi.mock("@forever-jukebox/shared/wubmachine/wubMachineRender", () => ({
+  renderWubMachineBuffer: wubMachineMocks.renderWubMachineBuffer,
+}));
+
+vi.mock("@forever-jukebox/shared/wubmachine/WubMachineController", () => ({
+  WubMachineController: class WubMachineController {
+    private onTick: ((seconds: number) => void) | null = null;
+    private onEnded: (() => void) | null = null;
+    private onSelect: ((seconds: number) => void) | null = null;
+    private remix: AudioBuffer | null = null;
+    constructor(_layer: HTMLElement) {
+      wubMachineInstances.push(this);
+    }
+    setVisible = vi.fn((_visible: boolean) => undefined);
+    resizeNow = vi.fn();
+    setOnTick(handler: ((seconds: number) => void) | null) {
+      this.onTick = handler;
+    }
+    setOnEnded(handler: (() => void) | null) {
+      this.onEnded = handler;
+    }
+    setOnSelect(handler: ((seconds: number) => void) | null) {
+      this.onSelect = handler;
+    }
+    setVolume = vi.fn((_volume: number) => undefined);
+    setLoop = vi.fn((_loop: boolean) => undefined);
+    setRemix = vi.fn((buffer: AudioBuffer | null) => {
+      this.remix = buffer;
+    });
+    isReady() {
+      return this.remix !== null;
+    }
+    play = vi.fn((_from?: number) => undefined);
+    pause = vi.fn();
+    stop = vi.fn();
+    destroy = vi.fn();
+    emitTick(seconds: number) {
+      this.onTick?.(seconds);
+    }
+    emitEnded() {
+      this.onEnded?.();
+    }
+    emitSelect(seconds: number) {
+      this.onSelect?.(seconds);
+    }
+  },
 }));
 
 vi.mock("@/shared/utils/exportJson", () => ({
@@ -590,6 +656,19 @@ describe("Listen route behavior", () => {
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
     autocanonizerInstances.length = 0;
+    wubMachineInstances.length = 0;
+    wubMachineMocks.renderWubMachineBuffer.mockReset();
+    wubMachineMocks.renderWubMachineBuffer.mockResolvedValue({
+      buffer: { duration: 30 } as AudioBuffer,
+      parts: [],
+    });
+    exportMocks.exportRenderedAudio.mockReset();
+    exportMocks.exportRenderedAudio.mockResolvedValue({
+      bytes: new Uint8Array([4, 5, 6]),
+      extension: "mp3",
+      mimeType: "audio/mpeg",
+      renderedDurationSeconds: 30,
+    });
     playerInstances.length = 0;
     jukeboxControllerInstances.length = 0;
     engineInstances.length = 0;
@@ -713,6 +792,179 @@ describe("Listen route behavior", () => {
     expect(
       getRequired(rendered.container, "#autocanonizer-other-time").textContent,
     ).toBe("0:00");
+    rendered.unmount();
+  });
+
+  it("renders the Wub Machine remix on mode switch and plays it", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+    const modeSelect = getRequired<HTMLSelectElement>(
+      rendered.container,
+      "#play-mode-select",
+    );
+    const playButton = getRequired<HTMLButtonElement>(rendered.container, "#viz-play");
+
+    await changeSelect(modeSelect, "wubmachine");
+    await settleEffects();
+
+    expect(wubMachineMocks.renderWubMachineBuffer).toHaveBeenCalledTimes(1);
+    expect(wubMachineMocks.renderWubMachineBuffer.mock.calls[0]?.[3]).toMatchObject({
+      trackId: "fp-test",
+    });
+    const wubmachine = wubMachineInstances[0];
+    expect(wubmachine.setRemix).toHaveBeenCalledWith(
+      { duration: 30 },
+      expect.anything(),
+      [],
+    );
+    expect(
+      getRequired(rendered.container, "#wubmachine-total-time").textContent,
+    ).toBe("0:30");
+    expect(
+      getRequired(rendered.container, "#tuning").classList.contains("is-hidden"),
+    ).toBe(true);
+    expect(
+      getRequired<HTMLButtonElement>(rendered.container, "#track-audio-export")
+        .disabled,
+    ).toBe(false);
+    expect(rendered.container.querySelector(".play-title")?.textContent).toContain(
+      "(wub machine remix)",
+    );
+
+    await click(playButton);
+    expect(wubmachine.play).toHaveBeenLastCalledWith(undefined);
+    expect(playButton.getAttribute("aria-label")).toBe("Pause");
+    await act(async () => {
+      wubmachine.emitTick(75.6);
+    });
+    expect(
+      getRequired(rendered.container, "#wubmachine-time").textContent,
+    ).toBe("1:15");
+
+    await act(async () => {
+      wubmachine.emitSelect(12);
+    });
+    expect(wubmachine.play).toHaveBeenLastCalledWith(12);
+
+    await click(playButton);
+    expect(wubmachine.pause).toHaveBeenCalledTimes(1);
+    expect(playButton.getAttribute("aria-label")).toBe("Resume");
+
+    await act(async () => {
+      wubmachine.emitEnded();
+    });
+    // Ended while paused is ignored; resume, then end the track.
+    expect(playButton.getAttribute("aria-label")).toBe("Resume");
+    await click(playButton);
+    await act(async () => {
+      wubmachine.emitEnded();
+    });
+    expect(playButton.getAttribute("aria-label")).toBe("Play");
+
+    // Switching back and forth reuses the remix instead of re-rendering.
+    await changeSelect(modeSelect, "jukebox");
+    await changeSelect(modeSelect, "wubmachine");
+    await settleEffects();
+    expect(wubMachineMocks.renderWubMachineBuffer).toHaveBeenCalledTimes(1);
+    rendered.unmount();
+  });
+
+  it("persists the Wub Machine loop preference", async () => {
+    window.localStorage.setItem("fj-wub-machine-loop", "true");
+    const rendered = renderListen();
+    await settleEffects();
+    const loop = getRequired<HTMLInputElement>(rendered.container, "#wubmachine-loop");
+    expect(loop.checked).toBe(true);
+    expect(wubMachineInstances[0].setLoop).toHaveBeenLastCalledWith(true);
+
+    await click(loop);
+    expect(loop.checked).toBe(false);
+    expect(window.localStorage.getItem("fj-wub-machine-loop")).toBe("false");
+    expect(wubMachineInstances[0].setLoop).toHaveBeenLastCalledWith(false);
+    rendered.unmount();
+  });
+
+  it("reports a failed Wub Machine render and retries from play", async () => {
+    wubMachineMocks.renderWubMachineBuffer.mockRejectedValueOnce(
+      new Error("no samples"),
+    );
+    const rendered = renderListen();
+    await settleEffects();
+    await changeSelect(
+      getRequired<HTMLSelectElement>(rendered.container, "#play-mode-select"),
+      "wubmachine",
+    );
+    await settleEffects();
+    expect(rendered.container.textContent).toContain("Wub Machine remix failed");
+    expect(wubMachineInstances[0].setRemix).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    );
+
+    await click(getRequired<HTMLButtonElement>(rendered.container, "#viz-play"));
+    await settleEffects();
+    expect(wubMachineMocks.renderWubMachineBuffer).toHaveBeenCalledTimes(2);
+    expect(wubMachineInstances[0].setRemix).toHaveBeenLastCalledWith(
+      { duration: 30 },
+      expect.anything(),
+      [],
+    );
+    rendered.unmount();
+  });
+
+  it("exports the whole Wub Machine remix, afresh for WAV when stored", async () => {
+    const storedRemix = { duration: 30 } as AudioBuffer;
+    markStoredCopy(storedRemix);
+    wubMachineMocks.renderWubMachineBuffer.mockResolvedValue({
+      buffer: storedRemix,
+      parts: [],
+    });
+    const rendered = renderListen();
+    await settleEffects();
+    await changeSelect(
+      getRequired<HTMLSelectElement>(rendered.container, "#play-mode-select"),
+      "wubmachine",
+    );
+    await settleEffects();
+
+    const exportWith = async (format: string) => {
+      wubMachineMocks.renderWubMachineBuffer.mockClear();
+      await click(getRequired<HTMLButtonElement>(rendered.container, "#track-audio-export"));
+      expect(rendered.container.textContent).toContain("Remix length:");
+      expect(rendered.container.querySelector('input[type="number"]')).toBeNull();
+      const formatSelect = Array.from(
+        rendered.container.querySelectorAll<HTMLSelectElement>("select"),
+      ).find((select) => select.querySelector('option[value="wav"]'));
+      if (!formatSelect) {
+        throw new Error("Expected export format select");
+      }
+      await changeSelect(formatSelect, format);
+      await click(
+        getRequired<HTMLButtonElement>(
+          rendered.container,
+          ".modal-footer .tab-btn:last-child",
+        ),
+      );
+      await settleEffects();
+    };
+
+    await exportWith("mp3");
+    expect(wubMachineMocks.renderWubMachineBuffer).not.toHaveBeenCalled();
+    expect(exportMocks.exportJukeboxAudio).not.toHaveBeenCalled();
+    expect(exportMocks.exportRenderedAudio).toHaveBeenLastCalledWith(
+      expect.objectContaining({ buffer: storedRemix, format: "mp3", gain: 1 }),
+    );
+    expect(exportMocks.saveExportBinary.mock.calls.at(-1)?.[0]).toBe("song_wub.mp3");
+
+    await exportWith("wav");
+    expect(wubMachineMocks.renderWubMachineBuffer).toHaveBeenCalledTimes(1);
+    expect(wubMachineMocks.renderWubMachineBuffer.mock.calls[0]?.[3]).toMatchObject({
+      trackId: null,
+    });
+    expect(exportMocks.exportRenderedAudio).toHaveBeenLastCalledWith(
+      expect.objectContaining({ format: "wav" }),
+    );
     rendered.unmount();
   });
 

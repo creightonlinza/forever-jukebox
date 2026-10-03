@@ -3,6 +3,7 @@ import type { TFunction } from "i18next";
 import type { AnalysisOutput } from "@/shared/analysis-schema";
 import {
   exportJukeboxAudio,
+  exportRenderedAudio,
   type JukeboxExportProgress,
 } from "@/shared/export";
 import {
@@ -21,7 +22,9 @@ import {
 } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { isStoredCopy } from "@forever-jukebox/shared/audio/renderedTrackCache";
 import type { JukeboxEngine } from "@forever-jukebox/shared";
+import type { WubMachineRender } from "@forever-jukebox/shared/wubmachine/wubMachineRender";
 import { createSessionSeed, waitForNextPaint } from "./browser";
+import type { PlayMode } from "./types";
 import {
   MAX_EXPORT_DURATION_SECONDS,
   buildAudioExportName,
@@ -36,10 +39,13 @@ export function useAudioExport({
   analysisRef,
   playerRef,
   engineRef,
+  playMode,
   jukeboxAudioMode,
   audioIntensity,
   getSourceIdentity,
   getRenderedTrackId,
+  getWubMachineRender,
+  renderWubMachine,
   t,
 }: {
   file: File | null;
@@ -47,11 +53,19 @@ export function useAudioExport({
   analysisRef: React.MutableRefObject<AnalysisOutput | null>;
   playerRef: React.MutableRefObject<BufferedAudioPlayer | null>;
   engineRef: React.MutableRefObject<JukeboxEngine | null>;
+  playMode: PlayMode;
   jukeboxAudioMode: JukeboxAudioMode;
   audioIntensity: number;
   getSourceIdentity: () => string | null;
   // Rendered copies are stored by analysis fingerprint, like cached analysis.
   getRenderedTrackId: () => string | null;
+  // The loaded track's Wub Machine remix, if it has been rendered.
+  getWubMachineRender: () => WubMachineRender | null;
+  // Renders it, storing a copy under the track unless told not to.
+  renderWubMachine: (
+    storeCopy: boolean,
+    onProgress: (progress: number) => void,
+  ) => Promise<WubMachineRender>;
   t: TFunction;
 }) {
   const [isExportOpen, setIsExportOpen] = React.useState(false);
@@ -108,12 +122,13 @@ export function useAudioExport({
       return;
     }
 
+    const isWubMachine = playMode === "wubmachine";
     const durationSeconds = Number(exportForm.durationSeconds);
-    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    if (!isWubMachine && (!Number.isFinite(durationSeconds) || durationSeconds <= 0)) {
       setExportError(t("export.positiveDuration"));
       return;
     }
-    if (durationSeconds > MAX_EXPORT_DURATION_SECONDS) {
+    if (!isWubMachine && durationSeconds > MAX_EXPORT_DURATION_SECONDS) {
       setExportError(t("export.durationCap", {
         minutes: MAX_EXPORT_DURATION_SECONDS / 60,
       }));
@@ -121,7 +136,12 @@ export function useAudioExport({
     }
 
     const requestedExtension = exportForm.format;
-    const requestedFilename = buildAudioExportName(file.name, requestedExtension);
+    const exportSuffix = isWubMachine ? "wub" : "forever";
+    const requestedFilename = buildAudioExportName(
+      file.name,
+      requestedExtension,
+      exportSuffix,
+    );
     const requestedDescription =
       requestedExtension === "mp3"
         ? t("export.mp3Description")
@@ -161,6 +181,35 @@ export function useAudioExport({
       const lossless = requestedExtension === "wav";
       const reusable = (buffer: AudioBuffer | null) =>
         buffer && !(lossless && isStoredCopy(buffer)) ? buffer : null;
+      // The remix is a finished track: encode it whole, no jukebox path.
+      let result;
+      if (isWubMachine) {
+        let remix = reusable(getWubMachineRender()?.buffer ?? null);
+        if (!remix) {
+          setExportProgress({
+            stage: "rendering",
+            message: { kind: "preparingWubMachine" },
+            percent: 2,
+          });
+          remix = (
+            await renderWubMachine(!lossless, (progress) => {
+              setExportProgress({
+                stage: "rendering",
+                message: { kind: "preparingWubMachine" },
+                percent: 2 + Math.max(0, Math.min(1, progress)) * 6,
+              });
+            })
+          ).buffer;
+        }
+        result = await exportRenderedAudio({
+          buffer: remix,
+          format: exportForm.format,
+          bitrateKbps:
+            exportForm.format === "mp3" ? exportForm.bitrateKbps : undefined,
+          gain: player.getVolume(),
+          onProgress: (progress) => setExportProgress(progress),
+        });
+      } else {
       if (jukeboxAudioMode === "instrumental") {
         const existing = reusable(
           player.getRenderedJukeboxAudioBuffer("instrumental"),
@@ -233,7 +282,7 @@ export function useAudioExport({
           .map((edge) => ({ src: edge.src.which, dest: edge.dest.which })) ?? [];
       const anchorEdge = engine.getUserAnchorEdge();
 
-      const result = await exportJukeboxAudio({
+      result = await exportJukeboxAudio({
         analysis: activeAnalysis,
         sourceBuffer,
         config: engine.getConfig(),
@@ -253,9 +302,10 @@ export function useAudioExport({
         seed: createSessionSeed(),
         onProgress: (progress) => setExportProgress(progress),
       });
+      }
 
       const extension = result.extension;
-      const filename = buildAudioExportName(file.name, extension);
+      const filename = buildAudioExportName(file.name, extension, exportSuffix);
       const description =
         extension === "mp3"
           ? t("export.mp3Description")
