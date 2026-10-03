@@ -215,7 +215,8 @@ export function mixFactor(analysis: DubstepAnalysis, slices: Quantum[]) {
     (segment) => end(segment) > rangeStart && segment.start < rangeEnd,
   );
   const loud = trackLoudness(spanned) || trackLoudness(analysis.segments);
-  const mix = loud === -MIX_B ? 0 : (loud + MIX_A) / (loud + MIX_B);
+  const denominator = loud + MIX_B;
+  const mix = Math.abs(denominator) < 1e-9 ? 0 : (loud + MIX_A) / denominator;
   return Math.max(MIN_MIX, Math.min(MAX_MIX, mix));
 }
 
@@ -252,7 +253,14 @@ function introSlices(analysis: DubstepAnalysis, duration: number) {
 }
 
 const PHRASE_BEATS = 16;
-const PHRASE_SLOTS = [8, 4, 4];
+
+// Pool index that beat `i` of a 16-beat phrase draws from.
+function poolSlot(i: number): 0 | 1 | 2 {
+  if (i < 8) {
+    return 0;
+  }
+  return i < 12 ? 1 : 2;
+}
 
 type Pools = [Quantum[], Quantum[], Quantum[]];
 
@@ -274,14 +282,8 @@ function bestWindow(
       continue;
     }
     let score = barStarts.has((window[0] as Quantum).start) ? 0.5 : 0;
-    let slot = 0;
-    let slotEnd = PHRASE_SLOTS[0] as number;
     window.forEach((beat, i) => {
-      if (i >= slotEnd) {
-        slot += 1;
-        slotEnd += PHRASE_SLOTS[slot] as number;
-      }
-      if (members[slot]?.has(beat)) {
+      if (members[poolSlot(i)]?.has(beat)) {
         score += 1;
       }
     });
@@ -327,9 +329,8 @@ function contiguousPhrases(
   if (starts.length === 0) {
     return [cycle(beats, PHRASE_BEATS)];
   }
-  return starts
-    .sort((a, b) => a - b)
-    .map((start) => beats.slice(start, start + PHRASE_BEATS));
+  starts.sort((a, b) => a - b);
+  return starts.map((start) => beats.slice(start, start + PHRASE_BEATS));
 }
 
 // Beat pools for the section: tonic, +3 and +9, each falling back to the
@@ -345,7 +346,7 @@ function sectionPools(
     find((tonic + 3) % 12),
     find((tonic + 9) % 12),
   ];
-  let biggest = [s1, s2, s3].reduce((a, b) => (b.length > a.length ? b : a));
+  let biggest = [s2, s3].reduce((a, b) => (b.length > a.length ? b : a), s1);
   for (let i = 0; i < 12 && biggest.length === 0; i += 1) {
     biggest = find((tonic + i) % 12);
   }
@@ -382,7 +383,7 @@ function sectionParts(
   if (!contiguous) {
     const bar: Quantum[] = [];
     for (let i = 0; i < PHRASE_BEATS; i += 1) {
-      const pool = i < 8 ? pools[0] : i < 12 ? pools[1] : pools[2];
+      const pool = pools[poolSlot(i)];
       bar.push(pool[i % pool.length] as Quantum);
     }
     const slices = [...bar, ...bar].map(wholeBeat);

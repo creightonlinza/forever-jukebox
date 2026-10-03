@@ -31,16 +31,15 @@ export function isPlaybackBlockedForAudioMode() {
 
 function showPreparingToast() {
   const { playMode, jukeboxAudioMode } = useAppStore.getState();
-  showToast(
-    i18n.t(
-      playMode === "wubmachine"
-        ? "playback.preparingWubMachineEllipsis"
-        : jukeboxAudioMode === "instrumental"
-          ? "playback.preparingInstrumental"
-          : "playback.preparingSwingEllipsis",
-    ),
-    { icon: "hourglass_top" },
-  );
+  const key = () => {
+    if (playMode === "wubmachine") {
+      return "playback.preparingWubMachineEllipsis" as const;
+    }
+    return jukeboxAudioMode === "instrumental"
+      ? ("playback.preparingInstrumental" as const)
+      : ("playback.preparingSwingEllipsis" as const);
+  };
+  showToast(i18n.t(key()), { icon: "hourglass_top" });
   updatePlayButton();
 }
 

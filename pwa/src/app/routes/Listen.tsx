@@ -962,16 +962,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     );
   }
 
+  function preparingToastKey() {
+    if (playModeRef.current === "wubmachine") {
+      return "listen.preparingWubMachineEllipsis" as const;
+    }
+    return jukeboxAudioMode === "instrumental"
+      ? ("listen.preparingInstrumentalEllipsis" as const)
+      : ("listen.preparingSwingEllipsis" as const);
+  }
+
   function showPreparingToast() {
-    showShortcutToast(
-      t(
-        playModeRef.current === "wubmachine"
-          ? "listen.preparingWubMachineEllipsis"
-          : jukeboxAudioMode === "instrumental"
-            ? "listen.preparingInstrumentalEllipsis"
-            : "listen.preparingSwingEllipsis",
-      ),
-    );
+    showShortcutToast(t(preparingToastKey()));
   }
 
   // Stops a Wub Machine render in flight; a finished remix is kept.

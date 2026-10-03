@@ -247,6 +247,85 @@ function layoutParts(
   });
 }
 
+// Mixes `under` into the bed in place: `mix` of the bed, `1 - mix` of the source.
+function mixUnder(bed: Stereo, under: Stereo, mix: number) {
+  const overlap = Math.min(bed[0].length, under[0].length);
+  for (let channel = 0; channel < 2; channel += 1) {
+    const target = bed[channel as 0 | 1];
+    const data = under[channel as 0 | 1];
+    for (let i = 0; i < target.length; i += 1) {
+      target[i] =
+        (target[i] as number) * mix +
+        (i < overlap ? (data[i] as number) * (1 - mix) : 0);
+    }
+  }
+}
+
+function concatParts(parts: Stereo[]): Stereo {
+  const total = parts.reduce((sum, part) => sum + part[0].length, 0);
+  const channels: Stereo = [new Float32Array(total), new Float32Array(total)];
+  let offset = 0;
+  for (const part of parts) {
+    channels[0].set(part[0], offset);
+    channels[1].set(part[1], offset);
+    offset += part[0].length;
+  }
+  return channels;
+}
+
+// Stretches a part's slices, as a whole at the plan's ratio or slice by slice
+// onto the grid; `onProgress` reports the share of the part done.
+async function stretchPart(
+  source: Stereo,
+  sampleRate: number,
+  slices: SourceSlice[],
+  plan: DubstepPlan,
+  partFrames: number,
+  options: RenderDubstepOptions,
+  onProgress: (withinPart: number) => void,
+): Promise<Stereo> {
+  if (options.beatGrid) {
+    let done = 0;
+    return stretchToGrid(
+      source,
+      sampleRate,
+      slices,
+      options.adapter,
+      options.signal,
+      () => {
+        done += 1;
+        onProgress(done / slices.length);
+      },
+    );
+  }
+  const pieces = concatSlices(source, sampleRate, slices);
+  const targetFrameCount =
+    plan.timeRatio === null
+      ? partFrames
+      : Math.round(pieces[0].length * plan.timeRatio);
+  return stretchRange(
+    pieces,
+    sampleRate,
+    0,
+    pieces[0].length,
+    targetFrameCount,
+    options.adapter,
+  );
+}
+
+// Loads each sample once per render.
+function sampleLoader(load: RenderDubstepOptions["loadSample"]) {
+  const samples = new Map<string, Promise<Stereo>>();
+  return (path: string) => {
+    let sample = samples.get(path);
+    if (!sample) {
+      sample = load(path).then(toStereo);
+      samples.set(path, sample);
+    }
+    return sample;
+  };
+}
+
 export async function renderDubstepRemix(
   sourceChannels: Float32Array[],
   sampleRate: number,
@@ -267,113 +346,61 @@ export async function renderDubstepRemix(
         signature: `${beatGrid ? "g" : "w"}:${planSignature(plan)}`,
       }
     : null;
-  if (storedKey) {
-    const stored = await readRenderedTrack(storedKey, null, sampleRate).catch(
-      () => null,
-    );
-    throwIfAborted(options.signal);
-    if (stored) {
-      options.onProgress?.(1);
-      return {
-        channels: stored,
-        sampleRate,
-        plan,
-        parts: layoutParts(plan, sampleRate, partFrames, stored[0].length),
-        stored: true,
-      };
-    }
+  const stored = storedKey
+    ? await readRenderedTrack(storedKey, null, sampleRate).catch(() => null)
+    : null;
+  throwIfAborted(options.signal);
+  if (stored) {
+    options.onProgress?.(1);
+    return {
+      channels: stored,
+      sampleRate,
+      plan,
+      parts: layoutParts(plan, sampleRate, partFrames, stored[0].length),
+      stored: true,
+    };
   }
   const source = toStereo(sourceChannels);
-  const samples = new Map<string, Promise<Stereo>>();
-  const loadSample = (path: string) => {
-    let sample = samples.get(path);
-    if (!sample) {
-      sample = options.loadSample(path).then(toStereo);
-      samples.set(path, sample);
-    }
-    return sample;
-  };
+  const loadSample = sampleLoader(options.loadSample);
+  // Parts sharing one slice array (drop and break) share one stretch.
   const stretched = new Map<SourceSlice[], Stereo>();
-  let partsDone = 0;
-  const reportProgress = (withinPart: number) => {
-    options.onProgress?.((partsDone + withinPart) / plan.parts.length);
-  };
-  const stretchSlices = async (slices: SourceSlice[]) => {
-    const cached = stretched.get(slices);
-    if (cached) {
-      return cached;
-    }
-    let result: Stereo;
-    if (beatGrid) {
-      let done = 0;
-      result = await stretchToGrid(
-        source,
-        sampleRate,
-        slices,
-        options.adapter,
-        options.signal,
-        () => {
-          done += 1;
-          reportProgress(done / slices.length);
-        },
-      );
-    } else {
-      const pieces = concatSlices(source, sampleRate, slices);
-      const targetFrameCount =
-        plan.timeRatio === null
-          ? partFrames
-          : Math.round(pieces[0].length * plan.timeRatio);
-      result = await stretchRange(
-        pieces,
-        sampleRate,
-        0,
-        pieces[0].length,
-        targetFrameCount,
-        options.adapter,
-      );
-    }
-    stretched.set(slices, result);
-    return result;
-  };
-
   const rendered: Stereo[] = [];
+  const reportProgress = (withinPart: number) => {
+    options.onProgress?.((rendered.length + withinPart) / plan.parts.length);
+  };
   reportProgress(0);
+  // Sequential: one time-stretch worker, and each part is reported as it lands.
   for (const part of plan.parts) {
     throwIfAborted(options.signal);
     const samples = await Promise.all(part.samples.map(loadSample));
-    const bed = mixBed(
-      samples,
-      part.slices.length > 0
-        ? partFrames
-        : Math.max(...samples.map((sample) => sample[0].length)),
-    );
-    if (part.slices.length > 0) {
-      const under = await stretchSlices(part.slices);
-      const overlap = Math.min(bed[0].length, under[0].length);
-      for (let channel = 0; channel < 2; channel += 1) {
-        const target = bed[channel as 0 | 1];
-        const data = under[channel as 0 | 1];
-        for (let i = 0; i < target.length; i += 1) {
-          target[i] =
-            (target[i] as number) * part.mix +
-            (i < overlap ? (data[i] as number) * (1 - part.mix) : 0);
-        }
-      }
+    if (part.slices.length === 0) {
+      rendered.push(
+        mixBed(samples, Math.max(...samples.map((sample) => sample[0].length))),
+      );
+      reportProgress(0);
+      continue;
     }
+    const bed = mixBed(samples, partFrames);
+    let under = stretched.get(part.slices);
+    if (!under) {
+      under = await stretchPart(
+        source,
+        sampleRate,
+        part.slices,
+        plan,
+        partFrames,
+        options,
+        reportProgress,
+      );
+      stretched.set(part.slices, under);
+    }
+    mixUnder(bed, under, part.mix);
     rendered.push(bed);
-    partsDone += 1;
     reportProgress(0);
   }
   throwIfAborted(options.signal);
 
-  const total = rendered.reduce((sum, part) => sum + part[0].length, 0);
-  const channels: Stereo = [new Float32Array(total), new Float32Array(total)];
-  let offset = 0;
-  for (const part of rendered) {
-    channels[0].set(part[0], offset);
-    channels[1].set(part[1], offset);
-    offset += part[0].length;
-  }
+  const channels = concatParts(rendered);
   if (storedKey) {
     writeRenderedTrack(
       storedKey,
@@ -387,7 +414,7 @@ export async function renderDubstepRemix(
     channels,
     sampleRate,
     plan,
-    parts: layoutParts(plan, sampleRate, partFrames, total),
+    parts: layoutParts(plan, sampleRate, partFrames, channels[0].length),
     stored: false,
   };
 }
