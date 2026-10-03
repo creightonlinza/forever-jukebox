@@ -91,11 +91,14 @@ export function maybePrepareWubMachine(context: AppContext) {
       adapter,
       // Departures from the original Wub Machine: phrases are runs of
       // consecutive beats stretched onto the 140 BPM grid, sections earn
-      // parts by length, and near-silent sections are left out.
+      // parts by length, near-silent sections are left out, drops and
+      // breaks contrast, and fills lead into drops.
       contiguous: true,
       beatGrid: true,
       sectionBudget: true,
       skipQuiet: true,
+      contrast: true,
+      fills: true,
       signal: render.signal,
       trackId:
         useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId,

@@ -191,6 +191,42 @@ describe("planDubstepRemix", () => {
     expect(plan.parts[1]!.slices.every((s) => s.start < 20)).toBe(true);
   });
 
+  it("never stacks more than two drops in a row", () => {
+    const long = withSections(makeLongAnalysis(160), [32, 32, 32, 32, 32]);
+    const plan = planDubstepRemix(long, { sectionBudget: true });
+    expect(plan.parts.map((part) => part.kind)).toEqual([
+      "intro",
+      "drop",
+      "drop",
+      "break",
+      "drop",
+      "drop",
+      "ending",
+    ]);
+  });
+
+  it("tilts the mix toward the samples in drops and the song in breaks", () => {
+    const plain = planDubstepRemix(analysis);
+    const contrast = planDubstepRemix(analysis, { contrast: true });
+    expect(contrast.parts[1]!.mix).toBeCloseTo(plain.parts[1]!.mix + 0.15);
+    expect(contrast.parts[2]!.mix).toBeCloseTo(plain.parts[2]!.mix - 0.15);
+    expect(contrast.parts[2]!.samples).toEqual(plain.parts[2]!.samples);
+  });
+
+  it("stutters the last two beats before each drop", () => {
+    const plan = planDubstepRemix(analysis, { fills: true });
+    const before = plan.parts[2]!.slices;
+    expect(before).toHaveLength(36);
+    expect(before.slice(30).map((s) => s.beats)).toEqual([
+      0.5, 0.5, 0.25, 0.25, 0.25, 0.25,
+    ]);
+    expect(before[30]!.start).toBe(before[31]!.start);
+    expect(before.reduce((sum, s) => sum + s.beats, 0)).toBe(32);
+    // The intro already stutters; the last break has no drop after it.
+    expect(plan.parts[0]!.slices).toHaveLength(48);
+    expect(plan.parts[4]!.slices).toHaveLength(32);
+  });
+
   it("leaves out sections far quieter than the track", () => {
     const quiet = makeAnalysis(() => 0);
     quiet.segments.forEach((segment) => {

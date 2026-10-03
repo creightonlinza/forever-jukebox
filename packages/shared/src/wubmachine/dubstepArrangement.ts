@@ -461,7 +461,37 @@ export type DubstepPlanOptions = {
   sectionBudget?: boolean;
   // Leave out sections far quieter than the track.
   skipQuiet?: boolean;
+  // Push the samples forward in drops and the song forward in breaks.
+  contrast?: boolean;
+  // Stutter the last two beats before each drop.
+  fills?: boolean;
 };
+
+const MIX_TILT = 0.15;
+
+function clampMix(mix: number) {
+  return Math.max(MIN_MIX, Math.min(MAX_MIX, mix));
+}
+
+// Replaces the last two beats with a ramping stutter: the second-last beat
+// as two halves, the last as four quarters.
+function withFill(slices: SourceSlice[]): SourceSlice[] {
+  if (slices.length < 2) {
+    return slices;
+  }
+  const [half, quarter] = slices.slice(-2) as [SourceSlice, SourceSlice];
+  const cut = (slice: SourceSlice, divisor: number): SourceSlice => ({
+    start: slice.start,
+    duration: slice.duration / divisor,
+    beats: slice.beats / divisor,
+  });
+  return [
+    ...slices.slice(0, -2),
+    cut(half, 2),
+    cut(half, 2),
+    ...Array.from({ length: 4 }, () => cut(quarter, 4)),
+  ];
+}
 
 export function planDubstepRemix(
   input: DubstepAnalysis,
@@ -492,6 +522,7 @@ export function planDubstepRemix(
       mix: mixFactor(analysis, intro),
     },
   ];
+  let consecutiveDrops = 0;
   sections.forEach((section, j) => {
     const partCount = options.sectionBudget
       ? sectionPartCount(beatsInSection(analysis, section).length)
@@ -508,18 +539,38 @@ export function planDubstepRemix(
     }
     const splash = SPLASH_ORDER[(j + 1) % SPLASH_ORDER.length] as number;
     sectionSlices.forEach((slices, p) => {
-      const drop = p % 2 === 0;
+      // Drops and breaks alternate within a section; drop-only sections
+      // never stack more than two drops in a row.
+      const drop = p % 2 === 0 && consecutiveDrops < 2;
+      consecutiveDrops = drop ? consecutiveDrops + 1 : 0;
+      const mix = mixFactor(analysis, slices);
+      if (drop) {
+        parts.push({
+          kind: "drop",
+          label: `section ${j + 1} drop`,
+          samples: [`wubs/${key}`, splashName(splash)],
+          slices,
+          mix: options.contrast ? clampMix(mix + MIX_TILT) : mix,
+        });
+        return;
+      }
       parts.push({
-        kind: drop ? "drop" : "break",
-        label: `section ${j + 1} ${drop ? "drop" : "break"}`,
-        samples: drop
-          ? [`wubs/${key}`, splashName(splash)]
-          : [`break-ends/${key}`, "hats"],
+        kind: "break",
+        label: `section ${j + 1} break`,
+        samples: [`break-ends/${key}`, "hats"],
         slices,
-        mix: mixFactor(analysis, slices),
+        mix: options.contrast ? clampMix(mix - MIX_TILT) : mix,
       });
     });
   });
+  if (options.fills) {
+    parts.forEach((part, i) => {
+      const next = parts[i + 1];
+      if (part.kind !== "intro" && next?.kind === "drop") {
+        part.slices = withFill(part.slices);
+      }
+    });
+  }
   parts.push({
     kind: "ending",
     label: "ending",
