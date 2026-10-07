@@ -466,8 +466,12 @@ export class BufferedAudioPlayer {
     if (!this.source) {
       return false;
     }
-    const sourceLead = Math.max(0, sourceStartTime - this.getCurrentTime());
-    const stopAt = this.context.currentTime + sourceLead / this.playbackRate;
+    const now = this.context.currentTime;
+    const sourceLead = Math.max(
+      0,
+      sourceStartTime - this.getCurrentTimeFromClock(now),
+    );
+    const stopAt = now + sourceLead / this.playbackRate;
     try {
       this.source.stop(stopAt);
     } catch {
@@ -488,12 +492,13 @@ export class BufferedAudioPlayer {
       this.clearScheduledStopState();
       return;
     }
-    if (this.context.currentTime >= this.scheduledStopAt) {
+    const now = this.context.currentTime;
+    if (now >= this.scheduledStopAt) {
       return;
     }
-    const restartOffset = this.getCurrentTimeFromClock();
+    const restartOffset = this.getCurrentTimeFromClock(now);
     this.clearScheduledStopState();
-    this.replaceCurrentSourceAt(restartOffset, this.context.currentTime);
+    this.replaceCurrentSourceAt(restartOffset, now);
   }
 
   setAnchorJump(targetTime: number, sourceStartTime: number) {
@@ -538,15 +543,16 @@ export class BufferedAudioPlayer {
   }
 
   private clearPendingSwap(options: { restartCurrentSource?: boolean } = {}) {
+    const now = this.context.currentTime;
     const shouldRestartCurrentSource =
       options.restartCurrentSource === true &&
       this.playing &&
       this.buffer !== null &&
       this.source !== null &&
       this.pendingSwapAt !== null &&
-      this.context.currentTime < this.pendingSwapAt;
+      now < this.pendingSwapAt;
     const restartOffset = shouldRestartCurrentSource
-      ? this.getCurrentTime()
+      ? this.getCurrentTimeFromClock(now)
       : null;
     this.pendingSwapAt = null;
     this.pendingJumpEvent = null;
@@ -562,7 +568,7 @@ export class BufferedAudioPlayer {
     this.pendingSource.disconnect();
     this.pendingSource = null;
     if (restartOffset !== null) {
-      this.replaceCurrentSourceAt(restartOffset, this.context.currentTime);
+      this.replaceCurrentSourceAt(restartOffset, now);
     }
   }
 
@@ -692,9 +698,10 @@ export class BufferedAudioPlayer {
     if (!this.source || !this.playing) {
       return;
     }
+    const now = this.context.currentTime;
     this.armAnchorPendingSwap(
-      this.getCurrentTimeFromClock(),
-      this.context.currentTime,
+      this.getCurrentTimeFromClock(now),
+      now,
       this.source,
     );
   }
@@ -748,10 +755,11 @@ export class BufferedAudioPlayer {
   private clearAnchorPendingSwap(
     options: { restartCurrentSource?: boolean } = {},
   ) {
+    const now = this.context.currentTime;
     if (
       this.anchorPendingSource &&
       this.anchorPendingSwapAt !== null &&
-      this.context.currentTime >= this.anchorPendingSwapAt
+      now >= this.anchorPendingSwapAt
     ) {
       this.maybePromoteAnchorPending({ syncAnchor: false });
       return;
@@ -763,18 +771,16 @@ export class BufferedAudioPlayer {
       this.source !== null &&
       this.anchorStopSource === this.source &&
       this.anchorPendingSwapAt !== null &&
-      this.context.currentTime < this.anchorPendingSwapAt;
+      now < this.anchorPendingSwapAt;
     const restartOffset = shouldRestartCurrentSource
-      ? this.getCurrentTimeFromClock()
+      ? this.getCurrentTimeFromClock(now)
       : null;
     this.anchorPendingSwapAt = null;
     this.anchorPendingJumpEvent = null;
     this.anchorStopSource = null;
     if (!this.anchorPendingSource) {
       if (restartOffset !== null) {
-        this.replaceCurrentSourceAt(restartOffset, this.context.currentTime, {
-          syncAnchor: false,
-        });
+        this.replaceCurrentSourceAt(restartOffset, now, { syncAnchor: false });
       }
       return;
     }
@@ -787,9 +793,7 @@ export class BufferedAudioPlayer {
     this.anchorPendingSource.disconnect();
     this.anchorPendingSource = null;
     if (restartOffset !== null) {
-      this.replaceCurrentSourceAt(restartOffset, this.context.currentTime, {
-        syncAnchor: false,
-      });
+      this.replaceCurrentSourceAt(restartOffset, now, { syncAnchor: false });
     }
   }
 
