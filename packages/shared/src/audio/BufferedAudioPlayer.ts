@@ -403,7 +403,10 @@ export class BufferedAudioPlayer {
       return false;
     }
     this.maybePromotePending();
-    const currentSourceTime = this.getCurrentTime();
+    // One clock read for both the source position and the swap time; the
+    // audio clock can advance between reads.
+    const now = this.context.currentTime;
+    const currentSourceTime = this.getCurrentTimeFromClock(now);
     const lateBy = currentSourceTime - sourceStartTime;
     const maxLateSeconds = MAX_LATE_JUMP_FRAMES / this.context.sampleRate;
     if (lateBy > maxLateSeconds) {
@@ -413,7 +416,7 @@ export class BufferedAudioPlayer {
     this.clearAnchorPendingSwap();
     this.clearPendingSwap();
     const sourceLead = Math.max(0, sourceStartTime - currentSourceTime);
-    const startTime = this.context.currentTime + sourceLead / this.playbackRate;
+    const startTime = now + sourceLead / this.playbackRate;
     const source = this.context.createBufferSource();
     source.buffer = this.buffer;
     source.playbackRate.value = this.playbackRate;
@@ -649,11 +652,11 @@ export class BufferedAudioPlayer {
     this.startSourceAt(offset, startTime, options);
   }
 
-  private getCurrentTimeFromClock(): number {
+  private getCurrentTimeFromClock(now = this.context.currentTime): number {
     if (!this.buffer) {
       return 0;
     }
-    const elapsed = (this.context.currentTime - this.startAt) * this.playbackRate;
+    const elapsed = (now - this.startAt) * this.playbackRate;
     return Math.max(0, Math.min(this.buffer.duration, elapsed));
   }
 

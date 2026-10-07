@@ -837,6 +837,24 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.stop).toHaveBeenCalledWith(11);
   });
 
+  it("schedules a jump from a single audio clock read", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 10;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    // The audio clock advances on its own thread, so it can move mid-call.
+    let reads = 0;
+    Object.defineProperty(context, "currentTime", {
+      get: () => (reads++ === 0 ? 10.25 : 10.26),
+    });
+
+    expect(player.scheduleJump(2, 1)).toBe(true);
+
+    expect(context.createdSources[1]?.start).toHaveBeenCalledWith(11, 2, 18);
+    expect(context.createdSources[0]?.stop).toHaveBeenCalledWith(11);
+  });
+
   it("publishes an explicit jump event only after source promotion", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
