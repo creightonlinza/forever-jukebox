@@ -196,6 +196,22 @@ describe("WubMachineController", () => {
     expect(sources[1]!.loop).toBe(false);
   });
 
+  it("re-anchors from a single audio clock read when the loop flag changes", () => {
+    const { controller, raw } = setup();
+    controller.play();
+    // The audio clock runs on its own thread, so each read can see a later time.
+    let reads = 0;
+    Object.defineProperty(raw, "currentTime", {
+      configurable: true,
+      get: () => 4 + 0.01 * reads++,
+    });
+
+    controller.setLoop(true);
+
+    Object.defineProperty(raw, "currentTime", { configurable: true, value: 10 });
+    expect(controller.getPosition()).toBeCloseTo(10, 9);
+  });
+
   it("restarts the body when a looping track reaches its end", () => {
     const { controller, sources } = setup();
     const ended = vi.fn();

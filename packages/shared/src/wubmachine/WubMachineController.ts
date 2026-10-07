@@ -89,8 +89,11 @@ export class WubMachineController {
 
   setLoop(loop: boolean) {
     if (this.source) {
-      this.position = this.getPosition();
-      this.startedAt = this.context?.currentTime ?? 0;
+      // One clock read for both the position and its new anchor; the audio
+      // clock can advance between reads.
+      const now = this.context?.currentTime ?? 0;
+      this.position = this.positionAt(now);
+      this.startedAt = now;
       this.source.loop = loop && this.position < this.loopEnd;
     }
     this.loop = loop;
@@ -131,12 +134,19 @@ export class WubMachineController {
   }
 
   getPosition() {
+    if (!this.context) {
+      return this.position;
+    }
+    return this.positionAt(this.context.currentTime);
+  }
+
+  private positionAt(now: number) {
     if (!this.source || !this.context) {
       return this.position;
     }
     return loopedPosition(
       this.position,
-      this.context.currentTime - this.startedAt,
+      now - this.startedAt,
       this.source.loop,
       this.loopStart,
       this.loopEnd,
