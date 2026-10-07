@@ -43,6 +43,9 @@ export const DEFAULT_JUKEBOX_CONFIG: JukeboxConfig = {
 const TICK_INTERVAL_MS = 50;
 const MIN_JUMP_SCHEDULE_LEAD_SECONDS = 0.08;
 const PLAYBACK_SYNC_TOLERANCE_SECONDS = 0.25;
+// The engine and player each derive a boundary's audio time; rounding can
+// leave the two a few ulps apart when the audio clock lands exactly on it.
+const BOUNDARY_TIE_TOLERANCE_SECONDS = 1e-6;
 const MAX_ABSOLUTE_PLAY_VELOCITY = 16;
 
 type UpdateListener = (state: JukeboxState) => void;
@@ -579,14 +582,19 @@ export class JukeboxEngine {
 
     const audioTime = this.player.getAudioTime();
     if (this.currentBeatIndex < 0 && this.nextAudioTime === 0) {
-      this.initializeBeatClock(audioTime);
+      this.initializeBeatClock();
     } else if (this.nextAudioTime === 0) {
       this.nextAudioTime = audioTime;
     }
 
     let guard = this.beats.length;
     this.preparePendingAdvance(this.nextAudioTime);
-    while (guard > 0 && audioTime >= this.nextAudioTime) {
+    // Advance only once the clock is clearly past the boundary, so a jump the
+    // player scheduled for it has started before the next one is prepared.
+    while (
+      guard > 0 &&
+      audioTime - this.nextAudioTime >= BOUNDARY_TIE_TOLERANCE_SECONDS
+    ) {
       this.advanceBeat(this.nextAudioTime);
       if (!this.ticking) {
         break;
@@ -597,7 +605,7 @@ export class JukeboxEngine {
     if (!this.ticking) {
       return;
     }
-    this.ensureSyncedToPlaybackPosition(audioTime);
+    this.ensureSyncedToPlaybackPosition();
     this.consumePromotedJumpEvent();
 
     this.emitState(this.lastJumped);
@@ -815,8 +823,8 @@ export class JukeboxEngine {
     this.beatsPlayed += 1;
   }
 
-  private initializeBeatClock(audioTime: number) {
-    const trackTime = this.player.getCurrentTime();
+  private initializeBeatClock() {
+    const { trackTime, audioTime } = this.readPlaybackClock();
     const beatIndex = this.findBeatIndexByTime(trackTime);
     if (beatIndex < 0 || beatIndex >= this.beats.length) {
       this.nextAudioTime = audioTime;
@@ -833,11 +841,16 @@ export class JukeboxEngine {
     this.nextAudioTime = audioTime + remainingInBeat / this.getPlaybackRate();
   }
 
-  private ensureSyncedToPlaybackPosition(audioTime: number) {
+  private ensureSyncedToPlaybackPosition() {
     if (this.currentBeatIndex < 0) {
       return;
     }
-    const trackTime = this.player.getCurrentTime();
+    const { trackTime, audioTime } = this.readPlaybackClock();
+    // At or past the boundary the pending advance owns the transition; the
+    // player may already be on the next beat.
+    if (audioTime >= this.nextAudioTime - BOUNDARY_TIE_TOLERANCE_SECONDS) {
+      return;
+    }
     const beatIndex = this.findBeatIndexByTime(trackTime);
     if (beatIndex < 0 || beatIndex >= this.beats.length) {
       return;
@@ -866,6 +879,14 @@ export class JukeboxEngine {
     this.lastJumpWasBranch = false;
     this.branchState.lastDestBySource = null;
     this.clearPendingAdvance(true);
+  }
+
+  // The audio clock can advance between reads; reading it after the track
+  // position keeps a derived boundary from landing ahead of the player.
+  private readPlaybackClock() {
+    const trackTime = this.player.getCurrentTime();
+    const audioTime = this.player.getAudioTime();
+    return { trackTime, audioTime };
   }
 
   private consumePromotedJumpEvent() {

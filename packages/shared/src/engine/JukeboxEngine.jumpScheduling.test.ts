@@ -319,4 +319,78 @@ describe("JukeboxEngine jump scheduling", () => {
     });
     engine.stopJukebox();
   });
+
+  function installVelocityStride(player: JukeboxPlayer) {
+    const engine = new JukeboxEngine(player, {
+      config: {
+        minRandomBranchChance: 0,
+        maxRandomBranchChance: 0,
+        randomBranchChanceDelta: 0,
+      },
+    });
+    const beats = Array.from({ length: 12 }, (_, which) => makeBeat(which));
+    linkBeats(beats);
+    const engineAny = installEngineState(
+      engine,
+      beats,
+      { ...makeGraph(beats, null), lastBranchPoint: -1 },
+      0,
+      1,
+    );
+    engine.setPlayVelocity(4);
+    engineAny.preparePendingAdvance(engineAny.nextAudioTime);
+    expect(player.scheduleJump).toHaveBeenLastCalledWith(4, 1, null);
+    engineAny.ticking = true;
+    return { engine, engineAny };
+  }
+
+  it("holds a velocity stride when the audio clock lands exactly on the boundary", () => {
+    vi.useFakeTimers();
+    let audioNow = 0.5;
+    let trackNow = 0.5;
+    const player = makePlayer({
+      getAudioTime: () => audioNow,
+      getCurrentTime: () => trackNow,
+    });
+    const { engine, engineAny } = installVelocityStride(player);
+
+    // The player has taken the jump; the engine's boundary equals the clock.
+    audioNow = 1;
+    trackNow = 4;
+    engineAny.tick();
+    expect(engineAny.currentBeatIndex).toBe(0);
+    expect(player.cancelScheduledJump).not.toHaveBeenCalled();
+
+    audioNow = 1.003;
+    trackNow = 4.003;
+    engineAny.tick();
+    expect(engineAny.currentBeatIndex).toBe(4);
+    expect(player.scheduleJump).toHaveBeenLastCalledWith(8, 5, null);
+    expect(player.cancelScheduledJump).not.toHaveBeenCalled();
+    engine.stopJukebox();
+  });
+
+  it("holds a velocity stride when the audio clock passes the boundary mid-tick", () => {
+    vi.useFakeTimers();
+    let audioReads = [0.5];
+    let trackNow = 0.5;
+    const player = makePlayer({
+      getAudioTime: () =>
+        audioReads.length > 1 ? (audioReads.shift() as number) : audioReads[0],
+      getCurrentTime: () => trackNow,
+    });
+    const { engine, engineAny } = installVelocityStride(player);
+
+    // The tick starts just before the boundary; later reads are past it.
+    audioReads = [0.999, 1.002];
+    trackNow = 4.002;
+    engineAny.tick();
+    expect(player.cancelScheduledJump).not.toHaveBeenCalled();
+
+    engineAny.tick();
+    expect(engineAny.currentBeatIndex).toBe(4);
+    expect(player.scheduleJump).toHaveBeenLastCalledWith(8, 5, null);
+    expect(player.cancelScheduledJump).not.toHaveBeenCalled();
+    engine.stopJukebox();
+  });
 });

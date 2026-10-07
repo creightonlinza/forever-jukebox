@@ -138,6 +138,14 @@ function deferred<T = void>() {
   return { promise, resolve, reject };
 }
 
+// The audio clock runs on its own thread, so each read can see a later time.
+function advanceClockOnEveryRead(context: MockAudioContext, from: number) {
+  let reads = 0;
+  Object.defineProperty(context, "currentTime", {
+    get: () => from + 0.01 * reads++,
+  });
+}
+
 async function flushMicrotasks(count = 5) {
   for (let idx = 0; idx < count; idx += 1) {
     await Promise.resolve();
@@ -737,6 +745,36 @@ describe("BufferedAudioPlayer", () => {
     expect(onEnded).toHaveBeenCalledTimes(1);
   });
 
+  it("schedules a stop from a single audio clock read", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 10;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    advanceClockOnEveryRead(context, 10.25);
+
+    expect(player.scheduleStop(1)).toBe(true);
+
+    const [stopAt] = context.createdSources[0]!.stop.mock.calls[0]!;
+    expect(stopAt).toBeCloseTo(11, 9);
+  });
+
+  it("resumes from a single audio clock read when a stop is cancelled", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 10;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 10.25;
+    expect(player.scheduleStop(5)).toBe(true);
+    advanceClockOnEveryRead(context, 10.5);
+
+    player.cancelScheduledStop();
+
+    const [when, offset] = context.createdSources[1]!.start.mock.calls[0]!;
+    expect(when - offset).toBeCloseTo(10, 9);
+  });
+
   it("stops immediately when the requested source boundary is already late", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
@@ -837,6 +875,39 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.stop).toHaveBeenCalledWith(11);
   });
 
+  it("schedules a jump from a single audio clock read", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 10;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    advanceClockOnEveryRead(context, 10.25);
+
+    expect(player.scheduleJump(2, 1)).toBe(true);
+
+    const [when, offset] = context.createdSources[1]!.start.mock.calls[0]!;
+    expect(when).toBeCloseTo(11, 9);
+    expect(offset).toBe(2);
+    const [stopAt] = context.createdSources[0]!.stop.mock.calls[0]!;
+    expect(stopAt).toBeCloseTo(11, 9);
+  });
+
+  it("resumes from a single audio clock read when a jump is cancelled", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 10;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 10.25;
+    expect(player.scheduleJump(4, 5)).toBe(true);
+    advanceClockOnEveryRead(context, 10.5);
+
+    player.cancelScheduledJump();
+
+    const [when, offset] = context.createdSources[2]!.start.mock.calls[0]!;
+    expect(when - offset).toBeCloseTo(10, 9);
+  });
+
   it("publishes an explicit jump event only after source promotion", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
@@ -905,6 +976,37 @@ describe("BufferedAudioPlayer", () => {
 
     context.currentTime = 5.25;
     expect(player.getCurrentTime()).toBeCloseTo(2.25, 5);
+  });
+
+  it("arms an anchor fallback jump from a single audio clock read", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 10;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    advanceClockOnEveryRead(context, 10.25);
+
+    expect(player.setAnchorJump(2, 1)).toBe(true);
+
+    const [when, offset] = context.createdSources[1]!.start.mock.calls[0]!;
+    expect(when).toBeCloseTo(11, 9);
+    expect(offset).toBe(2);
+  });
+
+  it("resumes from a single audio clock read when an anchor jump is cleared", async () => {
+    const context = new MockAudioContext();
+    context.currentTime = 10;
+    const player = new BufferedAudioPlayer(context as unknown as AudioContext);
+    await player.loadBuffer({ duration: 20 } as AudioBuffer);
+    player.play();
+    context.currentTime = 10.25;
+    expect(player.setAnchorJump(2, 5)).toBe(true);
+    advanceClockOnEveryRead(context, 10.5);
+
+    player.clearAnchorJump();
+
+    const [when, offset] = context.createdSources[2]!.start.mock.calls[0]!;
+    expect(when - offset).toBeCloseTo(10, 9);
   });
 
   it("publishes an anchor fallback jump event only after source promotion", async () => {
