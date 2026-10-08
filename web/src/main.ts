@@ -24,7 +24,10 @@ try {
     window.setTimeout(() => resolve(), 1500);
   });
 
-  Promise.race([fontReady, revealTimeout]).finally(reveal);
+  // A font load failure is not a startup failure; the page reveals either way.
+  Promise.race([fontReady, revealTimeout])
+    .finally(reveal)
+    .catch(() => undefined);
 } catch (err) {
   // Never leave the page stuck at opacity 0 if startup fails — reveal so the
   // user sees a rendered error state rather than a blank screen.

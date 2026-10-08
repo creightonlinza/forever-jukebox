@@ -11,6 +11,8 @@ export function VizTop({
   onActiveVizChange,
   finishOutSong,
   onFinishOutSongChange,
+  loopTrack,
+  onLoopTrackChange,
 }: {
   playMode: PlayMode;
   onPlayModeChange: (mode: PlayMode) => void;
@@ -19,6 +21,8 @@ export function VizTop({
   onActiveVizChange: (index: number) => void;
   finishOutSong: boolean;
   onFinishOutSongChange: (checked: boolean) => void;
+  loopTrack: boolean;
+  onLoopTrackChange: (checked: boolean) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -32,15 +36,12 @@ export function VizTop({
               aria-label={t("listen.mode")}
               value={playMode}
               onChange={(event) =>
-                onPlayModeChange(
-                  event.target.value === "autocanonizer"
-                    ? "autocanonizer"
-                    : "jukebox"
-                )
+                onPlayModeChange(event.target.value as PlayMode)
               }
             >
               <option value="autocanonizer">{t("listen.autocanonizer")}</option>
               <option value="jukebox">{t("listen.jukebox")}</option>
+              <option value="wubmachine">{t("listen.wubMachine")}</option>
             </select>
             <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
           </span>
@@ -55,7 +56,7 @@ export function VizTop({
               aria-label={t("listen.visualization")}
               value={String(activeVizIndex)}
               onChange={(event) => onActiveVizChange(Number(event.target.value))}
-              disabled={playMode === "autocanonizer"}
+              disabled={playMode !== "jukebox"}
             >
               {Array.from({ length: vizCount }, (_, index) => (
                 <option key={index} value={index}>
@@ -75,6 +76,15 @@ export function VizTop({
           onChange={(event) => onFinishOutSongChange(event.target.checked)}
         />
         <span>{t("listen.finishTrack")}</span>
+      </label>
+      <label className="wubmachine-loop">
+        <input
+          id="wubmachine-loop"
+          type="checkbox"
+          checked={loopTrack}
+          onChange={(event) => onLoopTrackChange(event.target.checked)}
+        />
+        <span>{t("listen.loopTrack")}</span>
       </label>
     </div>
   );

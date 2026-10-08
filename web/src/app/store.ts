@@ -388,6 +388,8 @@ const createPlaybackSlice: Slice<
     | "autocanonizerOtherSeconds"
     | "autocanonizerMainPan"
     | "autocanonizerOtherPan"
+    | "wubMachineSeconds"
+    | "wubMachineDurationSec"
     | "vizData"
     | "shiftBranching"
     | "freezeBeat"
@@ -409,6 +411,8 @@ const createPlaybackSlice: Slice<
   autocanonizerOtherSeconds: 0,
   autocanonizerMainPan: 0,
   autocanonizerOtherPan: 0,
+  wubMachineSeconds: 0,
+  wubMachineDurationSec: 0,
   vizData: null,
   shiftBranching: false,
   freezeBeat: false,

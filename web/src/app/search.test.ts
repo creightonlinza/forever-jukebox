@@ -36,6 +36,7 @@ function createContext(): AppContext {
     engine: {} as unknown as AppContext["engine"],
     player: {} as unknown as AppContext["player"],
     autocanonizer: {} as unknown as AppContext["autocanonizer"],
+    wubmachine: {} as unknown as AppContext["wubmachine"],
     jukebox: { refresh: vi.fn() } as unknown as AppContext["jukebox"],
     cowbellOverlay: {} as unknown as AppContext["cowbellOverlay"],
     defaultConfig: {} as unknown as AppContext["defaultConfig"],

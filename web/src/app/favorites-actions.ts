@@ -14,6 +14,7 @@ import {
   saveFavorites,
   saveFavoritesSyncCode,
   sortFavorites,
+  storedPlayMode,
   type FavoriteTrack,
 } from "./favorites";
 import { trackEvent } from "./analytics";
@@ -163,9 +164,9 @@ export async function createSyncCode(): Promise<string> {
         sourceType,
         tuningParams,
       };
-      // Only the non-default mode is stored; absence means jukebox.
-      if (item.playMode === "autocanonizer") {
-        entry.playMode = "autocanonizer";
+      const playMode = storedPlayMode(item.playMode ?? "jukebox");
+      if (playMode) {
+        entry.playMode = playMode;
       }
       normalized.push(entry);
     }
@@ -533,8 +534,7 @@ export function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
     // Restore the mode the track was favorited in (older favorites have no
     // playMode and fall back to jukebox). setPlayMode runs before the play-tab
     // navigation below, so navigateToTabWithState serializes the right mode.
-    const desiredMode =
-      favorite?.playMode === "autocanonizer" ? "autocanonizer" : "jukebox";
+    const desiredMode = favorite?.playMode ?? "jukebox";
     const desiredTuningParams =
       desiredMode === "jukebox" ? (favorite?.tuningParams ?? null) : null;
     if (useAppStore.getState().playMode !== desiredMode) {
@@ -621,10 +621,7 @@ export function removeFavoriteWithToast(favoriteId: string) {
       sourceType: getCurrentFavoriteSourceType(),
       tuningParams: getFavoriteTuningParams(),
       // Only the non-default mode is stored; absence means jukebox.
-      playMode:
-        useAppStore.getState().playMode === "autocanonizer"
-          ? "autocanonizer"
-          : undefined,
+      playMode: storedPlayMode(useAppStore.getState().playMode),
     };
     const result = addFavorite(useAppStore.getState().favorites, track);
     if (result.status === "limit") {
@@ -672,7 +669,7 @@ export function removeFavoriteWithToast(favoriteId: string) {
     const capturedTuningParams = inJukeboxMode
       ? getFavoriteTuningParams()
       : null;
-    const playMode = inJukeboxMode ? undefined : ("autocanonizer" as const);
+    const playMode = storedPlayMode(useAppStore.getState().playMode);
     const showLoading = shouldShowFavoriteToggleLoading();
     if (showLoading) {
       setFavoriteToggleLoading(true);

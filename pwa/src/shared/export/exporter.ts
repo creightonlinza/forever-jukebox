@@ -19,7 +19,7 @@ import {
   planCowbellExportEvents,
   projectCowbellEventsIntoWindow,
 } from "./cowbellExport";
-import { renderJukeboxAudio } from "./render";
+import { clampGain, createOutputBuffer, renderJukeboxAudio } from "./render";
 
 export interface JukeboxExportProgress {
   stage: "planning" | "rendering" | "encoding";
@@ -27,6 +27,7 @@ export interface JukeboxExportProgress {
     | { kind: "initializing" }
     | { kind: "preparingSwing" }
     | { kind: "preparingInstrumental" }
+    | { kind: "preparingWubMachine" }
     | { kind: "planning" }
     | { kind: "renderingChunk"; chunk: number; total: number }
     | { kind: "encodingChunk"; chunk: number; total: number }
@@ -275,6 +276,122 @@ export async function exportJukeboxAudio(
     beatsPlanned: plan.segments.length,
     segments: plan.segments,
   };
+}
+
+export interface ExportRenderedAudioOptions {
+  buffer: AudioBuffer;
+  format: EncodedAudioFormat;
+  bitrateKbps?: number;
+  gain?: number;
+  onProgress?: (progress: JukeboxExportProgress) => void;
+}
+
+export interface ExportRenderedAudioResult {
+  bytes: Uint8Array;
+  extension: EncodedAudioFormat;
+  mimeType: string;
+  renderedDurationSeconds: number;
+}
+
+// A gain-scaled copy of `[start, start + frames)` of the buffer.
+function sliceBuffer(
+  buffer: AudioBuffer,
+  start: number,
+  frames: number,
+  gain: number,
+): AudioBuffer {
+  const out = createOutputBuffer(
+    buffer.numberOfChannels,
+    frames,
+    buffer.sampleRate,
+  );
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const src = buffer.getChannelData(channel).subarray(start, start + frames);
+    const dst = out.getChannelData(channel);
+    if (gain === 1) {
+      dst.set(src);
+      continue;
+    }
+    for (let frame = 0; frame < src.length; frame += 1) {
+      dst[frame] = (src[frame] as number) * gain;
+    }
+  }
+  return out;
+}
+
+// Encodes an already rendered track as a whole, in chunks for MP3.
+export async function exportRenderedAudio(
+  options: ExportRenderedAudioOptions,
+): Promise<ExportRenderedAudioResult> {
+  const { buffer } = options;
+  if (buffer.length === 0) {
+    throw new Error("Cannot encode empty audio buffer.");
+  }
+  const gain = clampGain(options.gain ?? 1);
+  const renderedDurationSeconds = buffer.duration;
+  let encoded;
+
+  if (options.format === "mp3") {
+    const chunkFrames = MP3_RENDER_CHUNK_SECONDS * buffer.sampleRate;
+    const chunkCount = Math.max(1, Math.ceil(buffer.length / chunkFrames));
+    const encodedChunks: Uint8Array[] = [];
+    for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
+      const start = chunkIndex * chunkFrames;
+      const frames = Math.min(chunkFrames, buffer.length - start);
+      const message = {
+        kind: "encodingChunk" as const,
+        chunk: chunkIndex + 1,
+        total: chunkCount,
+      };
+      const chunkStart = 8 + (chunkIndex / chunkCount) * 90;
+      const chunkSpan = 90 / chunkCount;
+      report(options.onProgress, "encoding", message, chunkStart);
+      const chunkEncoded = await encodeAudioBufferWithFfmpeg(
+        sliceBuffer(buffer, start, frames, gain),
+        {
+          format: "mp3",
+          bitrateKbps: options.bitrateKbps,
+          onProgress: (progress) => {
+            report(
+              options.onProgress,
+              "encoding",
+              message,
+              chunkStart + progress * chunkSpan,
+            );
+          },
+        },
+      );
+      encodedChunks.push(chunkEncoded.bytes);
+    }
+    report(options.onProgress, "encoding", { kind: "combiningChunks" }, 98);
+    encoded = await concatMp3ChunksWithFfmpeg(encodedChunks);
+  } else {
+    const estimatedBytes =
+      buffer.length * buffer.numberOfChannels * 4 * (gain === 1 ? 1 : 2);
+    if (estimatedBytes > MAX_WAV_FLOAT32_RENDER_BYTES) {
+      throw new Error(
+        "WAV export is too large for browser memory at this duration. Use MP3 for long exports.",
+      );
+    }
+    const message = {
+      kind: "encodingFormat" as const,
+      format: options.format.toUpperCase(),
+    };
+    report(options.onProgress, "encoding", message, 8);
+    encoded = await encodeAudioBufferWithFfmpeg(
+      gain === 1 ? buffer : sliceBuffer(buffer, 0, buffer.length, gain),
+      {
+        format: options.format,
+        bitrateKbps: options.bitrateKbps,
+        onProgress: (progress) => {
+          report(options.onProgress, "encoding", message, 8 + progress * 90);
+        },
+      },
+    );
+  }
+
+  report(options.onProgress, "encoding", { kind: "finalizing" }, 100);
+  return { ...encoded, renderedDurationSeconds };
 }
 
 function projectSegmentsIntoWindow(

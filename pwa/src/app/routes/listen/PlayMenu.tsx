@@ -23,6 +23,8 @@ export function PlayMenu({
   onOpenExport: () => void;
 }) {
   const { t } = useTranslation();
+  // Tuning and track info describe the jukebox graph.
+  const hideJukeboxTools = playMode !== "jukebox";
   return (
     <div className="menu-bar">
       <div className="menu-left">
@@ -34,10 +36,10 @@ export function PlayMenu({
       <div className="menu-right">
         <button
           id="tuning"
-          className={`tune-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
+          className={`tune-toggle ${hideJukeboxTools ? "is-hidden" : ""}`}
           type="button"
           onClick={onOpenTuning}
-          disabled={!hasAnalysis || playMode === "autocanonizer"}
+          disabled={!hasAnalysis || hideJukeboxTools}
           title={t("listen.tune")}
           aria-label={t("listen.tune")}
         >
@@ -45,10 +47,10 @@ export function PlayMenu({
         </button>
         <button
           id="track-info"
-          className={`info-toggle ${playMode === "autocanonizer" ? "is-hidden" : ""}`}
+          className={`info-toggle ${hideJukeboxTools ? "is-hidden" : ""}`}
           type="button"
           onClick={onOpenInfo}
-          disabled={!hasAnalysis || playMode === "autocanonizer"}
+          disabled={!hasAnalysis || hideJukeboxTools}
           title={t("listen.info")}
           aria-label={t("listen.info")}
         >

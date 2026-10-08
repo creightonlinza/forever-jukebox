@@ -248,7 +248,15 @@
     "forward": "Avanzar",
     "sameBeat": "Mismo beat",
     "branchStats": "Estadísticas de rama",
-    "autocanonized": "autocanonizado"
+    "autocanonized": "autocanonizado",
+    "wubMachine": "Wub Machine",
+    "wubMachineRemix": "remix de Wub Machine",
+    "preparingWubMachine": "Creando el remix de Wub Machine",
+    "preparingWubMachineEllipsis": "Creando el remix de Wub Machine...",
+    "wubMachineReady": "Remix de Wub Machine listo.",
+    "wubMachineFailed": "El remix de Wub Machine falló. Pulsa reproducir para reintentar.",
+    "wubMachineFailedStatus": "El remix de Wub Machine falló.",
+    "loopTrack": "Repetir la canción"
   },
   "audioModes": {
     "nightcore": "Nightcore",

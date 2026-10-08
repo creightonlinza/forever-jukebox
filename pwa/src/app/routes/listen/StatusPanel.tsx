@@ -4,6 +4,26 @@ import type { PreparingAudioMode } from "./labels";
 
 export type PreparingPhase = "download" | "separate" | null;
 
+const PREPARING_TITLE_KEYS = {
+  swing: "listen.preparingSwingPercent",
+  instrumental: "listen.preparingInstrumentalPercent",
+  wubmachine: "listen.preparingWubMachinePercent",
+} as const;
+
+function preparingMessageKey(
+  preparingMode: PreparingAudioMode,
+  preparingPhase: PreparingPhase,
+) {
+  if (preparingMode === "instrumental") {
+    return preparingPhase === "download"
+      ? "listen.instrumentalDownloading"
+      : "listen.instrumentalSeparating";
+  }
+  return preparingMode === "wubmachine"
+    ? "listen.buildingWubMachine"
+    : "listen.addingSwing";
+}
+
 export function StatusPanel({
   isAnalyzing,
   steps,
@@ -22,18 +42,10 @@ export function StatusPanel({
   preparingProgress: number;
 }) {
   const { t } = useTranslation();
-  const preparingTitle =
-    preparingMode === "instrumental"
-      ? t("listen.preparingInstrumentalPercent", { percent: preparingProgress })
-      : t("listen.preparingSwingPercent", { percent: preparingProgress });
-  const preparingMessage =
-    preparingMode === "instrumental"
-      ? t(
-          preparingPhase === "download"
-            ? "listen.instrumentalDownloading"
-            : "listen.instrumentalSeparating",
-        )
-      : t("listen.addingSwing");
+  const preparingTitle = t(PREPARING_TITLE_KEYS[preparingMode ?? "swing"], {
+    percent: preparingProgress,
+  });
+  const preparingMessage = t(preparingMessageKey(preparingMode, preparingPhase));
   return (
     <>
       {isAnalyzing ? (

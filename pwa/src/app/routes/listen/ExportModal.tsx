@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { JukeboxExportProgress } from "@/shared/export";
 import { formatDuration } from "@/shared/utils/format";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
+import type { PlayMode } from "./types";
 import {
   MAX_EXPORT_DURATION_SECONDS,
   exportProgressMessage,
@@ -18,6 +19,8 @@ export function ExportModal({
   error,
   onClose,
   onExport,
+  playMode,
+  remixDurationSeconds,
 }: {
   form: ExportFormState;
   setForm: React.Dispatch<React.SetStateAction<ExportFormState>>;
@@ -26,8 +29,12 @@ export function ExportModal({
   error: string | null;
   onClose: () => void;
   onExport: () => void;
+  playMode: PlayMode;
+  remixDurationSeconds: number;
 }) {
   const { t } = useTranslation();
+  // The Wub Machine exports its whole remix; the duration is not a choice.
+  const isWubMachine = playMode === "wubmachine";
   return (
     <div className="modal open">
       <button
@@ -53,8 +60,14 @@ export function ExportModal({
         </div>
         <div className="modal-body export-body">
           <p className="export-note">
-            {t("export.note")}
+            {t(isWubMachine ? "export.wubMachineNote" : "export.note")}
           </p>
+          {isWubMachine ? (
+            <div className="label-line">
+              <span>{t("export.remixLength")}</span>
+              <span>{formatDuration(remixDurationSeconds)}</span>
+            </div>
+          ) : (
           <label>
             <div className="label-line">
               <span>{t("export.duration")}</span>
@@ -77,6 +90,7 @@ export function ExportModal({
               }
             />
           </label>
+          )}
           <label>
             <div className="label-line">{t("export.format")}</div>
             <select
