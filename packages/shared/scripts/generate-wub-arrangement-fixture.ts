@@ -98,9 +98,14 @@ quiet.segments = quiet.segments.map((s) =>
   s.start >= 16 ? { ...s, loudness_max: -50 } : s,
 );
 
-// Two 8-beat sections either side of a quiet 32-beat one.
-const quietBarrier = withSections(makeLongAnalysis(48), [8, 32, 8]);
+// Two 24-beat sections either side of a quiet 32-beat one.
+const quietBarrier = withSections(makeLongAnalysis(80), [24, 32, 24]);
 quietBarrier.segments = quietBarrier.segments.map((s) =>
+  s.start >= 12 && s.start < 28 ? { ...s, loudness_max: -80 } : s,
+);
+// 8 beats with no neighbour, a quiet 32-beat section, then 40 beats.
+const strandedShort = withSections(makeLongAnalysis(80), [8, 32, 40]);
+strandedShort.segments = strandedShort.segments.map((s) =>
   s.start >= 4 && s.start < 20 ? { ...s, loudness_max: -80 } : s,
 );
 
@@ -136,6 +141,11 @@ const inputs: CaseInput[] = [
   {
     id: "section_budget_quiet_barrier",
     analysis: quietBarrier,
+    options: { sectionBudget: true, skipQuiet: true, contiguous: true, tonic: 0 },
+  },
+  {
+    id: "section_budget_stranded_short",
+    analysis: strandedShort,
     options: { sectionBudget: true, skipQuiet: true, contiguous: true, tonic: 0 },
   },
   { id: "bare", analysis: { sections: [], beats: [], segments: [] } },

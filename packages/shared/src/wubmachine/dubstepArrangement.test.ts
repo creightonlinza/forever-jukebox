@@ -240,10 +240,10 @@ describe("planDubstepRemix", () => {
   });
 
   it("never merges across a skipped section", () => {
-    // Two 8-beat sections either side of a quiet one stay apart.
-    const split = withSections(makeLongAnalysis(48), [8, 32, 8]);
+    // Two 24-beat sections either side of a quiet one stay apart.
+    const split = withSections(makeLongAnalysis(80), [24, 32, 24]);
     split.segments.forEach((segment) => {
-      if (segment.start >= 4 && segment.start < 20) {
+      if (segment.start >= 12 && segment.start < 28) {
         segment.loudness_max = -80;
       }
     });
@@ -259,8 +259,30 @@ describe("planDubstepRemix", () => {
       "section 2 drop",
       "ending",
     ]);
-    expect(plan.parts[1]!.slices.every((s) => s.start < 4)).toBe(true);
-    expect(plan.parts[2]!.slices.every((s) => s.start >= 20)).toBe(true);
+    expect(plan.parts[1]!.slices.every((s) => s.start < 12)).toBe(true);
+    expect(plan.parts[2]!.slices.every((s) => s.start >= 28)).toBe(true);
+  });
+
+  it("leaves out a short section stranded by a skipped one", () => {
+    // 8 beats, a quiet section, then 40 beats: the 8 have no neighbour.
+    const stranded = withSections(makeLongAnalysis(80), [8, 32, 40]);
+    stranded.segments.forEach((segment) => {
+      if (segment.start >= 4 && segment.start < 20) {
+        segment.loudness_max = -80;
+      }
+    });
+    const plan = planDubstepRemix(stranded, {
+      sectionBudget: true,
+      skipQuiet: true,
+      contiguous: true,
+      tonic: 0,
+    });
+    expect(plan.parts.map((part) => part.label)).toEqual([
+      "intro",
+      "section 1 drop",
+      "ending",
+    ]);
+    expect(plan.parts[1]!.slices.every((s) => s.start >= 20)).toBe(true);
   });
 
   it("balances each part against its sample bed", () => {

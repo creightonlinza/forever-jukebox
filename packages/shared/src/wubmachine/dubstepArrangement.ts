@@ -491,7 +491,8 @@ function mergeWithNeighbour(runs: SectionRun[], i: number) {
 
 // Folds the shortest section into its shorter neighbour until three to five
 // remain (one per 32 bars of song) and none is under four bars. Skipped
-// sections are left out and never merged across.
+// sections are left out and never merged across; a section still under four
+// bars for want of a neighbour is left out too.
 function mergeSections(
   analysis: DubstepAnalysis,
   skipped: Set<Quantum>,
@@ -525,7 +526,9 @@ function mergeSections(
     mergeWithNeighbour(runs, shortest);
     shortest = shortestMergeable(runs);
   }
-  return runs.map(({ start, duration }) => ({ start, duration }));
+  return runs
+    .filter((run) => run.beats >= MIN_SECTION_BEATS)
+    .map(({ start, duration }) => ({ start, duration }));
 }
 
 export type DubstepPlanOptions = {
