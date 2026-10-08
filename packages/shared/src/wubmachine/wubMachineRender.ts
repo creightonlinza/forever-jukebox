@@ -14,7 +14,7 @@ export const WUB_MACHINE_ARRANGEMENT = {
   contiguous: true,
   sectionBudget: true,
   skipQuiet: true,
-  contrast: true,
+  balance: true,
   fills: true,
 } satisfies DubstepPlanOptions;
 

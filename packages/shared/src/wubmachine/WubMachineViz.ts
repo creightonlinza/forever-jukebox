@@ -7,12 +7,10 @@ const PART_COLORS: Record<DubstepPartKind, string> = {
   break: "#FF4FA3",
   ending: "#8A93A6",
 };
-const LOOP_COLOR = "#F1C47A";
 const H_PAD = 20;
 const PART_GAP = 2;
 
-// Linear timeline of the remix: one waveform block per part, a playhead, and
-// the loop-back arc while looping is on.
+// Linear timeline of the remix: one waveform block per part and a playhead.
 export class WubMachineViz {
   private readonly container: HTMLElement;
   private readonly canvas: HTMLCanvasElement;
@@ -20,9 +18,6 @@ export class WubMachineViz {
   private peaks: Float32Array = new Float32Array(0);
   private parts: DubstepRenderedPart[] = [];
   private duration = 0;
-  private loopStart = 0;
-  private loopEnd = 0;
-  private loop = false;
   private seconds = 0;
   private visible = false;
   private width = 0;
@@ -62,20 +57,11 @@ export class WubMachineViz {
     peaks: Float32Array,
     duration: number,
     parts: DubstepRenderedPart[],
-    loopStart: number,
-    loopEnd: number,
   ) {
     this.peaks = peaks;
     this.duration = duration;
     this.parts = parts;
-    this.loopStart = loopStart;
-    this.loopEnd = loopEnd;
     this.seconds = 0;
-    this.draw();
-  }
-
-  setLoop(loop: boolean) {
-    this.loop = loop;
     this.draw();
   }
 
@@ -152,25 +138,6 @@ export class WubMachineViz {
       }
     }
     ctx.globalAlpha = 1;
-
-    if (this.loop && this.loopEnd > this.loopStart) {
-      const fromX = this.xOf(this.loopEnd);
-      const toX = this.xOf(this.loopStart);
-      const arcTop = Math.max(8, blockTop - Math.min(blockTop - 8, height * 0.22));
-      ctx.strokeStyle = LOOP_COLOR;
-      ctx.fillStyle = LOOP_COLOR;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(fromX, blockTop - 4);
-      ctx.bezierCurveTo(fromX, arcTop, toX, arcTop, toX, blockTop - 4);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(toX, blockTop - 2);
-      ctx.lineTo(toX - 5, blockTop - 11);
-      ctx.lineTo(toX + 5, blockTop - 11);
-      ctx.closePath();
-      ctx.fill();
-    }
 
     ctx.fillStyle = this.playheadColor;
     ctx.fillRect(playheadX - 1, blockTop - 6, 2, blockHeight + 12);

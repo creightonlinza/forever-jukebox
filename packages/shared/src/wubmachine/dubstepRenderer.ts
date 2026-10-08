@@ -184,21 +184,25 @@ function mixBed(samples: Stereo[], length: number): Stereo {
   return bed;
 }
 
-// Identifies the arrangement a render was made from.
+// Identifies the arrangement a render was made from: every part's samples,
+// mix and source slices.
 function planSignature(plan: DubstepPlan): string {
   let hash = 2166136261;
-  const mix = (value: number) => {
-    hash = Math.imul(hash ^ Math.round(value * 1000), 16777619) >>> 0;
+  const add = (value: number) => {
+    hash = Math.imul(hash ^ value, 16777619) >>> 0;
   };
-  mix(plan.tonic);
+  const addScaled = (value: number) => add(Math.round(value * 1000));
   for (const part of plan.parts) {
-    mix(part.mix);
+    for (const char of part.samples.join("|")) {
+      add(char.codePointAt(0) as number);
+    }
+    addScaled(part.mix);
     for (const slice of part.slices) {
-      mix(slice.start);
-      mix(slice.duration);
+      addScaled(slice.start);
+      addScaled(slice.duration);
     }
   }
-  return `2:${plan.parts.length}:${hash.toString(16)}`;
+  return `${plan.parts.length}:${hash.toString(16)}`;
 }
 
 // Parts over source audio are 8 bars each; the ending takes what remains.

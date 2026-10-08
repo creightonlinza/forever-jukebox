@@ -126,6 +126,28 @@ describe("renderDubstepRemix", () => {
     expect(parts[1]!.duration).toBeCloseTo(BED_FRAMES / SAMPLE_RATE);
   });
 
+  it("signs a render with its samples as well as its slices", async () => {
+    const source = new Float32Array(16 * SAMPLE_RATE).fill(0.5);
+    const render = (tonic: number) =>
+      renderDubstepRemix([source], SAMPLE_RATE, makeAnalysis(), {
+        adapter: new FakeStretchAdapter(),
+        loadSample,
+        trackId: "track-1",
+        tonic,
+      });
+    // Every beat matches either key, so only the sample names differ.
+    const first = await render(0);
+    const second = await render(5);
+    expect(second.plan.parts.map((part) => part.slices)).toEqual(
+      first.plan.parts.map((part) => part.slices),
+    );
+    const [a, b] = trackCache.writeRenderedTrack.mock.calls.map(
+      ([key]) => (key as { signature: string }).signature,
+    );
+    expect(a).toMatch(/^\d+:[0-9a-f]+$/);
+    expect(b).not.toBe(a);
+  });
+
   it("does not touch storage without a track id", async () => {
     await renderDubstepRemix(
       [new Float32Array(16 * SAMPLE_RATE)],

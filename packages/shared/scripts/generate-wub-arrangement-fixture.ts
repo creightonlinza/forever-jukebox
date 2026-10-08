@@ -27,7 +27,7 @@ const HOUSE_OPTIONS: DubstepPlanOptions = {
   contiguous: true,
   sectionBudget: true,
   skipQuiet: true,
-  contrast: true,
+  balance: true,
   fills: true,
 };
 
@@ -91,11 +91,17 @@ function withSections(
   return { ...analysis, sections };
 }
 
-const triad = makeAnalysis((beat) => [0, 3, 9, 7][beat % 4] as number);
+const triad = makeAnalysis((beat) => [0, 3, 10, 7][beat % 4] as number);
 const bars = Array.from({ length: 16 }, (_, i) => ({ start: i * 2, duration: 2 }));
 const quiet = makeAnalysis(() => 0);
 quiet.segments = quiet.segments.map((s) =>
   s.start >= 16 ? { ...s, loudness_max: -50 } : s,
+);
+
+// Two 8-beat sections either side of a quiet 32-beat one.
+const quietBarrier = withSections(makeLongAnalysis(48), [8, 32, 8]);
+quietBarrier.segments = quietBarrier.segments.map((s) =>
+  s.start >= 4 && s.start < 20 ? { ...s, loudness_max: -80 } : s,
 );
 
 type CaseInput = Omit<FixtureCase, "expected">;
@@ -104,7 +110,8 @@ const inputs: CaseInput[] = [
   { id: "triad_default", analysis: triad },
   { id: "triad_house", analysis: { ...triad, bars }, options: HOUSE_OPTIONS },
   { id: "triad_contiguous_bars", analysis: { ...triad, bars }, options: { contiguous: true } },
-  { id: "triad_contrast", analysis: triad, options: { contrast: true } },
+  { id: "triad_balance", analysis: triad, options: { balance: true } },
+  { id: "quiet_balance", analysis: quiet, options: { balance: true } },
   { id: "triad_fills", analysis: triad, options: { fills: true } },
   {
     id: "sparse_window",
@@ -112,14 +119,24 @@ const inputs: CaseInput[] = [
     options: { contiguous: true, tonic: 0 },
   },
   {
-    id: "section_budget_folds_short_section",
-    analysis: withSections(makeLongAnalysis(140), [8, 32, 100]),
-    options: { sectionBudget: true },
+    id: "section_budget_merges_to_target",
+    analysis: withSections(makeLongAnalysis(480), new Array<number>(12).fill(40)),
+    options: { sectionBudget: true, contiguous: true, tonic: 0 },
+  },
+  {
+    id: "section_budget_tiers",
+    analysis: withSections(makeLongAnalysis(260), [8, 32, 220]),
+    options: { sectionBudget: true, tonic: 0 },
   },
   {
     id: "section_budget_drop_cap",
-    analysis: withSections(makeLongAnalysis(160), [32, 32, 32, 32, 32]),
-    options: { sectionBudget: true },
+    analysis: withSections(makeLongAnalysis(96), [32, 32, 32]),
+    options: { sectionBudget: true, tonic: 0 },
+  },
+  {
+    id: "section_budget_quiet_barrier",
+    analysis: quietBarrier,
+    options: { sectionBudget: true, skipQuiet: true, contiguous: true, tonic: 0 },
   },
   { id: "bare", analysis: { sections: [], beats: [], segments: [] } },
   {

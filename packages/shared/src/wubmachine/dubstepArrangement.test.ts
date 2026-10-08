@@ -68,10 +68,16 @@ function withSections(
 }
 
 describe("estimateTonic", () => {
-  it("finds the tonic of a major scale weighted toward its triad", () => {
-    const weights = [0, 4, 7, 0, 4, 7, 0, 2, 5, 9, 11];
+  it("finds the tonic of a minor scale weighted toward its triad", () => {
+    const weights = [0, 3, 7, 0, 3, 7, 0, 2, 5, 8, 10];
     const segments = weights.map((degree, i) => segment(i, (degree + 2) % 12));
     expect(estimateTonic(segments)).toBe(2);
+  });
+
+  it("answers a major key with its relative minor", () => {
+    const weights = [0, 4, 7, 0, 4, 7, 0, 2, 5, 9, 11];
+    const segments = weights.map((degree, i) => segment(i, (degree + 2) % 12));
+    expect(estimateTonic(segments)).toBe(11);
   });
 });
 
@@ -88,8 +94,8 @@ describe("mixFactor", () => {
 });
 
 describe("planDubstepRemix", () => {
-  // Tonic C on beats 0, 4, 8, ...; D# and A once per bar; G elsewhere.
-  const analysis = makeAnalysis((beat) => [0, 3, 9, 7][beat % 4]!);
+  // Per bar: the tonic, its minor third, its minor seventh and its fifth.
+  const analysis = makeAnalysis((beat) => [0, 3, 10, 7][beat % 4]!);
   const plan = planDubstepRemix(analysis);
 
   it("builds an intro, two parts per section and an ending", () => {
@@ -115,25 +121,29 @@ describe("planDubstepRemix", () => {
     expect(intro.slices.reduce((sum, s) => sum + s.beats, 0)).toBe(32);
   });
 
-  it("picks section beats by segment pitch: tonic, +3, +9", () => {
+  it("picks section beats by segment pitch: tonic, +3, +10", () => {
     const drop = plan.parts[3]!;
     expect(plan.tonic).toBe(0);
     expect(drop.slices).toHaveLength(32);
     expect(plan.parts[4]!.slices).toBe(drop.slices);
     // A segment ends in the beat after the one it starts in.
-    const pitchOf = (start: number) => [0, 3, 9, 7][(start / 0.5 - 1) % 4];
+    const pitchOf = (start: number) => [0, 3, 10, 7][(start / 0.5 - 1) % 4];
     const pitches = drop.slices.slice(0, 16).map((s) => pitchOf(s.start));
-    expect(pitches).toEqual([...Array(8).fill(0), 3, 3, 3, 3, 9, 9, 9, 9]);
+    expect(pitches).toEqual([...Array(8).fill(0), 3, 3, 3, 3, 10, 10, 10, 10]);
     expect(drop.slices.every((s) => s.start >= 16)).toBe(true);
     expect(drop.slices.slice(16)).toEqual(drop.slices.slice(0, 16));
   });
 
   it("names samples by key, section index and section count", () => {
+    // Segment pitches start at A, so tonic 0 is A and tonic 2 is B.
     expect(plan.parts[1]!.samples).toEqual([
-      "wubs/c",
+      "wubs/a",
       "splashes/splash_04",
     ]);
-    expect(plan.parts[2]!.samples).toEqual(["break-ends/c", "hats"]);
+    expect(plan.parts[2]!.samples).toEqual(["break-ends/a", "hats"]);
+    expect(planDubstepRemix(analysis, { tonic: 2 }).parts[1]!.samples[0]).toBe(
+      "wubs/b",
+    );
     expect(plan.parts[3]!.samples[1]).toBe("splashes/splash_02");
     expect(plan.parts[5]).toEqual({
       kind: "ending",
@@ -174,10 +184,37 @@ describe("planDubstepRemix", () => {
     );
   });
 
+  it("merges the song down to a handful of sections", () => {
+    // Twelve 40-beat sections, 480 beats: four remain, a drop and a break each.
+    const long = withSections(makeLongAnalysis(480), new Array(12).fill(40));
+    const plan = planDubstepRemix(long, {
+      sectionBudget: true,
+      contiguous: true,
+      tonic: 0,
+    });
+    expect(plan.parts.map((part) => part.label)).toEqual([
+      "intro",
+      "section 1 drop",
+      "section 1 break",
+      "section 2 drop",
+      "section 2 break",
+      "section 3 drop",
+      "section 3 break",
+      "section 4 drop",
+      "section 4 break",
+      "ending",
+    ]);
+    // Sections of 160, 160, 80 and 80 beats, in song order.
+    const starts = plan.parts.slice(1, -1).map((part) => part.slices[0]!.start);
+    expect(starts).toEqual([...starts].sort((a, b) => a - b));
+    expect(plan.parts[1]!.slices.every((s) => s.start < 80)).toBe(true);
+    expect(plan.parts[7]!.slices.every((s) => s.start >= 200)).toBe(true);
+  });
+
   it("sizes each section's share by its length", () => {
-    // Sections of 8, 32 and 100 beats: the first folds into the second.
-    const long = withSections(makeLongAnalysis(140), [8, 32, 100]);
-    const plan = planDubstepRemix(long, { sectionBudget: true });
+    // Sections of 8, 32 and 220 beats: the first folds into the second.
+    const long = withSections(makeLongAnalysis(260), [8, 32, 220]);
+    const plan = planDubstepRemix(long, { sectionBudget: true, tonic: 0 });
     expect(plan.parts.map((part) => part.label)).toEqual([
       "intro",
       "section 1 drop",
@@ -191,25 +228,63 @@ describe("planDubstepRemix", () => {
   });
 
   it("never stacks more than two drops in a row", () => {
-    const long = withSections(makeLongAnalysis(160), [32, 32, 32, 32, 32]);
-    const plan = planDubstepRemix(long, { sectionBudget: true });
+    const short = withSections(makeLongAnalysis(96), [32, 32, 32]);
+    const plan = planDubstepRemix(short, { sectionBudget: true });
     expect(plan.parts.map((part) => part.kind)).toEqual([
       "intro",
       "drop",
       "drop",
       "break",
-      "drop",
-      "drop",
       "ending",
     ]);
   });
 
-  it("tilts the mix toward the samples in drops and the song in breaks", () => {
-    const plain = planDubstepRemix(analysis);
-    const contrast = planDubstepRemix(analysis, { contrast: true });
-    expect(contrast.parts[1]!.mix).toBeCloseTo(plain.parts[1]!.mix + 0.15);
-    expect(contrast.parts[2]!.mix).toBeCloseTo(plain.parts[2]!.mix - 0.15);
-    expect(contrast.parts[2]!.samples).toEqual(plain.parts[2]!.samples);
+  it("never merges across a skipped section", () => {
+    // Two 8-beat sections either side of a quiet one stay apart.
+    const split = withSections(makeLongAnalysis(48), [8, 32, 8]);
+    split.segments.forEach((segment) => {
+      if (segment.start >= 4 && segment.start < 20) {
+        segment.loudness_max = -80;
+      }
+    });
+    const plan = planDubstepRemix(split, {
+      sectionBudget: true,
+      skipQuiet: true,
+      contiguous: true,
+      tonic: 0,
+    });
+    expect(plan.parts.map((part) => part.label)).toEqual([
+      "intro",
+      "section 1 drop",
+      "section 2 drop",
+      "ending",
+    ]);
+    expect(plan.parts[1]!.slices.every((s) => s.start < 4)).toBe(true);
+    expect(plan.parts[2]!.slices.every((s) => s.start >= 20)).toBe(true);
+  });
+
+  it("balances each part against its sample bed", () => {
+    // Segments peak at -10 dB, so the song averages about -14.3 dBFS.
+    const [intro, drop, brk] = planDubstepRemix(analysis, {
+      balance: true,
+    }).parts;
+    // Song over bed (dB) once both are scaled by the mix.
+    const songOverBed = (mix: number, bedLevel: number) =>
+      20 * Math.log10((1 - mix) / mix) + (-10 - 4.3) - bedLevel;
+    expect(songOverBed(intro!.mix, -7.1)).toBeCloseTo(0);
+    expect(songOverBed(drop!.mix, -12.9)).toBeCloseTo(0);
+    // The break wants the song 8 dB over, more than the bed gain limit allows.
+    expect(brk!.mix).toBe(0.3);
+    expect(brk!.samples).toEqual(plan.parts[2]!.samples);
+
+    // A louder song gets more of the bed; a quieter one less.
+    const loud = makeAnalysis((beat) => [0, 3, 10, 7][beat % 4]!);
+    loud.segments.forEach((segment) => {
+      segment.loudness_max = -4;
+    });
+    const loudDrop = planDubstepRemix(loud, { balance: true }).parts[1]!;
+    expect(loudDrop.mix).toBeGreaterThan(drop!.mix);
+    expect(songOverBed(loudDrop.mix, -12.9) + 6).toBeCloseTo(0);
   });
 
   it("stutters the last two beats before each drop", () => {

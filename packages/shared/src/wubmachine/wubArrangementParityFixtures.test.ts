@@ -28,14 +28,14 @@ describe("wub-arrangement-cases.json", () => {
   });
 
   it("pins the house arrangement", () => {
-    const { contiguous, sectionBudget, skipQuiet, contrast, fills } =
+    const { contiguous, sectionBudget, skipQuiet, balance, fills } =
       WUB_MACHINE_ARRANGEMENT;
     const house = doc.cases.find((testCase) => testCase.id === "real_house");
     expect(house?.options).toEqual({
       contiguous,
       sectionBudget,
       skipQuiet,
-      contrast,
+      balance,
       fills,
     });
   });

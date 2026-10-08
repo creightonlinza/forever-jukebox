@@ -4,19 +4,18 @@ import { WubMachineViz } from "./WubMachineViz";
 const PEAK_BINS = 2000;
 
 // Playback position for `elapsed` seconds of audio since `offset`, wrapping
-// from loopEnd back to loopStart when the source loops.
+// from loopEnd back to the start when the source loops.
 export function loopedPosition(
   offset: number,
   elapsed: number,
   looping: boolean,
-  loopStart: number,
   loopEnd: number,
 ) {
   const raw = offset + elapsed;
-  if (!looping || raw < loopEnd || loopEnd <= loopStart) {
+  if (!looping || raw < loopEnd || loopEnd <= 0) {
     return raw;
   }
-  return loopStart + ((raw - loopStart) % (loopEnd - loopStart));
+  return raw % loopEnd;
 }
 
 function computePeaks(buffer: AudioBuffer) {
@@ -37,8 +36,8 @@ function computePeaks(buffer: AudioBuffer) {
   return peaks;
 }
 
-// Plays a rendered Wub Machine remix start to finish. With looping on, the
-// body (everything between the intro and the ending) repeats seamlessly.
+// Plays a rendered Wub Machine remix start to finish. With looping on, it
+// jumps back to the start where the ending would begin.
 export class WubMachineController {
   private readonly viz: WubMachineViz;
   private context: AudioContext | null = null;
@@ -47,7 +46,6 @@ export class WubMachineController {
   private source: AudioBufferSourceNode | null = null;
   private volume = 1;
   private loop = false;
-  private loopStart = 0;
   private loopEnd = 0;
   private position = 0;
   private startedAt = 0;
@@ -97,7 +95,6 @@ export class WubMachineController {
       this.source.loop = loop && this.position < this.loopEnd;
     }
     this.loop = loop;
-    this.viz.setLoop(loop);
   }
 
   setRemix(
@@ -113,20 +110,12 @@ export class WubMachineController {
     this.buffer = buffer;
     this.context = context;
     if (!buffer || !context) {
-      this.viz.setData(new Float32Array(0), 0, [], 0, 0);
+      this.viz.setData(new Float32Array(0), 0, []);
       return;
     }
-    const intro = parts.find((part) => part.kind === "intro");
     const ending = parts.find((part) => part.kind === "ending");
-    this.loopStart = intro ? intro.start + intro.duration : 0;
     this.loopEnd = ending ? ending.start : buffer.duration;
-    this.viz.setData(
-      computePeaks(buffer),
-      buffer.duration,
-      parts,
-      this.loopStart,
-      this.loopEnd,
-    );
+    this.viz.setData(computePeaks(buffer), buffer.duration, parts);
   }
 
   isReady() {
@@ -148,7 +137,6 @@ export class WubMachineController {
       this.position,
       now - this.startedAt,
       this.source.loop,
-      this.loopStart,
       this.loopEnd,
     );
   }
@@ -171,7 +159,6 @@ export class WubMachineController {
     const offset = Math.max(0, Math.min(from ?? this.position, buffer.duration));
     const source = context.createBufferSource();
     source.buffer = buffer;
-    source.loopStart = this.loopStart;
     source.loopEnd = this.loopEnd;
     source.loop = this.loop && offset < this.loopEnd;
     source.connect(this.gain);
@@ -181,7 +168,7 @@ export class WubMachineController {
       }
       this.source = null;
       if (this.loop) {
-        this.play(this.loopStart);
+        this.play(0);
         return;
       }
       this.stopTicking();

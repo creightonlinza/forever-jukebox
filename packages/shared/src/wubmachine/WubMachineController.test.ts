@@ -6,7 +6,6 @@ const viz = vi.hoisted(() => ({
   resizeNow: vi.fn(),
   setOnSelect: vi.fn(),
   setData: vi.fn(),
-  setLoop: vi.fn(),
   update: vi.fn(),
   destroy: vi.fn(),
 }));
@@ -16,7 +15,6 @@ vi.mock("./WubMachineViz", () => ({
     resizeNow = viz.resizeNow;
     setOnSelect = viz.setOnSelect;
     setData = viz.setData;
-    setLoop = viz.setLoop;
     update = viz.update;
     destroy = viz.destroy;
   },
@@ -92,18 +90,18 @@ const parts = [
 
 describe("loopedPosition", () => {
   it("advances linearly when not looping", () => {
-    expect(loopedPosition(10, 100, false, 13, 90)).toBe(110);
+    expect(loopedPosition(10, 100, false, 90)).toBe(110);
   });
 
-  it("wraps from the loop end back to the loop start", () => {
-    expect(loopedPosition(10, 50, true, 13, 90)).toBe(60);
-    expect(loopedPosition(10, 80, true, 13, 90)).toBe(13);
-    expect(loopedPosition(10, 85, true, 13, 90)).toBe(18);
-    expect(loopedPosition(10, 80 + 77 * 3 + 5, true, 13, 90)).toBe(18);
+  it("wraps from the loop end back to the start", () => {
+    expect(loopedPosition(10, 50, true, 90)).toBe(60);
+    expect(loopedPosition(10, 80, true, 90)).toBe(0);
+    expect(loopedPosition(10, 85, true, 90)).toBe(5);
+    expect(loopedPosition(10, 80 + 90 * 3 + 5, true, 90)).toBe(5);
   });
 
   it("ignores a degenerate loop", () => {
-    expect(loopedPosition(0, 50, true, 20, 20)).toBe(50);
+    expect(loopedPosition(0, 50, true, 0)).toBe(50);
   });
 });
 
@@ -132,15 +130,16 @@ describe("WubMachineController", () => {
     return { controller, context, sources, gains, raw };
   }
 
-  it("derives loop points and peaks from the remix", () => {
+  it("hands the remix's peaks and parts to the viz", () => {
     const { controller } = setup();
     expect(controller.isReady()).toBe(true);
-    const [peaks, duration, givenParts, loopStart, loopEnd] =
-      viz.setData.mock.calls[0] as [Float32Array, number, unknown, number, number];
+    const [peaks, duration, givenParts] = viz.setData.mock.calls[0] as [
+      Float32Array,
+      number,
+      unknown,
+    ];
     expect(duration).toBe(38);
     expect(givenParts).toBe(parts);
-    expect(loopStart).toBe(10);
-    expect(loopEnd).toBe(30);
     expect(Math.max(...peaks)).toBeCloseTo(0.8);
   });
 
@@ -172,23 +171,23 @@ describe("WubMachineController", () => {
     expect(controller.getPosition()).toBe(0);
   });
 
-  it("loops the body and re-anchors when the loop flag changes mid-play", () => {
+  it("loops back to the start and re-anchors when the loop flag changes mid-play", () => {
     const { controller, sources, raw } = setup();
     controller.setLoop(true);
     controller.play(25);
     const source = sources[0]!;
     expect(source.loop).toBe(true);
-    expect(source.loopStart).toBe(10);
+    expect(source.loopStart).toBe(0);
     expect(source.loopEnd).toBe(30);
 
     raw.currentTime = 8;
-    // 25 + 8 = 33 wraps to 13.
-    expect(controller.getPosition()).toBe(13);
+    // 25 + 8 = 33 wraps past the ending's start at 30 to 3.
+    expect(controller.getPosition()).toBe(3);
 
     controller.setLoop(false);
     expect(source.loop).toBe(false);
     raw.currentTime = 10;
-    expect(controller.getPosition()).toBe(15);
+    expect(controller.getPosition()).toBe(5);
 
     // Past the loop end, turning looping on does not wrap the current pass.
     controller.play(35);
@@ -212,7 +211,7 @@ describe("WubMachineController", () => {
     expect(controller.getPosition()).toBeCloseTo(10, 9);
   });
 
-  it("restarts the body when a looping track reaches its end", () => {
+  it("restarts from the top when a looping track reaches its end", () => {
     const { controller, sources } = setup();
     const ended = vi.fn();
     controller.setOnEnded(ended);
@@ -220,7 +219,7 @@ describe("WubMachineController", () => {
     controller.play(35);
     sources[0]!.onended?.();
     expect(ended).not.toHaveBeenCalled();
-    expect(sources[1]!.start).toHaveBeenCalledWith(0, 10);
+    expect(sources[1]!.start).toHaveBeenCalledWith(0, 0);
   });
 
   it("reports the end once and ignores stale sources", () => {
@@ -267,8 +266,6 @@ describe("WubMachineController", () => {
       expect.any(Float32Array),
       0,
       [],
-      0,
-      0,
     );
     controller.play();
     expect(sources).toHaveLength(1);
