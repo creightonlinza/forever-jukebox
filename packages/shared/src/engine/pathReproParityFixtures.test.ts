@@ -30,6 +30,7 @@ type FixtureCase = {
   edges: Array<[number, number, number]>;
   expected: {
     beatTrace: number[];
+    beatVisits: number[];
     jumpTrace: boolean[];
   };
 };
@@ -42,6 +43,7 @@ type FixtureDoc = {
 type SessionTrace = {
   beatTrace: number[];
   jumpTrace: boolean[];
+  beatVisits?: number[];
 };
 
 function makeBeat(which: number): QuantumBase {
@@ -223,6 +225,7 @@ function simulatePathTraceWithEngine(
     currentBeatIndex: number;
     nextAudioTime: number;
     beatsPlayed: number;
+    beatVisits: number[];
     curRandomBranchChance: number;
     branchState: BranchState;
     lastJumped: boolean;
@@ -236,6 +239,7 @@ function simulatePathTraceWithEngine(
   engineAny.currentBeatIndex = -1;
   engineAny.nextAudioTime = 0;
   engineAny.beatsPlayed = 0;
+  engineAny.beatVisits = new Array<number>(beats).fill(0);
   engineAny.curRandomBranchChance = config.minRandomBranchChance;
   engineAny.branchState.curRandomBranchChance = config.minRandomBranchChance;
   engineAny.lastJumped = false;
@@ -262,7 +266,7 @@ function simulatePathTraceWithEngine(
     jumpTrace.filter(Boolean).length,
   );
 
-  return { beatTrace, jumpTrace };
+  return { beatTrace, jumpTrace, beatVisits: engineAny.beatVisits };
 }
 
 describe("path repro parity fixtures", () => {
@@ -340,6 +344,10 @@ describe("path repro parity fixtures", () => {
         session.jumpTrace,
         `${testCase.id}: engine jump trace`,
       ).toEqual(testCase.expected.jumpTrace);
+      expect(
+        session.beatVisits,
+        `${testCase.id}: engine beat visits`,
+      ).toEqual(testCase.expected.beatVisits);
     }
   });
 });

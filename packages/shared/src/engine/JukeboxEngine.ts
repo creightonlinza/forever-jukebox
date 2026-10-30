@@ -25,6 +25,7 @@ import {
   QuantumBase,
   TrackAnalysis,
 } from "./types";
+import { computeBeatColors } from "./beatColors";
 
 export const DEFAULT_JUKEBOX_CONFIG: JukeboxConfig = {
   maxBranches: 4,
@@ -106,6 +107,8 @@ export class JukeboxEngine {
   private currentBeatIndex = -1;
   private nextAudioTime = 0;
   private beatsPlayed = 0;
+  private beatVisits: number[] = [];
+  private beatColors: string[] = [];
   private curRandomBranchChance = 0;
   private lastJumped = false;
   private lastJumpTime: number | null = null;
@@ -146,6 +149,7 @@ export class JukeboxEngine {
     const audioNow = this.player.getAudioTime();
     const playbackRate = this.getPlaybackRate();
     this.currentBeatIndex = clamped;
+    this.recordBeatVisit(clamped);
     this.nextAudioTime = audioNow + beat.duration / playbackRate;
     this.curRandomBranchChance = this.config.minRandomBranchChance;
     this.branchState.curRandomBranchChance = this.curRandomBranchChance;
@@ -167,6 +171,8 @@ export class JukeboxEngine {
     this.graph = buildJumpGraph(this.analysis, this.config);
     this.applyDeletedEdges();
     this.beats = this.analysis.beats;
+    this.beatVisits = new Array<number>(this.beats.length).fill(0);
+    this.beatColors = computeBeatColors(this.beats, this.analysis.segments);
     this.resetState();
     this.syncAnchorJump();
   }
@@ -236,6 +242,9 @@ export class JukeboxEngine {
         : null;
     return {
       beats: this.beats,
+      // Live array, updated in place as beats play.
+      beatVisits: this.beatVisits as readonly number[],
+      beatColors: this.beatColors as readonly string[],
       edges: Array.from(edgeMap.values()),
       lastBranchPoint: this.graph.lastBranchPoint,
       anchorEdgeId,
@@ -291,6 +300,9 @@ export class JukeboxEngine {
     const beatEnd = beat.start + beat.duration;
     const remainingInBeat = Math.max(0, beatEnd - trackTime);
     const playbackRate = this.getPlaybackRate();
+    if (beatIndex !== this.currentBeatIndex) {
+      this.recordBeatVisit(beatIndex);
+    }
     this.currentBeatIndex = beatIndex;
     this.nextAudioTime = this.player.getAudioTime() + remainingInBeat / playbackRate;
     this.lastJumped = false;
@@ -541,6 +553,7 @@ export class JukeboxEngine {
     this.currentBeatIndex = -1;
     this.nextAudioTime = 0;
     this.beatsPlayed = 0;
+    this.beatVisits.fill(0);
     this.curRandomBranchChance = this.config.minRandomBranchChance;
     this.branchState.curRandomBranchChance = this.curRandomBranchChance;
     this.branchState.lastDestBySource = null;
@@ -821,6 +834,11 @@ export class JukeboxEngine {
     this.nextAudioTime =
       advance.boundaryAudioTime + targetBeat.duration / playbackRate;
     this.beatsPlayed += 1;
+    this.recordBeatVisit(advance.chosenIndex);
+  }
+
+  private recordBeatVisit(index: number) {
+    this.beatVisits[index] += 1;
   }
 
   private initializeBeatClock() {
@@ -838,6 +856,7 @@ export class JukeboxEngine {
     const remainingInBeat = Math.max(0, beat.duration - elapsedInBeat);
     this.currentBeatIndex = beatIndex;
     this.beatsPlayed = Math.max(this.beatsPlayed, beatIndex + 1);
+    this.recordBeatVisit(beatIndex);
     this.nextAudioTime = audioTime + remainingInBeat / this.getPlaybackRate();
   }
 
@@ -869,6 +888,9 @@ export class JukeboxEngine {
       PLAYBACK_SYNC_TOLERANCE_SECONDS;
     if (!beatMismatch && !boundaryMismatch) {
       return;
+    }
+    if (beatIndex !== this.currentBeatIndex) {
+      this.recordBeatVisit(beatIndex);
     }
     this.currentBeatIndex = beatIndex;
     this.nextAudioTime = expectedNextAudioTime;

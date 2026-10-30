@@ -20,6 +20,8 @@ type Point = { x: number; y: number };
 
 interface VisualizationData {
   beats: QuantumBase[];
+  beatVisits: readonly number[];
+  beatColors: readonly string[];
   edges: Edge[];
   lastBranchPoint: number;
   anchorEdgeId: number | null;
@@ -27,6 +29,21 @@ interface VisualizationData {
 }
 
 const ANCHOR_HIGHLIGHT_COLOR = "#ff2d2d";
+const BEAT_DOT_RADIUS_PX = 2;
+const BEAT_CURSOR_RADIUS_PX = 10;
+
+// Classic layout proportions, as fractions of min(width, height).
+const CLASSIC_RADIUS_RATIO = 0.4;
+const TILE_MAX_HEIGHT_RATIO = 0.1;
+const TILE_MAX_WIDTH_RATIO = 0.03;
+const TILE_MARKER_MIN_WIDTH_PX = 3;
+const BEAT_HOVER_ALPHA = 0.6;
+const HOVER_BRANCH_LINE_WIDTH_PX = 1.8;
+// Canvas drops zero-length lines along with their round caps.
+const TILE_MIN_LINE_LENGTH_PX = 0.01;
+// A tile with n visits is n + TILE_BASE_STEPS steps long, of TILE_MAX_STEPS at full height.
+const TILE_BASE_STEPS = 4;
+const TILE_MAX_STEPS = 12;
 
 interface JumpLine {
   from: number;
@@ -54,6 +71,7 @@ type CanvasVizOptions = {
   enableInteraction?: boolean;
   forceBendEdges?: boolean;
   edgeControlPointResolver?: EdgeControlPointResolver;
+  beatTiles?: boolean;
 };
 
 type VisualizationDefinition = {
@@ -67,6 +85,8 @@ class CanvasViz {
   private readonly overlayCanvas: HTMLCanvasElement;
   private readonly baseCtx: CanvasRenderingContext2D;
   private readonly overlayCtx: CanvasRenderingContext2D;
+  private readonly tileCanvas: HTMLCanvasElement | null = null;
+  private readonly tileCtx: CanvasRenderingContext2D | null = null;
 
   private size = { width: 0, height: 0 };
   private data: VisualizationData | null = null;
@@ -78,6 +98,9 @@ class CanvasViz {
   private jumpLine: JumpLine | null = null;
   private selectedEdge: Edge | null = null;
   private overlayRafId: number | null = null;
+  private paintedVisits: number[] = [];
+  private tileScale = 1;
+  private hoveredBeat: number | null = null;
 
   private onSelect: ((index: number) => void) | null = null;
   private onEdgeSelect: ((edge: Edge | null) => void) | null = null;
@@ -118,33 +141,48 @@ class CanvasViz {
     }
     this.baseCtx = baseCtx;
     this.overlayCtx = overlayCtx;
-    this.container.append(this.baseCanvas, this.overlayCanvas);
+    if (options.beatTiles) {
+      this.tileCanvas = document.createElement("canvas");
+      const tileCtx = this.tileCanvas.getContext("2d");
+      if (!tileCtx) {
+        throw new Error("Canvas not supported");
+      }
+      this.tileCtx = tileCtx;
+    }
+    this.container.append(...this.canvases);
     this.applyCanvasStyles();
     this.updateTheme();
     this.resize();
     if (options.enableInteraction !== false) {
       this.overlayCanvas.addEventListener("click", this.handleCanvasClick);
+      this.overlayCanvas.addEventListener("pointermove", this.handlePointerMove);
+      this.overlayCanvas.addEventListener("pointerleave", this.handlePointerLeave);
     }
   }
 
   setVisible(visible: boolean) {
     this.visible = visible;
     const display = visible ? "block" : "none";
-    this.baseCanvas.style.display = display;
-    this.overlayCanvas.style.display = display;
+    for (const canvas of this.canvases) {
+      canvas.style.display = display;
+    }
     if (visible && this.data) {
       this.drawBase();
+      this.drawTiles();
       this.drawOverlay();
     } else {
+      this.clearHoveredBeat();
       this.cancelOverlayAnimation();
     }
   }
 
   setData(data: VisualizationData) {
     this.data = data;
+    this.clearHoveredBeat();
     this.computePositions();
     this.computeEdgeGeometry();
     this.drawBase();
+    this.drawTiles();
     this.drawOverlay();
   }
 
@@ -154,10 +192,15 @@ class CanvasViz {
     }
     this.updateTheme();
     this.drawBase();
+    this.drawTiles();
     this.drawOverlay();
   }
 
   update(currentIndex: number, lastJumped: boolean, previousIndex: number | null) {
+    this.syncTiles();
+    if (currentIndex === this.currentIndex && !lastJumped) {
+      return;
+    }
     this.currentIndex = currentIndex;
     if (lastJumped && previousIndex !== null) {
       this.jumpLine = {
@@ -174,13 +217,17 @@ class CanvasViz {
     this.jumpLine = null;
     this.selectedEdge = null;
     this.cancelOverlayAnimation();
+    this.syncTiles();
     this.drawOverlay();
   }
 
   destroy() {
     this.overlayCanvas.removeEventListener("click", this.handleCanvasClick);
-    this.baseCanvas.remove();
-    this.overlayCanvas.remove();
+    this.overlayCanvas.removeEventListener("pointermove", this.handlePointerMove);
+    this.overlayCanvas.removeEventListener("pointerleave", this.handlePointerLeave);
+    for (const canvas of this.canvases) {
+      canvas.remove();
+    }
     this.data = null;
     this.positions = [];
     this.edgeGeometry = new WeakMap();
@@ -210,15 +257,20 @@ class CanvasViz {
     this.resize();
   }
 
+  // In stacking order, bottom to top.
+  private get canvases() {
+    return this.tileCanvas
+      ? [this.baseCanvas, this.tileCanvas, this.overlayCanvas]
+      : [this.baseCanvas, this.overlayCanvas];
+  }
+
   private applyCanvasStyles() {
-    this.baseCanvas.style.position = "absolute";
-    this.baseCanvas.style.inset = "0";
-    this.baseCanvas.style.width = "100%";
-    this.baseCanvas.style.height = "100%";
-    this.overlayCanvas.style.position = "absolute";
-    this.overlayCanvas.style.inset = "0";
-    this.overlayCanvas.style.width = "100%";
-    this.overlayCanvas.style.height = "100%";
+    for (const canvas of this.canvases) {
+      canvas.style.position = "absolute";
+      canvas.style.inset = "0";
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+    }
   }
 
   private resize() {
@@ -228,16 +280,19 @@ class CanvasViz {
     }
     const dpr = window.devicePixelRatio || 1;
     this.size = { width: rect.width, height: rect.height };
-    this.baseCanvas.width = rect.width * dpr;
-    this.baseCanvas.height = rect.height * dpr;
-    this.overlayCanvas.width = rect.width * dpr;
-    this.overlayCanvas.height = rect.height * dpr;
+    this.clearHoveredBeat();
+    for (const canvas of this.canvases) {
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+    }
     this.baseCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.tileCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (this.data) {
       this.computePositions();
       this.computeEdgeGeometry();
       this.drawBase();
+      this.drawTiles();
       this.drawOverlay();
     }
   }
@@ -378,14 +433,172 @@ class CanvasViz {
       }
     }
 
-    this.baseCtx.fillStyle = this.theme.beatFill;
-    for (let i = 0; i < this.positions.length; i += 1) {
-      const p = this.positions[i];
-      this.baseCtx.beginPath();
-      this.baseCtx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-      this.baseCtx.fill();
+    if (!this.tileCanvas) {
+      this.baseCtx.fillStyle = this.theme.beatFill;
+      for (let i = 0; i < this.positions.length; i += 1) {
+        const p = this.positions[i];
+        this.baseCtx.beginPath();
+        this.baseCtx.arc(p.x, p.y, BEAT_DOT_RADIUS_PX, 0, Math.PI * 2);
+        this.baseCtx.fill();
+      }
     }
     this.baseCtx.restore();
+  }
+
+  private drawTiles() {
+    if (!this.tileCtx || !this.data || !this.visible) {
+      return;
+    }
+    const { beatVisits: visits, beatColors } = this.data;
+    this.paintedVisits = [...visits];
+    this.tileScale = resolveTileScale(visits.reduce((max, n) => Math.max(max, n), 0));
+    this.tileCtx.clearRect(0, 0, this.size.width, this.size.height);
+    for (let i = 0; i < visits.length; i += 1) {
+      this.paintTile(this.tileCtx, i, beatColors[i]);
+    }
+  }
+
+  // Repaints only tiles whose count changed, unless the scale moved, which resizes every tile.
+  private syncTiles() {
+    if (!this.tileCtx || !this.data || !this.visible) {
+      return;
+    }
+    const { beatVisits: visits, beatColors } = this.data;
+    const changed: number[] = [];
+    let maxVisits = 0;
+    for (let i = 0; i < visits.length; i += 1) {
+      maxVisits = Math.max(maxVisits, visits[i]);
+      if (visits[i] !== this.paintedVisits[i]) {
+        changed.push(i);
+      }
+    }
+    if (resolveTileScale(maxVisits) !== this.tileScale) {
+      this.drawTiles();
+      return;
+    }
+    for (const index of changed) {
+      if (visits[index] < this.paintedVisits[index]) {
+        this.eraseTile(this.tileCtx, index);
+      }
+      this.paintTile(this.tileCtx, index, beatColors[index]);
+      this.paintedVisits[index] = visits[index];
+    }
+  }
+
+  private tileLevel(index: number) {
+    const visits = this.data?.beatVisits[index] ?? 0;
+    if (visits === 0) {
+      return 0;
+    }
+    return ((visits + TILE_BASE_STEPS) * this.tileScale) / TILE_MAX_STEPS;
+  }
+
+  private tileHeight(level: number) {
+    return Math.min(this.size.width, this.size.height) * TILE_MAX_HEIGHT_RATIO * level;
+  }
+
+  private paintTile(ctx: CanvasRenderingContext2D, index: number, color: string) {
+    this.strokeTile(ctx, index, this.tileHeight(this.tileLevel(index)), color);
+  }
+
+  // A tile that shrinks has to be removed first, since painting only covers its new length.
+  private eraseTile(ctx: CanvasRenderingContext2D, index: number) {
+    ctx.globalCompositeOperation = "destination-out";
+    this.strokeTile(ctx, index, this.tileHeight(1), "#000");
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  // Tiles span at least the beat dot's diameter, centered on the ring, or their own width when
+  // wider. Round caps extend past the line ends, so the line is inset to stay within that span.
+  private strokeTile(
+    ctx: CanvasRenderingContext2D,
+    index: number,
+    height: number,
+    color: string,
+    minWidthPx = 0,
+  ) {
+    const count = this.positions.length;
+    const slot = (Math.PI * 2) / count;
+    const angle = (index / count) * Math.PI * 2 - Math.PI / 2;
+    const radius = Math.min(this.size.width, this.size.height) * CLASSIC_RADIUS_RATIO;
+    const width = Math.min(
+      Math.max(slot * radius, minWidthPx),
+      Math.min(this.size.width, this.size.height) * TILE_MAX_WIDTH_RATIO,
+    );
+    const cap = width / 2;
+    const start = Math.min(radius, radius - BEAT_DOT_RADIUS_PX + cap);
+    const end = Math.max(
+      start + TILE_MIN_LINE_LENGTH_PX,
+      radius + Math.max(height, BEAT_DOT_RADIUS_PX) - cap,
+    );
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(
+      this.center.x + Math.cos(angle) * start,
+      this.center.y + Math.sin(angle) * start,
+    );
+    ctx.lineTo(
+      this.center.x + Math.cos(angle) * end,
+      this.center.y + Math.sin(angle) * end,
+    );
+    ctx.stroke();
+    ctx.lineCap = "butt";
+  }
+
+  // Marks the current or hovered beat on the overlay, so the tile layer only changes on visits.
+  private drawTileMarker(index: number, color: string) {
+    this.strokeTile(
+      this.overlayCtx,
+      index,
+      this.tileHeight(1),
+      color,
+      TILE_MARKER_MIN_WIDTH_PX,
+    );
+  }
+
+  // The band runs from the beat ring to full tile height, so short tiles stay easy to hit.
+  private tileIndexAt(x: number, y: number) {
+    const count = this.positions.length;
+    if (count === 0) {
+      return null;
+    }
+    const radius = Math.min(this.size.width, this.size.height) * CLASSIC_RADIUS_RATIO;
+    const distance = Math.hypot(x - this.center.x, y - this.center.y);
+    if (
+      distance < radius - BEAT_SELECT_RADIUS_PX ||
+      distance > radius + this.tileHeight(1)
+    ) {
+      return null;
+    }
+    const turn =
+      (Math.atan2(y - this.center.y, x - this.center.x) + Math.PI / 2) / (Math.PI * 2);
+    return Math.round((turn + 1) * count) % count;
+  }
+
+  private beatIndexAt(x: number, y: number) {
+    if (this.tileCanvas) {
+      return this.tileIndexAt(x, y);
+    }
+    let bestIndex: number | null = null;
+    let bestDist = Infinity;
+    for (let i = 0; i < this.positions.length; i += 1) {
+      const p = this.positions[i];
+      const d = Math.hypot(p.x - x, p.y - y);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
+    }
+    return bestDist <= BEAT_SELECT_RADIUS_PX ? bestIndex : null;
+  }
+
+  private drawBeatCursor(point: Point, color: string) {
+    this.overlayCtx.fillStyle = color;
+    this.overlayCtx.beginPath();
+    this.overlayCtx.arc(point.x, point.y, BEAT_CURSOR_RADIUS_PX, 0, Math.PI * 2);
+    this.overlayCtx.fill();
   }
 
   private drawOverlay() {
@@ -403,15 +616,32 @@ class CanvasViz {
         2.5
       );
     }
+    if (this.hoveredBeat !== null) {
+      for (const edge of this.data.beats[this.hoveredBeat].neighbors) {
+        if (!edge.deleted) {
+          this.drawEdge(
+            this.overlayCtx,
+            edge,
+            this.theme.beatHighlight,
+            HOVER_BRANCH_LINE_WIDTH_PX,
+          );
+        }
+      }
+      const hoverColor = this.resolveBeatHighlightColor(BEAT_HOVER_ALPHA);
+      if (this.tileCanvas) {
+        this.drawTileMarker(this.hoveredBeat, hoverColor);
+      } else {
+        this.drawBeatCursor(this.positions[this.hoveredBeat], hoverColor);
+      }
+    }
     if (this.currentIndex < 0) {
       return;
     }
     const current = this.positions[this.currentIndex];
-    if (current) {
-      this.overlayCtx.fillStyle = this.theme.beatHighlight;
-      this.overlayCtx.beginPath();
-      this.overlayCtx.arc(current.x, current.y, 10, 0, Math.PI * 2);
-      this.overlayCtx.fill();
+    if (current && this.tileCanvas) {
+      this.drawTileMarker(this.currentIndex, this.theme.beatHighlight);
+    } else if (current) {
+      this.drawBeatCursor(current, this.theme.beatHighlight);
     }
     if (this.jumpLine) {
       const age = performance.now() - this.jumpLine.at;
@@ -420,7 +650,7 @@ class CanvasViz {
         const to = this.positions[this.jumpLine.to];
         if (from && to) {
           const alpha = 1 - age / 1000;
-          const jumpColor = this.resolveBeatJumpColor(alpha);
+          const jumpColor = this.resolveBeatHighlightColor(alpha);
           if (this.shouldBendEdge(from, to, this.jumpLine.from, this.jumpLine.to)) {
             const control = this.resolveControlPointForPair(
               from,
@@ -473,7 +703,7 @@ class CanvasViz {
     this.overlayRafId = null;
   }
 
-  private resolveBeatJumpColor(alpha: number) {
+  private resolveBeatHighlightColor(alpha: number) {
     if (this.theme.beatHighlightRgb) {
       const { r, g, b } = this.theme.beatHighlightRgb;
       return `rgba(${r}, ${g}, ${b}, ${alpha})`;
@@ -489,24 +719,12 @@ class CanvasViz {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     if (this.onSelect) {
-      const maxDistance = BEAT_SELECT_RADIUS_PX;
-      let bestIndex = -1;
-      let bestDist = Infinity;
-      for (let i = 0; i < this.positions.length; i += 1) {
-        const p = this.positions[i];
-        const dx = p.x - x;
-        const dy = p.y - y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < bestDist) {
-          bestDist = d;
-          bestIndex = i;
-        }
-      }
-      if (bestIndex >= 0 && bestDist <= maxDistance) {
+      const beatIndex = this.beatIndexAt(x, y);
+      if (beatIndex !== null) {
         if (this.onEdgeSelect && this.selectedEdge) {
           this.onEdgeSelect(null);
         }
-        this.onSelect(bestIndex);
+        this.onSelect(beatIndex);
         return;
       }
     }
@@ -551,6 +769,38 @@ class CanvasViz {
       }
     }
   };
+
+  private readonly handlePointerMove = (event: PointerEvent) => {
+    if (!this.data || !this.visible) {
+      return;
+    }
+    if (event.pointerType === "touch") {
+      this.setHoveredBeat(null);
+      return;
+    }
+    const rect = this.overlayCanvas.getBoundingClientRect();
+    this.setHoveredBeat(
+      this.beatIndexAt(event.clientX - rect.left, event.clientY - rect.top),
+    );
+  };
+
+  private readonly handlePointerLeave = () => {
+    this.setHoveredBeat(null);
+  };
+
+  private clearHoveredBeat() {
+    this.hoveredBeat = null;
+    this.overlayCanvas.style.cursor = "";
+  }
+
+  private setHoveredBeat(index: number | null) {
+    if (index === this.hoveredBeat) {
+      return;
+    }
+    this.hoveredBeat = index;
+    this.overlayCanvas.style.cursor = index === null ? "" : "pointer";
+    this.drawOverlay();
+  }
 
   private drawEdge(
     ctx: CanvasRenderingContext2D,
@@ -720,6 +970,15 @@ class CanvasViz {
       mid.y + normY * (centerDist * 0.5),
     ];
   }
+}
+
+// Tiles hold their size as counts rise, halving together when one would pass full height.
+function resolveTileScale(maxVisits: number) {
+  let scale = 1;
+  while ((maxVisits + TILE_BASE_STEPS) * scale > TILE_MAX_STEPS) {
+    scale /= 2;
+  }
+  return scale;
 }
 
 function createArcDiagramPositioner(): Positioner {
@@ -967,7 +1226,10 @@ function getDefaultVisualizationDefinitions(): VisualizationDefinition[] {
         edgeControlPointResolver: createArcDiagramControlPointResolver(),
       },
     },
-    { positioner: JukeboxViz.createClassicPositioner() },
+    {
+      positioner: JukeboxViz.createClassicPositioner(),
+      options: { beatTiles: true },
+    },
     { positioner: createGalaxyPositioner() },
     { positioner: createGridPositioner() },
     { positioner: createInfinitePositioner() },
@@ -992,7 +1254,7 @@ export class JukeboxViz {
   static createClassicPositioner(): Positioner {
     return (data: VisualizationData, width: number, height: number) => {
       const count = data.beats.length;
-      const radius = Math.min(width, height) * 0.48;
+      const radius = Math.min(width, height) * CLASSIC_RADIUS_RATIO;
       const cx = width / 2;
       const cy = height / 2;
       return Array.from({ length: count }, (_, i) => {
