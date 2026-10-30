@@ -170,6 +170,13 @@ export function FaqPanel() {
             high-churn changelog that is never translated (untranslated tokens would
             just force a locale-completeness exemption). Adding a new entry is a plain
             JSX edit here. Keep the FAQ above fully tokenized. */}
+        <h4>November 2026</h4>
+        <ul>
+          <li>
+            The <strong>Classic</strong> visualization is closer to the original — beats are now colored tiles that grow as they replay. Hover a beat in any visualization to preview it and see where it can jump.
+          </li>
+        </ul>
+
         <h4>October 2026</h4>
         <ul>
           <li>
