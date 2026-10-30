@@ -89,6 +89,7 @@ class CanvasViz {
   private readonly tileCtx: CanvasRenderingContext2D | null = null;
 
   private size = { width: 0, height: 0 };
+  private dpr = 0;
   private data: VisualizationData | null = null;
   private positions: Array<{ x: number; y: number }> = [];
   private center = { x: 0, y: 0 };
@@ -161,6 +162,9 @@ class CanvasViz {
   }
 
   setVisible(visible: boolean) {
+    if (visible === this.visible) {
+      return;
+    }
     this.visible = visible;
     const display = visible ? "block" : "none";
     for (const canvas of this.canvases) {
@@ -225,7 +229,10 @@ class CanvasViz {
     this.overlayCanvas.removeEventListener("click", this.handleCanvasClick);
     this.overlayCanvas.removeEventListener("pointermove", this.handlePointerMove);
     this.overlayCanvas.removeEventListener("pointerleave", this.handlePointerLeave);
+    // Removed canvases hold their bitmaps until GC, too long on low-memory devices.
     for (const canvas of this.canvases) {
+      canvas.width = 0;
+      canvas.height = 0;
       canvas.remove();
     }
     this.data = null;
@@ -249,6 +256,9 @@ class CanvasViz {
   }
 
   setAnchorHighlightEnabled(enabled: boolean) {
+    if (enabled === this.anchorHighlightEnabled) {
+      return;
+    }
     this.anchorHighlightEnabled = enabled;
     this.drawBase();
   }
@@ -279,6 +289,14 @@ class CanvasViz {
       return;
     }
     const dpr = window.devicePixelRatio || 1;
+    if (
+      rect.width === this.size.width &&
+      rect.height === this.size.height &&
+      dpr === this.dpr
+    ) {
+      return;
+    }
+    this.dpr = dpr;
     this.size = { width: rect.width, height: rect.height };
     this.clearHoveredBeat();
     for (const canvas of this.canvases) {

@@ -480,6 +480,7 @@ describe("JukeboxViz", () => {
         active.handlePointerMove({ pointerType: "mouse", clientX: 50, clientY: 50 });
 
       hover();
+      active.container.getBoundingClientRect = () => ({ width: 200, height: 200 });
       viz.resizeNow();
       expect(active.hoveredBeat).toBeNull();
       expect(active.overlayCanvas.style.cursor).toBe("");
@@ -536,6 +537,73 @@ describe("JukeboxViz", () => {
       active.handleCanvasClick({ clientX: 150, clientY: 52 });
       expect(onSelect).not.toHaveBeenCalled();
       expect(onEdgeSelect).toHaveBeenCalledWith(kept);
+    });
+  });
+
+  describe("layout switching cost", () => {
+    function mountWithEdge() {
+      const viz = new JukeboxViz(createContainer());
+      const beats = [0, 1].map((which) => ({
+        which,
+        start: which,
+        duration: 1,
+        neighbors: [] as unknown[],
+      }));
+      const edge = { src: beats[0], dest: beats[1], deleted: false, id: 1 };
+      viz.setData({
+        beats,
+        beatVisits: [0, 0],
+        beatColors: ["#111111", "#222222"],
+        edges: [edge],
+      } as any);
+      const ctx = canvases[0].getContext("2d") as unknown as {
+        stroke: ReturnType<typeof vi.fn>;
+      };
+      ctx.stroke.mockClear();
+      return { viz, ctx };
+    }
+
+    it("draws the new layout's edges once across a full switch", () => {
+      const { viz, ctx } = mountWithEdge();
+      const GALAXY_INDEX = 2;
+      const widthSets = () => canvases.slice(2).map((canvas) => canvas.width);
+
+      viz.setActiveIndex(GALAXY_INDEX);
+      viz.setVisible(true);
+      viz.resizeNow();
+      viz.setActiveIndex(GALAXY_INDEX);
+      viz.setAnchorHighlightEnabled(false);
+
+      expect(ctx.stroke).toHaveBeenCalledTimes(1);
+      expect(widthSets()).toEqual([300, 300]);
+    });
+
+    it("releases the previous layout's canvas bitmaps", () => {
+      const { viz } = mountWithEdge();
+      const [firstBase, firstOverlay] = canvases;
+      expect(firstBase.width).toBe(300);
+
+      viz.setActiveIndex(1);
+
+      expect(firstBase.width).toBe(0);
+      expect(firstBase.height).toBe(0);
+      expect(firstOverlay.width).toBe(0);
+    });
+
+    it("still redraws when the size really changes", () => {
+      const { viz, ctx } = mountWithEdge();
+      const active = (viz as any).activeViz;
+      active.container.getBoundingClientRect = () => ({ width: 200, height: 200 });
+      viz.resizeNow();
+      expect(ctx.stroke).toHaveBeenCalledTimes(1);
+      expect(canvases[0].width).toBe(200);
+    });
+
+    it("redraws when shown again after being hidden", () => {
+      const { viz, ctx } = mountWithEdge();
+      viz.setVisible(false);
+      viz.setVisible(true);
+      expect(ctx.stroke).toHaveBeenCalledTimes(1);
     });
   });
 
