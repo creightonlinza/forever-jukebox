@@ -246,16 +246,26 @@
     "preparingWubMachine": "Building the Wub Machine remix"
   },
   "faq": {
-    "whatTitle": "What is the Forever Jukebox?",
+    "whatTitle": "What the what?",
     "whatBody": "The Forever Jukebox is an open-source modernization of Paul Lamere’s <infinite>Infinite Jukebox</infinite> and <canon>Autocanonizer</canon> — rebuilt from the ground up by <author>Creighton Linza</author>. It generates a forever-evolving version of any song.",
+    "playModesBody": "It has three play modes: Jukebox keeps a song going forever by jumping between beats that sound alike, Autocanonizer plays a song against itself as a canon, and Wub Machine turns it into a dubstep remix (based on Peter Sobot's <wub>Wub Machine</wub>).",
     "howTitle": "How does it work?",
-    "howBody": "The app analyzes your provided audio to estimate beats, segments, and related features. Those features drive beat-synchronous playback. On each beat, the player may jump to a different, sonically similar point based on timbre, loudness, segment duration, and beat position. The visualization maps the possible jump paths.<br/><br/>The full source code is available in the <repo>forever-jukebox</repo> repository.",
+    "howBody": "The Forever Jukebox listens to a song and maps out its beats. As the song plays, it can jump from one beat to another that sounds similar, so the music keeps going in a new direction instead of ending. The visualization draws every possible jump as a line across the track. In the Classic view, each beat is a tile around the circle that grows as it replays, so you can see which parts of the song have played most. A tile's color reflects how that beat sounds. Hover over a beat to see where it can jump, and click it to go there.",
+    "sourceBody": "The full source code is available in the <repo>forever-jukebox</repo> repository.",
     "tuneTitle": "How can I tune the Jukebox?",
-    "tuneThresholds": "Open the Tune panel to adjust thresholds and branch probability.",
+    "tuneOpen": "Click the Tune button to open the tuning panel.",
+    "tuneThreshold": "The threshold sets how alike two beats must sound to connect: lower means smoother jumps, higher means more of them.",
+    "tuneProbability": "Adjust branch probability min/max and ramp speed to shape how often jumps happen.",
     "tuneTypes": "Set a minimum jump distance to filter branches by beat distance across the track, and use the checkboxes for other branch types.",
-    "tuneDelete": "Select a branch in the visualization and delete it.",
+    "tuneDelete": "Click a branch in the visualization, then press Delete to remove it.",
+    "modesTitle": "What are the extra audio modes?",
+    "modesBody": "Extras can play the Jukebox normally, speed it up with Nightcore, slow and deepen it with Daycore, muffle and slow it with Vaporwave, add spatial panning with 8D Audio, bitcrush it with 8-Bit, add a filtered LoFi sound, submerge it with Underwater, or wash it through Cathedral reverb. More Cowbell and Swing are beat-aware remix toys inspired by <remix>Echo Nest Remix</remix>. Instrumental removes the vocals from a track with an on-device separation model (desktop browsers only).",
     "storageTitle": "Where is analysis stored?",
-    "storageBody": "Analysis is stored locally in your browser. You can clear individual track analysis on the Home screen, or all cached analysis from Settings."
+    "storageBody": "Analysis is stored locally in your browser. You can clear individual track analysis on the Home screen, or all cached analysis from Settings.",
+    "communityLinks": "Community links",
+    "reddit": "Reddit community",
+    "discord": "Discord server",
+    "github": "GitHub repository"
   },
   "manifest": {
     "description": "Offline-first Forever Jukebox for local audio."

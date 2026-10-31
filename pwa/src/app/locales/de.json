@@ -246,16 +246,26 @@
     "preparingWubMachine": "Wub-Machine-Remix wird erstellt"
   },
   "faq": {
-    "whatTitle": "Was ist die Forever Jukebox?",
+    "whatTitle": "Was ist das?",
     "whatBody": "Die Forever Jukebox ist eine Open-Source-Modernisierung von Paul Lameres <infinite>Infinite Jukebox</infinite> und <canon>Autokanonisierer</canon> — komplett neu entwickelt von <author>Creighton Linza</author>. Sie generiert eine sich ewig weiterentwickelnde Version jedes Songs.",
+    "playModesBody": "Es gibt drei Wiedergabemodi: Jukebox lässt einen Song endlos weiterlaufen, indem zwischen ähnlich klingenden Beats gesprungen wird, der Autokanonisierer spielt einen Song als Kanon gegen sich selbst, und Wub Machine macht daraus einen Dubstep-Remix (basierend auf Peter Sobots <wub>Wub Machine</wub>).",
     "howTitle": "Wie funktioniert das?",
-    "howBody": "Die App analysiert die bereitgestellten Audiodateien, um Beats, Segmente und zugehörige Merkmale zu extrahieren. Diese Merkmale steuern die beat-synchrone Wiedergabe. Bei jedem Beat kann der Player zu einem anderen, klanglich ähnlichen Punkt springen, basierend auf Klangfarbe, Lautstärke, Segmentdauer und Beat-Position. Die Visualisierung bildet die möglichen Sprungpfade ab.<br/><br/>Der vollständige Quellcode ist im <repo>forever-jukebox</repo>-Repository verfügbar.",
+    "howBody": "Die Forever Jukebox hört sich einen Song an und erfasst seine Beats. Während der Wiedergabe kann sie von einem Beat zu einem anderen, ähnlich klingenden springen, sodass die Musik in eine neue Richtung weiterläuft, statt zu enden. Die Visualisierung zeigt jeden möglichen Sprung als Linie über den Song. In der Classic-Ansicht ist jeder Beat eine Kachel am Kreis, die mit jeder Wiederholung wächst, sodass du siehst, welche Teile des Songs am häufigsten gelaufen sind. Die Farbe einer Kachel spiegelt den Klang des Beats wider. Fahre mit der Maus über einen Beat, um zu sehen, wohin er springen kann, und klicke darauf, um dorthin zu wechseln.",
+    "sourceBody": "Der vollständige Quellcode ist im <repo>forever-jukebox</repo>-Repository verfügbar.",
     "tuneTitle": "Wie kann ich die Jukebox tunen?",
-    "tuneThresholds": "Öffne das Tune-Panel, um Schwellenwerte und Sprungpfad-Wahrscheinlichkeiten anzupassen.",
+    "tuneOpen": "Klicke auf den Tuning-Button, um das Tuning-Panel zu öffnen.",
+    "tuneThreshold": "Die Schwelle legt fest, wie ähnlich zwei Beats klingen müssen, um verbunden zu werden: niedriger bedeutet sanftere Sprünge, höher bedeutet mehr davon.",
+    "tuneProbability": "Passe die minimale/maximale Sprungpfad-Wahrscheinlichkeit und die Rampengeschwindigkeit an, um zu steuern, wie oft Sprünge auftreten.",
     "tuneTypes": "Lege eine Mindest-Sprungdistanz fest, um Sprungpfade nach Beat-Distanz über den Song hinweg zu filtern, und nutze die Checkboxen für andere Sprungpfad-Typen.",
-    "tuneDelete": "Wähle einen Sprungpfad in der Visualisierung aus und lösche ihn.",
+    "tuneDelete": "Klicke auf einen Sprungpfad in der Visualisierung und drücke dann Entf, um ihn zu entfernen.",
+    "modesTitle": "Was sind die zusätzlichen Audio-Modi?",
+    "modesBody": "Extras können die Jukebox normal abspielen, sie mit Nightcore beschleunigen, mit Daycore verlangsamen und vertiefen, mit Vaporwave dämpfen und verlangsamen, räumliches Panning mit 8D-Audio hinzufügen, mit 8-Bit bitcrushen, einen gefilterten LoFi-Sound hinzufügen, sie mit Unterwasser abtauchen lassen oder mit Kathedralen-Hall versehen. Mehr Kuhglocken und Swing sind beat-bewusste Remix-Spielzeuge, inspiriert von <remix>Echo Nest Remix</remix>. Instrumental entfernt den Gesang eines Songs mit einem Trennungsmodell direkt auf dem Gerät (nur Desktop-Browser).",
     "storageTitle": "Wo wird die Analyse gespeichert?",
-    "storageBody": "Die Analyse wird lokal in deinem Browser gespeichert. Du kannst einzelne Track-Analysen unter Start löschen, oder alle gecachten Analysen in den Einstellungen."
+    "storageBody": "Die Analyse wird lokal in deinem Browser gespeichert. Du kannst einzelne Track-Analysen unter Start löschen, oder alle gecachten Analysen in den Einstellungen.",
+    "communityLinks": "Community-Links",
+    "reddit": "Reddit-Community",
+    "discord": "Discord-Server",
+    "github": "GitHub-Repository"
   },
   "manifest": {
     "description": "Eine vollständig offline nutzbare Forever Jukebox für lokale Audiodateien."

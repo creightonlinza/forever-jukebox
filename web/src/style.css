@@ -301,31 +301,6 @@ a:focus-visible {
   gap: 8px;
 }
 
-.hero-social-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  color: var(--accent);
-  text-decoration: none;
-  border-radius: 6px;
-}
-
-.hero-social-link:hover {
-  text-decoration: none;
-}
-
-.hero-social-link:focus:not(:focus-visible) {
-  outline: none;
-}
-
-.hero-social-icon {
-  width: 18px;
-  height: 18px;
-  display: block;
-}
-
 /* Copy of the social row shown inside the FAQ. Hidden by default; revealed
    only at the mobile breakpoint where the hero's own social row is hidden. */
 .faq-socials {
