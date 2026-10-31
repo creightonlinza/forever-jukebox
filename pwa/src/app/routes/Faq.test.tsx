@@ -23,6 +23,18 @@ describe("Faq", () => {
     expect(screen.getByText("What the what?")).toBeTruthy();
   });
 
+  it("lists audio modes with bold names and the remix link", () => {
+    render(<Faq />);
+    const tempo = screen.getByText("Nightcore, Daycore & Vaporwave:");
+    expect(tempo.tagName).toBe("STRONG");
+    expect(tempo.parentElement?.textContent).toContain(
+      "further slowed and muffled",
+    );
+    expect(
+      screen.getByRole("link", { name: "Echo Nest Remix", hidden: true }).getAttribute("href"),
+    ).toContain("echonest/remix");
+  });
+
   it("links the community channels", () => {
     render(<Faq />);
     expect(screen.getByLabelText("Reddit community").getAttribute("href")).toContain("reddit.com");

@@ -78,14 +78,23 @@ export function Faq() {
           </ul>
         </FaqItem>
         <FaqItem title={t("faq.modesTitle")}>
-          <p>
-            <Trans
-              i18nKey="faq.modesBody"
-              components={{
-                remix: <a href="https://github.com/echonest/remix" target="_blank" rel="noreferrer">Echo Nest Remix</a>,
-              }}
-            />
-          </p>
+          <ul>
+            <li><Trans i18nKey="faq.modesTempo" /></li>
+            <li><Trans i18nKey="faq.modes8d" /></li>
+            <li><Trans i18nKey="faq.modes8bit" /></li>
+            <li><Trans i18nKey="faq.modesLofi" /></li>
+            <li><Trans i18nKey="faq.modesUnderwater" /></li>
+            <li><Trans i18nKey="faq.modesCathedral" /></li>
+            <li>
+              <Trans
+                i18nKey="faq.modesRemix"
+                components={{
+                  remix: <a href="https://github.com/echonest/remix" target="_blank" rel="noreferrer">Echo Nest Remix</a>,
+                }}
+              />
+            </li>
+            <li><Trans i18nKey="faq.modesInstrumental" /></li>
+          </ul>
         </FaqItem>
         <FaqItem title={t("faq.storageTitle")}>
           <p>{t("faq.storageBody")}</p>
