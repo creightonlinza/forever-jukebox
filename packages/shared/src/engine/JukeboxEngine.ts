@@ -849,11 +849,7 @@ export class JukeboxEngine {
       return;
     }
     const beat = this.beats[beatIndex];
-    const elapsedInBeat = Math.max(
-      0,
-      Math.min(beat.duration, trackTime - beat.start),
-    );
-    const remainingInBeat = Math.max(0, beat.duration - elapsedInBeat);
+    const remainingInBeat = Math.max(0, beat.start + beat.duration - trackTime);
     this.currentBeatIndex = beatIndex;
     this.beatsPlayed = Math.max(this.beatsPlayed, beatIndex + 1);
     this.recordBeatVisit(beatIndex);
@@ -875,11 +871,7 @@ export class JukeboxEngine {
       return;
     }
     const beat = this.beats[beatIndex];
-    const elapsedInBeat = Math.max(
-      0,
-      Math.min(beat.duration, trackTime - beat.start),
-    );
-    const remainingInBeat = Math.max(0, beat.duration - elapsedInBeat);
+    const remainingInBeat = Math.max(0, beat.start + beat.duration - trackTime);
     const expectedNextAudioTime =
       audioTime + remainingInBeat / this.getPlaybackRate();
     const beatMismatch = beatIndex !== this.currentBeatIndex;

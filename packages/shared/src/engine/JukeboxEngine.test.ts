@@ -1635,6 +1635,44 @@ describe("JukeboxEngine jump timing", () => {
     engine.stopJukebox();
   });
 
+  it("waits out a lead-in before the first beat without double counting", () => {
+    vi.useFakeTimers();
+    let audioNow = 0;
+    const player = makePlayer();
+    player.getAudioTime = () => audioNow;
+    player.getCurrentTime = () => audioNow;
+    const engine = new JukeboxEngine(player, {
+      config: {
+        minRandomBranchChance: 0,
+        maxRandomBranchChance: 0,
+        randomBranchChanceDelta: 0,
+      },
+    });
+    const payload = makeAnalysisPayload(3);
+    const beats = payload.beats.map((beat) => ({ ...beat, start: beat.start + 0.5 }));
+    engine.loadAnalysis({ ...payload, beats, track: { duration: 3.5 } });
+    const visits = engine.getVisualizationData()!.beatVisits;
+    const engineAny = engine as unknown as {
+      nextAudioTime: number;
+      beatsPlayed: number;
+      tick: () => void;
+    };
+
+    engine.startJukebox();
+    expect(engineAny.nextAudioTime).toBeCloseTo(1.5);
+
+    // One beat length in, the audio is still in the first beat.
+    audioNow = 1;
+    engineAny.tick();
+    expect(visits).toEqual([1, 0, 0]);
+
+    audioNow = 1.6;
+    engineAny.tick();
+    expect(visits).toEqual([1, 1, 0]);
+    expect(engineAny.beatsPlayed).toBe(2);
+    engine.stopJukebox();
+  });
+
   it("counts a beat visit when resyncing moves to a different beat", () => {
     let trackTime = 1.5;
     const player = makePlayer();
