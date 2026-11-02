@@ -1,5 +1,70 @@
 /* @ts-self-types="./madmom_beats_port_wasm.d.ts" */
 
+export class BeatNetworks {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        BeatNetworksFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_beatnetworks_free(ptr, 0);
+    }
+    /**
+     * @returns {number}
+     */
+    count() {
+        const ret = wasm.beatnetworks_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @param {string} model_json
+     * @param {Uint8Array} weights_npz
+     */
+    constructor(model_json, weights_npz) {
+        const ptr0 = passStringToWasm0(model_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray8ToWasm0(weights_npz, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.beatnetworks_new(ptr0, len0, ptr1, len1);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        this.__wbg_ptr = ret[0] >>> 0;
+        BeatNetworksFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * Network `index`'s output, frames x outputs in row order.
+     * @param {number} index
+     * @returns {Float32Array}
+     */
+    run(index) {
+        const ret = wasm.beatnetworks_run(this.__wbg_ptr, index);
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
+     * Keeps the features (from `extract_features_json`) for `run`.
+     * @param {Float32Array} features
+     * @param {number} columns
+     */
+    set_features(features, columns) {
+        const ptr0 = passArrayF32ToWasm0(features, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.beatnetworks_set_features(this.__wbg_ptr, ptr0, len0, columns);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+}
+if (Symbol.dispose) BeatNetworks.prototype[Symbol.dispose] = BeatNetworks.prototype.free;
+
 /**
  * @param {Float32Array} samples
  * @param {number} sample_rate
@@ -68,6 +133,28 @@ export function analyze_json_with_model_progress(samples, sample_rate, config_js
 }
 
 /**
+ * Decodes beats from the networks' outputs, concatenated in network order
+ * (each frames x `columns`).
+ * @param {Float32Array} outputs
+ * @param {number} networks
+ * @param {number} columns
+ * @param {string | null} [config_json]
+ * @param {Function | null} [progress_cb]
+ * @returns {any}
+ */
+export function decode_beats(outputs, networks, columns, config_json, progress_cb) {
+    const ptr0 = passArrayF32ToWasm0(outputs, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(config_json) ? 0 : passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.decode_beats(ptr0, len0, networks, columns, ptr1, len1, isLikeNone(progress_cb) ? 0 : addToExternrefTable0(progress_cb));
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @returns {string}
  */
 export function default_config_json() {
@@ -87,6 +174,42 @@ export function default_config_json() {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * Features, frames x `feature_columns_json` in row order.
+ * @param {Float32Array} samples
+ * @param {number} sample_rate
+ * @param {string | null} [config_json]
+ * @returns {Float32Array}
+ */
+export function extract_features_json(samples, sample_rate, config_json) {
+    const ptr0 = passArrayF32ToWasm0(samples, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    var ptr1 = isLikeNone(config_json) ? 0 : passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    const ret = wasm.extract_features_json(ptr0, len0, sample_rate, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v3 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v3;
+}
+
+/**
+ * Number of feature columns `extract_features_json` returns per frame.
+ * @param {string | null} [config_json]
+ * @returns {number}
+ */
+export function feature_columns_json(config_json) {
+    var ptr0 = isLikeNone(config_json) ? 0 : passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.feature_columns_json(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] >>> 0;
 }
 
 /**
@@ -157,10 +280,19 @@ function __wbg_get_imports() {
     };
 }
 
+const BeatNetworksFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_beatnetworks_free(ptr >>> 0, 1));
+
 function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();
     wasm.__wbindgen_externrefs.set(idx, obj);
     return idx;
+}
+
+function getArrayF32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
 }
 
 let cachedDataViewMemory0 = null;

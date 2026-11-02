@@ -1,13 +1,44 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export class BeatNetworks {
+    free(): void;
+    [Symbol.dispose](): void;
+    count(): number;
+    constructor(model_json: string, weights_npz: Uint8Array);
+    /**
+     * Network `index`'s output, frames x outputs in row order.
+     */
+    run(index: number): Float32Array;
+    /**
+     * Keeps the features (from `extract_features_json`) for `run`.
+     */
+    set_features(features: Float32Array, columns: number): void;
+}
+
 export function analyze_json(samples: Float32Array, sample_rate: number, config_json?: string | null): any;
 
 export function analyze_json_with_model(samples: Float32Array, sample_rate: number, config_json: string | null | undefined, model_json: string, weights_npz: Uint8Array): any;
 
 export function analyze_json_with_model_progress(samples: Float32Array, sample_rate: number, config_json: string | null | undefined, model_json: string, weights_npz: Uint8Array, progress_cb: Function): any;
 
+/**
+ * Decodes beats from the networks' outputs, concatenated in network order
+ * (each frames x `columns`).
+ */
+export function decode_beats(outputs: Float32Array, networks: number, columns: number, config_json?: string | null, progress_cb?: Function | null): any;
+
 export function default_config_json(): string;
+
+/**
+ * Features, frames x `feature_columns_json` in row order.
+ */
+export function extract_features_json(samples: Float32Array, sample_rate: number, config_json?: string | null): Float32Array;
+
+/**
+ * Number of feature columns `extract_features_json` returns per frame.
+ */
+export function feature_columns_json(config_json?: string | null): number;
 
 export function validate_config_json(config_json?: string | null): any;
 
@@ -15,10 +46,18 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly __wbg_beatnetworks_free: (a: number, b: number) => void;
     readonly analyze_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly analyze_json_with_model: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
     readonly analyze_json_with_model_progress: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: any) => [number, number, number];
+    readonly beatnetworks_count: (a: number) => number;
+    readonly beatnetworks_new: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly beatnetworks_run: (a: number, b: number) => [number, number, number, number];
+    readonly beatnetworks_set_features: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly decode_beats: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly default_config_json: () => [number, number, number, number];
+    readonly extract_features_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+    readonly feature_columns_json: (a: number, b: number) => [number, number, number];
     readonly validate_config_json: (a: number, b: number) => any;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
