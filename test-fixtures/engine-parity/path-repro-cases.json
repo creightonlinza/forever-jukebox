@@ -25,7 +25,8 @@
       ],
       "expected": {
         "beatTrace": [0, 1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 4, 5, 6, 7, 8, 4, 5, 6, 7, 8, 4, 5, 6, 7, 8, 4, 5, 6, 7, 8, 4, 5, 6, 7, 8, 4, 5, 6, 7, 8, 4, 5, 6, 7, 2, 3, 4, 5, 6, 7, 8, 4, 5, 6, 7, 2, 3, 4, 5, 6, 7, 8, 4],
-        "jumpTrace": [false, false, true, false, false, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, true, false, false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, false, true]
+        "jumpTrace": [false, false, true, false, false, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, true, false, false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, false, true],
+        "beatVisits": [2, 2, 3, 3, 12, 11, 11, 11, 9, 0]
       }
     },
     {
@@ -51,7 +52,8 @@
       ],
       "expected": {
         "beatTrace": [0, 1, 2, 0, 1, 2, 3, 4, 5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 6, 7, 8, 9, 5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 5, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 10, 6, 7, 8, 9, 5, 6, 7, 8, 9, 10, 6, 7, 8, 9],
-        "jumpTrace": [false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false, false, false, true, false, false, false, true, true, false, false, false, false, false, false, false, false, true, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, true, false, false, false, false, false, true, false, false, false]
+        "jumpTrace": [false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false, false, false, true, false, false, false, true, true, false, false, false, false, false, false, false, false, true, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, true, false, false, false, false, false, true, false, false, false],
+        "beatVisits": [2, 3, 4, 3, 3, 6, 11, 11, 11, 11, 7, 0]
       }
     },
     {
@@ -82,7 +84,8 @@
       ],
       "expected": {
         "beatTrace": [0, 1, 2, 3, 4, 5, 6, 7, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6, 7, 8, 9, 10, 11, 6, 7, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 6, 7, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 6, 7, 8, 9, 10, 11, 6, 7, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 6, 7, 8, 9],
-        "jumpTrace": [false, false, false, false, false, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false, false, false, true, false, true, false, false, true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, true, false, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, true, false, true, false, false, true, false, false, false, false, false, false, false, false, false, false, true, false, false, false]
+        "jumpTrace": [false, false, false, false, false, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false, false, false, true, false, true, false, false, true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, true, false, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, true, false, true, false, false, true, false, false, false, false, false, false, false, false, false, false, true, false, false, false],
+        "beatVisits": [1, 4, 7, 9, 9, 6, 11, 11, 6, 6, 5, 5, 0, 0, 0, 0]
       }
     },
     {
@@ -114,7 +117,8 @@
       ],
       "expected": {
         "beatTrace": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 10, 7, 8, 9, 4, 5, 6, 7],
-        "jumpTrace": [false, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, true, false, false, false, true, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, true, false, false, false]
+        "jumpTrace": [false, false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, true, false, false, false, true, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, true, false, false, false],
+        "beatVisits": [1, 1, 1, 1, 5, 5, 5, 18, 17, 17, 13, 0, 0, 0]
       }
     },
     {
@@ -146,7 +150,8 @@
       ],
       "expected": {
         "beatTrace": [0, 1, 2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 12, 13, 14, 9, 10, 11, 12, 13, 14, 15, 16, 12, 13, 14, 9, 10, 11, 12, 13, 14, 10, 11, 12, 13, 14, 15, 16, 12, 13, 14, 15, 16, 12, 13, 14, 15, 16, 12, 13, 14, 10, 11, 12, 13, 14, 9, 10, 11, 12, 13, 14, 15, 16, 12, 13, 14, 15, 16, 12, 13, 14, 9, 10, 11, 12, 13, 14, 15, 16, 12, 13, 14, 15, 16, 12, 13],
-        "jumpTrace": [false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, false, true, false, false, false, false, false, false, false, true, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false, false, true, false, false, true, false, false, false, false, false, false, false, true, false, false, false, false, true, false]
+        "jumpTrace": [false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, false, true, false, false, false, false, false, false, false, true, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false, false, true, false, false, true, false, false, false, false, false, false, false, true, false, false, false, false, true, false],
+        "beatVisits": [2, 2, 2, 1, 1, 1, 1, 1, 1, 5, 7, 7, 16, 16, 15, 9, 9, 0]
       }
     }
   ]

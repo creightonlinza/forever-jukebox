@@ -36,8 +36,10 @@ Graph/Beat Colors
 
 - `--edge-stroke`: faint graph lines; low-contrast but visible.
 - `--edge-selected`: selected edge color; higher contrast.
-- `--beat-fill`: base beat marker fill (semi-transparent).
-- `--beat-highlight`: highlight color; brighter than `--beat-fill`.
+- `--beat-fill`: base beat marker fill (semi-transparent). Not used by the Classic layout, whose
+  tiles use each beat's timbre color.
+- `--beat-highlight`: highlight color; brighter than `--beat-fill`. Colors the beat cursor, the
+  Classic layout's leading tile, hover markers and hovered branches.
 
 Constraints
 

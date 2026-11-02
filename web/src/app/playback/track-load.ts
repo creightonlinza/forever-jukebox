@@ -246,6 +246,8 @@ export function resetForNewTrack(
   updateTrackInfo(context);
   const emptyVizData = {
     beats: [],
+    beatVisits: [],
+    beatColors: [],
     edges: [],
     lastBranchPoint: -1,
     anchorEdgeId: null,

@@ -11,6 +11,7 @@ import {
   planCanonizerRender,
   type CanonizerRenderPlan,
 } from "./canonizerRenderPlan";
+import { computeBeatColors } from "../engine/beatColors";
 
 type BeatWithSim = CanonizerBeat & {
   sim?: CanonizerBeat;
@@ -343,7 +344,9 @@ export class AutocanonizerController {
     calculateNearestNeighbors(beats);
     foldBySection(beats);
     assignNormalizedVolumes(beats);
-    assignBeatColors(beats, analysis.segments);
+    computeBeatColors(beats, analysis.segments).forEach((color, index) => {
+      beats[index].color = color;
+    });
     this.beats = beats;
     this.viz.setData(
       beats,
@@ -683,44 +686,4 @@ function calcWindowMedian(beats: BeatWithSim[], windowSize: number) {
     vals.sort((a, b) => a - b);
     beat.median_volume = vals[Math.floor(vals.length / 2)] ?? beat.volume;
   }
-}
-
-function assignBeatColors(beats: BeatWithSim[], segments: Segment[]) {
-  const min = [100, 100, 100];
-  const max = [-100, -100, -100];
-  for (const seg of segments) {
-    for (let i = 0; i < 3; i += 1) {
-      const value = seg.timbre[i + 1];
-      if (value < min[i]) {
-        min[i] = value;
-      }
-      if (value > max[i]) {
-        max[i] = value;
-      }
-    }
-  }
-  for (const beat of beats) {
-    const segment = beat.overlappingSegments[0];
-    if (!segment) {
-      beat.color = "#333333";
-      continue;
-    }
-    const color = [];
-    for (let i = 0; i < 3; i += 1) {
-      const value = segment.timbre[i + 1];
-      const range = max[i] - min[i];
-      const norm = range === 0 ? 0.5 : (value - min[i]) / range;
-      color[i] = Math.max(0, Math.min(255, Math.round(norm * 255)));
-    }
-    beat.color = toHex(color[1], color[2], color[0]);
-  }
-}
-
-function toHex(r: number, g: number, b: number) {
-  const convert = (value: number) => {
-    const integer = Math.round(value);
-    const str = Number(integer).toString(16);
-    return str.length === 1 ? `0${str}` : str;
-  };
-  return `#${convert(r)}${convert(g)}${convert(b)}`;
 }

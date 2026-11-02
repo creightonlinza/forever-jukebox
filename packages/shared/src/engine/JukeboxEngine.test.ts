@@ -1634,6 +1634,100 @@ describe("JukeboxEngine jump timing", () => {
     expect(engineAny.beatsPlayed).toBe(2);
     engine.stopJukebox();
   });
+
+  it("waits out a lead-in before the first beat without double counting", () => {
+    vi.useFakeTimers();
+    let audioNow = 0;
+    const player = makePlayer();
+    player.getAudioTime = () => audioNow;
+    player.getCurrentTime = () => audioNow;
+    const engine = new JukeboxEngine(player, {
+      config: {
+        minRandomBranchChance: 0,
+        maxRandomBranchChance: 0,
+        randomBranchChanceDelta: 0,
+      },
+    });
+    const payload = makeAnalysisPayload(3);
+    const beats = payload.beats.map((beat) => ({ ...beat, start: beat.start + 0.5 }));
+    engine.loadAnalysis({ ...payload, beats, track: { duration: 3.5 } });
+    const visits = engine.getVisualizationData()!.beatVisits;
+    const engineAny = engine as unknown as {
+      nextAudioTime: number;
+      beatsPlayed: number;
+      tick: () => void;
+    };
+
+    engine.startJukebox();
+    expect(engineAny.nextAudioTime).toBeCloseTo(1.5);
+
+    // One beat length in, the audio is still in the first beat.
+    audioNow = 1;
+    engineAny.tick();
+    expect(visits).toEqual([1, 0, 0]);
+
+    audioNow = 1.6;
+    engineAny.tick();
+    expect(visits).toEqual([1, 1, 0]);
+    expect(engineAny.beatsPlayed).toBe(2);
+    engine.stopJukebox();
+  });
+
+  it("counts a beat visit when resyncing moves to a different beat", () => {
+    let trackTime = 1.5;
+    const player = makePlayer();
+    player.getAudioTime = () => 0;
+    player.getCurrentTime = () => trackTime;
+    const engine = new JukeboxEngine(player);
+    engine.loadAnalysis(makeAnalysisPayload(3));
+    const visits = engine.getVisualizationData()!.beatVisits;
+
+    engine.syncToPlaybackPosition();
+    expect(visits).toEqual([0, 1, 0]);
+    engine.syncToPlaybackPosition();
+    expect(visits).toEqual([0, 1, 0]);
+
+    trackTime = 2.5;
+    const engineAny = engine as unknown as {
+      nextAudioTime: number;
+      ensureSyncedToPlaybackPosition: () => void;
+    };
+    engineAny.nextAudioTime = 10;
+    engineAny.ensureSyncedToPlaybackPosition();
+    expect(visits).toEqual([0, 1, 1]);
+    engineAny.ensureSyncedToPlaybackPosition();
+    expect(visits).toEqual([0, 1, 1]);
+  });
+
+  it("counts beat visits across start, advance, seek and reset", () => {
+    vi.useFakeTimers();
+    let audioNow = 0.94;
+    const player = makePlayer();
+    player.getAudioTime = () => audioNow;
+    player.getCurrentTime = () => audioNow;
+    const engine = new JukeboxEngine(player, {
+      config: {
+        minRandomBranchChance: 0,
+        maxRandomBranchChance: 0,
+        randomBranchChanceDelta: 0,
+      },
+    });
+    engine.loadAnalysis(makeAnalysisPayload(3));
+    const visits = engine.getVisualizationData()!.beatVisits;
+    expect(visits).toEqual([0, 0, 0]);
+    engine.startJukebox();
+    vi.advanceTimersByTime(60);
+    expect(visits).toEqual([1, 0, 0]);
+    audioNow = 1.96;
+    vi.advanceTimersByTime(1100);
+    expect(visits).toEqual([1, 1, 0]);
+    engine.seekToBeat(0);
+    expect(visits).toEqual([2, 1, 0]);
+    engine.stopJukebox();
+    engine.resetStats();
+    expect(visits).toEqual([0, 0, 0]);
+    expect(engine.getVisualizationData()!.beatVisits).toBe(visits);
+  });
 });
 
 describe("JukeboxEngine deleted edges across rebuild", () => {

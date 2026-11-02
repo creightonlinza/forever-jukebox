@@ -101,7 +101,8 @@ describe("JukeboxViz lifecycle", () => {
 
     expect(firstBase.remove).toHaveBeenCalledTimes(1);
     expect(firstOverlay.remove).toHaveBeenCalledTimes(1);
-    expect(canvases.length).toBe(4);
+    // Two from the first layout, plus base, overlay and tiles for classic.
+    expect(canvases.length).toBe(5);
   });
 
   it("does not remount when setting the same active index", () => {

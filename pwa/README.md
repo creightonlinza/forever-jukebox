@@ -52,7 +52,7 @@ madmom WASM: [madmom-beats-port](https://github.com/creightonlinza/madmom-beats-
 
 - Analysis cache key: fingerprint (`name + size + lastModified + first-bytes hash`)
 - Backends: OPFS when available, otherwise IndexedDB
-- Cache controls and usage are available in the FAQ screen
+- Cache controls and usage are available in Settings
 
 ## Jukebox audio export
 
