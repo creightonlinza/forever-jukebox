@@ -23,15 +23,15 @@ CHUNK_SIZE = 1024 * 1024
 # builds on shared CI/builder IPs, and the repo is not expected to change.
 # To upgrade, update the tag and asset digests below from
 # https://github.com/creightonlinza/madmom-beats-lite/releases
-_RELEASE_TAG = "v1.0.3"
+_RELEASE_TAG = "v1.1.0"
 _DOWNLOAD_BASE = f"https://github.com/creightonlinza/madmom-beats-lite/releases/download/{_RELEASE_TAG}"
 _ASSET_DIGESTS = {
-    "madmom_beats_lite-1.0.3-cp310-cp310-macosx_10_9_universal2.whl": "sha256:954393335a7d931c53da8bedb4095aa358352564c9baa2ecda5efc216c8028d7",
-    "madmom_beats_lite-1.0.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": "sha256:69a40994416d45269dbfa9eb583243cd8b3748248f344eb98a697d81d5053f7c",
-    "madmom_beats_lite-1.0.3-cp310-cp310-win_amd64.whl": "sha256:478a65a9d3da40196ee686daf5fee16419a08e635f70a79b5669b615a82ce9c9",
-    "madmom_beats_lite-1.0.3-cp311-cp311-macosx_10_9_universal2.whl": "sha256:4057462ed3fcb84faad2b5c0442bbd214e2b2e84e35273515ceb8c65726dd249",
-    "madmom_beats_lite-1.0.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": "sha256:10223231614a01250c31e00bc776fc0b87229a457a7d5cab7761fed421536c06",
-    "madmom_beats_lite-1.0.3-cp311-cp311-win_amd64.whl": "sha256:d708bc2974dbfa0790b5bbb290965fdd54746b08d99b34d7b9ab364c200c3354",
+    "madmom_beats_lite-1.1.0-cp310-cp310-macosx_10_9_universal2.whl": "sha256:641c75eb9a2ce9e8604e59065ad5179b774b202a1eeaa043304e4d508b80ae20",
+    "madmom_beats_lite-1.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": "sha256:91fa58616a6de9969f5a892240a9c41d594a88250c221c5ad2bb976962693a5c",
+    "madmom_beats_lite-1.1.0-cp310-cp310-win_amd64.whl": "sha256:1b3d328c85b281fea8aea9f3f651bdcb6483414785991495c6b2de2e8256f74b",
+    "madmom_beats_lite-1.1.0-cp311-cp311-macosx_10_9_universal2.whl": "sha256:858497c48393e39bc1cf587691c416fc282822993688f7acdcc1ff5c8d28fd8f",
+    "madmom_beats_lite-1.1.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": "sha256:4cdadd560905297dd55a1ec96861def5b65e2aa9d529fec2c8f135100b556c1a",
+    "madmom_beats_lite-1.1.0-cp311-cp311-win_amd64.whl": "sha256:5a43f7f0af4bf879bfc8ca46b2061411cf79e7af2f209272ddab1d9c269ccb0b",
 }
 PINNED_RELEASE = {
     "tag_name": _RELEASE_TAG,

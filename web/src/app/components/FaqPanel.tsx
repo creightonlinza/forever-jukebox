@@ -188,6 +188,9 @@ export function FaqPanel() {
           <li>
             <strong>Hover</strong> on a beat in any visualization to preview it and see where it can jump.
           </li>
+          <li>
+            New tracks now analyze more than <strong>twice as fast</strong> as before.
+          </li>
         </ul>
 
         <h4>October 2026</h4>
