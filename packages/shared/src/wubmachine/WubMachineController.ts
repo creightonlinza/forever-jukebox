@@ -79,6 +79,10 @@ export class WubMachineController {
   }
 
   setVolume(volume: number) {
+    // AudioParam throws on non-finite values; keep the current volume instead.
+    if (!Number.isFinite(volume)) {
+      return;
+    }
     this.volume = Math.max(0, Math.min(1, volume));
     if (this.gain) {
       this.gain.gain.value = this.volume;

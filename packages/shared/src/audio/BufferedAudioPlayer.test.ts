@@ -171,6 +171,14 @@ describe("BufferedAudioPlayer", () => {
     expect(player.getVolume()).toBe(0);
   });
 
+  it("ignores non-finite volume", () => {
+    const player = new BufferedAudioPlayer();
+    player.setVolume(0.4);
+    expect(() => player.setVolume(Number.NaN)).not.toThrow();
+    player.setVolume(Number.POSITIVE_INFINITY);
+    expect(player.getVolume()).toBe(0.4);
+  });
+
   it("plays and pauses when a buffer is loaded", async () => {
     const player = new BufferedAudioPlayer();
     await player.loadBuffer({ duration: 5 } as AudioBuffer);
