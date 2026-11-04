@@ -1123,7 +1123,7 @@ button.is-loading::after {
 .audio-mode-section-title {
   font-size: 12px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--muted);
 }
 
 .audio-mode-section-options {
