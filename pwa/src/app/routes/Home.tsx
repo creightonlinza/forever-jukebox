@@ -6,9 +6,11 @@ import {
   listCachedAnalysisTracks,
 } from "@/core/infrastructure/cache/analysisCache";
 import {
+  deleteFileHandle,
   getFileHandle,
   readFileFromHandle,
 } from "@/core/infrastructure/cache/fileHandleStore";
+import { computeFingerprint } from "@/shared/utils/fingerprint";
 import { formatDuration } from "@/shared/utils/format";
 import { DropZone, useAudioFilePicker } from "@/ui/components/DropZone";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
@@ -24,9 +26,11 @@ export function Home() {
   const [isLoadingCachedTracks, setIsLoadingCachedTracks] = useState(false);
   const [deletingFingerprint, setDeletingFingerprint] = useState<string | null>(null);
   const [cachedTrackError, setCachedTrackError] = useState<string | null>(null);
+  const [reopenFailed, setReopenFailed] = useState(false);
 
   const handleFile = useCallback(
     (file: File, handle: FileSystemFileHandle | null) => {
+      setReopenFailed(false);
       setFile(file, handle);
       navigate("/listen");
     },
@@ -39,10 +43,28 @@ export function Home() {
   // the browser can't reach the file, asks the user to pick it.
   const handleOpenCachedTrack = useCallback(
     async (fingerprint: string) => {
+      setReopenFailed(false);
       const handle = await getFileHandle(fingerprint).catch(() => null);
       const file = handle ? await readFileFromHandle(handle) : null;
-      if (handle && file) {
+      // Reading the file's head can still fail if it moved since getFile().
+      const fileFingerprint = file
+        ? await computeFingerprint(file).catch(() => null)
+        : null;
+      if (handle && file && fileFingerprint) {
+        // An edited file fingerprints differently, so this row's handle no
+        // longer leads back to its analysis; the file plays as a new track.
+        if (fileFingerprint !== fingerprint) {
+          deleteFileHandle(fingerprint).catch((err: unknown) => {
+            console.warn(`File handle delete failed: ${String(err)}`);
+          });
+        }
         handleFile(file, handle);
+        return;
+      }
+      // A permission prompt can outlast the click's user activation, which
+      // the picker needs to open.
+      if (navigator.userActivation?.isActive === false) {
+        setReopenFailed(true);
         return;
       }
       await openCachedTrackPicker();
@@ -105,6 +127,7 @@ export function Home() {
             {t("home.cachedHint")}
           </span>
         </h2>
+        {reopenFailed ? <p>{t("home.reopenFailed")}</p> : null}
         {isLoadingCachedTracks ? <p>{t("home.loadingCached")}</p> : null}
         {!isLoadingCachedTracks && cachedTrackError ? (
           <p>{cachedTrackError}</p>

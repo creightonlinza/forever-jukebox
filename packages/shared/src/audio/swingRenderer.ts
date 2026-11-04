@@ -167,39 +167,39 @@ async function stretchBeats(
       throwIfAborted(options.signal);
       for (const segment of segments) {
         throwIfAborted(options.signal);
-        const inputChannels = sourceChannels.map((channel) =>
-          channel.slice(
-            segment.inputStartFrame,
-            segment.inputStartFrame + segment.inputFrameCount,
-          ),
-        );
-        let stretched: Float32Array[];
-        try {
-          stretched = await adapter.stretchSegment(
-            inputChannels,
-            sampleRate,
-            segment.outputFrameCount,
+        // A half clipped away past the end of the source has nothing to stretch.
+        if (segment.outputFrameCount > 0) {
+          const inputChannels = sourceChannels.map((channel) =>
+            readFrames(channel, segment.inputStartFrame, segment.inputFrameCount),
           );
-          consecutiveFallbacks = 0;
-        } catch (err) {
-          throwIfAborted(options.signal);
-          fallbackCount += 1;
-          consecutiveFallbacks += 1;
-          if (
-            fallbackCount > maxFallbacks ||
-            consecutiveFallbacks >= MAX_CONSECUTIVE_FALLBACKS
-          ) {
-            throw err;
+          let stretched: Float32Array[];
+          try {
+            stretched = await adapter.stretchSegment(
+              inputChannels,
+              sampleRate,
+              segment.outputFrameCount,
+            );
+            consecutiveFallbacks = 0;
+          } catch (err) {
+            throwIfAborted(options.signal);
+            fallbackCount += 1;
+            consecutiveFallbacks += 1;
+            if (
+              fallbackCount > maxFallbacks ||
+              consecutiveFallbacks >= MAX_CONSECUTIVE_FALLBACKS
+            ) {
+              throw err;
+            }
+            console.warn(
+              `Swing stretch failed at frame ${segment.inputStartFrame}; resampling instead: ${String(err)}`,
+            );
+            if (shouldDisposeAdapter && adapter instanceof RubberBandWorkerAdapter) {
+              adapter.dispose();
+            }
+            stretched = resampleChannels(inputChannels, segment.outputFrameCount);
           }
-          console.warn(
-            `Swing stretch failed at frame ${segment.inputStartFrame}; resampling instead: ${String(err)}`,
-          );
-          if (shouldDisposeAdapter && adapter instanceof RubberBandWorkerAdapter) {
-            adapter.dispose();
-          }
-          stretched = resampleChannels(inputChannels, segment.outputFrameCount);
+          writeSegment(outputChannels, stretched, segment.outputStartFrame);
         }
-        writeSegment(outputChannels, stretched, segment.outputStartFrame);
         completedSegments += 1;
         options.onProgress?.(
           totalSegments > 0 ? completedSegments / totalSegments : 1,
@@ -347,8 +347,9 @@ function resampleChannels(
   });
 }
 
-// A beat running past either end of the source is trimmed to it and swung
-// over what remains.
+// A beat starting before the source is skipped. One running past its end
+// keeps its full swing timing, clipped to the source: audio pushed past the
+// end is cut off, as the rest of a longer track would be.
 function getBeatFrameSegments(
   beat: BeatLike,
   sampleRate: number,
@@ -362,28 +363,20 @@ function getBeatFrameSegments(
   ) {
     return null;
   }
-  const rawStartFrame = Math.round(beat.start * sampleRate);
-  const rawEndFrame = Math.round((beat.start + beat.duration) * sampleRate);
-  const beatStartFrame = Math.max(0, rawStartFrame);
-  const beatEndFrame = Math.min(sourceLength, rawEndFrame);
-  if (beatEndFrame - beatStartFrame < 2) {
+  const beatStartFrame = Math.round(beat.start * sampleRate);
+  const beatEndFrame = Math.round((beat.start + beat.duration) * sampleRate);
+  if (
+    beatStartFrame < 0 ||
+    beatEndFrame - beatStartFrame < 2 ||
+    sourceLength - beatStartFrame < 2
+  ) {
     return null;
   }
 
   const beatFrameCount = beatEndFrame - beatStartFrame;
   const inputAFrameCount = Math.floor(beatFrameCount / 2);
   const inputBFrameCount = beatFrameCount - inputAFrameCount;
-  const trimmed =
-    beatStartFrame !== rawStartFrame || beatEndFrame !== rawEndFrame;
-  const [segmentA] = getSwingSegmentsForBeat(
-    trimmed
-      ? {
-          start: beatStartFrame / sampleRate,
-          duration: beatFrameCount / sampleRate,
-        }
-      : beat,
-    swingAmount,
-  );
+  const [segmentA] = getSwingSegmentsForBeat(beat, swingAmount);
   const outputAFrameCount = Math.max(
     1,
     Math.min(
@@ -394,19 +387,56 @@ function getBeatFrameSegments(
   const outputBFrameCount = beatFrameCount - outputAFrameCount;
 
   return [
-    {
-      inputStartFrame: beatStartFrame,
-      inputFrameCount: inputAFrameCount,
-      outputStartFrame: beatStartFrame,
-      outputFrameCount: outputAFrameCount,
-    },
-    {
-      inputStartFrame: beatStartFrame + inputAFrameCount,
-      inputFrameCount: inputBFrameCount,
-      outputStartFrame: beatStartFrame + outputAFrameCount,
-      outputFrameCount: outputBFrameCount,
-    },
+    clipSegmentToSource(
+      {
+        inputStartFrame: beatStartFrame,
+        inputFrameCount: inputAFrameCount,
+        outputStartFrame: beatStartFrame,
+        outputFrameCount: outputAFrameCount,
+      },
+      sourceLength,
+    ),
+    clipSegmentToSource(
+      {
+        inputStartFrame: beatStartFrame + inputAFrameCount,
+        inputFrameCount: inputBFrameCount,
+        outputStartFrame: beatStartFrame + outputAFrameCount,
+        outputFrameCount: outputBFrameCount,
+      },
+      sourceLength,
+    ),
   ];
+}
+
+// Keeps the leading part of a half-beat whose output fits the source, at the
+// same stretch ratio; input it needs from past the end reads as silence (see
+// readFrames). A half wholly past the end keeps nothing and is pinned there.
+function clipSegmentToSource(
+  segment: FrameSegment,
+  sourceLength: number,
+): FrameSegment {
+  const outputRoom = Math.max(0, sourceLength - segment.outputStartFrame);
+  const kept = Math.min(1, outputRoom / segment.outputFrameCount);
+  if (kept >= 1) {
+    return segment;
+  }
+  return {
+    inputStartFrame: Math.min(segment.inputStartFrame, sourceLength),
+    inputFrameCount: Math.round(segment.inputFrameCount * kept),
+    outputStartFrame: Math.min(segment.outputStartFrame, sourceLength),
+    outputFrameCount: Math.min(outputRoom, Math.round(segment.outputFrameCount * kept)),
+  };
+}
+
+// Frames past the end of the source read as silence.
+function readFrames(
+  channel: Float32Array,
+  startFrame: number,
+  frameCount: number,
+): Float32Array {
+  const frames = new Float32Array(frameCount);
+  frames.set(channel.subarray(startFrame, startFrame + frameCount));
+  return frames;
 }
 
 function writeSegment(

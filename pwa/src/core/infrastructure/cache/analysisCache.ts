@@ -2,6 +2,7 @@ import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import { clearAllTuning, removeTuning } from "./tuningStore";
 import { clearFileHandles, deleteFileHandle } from "./fileHandleStore";
+import { createIndexedDbStore } from "./indexedDbStore";
 import {
   clearRenderedTracks,
   deleteRenderedTracks,
@@ -12,7 +13,7 @@ import {
 const DB_NAME = "forever-jukebox-pwa";
 const STORE_NAME = "analysis";
 const MAX_RENDERED_TRACK_BYTES = 500 * 1024 * 1024;
-let analysisDbPromise: Promise<IDBDatabase> | null = null;
+const analysisDb = createIndexedDbStore(DB_NAME, STORE_NAME);
 
 type CacheBackend = AnalysisCachePort;
 type TrackMetadata = {
@@ -154,37 +155,6 @@ function sortCachedTracks(
   });
 }
 
-async function openAnalysisDb(): Promise<IDBDatabase> {
-  if (!analysisDbPromise) {
-    analysisDbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 1);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME);
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("IndexedDB open failed"));
-    });
-  }
-  return analysisDbPromise;
-}
-
-async function withStore<T>(
-  mode: IDBTransactionMode,
-  fn: (store: IDBObjectStore) => IDBRequest<T>
-): Promise<T> {
-  const db = await openAnalysisDb();
-  return new Promise<T>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, mode);
-    const store = tx.objectStore(STORE_NAME);
-    const request = fn(store);
-    request.onsuccess = () => resolve(request.result as T);
-    request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed"));
-  });
-}
-
 async function getOpfsAnalysisBytes(): Promise<number> {
   try {
     const root = await navigator.storage.getDirectory();
@@ -257,7 +227,7 @@ async function listOpfsAnalysisTracks(): Promise<CachedAnalysisTrack[]> {
 
 async function getIndexedDbAnalysisBytes(): Promise<number> {
   try {
-    const db = await openAnalysisDb();
+    const db = await analysisDb.open();
     return await new Promise<number>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, "readonly");
       const store = tx.objectStore(STORE_NAME);
@@ -281,12 +251,12 @@ async function getIndexedDbAnalysisBytes(): Promise<number> {
 }
 
 async function clearAllIndexedDbAnalysis(): Promise<void> {
-  await withStore("readwrite", (store) => store.clear());
+  await analysisDb.run("readwrite", (store) => store.clear());
 }
 
 async function listIndexedDbAnalysisTracks(): Promise<CachedAnalysisTrack[]> {
   try {
-    const db = await openAnalysisDb();
+    const db = await analysisDb.open();
     return await new Promise<CachedAnalysisTrack[]>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, "readonly");
       const store = tx.objectStore(STORE_NAME);
@@ -363,7 +333,7 @@ class OpfsAnalysisCache implements CacheBackend {
 class IndexedDbAnalysisCache implements CacheBackend {
   async get(fingerprint: string): Promise<AnalysisOutput | null> {
     try {
-      const result = await withStore<AnalysisOutput | undefined>("readonly", (store) =>
+      const result = await analysisDb.run<AnalysisOutput | undefined>("readonly", (store) =>
         store.get(fingerprint)
       );
       return result ?? null;
@@ -373,10 +343,10 @@ class IndexedDbAnalysisCache implements CacheBackend {
   }
 
   async set(fingerprint: string, analysis: AnalysisOutput): Promise<void> {
-    await withStore("readwrite", (store) => store.put(analysis, fingerprint));
+    await analysisDb.run("readwrite", (store) => store.put(analysis, fingerprint));
   }
 
   async clear(fingerprint: string): Promise<void> {
-    await withStore("readwrite", (store) => store.delete(fingerprint));
+    await analysisDb.run("readwrite", (store) => store.delete(fingerprint));
   }
 }

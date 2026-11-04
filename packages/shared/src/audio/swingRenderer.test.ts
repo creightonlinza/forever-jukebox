@@ -250,11 +250,13 @@ describe("renderSwingChannels failures and edge beats", () => {
     expect(adapter.calls).toHaveLength(2);
   });
 
-  it("trims a beat that runs past the end of the source", async () => {
+  it("keeps a beat's full swing timing when it runs past the end", async () => {
     const adapter = new FakeStretchAdapter();
     const source = Float32Array.from({ length: 100 }, (_, index) => index);
 
-    await renderSwingChannels(
+    // 0.8-1.1 s on a 1 s source: the first half (15 -> 20 frames) ends exactly
+    // at the end, so the second half is pushed out entirely and not stretched.
+    const [rendered] = await renderSwingChannels(
       [source],
       100,
       [{ start: 0.8, duration: 0.3 }],
@@ -262,12 +264,65 @@ describe("renderSwingChannels failures and edge beats", () => {
     );
 
     expect(adapter.calls).toEqual([
-      { inputFrames: 10, targetFrameCount: 13 },
-      { inputFrames: 10, targetFrameCount: 7 },
+      { inputFrames: 15, targetFrameCount: 20 },
+    ]);
+    expect(rendered).toHaveLength(100);
+  });
+
+  it("clips a stretched half at the end at its own stretch ratio", async () => {
+    const adapter = new FakeStretchAdapter();
+    const source = Float32Array.from({ length: 100 }, (_, index) => index);
+
+    // 0.85-1.1 s: the first half stretches 12 -> 17 frames from frame 85, so
+    // only 15 output frames fit; 11 input frames keep that ratio.
+    await renderSwingChannels(
+      [source],
+      100,
+      [{ start: 0.85, duration: 0.25 }],
+      { adapter },
+    );
+
+    expect(adapter.calls).toEqual([
+      { inputFrames: 11, targetFrameCount: 15 },
     ]);
   });
 
-  it("trims a beat that starts before the source", async () => {
+  it("renders when a beat's second half would start past the end", async () => {
+    const adapter = new FakeStretchAdapter();
+    const source = Float32Array.from({ length: 100 }, (_, index) => index);
+
+    const [rendered] = await renderSwingChannels(
+      [source],
+      100,
+      [{ start: 0.9, duration: 0.4 }],
+      { adapter },
+    );
+
+    expect(adapter.calls).toEqual([
+      { inputFrames: 7, targetFrameCount: 10 },
+    ]);
+    expect(rendered).toHaveLength(100);
+  });
+
+  it("reads silence past the end instead of replaying the tail", async () => {
+    const adapter = new FakeStretchAdapter();
+    const source = Float32Array.from({ length: 100 }, (_, index) => index + 1);
+
+    // Negative swing slows the second half, so its output reaches the end
+    // before its input does; the input it needs from past the end is silent.
+    const [rendered] = await renderSwingChannels(
+      [source],
+      100,
+      [{ start: 0.8, duration: 0.3 }],
+      { adapter, swingAmount: -0.5 },
+    );
+
+    const [, second] = adapter.calls;
+    expect(second!.targetFrameCount).toBe(100 - 80 - adapter.calls[0]!.targetFrameCount);
+    expect(Array.from(rendered!.slice(96))).toEqual([0, 0, 0, 0]);
+  });
+
+  it("skips a beat that starts before the source", async () => {
     const adapter = new FakeStretchAdapter();
     const source = Float32Array.from({ length: 100 }, (_, index) => index);
 
@@ -278,10 +333,7 @@ describe("renderSwingChannels failures and edge beats", () => {
       { adapter },
     );
 
-    expect(adapter.calls).toEqual([
-      { inputFrames: 10, targetFrameCount: 13 },
-      { inputFrames: 10, targetFrameCount: 7 },
-    ]);
+    expect(adapter.calls).toEqual([]);
   });
 });
 

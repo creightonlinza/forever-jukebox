@@ -54,7 +54,7 @@ export function getSwingSegmentsForBeat(
 
 // Bump when the frames rendered for the same beats change, so stored renders
 // made with the old layout are not reused.
-const SWING_RENDER_VERSION = 2;
+const SWING_RENDER_VERSION = 3;
 
 // Identifies the beat grid and swing amount a render was made from.
 export function getSwingSignature(

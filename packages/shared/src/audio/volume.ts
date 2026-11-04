@@ -12,3 +12,9 @@ export function parseStoredVolumePct(raw: string | null): number {
   }
   return Math.max(0, Math.min(100, parsed));
 }
+
+// Clamps a gain to 0..1. AudioParam throws on non-finite values, so those
+// keep `current` instead.
+export function clampVolume(value: number, current: number): number {
+  return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : current;
+}

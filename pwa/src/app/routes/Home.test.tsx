@@ -4,9 +4,11 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import "../i18n";
 import { Home } from "./Home";
 import {
+  deleteFileHandle,
   getFileHandle,
   readFileFromHandle,
 } from "@/core/infrastructure/cache/fileHandleStore";
+import { computeFingerprint } from "@/shared/utils/fingerprint";
 
 const appState = vi.hoisted(() => ({ setFile: vi.fn() }));
 vi.mock("../state/AppState", () => ({ useAppState: () => appState }));
@@ -25,8 +27,13 @@ vi.mock("@/core/infrastructure/cache/analysisCache", () => ({
 }));
 
 vi.mock("@/core/infrastructure/cache/fileHandleStore", () => ({
+  deleteFileHandle: vi.fn(async () => {}),
   getFileHandle: vi.fn(),
   readFileFromHandle: vi.fn(),
+}));
+
+vi.mock("@/shared/utils/fingerprint", () => ({
+  computeFingerprint: vi.fn(),
 }));
 
 const song = new File([new Uint8Array([1])], "song.mp3");
@@ -59,6 +66,8 @@ describe("Home cached tracks", () => {
     appState.setFile.mockReset();
     vi.mocked(getFileHandle).mockReset().mockResolvedValue(null);
     vi.mocked(readFileFromHandle).mockReset().mockResolvedValue(null);
+    vi.mocked(deleteFileHandle).mockClear();
+    vi.mocked(computeFingerprint).mockReset().mockResolvedValue("fp-1");
     inputClick = vi
       .spyOn(HTMLInputElement.prototype, "click")
       .mockImplementation(() => undefined);
@@ -66,6 +75,7 @@ describe("Home cached tracks", () => {
 
   afterEach(() => {
     inputClick.mockRestore();
+    Reflect.deleteProperty(navigator, "userActivation");
     cleanup();
   });
 
@@ -79,6 +89,65 @@ describe("Home cached tracks", () => {
     expect(appState.setFile).toHaveBeenCalledWith(song, handle);
     expect(screen.getByText("Listen page")).toBeTruthy();
     expect(inputClick).not.toHaveBeenCalled();
+    expect(deleteFileHandle).not.toHaveBeenCalled();
+  });
+
+  it("drops the row's handle when its file was edited since", async () => {
+    vi.mocked(getFileHandle).mockResolvedValue(handle);
+    vi.mocked(readFileFromHandle).mockResolvedValue(song);
+    vi.mocked(computeFingerprint).mockResolvedValue("fp-edited");
+
+    await clickRow(await renderHome());
+
+    expect(deleteFileHandle).toHaveBeenCalledWith("fp-1");
+    expect(appState.setFile).toHaveBeenCalledWith(song, handle);
+  });
+
+  it("asks for the file when its head can't be read for the fingerprint", async () => {
+    vi.mocked(getFileHandle).mockResolvedValue(handle);
+    vi.mocked(readFileFromHandle).mockResolvedValue(song);
+    vi.mocked(computeFingerprint).mockRejectedValue(new DOMException("gone", "NotReadableError"));
+
+    await clickRow(await renderHome());
+
+    expect(appState.setFile).not.toHaveBeenCalled();
+    expect(inputClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the reopen notice once a file is chosen", async () => {
+    vi.mocked(getFileHandle).mockResolvedValue(handle);
+    Object.defineProperty(navigator, "userActivation", {
+      value: { isActive: false },
+      configurable: true,
+    });
+    const { container } = render(
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Home />
+      </MemoryRouter>,
+    );
+    await clickRow(await screen.findByRole("button", { name: /^Song — Band/ }));
+    expect(screen.queryByText(/Couldn't reopen that track's file/)).toBeTruthy();
+
+    const dropInput = container.querySelector<HTMLInputElement>(".drop-zone input[type=file]")!;
+    await act(async () => {
+      fireEvent.change(dropInput, { target: { files: [song] } });
+    });
+
+    expect(appState.setFile).toHaveBeenCalledWith(song, null);
+    expect(screen.queryByText(/Couldn't reopen that track's file/)).toBeNull();
+  });
+
+  it("explains instead of opening a picker the browser would block", async () => {
+    vi.mocked(getFileHandle).mockResolvedValue(handle);
+    Object.defineProperty(navigator, "userActivation", {
+      value: { isActive: false },
+      configurable: true,
+    });
+
+    await clickRow(await renderHome());
+
+    expect(inputClick).not.toHaveBeenCalled();
+    expect(screen.getByText(/Couldn't reopen that track's file/)).toBeTruthy();
   });
 
   it("asks for the file when no handle is stored", async () => {

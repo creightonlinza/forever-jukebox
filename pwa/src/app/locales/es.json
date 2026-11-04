@@ -36,6 +36,7 @@
     "noCached": "Sin análisis en caché aún.",
     "loadFailed": "No se pudieron cargar los análisis de las pistas desde caché.",
     "deleteFailed": "No se pudieron borrar los análisis del caché.",
+    "reopenFailed": "No se pudo volver a abrir el archivo de esa pista. Usa «Selecciona un archivo» para elegirlo de nuevo.",
     "deleteNamed": "Borrar los análisis de caché para {{label}}",
     "deleteTitle": "Borrar análisis del caché",
     "cachedTrack": "Pista en caché {{id}}"

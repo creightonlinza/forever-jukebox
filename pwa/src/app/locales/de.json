@@ -36,6 +36,7 @@
     "noCached": "Noch keine gecachten lokalen Analysen.",
     "loadFailed": "Gecachte Songanalysen konnten nicht geladen werden.",
     "deleteFailed": "Gecachte Analyse konnte nicht gelöscht werden.",
+    "reopenFailed": "Die Datei dieses Tracks konnte nicht erneut geöffnet werden. Wähle sie über „Datei auswählen“ erneut aus.",
     "deleteNamed": "Gecachte Analyse für {{label}} löschen",
     "deleteTitle": "Gecachte Analyse löschen",
     "cachedTrack": "Gecachter Track {{id}}"

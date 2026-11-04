@@ -36,6 +36,7 @@
     "noCached": "No cached local analyses yet.",
     "loadFailed": "Unable to load cached analysis tracks.",
     "deleteFailed": "Unable to delete cached analysis.",
+    "reopenFailed": "Couldn't reopen that track's file. Use Choose file to pick it again.",
     "deleteNamed": "Delete cached analysis for {{label}}",
     "deleteTitle": "Delete cached analysis",
     "cachedTrack": "Cached track {{id}}"

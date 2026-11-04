@@ -95,7 +95,7 @@ async function stretchSegment(request: StretchRequest): Promise<Float32Array[]> 
     throw new Error("Rubber Band could not create a stretcher");
   }
   let channelArrayPtr = 0;
-  let channelDataPtrs: number[] = [];
+  const channelDataPtrs: number[] = [];
 
   try {
     rbApi.rubberband_set_expected_input_duration(rbState, inputFrames);
@@ -107,19 +107,21 @@ async function stretchSegment(request: StretchRequest): Promise<Float32Array[]> 
     if (!channelArrayPtr) {
       throw new Error("Rubber Band could not allocate channel pointers");
     }
-    channelDataPtrs = request.channels.map((channel, index) => {
+    // Each buffer is recorded as soon as it exists so `finally` frees it even
+    // when a later channel's allocation fails.
+    request.channels.forEach((channel, index) => {
       const ptr = rbApi.malloc(Math.max(chunkFrames, channel.length) * 4);
       if (!ptr) {
         throw new Error("Rubber Band could not allocate channel data");
       }
+      channelDataPtrs.push(ptr);
       rbApi.memWritePtr(channelArrayPtr + index * 4, ptr);
-      return ptr;
     });
 
     const chunks = request.channels.map(() => [] as Float32Array[]);
     const retrieve = (final: boolean) => {
-      // Stops if Rubber Band keeps reporting output it never hands over;
-      // fitChannelsToFrameCount pads whatever is short.
+      // Fails the segment if Rubber Band keeps reporting output it never hands
+      // over, so the caller treats it like any other stretch failure.
       let emptyReads = 0;
       for (;;) {
         const available = rbApi.rubberband_available(rbState);
@@ -138,7 +140,7 @@ async function stretchSegment(request: StretchRequest): Promise<Float32Array[]> 
         if (received <= 0) {
           emptyReads += 1;
           if (emptyReads >= MAX_EMPTY_RETRIEVES) {
-            break;
+            throw new Error("Rubber Band stopped returning output");
           }
           continue;
         }
