@@ -30,6 +30,7 @@ type WorkerScope = {
 };
 
 const workerSelf = self as unknown as WorkerScope;
+const MAX_EMPTY_RETRIEVES = 5;
 let rubberBandPromise: Promise<RubberBandInterface> | null = null;
 
 async function getRubberBand() {
@@ -90,6 +91,9 @@ async function stretchSegment(request: StretchRequest): Promise<Float32Array[]> 
     timeRatio,
     1,
   );
+  if (!rbState) {
+    throw new Error("Rubber Band could not create a stretcher");
+  }
   let channelArrayPtr = 0;
   let channelDataPtrs: number[] = [];
 
@@ -100,14 +104,23 @@ async function stretchSegment(request: StretchRequest): Promise<Float32Array[]> 
 
     const chunkFrames = Math.max(1, rbApi.rubberband_get_samples_required(rbState));
     channelArrayPtr = rbApi.malloc(request.channels.length * 4);
+    if (!channelArrayPtr) {
+      throw new Error("Rubber Band could not allocate channel pointers");
+    }
     channelDataPtrs = request.channels.map((channel, index) => {
       const ptr = rbApi.malloc(Math.max(chunkFrames, channel.length) * 4);
+      if (!ptr) {
+        throw new Error("Rubber Band could not allocate channel data");
+      }
       rbApi.memWritePtr(channelArrayPtr + index * 4, ptr);
       return ptr;
     });
 
     const chunks = request.channels.map(() => [] as Float32Array[]);
     const retrieve = (final: boolean) => {
+      // Stops if Rubber Band keeps reporting output it never hands over;
+      // fitChannelsToFrameCount pads whatever is short.
+      let emptyReads = 0;
       for (;;) {
         const available = rbApi.rubberband_available(rbState);
         if (available < 1) {
@@ -122,6 +135,14 @@ async function stretchSegment(request: StretchRequest): Promise<Float32Array[]> 
           channelArrayPtr,
           wanted,
         );
+        if (received <= 0) {
+          emptyReads += 1;
+          if (emptyReads >= MAX_EMPTY_RETRIEVES) {
+            break;
+          }
+          continue;
+        }
+        emptyReads = 0;
         channelDataPtrs.forEach((ptr, channelIndex) => {
           chunks[channelIndex]?.push(new Float32Array(rbApi.memReadF32(ptr, received)));
         });

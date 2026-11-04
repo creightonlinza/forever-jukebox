@@ -32,6 +32,10 @@ type FrameSegment = {
 
 const JOIN_FADE_SECONDS = 0.004;
 const MAX_JOIN_FADE_FRACTION = 0.25;
+// Segments Rubber Band fails on are linearly resampled instead, up to these
+// limits; past them the render fails rather than sounding wrong throughout.
+const MAX_FALLBACK_FRACTION = 0.05;
+const MAX_CONSECUTIVE_FALLBACKS = 3;
 
 // Stored renders hold stereo, so sources with more channels are not stored.
 function storedTrackKey(
@@ -93,14 +97,16 @@ export async function renderSwingBuffer(
     (_, channelIndex) =>
       new Float32Array(sourceBuffer.getChannelData(channelIndex)),
   );
-  const renderedChannels = await renderSwingChannels(
+  const { channels: renderedChannels, usedFallback } = await stretchBeats(
     sourceChannels,
     sourceBuffer.sampleRate,
     beats,
     options,
   );
   throwIfAborted(options.signal);
-  if (storedKey) {
+  // A render patched with fallback segments is played but not stored, so a
+  // passing worker failure doesn't stick to the track.
+  if (storedKey && !usedFallback) {
     const stereo = [
       renderedChannels[0],
       renderedChannels[1] ?? renderedChannels[0],
@@ -118,10 +124,20 @@ export async function renderSwingChannels(
   beats: BeatLike[],
   options: RenderSwingOptions = {},
 ): Promise<Float32Array[]> {
+  return (await stretchBeats(sourceChannels, sampleRate, beats, options))
+    .channels;
+}
+
+async function stretchBeats(
+  sourceChannels: Float32Array[],
+  sampleRate: number,
+  beats: BeatLike[],
+  options: RenderSwingOptions,
+): Promise<{ channels: Float32Array[]; usedFallback: boolean }> {
   const sourceLength = sourceChannels[0]?.length ?? 0;
   const outputChannels = sourceChannels.map((channel) => new Float32Array(channel));
   if (sourceLength === 0 || sourceChannels.length === 0) {
-    return outputChannels;
+    return { channels: outputChannels, usedFallback: false };
   }
 
   const shouldDisposeAdapter = !options.adapter;
@@ -140,7 +156,10 @@ export async function renderSwingChannels(
       segments !== null,
     );
   const totalSegments = beatSegments.length * 2;
+  const maxFallbacks = Math.floor(totalSegments * MAX_FALLBACK_FRACTION);
   let completedSegments = 0;
+  let fallbackCount = 0;
+  let consecutiveFallbacks = 0;
   options.onProgress?.(0);
   try {
     for (let beatIndex = 0; beatIndex < beatSegments.length; beatIndex += 1) {
@@ -154,11 +173,32 @@ export async function renderSwingChannels(
             segment.inputStartFrame + segment.inputFrameCount,
           ),
         );
-        const stretched = await adapter.stretchSegment(
-          inputChannels,
-          sampleRate,
-          segment.outputFrameCount,
-        );
+        let stretched: Float32Array[];
+        try {
+          stretched = await adapter.stretchSegment(
+            inputChannels,
+            sampleRate,
+            segment.outputFrameCount,
+          );
+          consecutiveFallbacks = 0;
+        } catch (err) {
+          throwIfAborted(options.signal);
+          fallbackCount += 1;
+          consecutiveFallbacks += 1;
+          if (
+            fallbackCount > maxFallbacks ||
+            consecutiveFallbacks >= MAX_CONSECUTIVE_FALLBACKS
+          ) {
+            throw err;
+          }
+          console.warn(
+            `Swing stretch failed at frame ${segment.inputStartFrame}; resampling instead: ${String(err)}`,
+          );
+          if (shouldDisposeAdapter && adapter instanceof RubberBandWorkerAdapter) {
+            adapter.dispose();
+          }
+          stretched = resampleChannels(inputChannels, segment.outputFrameCount);
+        }
         writeSegment(outputChannels, stretched, segment.outputStartFrame);
         completedSegments += 1;
         options.onProgress?.(
@@ -175,7 +215,7 @@ export async function renderSwingChannels(
       applyBeatBoundaryFades(outputChannels, beatSegments, beatIndex, sampleRate);
     }
     options.onProgress?.(1);
-    return outputChannels;
+    return { channels: outputChannels, usedFallback: fallbackCount > 0 };
   } finally {
     if (shouldDisposeAdapter && adapter instanceof RubberBandWorkerAdapter) {
       adapter.dispose();
@@ -285,26 +325,65 @@ function applyJoinFade(
   });
 }
 
+// Linear stand-in for a segment Rubber Band could not stretch.
+function resampleChannels(
+  channels: Float32Array[],
+  targetFrameCount: number,
+): Float32Array[] {
+  return channels.map((channel) => {
+    const output = new Float32Array(targetFrameCount);
+    if (channel.length === 0 || targetFrameCount === 0) {
+      return output;
+    }
+    const ratio = channel.length / targetFrameCount;
+    for (let index = 0; index < targetFrameCount; index += 1) {
+      const position = index * ratio;
+      const lower = Math.floor(position);
+      const from = channel[lower] ?? 0;
+      const to = channel[lower + 1] ?? from;
+      output[index] = from + (to - from) * (position - lower);
+    }
+    return output;
+  });
+}
+
+// A beat running past either end of the source is trimmed to it and swung
+// over what remains.
 function getBeatFrameSegments(
   beat: BeatLike,
   sampleRate: number,
   sourceLength: number,
   swingAmount: number,
 ): [FrameSegment, FrameSegment] | null {
-  const beatStartFrame = Math.round(beat.start * sampleRate);
-  const beatEndFrame = Math.round((beat.start + beat.duration) * sampleRate);
   if (
-    beatStartFrame < 0 ||
-    beatEndFrame > sourceLength ||
-    beatEndFrame - beatStartFrame < 2
+    !Number.isFinite(beat.start) ||
+    !Number.isFinite(beat.duration) ||
+    beat.duration <= 0
   ) {
+    return null;
+  }
+  const rawStartFrame = Math.round(beat.start * sampleRate);
+  const rawEndFrame = Math.round((beat.start + beat.duration) * sampleRate);
+  const beatStartFrame = Math.max(0, rawStartFrame);
+  const beatEndFrame = Math.min(sourceLength, rawEndFrame);
+  if (beatEndFrame - beatStartFrame < 2) {
     return null;
   }
 
   const beatFrameCount = beatEndFrame - beatStartFrame;
   const inputAFrameCount = Math.floor(beatFrameCount / 2);
   const inputBFrameCount = beatFrameCount - inputAFrameCount;
-  const [segmentA] = getSwingSegmentsForBeat(beat, swingAmount);
+  const trimmed =
+    beatStartFrame !== rawStartFrame || beatEndFrame !== rawEndFrame;
+  const [segmentA] = getSwingSegmentsForBeat(
+    trimmed
+      ? {
+          start: beatStartFrame / sampleRate,
+          duration: beatFrameCount / sampleRate,
+        }
+      : beat,
+    swingAmount,
+  );
   const outputAFrameCount = Math.max(
     1,
     Math.min(

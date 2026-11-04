@@ -62,5 +62,6 @@ describe("swing timing", () => {
     expect(
       getSwingSignature([beats[0], { start: 0.52, duration: 0.48 }]),
     ).not.toBe(signature);
+    expect(signature.startsWith("v2:")).toBe(true);
   });
 });

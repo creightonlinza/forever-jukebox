@@ -5,6 +5,17 @@ const trackCache = vi.hoisted(() => ({
   markStoredCopy: vi.fn(),
 }));
 vi.mock("./renderedTrackCache", () => trackCache);
+// Stands in for the worker adapter a render creates when none is passed.
+const ownedAdapter = vi.hoisted(() => ({
+  stretchSegment: vi.fn(),
+  dispose: vi.fn(),
+}));
+vi.mock("./rubberBandAdapter", () => ({
+  RubberBandWorkerAdapter: class {
+    stretchSegment = ownedAdapter.stretchSegment;
+    dispose = ownedAdapter.dispose;
+  },
+}));
 
 import { renderSwingBuffer, renderSwingChannels } from "./swingRenderer";
 import { getSwingSignature } from "./swingTiming";
@@ -125,6 +136,152 @@ describe("renderSwingChannels", () => {
     expect(rendered?.[66]).toBeLessThan(1);
     expect(rendered?.[67]).toBeLessThan(1);
     expect(rendered?.[71]).toBe(1);
+  });
+});
+
+class FailingStretchAdapter extends FakeStretchAdapter {
+  constructor(private readonly failingCalls: Set<number> | "all") {
+    super();
+  }
+
+  override async stretchSegment(
+    channels: Float32Array[],
+    sampleRate: number,
+    targetFrameCount: number,
+  ): Promise<Float32Array[]> {
+    const call = this.calls.length;
+    const result = await super.stretchSegment(channels, sampleRate, targetFrameCount);
+    if (this.failingCalls === "all" || this.failingCalls.has(call)) {
+      throw new Error(`stretch ${call} failed`);
+    }
+    return result;
+  }
+}
+
+// One-second beats across a source of `beatCount` seconds at 100 Hz.
+function beatGrid(beatCount: number) {
+  return {
+    source: Float32Array.from({ length: beatCount * 100 }, (_, index) => index),
+    beats: Array.from({ length: beatCount }, (_, index) => ({
+      start: index,
+      duration: 1,
+    })),
+  };
+}
+
+describe("renderSwingChannels failures and edge beats", () => {
+  let warn: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    ownedAdapter.stretchSegment.mockReset();
+    ownedAdapter.dispose.mockReset();
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  it("resamples a segment Rubber Band fails on and keeps rendering", async () => {
+    const { source, beats } = beatGrid(20);
+    const adapter = new FailingStretchAdapter(new Set([3]));
+
+    const [rendered] = await renderSwingChannels([source], 100, beats, {
+      adapter,
+    });
+
+    expect(adapter.calls).toHaveLength(40);
+    expect(rendered).toHaveLength(source.length);
+    // Call 3 is beat 1's second half: frames 150..199 resampled into 167..199,
+    // where the stretch fake would have copied frame 166 instead.
+    expect(rendered?.[183]).toBeCloseTo(150 + (16 * 50) / 33, 4);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails once fallbacks pass 5% of segments", async () => {
+    const { source, beats } = beatGrid(20);
+    const adapter = new FailingStretchAdapter(new Set([0, 10, 20]));
+
+    await expect(
+      renderSwingChannels([source], 100, beats, { adapter }),
+    ).rejects.toThrow("stretch 20 failed");
+  });
+
+  it("fails after three consecutive fallbacks", async () => {
+    const { source, beats } = beatGrid(100);
+    const adapter = new FailingStretchAdapter("all");
+
+    await expect(
+      renderSwingChannels([source], 100, beats, { adapter }),
+    ).rejects.toThrow("stretch 2 failed");
+    expect(adapter.calls).toHaveLength(3);
+  });
+
+  it("replaces its own worker adapter after a failure", async () => {
+    const { source, beats } = beatGrid(20);
+    const stretch = new FakeStretchAdapter();
+    ownedAdapter.stretchSegment
+      .mockRejectedValueOnce(new Error("worker crashed"))
+      .mockImplementation(stretch.stretchSegment.bind(stretch));
+
+    await renderSwingChannels([source], 100, beats);
+
+    // Once to reset after the failure, once when the render finishes.
+    expect(ownedAdapter.dispose).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips beats with non-finite or non-positive timing", async () => {
+    const adapter = new FakeStretchAdapter();
+    const source = Float32Array.from({ length: 100 }, (_, index) => index);
+
+    await renderSwingChannels(
+      [source],
+      100,
+      [
+        { start: Number.NaN, duration: 0.2 },
+        { start: 0, duration: Number.NaN },
+        { start: 0, duration: -0.5 },
+        { start: 0, duration: 0 },
+        { start: 0.2, duration: 0.4 },
+      ],
+      { adapter },
+    );
+
+    expect(adapter.calls).toHaveLength(2);
+  });
+
+  it("trims a beat that runs past the end of the source", async () => {
+    const adapter = new FakeStretchAdapter();
+    const source = Float32Array.from({ length: 100 }, (_, index) => index);
+
+    await renderSwingChannels(
+      [source],
+      100,
+      [{ start: 0.8, duration: 0.3 }],
+      { adapter },
+    );
+
+    expect(adapter.calls).toEqual([
+      { inputFrames: 10, targetFrameCount: 13 },
+      { inputFrames: 10, targetFrameCount: 7 },
+    ]);
+  });
+
+  it("trims a beat that starts before the source", async () => {
+    const adapter = new FakeStretchAdapter();
+    const source = Float32Array.from({ length: 100 }, (_, index) => index);
+
+    await renderSwingChannels(
+      [source],
+      100,
+      [{ start: -0.1, duration: 0.3 }],
+      { adapter },
+    );
+
+    expect(adapter.calls).toEqual([
+      { inputFrames: 10, targetFrameCount: 13 },
+      { inputFrames: 10, targetFrameCount: 7 },
+    ]);
   });
 });
 
@@ -251,6 +408,26 @@ describe("renderSwingBuffer storage", () => {
     });
     expect(trackCache.readRenderedTrack).not.toHaveBeenCalled();
     expect(trackCache.writeRenderedTrack).not.toHaveBeenCalled();
+  });
+
+  it("plays but does not store a render that needed a fallback", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { source: samples, beats: gridBeats } = beatGrid(20);
+    const source = new FakeAudioBuffer({
+      length: samples.length,
+      numberOfChannels: 2,
+      sampleRate: 100,
+    });
+
+    const rendered = await renderSwingBuffer(
+      source as unknown as AudioBuffer,
+      gridBeats,
+      { adapter: new FailingStretchAdapter(new Set([5])), trackId: "track-1" },
+    );
+
+    expect(rendered.length).toBe(samples.length);
+    expect(trackCache.writeRenderedTrack).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("still renders when storage fails", async () => {
