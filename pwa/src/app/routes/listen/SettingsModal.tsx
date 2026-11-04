@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useModalKeyboard } from "@forever-jukebox/shared/ui/useModalKeyboard";
 import {
   clearAllAnalysisCache,
   getAnalysisCacheBytes,
@@ -105,6 +106,8 @@ export function SettingsModal({
 }) {
   const { t, i18n } = useTranslation();
   const languageCredit = t("translationByNameCredit");
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalKeyboard(panelRef, true, onClose);
   return createPortal(
     <div
       id="settings-modal"
@@ -119,7 +122,7 @@ export function SettingsModal({
         onClick={onClose}
         aria-label={t("common.close")}
       />
-      <div className="modal-panel settings-panel">
+      <div ref={panelRef} className="modal-panel settings-panel">
         <div className="modal-header">
           <h2 id="settings-title">{t("settings.title")}</h2>
           <button

@@ -1,4 +1,5 @@
-import type React from "react";
+import React from "react";
+import { useModalKeyboard } from "@forever-jukebox/shared/ui/useModalKeyboard";
 import { useTranslation } from "react-i18next";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { AudioModeOptions } from "./AudioModeOptions";
@@ -36,6 +37,8 @@ export function TuningModal({
   onApply: () => void;
 }) {
   const { t } = useTranslation();
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  useModalKeyboard(panelRef, true, onClose);
   return (
     <div id="tuning-modal" className="modal open">
       <button
@@ -44,7 +47,7 @@ export function TuningModal({
         onClick={onClose}
         aria-label={t("listen.closeTuningDialog")}
       />
-      <div className="modal-panel">
+      <div ref={panelRef} className="modal-panel">
         <div className="modal-header">
           <div className="modal-header-main">
             <h2

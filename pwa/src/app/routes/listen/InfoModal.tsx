@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useModalKeyboard } from "@forever-jukebox/shared/ui/useModalKeyboard";
 import { formatDuration } from "@/shared/utils/format";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 
@@ -16,6 +18,8 @@ export function InfoModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalKeyboard(panelRef, true, onClose);
   return (
     <div className="modal open">
       <button
@@ -24,7 +28,7 @@ export function InfoModal({
         onClick={onClose}
         aria-label={t("listen.closeTrackInfoDialog")}
       />
-      <div className="modal-panel">
+      <div ref={panelRef} className="modal-panel">
         <div className="modal-header">
           <h2>{t("info.title")}</h2>
           <button className="modal-close" type="button" onClick={onClose} aria-label={t("common.close")} title={t("common.close")}>

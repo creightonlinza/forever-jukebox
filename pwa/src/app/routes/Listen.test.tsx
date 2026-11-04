@@ -2584,6 +2584,23 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it("closes the tuning modal on Escape and restores focus", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    const tuningButton = getRequired<HTMLButtonElement>(rendered.container, "#tuning");
+    tuningButton.focus();
+    await openTuningModal(rendered.container);
+    const modal = getRequired<HTMLDivElement>(rendered.container, "#tuning-modal");
+    expect(modal.contains(document.activeElement)).toBe(true);
+
+    await keydown("Escape");
+
+    expect(rendered.container.querySelector("#tuning-modal")).toBeNull();
+    expect(document.activeElement).toBe(tuningButton);
+    rendered.unmount();
+  });
+
   it("loads audio mode from url params into title and extras radios", async () => {
     window.history.replaceState({}, "", "/?am=eight_bit");
     const rendered = renderListen();

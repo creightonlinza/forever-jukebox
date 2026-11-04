@@ -1,4 +1,5 @@
-import type React from "react";
+import React from "react";
+import { useModalKeyboard } from "@forever-jukebox/shared/ui/useModalKeyboard";
 import { useTranslation } from "react-i18next";
 import type { JukeboxExportProgress } from "@/shared/export";
 import { formatDuration } from "@/shared/utils/format";
@@ -36,6 +37,12 @@ export function ExportModal({
   // The Wub Machine and the canon export whole; the duration is not a choice.
   const isWubMachine = playMode === "wubmachine";
   const isCanonizer = playMode === "autocanonizer";
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  useModalKeyboard(panelRef, true, () => {
+    if (!isExporting) {
+      onClose();
+    }
+  });
   return (
     <div className="modal open">
       <button
@@ -45,7 +52,7 @@ export function ExportModal({
         aria-label={t("listen.closeExportDialog")}
         disabled={isExporting}
       />
-      <div className="modal-panel">
+      <div ref={panelRef} className="modal-panel">
         <div className="modal-header">
           <h2>{t("export.title")}</h2>
           <button
