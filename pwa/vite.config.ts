@@ -31,6 +31,14 @@ export default defineConfig(({ command }) => {
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
     },
+    optimizeDeps: {
+      // Only imported inside the essentia worker; pre-bundle them so the dev
+      // server doesn't discover them mid-analysis and reload the page.
+      include: [
+        "essentia.js/dist/essentia.js-core.es.js",
+        "essentia.js/dist/essentia-wasm.es.js",
+      ],
+    },
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),

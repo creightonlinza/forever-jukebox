@@ -9,7 +9,7 @@ from ..admin_auth import admin_key_configured
 from ..env import env_flag, env_positive_float, env_string
 from ..favorites_config import max_favorites
 from ..models import AppConfigResponse
-from .jobs_runtime import ALLOWED_UPLOAD_EXTS, MAX_UPLOAD_BYTES
+from .jobs_runtime import ALLOWED_UPLOAD_EXTS, max_upload_bytes
 
 router = APIRouter()
 
@@ -18,7 +18,7 @@ router = APIRouter()
 def get_app_config() -> JSONResponse:
     allow_user_upload = env_flag("ALLOW_USER_UPLOAD")
     allow_user_url = env_flag("ALLOW_USER_URL")
-    max_upload_size = MAX_UPLOAD_BYTES if allow_user_upload else None
+    max_upload_size = max_upload_bytes() if allow_user_upload else None
     allowed_upload_exts = sorted(ALLOWED_UPLOAD_EXTS) if allow_user_upload else None
     payload = AppConfigResponse(
         allow_user_upload=allow_user_upload,

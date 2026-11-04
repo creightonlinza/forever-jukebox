@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import logging
 import re
+from pathlib import Path
 from xml.sax.saxutils import escape
 
 from fastapi import FastAPI, HTTPException, Request
@@ -283,6 +284,14 @@ def robots_txt(request: Request):
     return Response(content=content, media_type="text/plain; charset=utf-8")
 
 
+def _static_file(path: Path, dist: Path) -> FileResponse:
+    # Files outside dist/assets (offline index, madmom worker and engine, icons) keep
+    # their names across builds, so browsers must revalidate instead of reusing a stale copy.
+    if path.is_relative_to(dist / "assets"):
+        return FileResponse(path)
+    return FileResponse(path, headers={"Cache-Control": "no-cache"})
+
+
 if WEB_DIST.exists():
     assets_dir = WEB_DIST / "assets"
     if assets_dir.exists():
@@ -326,13 +335,13 @@ if WEB_DIST.exists():
             offline_index = offline_dist / "index.html"
             if offline_index.exists():
                 if full_path == "offline/":
-                    return FileResponse(offline_index)
+                    return _static_file(offline_index, offline_dist)
                 offline_candidate = (WEB_DIST / full_path).resolve()
                 if offline_candidate.is_file() and offline_candidate.is_relative_to(offline_dist):
-                    return FileResponse(offline_candidate)
-                return FileResponse(offline_index)
+                    return _static_file(offline_candidate, offline_dist)
+                return _static_file(offline_index, offline_dist)
         candidate = (WEB_DIST / full_path).resolve()
         if candidate.is_file() and candidate.is_relative_to(WEB_DIST):
-            return FileResponse(candidate)
+            return _static_file(candidate, WEB_DIST)
         base_url = str(request.base_url).rstrip("/")
         return HTMLResponse(_render_index(base_url, full_path))
