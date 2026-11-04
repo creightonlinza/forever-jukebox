@@ -7,6 +7,7 @@ import {
   createAnalysisCache,
   trimRenderedTracks,
 } from "@/core/infrastructure/cache/analysisCache";
+import { setFileHandle } from "@/core/infrastructure/cache/fileHandleStore";
 import {
   loadTuning,
   removeTuning,
@@ -126,6 +127,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const { t } = useTranslation();
   const {
     file,
+    fileHandle,
     setIsListenLoading,
     isSettingsOpen,
     setIsSettingsOpen,
@@ -652,6 +654,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         trimRenderedTracks(result.fingerprint).catch((err: unknown) => {
           console.warn(`Rendered track trim failed: ${String(err)}`);
         });
+        if (fileHandle) {
+          setFileHandle(result.fingerprint, fileHandle).catch((err: unknown) => {
+            console.warn(`File handle save failed: ${String(err)}`);
+          });
+        }
         setAnalysis(result.analysis);
         setReadyFileKey(fileKey);
         playerRef.current?.loadBuffer(result.audioBuffer);
@@ -690,7 +697,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [file, t]);
+  }, [file, fileHandle, t]);
 
   React.useEffect(() => {
     const id = window.setInterval(() => {

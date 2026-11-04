@@ -31,7 +31,7 @@
     "dropFile": "Audiodatei hier ablegen",
     "chooseFile": "Datei auswählen",
     "cachedAnalysis": "Gecachte Analyse",
-    "cachedHint": "Wähle die originale Audiodatei, um die gecachte Analyse sofort zu laden.",
+    "cachedHint": "Wähle einen Track, um ihn abzuspielen. Eventuell musst du seine Datei erneut auswählen.",
     "loadingCached": "Lade gecachte Songs...",
     "noCached": "Noch keine gecachten lokalen Analysen.",
     "loadFailed": "Gecachte Songanalysen konnten nicht geladen werden.",

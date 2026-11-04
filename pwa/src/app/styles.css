@@ -542,8 +542,25 @@ button,
 
 .cached-tracks__content {
   min-width: 0;
+  flex: 1;
   display: grid;
   gap: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cached-tracks__content:hover {
+  background: transparent;
+}
+
+.cached-tracks__content:hover .cached-tracks__name {
+  color: var(--accent);
 }
 
 .cached-tracks__name {

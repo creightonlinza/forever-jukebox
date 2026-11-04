@@ -1,6 +1,7 @@
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
 import { AnalysisOutput } from "@/shared/analysis-schema";
 import { clearAllTuning, removeTuning } from "./tuningStore";
+import { clearFileHandles, deleteFileHandle } from "./fileHandleStore";
 import {
   clearRenderedTracks,
   deleteRenderedTracks,
@@ -51,6 +52,9 @@ export async function clearAllAnalysisCache(): Promise<void> {
   await clearRenderedTracks().catch((err: unknown) => {
     console.warn(`Rendered track clear failed: ${String(err)}`);
   });
+  await clearFileHandles().catch((err: unknown) => {
+    console.warn(`File handle clear failed: ${String(err)}`);
+  });
 }
 
 // Keeps stored renders within the cap by dropping the ones stored longest
@@ -59,13 +63,17 @@ export async function trimRenderedTracks(keepFingerprint: string): Promise<void>
   await evictOldestRenderedTracks(MAX_RENDERED_TRACK_BYTES, keepFingerprint);
 }
 
-// Remove a single cached analysis along with its auto-saved tuning and stored
-// rendered copies (all keyed by fingerprint), so removal stays in one place.
+// Remove a single cached analysis along with its auto-saved tuning, stored
+// rendered copies and file handle (all keyed by fingerprint), so removal stays
+// in one place.
 export async function deleteCachedAnalysis(fingerprint: string): Promise<void> {
   await createAnalysisCache().clear(fingerprint);
   removeTuning(fingerprint);
   await deleteRenderedTracks(fingerprint).catch((err: unknown) => {
     console.warn(`Rendered track delete failed: ${String(err)}`);
+  });
+  await deleteFileHandle(fingerprint).catch((err: unknown) => {
+    console.warn(`File handle delete failed: ${String(err)}`);
   });
 }
 

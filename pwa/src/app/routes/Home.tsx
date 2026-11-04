@@ -5,8 +5,12 @@ import {
   deleteCachedAnalysis,
   listCachedAnalysisTracks,
 } from "@/core/infrastructure/cache/analysisCache";
+import {
+  getFileHandle,
+  readFileFromHandle,
+} from "@/core/infrastructure/cache/fileHandleStore";
 import { formatDuration } from "@/shared/utils/format";
-import { DropZone } from "@/ui/components/DropZone";
+import { DropZone, useAudioFilePicker } from "@/ui/components/DropZone";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useAppState } from "../state/AppState";
 import { useTranslation } from "react-i18next";
@@ -21,10 +25,30 @@ export function Home() {
   const [deletingFingerprint, setDeletingFingerprint] = useState<string | null>(null);
   const [cachedTrackError, setCachedTrackError] = useState<string | null>(null);
 
-  const handleFile = (file: File) => {
-    setFile(file);
-    navigate("/listen");
-  };
+  const handleFile = useCallback(
+    (file: File, handle: FileSystemFileHandle | null) => {
+      setFile(file, handle);
+      navigate("/listen");
+    },
+    [navigate, setFile],
+  );
+  const { open: openCachedTrackPicker, input: cachedTrackPickerInput } =
+    useAudioFilePicker(handleFile);
+
+  // Reopens the track's file through its stored handle; without one, or when
+  // the browser can't reach the file, asks the user to pick it.
+  const handleOpenCachedTrack = useCallback(
+    async (fingerprint: string) => {
+      const handle = await getFileHandle(fingerprint).catch(() => null);
+      const file = handle ? await readFileFromHandle(handle) : null;
+      if (handle && file) {
+        handleFile(file, handle);
+        return;
+      }
+      await openCachedTrackPicker();
+    },
+    [handleFile, openCachedTrackPicker],
+  );
 
   const refreshCachedTracks = useCallback(async () => {
     setIsLoadingCachedTracks(true);
@@ -106,14 +130,22 @@ export function Home() {
 
               return (
                 <li key={track.fingerprint} className="cached-tracks__item">
-                  <div className="cached-tracks__content">
+                  <button
+                    className="cached-tracks__content"
+                    type="button"
+                    onClick={() => {
+                      handleOpenCachedTrack(track.fingerprint).catch((err) => {
+                        console.warn(`Failed to open cached track: ${String(err)}`);
+                      });
+                    }}
+                  >
                     <span className="cached-tracks__name" title={label}>
                       {label}
                     </span>
                     {details ? (
                       <span className="cached-tracks__meta">{details}</span>
                     ) : null}
-                  </div>
+                  </button>
                   <button
                     className="cached-tracks__delete"
                     type="button"
@@ -130,6 +162,7 @@ export function Home() {
           </ul>
         ) : null}
       </div>
+      {cachedTrackPickerInput}
     </section>
   );
 }

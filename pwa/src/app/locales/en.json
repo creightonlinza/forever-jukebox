@@ -31,7 +31,7 @@
     "dropFile": "Drop an audio file",
     "chooseFile": "Choose file",
     "cachedAnalysis": "Cached analysis",
-    "cachedHint": "Pick the original audio file to load its cached analysis instantly.",
+    "cachedHint": "Select a track to play it. You may be asked to pick its file again.",
     "loadingCached": "Loading cached tracks...",
     "noCached": "No cached local analyses yet.",
     "loadFailed": "Unable to load cached analysis tracks.",

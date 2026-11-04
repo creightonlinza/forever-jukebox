@@ -7,6 +7,7 @@ import { VISUALIZATION_LABELS } from "@forever-jukebox/shared/constants/visualiz
 import { getOrCreateSwingBuffer } from "@forever-jukebox/shared/audio/swingBufferCache";
 import { renderSwingBuffer } from "@forever-jukebox/shared/audio/swingRenderer";
 import { markStoredCopy } from "@forever-jukebox/shared/audio/renderedTrackCache";
+import { setFileHandle } from "@/core/infrastructure/cache/fileHandleStore";
 import {
   cancelInstrumentalRender,
   isInstrumentalModeAvailable,
@@ -26,6 +27,7 @@ const wubMachineMocks = vi.hoisted(() => ({
 
 const mockAppState = {
   file: null as File | null,
+  fileHandle: null as FileSystemFileHandle | null,
   setIsListenLoading: vi.fn<(loading: boolean) => void>(),
   isSettingsOpen: false,
   setIsSettingsOpen: vi.fn<(isOpen: boolean) => void>(),
@@ -149,6 +151,10 @@ vi.mock("@/core/infrastructure/cache/analysisCache", () => ({
   getAnalysisCacheBytes: vi.fn(async () => 12.5 * 1024 * 1024),
   clearAllAnalysisCache: vi.fn(async () => {}),
   trimRenderedTracks: vi.fn(async () => {}),
+}));
+
+vi.mock("@/core/infrastructure/cache/fileHandleStore", () => ({
+  setFileHandle: vi.fn(async () => {}),
 }));
 
 vi.mock("@/core/application/usecases/analyzeAudio", () => ({
@@ -689,6 +695,8 @@ describe("Listen route behavior", () => {
     mockAppState.file = new File([new Uint8Array([1, 2, 3])], "song.wav", {
       lastModified: 1234,
     });
+    mockAppState.fileHandle = null;
+    vi.mocked(setFileHandle).mockClear();
     mockAppState.setIsListenLoading.mockReset();
     mockAppState.isSettingsOpen = false;
     mockAppState.setIsSettingsOpen.mockReset();
@@ -740,6 +748,24 @@ describe("Listen route behavior", () => {
     delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
     vi.restoreAllMocks();
     document.body.innerHTML = "";
+  });
+
+  it("stores the file's handle under its fingerprint once analyzed", async () => {
+    const handle = { kind: "file", name: "song.wav" } as FileSystemFileHandle;
+    mockAppState.fileHandle = handle;
+    const rendered = renderListen();
+    await settleEffects();
+
+    expect(setFileHandle).toHaveBeenCalledWith("fp-test", handle);
+    rendered.unmount();
+  });
+
+  it("stores no handle for a file opened without one", async () => {
+    const rendered = renderListen();
+    await settleEffects();
+
+    expect(setFileHandle).not.toHaveBeenCalled();
+    rendered.unmount();
   });
 
   it("switches between jukebox and autocanonizer UI modes", async () => {
