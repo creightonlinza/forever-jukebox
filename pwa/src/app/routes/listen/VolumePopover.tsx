@@ -40,7 +40,7 @@ export function VolumePopover({
             }
           />
           <div className="label-line">
-            <span className="volume-value">{volume}</span>
+            <span id="volume-val">{volume}</span>
           </div>
         </label>
       </div>

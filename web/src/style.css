@@ -651,10 +651,10 @@ a:focus-visible {
   letter-spacing: 0.02em;
 }
 
-.tab-btn.active {
+.tab-btn.active,
+.tab-btn:hover {
   background: var(--surface-control);
   border-color: var(--border-control);
-  color: var(--text);
 }
 
 .tab-link {
@@ -662,10 +662,6 @@ a:focus-visible {
   align-items: center;
   gap: 6px;
   text-decoration: none;
-}
-
-.tab-link:hover {
-  background: var(--surface-control);
 }
 
 .tab-link-icon {
@@ -731,8 +727,8 @@ button {
 }
 
 button:disabled {
-  opacity: 0.75;
-  cursor: default;
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 button:hover {
@@ -1148,7 +1144,6 @@ button.is-loading::after {
   border: 1px solid var(--border-control);
   border-radius: 6px;
   padding: 4px 8px;
-  background: var(--surface);
   white-space: nowrap;
 }
 
@@ -1483,11 +1478,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   justify-content: center;
 }
 
-.playlist-control:disabled {
-  cursor: not-allowed;
-  opacity: 0.42;
-}
-
 .playlist-control-icon {
   font-variation-settings:
     "FILL" 0,
@@ -1631,7 +1621,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 .play-toggle {
   border: 1px solid var(--border-control);
   border-radius: 8px;
-  padding-right: 6px;
 }
 
 .tab-btn.is-playing {
@@ -2183,7 +2172,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: var(--surface);
   border: 1px solid var(--border-panel);
   border-radius: 8px;
 }
@@ -2340,11 +2328,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   justify-content: center;
   cursor: pointer;
   pointer-events: auto;
-}
-
-.branch-stats-delete:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .branch-stats-delete-icon {

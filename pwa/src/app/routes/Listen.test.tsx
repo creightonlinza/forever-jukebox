@@ -2249,7 +2249,7 @@ describe("Listen route behavior", () => {
     await keydown("]", "BracketRight");
     await keydown("]", "BracketRight", true);
 
-    const toasts = rendered.container.querySelectorAll(".shortcut-toast");
+    const toasts = rendered.container.querySelectorAll(".toast");
     expect(toasts).toHaveLength(1);
     expect(toasts[0]?.textContent).toBe("Play velocity: +3");
     rendered.unmount();

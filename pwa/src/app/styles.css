@@ -48,7 +48,7 @@
   --border-panel: #283142;
   --border-hero: #2B3442;
   --border-control: #3B465B;
-  --viz-bg: radial-gradient(circle at 50% 50%, #232B3D 0%, #0F1115 70%);
+  --viz-bg: radial-gradient(circle closest-side at 50% 50%, #232B3D 0%, #0F1115 100%);
   --viz-shadow: rgba(74, 199, 255, 0.14);
   --viz-overlay: rgba(10, 12, 16, 0.6);
   --edge-stroke: rgba(74, 199, 255, 0.5);
@@ -70,9 +70,12 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  transition:
+    opacity 0.2s ease,
+    background-color 0.22s ease,
+    color 0.22s ease;
 }
 
-button,
 input,
 select,
 textarea,
@@ -97,6 +100,27 @@ a:focus-visible {
   border-radius: 2px;
 }
 
+button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-control);
+  background: var(--surface-panel);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button:hover {
+  background: var(--surface-control);
+}
+
 button:focus-visible {
   outline: 2px solid var(--accent);
 }
@@ -114,6 +138,18 @@ textarea:focus-visible {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.hero,
+.panel,
+.modal-panel,
+button,
+.viz,
+.settings-button {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .install-gate {
@@ -263,7 +299,12 @@ textarea:focus-visible {
 .hero-title-neon {
   margin: 0;
   font-family: "Tilt Neon", sans-serif;
+  font-optical-sizing: auto;
   font-weight: 400;
+  font-style: normal;
+  font-variation-settings:
+    "XROT" 0,
+    "YROT" 0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: clamp(1.6rem, 2.5vw, 2.4rem);
@@ -405,11 +446,6 @@ textarea:focus-visible {
   border-color: var(--border-control);
 }
 
-.tab-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .app__main {
   flex: 1;
 }
@@ -532,18 +568,13 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  padding: 0;
   flex: 0 0 auto;
 }
 
 .cached-tracks__delete:hover:not(:disabled) {
   background: var(--surface-panel);
   color: var(--text);
-}
-
-.cached-tracks__delete:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .cached-tracks__delete-icon {
@@ -590,7 +621,6 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: nowrap;
 }
 
 .menu-left {
@@ -608,24 +638,9 @@ textarea:focus-visible {
   border-radius: 8px;
   padding: 0 6px;
   background: transparent;
-  color: var(--text);
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.play-toggle:hover {
-  background: var(--surface-control);
-}
-
-.tune-toggle:disabled,
-.info-toggle:disabled,
-.copy-toggle:disabled,
-.branch-stats-delete:disabled,
-.play-toggle:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .bring-home-note {
@@ -651,7 +666,6 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
 }
 
 .tune-toggle,
@@ -672,16 +686,11 @@ textarea:focus-visible {
 }
 
 .hidden {
-  display: none !important;
+  display: none;
 }
 
-.fullscreen-toggle:disabled,
-.modal-close:disabled {
-  cursor: not-allowed;
-}
-
-.play-icon,
-.tune-icon {
+.tune-toggle .tune-icon,
+.play-toggle .play-icon {
   font-variation-settings:
     "FILL" 1,
     "wght" 300,
@@ -692,10 +701,10 @@ textarea:focus-visible {
   line-height: 1;
 }
 
-.info-icon,
-.copy-icon,
-.fullscreen-icon,
-.modal-close-icon {
+.info-toggle .info-icon,
+.copy-toggle .copy-icon,
+.fullscreen-toggle .fullscreen-icon,
+.modal-close .modal-close-icon {
   font-variation-settings:
     "FILL" 0,
     "wght" 300,
@@ -1110,7 +1119,7 @@ textarea:focus-visible {
   transform: rotate(180deg);
 }
 
-.volume-value {
+#volume-val {
   display: inline-block;
   min-width: 3ch;
   text-align: center;
@@ -1196,12 +1205,12 @@ textarea:focus-visible {
 .error {
   padding: 12px;
   border-radius: 8px;
-  background: rgba(227, 90, 90, 0.1);
-  border: 1px solid rgba(227, 90, 90, 0.3);
-  color: #ffffff;
+  background: var(--danger-surface);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
 }
 
-.shortcut-toast-stack {
+.toast-stack {
   position: fixed;
   top: 16px;
   left: 50%;
@@ -1215,7 +1224,7 @@ textarea:focus-visible {
   pointer-events: none;
 }
 
-.shortcut-toast {
+.toast {
   padding: 10px 14px;
   border-radius: 8px;
   border: 1px solid var(--border-panel);
@@ -1223,18 +1232,18 @@ textarea:focus-visible {
   color: var(--text);
   font-size: 13px;
   box-shadow: 0 8px 20px var(--shadow-elevated);
-  animation: shortcut-toast-enter 200ms ease-out;
+  animation: toast-enter 200ms ease-out;
   transition:
     opacity 200ms ease,
     transform 200ms ease;
 }
 
-.shortcut-toast.exiting {
+.toast.exiting {
   opacity: 0;
   transform: translateY(-6px);
 }
 
-@keyframes shortcut-toast-enter {
+@keyframes toast-enter {
   from {
     opacity: 0;
     transform: translateY(-8px);
@@ -1242,7 +1251,7 @@ textarea:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .shortcut-toast {
+  .toast {
     animation: none;
     transition: none;
   }
@@ -1291,6 +1300,10 @@ textarea:focus-visible {
   border: 0;
   background: transparent;
   cursor: default;
+}
+
+.modal-backdrop:hover {
+  background: transparent;
 }
 
 .modal-backdrop:disabled {
@@ -1384,7 +1397,6 @@ textarea:focus-visible {
   background: transparent;
   border: none;
   padding: 0;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1522,7 +1534,6 @@ label.label-line {
   border: 1px solid var(--border-control);
   border-radius: 6px;
   padding: 4px 8px;
-  background: var(--surface);
   white-space: nowrap;
 }
 
