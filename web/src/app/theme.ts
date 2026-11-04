@@ -9,6 +9,7 @@ export function applyThemeVariables(theme: ThemeName) {
   Object.entries(themeVars).forEach(([key, value]) => {
     rootStyle.setProperty(key, value);
   });
+  rootStyle.colorScheme = theme;
 }
 
 export function resolveStoredTheme(): ThemeName {

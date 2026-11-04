@@ -45,6 +45,7 @@ describe("theme", () => {
       sampleKey,
       themeConfig.dark[sampleKey],
     );
+    expect(document.documentElement.style.colorScheme).toBe("dark");
   });
 
   it("resolves stored theme with fallback", () => {

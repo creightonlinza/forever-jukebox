@@ -701,6 +701,12 @@ option {
   font-family: inherit;
 }
 
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: var(--accent);
+}
+
 .label-line {
   display: flex;
   align-items: center;
@@ -2562,11 +2568,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   font-size: 12px;
 }
 
-.canonizer-finish input,
-.wubmachine-loop input {
-  accent-color: var(--accent);
-}
-
 .viz-select-group {
   display: inline-flex;
   align-items: center;
@@ -2653,14 +2654,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 
 .pan-slider.stream-pan-slider {
   width: 100%;
-  accent-color: var(--accent);
-  /* Native datalist tick marks are drawn in the scheme's foreground color;
-     without this they render dark-on-dark and disappear. */
-  color-scheme: dark;
-}
-
-body.theme-light .pan-slider.stream-pan-slider {
-  color-scheme: light;
 }
 
 .volume-slider {

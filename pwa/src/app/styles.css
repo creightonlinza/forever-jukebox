@@ -80,6 +80,12 @@ option {
   font-family: inherit;
 }
 
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: var(--accent);
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -900,11 +906,6 @@ textarea:focus-visible {
   font-size: 12px;
 }
 
-.canonizer-finish input,
-.wubmachine-loop input {
-  accent-color: var(--accent);
-}
-
 .viz-select-group {
   display: inline-flex;
   align-items: center;
@@ -1102,7 +1103,6 @@ textarea:focus-visible {
 
 .pan-slider.stream-pan-slider {
   width: 100%;
-  accent-color: var(--accent);
 }
 
 .volume-slider {
