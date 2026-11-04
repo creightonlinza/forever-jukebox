@@ -100,7 +100,7 @@ export function TuningModal({
                 <span>{tuneForm.threshold}</span>
               </div>
               <div className="hint">
-                <span>{t("tuning.computedThreshold")}</span>
+                <span>{t("tuning.computedThreshold")}</span>{" "}
                 <span>{tuneForm.computedThreshold}</span>
               </div>
               <input
