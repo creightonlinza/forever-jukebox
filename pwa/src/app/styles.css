@@ -1422,6 +1422,15 @@ label.label-line {
   gap: 8px;
 }
 
+.checkbox-row input[type="checkbox"] {
+  margin: 0;
+}
+
+/* Zero-specificity scope so component padding (e.g. .audio-mode-option) still wins. */
+:where(#tuning-modal) label {
+  padding-bottom: 10px;
+}
+
 .extras-checkbox-row {
   grid-template-columns: 1fr;
 }

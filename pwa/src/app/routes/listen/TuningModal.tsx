@@ -37,7 +37,7 @@ export function TuningModal({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="modal open">
+    <div id="tuning-modal" className="modal open">
       <button
         className="modal-backdrop"
         type="button"
@@ -114,6 +114,40 @@ export function TuningModal({
             </label>
             <label>
               <div className="label-line">
+                <span>{t("tuning.minJumpDistance")}</span>
+                <span>
+                  {formatMinJumpDistance(tuneForm.minLongBranchPercent, t)}
+                </span>
+              </div>
+              <div className="hint">
+                {t("tuning.minJumpDistanceHint")}
+              </div>
+              <input
+                id="min-jump-distance"
+                type="range"
+                min={0}
+                max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
+                step={1}
+                value={Math.max(
+                  0,
+                  MIN_JUMP_DISTANCE_OPTIONS.indexOf(
+                    tuneForm.minLongBranchPercent as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
+                  ),
+                )}
+                aria-label={t("tuning.minJumpDistance")}
+                onChange={(event) =>
+                  setTuneForm((prev) => ({
+                    ...prev,
+                    minLongBranchPercent:
+                      MIN_JUMP_DISTANCE_OPTIONS[
+                        Number(event.target.value)
+                      ] ?? 0,
+                  }))
+                }
+              />
+            </label>
+            <label>
+              <div className="label-line">
                 <span>{t("tuning.probabilityMin")}</span>
                 <span>{tuneForm.minProb}%</span>
               </div>
@@ -160,40 +194,6 @@ export function TuningModal({
                 aria-label={t("tuning.rampSpeed")}
                 onChange={(event) =>
                   setTuneForm((prev) => ({ ...prev, ramp: Number(event.target.value) }))
-                }
-              />
-            </label>
-            <label>
-              <div className="label-line">
-                <span>{t("tuning.minJumpDistance")}</span>
-                <span>
-                  {formatMinJumpDistance(tuneForm.minLongBranchPercent, t)}
-                </span>
-              </div>
-              <div className="hint">
-                {t("tuning.minJumpDistanceHint")}
-              </div>
-              <input
-                id="min-jump-distance"
-                type="range"
-                min={0}
-                max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
-                step={1}
-                value={Math.max(
-                  0,
-                  MIN_JUMP_DISTANCE_OPTIONS.indexOf(
-                    tuneForm.minLongBranchPercent as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
-                  ),
-                )}
-                aria-label={t("tuning.minJumpDistance")}
-                onChange={(event) =>
-                  setTuneForm((prev) => ({
-                    ...prev,
-                    minLongBranchPercent:
-                      MIN_JUMP_DISTANCE_OPTIONS[
-                        Number(event.target.value)
-                      ] ?? 0,
-                  }))
                 }
               />
             </label>
