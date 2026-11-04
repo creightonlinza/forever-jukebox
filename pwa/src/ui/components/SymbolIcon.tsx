@@ -1,7 +1,7 @@
+// Every name must be in the bundled subset font (see @font-face in styles.css).
 type SymbolName =
   | "play_arrow"
   | "pause"
-  | "stop"
   | "tune"
   | "info"
   | "download"
@@ -25,133 +25,13 @@ type SymbolIconProps = {
 
 export function SymbolIcon({ name, className }: SymbolIconProps) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <span
+      className={
+        className ? `material-symbols-outlined ${className}` : "material-symbols-outlined"
+      }
       aria-hidden="true"
     >
-      {name === "play_arrow" ? <polygon points="8 6 19 12 8 18 8 6" fill="currentColor" stroke="none" /> : null}
-      {name === "pause" ? (
-        <>
-          <rect x="8" y="6" width="3.5" height="12" fill="currentColor" stroke="none" />
-          <rect x="12.5" y="6" width="3.5" height="12" fill="currentColor" stroke="none" />
-        </>
-      ) : null}
-      {name === "stop" ? <rect x="7" y="7" width="10" height="10" fill="currentColor" stroke="none" /> : null}
-      {name === "tune" ? (
-        <>
-          <line x1="4" y1="7" x2="20" y2="7" />
-          <circle cx="9" cy="7" r="2" fill="currentColor" stroke="none" />
-          <line x1="4" y1="12" x2="20" y2="12" />
-          <circle cx="15" cy="12" r="2" fill="currentColor" stroke="none" />
-          <line x1="4" y1="17" x2="20" y2="17" />
-          <circle cx="11" cy="17" r="2" fill="currentColor" stroke="none" />
-        </>
-      ) : null}
-      {name === "info" ? (
-        <>
-          <circle cx="12" cy="12" r="9" />
-          <circle cx="12" cy="8" r="1.2" fill="currentColor" stroke="none" />
-          <path d="M12 11v6" />
-        </>
-      ) : null}
-      {name === "download" ? (
-        <>
-          <path d="M12 4v10" />
-          <path d="M8.5 10.5L12 14l3.5-3.5" />
-          <path d="M5 19h14" />
-        </>
-      ) : null}
-      {name === "delete" ? (
-        <>
-          <path d="M4 7h16" />
-          <path d="M9 7V5h6v2" />
-          <path d="M7.5 7l.8 12h7.4l.8-12" />
-          <path d="M10 10v6" />
-          <path d="M14 10v6" />
-        </>
-      ) : null}
-      {name === "arrow_drop_down" ? (
-        <polygon points="6 9 12 15 18 9" fill="currentColor" stroke="none" />
-      ) : null}
-      {name === "swap_horiz" ? (
-        <>
-          <path d="M7 7h11" />
-          <path d="M15 4l3 3-3 3" />
-          <path d="M17 17H6" />
-          <path d="M9 14l-3 3 3 3" />
-        </>
-      ) : null}
-      {name === "volume_up" ? (
-        <>
-          <polygon points="5 10 8 10 12 7 12 17 8 14 5 14" fill="currentColor" stroke="none" />
-          <path d="M15 9.5c1.3 1.3 1.3 3.7 0 5" />
-          <path d="M17.5 7c2.6 2.6 2.6 7.4 0 10" />
-        </>
-      ) : null}
-      {name === "volume_off" ? (
-        <>
-          <polygon points="5 10 8 10 12 7 12 17 8 14 5 14" fill="currentColor" stroke="none" />
-          <path d="M15.5 9.5l5 5" />
-          <path d="M20.5 9.5l-5 5" />
-        </>
-      ) : null}
-      {name === "fullscreen" ? (
-        <>
-          <path d="M4 9V4h5" />
-          <path d="M20 9V4h-5" />
-          <path d="M4 15v5h5" />
-          <path d="M20 15v5h-5" />
-        </>
-      ) : null}
-      {name === "fullscreen_exit" ? (
-        <>
-          <path d="M9 4v5H4" />
-          <path d="M15 4v5h5" />
-          <path d="M9 20v-5H4" />
-          <path d="M15 20v-5h5" />
-        </>
-      ) : null}
-      {name === "close" ? (
-        <>
-          <path d="M6 6l12 12" />
-          <path d="M18 6L6 18" />
-        </>
-      ) : null}
-      {name === "help" ? (
-        <path
-          d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"
-          fill="currentColor"
-          stroke="none"
-        />
-      ) : null}
-      {name === "science" ? (
-        <>
-          <path d="M10 4h4" />
-          <path d="M11 4v5l-5.5 9.5A2 2 0 0 0 7.2 22h9.6a2 2 0 0 0 1.7-3.5L13 9V4" />
-          <path d="M9 14h6" />
-        </>
-      ) : null}
-      {name === "hourglass_top" ? (
-        <>
-          <path d="M6 4h12" />
-          <path d="M6 20h12" />
-          <path d="M8 4v5a4 4 0 0 0 2 3.5A4 4 0 0 0 8 16v4" />
-          <path d="M16 4v5a4 4 0 0 1-2 3.5A4 4 0 0 1 16 16v4" />
-          <path d="M9 8h6" />
-        </>
-      ) : null}
-      {name === "settings" ? (
-        <>
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
-        </>
-      ) : null}
-    </svg>
+      {name}
+    </span>
   );
 }

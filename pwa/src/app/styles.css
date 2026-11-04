@@ -6,6 +6,32 @@
   font-display: swap;
 }
 
+/* Material Symbols Outlined subset (opsz,wght,FILL,GRAD@20..30,300..350,0..1,0)
+   holding only the SymbolIcon names; re-download from Google Fonts with icon_names= when adding one. */
+@font-face {
+  font-family: "Material Symbols Outlined";
+  src: url("./material-symbols-outlined.woff2") format("woff2");
+  font-weight: 300 350;
+  font-style: normal;
+  font-display: block;
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
 :root {
   color-scheme: dark;
   --bg: #0F1115;
@@ -183,8 +209,14 @@ textarea:focus-visible {
 }
 
 .settings-button-icon {
-  width: 18px;
-  height: 18px;
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 24;
+  /* Sized to the tab-btn row it sits in. */
+  font-size: 18px;
+  line-height: 1;
 }
 
 .hero-main {
@@ -509,8 +541,7 @@ textarea:focus-visible {
 }
 
 .cached-tracks__delete-icon {
-  width: 14px;
-  height: 14px;
+  font-size: 14px;
 }
 
 .listen-page {
@@ -644,16 +675,28 @@ textarea:focus-visible {
 }
 
 .play-icon,
-.tune-icon,
+.tune-icon {
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 30;
+  color: var(--text);
+  font-size: 30px;
+  line-height: 1;
+}
+
 .info-icon,
 .copy-icon,
-.pan-icon,
-.volume-icon,
 .fullscreen-icon,
 .modal-close-icon {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 30;
   color: var(--text);
-  width: 30px;
-  height: 30px;
+  font-size: 30px;
   line-height: 1;
 }
 
@@ -759,9 +802,13 @@ textarea:focus-visible {
 }
 
 .branch-stats-delete-icon {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 20;
   color: var(--danger);
-  width: 25px;
-  height: 25px;
+  font-size: 25px;
   line-height: 1;
 }
 
@@ -889,8 +936,7 @@ textarea:focus-visible {
 .viz-select-arrow {
   position: absolute;
   right: 8px;
-  width: 17px;
-  height: 17px;
+  font-size: 17px;
   color: var(--muted);
   pointer-events: none;
 }
@@ -1330,10 +1376,8 @@ textarea:focus-visible {
 }
 
 .modal-tab-icon {
-  width: 15px;
-  height: 15px;
+  font-size: 15px;
   line-height: 1;
-  stroke-width: 1.9;
 }
 
 .modal-close {
@@ -1608,8 +1652,7 @@ label.label-line {
 }
 
 .info-help-icon {
-  width: 16px;
-  height: 16px;
+  font-size: 16px;
 }
 
 .faq-socials {
