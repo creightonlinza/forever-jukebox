@@ -217,17 +217,17 @@ describe("renderSwingChannels failures and edge beats", () => {
     expect(adapter.calls).toHaveLength(3);
   });
 
-  it("replaces its own worker adapter after a failure", async () => {
+  it("keeps its own worker adapter after a failed segment", async () => {
     const { source, beats } = beatGrid(20);
     const stretch = new FakeStretchAdapter();
     ownedAdapter.stretchSegment
-      .mockRejectedValueOnce(new Error("worker crashed"))
+      .mockRejectedValueOnce(new Error("stretch failed"))
       .mockImplementation(stretch.stretchSegment.bind(stretch));
 
     await renderSwingChannels([source], 100, beats);
 
-    // Once to reset after the failure, once when the render finishes.
-    expect(ownedAdapter.dispose).toHaveBeenCalledTimes(2);
+    // Only when the render finishes; a crashed worker replaces itself.
+    expect(ownedAdapter.dispose).toHaveBeenCalledTimes(1);
   });
 
   it("skips beats with non-finite or non-positive timing", async () => {

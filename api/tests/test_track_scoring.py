@@ -60,6 +60,20 @@ class TitleRejectedTests(unittest.TestCase):
             with self.subTest(query=query):
                 self.assertIsNone(title_rejected(title, query))
 
+    def test_reject_words_inside_other_words_are_not_rejects(self) -> None:
+        for title in (
+            "Lauryn Hill - Contribute (Official Audio)",
+            "Artist - Overreaction (Official Audio)",
+            "Artist - Olive At Dawn (Official Audio)",
+        ):
+            with self.subTest(title=title):
+                self.assertIsNone(title_rejected(title, "Artist - Something"))
+
+    def test_version_tag_key_matches_whole_words_only(self) -> None:
+        query = "Artist - Song (Lively Mix)"
+        self.assertIsNotNone(title_rejected("Song (Live at Wembley)", query))
+        self.assertIsNone(title_rejected("Song (Remixes)", "Artist - Song (Remixed)"))
+
     def test_live_word_in_the_track_name_keeps_live_cuts_rejected(self) -> None:
         self.assertIsNotNone(
             title_rejected("Live Your Life (Live at Wembley)", "Rihanna - Live Your Life")

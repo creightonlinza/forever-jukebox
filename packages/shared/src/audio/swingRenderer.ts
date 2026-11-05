@@ -193,9 +193,6 @@ async function stretchBeats(
             console.warn(
               `Swing stretch failed at frame ${segment.inputStartFrame}; resampling instead: ${String(err)}`,
             );
-            if (shouldDisposeAdapter && adapter instanceof RubberBandWorkerAdapter) {
-              adapter.dispose();
-            }
             stretched = resampleChannels(inputChannels, segment.outputFrameCount);
           }
           writeSegment(outputChannels, stretched, segment.outputStartFrame);

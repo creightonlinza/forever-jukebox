@@ -92,6 +92,28 @@ describe("Home cached tracks", () => {
     expect(deleteFileHandle).not.toHaveBeenCalled();
   });
 
+  it("ignores a second click while the first reopen is pending", async () => {
+    let grantAccess: (file: File) => void = () => undefined;
+    vi.mocked(getFileHandle).mockResolvedValue(handle);
+    vi.mocked(readFileFromHandle).mockReturnValue(
+      new Promise((resolve) => {
+        grantAccess = resolve;
+      }),
+    );
+    const row = await renderHome();
+
+    await clickRow(row);
+    await clickRow(row);
+    await act(async () => {
+      grantAccess(song);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getFileHandle).toHaveBeenCalledTimes(1);
+    expect(appState.setFile).toHaveBeenCalledTimes(1);
+  });
+
   it("drops the row's handle when its file was edited since", async () => {
     vi.mocked(getFileHandle).mockResolvedValue(handle);
     vi.mocked(readFileFromHandle).mockResolvedValue(song);

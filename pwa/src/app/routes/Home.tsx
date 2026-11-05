@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   CachedAnalysisTrack,
@@ -27,6 +27,7 @@ export function Home() {
   const [deletingFingerprint, setDeletingFingerprint] = useState<string | null>(null);
   const [cachedTrackError, setCachedTrackError] = useState<string | null>(null);
   const [reopenFailed, setReopenFailed] = useState(false);
+  const isReopeningRef = useRef(false);
 
   const handleFile = useCallback(
     (file: File, handle: FileSystemFileHandle | null) => {
@@ -41,7 +42,7 @@ export function Home() {
 
   // Reopens the track's file through its stored handle; without one, or when
   // the browser can't reach the file, asks the user to pick it.
-  const handleOpenCachedTrack = useCallback(
+  const reopenCachedTrack = useCallback(
     async (fingerprint: string) => {
       setReopenFailed(false);
       const handle = await getFileHandle(fingerprint).catch(() => null);
@@ -70,6 +71,22 @@ export function Home() {
       await openCachedTrackPicker();
     },
     [handleFile, openCachedTrackPicker],
+  );
+  const handleOpenCachedTrack = useCallback(
+    async (fingerprint: string) => {
+      // Ignores clicks while a reopen is still waiting on storage, a permission
+      // prompt or the picker.
+      if (isReopeningRef.current) {
+        return;
+      }
+      isReopeningRef.current = true;
+      try {
+        await reopenCachedTrack(fingerprint);
+      } finally {
+        isReopeningRef.current = false;
+      }
+    },
+    [reopenCachedTrack],
   );
 
   const refreshCachedTracks = useCallback(async () => {

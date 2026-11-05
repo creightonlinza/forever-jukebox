@@ -10,44 +10,44 @@ from typing import Any
 
 # Word-boundary patterns so titles like "Live Your Life" survive.
 HARD_REJECT = [
-    r"live\s+at",
-    r"live\s+from",
-    r"live\s+version",
-    r"unplugged",
-    r"live\s+lounge",
+    r"\blive\s+at\b",
+    r"\blive\s+from\b",
+    r"\blive\s+version\b",
+    r"\bunplugged\b",
+    r"\blive\s+lounge\b",
     r"\bconcert\b",
-    r"in\s+session",
+    r"\bin\s+session\b",
     r"\bai\b[\w\s]*\b(cover|version|song|remix)\b",
     r"\bcovers?\b",
-    r"karaoke",
-    r"instrumental",
-    r"acoustic",
-    r"acapella",
+    r"\bkaraoke\b",
+    r"\binstrumentals?\b",
+    r"\bacoustic\b",
+    r"\bacapella\b",
     r"\bmashups?\b",
-    r"bass\s+boosted",
+    r"\bbass\s+boosted\b",
     r"\breverbs?\b",
-    r"nightcore",
+    r"\bnightcore\b",
     r"\b8d\b",
-    r"longer\s+version",
-    r"type\s+beat",
-    r"tribute",
-    r"full\s+album",
+    r"\blonger\s+version\b",
+    r"\btype\s+beat\b",
+    r"\btributes?\b",
+    r"\bfull\s+album\b",
     r"\b\d+\s*(hours?|hrs?)\b",
-    r"muffled",
-    r"reaction",
-    r"slowed",
-    r"sped\s+up",
+    r"\bmuffled\b",
+    r"\breactions?\b",
+    r"\bslowed\b",
+    r"\bsped\s+up\b",
 ]
 
 # Rejects dropped when the track's version tag, e.g. "(Live)" or "- Remix", names the key.
 QUERY_SENSITIVE = {
     "remix": [r"\bremix(es|ed)?\b"],
     "cover": [r"\bcovers?\b", r"\bai\b[\w\s]*\b(cover|song)\b"],
-    "live": [r"live\s+at", r"live\s+from", r"live\s+version",
-             r"\bconcert\b", r"unplugged", r"live\s+lounge"],
-    "instrumental": [r"instrumental"],
-    "acoustic": [r"acoustic"],
-    "acapella": [r"acapella"],
+    "live": [r"\blive\s+at\b", r"\blive\s+from\b", r"\blive\s+version\b",
+             r"\bconcert\b", r"\bunplugged\b", r"\blive\s+lounge\b"],
+    "instrumental": [r"\binstrumentals?\b"],
+    "acoustic": [r"\bacoustic\b"],
+    "acapella": [r"\bacapella\b"],
 }
 
 # Soft penalties: often still the plain audio, just not the best upload.
@@ -116,7 +116,7 @@ def title_rejected(title: str, query: str) -> str | None:
     allowed = {
         pat
         for key, patterns in QUERY_SENSITIVE.items()
-        if re.search(rf"\b{key}", tag)
+        if re.search(rf"\b{key}(s|es|ed)?\b", tag)
         for pat in patterns
     }
     t = fold(title)
