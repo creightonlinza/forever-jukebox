@@ -31,11 +31,12 @@
     "dropFile": "Arrastra un archivo de audio aquí",
     "chooseFile": "Selecciona un archivo",
     "cachedAnalysis": "Análisis en caché",
-    "cachedHint": "Selecciona el archivo de audio original para cargar su análisis en caché de manera instantánea.",
+    "cachedHint": "Selecciona una pista para reproducirla. Puede que tengas que volver a elegir su archivo.",
     "loadingCached": "Cargando pistas desde caché...",
     "noCached": "Sin análisis en caché aún.",
     "loadFailed": "No se pudieron cargar los análisis de las pistas desde caché.",
     "deleteFailed": "No se pudieron borrar los análisis del caché.",
+    "reopenFailed": "No se pudo volver a abrir el archivo de esa pista. Usa «Selecciona un archivo» para elegirlo de nuevo.",
     "deleteNamed": "Borrar los análisis de caché para {{label}}",
     "deleteTitle": "Borrar análisis del caché",
     "cachedTrack": "Pista en caché {{id}}"

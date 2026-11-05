@@ -1,5 +1,6 @@
 import type { DubstepRenderedPart } from "./dubstepRenderer";
 import { WubMachineViz } from "./WubMachineViz";
+import { clampVolume } from "../audio/volume";
 
 const PEAK_BINS = 2000;
 
@@ -79,7 +80,7 @@ export class WubMachineController {
   }
 
   setVolume(volume: number) {
-    this.volume = Math.max(0, Math.min(1, volume));
+    this.volume = clampVolume(volume, this.volume);
     if (this.gain) {
       this.gain.gain.value = this.volume;
     }

@@ -34,6 +34,11 @@ const instrumentals = vi.hoisted(() => ({
   getRenderedTrackBytes: vi.fn(async () => 0),
 }));
 vi.mock("@forever-jukebox/shared/audio/renderedTrackCache", () => instrumentals);
+const fileHandles = vi.hoisted(() => ({
+  clearFileHandles: vi.fn(async () => undefined),
+  deleteFileHandle: vi.fn(async () => undefined),
+}));
+vi.mock("../fileHandleStore", () => fileHandles);
 
 // Fake OPFS root: an analysis directory with one 10-byte file.
 function stubOpfs() {
@@ -59,6 +64,8 @@ describe("stored instrumentals follow the analysis cache", () => {
   beforeEach(() => {
     instrumentals.clearRenderedTracks.mockClear();
     instrumentals.deleteRenderedTracks.mockClear();
+    fileHandles.clearFileHandles.mockClear();
+    fileHandles.deleteFileHandle.mockClear();
     instrumentals.getRenderedTrackBytes.mockReset().mockResolvedValue(0);
     stubOpfs();
   });
@@ -105,5 +112,15 @@ describe("stored instrumentals follow the analysis cache", () => {
     await deleteCachedAnalysis("abc");
     expect(dir.removeEntry).toHaveBeenCalledWith("abc.json");
     expect(instrumentals.deleteRenderedTracks).toHaveBeenCalledWith("abc");
+  });
+
+  it("forgets the file handle with the analysis", async () => {
+    await deleteCachedAnalysis("abc");
+    expect(fileHandles.deleteFileHandle).toHaveBeenCalledWith("abc");
+  });
+
+  it("forgets every file handle with the whole cache", async () => {
+    await clearAllAnalysisCache();
+    expect(fileHandles.clearFileHandles).toHaveBeenCalledTimes(1);
   });
 });

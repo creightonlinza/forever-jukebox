@@ -12,6 +12,7 @@ import {
   type CanonizerRenderPlan,
 } from "./canonizerRenderPlan";
 import { computeBeatColors } from "../engine/beatColors";
+import { clampVolume } from "../audio/volume";
 
 type BeatWithSim = CanonizerBeat & {
   sim?: CanonizerBeat;
@@ -87,7 +88,7 @@ class AutocanonizerPlayer {
   }
 
   setVolume(volume: number) {
-    this.baseVolume = clampVolume(volume);
+    this.baseVolume = clampVolume(volume, this.baseVolume);
     this.applyGains();
   }
 
@@ -303,7 +304,7 @@ export class AutocanonizerController {
   }
 
   setVolume(volume: number) {
-    this.volume = clampVolume(volume);
+    this.volume = clampVolume(volume, this.volume);
     this.player?.setVolume(this.volume);
   }
 
@@ -507,13 +508,6 @@ export class AutocanonizerController {
     const nextDelayMs = Math.max(0, delay * 1000);
     this.timerId = backgroundSetTimeout(() => this.tickSecondary(), nextDelayMs);
   }
-}
-
-function clampVolume(volume: number) {
-  if (!Number.isFinite(volume)) {
-    return 0;
-  }
-  return Math.max(0, Math.min(1, volume));
 }
 
 function clampPan(pan: number) {

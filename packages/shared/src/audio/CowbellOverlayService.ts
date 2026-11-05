@@ -1,4 +1,5 @@
 import type { QuantumBase } from "../engine/types";
+import { clampVolume } from "./volume";
 
 const SOUND_URLS = import.meta.glob("./cowbell/sounds/*.wav", {
   eager: true,
@@ -110,7 +111,7 @@ export class CowbellOverlayService {
   }
 
   setVolume(value: number) {
-    this.volume = Math.max(0, Math.min(1, value));
+    this.volume = clampVolume(value, this.volume);
     this.updateMasterGain();
   }
 

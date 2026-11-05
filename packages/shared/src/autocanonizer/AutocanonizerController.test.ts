@@ -97,6 +97,18 @@ describe("AutocanonizerController", () => {
     expect(gains[1].gain.value).toBeCloseTo(0.4 * 0.45);
   });
 
+  it("keeps the current volume when given a non-finite one", () => {
+    const controller = new AutocanonizerController({} as HTMLElement);
+    const { context, gains } = createAudioContext();
+    controller.setAudio({ duration: 30 } as AudioBuffer, context);
+
+    controller.setVolume(0.6);
+    controller.setVolume(Number.NaN);
+
+    expect(gains[0].gain.value).toBeCloseTo(0.6 * 0.55);
+    expect(gains[1].gain.value).toBeCloseTo(0.6 * 0.45);
+  });
+
   it("keeps the shared volume and base mix independent from stream panning", () => {
     const controller = new AutocanonizerController({} as HTMLElement);
     const { context, gains, panners } = createAudioContext();

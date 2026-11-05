@@ -247,6 +247,8 @@ describe("WubMachineController", () => {
     expect(gain.gain.value).toBe(0.25);
     controller.setVolume(2);
     expect(gain.gain.value).toBe(1);
+    controller.setVolume(Number.NaN);
+    expect(gain.gain.value).toBe(1);
   });
 
   it("resumes a suspended context on play", () => {

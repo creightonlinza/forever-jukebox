@@ -88,6 +88,59 @@ describe("SearchPanel", () => {
     });
   });
 
+  it("shows album art on spotify rows that have it", () => {
+    act(() => {
+      useAppStore.setState({
+        searchResults: {
+          kind: "spotify",
+          items: [
+            { id: "a", name: "Song", artist: "Artist", duration: 200, image: "https://i.scdn.co/64" },
+            { id: "b", name: "Other", artist: "Artist", duration: 180 },
+          ],
+        },
+      });
+    });
+    render(<SearchPanel />);
+    const thumbs = document.querySelectorAll<HTMLImageElement>(".search-thumb");
+    expect(thumbs).toHaveLength(1);
+    expect(thumbs[0].src).toBe("https://i.scdn.co/64");
+    expect(thumbs[0].getAttribute("loading")).toBe("lazy");
+    expect(thumbs[0].getAttribute("referrerpolicy")).toBe("no-referrer");
+  });
+
+  it("opens the preview from the row thumbnail, falling back to an icon if it fails", async () => {
+    act(() => {
+      useAppStore.setState({
+        searchResults: {
+          kind: "youtube",
+          items: [
+            {
+              item: { id: "yt-match", title: "Match", duration: 123 },
+              name: "Song",
+              artist: "Artist",
+            },
+          ],
+        },
+      });
+    });
+    render(<SearchPanel />);
+    const previewButton = screen.getByRole("button", { name: "Open YouTube preview" });
+    const thumb = previewButton.querySelector("img");
+    expect(thumb?.src).toBe("https://i.ytimg.com/vi/yt-match/default.jpg");
+    expect(thumb?.getAttribute("loading")).toBe("lazy");
+    expect(previewButton.querySelector(".search-open-icon")).toBeNull();
+    expect(previewButton.querySelector(".search-thumb-icon")?.getAttribute("aria-hidden")).toBe("true");
+
+    fireEvent.error(thumb!);
+    expect(previewButton.querySelector("img")).toBeNull();
+    expect(previewButton.querySelector(".search-thumb-icon")).toBeNull();
+    expect(previewButton.querySelector(".search-open-icon")?.textContent).toBe("open_in_new");
+
+    await userEvent.click(previewButton);
+    expect(h.selectYoutube).not.toHaveBeenCalled();
+    expect(document.getElementById("youtube-preview-modal")?.className).toBe("modal open");
+  });
+
   it("selects results via keyboard (Enter on the focused item)", async () => {
     act(() => {
       useAppStore.setState({
@@ -177,7 +230,7 @@ describe("SearchPanel", () => {
     });
   });
 
-  it("loads the youtube thumbnail only after opening the preview modal", async () => {
+  it("loads the larger youtube thumbnail only after opening the preview modal", async () => {
     act(() => {
       useAppStore.setState({
         searchResults: {
@@ -203,9 +256,7 @@ describe("SearchPanel", () => {
     const thumbnail = document.querySelector(
       ".youtube-preview-thumbnail img",
     ) as HTMLImageElement;
-    expect(thumbnail.src).toBe(
-      "https://i.ytimg.com/vi/yt-match/hqdefault.jpg",
-    );
+    expect(thumbnail.src).toBe("https://i.ytimg.com/vi/yt-match/hqdefault.jpg");
     expect(thumbnail.getAttribute("referrerpolicy")).toBe("no-referrer");
     expect(thumbnail.alt).toBe("YouTube thumbnail for Match");
 

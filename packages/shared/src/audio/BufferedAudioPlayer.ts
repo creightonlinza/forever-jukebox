@@ -14,6 +14,7 @@ import {
   type AudioModeSettings,
   type JukeboxAudioMode,
 } from "./audioModes";
+import { clampVolume } from "./volume";
 
 export type { JukeboxAudioMode } from "./audioModes";
 
@@ -230,9 +231,8 @@ export class BufferedAudioPlayer {
   }
 
   setVolume(value: number) {
-    const clamped = Math.max(0, Math.min(1, value));
-    this.volume = clamped;
-    this.masterGain.gain.value = clamped;
+    this.volume = clampVolume(value, this.volume);
+    this.masterGain.gain.value = this.volume;
   }
 
   getVolume(): number {

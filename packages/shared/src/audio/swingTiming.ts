@@ -26,7 +26,8 @@ export function getSwingSegmentsForBeat(
   beat: BeatLike,
   swingAmount = DEFAULT_SWING_AMOUNT,
 ): [SwingSegment, SwingSegment] {
-  const duration = Math.max(0, beat.duration);
+  const start = Number.isFinite(beat.start) ? beat.start : 0;
+  const duration = Number.isFinite(beat.duration) ? Math.max(0, beat.duration) : 0;
   const half = duration / 2;
   const swing = clampSwingAmount(swingAmount);
 
@@ -37,19 +38,23 @@ export function getSwingSegmentsForBeat(
 
   return [
     {
-      inputStart: beat.start,
+      inputStart: start,
       inputDuration: half,
       outputDuration: outputADuration,
       playbackRate: half / safeOutputADuration,
     },
     {
-      inputStart: beat.start + half,
+      inputStart: start + half,
       inputDuration: half,
       outputDuration: outputBDuration,
       playbackRate: half / safeOutputBDuration,
     },
   ];
 }
+
+// Bump when the frames rendered for the same beats change, so stored renders
+// made with the old layout are not reused.
+const SWING_RENDER_VERSION = 3;
 
 // Identifies the beat grid and swing amount a render was made from.
 export function getSwingSignature(
@@ -62,5 +67,5 @@ export function getSwingSignature(
       hash = Math.imul(hash ^ Math.round(seconds * 1000), 16777619) >>> 0;
     }
   }
-  return `${clampSwingAmount(swingAmount)}:${beats.length}:${hash.toString(16)}`;
+  return `v${SWING_RENDER_VERSION}:${clampSwingAmount(swingAmount)}:${beats.length}:${hash.toString(16)}`;
 }

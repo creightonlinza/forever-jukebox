@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 
+from .track_scoring import rank_candidates
 from .ytdlp_config import apply_ejs_config
 
 
@@ -19,6 +20,10 @@ def format_search_title(entry: dict[str, Any]) -> str:
     if track and artist:
         return f"{track} - {artist}"
     return entry.get("title") or "Unknown title"
+
+
+def _public_fields(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{"id": item["id"], "title": item["title"], "duration": item["duration"]} for item in items]
 
 
 def parse_iso8601_duration(value: str) -> int | None:
@@ -81,7 +86,7 @@ def search_youtube_api(
     if not video_ids:
         return []
     videos_params = {
-        "part": "contentDetails,snippet",
+        "part": "contentDetails,snippet,statistics",
         "id": ",".join(video_ids),
         "key": api_key,
     }
@@ -98,11 +103,19 @@ def search_youtube_api(
         duration = parse_iso8601_duration(content_details.get("duration", ""))
         if duration is None:
             continue
-        title = (item.get("snippet") or {}).get("title") or title_map.get(vid) or "Untitled"
-        results.append({"id": vid, "title": title, "duration": duration})
-    if target_duration is not None:
-        results.sort(key=lambda item: abs(item["duration"] - target_duration))
-    return results
+        snippet = item.get("snippet") or {}
+        title = snippet.get("title") or title_map.get(vid) or "Untitled"
+        views = (item.get("statistics") or {}).get("viewCount")
+        results.append(
+            {
+                "id": vid,
+                "title": title,
+                "duration": duration,
+                "channel": snippet.get("channelTitle") or "",
+                "view_count": int(views) if isinstance(views, str) and views.isdigit() else None,
+            }
+        )
+    return _public_fields(rank_candidates(results, query, target_duration))
 
 
 def search_youtube_ytdlp(
@@ -144,10 +157,9 @@ def search_youtube_ytdlp(
                 "id": entry_id,
                 "title": format_search_title(entry),
                 "duration": entry_duration,
+                "channel": entry.get("channel") or entry.get("uploader") or "",
+                "view_count": entry.get("view_count"),
             }
         )
 
-    if target_duration is not None:
-        items.sort(key=lambda item: abs(item["duration"] - target_duration))
-
-    return items
+    return _public_fields(rank_candidates(items, query, target_duration))
