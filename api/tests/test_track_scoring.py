@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from api.track_scoring import rank_candidates, score_candidate, title_rejected
-from api.youtube import search_youtube_api
+from api.track_scoring import rank_candidates, score_candidate, title_rejected, token_ratio
+from api.youtube import search_youtube_api, search_youtube_ytdlp
 
 
 def entry(
@@ -51,6 +51,20 @@ class TitleRejectedTests(unittest.TestCase):
         self.assertIsNotNone(title_rejected(title, "Rufus Du Sol - Innerbloom"))
         self.assertIsNone(title_rejected(title, "Rufus Du Sol - Innerbloom Lane 8 Remix"))
 
+    def test_reject_words_in_the_track_name_are_allowed(self) -> None:
+        for title, query in (
+            ("Diana Ross - Chain Reaction (Official Audio)", "Diana Ross - Chain Reaction"),
+            ("Tenacious D - Tribute", "Tenacious D - Tribute"),
+            ("Sky Ferreira - 24 Hours", "Sky Ferreira - 24 Hours"),
+        ):
+            with self.subTest(query=query):
+                self.assertIsNone(title_rejected(title, query))
+
+    def test_live_word_in_the_track_name_keeps_live_cuts_rejected(self) -> None:
+        self.assertIsNotNone(
+            title_rejected("Live Your Life (Live at Wembley)", "Rihanna - Live Your Life")
+        )
+
     def test_radio_edit_not_rejected(self) -> None:
         self.assertIsNone(title_rejected("Innerbloom (Radio Edit)", "Rufus Du Sol - Innerbloom"))
 
@@ -58,32 +72,42 @@ class TitleRejectedTests(unittest.TestCase):
 class ScoreCandidateTests(unittest.TestCase):
     def test_music_video_scores_close_to_the_topic_upload(self) -> None:
         query = "Lil Yachty - Poland"
-        topic, _ = score_candidate(entry("Poland", "Lil Yachty - Topic", duration=84), query, 84)
-        video, _ = score_candidate(
+        topic = score_candidate(entry("Poland", "Lil Yachty - Topic", duration=84), query, 84)
+        video = score_candidate(
             entry("Lil Yachty - Poland (Official Video)", "Lil Yachty", duration=84), query, 84
         )
         self.assertIsNotNone(video)
         self.assertGreater(topic, video)
 
     def test_duration_far_off_target_rejected(self) -> None:
-        score, reason = score_candidate(
+        score = score_candidate(
             entry("Poland", "Lil Yachty - Topic", duration=244), "Lil Yachty - Poland", 84
         )
         self.assertIsNone(score)
-        self.assertIn("duration", reason)
 
     def test_accent_folding_matches_uploader(self) -> None:
-        score, _ = score_candidate(
+        score = score_candidate(
             entry("Innerbloom", "RÜFÜS DU SOL - Topic", duration=579),
             "Rufus Du Sol - Innerbloom",
             579,
         )
         self.assertGreaterEqual(score, 100)
 
+    def test_live_penalty_kept_unless_the_query_says_live(self) -> None:
+        live = entry("Poland (Live)", "Lil Yachty", duration=84)
+        self.assertGreater(
+            score_candidate(live, "Lil Yachty - Poland (Live)", 84),
+            score_candidate(live, "Lil Yachty - Poland Lively", 84),
+        )
+
+    def test_title_words_match_whole_words_only(self) -> None:
+        self.assertEqual(token_ratio("party anthem", "Art"), 0.0)
+        self.assertEqual(token_ratio("art (official audio)", "Art"), 1.0)
+
     def test_feat_not_in_query_penalized(self) -> None:
         query = "Lil Yachty - Poland"
-        plain, _ = score_candidate(entry("Poland", "Lil Yachty - Topic", duration=84), query, 84)
-        feat, _ = score_candidate(
+        plain = score_candidate(entry("Poland", "Lil Yachty - Topic", duration=84), query, 84)
+        feat = score_candidate(
             entry("Poland feat. Some Bootleg Artist", "Random Uploads", duration=84), query, 84
         )
         self.assertGreater(plain, feat)
@@ -155,13 +179,13 @@ class SearchYoutubeApiTests(unittest.TestCase):
             "items": [
                 {
                     "id": "live",
-                    "contentDetails": {"duration": "PT1M30S"},
+                    "contentDetails": {"duration": "PT1M24S"},
                     "snippet": {"title": "Poland - Live at Rolling Loud", "channelTitle": "Fan Cam"},
                     "statistics": {"viewCount": "50000000"},
                 },
                 {
                     "id": "topic",
-                    "contentDetails": {"duration": "PT1M24S"},
+                    "contentDetails": {"duration": "PT1M26S"},
                     "snippet": {"title": "Poland", "channelTitle": "Lil Yachty - Topic"},
                     "statistics": {},
                 },
@@ -175,11 +199,33 @@ class SearchYoutubeApiTests(unittest.TestCase):
         self.assertEqual(
             items,
             [
-                {"id": "topic", "title": "Poland", "duration": 84},
-                {"id": "live", "title": "Poland - Live at Rolling Loud", "duration": 90},
+                {"id": "topic", "title": "Poland", "duration": 86},
+                {"id": "live", "title": "Poland - Live at Rolling Loud", "duration": 84},
             ],
         )
         self.assertIn("statistics", client.get.call_args_list[1].kwargs["params"]["part"])
+
+
+class SearchYoutubeYtdlpTests(unittest.TestCase):
+    def test_ranks_results_and_keeps_the_response_shape(self) -> None:
+        info = {
+            "entries": [
+                {"id": "live", "title": "Poland - Live at Rolling Loud", "channel": "Fan Cam",
+                 "duration": 84, "view_count": 50_000_000},
+                {"id": "topic", "title": "Poland", "channel": "Lil Yachty - Topic", "duration": 86},
+            ]
+        }
+        with patch("yt_dlp.YoutubeDL") as youtube_dl:
+            youtube_dl.return_value.__enter__.return_value.extract_info.return_value = info
+            items = search_youtube_ytdlp("Lil Yachty - Poland", 5, 84)
+
+        self.assertEqual(
+            items,
+            [
+                {"id": "topic", "title": "Poland", "duration": 86},
+                {"id": "live", "title": "Poland - Live at Rolling Loud", "duration": 84},
+            ],
+        )
 
 
 if __name__ == "__main__":

@@ -1,14 +1,9 @@
-"""Ranks YouTube search candidates so the plain studio track comes first.
-
-Queries arrive as "Artist - Track". The Spotify duration, when known, comes
-first: candidates are grouped by how close their length is, and the score only
-orders candidates within a group. Official audio, "- Topic" channels and music
-videos all count as the plain track; live cuts, covers, remixes and re-uploads
-(slowed, nightcore, extended loops) are demoted below the rest.
-"""
+"""Ranks "Artist - Track" YouTube search candidates: closest length first, then
+how likely each is the plain track (official audio and music videos count)."""
 
 from __future__ import annotations
 
+import bisect
 import re
 import unicodedata
 from typing import Any
@@ -44,7 +39,7 @@ HARD_REJECT = [
     r"sped\s+up",
 ]
 
-# Rejects dropped when the query itself asks for that kind of track.
+# Rejects dropped when the track's version tag, e.g. "(Live)" or "- Remix", names the key.
 QUERY_SENSITIVE = {
     "remix": [r"\bremix(es|ed)?\b"],
     "cover": [r"\bcovers?\b", r"\bai\b[\w\s]*\b(cover|song)\b"],
@@ -63,15 +58,6 @@ PENALTIES = [
     (r"radio\s+edit", 25),
     (r"\bextended\b", 10),
 ]
-
-# Penalties dropped when the query itself asks for that version.
-QUERY_SENSITIVE_PENALTIES = {
-    "live": [r"\blive\b"],
-    "lyric": [r"\blyrics?\b"],
-    "feat": [r"\bfeat\.?\b|\bft\."],
-    "radio": [r"radio\s+edit"],
-    "extended": [r"\bextended\b"],
-}
 
 STOPWORDS = {
     "the", "a", "an", "and", "of", "feat", "ft", "with", "official",
@@ -105,7 +91,8 @@ def token_ratio(haystack: str, phrase: str) -> float:
     toks = tokens(phrase)
     if not toks:
         return 0.0
-    return sum(1 for w in toks if w in haystack) / len(toks)
+    words = set(re.findall(r"[a-z0-9']+", fold(haystack)))
+    return sum(1 for w in toks if w in words) / len(toks)
 
 
 def split_query(query: str) -> tuple[str, str]:
@@ -116,19 +103,27 @@ def split_query(query: str) -> tuple[str, str]:
     return "", query
 
 
+def version_tag(track: str) -> str:
+    """Folded "(Live)" / "[Remix]" groups and " - Acoustic" suffixes of a track name."""
+    groups = re.findall(r"[(\[{]([^)\]}]*)[)\]}]", track)
+    return fold(" ".join(groups + re.split(r"\s+-\s+", track)[1:]))
+
+
 def title_rejected(title: str, query: str) -> str | None:
     """Return the reject reason if a title can't be the plain track."""
-    q = query.lower()
+    q = fold(query)
+    tag = version_tag(split_query(query)[1])
     allowed = {
         pat
         for key, patterns in QUERY_SENSITIVE.items()
-        if re.search(rf"\b{key}", q)
+        if re.search(rf"\b{key}", tag)
         for pat in patterns
     }
     t = fold(title)
-    rejects = [pat for key, patterns in QUERY_SENSITIVE.items() for pat in patterns]
+    rejects = [pat for patterns in QUERY_SENSITIVE.values() for pat in patterns]
     for pat in rejects + HARD_REJECT:
-        if pat not in allowed and re.search(pat, t):
+        # A reject word in the query itself is part of the track's name.
+        if pat not in allowed and not re.search(pat, q) and re.search(pat, t):
             return f"rejected: {pat}"
     return None
 
@@ -137,25 +132,20 @@ def score_candidate(
     entry: dict[str, Any],
     query: str,
     target_duration: float | None = None,
-) -> tuple[float | None, str]:
-    """Score a candidate as the plain track for a query.
-
-    Returns (score, reason); score is None when the candidate can't be the
-    plain track, with reason saying why.
-    """
+) -> float | None:
+    """Score a candidate as the plain track for a query; None when it can't be."""
     title = (entry.get("title") or "").strip()
     uploader = (entry.get("channel") or "").strip()
     duration = entry.get("duration")
     artist, track = split_query(query)
-    q = query.lower()
+    q = fold(query)
 
     if duration is None:
-        return None, "no duration"
+        return None
     if target_duration is not None and abs(duration - target_duration) > MAX_DURATION_DIFF_S:
-        return None, f"duration {duration}s vs target {round(target_duration)}s"
-    reason = title_rejected(title, query)
-    if reason:
-        return None, reason
+        return None
+    if title_rejected(title, query):
+        return None
 
     folded = fold(title)
     score = 0.0
@@ -185,28 +175,19 @@ def score_candidate(
         elif views >= 1_000_000:
             score += 5
 
-    skipped = {
-        pat
-        for word, patterns in QUERY_SENSITIVE_PENALTIES.items()
-        if re.search(rf"\b{word}", q)
-        for pat in patterns
-    }
     for pat, penalty in PENALTIES:
-        if pat not in skipped and re.search(pat, folded):
+        # Skipped when the query has the word too, e.g. "Live Your Life".
+        if not re.search(pat, q) and re.search(pat, folded):
             score -= penalty
 
-    return score, ""
+    return score
 
 
 def duration_band(duration: float, target_duration: float | None) -> int:
     """Index of the closest-length group a candidate falls in; 0 without a target."""
     if target_duration is None:
         return 0
-    diff = abs(duration - target_duration)
-    return next(
-        (i for i, limit in enumerate(DURATION_BANDS_S) if diff <= limit),
-        len(DURATION_BANDS_S),
-    )
+    return bisect.bisect_left(DURATION_BANDS_S, abs(duration - target_duration))
 
 
 def rank_candidates(
@@ -214,13 +195,8 @@ def rank_candidates(
     query: str,
     target_duration: float | None = None,
 ) -> list[dict[str, Any]]:
-    """Order candidates so the plain track comes first.
-
-    Scored candidates come first, closest length group first and best score
-    within a group. Rejected ones follow (nearest duration first when a target
-    is known) so they can still be picked. With nothing scored, the list is
-    only sorted by duration.
-    """
+    """Scored candidates by length group then score, then rejected ones by length
+    so they can still be picked; only a length sort when nothing scores."""
     def by_duration(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if target_duration is None:
             return list(items)
@@ -229,7 +205,7 @@ def rank_candidates(
     scored: list[tuple[float, dict[str, Any]]] = []
     rejected: list[dict[str, Any]] = []
     for item in items:
-        score, _reason = score_candidate(item, query, target_duration)
+        score = score_candidate(item, query, target_duration)
         if score is None:
             rejected.append(item)
         else:
