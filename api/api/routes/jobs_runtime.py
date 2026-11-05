@@ -32,6 +32,7 @@ from ..db import (
 )
 from ..env import env_positive_float
 from ..paths import DB_PATH, STORAGE_ROOT
+from ..storage import discard_job_files, get_store
 from ..utils import get_logger
 from ..ytdlp_config import apply_ejs_config
 
@@ -442,9 +443,7 @@ def recycle_job(job) -> str | None:
     if owner is None:
         logger.info("Skipped recycling job %s (already moved on)", job.id)
         return None
-    for candidate in (STORAGE_ROOT / "audio").glob(f"{job.id}.*"):
-        if candidate.is_file():
-            candidate.unlink()
+    discard_job_files(get_store(STORAGE_ROOT), job.id, analysis=False)
     logger.info("Recycling stale job %s (%s)", job.id, job.status)
     return owner
 
@@ -689,12 +688,7 @@ def cleanup_failure(
         return
     if job is not None:
         _write_failure_log(job_id, message)
-    for candidate in (STORAGE_ROOT / "audio").glob(f"{job_id}.*"):
-        if candidate.is_file():
-            candidate.unlink()
-    for result_path in (STORAGE_ROOT / "analysis").glob(f"{job_id}.json*"):
-        if result_path.is_file():
-            result_path.unlink()
+    discard_job_files(get_store(STORAGE_ROOT), job_id)
     if job is None:
         # Deleted mid-download: artifacts are cleared, and there is no row left
         # to mark failed or report on.
@@ -715,12 +709,9 @@ def delete_job_artifacts(job_id: str, storage_root: Path = STORAGE_ROOT) -> None
     log_path = storage_root / "logs" / f"{job_id}.log"
     if log_path.is_file():
         log_path.unlink()
-    for candidate in (storage_root / "audio").glob(f"{job_id}.*"):
-        if candidate.is_file():
-            candidate.unlink()
-    for candidate in (storage_root / "analysis").glob(f"{job_id}.*"):
-        if candidate.is_file():
-            candidate.unlink()
+    store = get_store(storage_root)
+    store.delete_audio(job_id)
+    store.delete_analysis(job_id)
 
 
 HTTP_403_RETRY_DELAY_S = 3.0
@@ -774,7 +765,8 @@ def download_source_audio(
         cleanup_failure(job_id, "yt-dlp is not available", source_provider, owner)
         return
 
-    audio_dir = STORAGE_ROOT / "audio"
+    store = get_store(STORAGE_ROOT)
+    audio_dir = store.audio_dir()
     audio_dir.mkdir(parents=True, exist_ok=True)
     outtmpl = str(audio_dir / f"{job_id}.%(ext)s")
 
@@ -888,7 +880,7 @@ def download_source_audio(
     # later by globbing on the job id (the extension is not stored in the DB).
     input_path_obj = Path(input_path)
     suffix = input_path_obj.suffix or ".audio"
-    target_path = (STORAGE_ROOT / "audio" / f"{job_id}{suffix}").resolve()
+    target_path = (audio_dir / f"{job_id}{suffix}").resolve()
     if job_taken_over(job_id, owner):
         # The shared path belongs to the newer attempt now, so only this
         # attempt's own file may be discarded.
@@ -899,6 +891,11 @@ def download_source_audio(
     if input_path_obj.resolve() != target_path:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(input_path_obj), str(target_path))
+    try:
+        store.save_audio(job_id, target_path)
+    except Exception as exc:
+        cleanup_failure(job_id, f"Audio upload failed: {exc}", source_provider, owner)
+        return
     if not set_job_progress(DB_PATH, job_id, 25, owner):
         logger.info("Discarded stale download for job %s", job_id)
         return

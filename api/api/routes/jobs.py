@@ -5,10 +5,12 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from fastapi import APIRouter, BackgroundTasks, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from ..admin_auth import (
     ADMIN_KEY_HEADER,
@@ -53,7 +55,7 @@ from ..models import (
 )
 from ..paths import DB_PATH, STORAGE_ROOT
 from ..route_responses import error_responses
-from ..utils import audio_path_for, read_analysis_json, resolve_analysis_path
+from ..storage import get_store
 from .jobs_runtime import (
     ALLOWED_UPLOAD_EXTS,
     ANALYSIS_MISSING_MESSAGE,
@@ -332,27 +334,36 @@ def _queued_message(job) -> str:
     return f"Queued • {ahead} ahead of you"
 
 
-def _should_attempt_auto_repair(job) -> bool:
+def _should_attempt_auto_repair(job, analysis_present: bool | None = None) -> bool:
     if job.status in {"downloading", "queued", "processing"}:
         return False
     if job.status == "failed":
         return False
-    result_path = resolve_analysis_path(STORAGE_ROOT, job.id)
-    if not result_path.exists():
+    store = get_store(STORAGE_ROOT)
+    if analysis_present is None:
+        analysis_present = store.has_analysis(job.id)
+    if not analysis_present:
         return True
     if not _source_url_for_job(job):
         return False
-    return audio_path_for(STORAGE_ROOT, job.id) is None
+    return not store.has_audio(job.id)
 
 
-def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
+def _attempt_auto_repair(
+    job,
+    background_tasks: BackgroundTasks,
+    analysis_present: bool | None = None,
+    audio_missing: bool | None = None,
+):
     if job.status in {"downloading", "queued", "processing"}:
         return job
 
-    audio_path = audio_path_for(STORAGE_ROOT, job.id)
-    analysis_path = resolve_analysis_path(STORAGE_ROOT, job.id)
-    audio_missing = not audio_path or not audio_path.exists()
-    analysis_missing = not analysis_path.exists()
+    store = get_store(STORAGE_ROOT)
+    if audio_missing is None:
+        audio_missing = not store.has_audio(job.id)
+    if analysis_present is None:
+        analysis_present = store.has_analysis(job.id)
+    analysis_missing = not analysis_present
 
     if analysis_missing and not audio_missing:
         set_job_progress(DB_PATH, job.id, 25)
@@ -408,13 +419,22 @@ def _attempt_auto_repair(job, background_tasks: BackgroundTasks):
 
 
 def _response_with_auto_repair(job, background_tasks: BackgroundTasks) -> JSONResponse:
-    if not _should_attempt_auto_repair(job):
-        return _job_response(job)
-    repaired_job = _attempt_auto_repair(job, background_tasks)
-    return _job_response(repaired_job)
+    # One read serves both the repair check and the response for completed jobs.
+    analysis = None
+    analysis_present = None
+    if job.status == "complete":
+        analysis = get_store(STORAGE_ROOT).read_analysis(job.id)
+        analysis_present = analysis is not None
+    if not _should_attempt_auto_repair(job, analysis_present):
+        return _job_response(job, analysis)
+    # With the analysis present, repair is only attempted because the audio is missing.
+    repaired_job = _attempt_auto_repair(
+        job, background_tasks, analysis_present, audio_missing=True if analysis_present else None
+    )
+    return _job_response(repaired_job, analysis)
 
 
-def _job_response(job) -> JSONResponse:
+def _job_response(job, analysis: Any | None = None) -> JSONResponse:
     base_payload = {
         "id": job.id,
         "source_id": job.source_id,
@@ -445,8 +465,8 @@ def _job_response(job) -> JSONResponse:
         )
         return JSONResponse(payload.model_dump(), status_code=200)
 
-    result_path = resolve_analysis_path(STORAGE_ROOT, job.id)
-    if not result_path.exists():
+    data = analysis if analysis is not None else get_store(STORAGE_ROOT).read_analysis(job.id)
+    if data is None:
         payload = JobError(
             status="failed",
             error=normalize_job_error(ANALYSIS_MISSING_MESSAGE),
@@ -455,7 +475,6 @@ def _job_response(job) -> JSONResponse:
         )
         return JSONResponse(payload.model_dump(), status_code=200)
 
-    data = read_analysis_json(result_path)
     if isinstance(data, dict) and (job.track_title or job.track_artist):
         track = data.get("track")
         if not isinstance(track, dict):
@@ -589,10 +608,10 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
     job_id = uuid.uuid4().hex
-    audio_dir = STORAGE_ROOT / "audio"
+    store = get_store(STORAGE_ROOT)
+    audio_dir = store.audio_dir()
     audio_dir.mkdir(parents=True, exist_ok=True)
-    relative_path = Path("audio") / f"{job_id}{ext}"
-    target_path = (STORAGE_ROOT / relative_path).resolve()
+    target_path = (audio_dir / f"{job_id}{ext}").resolve()
 
     total = 0
     limit = max_upload_bytes()
@@ -627,6 +646,12 @@ async def upload_audio(file: UploadFile = File(...)) -> JSONResponse:
                 status_code=422,
                 detail=track_too_long_detail(max_track_length_min),
             )
+
+    try:
+        await run_in_threadpool(store.save_audio, job_id, target_path)
+    except Exception as exc:
+        target_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Unable to store uploaded audio") from exc
 
     title = sanitize_title(file.filename)
     create_job(
@@ -817,9 +842,7 @@ def delete_job_by_id(
         created_at = parse_timestamp(job.created_at)
         completion_time = None
         if job.status == "complete":
-            result_path = resolve_analysis_path(STORAGE_ROOT, job.id)
-            if result_path.exists():
-                completion_time = datetime.fromtimestamp(result_path.stat().st_mtime, tz=timezone.utc)
+            completion_time = get_store(STORAGE_ROOT).analysis_mtime(job.id)
         now = datetime.now(timezone.utc)
         within_window = False
         if created_at is not None:

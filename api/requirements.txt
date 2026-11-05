@@ -6,3 +6,4 @@ yt-dlp[default] @ https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/lates
 bgutil-ytdlp-pot-provider==2.0.0  # keep in sync with BGUTIL_POT_VERSION in Dockerfile
 httpx
 python-dotenv
+boto3

@@ -80,10 +80,11 @@ def audio_path_for(storage_root: Path, job_id: str) -> Path | None:
     present.
     """
     for candidate in sorted((storage_root / "audio").glob(f"{job_id}.*")):
-        # Reject anything that is not exactly "<id>.<ext>" (fragments, .part).
-        if candidate.name != f"{job_id}{candidate.suffix}":
-            continue
-        if candidate.suffix.lower() in _AUDIO_TEMP_SUFFIXES:
-            continue
-        return candidate
+        if is_finished_audio(candidate, job_id):
+            return candidate
     return None
+
+
+def is_finished_audio(path: Path, job_id: str) -> bool:
+    """True for exactly "<id>.<ext>", rejecting fragments and transient download files."""
+    return path.name == f"{job_id}{path.suffix}" and path.suffix.lower() not in _AUDIO_TEMP_SUFFIXES
