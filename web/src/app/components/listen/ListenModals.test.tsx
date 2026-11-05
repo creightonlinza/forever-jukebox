@@ -14,6 +14,7 @@ import {
 import { useAppStore } from "../../store";
 import {
   clearPlaylist,
+  movePlaylistIndex,
   removePlaylistIndex,
   selectPlaylistIndex,
 } from "../../playlist-actions";
@@ -37,6 +38,7 @@ vi.mock("../../playback", async (importOriginal) => {
 vi.mock("../../playlist-actions", () => ({
   selectPlaylistIndex: vi.fn(),
   removePlaylistIndex: vi.fn(),
+  movePlaylistIndex: vi.fn(),
   clearPlaylist: vi.fn(),
 }));
 vi.mock("../../runtime", () => ({
@@ -398,6 +400,152 @@ describe("PlaylistModal", () => {
     expect(
       (document.getElementById("playlist-clear") as HTMLButtonElement).disabled,
     ).toBe(true);
+  });
+
+  it("moves a track with the arrow keys and keeps focus on its handle", async () => {
+    vi.mocked(movePlaylistIndex).mockReset();
+    vi.mocked(movePlaylistIndex).mockImplementation(() => {
+      useAppStore.setState({
+        playlist: { tracks: [tracks[1], tracks[0]], currentIndex: 1 },
+      });
+    });
+    act(() => {
+      useAppStore.setState({
+        playlistModalOpen: true,
+        playlist: { tracks, currentIndex: 0 },
+      });
+    });
+    render(<PlaylistModal />);
+    screen.getByLabelText("Reorder Song A").focus();
+    await userEvent.keyboard("{ArrowUp}");
+    expect(movePlaylistIndex).not.toHaveBeenCalled();
+    await userEvent.keyboard("{ArrowDown}");
+
+    expect(movePlaylistIndex).toHaveBeenCalledWith(0, 1);
+    const handles = document.querySelectorAll(".playlist-drag-handle");
+    expect(handles[1].getAttribute("aria-label")).toBe("Reorder Song A");
+    expect(document.activeElement).toBe(handles[1]);
+    vi.mocked(movePlaylistIndex).mockReset();
+  });
+
+  it("keeps the artist line for a track without an artist", () => {
+    act(() => {
+      useAppStore.setState({
+        playlistModalOpen: true,
+        playlist: { tracks: [tracks[0], { ...tracks[1], artist: "" }], currentIndex: 0 },
+      });
+    });
+    render(<PlaylistModal />);
+    const artists = document.querySelectorAll(".playlist-item-artist");
+    expect(artists[1].textContent).toBe("\u00a0");
+  });
+
+  describe("dragging a handle", () => {
+    const rowPitch = 50;
+
+    // jsdom has no PointerEvent, so fired pointer events would lack pointerId and isPrimary.
+    class TestPointerEvent extends MouseEvent {
+      pointerId: number;
+      isPrimary: boolean;
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerId = init.pointerId ?? 0;
+        this.isPrimary = init.isPrimary ?? false;
+      }
+    }
+
+    beforeEach(() => {
+      vi.stubGlobal("PointerEvent", TestPointerEvent);
+      vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(
+        function (this: HTMLElement) {
+          const parent = this.parentElement;
+          return parent ? Array.from(parent.children).indexOf(this) * rowPitch : 0;
+        },
+      );
+      HTMLElement.prototype.setPointerCapture = vi.fn();
+      vi.mocked(movePlaylistIndex).mockClear();
+      act(() => {
+        useAppStore.setState({
+          playlistModalOpen: true,
+          playlist: { tracks, currentIndex: 0 },
+        });
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+      delete (HTMLElement.prototype as Partial<HTMLElement>).setPointerCapture;
+    });
+
+    function dragHandle(label: string, deltaY: number) {
+      const handle = screen.getByLabelText(label);
+      fireEvent.pointerDown(handle, { pointerId: 1, isPrimary: true, button: 0, clientY: 100 });
+      fireEvent.pointerMove(handle, { pointerId: 1, isPrimary: true, clientY: 100 + deltaY });
+      return handle;
+    }
+
+    it("moves the track to the slot it is dropped on", () => {
+      render(<PlaylistModal />);
+      const handle = dragHandle("Reorder Song A", rowPitch);
+      expect(document.querySelector(".playlist-item.is-dragging")).not.toBeNull();
+      fireEvent.pointerUp(handle, { pointerId: 1, isPrimary: true, clientY: 150 });
+
+      expect(movePlaylistIndex).toHaveBeenCalledWith(0, 1);
+      expect(document.querySelector(".playlist-item.is-dragging")).toBeNull();
+    });
+
+    it("snaps back without moving when the drag is cancelled", () => {
+      render(<PlaylistModal />);
+      const handle = dragHandle("Reorder Song B", -rowPitch);
+      fireEvent.pointerCancel(handle, { pointerId: 1, isPrimary: true });
+
+      expect(movePlaylistIndex).not.toHaveBeenCalled();
+      expect(document.querySelector(".playlist-item.is-dragging")).toBeNull();
+    });
+
+    it("scrolls the list while the pointer rests near its bottom edge", () => {
+      const frames: FrameRequestCallback[] = [];
+      vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+        frames.push(callback);
+        return frames.length;
+      });
+      vi.stubGlobal("cancelAnimationFrame", vi.fn());
+      render(<PlaylistModal />);
+      const wrap = document.getElementById("playlist-list")!;
+      let scrollTop = 0;
+      Object.defineProperty(wrap, "scrollTop", {
+        configurable: true,
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = value;
+        },
+      });
+      vi.spyOn(wrap, "getBoundingClientRect").mockReturnValue(
+        { top: 0, bottom: 150 } as DOMRect,
+      );
+      // 130 sits 20px into the 40px bottom edge, so each frame scrolls 5px.
+      dragHandle("Reorder Song A", 30);
+      const row = () => document.querySelector<HTMLElement>(".playlist-item.is-dragging")!;
+      expect(row().style.transform).toBe("translateY(30px)");
+      act(() => {
+        frames[frames.length - 1](0);
+      });
+
+      expect(scrollTop).toBe(5);
+      expect(row().style.transform).toBe("translateY(35px)");
+    });
+
+    it("drops nothing when the modal closes mid-drag", () => {
+      render(<PlaylistModal />);
+      const handle = dragHandle("Reorder Song A", rowPitch);
+      act(() => {
+        useAppStore.setState({ playlistModalOpen: false });
+      });
+      fireEvent.pointerUp(handle, { pointerId: 1, isPrimary: true, clientY: 150 });
+
+      expect(movePlaylistIndex).not.toHaveBeenCalled();
+    });
   });
 
   it("closes on Escape", async () => {

@@ -2055,12 +2055,83 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 }
 
 .playlist-item {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px;
+  grid-template-columns: 28px minmax(0, 1fr) 32px;
   gap: 8px;
   align-items: center;
+  padding-left: 4px;
   border-radius: 8px;
   transition: background-color 0.16s ease;
+}
+
+.playlist-list.is-dragging {
+  cursor: grabbing;
+}
+
+.playlist-list.is-dragging .playlist-item {
+  transition:
+    background-color 0.16s ease,
+    transform 0.16s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playlist-list.is-dragging .playlist-item {
+    transition: background-color 0.16s ease;
+  }
+}
+
+.playlist-list.is-dragging .playlist-item.is-dragging {
+  z-index: 1;
+  background: var(--surface-control-hover);
+  box-shadow: 0 8px 20px var(--shadow-elevated);
+  transition: background-color 0.16s ease;
+}
+
+.playlist-drag-handle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease;
+}
+
+.playlist-drag-handle:hover,
+.playlist-drag-handle:focus-visible,
+.playlist-item.is-dragging .playlist-drag-handle {
+  background: var(--surface-control);
+  color: var(--text);
+}
+
+.playlist-item.is-dragging .playlist-drag-handle {
+  cursor: grabbing;
+}
+
+.playlist-drag-handle:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.playlist-drag-icon {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 20;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .playlist-item.is-current {

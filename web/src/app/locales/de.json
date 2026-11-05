@@ -152,6 +152,8 @@
     "added": "Zur Playlist hinzugefügt",
     "addNamed": "{{title}} zur Playlist hinzufügen",
     "removeNamed": "{{title}} entfernen",
+    "reorderNamed": "{{title}} verschieben",
+    "reorderHint": "Ziehen oder mit den Pfeiltasten verschieben",
     "previous": "Vorheriger Song",
     "next": "Nächster Song",
     "title": "Playlist",

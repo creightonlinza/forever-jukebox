@@ -10,6 +10,7 @@ import {
   getResumeIndex,
   hasInactiveSavedPlaylist,
   loadPlaylist,
+  movePlaylistTrack,
   playlistTrackKey,
   removePlaylistTrack,
   replaceActivePlaylistTrack,
@@ -149,6 +150,64 @@ describe("playlist", () => {
       tracks: [track("a")],
       currentIndex: 0,
     });
+  });
+
+  it("moves a track down and keeps the current track playing", () => {
+    const playlist = {
+      tracks: [track("a"), track("b"), track("c"), track("d")],
+      currentIndex: 2,
+    };
+    const next = movePlaylistTrack(playlist, 0, 3);
+
+    expect(next.tracks.map((item) => item.id)).toEqual(["b", "c", "d", "a"]);
+    expect(next.tracks[next.currentIndex].id).toBe("c");
+  });
+
+  it("moves a track up and keeps the current track playing", () => {
+    const playlist = {
+      tracks: [track("a"), track("b"), track("c"), track("d")],
+      currentIndex: 1,
+    };
+    const next = movePlaylistTrack(playlist, 3, 0);
+
+    expect(next.tracks.map((item) => item.id)).toEqual(["d", "a", "b", "c"]);
+    expect(next.tracks[next.currentIndex].id).toBe("b");
+  });
+
+  it("moves the current track itself", () => {
+    const playlist = {
+      tracks: [track("a"), track("b"), track("c")],
+      currentIndex: 0,
+    };
+    const next = movePlaylistTrack(playlist, 0, 2);
+
+    expect(next.tracks.map((item) => item.id)).toEqual(["b", "c", "a"]);
+    expect(next.currentIndex).toBe(2);
+  });
+
+  it("keeps the resume entry on its track in an inactive playlist", () => {
+    const playlist = {
+      tracks: [track("a"), track("b"), track("c")],
+      currentIndex: -1,
+      resumeIndex: 1,
+    };
+    const next = movePlaylistTrack(playlist, 2, 0);
+
+    expect(next.tracks.map((item) => item.id)).toEqual(["c", "a", "b"]);
+    expect(next.currentIndex).toBe(-1);
+    expect(getResumeIndex(next)).toBe(2);
+  });
+
+  it("ignores moves that are out of range or in place", () => {
+    const playlist = {
+      tracks: [track("a"), track("b")],
+      currentIndex: 0,
+    };
+
+    expect(movePlaylistTrack(playlist, 1, 1)).toBe(playlist);
+    expect(movePlaylistTrack(playlist, -1, 0)).toBe(playlist);
+    expect(movePlaylistTrack(playlist, 0, 2)).toBe(playlist);
+    expect(movePlaylistTrack(playlist, 0.5, 1)).toBe(playlist);
   });
 
   it("adjusts the resume index when removing from an inactive playlist", () => {

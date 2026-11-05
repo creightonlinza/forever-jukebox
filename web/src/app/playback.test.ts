@@ -31,6 +31,7 @@ import {
   VISUALIZATION_LABELS,
 } from "./constants";
 import { setAppRuntime } from "./runtime";
+import { PLAYLIST_MAX_TRACKS } from "./playlist";
 import { useAppStore } from "./store";
 import { showToast } from "./ui";
 import {
@@ -2558,7 +2559,7 @@ describe("playback loading", () => {
     const context = createContext();
     useAppStore.setState({
       playlist: {
-      tracks: Array.from({ length: 10 }, (_, index) => ({
+      tracks: Array.from({ length: PLAYLIST_MAX_TRACKS }, (_, index) => ({
         id: `saved-${index}`,
         sourceType: "youtube" as const,
         title: `Saved ${index}`,
@@ -2574,10 +2575,11 @@ describe("playback loading", () => {
       preservePlaylist: true,
     });
 
-    expect(useAppStore.getState().playlist.currentIndex).toBe(9);
-    expect(useAppStore.getState().playlist.tracks).toHaveLength(10);
-    expect(useAppStore.getState().playlist.tracks[9]?.id).toBe("outside");
-    expect(useAppStore.getState().playlist.tracks[8]?.id).toBe("saved-8");
+    const last = PLAYLIST_MAX_TRACKS - 1;
+    expect(useAppStore.getState().playlist.currentIndex).toBe(last);
+    expect(useAppStore.getState().playlist.tracks).toHaveLength(PLAYLIST_MAX_TRACKS);
+    expect(useAppStore.getState().playlist.tracks[last]?.id).toBe("outside");
+    expect(useAppStore.getState().playlist.tracks[last - 1]?.id).toBe(`saved-${last - 1}`);
     expect(deps.onPlaylistChange).toHaveBeenCalledOnce();
   });
 

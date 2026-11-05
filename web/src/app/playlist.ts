@@ -30,7 +30,7 @@ export type PlaylistAddStatus =
   | "invalid";
 
 export const PLAYLIST_STORAGE_KEY = "fj-playlist";
-export const PLAYLIST_MAX_TRACKS = 10;
+export const PLAYLIST_MAX_TRACKS = 25;
 
 export function emptyPlaylist(): PlaylistState {
   return { tracks: [], currentIndex: -1 };
@@ -229,6 +229,51 @@ export function removePlaylistTrack(
     next.resumeIndex = resumeIndex > index ? resumeIndex - 1 : resumeIndex;
   }
   return next;
+}
+
+// The current and resume positions follow their tracks, so a move never
+// changes what is playing or what "Continue listening" resumes.
+export function movePlaylistTrack(
+  playlist: PlaylistState,
+  from: number,
+  to: number,
+): PlaylistState {
+  const count = playlist.tracks.length;
+  if (
+    !Number.isInteger(from) ||
+    !Number.isInteger(to) ||
+    from < 0 ||
+    from >= count ||
+    to < 0 ||
+    to >= count ||
+    from === to
+  ) {
+    return playlist;
+  }
+  const nextTracks = playlist.tracks.slice();
+  const [moved] = nextTracks.splice(from, 1);
+  nextTracks.splice(to, 0, moved);
+  const next: PlaylistState = {
+    tracks: nextTracks,
+    currentIndex: indexAfterMove(playlist.currentIndex, from, to),
+  };
+  if (typeof playlist.resumeIndex === "number") {
+    next.resumeIndex = indexAfterMove(playlist.resumeIndex, from, to);
+  }
+  return next;
+}
+
+function indexAfterMove(index: number, from: number, to: number) {
+  if (index === from) {
+    return to;
+  }
+  if (from < to && index > from && index <= to) {
+    return index - 1;
+  }
+  if (to < from && index >= to && index < from) {
+    return index + 1;
+  }
+  return index;
 }
 
 function parseStoredPlaylistTracks(parsed: PlaylistTrack[] | { tracks?: PlaylistTrack[] }) {

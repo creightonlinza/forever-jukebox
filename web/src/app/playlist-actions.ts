@@ -11,6 +11,8 @@ import {
   canMovePlaylistPrevious,
   emptyPlaylist,
   isPlaylistActive,
+  movePlaylistTrack,
+  playlistTrackKey,
   removePlaylistTrack,
   replaceActivePlaylistTrack,
   savePlaylist,
@@ -42,6 +44,10 @@ export function selectPlaylistIndex(index: number): void {
 
 export function removePlaylistIndex(index: number): void {
   removePlaylistIndexInternal(index);
+}
+
+export function movePlaylistIndex(from: number, to: number): void {
+  updatePlaylist(movePlaylistTrack(useAppStore.getState().playlist, from, to));
 }
 
 export function clearPlaylist(): void {
@@ -203,11 +209,7 @@ export async function loadPlaylistIndex(
     const previousPlaylist = syncActivePlaylistTrackTuning();
     playlistLoadInFlight = true;
     useAppStore.setState({ playlistLoadBusy: true });
-    const activatedPlaylist = activatePlaylistTrack(
-      useAppStore.getState().playlist,
-      index,
-    );
-    updatePlaylist(activatedPlaylist);
+    updatePlaylist(activatePlaylistTrack(useAppStore.getState().playlist, index));
     // Switch mode first so applyTrackTuning sees the right mode and the URL
     // navigation below serializes it. Tracks without a stored mode default to
     // jukebox.
@@ -238,10 +240,7 @@ export async function loadPlaylistIndex(
       useAppStore.setState({ playlistLoadBusy: false });
     }
     if (!loadStarted) {
-      // Only roll back if no newer load has replaced the playlist meanwhile.
-      if (useAppStore.getState().playlist === activatedPlaylist) {
-        updatePlaylist(previousPlaylist);
-      }
+      rollBackPlaylistActivation(track, previousPlaylist);
       return false;
     }
     if (options?.playAfterLoad && !useAppStore.getState().isRunning) {
@@ -251,6 +250,31 @@ export async function loadPlaylistIndex(
   }
 
 
+
+  // Re-activates the previous track by key, so edits made during the load are kept.
+  // Skipped when the failed track is no longer current (a newer load replaced it).
+  function rollBackPlaylistActivation(
+    failedTrack: PlaylistTrack,
+    previousPlaylist: AppState["playlist"],
+  ) {
+    const playlist = useAppStore.getState().playlist;
+    const current = isPlaylistActive(playlist)
+      ? playlist.tracks[playlist.currentIndex]
+      : null;
+    if (!current || playlistTrackKey(current) !== playlistTrackKey(failedTrack)) {
+      return;
+    }
+    const previousTrack = isPlaylistActive(previousPlaylist)
+      ? previousPlaylist.tracks[previousPlaylist.currentIndex]
+      : null;
+    const currentIndex = previousTrack
+      ? playlist.tracks.findIndex(
+          (candidate) =>
+            playlistTrackKey(candidate) === playlistTrackKey(previousTrack),
+        )
+      : -1;
+    updatePlaylist({ ...playlist, currentIndex });
+  }
 
   function updatePlaylist(nextPlaylist: AppState["playlist"]) {
     useAppStore.setState({ playlist: nextPlaylist });

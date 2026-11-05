@@ -152,6 +152,8 @@
     "added": "Added to playlist",
     "addNamed": "Add {{title}} to playlist",
     "removeNamed": "Remove {{title}}",
+    "reorderNamed": "Reorder {{title}}",
+    "reorderHint": "Drag or use the arrow keys to reorder",
     "previous": "Previous playlist track",
     "next": "Next playlist track",
     "title": "Playlist",

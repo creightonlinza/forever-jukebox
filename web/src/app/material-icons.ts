@@ -11,6 +11,7 @@ export const MATERIAL_SYMBOL_ICON_NAMES = [
   "cloud_off",
   "delete",
   "download",
+  "drag_handle",
   "error",
   "flag",
   "fullscreen",

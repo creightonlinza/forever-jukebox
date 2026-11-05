@@ -8,7 +8,7 @@ import {
 } from "./playback";
 import { trackEvent } from "./analytics";
 import { setPlayMode } from "./playback-ui";
-import { emptyPlaylist, type PlaylistTrack } from "./playlist";
+import { PLAYLIST_MAX_TRACKS, emptyPlaylist, type PlaylistTrack } from "./playlist";
 import { setAppRuntime, setPlaybackDeps } from "./runtime";
 import { useAppStore } from "./store";
 import { showToast } from "./ui";
@@ -18,6 +18,7 @@ import {
   clearPlaylist,
   handleNormalTrackSelected,
   loadPlaylistIndex,
+  movePlaylistIndex,
   playlistNext,
   playlistPrevious,
   removePlaylistIndex,
@@ -126,7 +127,7 @@ describe("playlist handlers", () => {
 
     useAppStore.setState({
       playlist: {
-      tracks: Array.from({ length: 10 }, (_, index) => track(`${index}`)),
+      tracks: Array.from({ length: PLAYLIST_MAX_TRACKS }, (_, index) => track(`${index}`)),
       currentIndex: 0,
     }
     });
@@ -212,6 +213,69 @@ describe("playlist handlers", () => {
       currentIndex: 0,
     });
     expect(useAppStore.getState().playlistModalOpen).toBe(false);
+  });
+
+  it("moves a playlist entry and saves the new order", () => {
+    createDeps({
+      playlist: {
+        tracks: [track("a"), track("b"), track("c")],
+        currentIndex: 1,
+      },
+    } as Partial<AppState>);
+    movePlaylistIndex(0, 2);
+
+    const playlist = useAppStore.getState().playlist;
+    expect(playlist.tracks.map((item) => item.id)).toEqual(["b", "c", "a"]);
+    expect(playlist.currentIndex).toBe(0);
+    const stored = JSON.parse(localStorage.getItem("fj-playlist") ?? "{}") as {
+      tracks: PlaylistTrack[];
+    };
+    expect(stored.tracks.map((item) => item.id)).toEqual(["b", "c", "a"]);
+  });
+
+  it("keeps a move made during a load that then fails, and rolls back by track", async () => {
+    createDeps({
+      playlist: {
+        tracks: [track("a"), track("b"), track("c")],
+        currentIndex: 0,
+      },
+    } as Partial<AppState>);
+    let finishLoad: (loaded: boolean) => void = () => {};
+    vi.mocked(loadTrackById).mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishLoad = resolve;
+        }),
+    );
+    const load = loadPlaylistIndex(2);
+    movePlaylistIndex(2, 0);
+    finishLoad(false);
+    await load;
+
+    const playlist = useAppStore.getState().playlist;
+    expect(playlist.tracks.map((item) => item.id)).toEqual(["c", "a", "b"]);
+    expect(playlist.tracks[playlist.currentIndex].id).toBe("a");
+  });
+
+  it("does not roll back a failed load once another track replaced it", async () => {
+    createDeps({
+      playlist: { tracks: [track("a"), track("b")], currentIndex: 0 },
+    } as Partial<AppState>);
+    let finishLoad: (loaded: boolean) => void = () => {};
+    vi.mocked(loadTrackById).mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishLoad = resolve;
+        }),
+    );
+    const load = loadPlaylistIndex(1);
+    handleNormalTrackSelected(track("z"));
+    finishLoad(false);
+    await load;
+
+    const playlist = useAppStore.getState().playlist;
+    expect(playlist.tracks.map((item) => item.id)).toEqual(["a", "z"]);
+    expect(playlist.currentIndex).toBe(1);
   });
 
   it("replaces the active playlist item on normal track selection", () => {
@@ -513,7 +577,7 @@ describe("playlist handlers", () => {
     addToPlaylist(track("next"), "top");
     useAppStore.setState({
       playlist: {
-        tracks: Array.from({ length: 10 }, (_, index) => track(`${index}`)),
+        tracks: Array.from({ length: PLAYLIST_MAX_TRACKS }, (_, index) => track(`${index}`)),
         currentIndex: 0,
       },
     });
