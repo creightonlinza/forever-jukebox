@@ -599,6 +599,7 @@ function insertBestBackwardBranch(
   maxThreshold: number,
   minSourceIndex = Math.floor(quanta.length * 0.66),
   context?: AnchorDecisionContext,
+  minJump = 1,
 ): number | null {
   const decisionContext = context ?? buildAnchorDecisionContext(quanta);
   const branches: Array<{
@@ -619,7 +620,7 @@ function insertBestBackwardBranch(
         continue;
       }
       const delta = i - neighbor.dest.which;
-      if (delta > 0 && neighbor.distance < maxThreshold) {
+      if (delta >= minJump && neighbor.distance < maxThreshold) {
         if (neighbor.distance <= threshold) {
           continue;
         }
@@ -944,15 +945,17 @@ function addAnchorBranch(
     // Existing end-of-track branch already reaches the early target zone.
     return existingAnchorSource;
   }
-  if (config.justBackwards || config.justLongBranches) {
-    return existingAnchorSource;
-  }
+  // Inserted anchors always jump backward; long-only mode also holds them to the min length.
+  const minInsertedJump = config.justLongBranches
+    ? Math.max(1, config.minLongBranch)
+    : 1;
   const lateInsertedSource = insertBestBackwardBranch(
     quanta,
     threshold,
     maxAnchorThreshold,
     preferredLateStart,
     decisionContext,
+    minInsertedJump,
   );
   if (lateInsertedSource !== null) {
     return lateInsertedSource;
@@ -966,6 +969,7 @@ function addAnchorBranch(
     maxAnchorThreshold,
     Math.floor(quanta.length * 0.66),
     decisionContext,
+    minInsertedJump,
   );
 }
 

@@ -756,14 +756,31 @@ describe("buildJumpGraph", () => {
     expect(graph.lastBranchPoint).toBe(8);
   });
 
-  it("does not insert above-threshold anchors when branch-type filters are active", () => {
+  it("inserts an above-threshold anchor when branch-type filters are active", () => {
     const analysis = makeInsertionWithoutExistingAnchorScenario();
     const graph = buildJumpGraph(
       analysis,
       defaultConfig({
         currentThreshold: 20,
         justBackwards: true,
-        minLongBranch: 2,
+        justLongBranches: true,
+        minLongBranch: 7,
+      }),
+    );
+    const edges = collectEdgeKeys(analysis);
+
+    expect(edges.includes("8->1")).toBe(true);
+    expect(graph.lastBranchPoint).toBe(8);
+  });
+
+  it("does not insert an anchor shorter than the long-branch minimum", () => {
+    const analysis = makeInsertionWithoutExistingAnchorScenario();
+    const graph = buildJumpGraph(
+      analysis,
+      defaultConfig({
+        currentThreshold: 20,
+        justLongBranches: true,
+        minLongBranch: 8,
       }),
     );
     const edges = collectEdgeKeys(analysis);

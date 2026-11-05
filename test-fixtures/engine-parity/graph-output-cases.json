@@ -497,6 +497,324 @@
       }
     },
     {
+      "id": "anchor_insertion_long_filter",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 2,
+        "justLongBranches": true
+      },
+      "edges": [
+        [
+          0,
+          2,
+          10
+        ],
+        [
+          3,
+          1,
+          10
+        ],
+        [
+          8,
+          1,
+          40
+        ]
+      ],
+      "expected": {
+        "graph": {
+          "computedThreshold": 10,
+          "currentThreshold": 20,
+          "lastBranchPoint": 8,
+          "totalBeats": 10,
+          "longestReach": 70,
+          "allEdgesCount": 3
+        },
+        "activeEdges": [
+          [
+            0,
+            2,
+            10
+          ],
+          [
+            3,
+            1,
+            10
+          ],
+          [
+            8,
+            1,
+            40
+          ]
+        ],
+        "allEdges": [
+          [
+            0,
+            0,
+            2,
+            10
+          ],
+          [
+            1,
+            3,
+            1,
+            10
+          ],
+          [
+            2,
+            8,
+            1,
+            40
+          ]
+        ]
+      }
+    },
+    {
+      "id": "anchor_insertion_backwards_filter",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 2,
+        "justBackwards": true
+      },
+      "edges": [
+        [
+          0,
+          2,
+          10
+        ],
+        [
+          3,
+          1,
+          10
+        ],
+        [
+          8,
+          1,
+          40
+        ]
+      ],
+      "expected": {
+        "graph": {
+          "computedThreshold": 10,
+          "currentThreshold": 20,
+          "lastBranchPoint": 8,
+          "totalBeats": 10,
+          "longestReach": 70,
+          "allEdgesCount": 3
+        },
+        "activeEdges": [
+          [
+            3,
+            1,
+            10
+          ],
+          [
+            8,
+            1,
+            40
+          ]
+        ],
+        "allEdges": [
+          [
+            0,
+            0,
+            2,
+            10
+          ],
+          [
+            1,
+            3,
+            1,
+            10
+          ],
+          [
+            2,
+            8,
+            1,
+            40
+          ]
+        ]
+      }
+    },
+    {
+      "id": "anchor_insertion_below_min_jump",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 8,
+        "justLongBranches": true
+      },
+      "edges": [
+        [
+          0,
+          2,
+          10
+        ],
+        [
+          3,
+          1,
+          10
+        ],
+        [
+          8,
+          1,
+          40
+        ]
+      ],
+      "expected": {
+        "graph": {
+          "computedThreshold": 10,
+          "currentThreshold": 20,
+          "lastBranchPoint": -1,
+          "totalBeats": 10,
+          "longestReach": 0,
+          "allEdgesCount": 3
+        },
+        "activeEdges": [],
+        "allEdges": [
+          [
+            0,
+            0,
+            2,
+            10
+          ],
+          [
+            1,
+            3,
+            1,
+            10
+          ],
+          [
+            2,
+            8,
+            1,
+            40
+          ]
+        ]
+      }
+    },
+    {
+      "id": "anchor_fallback_insertion_long_filter",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 6,
+        "justLongBranches": true
+      },
+      "edges": [
+        [
+          0,
+          2,
+          10
+        ],
+        [
+          3,
+          1,
+          10
+        ],
+        [
+          7,
+          1,
+          40
+        ]
+      ],
+      "expected": {
+        "graph": {
+          "computedThreshold": 10,
+          "currentThreshold": 20,
+          "lastBranchPoint": 7,
+          "totalBeats": 10,
+          "longestReach": 60,
+          "allEdgesCount": 3
+        },
+        "activeEdges": [
+          [
+            7,
+            1,
+            40
+          ]
+        ],
+        "allEdges": [
+          [
+            0,
+            0,
+            2,
+            10
+          ],
+          [
+            1,
+            3,
+            1,
+            10
+          ],
+          [
+            2,
+            7,
+            1,
+            40
+          ]
+        ]
+      }
+    },
+    {
+      "id": "anchor_fallback_insertion_below_min_jump",
+      "beats": 10,
+      "config": {
+        "currentThreshold": 20,
+        "minLongBranch": 7,
+        "justLongBranches": true
+      },
+      "edges": [
+        [
+          0,
+          2,
+          10
+        ],
+        [
+          3,
+          1,
+          10
+        ],
+        [
+          7,
+          1,
+          40
+        ]
+      ],
+      "expected": {
+        "graph": {
+          "computedThreshold": 10,
+          "currentThreshold": 20,
+          "lastBranchPoint": -1,
+          "totalBeats": 10,
+          "longestReach": 0,
+          "allEdgesCount": 3
+        },
+        "activeEdges": [],
+        "allEdges": [
+          [
+            0,
+            0,
+            2,
+            10
+          ],
+          [
+            1,
+            3,
+            1,
+            10
+          ],
+          [
+            2,
+            7,
+            1,
+            40
+          ]
+        ]
+      }
+    },
+    {
       "id": "nearby_guardrail_case",
       "beats": 30,
       "config": {
