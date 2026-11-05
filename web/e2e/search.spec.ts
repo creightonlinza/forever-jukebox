@@ -1,5 +1,14 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { expectToast, fetchAppConfig } from "./helpers";
+
+// Rendered images load straight from Spotify's and YouTube's image servers.
+async function expectImageLoaded(image: Locator) {
+  await expect
+    .poll(() => image.evaluate((el: HTMLImageElement) => el.naturalWidth), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(0);
+}
 
 test.describe("search panel", () => {
   test("empty query shows a prompt; input caps at 100 chars", async ({
@@ -31,6 +40,9 @@ test.describe("search panel", () => {
     });
     const first = page.locator(".search-item").first();
     await expect(first.locator("strong")).toContainText(/./);
+    const albumArt = first.locator("img.search-thumb");
+    await expect(albumArt).toHaveAttribute("src", /^https:\/\/i\.scdn\.co\//);
+    await expectImageLoaded(albumArt);
   });
 
   test("Spotify result click reaches the YouTube match step (mocked lookup miss)", async ({
@@ -54,10 +66,16 @@ test.describe("search panel", () => {
     );
     const matches = page.locator(".search-item");
     await expect(matches.first()).toBeVisible();
-    // matches carry a preview button (not selection) that opens a modal with
-    // the external YouTube link
-    const open = matches.first().locator(".search-open");
+    // matches carry a thumbnail preview button (not selection) that opens a
+    // modal with the external YouTube link
+    const open = matches.first().locator(".search-thumb-button");
     await expect(open).toHaveAttribute("aria-label", "Open YouTube preview");
+    const videoThumb = open.locator("img");
+    await expect(videoThumb).toHaveAttribute(
+      "src",
+      /^https:\/\/i\.ytimg\.com\/vi\/[^/]+\/default\.jpg$/,
+    );
+    await expectImageLoaded(videoThumb);
     await open.click();
     const previewLink = page.locator(
       "#youtube-preview-modal .youtube-preview-open",
