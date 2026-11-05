@@ -49,6 +49,7 @@ export type SpotifySearchItem = {
   name?: string;
   artist?: string;
   duration?: number;
+  image?: string | null;
 };
 
 export type YoutubeSearchItem = {

@@ -28,16 +28,26 @@ function youtubeResultKey(
   return item.id ?? `${name}\u0000${artist}\u0000${item.title ?? ""}\u0000${duration}`;
 }
 
+// "default" (120x90) suits result rows; "hqdefault" (480x360) the preview. Both
+// carry letterbox bars that the 16:9 crop trims.
+function youtubeThumbnail(youtubeId: string, size: "default" | "hqdefault") {
+  return `https://i.ytimg.com/vi/${encodeURIComponent(youtubeId)}/${size}.jpg`;
+}
+
+// Opens the preview from the video thumbnail, or from an icon if the thumbnail fails to load.
 function YoutubePreviewButton({
+  youtubeId,
   onOpen,
 }: {
+  youtubeId: string;
   onOpen: () => void;
 }) {
   const { t } = useTranslation();
+  const [failed, setFailed] = useState(false);
   return (
     <button
       type="button"
-      className="search-open"
+      className="search-open search-thumb-button"
       title={t("search.previewYoutube")}
       aria-label={t("search.previewYoutube")}
       onClick={(event) => {
@@ -45,13 +55,49 @@ function YoutubePreviewButton({
         onOpen();
       }}
     >
-      <span
-        className="material-symbols-outlined search-open-icon"
-        aria-hidden="true"
-      >
-        open_in_new
-      </span>
+      {failed ? (
+        <span
+          className="material-symbols-outlined search-open-icon"
+          aria-hidden="true"
+        >
+          open_in_new
+        </span>
+      ) : (
+        <>
+          <img
+            src={youtubeThumbnail(youtubeId, "default")}
+            alt=""
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setFailed(true)}
+          />
+          <span
+            className="material-symbols-outlined search-thumb-icon"
+            aria-hidden="true"
+          >
+            open_in_new
+          </span>
+        </>
+      )}
     </button>
+  );
+}
+
+// Album art for a Spotify result row; hidden if it fails to load.
+function ResultThumbnail({ src }: { src: string | null | undefined }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return null;
+  }
+  return (
+    <img
+      className="search-thumb"
+      src={src}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -96,6 +142,7 @@ function SearchResults() {
                   data-track-artist={artist}
                   onClick={() => selectSpotify({ name, artist, duration })}
                 >
+                  <ResultThumbnail src={item.image} />
                   <strong>{title}</strong>
                   <span>{formatTrackDuration(item.duration)}</span>
                 </button>
@@ -118,6 +165,21 @@ function SearchResults() {
           return (
             <li key={youtubeResultKey(item, name, artist, ytDuration)}>
               <div className="search-item">
+                {item.id ? (
+                  <YoutubePreviewButton
+                    youtubeId={youtubeId}
+                    onOpen={() => {
+                      setThumbnailFailed(false);
+                      setYoutubePreview({
+                        youtubeId,
+                        title,
+                        name,
+                        artist,
+                        duration: ytDuration,
+                      });
+                    }}
+                  />
+                ) : null}
                 <button
                   type="button"
                   className="search-select"
@@ -136,22 +198,6 @@ function SearchResults() {
                   <strong>{title}</strong>
                   <span>{formatTrackDuration(item.duration)}</span>
                 </button>
-                <span className="search-meta">
-                  {item.id ? (
-                    <YoutubePreviewButton
-                      onOpen={() => {
-                        setThumbnailFailed(false);
-                        setYoutubePreview({
-                          youtubeId,
-                          title,
-                          name,
-                          artist,
-                          duration: ytDuration,
-                        });
-                      }}
-                    />
-                  ) : null}
-                </span>
               </div>
             </li>
           );
@@ -172,7 +218,7 @@ function SearchResults() {
           {youtubePreview && !thumbnailFailed ? (
             <div className="youtube-preview-thumbnail">
               <img
-                src={`https://i.ytimg.com/vi/${encodeURIComponent(youtubePreview.youtubeId)}/hqdefault.jpg`}
+                src={youtubeThumbnail(youtubePreview.youtubeId, "hqdefault")}
                 alt={t("search.youtubeThumbnailAlt", {
                   title: youtubePreview.title,
                 })}

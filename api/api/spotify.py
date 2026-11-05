@@ -88,6 +88,12 @@ def _retry_with_backoff(
     return response
 
 
+def _album_thumbnail(track: dict) -> str | None:
+    # Spotify lists album art largest first; the smallest (about 64 px) suits a result row.
+    images = [image for image in (track.get("album") or {}).get("images") or [] if image.get("url")]
+    return images[-1]["url"] if images else None
+
+
 def search_spotify_tracks(query: str, settings: ApiSettings, limit: int) -> list[dict[str, object]]:
     response = _retry_with_backoff(settings, query, limit)
     if response.status_code != 200:
@@ -106,6 +112,7 @@ def search_spotify_tracks(query: str, settings: ApiSettings, limit: int) -> list
                 "name": track.get("name"),
                 "artist": artist,
                 "duration": round(duration_ms / 1000),
+                "image": _album_thumbnail(track),
             }
         )
     return items

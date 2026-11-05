@@ -46,6 +46,7 @@ class SpotifyItem(BaseModel):
     name: str | None = None
     artist: str | None = None
     duration: int
+    image: str | None = None
 
 
 class SpotifySearchResponse(BaseModel):
