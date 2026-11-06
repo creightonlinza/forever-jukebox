@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import multiprocessing
 from datetime import datetime, timezone
@@ -21,12 +22,13 @@ from api.db import (
     set_job_status,
 )
 from api.routes.jobs_runtime import failure_code_for, log_event, maybe_notify_youtube_failures
-from api.storage import StorageError, discard_job_files, get_store
+from api.storage import S3Store, StorageError, backup_databases, discard_job_files, get_store
 from api.utils import get_logger
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 STORAGE_ROOT = (APP_ROOT / "storage").resolve()
 DB_PATH = STORAGE_ROOT / "jobs.db"
+FAVORITES_DB_PATH = STORAGE_ROOT / "favorites.db"
 
 ENGINE_REPO = Path(os.environ.get("ENGINE_REPO", ""))
 
@@ -48,6 +50,8 @@ API_PROGRESS_END = 100
 STORAGE_RETRY_DELAY_S = 30.0
 # Storage errors a job may hit before it fails; counted per worker process, reset on restart.
 STORAGE_RETRY_LIMIT = 5
+# How often a running machine checks whether its database backups are due.
+BACKUP_CHECK_INTERVAL_S = 3600.0
 _storage_failures: dict[str, int] = {}
 logger = get_logger("foreverjukebox.worker")
 
@@ -281,6 +285,30 @@ def run_worker_loop() -> None:
             elapsed_ms=_completion_elapsed_ms(job),
         )
 
+
+def run_backup_checks(store: S3Store) -> None:
+    """Back up the databases whenever a check finds them due; failures retry at the next check."""
+    while True:
+        try:
+            for name in backup_databases(store, (DB_PATH, FAVORITES_DB_PATH)):
+                logger.info("Backed up %s to the bucket", name)
+        except Exception:
+            logger.warning("Database backup failed", exc_info=True)
+        time.sleep(BACKUP_CHECK_INTERVAL_S)
+
+
+def start_backup_thread() -> None:
+    """Database backups only run with bucket storage; local storage keeps none.
+
+    Start it after forking worker processes, so no child copies a thread holding a lock.
+    """
+    store = get_store(STORAGE_ROOT)
+    if isinstance(store, S3Store):
+        threading.Thread(
+            target=run_backup_checks, args=(store,), name="db-backup", daemon=True
+        ).start()
+
+
 def main() -> None:
     get_store(STORAGE_ROOT)
     init_db(DB_PATH)
@@ -293,6 +321,7 @@ def main() -> None:
         logger.info("Recovered %s stalled processing job(s) back to queue", recovered_jobs)
 
     if WORKER_COUNT <= 1:
+        start_backup_thread()
         run_worker_loop()
         return
 
@@ -302,6 +331,7 @@ def main() -> None:
         proc = multiprocessing.Process(target=run_worker_loop, name=f"worker-{idx + 1}")
         proc.start()
         procs.append(proc)
+    start_backup_thread()
 
     try:
         for proc in procs:
