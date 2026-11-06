@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Copy audio and analysis between local storage and a Tigris (S3) bucket.
+"""Copy audio and analysis between local storage and an S3-compatible bucket.
 
     push    upload local files that are missing or differently sized in the bucket
     verify  check every local file has an object with the same size and MD5 (ETag);
             with --repair, re-upload missing and mismatched files
     prune   list objects with no local file (jobs deleted since an earlier push);
-            with --apply, delete them. Refused once STORAGE_BACKEND=tigris, when there is
-            no local audio, or when more than 10% of the bucket would go (--force overrides
+            with --apply, delete them. Refused while STORAGE_BACKEND is anything but local,
+            when there is no local audio, or when more than 10% of the bucket would go (--force overrides
             the last two).
     pull    download objects that are missing locally (switching back to local storage)
 
-Uses the same keys as STORAGE_BACKEND=tigris. Reads BUCKET_NAME, AWS_ENDPOINT_URL_S3,
+Uses the same keys as STORAGE_BACKEND=s3. Reads BUCKET_NAME, AWS_ENDPOINT_URL_S3,
 AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY; STORAGE_BACKEND itself need not be set.
 Legacy plain .json analysis is gzipped on upload. Safe to re-run.
 
 Usage (from api/):
-    python scripts/sync_storage_to_tigris.py {push,verify,prune,pull} [--repair] [--apply]
+    python scripts/sync_storage.py {push,verify,prune,pull} [--repair] [--apply]
         [--force] [--storage-root PATH] [--workers N]
 """
 
@@ -35,7 +35,7 @@ from typing import Callable, Iterable
 APP_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
-from api.storage import S3Store, analysis_key, audio_key, tigris_store_from_env  # noqa: E402
+from api.storage import S3Store, analysis_key, audio_key, s3_store_from_env  # noqa: E402
 from api.utils import is_finished_audio, resolve_analysis_path  # noqa: E402
 
 DEFAULT_STORAGE_ROOT = APP_ROOT / "storage"
@@ -213,7 +213,7 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args()
 
-    store = tigris_store_from_env()
+    store = s3_store_from_env()
     root = args.storage_root.resolve()
     remote = remote_objects(store)
     print(f"bucket {store.bucket}: {len(remote)} objects", flush=True)
@@ -233,8 +233,9 @@ def main() -> int:
         counts = run_all("push", tasks, args.workers)
         return 1 if counts.get("error") else 0
     if args.command == "prune":
-        if (os.environ.get("STORAGE_BACKEND") or "").strip().lower() == "tigris":
-            print("prune refused: the bucket is live (STORAGE_BACKEND=tigris)", flush=True)
+        backend = (os.environ.get("STORAGE_BACKEND") or "local").strip().lower()
+        if backend != "local":
+            print(f"prune refused: the bucket may be live (STORAGE_BACKEND={backend})", flush=True)
             return 1
         orphans = orphan_keys(items, remote)
         audio_orphans = sum(1 for key in orphans if key.startswith("audio/"))

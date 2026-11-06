@@ -21,10 +21,10 @@ from fastapi import BackgroundTasks, UploadFile
 from api.db import create_job, get_job, init_db
 from api.routes import jobs, jobs_runtime, media
 from api.storage import LocalStore, S3Store, get_store
-from scripts import sync_storage_to_tigris as sync
+from scripts import sync_storage as sync
 from worker import worker as worker_module
 
-TIGRIS_ENV = {
+S3_ENV = {
     "BUCKET_NAME": "bucket",
     "AWS_ENDPOINT_URL_S3": "https://storage.example",
     "AWS_ACCESS_KEY_ID": "test-key-id",
@@ -120,8 +120,8 @@ def _env_without_backend() -> dict[str, str]:
 
 class GetStoreTests(unittest.TestCase):
     def setUp(self) -> None:
-        storage._tigris_store.cache_clear()
-        self.addCleanup(storage._tigris_store.cache_clear)
+        storage._s3_store.cache_clear()
+        self.addCleanup(storage._s3_store.cache_clear)
 
     def test_defaults_to_local_store(self) -> None:
         with patch.dict(os.environ, _env_without_backend(), clear=True):
@@ -129,36 +129,37 @@ class GetStoreTests(unittest.TestCase):
         self.assertIsInstance(store, LocalStore)
         self.assertEqual(store.root, Path("/data"))
 
-    def test_tigris_credentials_alone_do_not_enable_tigris(self) -> None:
-        with patch.dict(os.environ, {**_env_without_backend(), **TIGRIS_ENV}, clear=True):
+    def test_bucket_credentials_alone_do_not_enable_s3(self) -> None:
+        with patch.dict(os.environ, {**_env_without_backend(), **S3_ENV}, clear=True):
             self.assertIsInstance(get_store(Path("/data")), LocalStore)
 
     def test_explicit_local_backend(self) -> None:
         with patch.dict(os.environ, {storage.STORAGE_BACKEND_ENV: "local"}):
             self.assertIsInstance(get_store(Path("/data")), LocalStore)
 
-    def test_tigris_backend_uses_bucket_from_env(self) -> None:
-        with patch.dict(os.environ, {**TIGRIS_ENV, storage.STORAGE_BACKEND_ENV: "tigris"}):
+    def test_s3_backend_uses_bucket_from_env(self) -> None:
+        with patch.dict(os.environ, {**S3_ENV, storage.STORAGE_BACKEND_ENV: "s3"}):
             store = get_store(Path("/data"))
         self.assertIsInstance(store, S3Store)
         self.assertEqual(store.bucket, "bucket")
 
-    def test_tigris_backend_without_bucket_fails(self) -> None:
-        env = {storage.STORAGE_BACKEND_ENV: "tigris", "BUCKET_NAME": "", "AWS_ENDPOINT_URL_S3": ""}
+    def test_s3_backend_without_bucket_fails(self) -> None:
+        env = {storage.STORAGE_BACKEND_ENV: "s3", "BUCKET_NAME": "", "AWS_ENDPOINT_URL_S3": ""}
         with patch.dict(os.environ, env):
             with self.assertRaises(RuntimeError):
                 get_store(Path("/data"))
 
-    def test_tigris_backend_without_access_keys_fails(self) -> None:
-        env = {**TIGRIS_ENV, storage.STORAGE_BACKEND_ENV: "tigris", "AWS_SECRET_ACCESS_KEY": ""}
+    def test_s3_backend_without_access_keys_fails(self) -> None:
+        env = {**S3_ENV, storage.STORAGE_BACKEND_ENV: "s3", "AWS_SECRET_ACCESS_KEY": ""}
         with patch.dict(os.environ, env):
             with self.assertRaisesRegex(RuntimeError, "AWS_SECRET_ACCESS_KEY"):
                 get_store(Path("/data"))
 
     def test_unknown_backend_fails(self) -> None:
-        with patch.dict(os.environ, {storage.STORAGE_BACKEND_ENV: "nfs"}):
-            with self.assertRaises(RuntimeError):
-                get_store(Path("/data"))
+        for value in ("nfs", "tigris"):
+            with self.subTest(value=value), patch.dict(os.environ, {storage.STORAGE_BACKEND_ENV: value}):
+                with self.assertRaisesRegex(RuntimeError, "Unsupported"):
+                    get_store(Path("/data"))
 
 
 class LocalStoreTests(unittest.TestCase):
@@ -324,7 +325,7 @@ class S3StoreTests(unittest.TestCase):
         self.assertEqual(self.store.artifact_bytes([]), {})
 
 
-class TigrisRouteTests(unittest.TestCase):
+class S3RouteTests(unittest.TestCase):
     def setUp(self) -> None:
         temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(temp_dir.cleanup)
@@ -334,8 +335,8 @@ class TigrisRouteTests(unittest.TestCase):
         self.client = FakeS3()
         self.store = S3Store("bucket", root / "scratch", client=self.client)
         for target in (
-            patch.dict(os.environ, {storage.STORAGE_BACKEND_ENV: "tigris"}),
-            patch.object(storage, "_tigris_store", return_value=self.store),
+            patch.dict(os.environ, {storage.STORAGE_BACKEND_ENV: "s3"}),
+            patch.object(storage, "_s3_store", return_value=self.store),
             patch.object(jobs, "DB_PATH", self.db_path),
             patch.object(media, "DB_PATH", self.db_path),
         ):
@@ -434,7 +435,7 @@ class FakeYoutubeDL:
         return {"requested_downloads": [{"filepath": str(path)}], "title": "Song"}
 
 
-class TigrisIngestTests(unittest.TestCase):
+class S3IngestTests(unittest.TestCase):
     def setUp(self) -> None:
         temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(temp_dir.cleanup)
@@ -447,12 +448,12 @@ class TigrisIngestTests(unittest.TestCase):
             patch.dict(
                 os.environ,
                 {
-                    storage.STORAGE_BACKEND_ENV: "tigris",
+                    storage.STORAGE_BACKEND_ENV: "s3",
                     "ALLOW_USER_UPLOAD": "true",
                     "MAX_TRACK_LENGTH": "",
                 },
             ),
-            patch.object(storage, "_tigris_store", return_value=self.store),
+            patch.object(storage, "_s3_store", return_value=self.store),
             patch.object(jobs, "DB_PATH", self.db_path),
             patch.object(jobs_runtime, "DB_PATH", self.db_path),
             patch.object(jobs_runtime, "STORAGE_ROOT", self.root / "storage"),
@@ -599,7 +600,7 @@ class LocalWorkerTests(unittest.TestCase):
                 self.assertEqual(json.load(handle), {"track": {"duration": 2.5}})
 
 
-class TigrisWorkerTests(unittest.TestCase):
+class S3WorkerTests(unittest.TestCase):
     def test_run_job_analyses_scratch_audio_and_uploads_result(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -613,8 +614,8 @@ class TigrisWorkerTests(unittest.TestCase):
                 output_abs.write_text(json.dumps({"track": {"duration": 3.0}}))
 
             with (
-                patch.dict(os.environ, {storage.STORAGE_BACKEND_ENV: "tigris"}),
-                patch.object(storage, "_tigris_store", return_value=store),
+                patch.dict(os.environ, {storage.STORAGE_BACKEND_ENV: "s3"}),
+                patch.object(storage, "_s3_store", return_value=store),
                 patch.object(worker_module, "ENGINE_REPO", root),
                 patch.object(worker_module, "_run_engine", side_effect=fake_engine),
             ):
@@ -717,7 +718,7 @@ class SyncPruneTests(unittest.TestCase):
             env = _env_without_backend()
             base = ["sync", "prune", "--storage-root", temp_dir]
             with (
-                patch.object(sync, "tigris_store_from_env", return_value=store),
+                patch.object(sync, "s3_store_from_env", return_value=store),
                 patch.dict(os.environ, env, clear=True),
             ):
                 output = io.StringIO()
@@ -732,19 +733,35 @@ class SyncPruneTests(unittest.TestCase):
                     self.assertEqual(sync.main(), 0)
         self.assertEqual(sorted(client.objects), ["audio/keep"])
 
-    def test_prune_is_refused_while_the_bucket_is_live(self) -> None:
+    def _prune_output(self, backend: str) -> tuple[int, str, FakeS3]:
         client = FakeS3()
         client._put("audio/gone", b"x", None)
         store = S3Store("bucket", Path("/tmp/unused"), client=client)
+        output = io.StringIO()
         with tempfile.TemporaryDirectory() as temp_dir:
-            argv = ["sync", "prune", "--apply", "--storage-root", temp_dir]
+            argv = ["sync", "prune", "--apply", "--force", "--storage-root", temp_dir]
             with (
                 patch.object(sync.sys, "argv", argv),
-                patch.object(sync, "tigris_store_from_env", return_value=store),
-                patch.dict(os.environ, {storage.STORAGE_BACKEND_ENV: "tigris"}),
+                patch.object(sync, "s3_store_from_env", return_value=store),
+                patch.dict(os.environ, {storage.STORAGE_BACKEND_ENV: backend}),
+                redirect_stdout(output),
             ):
-                self.assertEqual(sync.main(), 1)
-        self.assertIn("audio/gone", client.objects)
+                code = sync.main()
+        return code, output.getvalue(), client
+
+    def test_prune_is_refused_unless_the_backend_is_local(self) -> None:
+        # Any other value, old or mistyped, may mean the app is live on the bucket.
+        for backend in ("s3", "tigris", "s3x"):
+            with self.subTest(backend=backend):
+                code, output, client = self._prune_output(backend)
+                self.assertEqual(code, 1)
+                self.assertIn("bucket may be live", output)
+                self.assertIn("audio/gone", client.objects)
+
+        code, output, client = self._prune_output("local")
+        self.assertEqual(code, 0)
+        self.assertNotIn("bucket may be live", output)
+        self.assertNotIn("audio/gone", client.objects)
 
 
 def _make_db(path: Path, rows: int) -> None:
