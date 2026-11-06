@@ -16,6 +16,7 @@ from pathlib import Path
 from .db import _connect
 from .models import StorageCleanupCandidateItem, StorageCleanupError, StorageCleanupResponse
 from .routes.jobs_runtime import delete_job_artifacts
+from .storage import get_store
 
 
 CLEANUP_POLICY_DAYS = 365
@@ -120,33 +121,12 @@ def find_cleanup_candidate_by_id(
     return _candidate_from_row(row) if row else None
 
 
-def artifact_paths(storage_root: Path, candidate: CleanupCandidate) -> list[Path]:
-    paths: list[Path] = []
-    paths.append(storage_root / "logs" / f"{candidate.job_id}.log")
-    paths.extend((storage_root / "audio").glob(f"{candidate.job_id}.*"))
-    paths.extend((storage_root / "analysis").glob(f"{candidate.job_id}.*"))
-
-    unique_paths: list[Path] = []
-    seen: set[Path] = set()
-    for path in paths:
-        resolved = path.resolve()
-        if resolved in seen:
-            continue
-        seen.add(resolved)
-        unique_paths.append(path)
-    return unique_paths
-
-
-def candidate_bytes(storage_root: Path, candidate: CleanupCandidate) -> int:
-    total = 0
-    for path in artifact_paths(storage_root, candidate):
-        if not path.is_file():
-            continue
-        try:
-            total += path.stat().st_size
-        except OSError:
-            continue
-    return total
+def _log_bytes(storage_root: Path, job_id: str) -> int:
+    log_path = storage_root / "logs" / f"{job_id}.log"
+    try:
+        return log_path.stat().st_size if log_path.is_file() else 0
+    except OSError:
+        return 0
 
 
 def _candidate_item(candidate: CleanupCandidate) -> StorageCleanupCandidateItem:
@@ -172,9 +152,11 @@ def _reclaimable(
     Candidates whose artifacts are already gone have nothing left to reclaim, so
     they are dropped rather than reported on every run.
     """
+    candidates = find_cleanup_candidates(db_path, days)
+    sizes = get_store(storage_root).artifact_bytes([c.job_id for c in candidates])
     pairs: list[tuple[CleanupCandidate, int]] = []
-    for candidate in find_cleanup_candidates(db_path, days):
-        size = candidate_bytes(storage_root, candidate)
+    for candidate in candidates:
+        size = _log_bytes(storage_root, candidate.job_id) + sizes.get(candidate.job_id, 0)
         if size > 0:
             pairs.append((candidate, size))
     return pairs

@@ -20,6 +20,7 @@ from .env import env_string
 from .favorites_db import init_favorites_db
 from .http_client import close_client
 from .paths import DB_PATH, FAVORITES_DB_PATH, STORAGE_ROOT, WEB_DIST
+from .storage import get_store
 from .route_responses import NOT_FOUND
 
 load_dotenv()
@@ -236,6 +237,7 @@ async def block_garbage_paths(request: Request, call_next):
 
 @app.on_event("startup")
 def _startup() -> None:
+    get_store(STORAGE_ROOT)
     init_db(DB_PATH)
     init_favorites_db(FAVORITES_DB_PATH)
     STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
