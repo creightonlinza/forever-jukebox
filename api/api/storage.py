@@ -1,8 +1,8 @@
 """Audio and analysis storage backends.
 
-Local disk is the default. STORAGE_BACKEND=tigris keeps audio and analysis in an
-S3-compatible bucket (Tigris on Fly) instead, using the BUCKET_NAME,
-AWS_ENDPOINT_URL_S3 and AWS_* credentials that `fly storage create` provides.
+Local disk is the default. STORAGE_BACKEND=s3 keeps audio and analysis in an
+S3-compatible bucket instead (for example Tigris on Fly, whose `fly storage create` sets
+BUCKET_NAME, AWS_ENDPOINT_URL_S3 and the AWS_* credentials this reads).
 Logs and the SQLite databases always stay on local disk.
 """
 
@@ -140,7 +140,7 @@ class S3Store:
 
     Audio is keyed without its extension so existence is one HEAD; the original
     extension is kept in the object's `ext` metadata. Deletes are plain deletes, so
-    the bucket must not keep object versions (no Tigris snapshots) to free space.
+    the bucket must not keep object versions (or bucket snapshots) to free space.
     """
 
     def __init__(self, bucket: str, scratch: Path, client: Any = None) -> None:
@@ -351,18 +351,18 @@ def backup_databases(
     return saved
 
 
-def tigris_store_from_env() -> S3Store:
+def s3_store_from_env() -> S3Store:
     required = ("BUCKET_NAME", "AWS_ENDPOINT_URL_S3", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
     missing = [name for name in required if not os.environ.get(name, "").strip()]
     if missing:
-        raise RuntimeError(f"STORAGE_BACKEND=tigris requires {', '.join(missing)}")
+        raise RuntimeError(f"STORAGE_BACKEND=s3 requires {', '.join(missing)}")
     bucket = os.environ["BUCKET_NAME"].strip()
     return S3Store(bucket, Path(tempfile.gettempdir()) / "forever-jukebox")
 
 
 @lru_cache(maxsize=1)
-def _tigris_store() -> S3Store:
-    return tigris_store_from_env()
+def _s3_store() -> S3Store:
+    return s3_store_from_env()
 
 
 def get_store(storage_root: Path) -> Store:
@@ -370,6 +370,6 @@ def get_store(storage_root: Path) -> Store:
     backend = (os.environ.get(STORAGE_BACKEND_ENV) or "local").strip().lower()
     if backend == "local":
         return LocalStore(storage_root)
-    if backend == "tigris":
-        return _tigris_store()
+    if backend == "s3":
+        return _s3_store()
     raise RuntimeError(f"Unsupported {STORAGE_BACKEND_ENV}: {backend!r}")

@@ -70,7 +70,7 @@ Optional:
 - `HOSTED_BY_NAME`: optional; shows an instance host credit in the web footer.
 - `HOSTED_BY_URL`: optional; links the host credit when `HOSTED_BY_NAME` is set.
 - `PORT`: optional; defaults to `8000`.
-- `STORAGE_BACKEND`: optional; defaults to `local` (audio and analysis under `api/storage/`). Set `tigris` to keep them in an S3-compatible bucket instead; see [`DEPLOYMENT.md`](./DEPLOYMENT.md#optional-tigris-object-storage).
+- `STORAGE_BACKEND`: optional; defaults to `local` (audio and analysis under `api/storage/`). Set `s3` to keep them in an S3-compatible bucket (such as Tigris on Fly.io) instead; see [`DEPLOYMENT.md`](./DEPLOYMENT.md#optional-s3-compatible-object-storage).
 
 Example `.env`:
 
