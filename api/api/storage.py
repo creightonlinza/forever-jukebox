@@ -12,6 +12,8 @@ import gzip
 import json
 import mimetypes
 import os
+import shutil
+import sqlite3
 import tempfile
 import threading
 from contextlib import contextmanager
@@ -34,6 +36,7 @@ STORAGE_BACKEND_ENV = "STORAGE_BACKEND"
 PRESIGNED_URL_TTL_S = 600
 # Above the 100 MB download cap, so every object is single-part and its ETag is its MD5.
 MULTIPART_THRESHOLD_BYTES = 256 * 1024 * 1024
+BACKUP_MAX_AGE_S = 24 * 3600
 _MISSING_CODES = {"404", "NoSuchKey", "NotFound"}
 logger = get_logger()
 
@@ -121,6 +124,10 @@ def audio_key(job_id: str) -> str:
 
 def analysis_key(job_id: str) -> str:
     return f"analysis/{job_id}.json.gz"
+
+
+def backup_key(name: str) -> str:
+    return f"backups/{name}.gz"
 
 
 def _is_missing(exc: Exception) -> bool:
@@ -253,6 +260,13 @@ class S3Store:
         _remove_files(self.scratch / "analysis", job_id)
         self.client.delete_object(Bucket=self.bucket, Key=analysis_key(job_id))
 
+    def backup_mtime(self, name: str) -> datetime | None:
+        head = self._head(backup_key(name))
+        return head["LastModified"] if head else None
+
+    def save_backup(self, name: str, gz_path: Path) -> None:
+        self._upload(gz_path, backup_key(name), {"ContentType": "application/gzip"})
+
     def artifact_bytes(self, job_ids: Iterable[str]) -> dict[str, int]:
         sizes = dict.fromkeys(job_ids, 0)
         if not sizes:
@@ -280,6 +294,61 @@ def discard_job_files(store: Store, job_id: str, *, analysis: bool = True) -> No
             if isinstance(store, LocalStore):
                 raise
             logger.warning("Could not delete stored files for job %s", job_id, exc_info=True)
+
+
+def _snapshot_sqlite(db_path: Path, snapshot_path: Path) -> None:
+    """Consistent copy of a live SQLite database, checked before it is uploaded."""
+    src = sqlite3.connect(db_path)
+    dst = sqlite3.connect(snapshot_path)
+    try:
+        src.backup(dst)
+        result = dst.execute("PRAGMA quick_check").fetchone()[0]
+    finally:
+        dst.close()
+        src.close()
+    if result != "ok":
+        raise RuntimeError(f"{db_path.name} snapshot failed quick_check: {result}")
+
+
+def _backup_database(store: S3Store, db_path: Path, now: datetime) -> bool:
+    if not db_path.is_file():
+        return False
+    last = store.backup_mtime(db_path.name)
+    if last is not None and (now - last).total_seconds() < BACKUP_MAX_AGE_S:
+        return False
+    work_dir = store.scratch / "backups"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_path = work_dir / db_path.name
+    gz_path = work_dir / f"{db_path.name}.gz"
+    try:
+        _remove_files(work_dir, db_path.stem)
+        _snapshot_sqlite(db_path, snapshot_path)
+        with snapshot_path.open("rb") as src, gzip.open(gz_path, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+        store.save_backup(db_path.name, gz_path)
+    finally:
+        _remove_files(work_dir, db_path.stem)
+    return True
+
+
+def backup_databases(
+    store: S3Store, db_paths: Iterable[Path], *, now: datetime | None = None
+) -> list[str]:
+    """Snapshot each database into the bucket when its backup is a day old.
+
+    Each database has one object, `backups/<name>.gz`, replaced in place; keeping history is
+    left to whatever mirrors the bucket. A failure is logged and doesn't stop the others.
+    Returns the names saved.
+    """
+    now = now or datetime.now(timezone.utc)
+    saved: list[str] = []
+    for db_path in db_paths:
+        try:
+            if _backup_database(store, db_path, now):
+                saved.append(db_path.name)
+        except Exception:
+            logger.warning("Database backup failed for %s", db_path.name, exc_info=True)
+    return saved
 
 
 def tigris_store_from_env() -> S3Store:

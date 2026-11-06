@@ -103,3 +103,9 @@ With Tigris enabled, `/api/audio/{id}` answers with a 307 redirect to a 10-minut
 URL, analysis is still returned inline by `/api/analysis/{id}`, and downloads in progress
 use a scratch directory on the machine's own disk. To move back to local storage, run
 `sync_storage_to_tigris.py pull` and unset `STORAGE_BACKEND`.
+
+The worker also keeps a gzipped snapshot of `jobs.db` and `favorites.db` in the bucket, at
+`backups/<name>.gz`. While the machine runs it checks hourly and replaces a snapshot once it is a
+day old, so the bucket only holds the latest copy; mirror the bucket (for example with
+`rclone sync --backup-dir`) to keep older ones. To restore, stop the app, gunzip the snapshot
+over the database file, and remove any `-wal`/`-shm` files beside it.

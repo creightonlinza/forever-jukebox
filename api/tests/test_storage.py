@@ -6,10 +6,11 @@ import hashlib
 import io
 import json
 import os
+import sqlite3
 import tempfile
 import unittest
 from contextlib import redirect_stdout
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -744,6 +745,194 @@ class SyncPruneTests(unittest.TestCase):
             ):
                 self.assertEqual(sync.main(), 1)
         self.assertIn("audio/gone", client.objects)
+
+
+def _make_db(path: Path, rows: int) -> None:
+    conn = sqlite3.connect(path)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("CREATE TABLE t (n INTEGER)")
+    conn.executemany("INSERT INTO t VALUES (?)", [(i,) for i in range(rows)])
+    conn.commit()
+    conn.close()
+
+
+class DatabaseBackupTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        self.root = Path(temp_dir.name)
+        self.client = FakeS3()
+        self.store = S3Store("bucket", self.root / "scratch", client=self.client)
+        self.jobs_db = self.root / "jobs.db"
+        self.favorites_db = self.root / "favorites.db"
+        _make_db(self.jobs_db, 3)
+        _make_db(self.favorites_db, 2)
+        # FakeS3 stamps every object 2026-01-02.
+        self.stamp = datetime(2026, 1, 2, tzinfo=timezone.utc)
+
+    def _restored_rows(self, key: str) -> int:
+        restored = self.root / "restored.db"
+        restored.write_bytes(gzip.decompress(self.client.objects[key]["body"]))
+        conn = sqlite3.connect(restored)
+        try:
+            return conn.execute("SELECT COUNT(*) FROM t").fetchone()[0]
+        finally:
+            conn.close()
+            restored.unlink()
+
+    def test_uploads_a_consistent_gzipped_snapshot_of_each_database(self) -> None:
+        # Writes still sitting in the WAL must be in the snapshot.
+        live = sqlite3.connect(self.jobs_db)
+        live.execute("INSERT INTO t VALUES (99)")
+        live.commit()
+        try:
+            saved = storage.backup_databases(self.store, [self.jobs_db, self.favorites_db])
+        finally:
+            live.close()
+
+        self.assertEqual(saved, ["jobs.db", "favorites.db"])
+        self.assertEqual(self._restored_rows("backups/jobs.db.gz"), 4)
+        self.assertEqual(self._restored_rows("backups/favorites.db.gz"), 2)
+        self.assertEqual(self.client.objects["backups/jobs.db.gz"]["ContentType"], "application/gzip")
+        self.assertEqual(list((self.root / "scratch" / "backups").iterdir()), [])
+
+    def test_skips_a_backup_less_than_a_day_old(self) -> None:
+        storage.backup_databases(self.store, [self.jobs_db], now=self.stamp)
+        self.client.calls.clear()
+
+        saved = storage.backup_databases(
+            self.store, [self.jobs_db], now=self.stamp + timedelta(hours=23)
+        )
+
+        self.assertEqual(saved, [])
+        self.assertEqual(self.client.calls, ["head_object"])
+
+    def test_replaces_a_backup_a_day_old(self) -> None:
+        storage.backup_databases(self.store, [self.jobs_db], now=self.stamp)
+        live = sqlite3.connect(self.jobs_db)
+        live.execute("INSERT INTO t VALUES (5)")
+        live.commit()
+        live.close()
+
+        saved = storage.backup_databases(self.store, [self.jobs_db], now=self.stamp + timedelta(days=1))
+
+        self.assertEqual(saved, ["jobs.db"])
+        self.assertEqual(self._restored_rows("backups/jobs.db.gz"), 4)
+
+    def test_skips_a_missing_database(self) -> None:
+        saved = storage.backup_databases(self.store, [self.root / "absent.db"])
+
+        self.assertEqual(saved, [])
+        self.assertEqual(self.client.calls, [])
+        self.assertFalse((self.root / "absent.db").exists())
+
+    def test_failed_check_uploads_nothing_and_cleans_scratch(self) -> None:
+        class FailingCheck(sqlite3.Connection):
+            def execute(self, sql, *args):
+                if "quick_check" in sql:
+                    return super().execute("SELECT 'page 2 is never used'")
+                return super().execute(sql, *args)
+
+        real_connect = sqlite3.connect
+
+        def connect(path, *args, **kwargs):
+            if Path(path).parent.name == "backups":
+                return real_connect(path, *args, factory=FailingCheck, **kwargs)
+            return real_connect(path, *args, **kwargs)
+
+        with (
+            patch.object(storage.sqlite3, "connect", side_effect=connect),
+            self.assertLogs(storage.logger, level="WARNING") as logs,
+        ):
+            saved = storage.backup_databases(self.store, [self.jobs_db])
+
+        self.assertEqual(saved, [])
+        self.assertIn("quick_check", "\n".join(logs.output))
+        self.assertNotIn("backups/jobs.db.gz", self.client.objects)
+        self.assertEqual(list((self.root / "scratch" / "backups").iterdir()), [])
+
+    def test_one_failing_database_does_not_block_the_others(self) -> None:
+        real_upload = self.client.upload_file
+
+        def upload_file(filename, bucket, key, ExtraArgs=None, Config=None):
+            if key == "backups/jobs.db.gz":
+                raise FakeClientError("InternalError")
+            real_upload(filename, bucket, key, ExtraArgs, Config)
+
+        with (
+            patch.object(self.client, "upload_file", side_effect=upload_file),
+            self.assertLogs(storage.logger, level="WARNING"),
+        ):
+            saved = storage.backup_databases(self.store, [self.jobs_db, self.favorites_db])
+
+        self.assertEqual(saved, ["favorites.db"])
+        self.assertEqual(self._restored_rows("backups/favorites.db.gz"), 2)
+
+
+class WorkerBackupThreadTests(unittest.TestCase):
+    def test_starts_only_with_bucket_storage(self) -> None:
+        store = S3Store("bucket", Path("/tmp/unused"), client=FakeS3())
+        with (
+            patch.object(worker_module, "get_store", return_value=LocalStore(Path("/tmp/unused"))),
+            patch.object(worker_module.threading, "Thread") as thread,
+        ):
+            worker_module.start_backup_thread()
+        thread.assert_not_called()
+
+        with (
+            patch.object(worker_module, "get_store", return_value=store),
+            patch.object(worker_module.threading, "Thread") as thread,
+        ):
+            worker_module.start_backup_thread()
+        thread.assert_called_once()
+        self.assertIs(thread.call_args.kwargs["args"][0], store)
+        self.assertTrue(thread.call_args.kwargs["daemon"])
+        thread.return_value.start.assert_called_once()
+
+    def _run_main(self, worker_count: int) -> list[str]:
+        order: list[str] = []
+        process = SimpleNamespace(
+            start=lambda: order.append("fork"), join=lambda: None, terminate=lambda: None
+        )
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch.object(worker_module, "WORKER_COUNT", worker_count),
+            patch.object(worker_module, "STORAGE_ROOT", Path(temp_dir)),
+            patch.object(worker_module, "get_store"),
+            patch.object(worker_module, "init_db"),
+            patch.object(worker_module, "recover_stalled_processing_jobs", return_value=0),
+            patch.object(worker_module.multiprocessing, "Process", return_value=process),
+            patch.object(
+                worker_module, "start_backup_thread", side_effect=lambda: order.append("backup")
+            ),
+            patch.object(worker_module, "run_worker_loop", side_effect=lambda: order.append("loop")),
+        ):
+            worker_module.main()
+        return order
+
+    def test_main_starts_the_backup_thread_after_forking(self) -> None:
+        self.assertEqual(self._run_main(1), ["backup", "loop"])
+        self.assertEqual(self._run_main(2), ["fork", "fork", "backup"])
+
+    def test_a_failed_check_is_logged_and_retried_after_the_interval(self) -> None:
+        store = S3Store("bucket", Path("/tmp/unused"), client=FakeS3())
+
+        class Stop(Exception):
+            pass
+
+        with (
+            patch.object(worker_module, "backup_databases", side_effect=[OSError("bucket down"), ["jobs.db"]]) as backup,
+            patch.object(worker_module.time, "sleep", side_effect=[None, Stop()]) as sleep,
+            self.assertLogs(worker_module.logger, level="INFO") as logs,
+        ):
+            with self.assertRaises(Stop):
+                worker_module.run_backup_checks(store)
+
+        self.assertEqual(backup.call_count, 2)
+        sleep.assert_called_with(worker_module.BACKUP_CHECK_INTERVAL_S)
+        output = "\n".join(logs.output)
+        self.assertIn("Database backup failed", output)
+        self.assertIn("Backed up jobs.db to the bucket", output)
 
 
 if __name__ == "__main__":
