@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import tempfile
 from datetime import datetime, timedelta, timezone
+from typing import get_args
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -14,7 +15,7 @@ from api import db as db_module
 from api.db import create_job, get_job, init_db
 from api import favorites_db as favorites_module
 from api.favorites_db import init_favorites_db, load_favorites, save_favorites
-from api.models import StorageCleanupRequest
+from api.models import CleanupWindowDays, StorageCleanupRequest
 from api.routes import admin as admin_routes
 from api import storage_cleanup as storage_cleanup_module
 from api.storage_cleanup import CLEANUP_POLICY_DAYS, build_cleanup_preview, execute_cleanup
@@ -22,7 +23,7 @@ from api.storage_cleanup import CLEANUP_POLICY_DAYS, build_cleanup_preview, exec
 
 OLD_UPDATED_AT = "2000-01-01T00:00:00.000000+00:00"
 MID_WINDOW_AGO = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
-# Inside the dormancy window at any policy value, but past the zero-play grace.
+# Inside the default dormancy window, but past the zero-play grace.
 INSIDE_WINDOW = (datetime.now(timezone.utc) - timedelta(days=CLEANUP_POLICY_DAYS // 2)).isoformat()
 THREE_DAYS_AGO = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
 RECENT_UPDATED_AT = "2999-01-01T00:00:00.000000+00:00"
@@ -220,8 +221,16 @@ class StorageCleanupTests(unittest.TestCase):
     def test_request_default_window_matches_the_policy_constant(self) -> None:
         self.assertEqual(StorageCleanupRequest().days, CLEANUP_POLICY_DAYS)
 
+    def test_request_accepts_every_allowed_window(self) -> None:
+        """Derived from the Literal, so a new option cannot go untested."""
+        allowed = get_args(CleanupWindowDays)
+        self.assertIn(730, allowed)
+        for days in allowed:
+            with self.subTest(days=days):
+                self.assertEqual(StorageCleanupRequest(days=days).days, days)
+
     def test_request_rejects_windows_outside_the_allowed_set(self) -> None:
-        for days in (18, 90, 400, 0, -270):
+        for days in (18, 90, 270, 400, 0, -270, 731, 1095):
             with self.subTest(days=days):
                 with self.assertRaises(ValidationError):
                     StorageCleanupRequest(days=days)
@@ -231,10 +240,10 @@ class StorageCleanupTests(unittest.TestCase):
             db_path = Path(temp_dir) / "jobs.db"
             storage_root = Path(temp_dir) / "storage"
             init_db(db_path)
-            # Dormant 200 days: inside 270/365, past 180.
+            # Dormant 200 days: inside 365/730, past 180.
             _make_job(db_path, storage_root, "mid", updated_at=MID_WINDOW_AGO)
 
-            for days, expected in ((180, 1), (270, 0), (365, 0)):
+            for days, expected in ((180, 1), (365, 0), (730, 0)):
                 with self.subTest(days=days):
                     preview = build_cleanup_preview(db_path, storage_root, days)
                     self.assertEqual(preview.candidate_jobs, expected)

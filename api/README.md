@@ -262,8 +262,8 @@ curl -X POST "/api/admin/storage-cleanup" \
 
 The cleanup policy is server-side: completed jobs whose source has not been
 played in over 365 days (`updated_at` is bumped on each play). Pass `days` as
-`180`, `270` or `365` to run a tighter window when storage is tight; anything
-else is rejected. Tracks that were
+`180`, `365` or `730` to tighten the window when storage is tight or
+loosen it to hold tracks longer; anything else is rejected. Tracks that were
 never opened (`play_count` 0) qualify after 7 days instead, since loading an
 analysis counts as a play. Every provider is eligible, uploads included.
 

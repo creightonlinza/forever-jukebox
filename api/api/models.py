@@ -97,7 +97,7 @@ class PlayCountUpdate(BaseModel):
 
 
 # Vetted windows only: a free-form value here would be one typo from a near-total sweep.
-CleanupWindowDays = Literal[180, 270, 365]
+CleanupWindowDays = Literal[180, 365, 730]
 
 
 class StorageCleanupRequest(BaseModel):
