@@ -267,6 +267,11 @@ loosen it to hold tracks longer; anything else is rejected. Tracks that were
 never opened (`play_count` 0) qualify after 7 days instead, since loading an
 analysis counts as a play. Every provider is eligible, uploads included.
 
+Set `zero_plays_only` to `true` to clear only never-opened tracks and spare
+everything anyone has listened to. The 7-day grace is then the whole gate, so
+`days` does not apply and every window behaves alike; the response echoes the
+flag back.
+
 Cleanup is destructive and matches the admin delete: the audio, analysis and log
 files go, and so do the job and source rows. `/listen/<job_id>` links to a
 cleaned-up track stop resolving, and a later request for the same track creates a
@@ -297,6 +302,15 @@ curl -X POST "/api/admin/storage-cleanup" \
   -H "Content-Type: application/json" \
   -H "X-Admin-Key: $ADMIN_KEY" \
   -d '{"days":180}'
+```
+
+Clear only the never-opened tracks:
+
+```bash
+curl -X POST "/api/admin/storage-cleanup" \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Key: $ADMIN_KEY" \
+  -d '{"zero_plays_only":true}'
 ```
 
 ## Storage

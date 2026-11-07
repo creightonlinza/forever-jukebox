@@ -18,7 +18,14 @@ from api.favorites_db import init_favorites_db, load_favorites, save_favorites
 from api.models import CleanupWindowDays, StorageCleanupRequest
 from api.routes import admin as admin_routes
 from api import storage_cleanup as storage_cleanup_module
-from api.storage_cleanup import CLEANUP_POLICY_DAYS, build_cleanup_preview, execute_cleanup
+from api.storage_cleanup import (
+    CLEANUP_POLICY_DAYS,
+    ZERO_PLAY_GRACE_DAYS,
+    build_cleanup_preview,
+    execute_cleanup,
+    find_cleanup_candidate_by_id,
+    find_cleanup_candidates,
+)
 
 
 OLD_UPDATED_AT = "2000-01-01T00:00:00.000000+00:00"
@@ -387,6 +394,125 @@ class StorageCleanupTests(unittest.TestCase):
 
         self.assertEqual(response.candidate_jobs, 1)
         self.assertEqual(response.candidates[0].job_id, "old-iso")
+
+
+class ZeroPlaysOnlyTests(unittest.TestCase):
+    """zero_plays_only restricts cleanup to never-opened tracks."""
+
+    def test_dormant_played_tracks_are_spared(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
+            init_db(db_path)
+            # Both are past every window; only the play count separates them.
+            _make_job(db_path, storage_root, "never-opened", play_count=0)
+            _make_job(db_path, storage_root, "played-once", play_count=1)
+            _make_job(db_path, storage_root, "played-often", play_count=42)
+
+            preview = build_cleanup_preview(
+                db_path, storage_root, CLEANUP_POLICY_DAYS, zero_plays_only=True
+            )
+            self.assertEqual(preview.candidate_jobs, 1)
+            self.assertEqual(preview.candidates[0].job_id, "never-opened")
+            self.assertTrue(preview.zero_plays_only)
+
+            response = execute_cleanup(
+                db_path, storage_root, CLEANUP_POLICY_DAYS, zero_plays_only=True
+            )
+            self.assertEqual(response.deleted_jobs, 1)
+            self.assertTrue(response.zero_plays_only)
+            self.assertIsNone(get_job(db_path, "never-opened"))
+            self.assertIsNotNone(get_job(db_path, "played-once"))
+            self.assertIsNotNone(get_job(db_path, "played-often"))
+
+    def test_both_modes_select_exactly_the_expected_rows(self) -> None:
+        """Hand-computed matrix of play count against dormancy, every window.
+
+        Also asserts the pre-delete re-check accepts everything the scan picked:
+        a predicate reaching one and not the other would delete nothing at all.
+        """
+        rows = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
+            init_db(db_path)
+            for play_count in (0, 1, 5):
+                for dormant in (3, 30, 200, 400, 800):
+                    job_id = f"p{play_count}d{dormant}"
+                    rows.append((job_id, play_count, dormant))
+                    _make_job(
+                        db_path,
+                        storage_root,
+                        job_id,
+                        play_count=play_count,
+                        updated_at=(
+                            datetime.now(timezone.utc) - timedelta(days=dormant)
+                        ).isoformat(),
+                    )
+
+            def eligible(days: int, only_zero: bool, play_count: int, dormant: int) -> bool:
+                never_opened = play_count == 0 and dormant > ZERO_PLAY_GRACE_DAYS
+                if only_zero:
+                    return never_opened
+                return dormant > days or never_opened
+
+            for days in get_args(CleanupWindowDays):
+                for only_zero in (False, True):
+                    with self.subTest(days=days, zero_plays_only=only_zero):
+                        selected = {
+                            candidate.job_id
+                            for candidate in find_cleanup_candidates(
+                                db_path, days, zero_plays_only=only_zero
+                            )
+                        }
+                        self.assertEqual(
+                            selected,
+                            {
+                                job_id
+                                for job_id, play_count, dormant in rows
+                                if eligible(days, only_zero, play_count, dormant)
+                            },
+                        )
+                        for job_id in selected:
+                            self.assertIsNotNone(
+                                find_cleanup_candidate_by_id(
+                                    db_path, job_id, days, zero_plays_only=only_zero
+                                ),
+                                job_id,
+                            )
+
+    def test_the_grace_period_still_applies(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
+            init_db(db_path)
+            _make_job(db_path, storage_root, "just-added", play_count=0, updated_at=THREE_DAYS_AGO)
+
+            preview = build_cleanup_preview(
+                db_path, storage_root, CLEANUP_POLICY_DAYS, zero_plays_only=True
+            )
+
+            self.assertEqual(preview.candidate_jobs, 0)
+
+    def test_the_window_does_not_apply(self) -> None:
+        """The grace period is the whole gate, so every window behaves alike."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "jobs.db"
+            storage_root = Path(temp_dir) / "storage"
+            init_db(db_path)
+            # Never opened, dormant well short of any window.
+            _make_job(db_path, storage_root, "never-opened", play_count=0, updated_at=INSIDE_WINDOW)
+
+            for days in get_args(CleanupWindowDays):
+                with self.subTest(days=days):
+                    preview = build_cleanup_preview(
+                        db_path, storage_root, days, zero_plays_only=True
+                    )
+                    self.assertEqual(preview.candidate_jobs, 1)
+
+    def test_the_flag_defaults_to_off(self) -> None:
+        self.assertFalse(StorageCleanupRequest().zero_plays_only)
+        self.assertTrue(StorageCleanupRequest(zero_plays_only=True).zero_plays_only)
 
 
 class FavoritesPruneTests(unittest.TestCase):

@@ -25,8 +25,7 @@ from .storage import get_store
 CLEANUP_POLICY_DAYS = 365
 ZERO_PLAY_GRACE_DAYS = 7
 
-# Shared by the scan and the pre-delete re-check so the two cannot diverge.
-_ELIGIBILITY_SQL = """
+_DORMANT_OR_NEVER_OPENED_SQL = """
               j.status = 'complete'
               AND (
                 julianday(s.updated_at) < julianday('now', ?)
@@ -35,6 +34,12 @@ _ELIGIBILITY_SQL = """
                   AND julianday(s.updated_at) < julianday('now', ?)
                 )
               )
+"""
+
+_NEVER_OPENED_SQL = """
+              j.status = 'complete'
+              AND s.play_count = 0
+              AND julianday(s.updated_at) < julianday('now', ?)
 """
 
 
@@ -54,8 +59,19 @@ def _cutoff_arg(days: int) -> str:
     return f"-{max(1, int(days))} days"
 
 
-def _eligibility_params(days: int) -> tuple[str, str]:
-    return (_cutoff_arg(days), _cutoff_arg(ZERO_PLAY_GRACE_DAYS))
+def _eligibility(days: int, zero_plays_only: bool) -> tuple[str, tuple[str, ...]]:
+    """SQL and params for both the scan and the pre-delete re-check.
+
+    One source for both, so a flag can never apply to the scan alone and leave
+    the re-check rejecting everything it selected. `days` does not apply when
+    only never-opened tracks are eligible; the grace period is the whole gate.
+    """
+    if zero_plays_only:
+        return _NEVER_OPENED_SQL, (_cutoff_arg(ZERO_PLAY_GRACE_DAYS),)
+    return (
+        _DORMANT_OR_NEVER_OPENED_SQL,
+        (_cutoff_arg(days), _cutoff_arg(ZERO_PLAY_GRACE_DAYS)),
+    )
 
 
 def _candidate_from_row(row: tuple) -> CleanupCandidate:
@@ -71,7 +87,13 @@ def _candidate_from_row(row: tuple) -> CleanupCandidate:
     )
 
 
-def find_cleanup_candidates(db_path: Path, days: int = CLEANUP_POLICY_DAYS) -> list[CleanupCandidate]:
+def find_cleanup_candidates(
+    db_path: Path,
+    days: int = CLEANUP_POLICY_DAYS,
+    *,
+    zero_plays_only: bool = False,
+) -> list[CleanupCandidate]:
+    predicate, params = _eligibility(days, zero_plays_only)
     with _connect(db_path) as conn:
         rows = conn.execute(
             """
@@ -87,11 +109,11 @@ def find_cleanup_candidates(db_path: Path, days: int = CLEANUP_POLICY_DAYS) -> l
             FROM jobs j
             JOIN sources s ON s.id = j.source_ref
             WHERE """
-            + _ELIGIBILITY_SQL
+            + predicate
             + """
             ORDER BY s.updated_at ASC, j.id ASC
             """,
-            _eligibility_params(days),
+            params,
         ).fetchall()
     return [_candidate_from_row(row) for row in rows]
 
@@ -100,7 +122,10 @@ def find_cleanup_candidate_by_id(
     db_path: Path,
     job_id: str,
     days: int = CLEANUP_POLICY_DAYS,
+    *,
+    zero_plays_only: bool = False,
 ) -> CleanupCandidate | None:
+    predicate, params = _eligibility(days, zero_plays_only)
     with _connect(db_path) as conn:
         row = conn.execute(
             """
@@ -117,8 +142,8 @@ def find_cleanup_candidate_by_id(
             JOIN sources s ON s.id = j.source_ref
             WHERE j.id = ?
               AND """
-            + _ELIGIBILITY_SQL,
-            (job_id, *_eligibility_params(days)),
+            + predicate,
+            (job_id, *params),
         ).fetchone()
     return _candidate_from_row(row) if row else None
 
@@ -165,9 +190,11 @@ def _candidates_with_size(
     db_path: Path,
     storage_root: Path,
     days: int,
+    *,
+    zero_plays_only: bool,
 ) -> list[tuple[CleanupCandidate, int]]:
     """Eligible candidates paired with the bytes their artifacts still occupy."""
-    candidates = find_cleanup_candidates(db_path, days)
+    candidates = find_cleanup_candidates(db_path, days, zero_plays_only=zero_plays_only)
     sizes = get_store(storage_root).artifact_bytes([c.job_id for c in candidates])
     return [
         (
@@ -183,8 +210,10 @@ def build_cleanup_preview(
     storage_root: Path,
     days: int = CLEANUP_POLICY_DAYS,
     favorites_db_path: Path | None = None,
+    *,
+    zero_plays_only: bool = False,
 ) -> StorageCleanupResponse:
-    pairs = _candidates_with_size(db_path, storage_root, days)
+    pairs = _candidates_with_size(db_path, storage_root, days, zero_plays_only=zero_plays_only)
     orphaned_favorites = 0
     errors: list[StorageCleanupError] = []
     if favorites_db_path is not None:
@@ -203,6 +232,7 @@ def build_cleanup_preview(
         dry_run=True,
         days=days,
         zero_play_days=ZERO_PLAY_GRACE_DAYS,
+        zero_plays_only=zero_plays_only,
         candidate_jobs=len(pairs),
         candidate_bytes=sum(size for _, size in pairs),
         candidates=[_candidate_item(candidate) for candidate, _ in pairs],
@@ -220,8 +250,10 @@ def execute_cleanup(
     storage_root: Path,
     days: int = CLEANUP_POLICY_DAYS,
     favorites_db_path: Path | None = None,
+    *,
+    zero_plays_only: bool = False,
 ) -> StorageCleanupResponse:
-    pairs = _candidates_with_size(db_path, storage_root, days)
+    pairs = _candidates_with_size(db_path, storage_root, days, zero_plays_only=zero_plays_only)
     # Judged before the deletions: an empty jobs table makes every favorite look
     # orphaned, and a restored or lost jobs.db must not empty the sync lists.
     prunable = favorites_db_path is not None and _has_jobs(db_path)
@@ -230,7 +262,9 @@ def execute_cleanup(
     errors: list[StorageCleanupError] = []
 
     for candidate, size in pairs:
-        if not find_cleanup_candidate_by_id(db_path, candidate.job_id, days):
+        if not find_cleanup_candidate_by_id(
+            db_path, candidate.job_id, days, zero_plays_only=zero_plays_only
+        ):
             continue
         try:
             delete_job_artifacts(candidate.job_id, storage_root)
@@ -259,6 +293,7 @@ def execute_cleanup(
         dry_run=False,
         days=days,
         zero_play_days=ZERO_PLAY_GRACE_DAYS,
+        zero_plays_only=zero_plays_only,
         candidate_jobs=len(pairs),
         candidate_bytes=sum(size for _, size in pairs),
         candidates=[],

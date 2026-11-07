@@ -104,6 +104,8 @@ class StorageCleanupRequest(BaseModel):
     dry_run: bool = True
     confirm: str | None = None
     days: CleanupWindowDays = 365
+    # Restricts cleanup to never-opened tracks; `days` then does not apply.
+    zero_plays_only: bool = False
 
 
 class StorageCleanupCandidateItem(BaseModel):
@@ -126,6 +128,7 @@ class StorageCleanupResponse(BaseModel):
     dry_run: bool
     days: int
     zero_play_days: int
+    zero_plays_only: bool
     candidate_jobs: int
     candidate_bytes: int
     candidates: list[StorageCleanupCandidateItem]

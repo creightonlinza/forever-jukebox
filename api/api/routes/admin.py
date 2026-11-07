@@ -31,6 +31,7 @@ def run_storage_cleanup(
                 STORAGE_ROOT,
                 payload.days,
                 FAVORITES_DB_PATH,
+                zero_plays_only=payload.zero_plays_only,
             )
         if payload.confirm != "delete":
             raise HTTPException(status_code=400, detail='confirm must be "delete" when dry_run is false')
@@ -39,6 +40,7 @@ def run_storage_cleanup(
             STORAGE_ROOT,
             payload.days,
             FAVORITES_DB_PATH,
+            zero_plays_only=payload.zero_plays_only,
         )
     finally:
         _storage_cleanup_lock.release()
