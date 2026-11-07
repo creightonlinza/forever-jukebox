@@ -8,7 +8,7 @@ from fastapi import APIRouter, Header, HTTPException
 
 from ..admin_auth import ADMIN_KEY_HEADER, require_admin_key
 from ..models import StorageCleanupRequest, StorageCleanupResponse
-from ..paths import DB_PATH, STORAGE_ROOT
+from ..paths import DB_PATH, FAVORITES_DB_PATH, STORAGE_ROOT
 from ..route_responses import error_responses
 from ..storage_cleanup import build_cleanup_preview, execute_cleanup
 
@@ -30,6 +30,7 @@ def run_storage_cleanup(
                 DB_PATH,
                 STORAGE_ROOT,
                 payload.days,
+                FAVORITES_DB_PATH,
             )
         if payload.confirm != "delete":
             raise HTTPException(status_code=400, detail='confirm must be "delete" when dry_run is false')
@@ -37,6 +38,7 @@ def run_storage_cleanup(
             DB_PATH,
             STORAGE_ROOT,
             payload.days,
+            FAVORITES_DB_PATH,
         )
     finally:
         _storage_cleanup_lock.release()

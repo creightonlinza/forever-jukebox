@@ -1349,16 +1349,16 @@ class DownloadOwnershipStampTests(unittest.TestCase):
 class AutoRepairClaimTests(unittest.TestCase):
     """Only one concurrent auto-repair may dispatch a download for a job."""
 
-    def _tombstoned_job(self, db_path: Path):
+    def _job_missing_artifacts(self, db_path: Path):
         create_job(
             db_path,
             "T",
             status="complete",
             track_title="Song",
             track_artist="Artist",
-            source_id="yt-tomb",
+            source_id="yt-missing",
             source_provider="youtube",
-            source_url="https://www.youtube.com/watch?v=yt-tomb",
+            source_url="https://www.youtube.com/watch?v=yt-missing",
         )
         return get_job(db_path, "T")
 
@@ -1367,7 +1367,7 @@ class AutoRepairClaimTests(unittest.TestCase):
             db_path = Path(temp_dir) / "jobs.db"
             storage_root = Path(temp_dir) / "storage"
             init_db(db_path)
-            job = self._tombstoned_job(db_path)
+            job = self._job_missing_artifacts(db_path)
             original_db_path = jobs.DB_PATH
             original_root = jobs.STORAGE_ROOT
             jobs.DB_PATH = db_path
@@ -1395,7 +1395,7 @@ class AutoRepairClaimTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
-            self._tombstoned_job(db_path)
+            self._job_missing_artifacts(db_path)
             for status in ("downloading", "queued", "processing"):
                 with self.subTest(status=status):
                     set_job_status(db_path, "T", status, None)
@@ -1408,7 +1408,7 @@ class AutoRepairClaimTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = Path(temp_dir) / "jobs.db"
             init_db(db_path)
-            job = self._tombstoned_job(db_path)
+            job = self._job_missing_artifacts(db_path)
             set_job_status(db_path, "T", "complete", None)
             self.assertIsNone(claim_job_for_download(db_path, "T", job.updated_at))
 

@@ -129,8 +129,10 @@ class StorageCleanupResponse(BaseModel):
     candidate_jobs: int
     candidate_bytes: int
     candidates: list[StorageCleanupCandidateItem]
-    cleared_jobs: int
+    orphaned_favorites: int
+    deleted_jobs: int
     freed_bytes: int
+    pruned_favorites: int
     failed_jobs: int
     errors: list[StorageCleanupError]
 

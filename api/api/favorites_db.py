@@ -6,6 +6,7 @@ import json
 import re
 import secrets
 import sqlite3
+from contextlib import closing, suppress
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -60,6 +61,66 @@ def update_favorites(db_path: Path, code: str, favorites: list[dict[str, Any]]) 
         )
         conn.commit()
     return cur.rowcount > 0
+
+
+def prune_orphaned_favorites(
+    db_path: Path,
+    live_job_ids: set[str],
+    *,
+    apply: bool = True,
+) -> int:
+    """Drop favorite entries whose job no longer exists; returns how many matched.
+
+    Favorites key on job id, so a deleted job leaves an entry that can never
+    resolve again. `live_job_ids` must come from a readable jobs table: every
+    entry outside it is pruned, so an empty set empties every list.
+    """
+    if not db_path.exists():
+        return 0
+    orphaned = 0
+    now = _utc_now()
+    with closing(sqlite3.connect(db_path)) as conn:
+        if apply:
+            # Read and rewrite under one write lock: a sync landing mid-prune
+            # would otherwise be overwritten with a stale list.
+            conn.isolation_level = None
+            conn.execute("BEGIN IMMEDIATE")
+        try:
+            rows = conn.execute("SELECT code, payload FROM favorites_sync").fetchall()
+            for code, payload in rows:
+                try:
+                    items = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(items, list):
+                    continue
+                kept = [item for item in items if _favorite_is_live(item, live_job_ids)]
+                if len(kept) == len(items):
+                    continue
+                orphaned += len(items) - len(kept)
+                if apply:
+                    conn.execute(
+                        "UPDATE favorites_sync SET payload = ?, updated_at = ? WHERE code = ?",
+                        (json.dumps(kept, ensure_ascii=True), now, code),
+                    )
+            if apply:
+                conn.execute("COMMIT")
+        except BaseException:
+            if apply:
+                with suppress(sqlite3.Error):
+                    conn.execute("ROLLBACK")
+            raise
+    return orphaned
+
+
+def _favorite_is_live(item: Any, live_job_ids: set[str]) -> bool:
+    """Entries without a readable job id are left alone."""
+    if not isinstance(item, dict):
+        return True
+    job_id = item.get("uniqueSongId")
+    if not job_id:
+        return True
+    return job_id in live_job_ids
 
 
 def load_favorites(db_path: Path, code: str) -> Optional[list[dict[str, Any]]]:

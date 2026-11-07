@@ -265,17 +265,23 @@ played in over 365 days (`updated_at` is bumped on each play). Pass `days` as
 `180`, `270` or `365` to run a tighter window when storage is tight; anything
 else is rejected. Tracks that were
 never opened (`play_count` 0) qualify after 7 days instead, since loading an
-analysis counts as a play. Only YouTube tracks are candidates: uploads have no
-source to re-fetch from, and the other providers re-fetch too unreliably to risk
-clearing something that cannot be restored.
+analysis counts as a play. Every provider is eligible, uploads included.
 
-Cleanup removes only the audio and analysis files. The job and source rows are
-kept, so `/listen/<job_id>` links, favorites and play counts keep working; the
-next request for the track re-downloads and re-analyzes it. Jobs whose artifacts
-are already gone are not reported again. Dry-run is the
-default, and lists every match in `candidates` (oldest first) alongside the
-`candidate_bytes` total. To execute the cleanup, set `dry_run` to `false` and
-include the explicit confirmation:
+Cleanup is destructive and matches the admin delete: the audio, analysis and log
+files go, and so do the job and source rows. `/listen/<job_id>` links to a
+cleaned-up track stop resolving, and a later request for the same track creates a
+new job with a freshly picked source.
+
+Each run then prunes favorite entries whose job no longer exists, since favorites
+key on job id and such an entry can never resolve again. The sweep covers the
+whole favorites store, so it also clears entries left behind by earlier admin
+deletes; favorites on failed or in-flight jobs are kept. If the jobs table reads
+back empty, pruning stands down rather than emptying every sync list.
+
+Dry-run is the default, and lists every match in `candidates` (oldest first)
+alongside the `candidate_bytes` total and the `orphaned_favorites` count it would
+prune. To execute the cleanup, set `dry_run` to `false` and include the explicit
+confirmation:
 
 ```bash
 curl -X POST "/api/admin/storage-cleanup" \
