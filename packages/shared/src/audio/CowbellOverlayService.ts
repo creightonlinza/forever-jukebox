@@ -195,9 +195,7 @@ export class CowbellOverlayService {
     if (this.cowbellBuffers.length > 0 || this.loadFailed || this.disposed) {
       return;
     }
-    if (!this.loadPromise) {
-      this.loadPromise = this.loadSamples();
-    }
+    this.loadPromise ??= this.loadSamples();
     await this.loadPromise;
   }
 

@@ -12,6 +12,16 @@ import {
   type ExportFormState,
 } from "./exportAudio";
 
+function exportNoteKey(isWubMachine: boolean, isCanonizer: boolean) {
+  if (isWubMachine) {
+    return "export.wubMachineNote";
+  }
+  if (isCanonizer) {
+    return "export.autocanonizerNote";
+  }
+  return "export.note";
+}
+
 export function ExportModal({
   form,
   setForm,
@@ -68,13 +78,7 @@ export function ExportModal({
         </div>
         <div className="modal-body export-body">
           <p className="export-note">
-            {t(
-              isWubMachine
-                ? "export.wubMachineNote"
-                : isCanonizer
-                  ? "export.autocanonizerNote"
-                  : "export.note",
-            )}
+            {t(exportNoteKey(isWubMachine, isCanonizer))}
           </p>
           {isWubMachine || isCanonizer ? (
             <div className="label-line">

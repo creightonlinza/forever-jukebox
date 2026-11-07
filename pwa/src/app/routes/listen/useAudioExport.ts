@@ -34,6 +34,16 @@ import {
   type ExportFormState,
 } from "./exportAudio";
 
+function exportFileSuffix(isWubMachine: boolean, isCanonizer: boolean) {
+  if (isWubMachine) {
+    return "wub";
+  }
+  if (isCanonizer) {
+    return "canon";
+  }
+  return "forever";
+}
+
 // Export modal state and the render-to-file pipeline for the current track.
 export function useAudioExport({
   file,
@@ -149,11 +159,7 @@ export function useAudioExport({
     }
 
     const requestedExtension = exportForm.format;
-    const exportSuffix = isWubMachine
-      ? "wub"
-      : isCanonizer
-        ? "canon"
-        : "forever";
+    const exportSuffix = exportFileSuffix(isWubMachine, isCanonizer);
     const requestedFilename = buildAudioExportName(
       file.name,
       requestedExtension,

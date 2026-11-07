@@ -383,7 +383,7 @@ class CanvasViz {
         return { r, g, b };
       }
     }
-    const match = value.match(/rgba?\(([^)]+)\)/i);
+    const match = /rgba?\(([^)]+)\)/i.exec(value);
     if (match) {
       const parts = match[1].split(",").map((val) => Number.parseFloat(val));
       if (parts.length >= 3 && parts.every((val) => Number.isFinite(val))) {
@@ -453,8 +453,7 @@ class CanvasViz {
 
     if (!this.tileCanvas) {
       this.baseCtx.fillStyle = this.theme.beatFill;
-      for (let i = 0; i < this.positions.length; i += 1) {
-        const p = this.positions[i];
+      for (const p of this.positions) {
         this.baseCtx.beginPath();
         this.baseCtx.arc(p.x, p.y, BEAT_DOT_RADIUS_PX, 0, Math.PI * 2);
         this.baseCtx.fill();
@@ -1311,7 +1310,7 @@ export class JukeboxViz {
     }
     const viz = new CanvasViz(this.vizLayer, definition.positioner, {
       enableInteraction: this.enableInteraction,
-      ...(definition.options ?? {}),
+      ...definition.options,
     });
     viz.setAnchorHighlightEnabled(this.anchorHighlightEnabled);
     viz.setVisible(this.visible);

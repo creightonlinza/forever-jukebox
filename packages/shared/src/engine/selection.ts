@@ -303,9 +303,7 @@ export function selectNextBeatIndex(
     return { index: seed.which, jumped: false };
   }
   seed.neighbors.push(nextEdge);
-  if (!state.lastDestBySource) {
-    state.lastDestBySource = new Map<number, number>();
-  }
+  state.lastDestBySource ??= new Map<number, number>();
   state.lastDestBySource.set(seed.which, nextEdge.dest.which);
   const nextIndex = nextEdge.dest.which;
   return { index: nextIndex, jumped: nextIndex !== seed.which };

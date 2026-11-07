@@ -36,6 +36,7 @@ type DragGesture = DragState & {
 
 const AUTO_SCROLL_EDGE_PX = 40;
 const AUTO_SCROLL_MAX_STEP_PX = 10;
+const KEYBOARD_MOVE_STEPS: Record<string, number> = { ArrowUp: -1, ArrowDown: 1 };
 
 // How far a row is translated while another row is dragged across it.
 function rowShift(index: number, drag: DragState) {
@@ -204,8 +205,7 @@ export function PlaylistModal() {
     index: number,
     key: string,
   ) => {
-    const step =
-      event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    const step = KEYBOARD_MOVE_STEPS[event.key] ?? 0;
     if (step === 0 || gestureRef.current) {
       return;
     }

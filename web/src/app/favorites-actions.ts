@@ -356,7 +356,7 @@ export function updateFavorites(
       (item) => !delta.removedIds.has(item.uniqueSongId),
     );
     for (const favorite of delta.added) {
-      if (next.find((item) => item.uniqueSongId === favorite.uniqueSongId)) {
+      if (next.some((item) => item.uniqueSongId === favorite.uniqueSongId)) {
         continue;
       }
       next.push(favorite);
@@ -466,10 +466,10 @@ export function maybeAutoFavoriteUserSupplied(response: AnalysisComplete) {
     if (!olderFavorite) {
       return;
     }
-    const existingJobFavorite = useAppStore.getState().favorites.find(
+    const hasJobFavorite = useAppStore.getState().favorites.some(
       (item) => item.uniqueSongId === jobId,
     );
-    if (existingJobFavorite) {
+    if (hasJobFavorite) {
       updateFavorites(
         useAppStore.getState().favorites.filter((item) => item.uniqueSongId !== olderId),
       );

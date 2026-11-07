@@ -51,19 +51,17 @@ async function getFfmpeg() {
   if (ffmpegSingleton.loaded) {
     return ffmpegSingleton;
   }
-  if (!ffmpegLoadPromise) {
-    ffmpegLoadPromise = ffmpegSingleton
-      .load({
-        coreURL,
-        wasmURL,
-        classWorkerURL,
-      })
-      .then(() => ffmpegSingleton as FFmpeg)
-      .catch((error) => {
-        ffmpegLoadPromise = null;
-        throw error;
-      });
-  }
+  ffmpegLoadPromise ??= ffmpegSingleton
+    .load({
+      coreURL,
+      wasmURL,
+      classWorkerURL,
+    })
+    .then(() => ffmpegSingleton as FFmpeg)
+    .catch((error) => {
+      ffmpegLoadPromise = null;
+      throw error;
+    });
   return ffmpegLoadPromise;
 }
 
@@ -81,7 +79,7 @@ function withFfmpegLock<T>(task: (ffmpeg: FFmpeg) => Promise<T>): Promise<T> {
 
 function readBytes(data: Uint8Array | string, label: string) {
   if (typeof data === "string") {
-    throw new Error(`Unexpected text output for ${label}`);
+    throw new TypeError(`Unexpected text output for ${label}`);
   }
   return data;
 }

@@ -63,7 +63,7 @@ export function useSleepTimer({
   function scheduleSleepTimerTick(expectedEndTimeMs: number) {
     clearSleepTimerTimeout();
     const remainingMs = Math.max(0, expectedEndTimeMs - performance.now());
-    const nextDelayMs = remainingMs > 1000 ? 1000 : remainingMs;
+    const nextDelayMs = Math.min(remainingMs, 1000);
     sleepTimerTimeoutRef.current = backgroundSetTimeout(() => {
       if (sleepTimerEndTimeRef.current !== expectedEndTimeMs) {
         return;

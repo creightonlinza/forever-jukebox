@@ -39,6 +39,14 @@ function errorMessage(value: unknown): string {
   if (typeof value === "string") {
     return value;
   }
+  if (typeof value === "object") {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") {
+      return message;
+    }
+    const text = String(value);
+    return /^\[object \w+\]$/.test(text) ? "" : text;
+  }
   return String(value);
 }
 

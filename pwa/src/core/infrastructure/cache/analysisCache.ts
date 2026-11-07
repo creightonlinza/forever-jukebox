@@ -291,12 +291,10 @@ class OpfsAnalysisCache implements CacheBackend {
   private dirPromise: Promise<FileSystemDirectoryHandle> | null = null;
 
   private async getDir() {
-    if (!this.dirPromise) {
-      this.dirPromise = (async () => {
-        const root = await navigator.storage.getDirectory();
-        return root.getDirectoryHandle("analysis", { create: true });
-      })();
-    }
+    this.dirPromise ??= (async () => {
+      const root = await navigator.storage.getDirectory();
+      return root.getDirectoryHandle("analysis", { create: true });
+    })();
     return this.dirPromise;
   }
 

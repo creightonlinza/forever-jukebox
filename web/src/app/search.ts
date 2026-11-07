@@ -1,6 +1,6 @@
 import type { AppContext, TabId } from "./context";
 import { trackEvent } from "./analytics";
-import { getLoadGeneration, isStaleLoad } from "./playback";
+import { getLoadGeneration, isStaleLoad, tryLoadCachedAudio } from "./playback";
 import {
   fetchJobByTrack,
   searchSpotify,
@@ -10,7 +10,6 @@ import {
 } from "./api";
 import type { ToastOptions } from "./ui";
 import type { PlaylistTrack } from "./playlist";
-import { tryLoadCachedAudio } from "./playback";
 import {
   isAnalysisComplete,
   isAnalysisFailed,

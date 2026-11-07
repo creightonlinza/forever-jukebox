@@ -157,7 +157,7 @@ export function loadFavoritesSyncCode(): string | null {
     return null;
   }
   const trimmed = raw.trim().toLowerCase();
-  return trimmed ? trimmed : null;
+  return trimmed || null;
 }
 
 export function saveFavoritesSyncCode(code: string) {

@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import time
 import unittest
 from unittest.mock import MagicMock, patch
 
-from api.track_scoring import rank_candidates, score_candidate, title_rejected, token_ratio
+from api.track_scoring import (
+    rank_candidates,
+    score_candidate,
+    split_query,
+    title_rejected,
+    token_ratio,
+    version_tag,
+)
 from api.youtube import search_youtube_api, search_youtube_ytdlp
 
 
@@ -81,6 +89,23 @@ class TitleRejectedTests(unittest.TestCase):
 
     def test_radio_edit_not_rejected(self) -> None:
         self.assertIsNone(title_rejected("Innerbloom (Radio Edit)", "Rufus Du Sol - Innerbloom"))
+
+
+class SplitQueryTests(unittest.TestCase):
+    def test_splits_on_spaced_dash_or_colon(self) -> None:
+        self.assertEqual(split_query("Artist  -  Track"), ("Artist", "Track"))
+        self.assertEqual(split_query("Artist: Track"), ("Artist", "Track"))
+        self.assertEqual(split_query("Jay-Z"), ("", "Jay-Z"))
+
+    def test_version_tag_includes_dash_suffix(self) -> None:
+        self.assertIn("acoustic", version_tag("Song - Acoustic"))
+
+    def test_long_whitespace_runs_stay_fast(self) -> None:
+        padded = " " * 50_000 + "x"
+        started = time.perf_counter()
+        self.assertEqual(split_query(padded), ("", padded))
+        self.assertNotIn("x", version_tag(padded))
+        self.assertLess(time.perf_counter() - started, 1.0)
 
 
 class ScoreCandidateTests(unittest.TestCase):
