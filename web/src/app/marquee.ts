@@ -148,6 +148,7 @@ function createMarqueeController(element: HTMLElement): MarqueeController {
     if (typeof reducedMotionQuery.addEventListener === "function") {
       reducedMotionQuery.addEventListener("change", onReducedMotionChange);
     } else if (typeof reducedMotionQuery.addListener === "function") {
+      // Safari < 14 MediaQueryList is not an EventTarget.
       reducedMotionQuery.addListener(onReducedMotionChange);
     }
   }

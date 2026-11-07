@@ -64,6 +64,14 @@ describe("errorDisplay", () => {
       .toBe("Load failed.");
   });
 
+  it("reads plain object messages and never shows [object Object]", () => {
+    expect(cleanErrorMessage({ message: "Error: Track not found." }))
+      .toBe("Track not found.");
+    expect(cleanErrorMessage({ detail: 42 }, "Load failed.")).toBe("Load failed.");
+    expect(cleanErrorMessage(["bad input"])).toBe("bad input");
+    expect(cleanErrorMessage(new Event("error"), "Load failed.")).toBe("Load failed.");
+  });
+
   it("infers supported providers from URLs", () => {
     expect(inferSourceProviderFromUrl("https://soundcloud.com/artist/track"))
       .toBe("soundcloud");

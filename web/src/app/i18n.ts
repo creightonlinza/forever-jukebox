@@ -1,4 +1,4 @@
-import { createAppI18n, defaultNS } from "@forever-jukebox/i18n";
+import { createAppI18n } from "@forever-jukebox/i18n";
 import de from "./locales/de.json";
 import en from "./locales/en.json";
 import es from "./locales/es.json";
@@ -27,6 +27,6 @@ const app = createAppI18n({
 });
 
 export const resolveSupportedLanguage = app.resolveSupportedLanguage;
-export { defaultNS };
+export { defaultNS } from "@forever-jukebox/i18n";
 
 export default app.i18n;

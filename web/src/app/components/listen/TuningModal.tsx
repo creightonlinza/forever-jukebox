@@ -248,263 +248,261 @@ export function TuningModal() {
   );
 
   return (
-    <>
-      <Modal id="tuning-modal" open={open} onClose={close}>
-        <div className="modal-header">
-          <div className="modal-header-main">
-            <h2
-              id="tuning-title"
-              className={tuningActive ? undefined : "is-extras-active"}
-            >
-              <span id="tuning-title-text">
-                {tuningActive ? t("tuning.title") : t("tuning.extras")}
-              </span>
-            </h2>
-            <div className="modal-tabs" aria-label={t("tuning.sections")}>
-              <button
-                id="tuning-tab-toggle"
-                className={hasExtrasTab ? "modal-tab" : "modal-tab hidden"}
-                type="button"
-                aria-label={
-                  tuningActive
-                    ? t("tuning.switchToExtras")
-                    : t("tuning.switchToTuning")
-                }
-                onClick={handleToggleTab}
-              >
-                <span
-                  id="tuning-tab-toggle-icon"
-                  className="material-symbols-outlined modal-tab-icon"
-                  aria-hidden="true"
-                >
-                  {tuningActive ? "science" : "tune"}
-                </span>
-                <span id="tuning-tab-toggle-label">
-                  {tuningActive ? t("tuning.extras") : t("tuning.title")}
-                </span>
-              </button>
-            </div>
-          </div>
-          <div className="modal-header-actions">
+    <Modal id="tuning-modal" open={open} onClose={close}>
+      <div className="modal-header">
+        <div className="modal-header-main">
+          <h2
+            id="tuning-title"
+            className={tuningActive ? undefined : "is-extras-active"}
+          >
+            <span id="tuning-title-text">
+              {tuningActive ? t("tuning.title") : t("tuning.extras")}
+            </span>
+          </h2>
+          <div className="modal-tabs" aria-label={t("tuning.sections")}>
             <button
+              id="tuning-tab-toggle"
+              className={hasExtrasTab ? "modal-tab" : "modal-tab hidden"}
               type="button"
-              id="tuning-close"
-              className="modal-close"
-              aria-label={t("common.close")}
-              title={t("common.close")}
-              onClick={close}
+              aria-label={
+                tuningActive
+                  ? t("tuning.switchToExtras")
+                  : t("tuning.switchToTuning")
+              }
+              onClick={handleToggleTab}
             >
               <span
-                className="material-symbols-outlined modal-close-icon"
+                id="tuning-tab-toggle-icon"
+                className="material-symbols-outlined modal-tab-icon"
                 aria-hidden="true"
               >
-                close
+                {tuningActive ? "science" : "tune"}
+              </span>
+              <span id="tuning-tab-toggle-label">
+                {tuningActive ? t("tuning.extras") : t("tuning.title")}
               </span>
             </button>
           </div>
         </div>
-        <div className="modal-body">
-          <div id="tuning-panel-tuning" className={tuningActive ? undefined : "hidden"}>
-            <RangeRow
-              id="threshold"
-              label={t("tuning.similarityThreshold")}
-              valueText={`${form?.threshold ?? 2}`}
-              min={2}
-              max={80}
-              step={1}
-              value={form?.threshold ?? 2}
-              onChange={(value) => setFormField("threshold", value)}
-              hint={
-                <div className="hint">
-                  {t("tuning.computedThreshold")}{" "}
-                  <span id="computed-threshold">
-                    {form?.computedThreshold === null ||
-                    form?.computedThreshold === undefined
-                      ? "-"
-                      : `${form.computedThreshold}`}
-                  </span>
-                </div>
-              }
-            />
-            <RangeRow
-              id="min-jump-distance"
-              label={t("tuning.minJumpDistance")}
-              valueText={formatMinJumpDistance(
-                form?.minLongBranchPercent ?? 0,
-                t,
-              )}
-              min={0}
-              max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
-              step={1}
-              value={Math.max(
-                0,
-                MIN_JUMP_DISTANCE_OPTIONS.indexOf(
-                  (form?.minLongBranchPercent ??
-                    0) as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
-                ),
-              )}
-              onChange={(index) =>
-                setFormField(
-                  "minLongBranchPercent",
-                  MIN_JUMP_DISTANCE_OPTIONS[index] ?? 0,
-                )
-              }
-              hint={
-                <div className="hint">
-                  {t("tuning.minJumpDistanceHint")}
-                </div>
-              }
-            />
-            <RangeRow
-              id="min-prob"
-              label={t("tuning.probabilityMin")}
-              valueText={`${form?.minProbPct ?? 18}%`}
-              min={0}
-              max={100}
-              step={2}
-              value={form?.minProbPct ?? 18}
-              onChange={(value) => setFormField("minProbPct", value)}
-            />
-            <RangeRow
-              id="max-prob"
-              label={t("tuning.probabilityMax")}
-              valueText={`${form?.maxProbPct ?? 50}%`}
-              min={0}
-              max={100}
-              step={2}
-              value={form?.maxProbPct ?? 50}
-              onChange={(value) => setFormField("maxProbPct", value)}
-            />
-            <RangeRow
-              id="ramp"
-              label={t("tuning.rampSpeed")}
-              valueText={`${form?.rampPct ?? 10}%`}
-              min={0}
-              max={100}
-              step={2}
-              value={form?.rampPct ?? 10}
-              onChange={(value) => setFormField("rampPct", value)}
-            />
-            <div className="checkbox-row">
-              <label>
-                <input
-                  id="just-backwards"
-                  type="checkbox"
-                  checked={form?.justBackwards ?? false}
-                  onChange={(event) =>
-                    setFormField("justBackwards", event.target.checked)
-                  }
-                />{" "}
-                {t("tuning.onlyReverse")}
-              </label>
-              <label>
-                <input
-                  id="remove-seq"
-                  type="checkbox"
-                  checked={form?.removeSequentialBranches ?? false}
-                  onChange={(event) =>
-                    setFormField("removeSequentialBranches", event.target.checked)
-                  }
-                />{" "}
-                {t("tuning.removeSequential")}
-              </label>
-              <label>
-                <input
-                  id="highlight-anchor-branch"
-                  type="checkbox"
-                  checked={form?.highlightAnchorBranch ?? false}
-                  onChange={(event) =>
-                    setFormField("highlightAnchorBranch", event.target.checked)
-                  }
-                />{" "}
-                {t("tuning.highlightAnchor")}
-              </label>
-            </div>
-          </div>
-          <div
-            id="tuning-panel-extras"
-            className={tuningActive ? "hidden" : undefined}
+        <div className="modal-header-actions">
+          <button
+            type="button"
+            id="tuning-close"
+            className="modal-close"
+            aria-label={t("common.close")}
+            title={t("common.close")}
+            onClick={close}
           >
-            <div className="checkbox-row extras-checkbox-row">
-              <label>
-                <input
-                  id="extras-enabled"
-                  type="checkbox"
-                  checked={extras?.branchStatsEnabled ?? false}
-                  disabled={!hasExtrasTab}
-                  onChange={(event) =>
-                    setExtrasField("branchStatsEnabled", event.target.checked)
-                  }
-                />{" "}
-                {t("tuning.showBranchStats")}
-              </label>
-              <label>
-                <input
-                  id="bring-home-enabled"
-                  type="checkbox"
-                  checked={extras?.bringItHomeMode ?? false}
-                  disabled={!hasExtrasTab}
-                  onChange={(event) =>
-                    setExtrasField("bringItHomeMode", event.target.checked)
-                  }
-                />{" "}
-                {t("tuning.bringItHome")}
-              </label>
-            </div>
-            <div id="jukebox-audio-mode-group" className="audio-mode-group">
-              <div className="label-line">{t("tuning.audioMode")}</div>
-              <div
-                className="audio-mode-options"
-                role="radiogroup"
-                aria-label={t("tuning.audioMode")}
-              >
-                {audioModeOption(AUDIO_MODE_OPTIONS[0])}
-                <div className="audio-mode-section">
-                  <div className="audio-mode-section-title">{t("tuning.playbackStyles")}</div>
-                  <div className="audio-mode-section-options">
-                    {AUDIO_MODE_OPTIONS.filter(
-                      (option) => option.section === "styles",
-                    ).map(audioModeOption)}
-                  </div>
-                  {extras && audioModeSupportsIntensity(extras.audioMode) ? (
-                    <RangeRow
-                      id="audio-intensity"
-                      label={t("tuning.audioIntensity")}
-                      valueText={`${extras.audioIntensity}%`}
-                      min={MIN_AUDIO_MODE_INTENSITY}
-                      max={MAX_AUDIO_MODE_INTENSITY}
-                      step={5}
-                      value={extras.audioIntensity}
-                      onChange={(value) => setExtrasField("audioIntensity", value)}
-                    />
-                  ) : null}
+            <span
+              className="material-symbols-outlined modal-close-icon"
+              aria-hidden="true"
+            >
+              close
+            </span>
+          </button>
+        </div>
+      </div>
+      <div className="modal-body">
+        <div id="tuning-panel-tuning" className={tuningActive ? undefined : "hidden"}>
+          <RangeRow
+            id="threshold"
+            label={t("tuning.similarityThreshold")}
+            valueText={`${form?.threshold ?? 2}`}
+            min={2}
+            max={80}
+            step={1}
+            value={form?.threshold ?? 2}
+            onChange={(value) => setFormField("threshold", value)}
+            hint={
+              <div className="hint">
+                {t("tuning.computedThreshold")}{" "}
+                <span id="computed-threshold">
+                  {form?.computedThreshold === null ||
+                  form?.computedThreshold === undefined
+                    ? "-"
+                    : `${form.computedThreshold}`}
+                </span>
+              </div>
+            }
+          />
+          <RangeRow
+            id="min-jump-distance"
+            label={t("tuning.minJumpDistance")}
+            valueText={formatMinJumpDistance(
+              form?.minLongBranchPercent ?? 0,
+              t,
+            )}
+            min={0}
+            max={MIN_JUMP_DISTANCE_OPTIONS.length - 1}
+            step={1}
+            value={Math.max(
+              0,
+              MIN_JUMP_DISTANCE_OPTIONS.indexOf(
+                (form?.minLongBranchPercent ??
+                  0) as (typeof MIN_JUMP_DISTANCE_OPTIONS)[number],
+              ),
+            )}
+            onChange={(index) =>
+              setFormField(
+                "minLongBranchPercent",
+                MIN_JUMP_DISTANCE_OPTIONS[index] ?? 0,
+              )
+            }
+            hint={
+              <div className="hint">
+                {t("tuning.minJumpDistanceHint")}
+              </div>
+            }
+          />
+          <RangeRow
+            id="min-prob"
+            label={t("tuning.probabilityMin")}
+            valueText={`${form?.minProbPct ?? 18}%`}
+            min={0}
+            max={100}
+            step={2}
+            value={form?.minProbPct ?? 18}
+            onChange={(value) => setFormField("minProbPct", value)}
+          />
+          <RangeRow
+            id="max-prob"
+            label={t("tuning.probabilityMax")}
+            valueText={`${form?.maxProbPct ?? 50}%`}
+            min={0}
+            max={100}
+            step={2}
+            value={form?.maxProbPct ?? 50}
+            onChange={(value) => setFormField("maxProbPct", value)}
+          />
+          <RangeRow
+            id="ramp"
+            label={t("tuning.rampSpeed")}
+            valueText={`${form?.rampPct ?? 10}%`}
+            min={0}
+            max={100}
+            step={2}
+            value={form?.rampPct ?? 10}
+            onChange={(value) => setFormField("rampPct", value)}
+          />
+          <div className="checkbox-row">
+            <label>
+              <input
+                id="just-backwards"
+                type="checkbox"
+                checked={form?.justBackwards ?? false}
+                onChange={(event) =>
+                  setFormField("justBackwards", event.target.checked)
+                }
+              />{" "}
+              {t("tuning.onlyReverse")}
+            </label>
+            <label>
+              <input
+                id="remove-seq"
+                type="checkbox"
+                checked={form?.removeSequentialBranches ?? false}
+                onChange={(event) =>
+                  setFormField("removeSequentialBranches", event.target.checked)
+                }
+              />{" "}
+              {t("tuning.removeSequential")}
+            </label>
+            <label>
+              <input
+                id="highlight-anchor-branch"
+                type="checkbox"
+                checked={form?.highlightAnchorBranch ?? false}
+                onChange={(event) =>
+                  setFormField("highlightAnchorBranch", event.target.checked)
+                }
+              />{" "}
+              {t("tuning.highlightAnchor")}
+            </label>
+          </div>
+        </div>
+        <div
+          id="tuning-panel-extras"
+          className={tuningActive ? "hidden" : undefined}
+        >
+          <div className="checkbox-row extras-checkbox-row">
+            <label>
+              <input
+                id="extras-enabled"
+                type="checkbox"
+                checked={extras?.branchStatsEnabled ?? false}
+                disabled={!hasExtrasTab}
+                onChange={(event) =>
+                  setExtrasField("branchStatsEnabled", event.target.checked)
+                }
+              />{" "}
+              {t("tuning.showBranchStats")}
+            </label>
+            <label>
+              <input
+                id="bring-home-enabled"
+                type="checkbox"
+                checked={extras?.bringItHomeMode ?? false}
+                disabled={!hasExtrasTab}
+                onChange={(event) =>
+                  setExtrasField("bringItHomeMode", event.target.checked)
+                }
+              />{" "}
+              {t("tuning.bringItHome")}
+            </label>
+          </div>
+          <div id="jukebox-audio-mode-group" className="audio-mode-group">
+            <div className="label-line">{t("tuning.audioMode")}</div>
+            <div
+              className="audio-mode-options"
+              role="radiogroup"
+              aria-label={t("tuning.audioMode")}
+            >
+              {audioModeOption(AUDIO_MODE_OPTIONS[0])}
+              <div className="audio-mode-section">
+                <div className="audio-mode-section-title">{t("tuning.playbackStyles")}</div>
+                <div className="audio-mode-section-options">
+                  {AUDIO_MODE_OPTIONS.filter(
+                    (option) => option.section === "styles",
+                  ).map(audioModeOption)}
                 </div>
-                <div className="audio-mode-section">
-                  <div className="audio-mode-section-title">{t("tuning.remixToys")}</div>
-                  <div className="audio-mode-section-options">
-                    {AUDIO_MODE_OPTIONS.filter(
-                      (option) =>
-                        option.section === "toys" &&
-                        (option.value !== "instrumental" ||
-                          isInstrumentalModeAvailable()),
-                    ).map(audioModeOption)}
-                  </div>
+                {extras && audioModeSupportsIntensity(extras.audioMode) ? (
+                  <RangeRow
+                    id="audio-intensity"
+                    label={t("tuning.audioIntensity")}
+                    valueText={`${extras.audioIntensity}%`}
+                    min={MIN_AUDIO_MODE_INTENSITY}
+                    max={MAX_AUDIO_MODE_INTENSITY}
+                    step={5}
+                    value={extras.audioIntensity}
+                    onChange={(value) => setExtrasField("audioIntensity", value)}
+                  />
+                ) : null}
+              </div>
+              <div className="audio-mode-section">
+                <div className="audio-mode-section-title">{t("tuning.remixToys")}</div>
+                <div className="audio-mode-section-options">
+                  {AUDIO_MODE_OPTIONS.filter(
+                    (option) =>
+                      option.section === "toys" &&
+                      (option.value !== "instrumental" ||
+                        isInstrumentalModeAvailable()),
+                  ).map(audioModeOption)}
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <div className="modal-footer tuning-footer">
-          {showReset ? (
-            <button type="button" id="tuning-reset" onClick={handleReset}>
-              {t("common.reset")}
-            </button>
-          ) : null}
-          <button type="button" id="tuning-apply" onClick={handleApply}>
-            {t("common.apply")}
+      </div>
+      <div className="modal-footer tuning-footer">
+        {showReset ? (
+          <button type="button" id="tuning-reset" onClick={handleReset}>
+            {t("common.reset")}
           </button>
-        </div>
-      </Modal>
-    </>
+        ) : null}
+        <button type="button" id="tuning-apply" onClick={handleApply}>
+          {t("common.apply")}
+        </button>
+      </div>
+    </Modal>
   );
 }

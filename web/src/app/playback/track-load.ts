@@ -289,6 +289,7 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
     return true;
   } catch (err) {
     if (!isStaleLoad(generation)) {
+      console.warn(`Audio load failed: ${String(err)}`);
       useAppStore.setState({ audioLoadInFlight: false });
     }
     return false;

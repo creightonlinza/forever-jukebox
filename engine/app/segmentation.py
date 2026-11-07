@@ -24,7 +24,7 @@ def segment_from_novelty(frame_times: np.ndarray,
                           config: SegmentationConfig,
                           duration: float) -> List[float]:
     smooth = uniform_filter1d(novelty, size=max(1, config.novelty_smoothing))
-    peaks, props = find_peaks(
+    peaks, _ = find_peaks(
         smooth,
         height=config.peak_threshold,
         prominence=config.peak_prominence,

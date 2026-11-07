@@ -64,8 +64,8 @@ class LocalItem:
     def md5(self) -> str:
         legacy = self.gzipped_legacy
         if legacy is not None:
-            return hashlib.md5(legacy).hexdigest()
-        digest = hashlib.md5()
+            return hashlib.md5(legacy, usedforsecurity=False).hexdigest()
+        digest = hashlib.md5(usedforsecurity=False)
         with self.path.open("rb") as handle:
             for chunk in iter(lambda: handle.read(1024 * 1024), b""):
                 digest.update(chunk)

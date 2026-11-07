@@ -69,8 +69,7 @@ export function VizContainer() {
       ctx.wubmachine?.resizeNow();
     };
     if (
-      typeof (globalThis as { ResizeObserver?: unknown }).ResizeObserver !==
-      "undefined"
+      (globalThis as { ResizeObserver?: unknown }).ResizeObserver !== undefined
     ) {
       const observer = new ResizeObserver(() => {
         handleResize();

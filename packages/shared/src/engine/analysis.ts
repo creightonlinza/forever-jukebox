@@ -15,14 +15,14 @@ function assertObject(value: unknown, path: string): UnknownRecord {
 
 function assertNumber(value: unknown, path: string): number {
   if (typeof value !== "number" || Number.isNaN(value)) {
-    throw new Error(`Expected number at ${path}`);
+    throw new TypeError(`Expected number at ${path}`);
   }
   return value;
 }
 
 function assertArray(value: unknown, path: string): unknown[] {
   if (!Array.isArray(value)) {
-    throw new Error(`Expected array at ${path}`);
+    throw new TypeError(`Expected array at ${path}`);
   }
   return value;
 }
@@ -154,8 +154,7 @@ function linkNeighbors(list: QuantumBase[]) {
 
 function connectQuanta(parentList: QuantumBase[], childList: QuantumBase[]) {
   let last = 0;
-  for (let i = 0; i < parentList.length; i += 1) {
-    const parent = parentList[i];
+  for (const parent of parentList) {
     parent.children = [];
     for (let j = last; j < childList.length; j += 1) {
       const child = childList[j];
@@ -179,8 +178,7 @@ function connectFirstOverlappingSegment(
   segments: Segment[]
 ) {
   let last = 0;
-  for (let i = 0; i < quanta.length; i += 1) {
-    const q = quanta[i];
+  for (const q of quanta) {
     for (let j = last; j < segments.length; j += 1) {
       const seg = segments[j];
       if (seg.start >= q.start) {
@@ -197,8 +195,7 @@ function connectAllOverlappingSegments(
   segments: Segment[]
 ) {
   let last = 0;
-  for (let i = 0; i < quanta.length; i += 1) {
-    const q = quanta[i];
+  for (const q of quanta) {
     q.overlappingSegments = [];
     for (let j = last; j < segments.length; j += 1) {
       const seg = segments[j];

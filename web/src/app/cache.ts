@@ -360,7 +360,7 @@ export async function saveAppConfig(value: unknown) {
   });
 }
 
-export async function loadAppConfig(): Promise<unknown | null> {
+export async function loadAppConfig(): Promise<unknown> {
   const db = await openTrackCacheDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(appConfigStore, "readonly");

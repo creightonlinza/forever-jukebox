@@ -116,8 +116,7 @@ export function loadTuning(fingerprint: string): SavedTuning | null {
   try {
     const parsed = JSON.parse(raw) as Partial<SavedTuning>;
     if (
-      !parsed ||
-      parsed.v !== 1 ||
+      parsed?.v !== 1 ||
       typeof parsed.config !== "object" ||
       parsed.config === null
     ) {
@@ -165,7 +164,7 @@ export function clearAllTuning(): void {
     const keys: string[] = [];
     for (let i = 0; i < window.localStorage.length; i += 1) {
       const key = window.localStorage.key(i);
-      if (key && key.startsWith(PREFIX)) {
+      if (key?.startsWith(PREFIX)) {
         keys.push(key);
       }
     }

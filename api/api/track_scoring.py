@@ -97,7 +97,7 @@ def token_ratio(haystack: str, phrase: str) -> float:
 
 def split_query(query: str) -> tuple[str, str]:
     """'Artist - Track' -> (artist, track); falls back to ('', query)."""
-    parts = [p.strip() for p in re.split(r"\s+-\s+|:\s+", query, maxsplit=1)]
+    parts = [p.strip() for p in re.split(r"(?<!\s)\s+-\s+|:\s+", query, maxsplit=1)]
     if len(parts) == 2:
         return parts[0], parts[1]
     return "", query
@@ -106,7 +106,7 @@ def split_query(query: str) -> tuple[str, str]:
 def version_tag(track: str) -> str:
     """Folded "(Live)" / "[Remix]" groups and " - Acoustic" suffixes of a track name."""
     groups = re.findall(r"[(\[{]([^)\]}]*)[)\]}]", track)
-    return fold(" ".join(groups + re.split(r"\s+-\s+", track)[1:]))
+    return fold(" ".join(groups + re.split(r"(?<!\s)\s+-\s+", track)[1:]))
 
 
 def title_rejected(title: str, query: str) -> str | None:

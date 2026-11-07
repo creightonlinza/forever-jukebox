@@ -22,6 +22,7 @@ SQLITE_BUSY_TIMEOUT_MS = 30_000
 CLAIM_BUSY_TIMEOUT_MS = 250
 CLAIM_RETRY_DELAYS_S = (0.05, 0.1, 0.2, 0.4)
 SELECT_JOB_SOURCE_REF_SQL = "SELECT source_ref FROM jobs WHERE id = ?"
+BEGIN_IMMEDIATE = "BEGIN IMMEDIATE"
 
 
 @dataclass
@@ -508,7 +509,7 @@ def set_job_status(
         params.append(owner)
     with _connect(db_path) as conn:
         # Stamp under the write lock so concurrent writers commit in stamp order.
-        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(BEGIN_IMMEDIATE)
         cur = conn.execute(sql, params)
         conn.commit()
     return int(cur.rowcount or 0) == 1
@@ -549,7 +550,7 @@ def restart_stalled_download(
     """
     now = _utc_now()
     with _connect(db_path) as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(BEGIN_IMMEDIATE)
         cur = conn.execute(
             """
             UPDATE jobs
@@ -579,7 +580,7 @@ def claim_job_for_download(
     """
     now = _utc_now()
     with _connect(db_path) as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(BEGIN_IMMEDIATE)
         cur = conn.execute(
             """
             UPDATE jobs
@@ -636,7 +637,7 @@ def _claim_next_job_once(db_path: Path) -> Optional[Job]:
         conn.isolation_level = None
         transaction_started = False
         try:
-            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(BEGIN_IMMEDIATE)
             transaction_started = True
             row = conn.execute(
                 "SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at, id LIMIT 1"
