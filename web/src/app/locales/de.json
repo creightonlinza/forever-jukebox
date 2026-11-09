@@ -258,7 +258,17 @@
     "wubMachineReady": "Wub-Machine-Remix bereit.",
     "wubMachineFailed": "Wub-Machine-Remix fehlgeschlagen. Zum erneuten Versuch auf Play drücken.",
     "wubMachineFailedStatus": "Wub-Machine-Remix fehlgeschlagen.",
-    "loopTrack": "Song wiederholen"
+    "loopTrack": "Song wiederholen",
+    "setCustomAnchor": "Eigenen Anker setzen",
+    "customAnchorTitle": "Eigener Anker",
+    "customAnchorFrom": "Springt von",
+    "customAnchorTo": "Landet auf",
+    "customAnchorBeat": "Beat {{beat}} · {{time}}",
+    "customAnchorLoop": "Schleife: {{beats}} Beats · {{time}}",
+    "customAnchorHint": "Ziehe die Punkte. Pfeiltasten bewegen das gewählte Ende; Shift bewegt einen Takt.",
+    "customAnchorReset": "Zurücksetzen",
+    "customAnchorDone": "Fertig",
+    "customAnchorStatsTitle": "Statistik des eigenen Ankers"
   },
   "audioModes": {
     "nightcore": "Nightcore",
@@ -296,7 +306,8 @@
     "audioMode": "Audio-Modus",
     "audioIntensity": "Intensität",
     "playbackStyles": "Wiedergabestile",
-    "remixToys": "Remix-Spielzeuge"
+    "remixToys": "Remix-Spielzeuge",
+    "customAnchor": "Editor für eigenen Anker"
   },
   "settings": {
     "title": "Einstellungen",

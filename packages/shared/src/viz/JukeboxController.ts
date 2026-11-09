@@ -1,5 +1,5 @@
 import type { Edge } from "../engine/types";
-import { JukeboxViz } from "./JukeboxViz";
+import { JukeboxViz, type AnchorEditState } from "./JukeboxViz";
 
 export class JukeboxController {
   private readonly viz: JukeboxViz;
@@ -66,5 +66,17 @@ export class JukeboxController {
 
   setSelectedEdgeActive(edge: Edge | null) {
     this.viz.setSelectedEdgeActive(edge);
+  }
+
+  setAnchorEdit(state: AnchorEditState | null) {
+    this.viz.setAnchorEdit(state);
+  }
+
+  setOnAnchorEditChange(handler: (state: AnchorEditState) => void) {
+    this.viz.setOnAnchorEditChange(handler);
+  }
+
+  setOnAnchorEditCommit(handler: (state: AnchorEditState) => void) {
+    this.viz.setOnAnchorEditCommit(handler);
   }
 }

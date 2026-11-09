@@ -10,6 +10,48 @@ export interface UserAnchorSelection {
   sourceIndex: number;
 }
 
+// Real edge ids are array indexes, so a negative id never collides with one.
+export const CUSTOM_ANCHOR_EDGE_ID = -1;
+// Shorter loops sit next to freeze-beat territory and restart the player too often.
+export const MIN_CUSTOM_ANCHOR_GAP = 4;
+
+export interface CustomAnchor {
+  src: number;
+  dest: number;
+}
+
+// A custom anchor always jumps backward, so it always closes a loop.
+export function isValidCustomAnchor(
+  beatCount: number,
+  src: number,
+  dest: number,
+): boolean {
+  return (
+    Number.isInteger(src) &&
+    Number.isInteger(dest) &&
+    dest >= 0 &&
+    src < beatCount &&
+    src - dest >= MIN_CUSTOM_ANCHOR_GAP
+  );
+}
+
+export type CustomAnchorEnd = "src" | "dest";
+
+// Moves one end toward index, stopping at the minimum gap so the ends never cross.
+export function moveCustomAnchorEnd(
+  beatCount: number,
+  anchor: CustomAnchor,
+  end: CustomAnchorEnd,
+  index: number,
+): CustomAnchor {
+  if (end === "src") {
+    const min = anchor.dest + MIN_CUSTOM_ANCHOR_GAP;
+    return { src: Math.max(min, Math.min(index, beatCount - 1)), dest: anchor.dest };
+  }
+  const max = anchor.src - MIN_CUSTOM_ANCHOR_GAP;
+  return { src: anchor.src, dest: Math.max(0, Math.min(index, max)) };
+}
+
 // A pinned anchor edge only takes effect while it survives deletion and
 // branch filtering (i.e. is still offered by its source beat).
 export function isActiveUserAnchorEdge(edge: Edge): boolean {

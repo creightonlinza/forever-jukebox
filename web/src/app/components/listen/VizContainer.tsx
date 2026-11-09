@@ -55,8 +55,8 @@ export function VizContainer() {
     [],
   );
 
-  // Observe the panel and resize both controllers, with a window-resize
-  // fallback for older browsers without ResizeObserver.
+  // Observe the panel and the viz layer (the viz-top row can change its height)
+  // and resize the controllers, with a window-resize fallback for older browsers.
   useEffect(() => {
     const panel = vizPanelRef.current;
     if (!panel) {
@@ -75,6 +75,9 @@ export function VizContainer() {
         handleResize();
       });
       observer.observe(panel);
+      if (vizLayerRef.current) {
+        observer.observe(vizLayerRef.current);
+      }
       return () => observer.disconnect();
     }
     window.addEventListener("resize", handleResize);

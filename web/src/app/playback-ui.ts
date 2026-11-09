@@ -1,4 +1,8 @@
-import { findBackwardTwin } from "@forever-jukebox/shared";
+import { CUSTOM_ANCHOR_EDGE_ID, findBackwardTwin } from "@forever-jukebox/shared";
+import {
+  exitCustomAnchorEdit,
+  nudgeCustomAnchor,
+} from "./playback/custom-anchor";
 import type { Edge } from "@forever-jukebox/shared/types";
 import {
   CANONIZER_FINISH_KEY,
@@ -96,7 +100,10 @@ function syncExtrasPopup(edge: Edge | null) {
     const maxDistance = Math.max(1, engine.getConfig().maxBranchThreshold);
     useAppStore.setState({
       branchStats: {
-        title: () => i18n.t("playback.branchStatsTitle", { id: edge.id }),
+        title: () =>
+          edge.id === CUSTOM_ANCHOR_EDGE_ID
+            ? i18n.t("playback.customAnchorStatsTitle")
+            : i18n.t("playback.branchStatsTitle", { id: edge.id }),
         startText: formatDuration(startDisplaySeconds),
         endText: formatDuration(endDisplaySeconds),
         deltaText: formatSignedDuration(endDisplaySeconds - startDisplaySeconds),
@@ -383,6 +390,22 @@ export function setWubMachineLoop(checked: boolean): void {
     return true;
   }
 
+// Arrows nudge the selected end (Shift moves a bar); Escape or Enter closes the editor.
+function handleCustomAnchorKeydown(context: AppContext, event: KeyboardEvent): boolean {
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    event.preventDefault();
+    nudgeCustomAnchor(context, event.key === "ArrowRight" ? 1 : -1, event.shiftKey);
+    return true;
+  }
+  if (event.key === "Escape" || event.key === "Enter") {
+    event.preventDefault();
+    exitCustomAnchorEdit(context);
+    return true;
+  }
+  // Shift is the bar modifier here, so it must not start force-branching.
+  return event.key === "Shift";
+}
+
 export function handleKeydown(event: KeyboardEvent): void {
     if (useAppStore.getState().activeTabId !== "play") {
       return;
@@ -413,6 +436,12 @@ export function handleKeydown(event: KeyboardEvent): void {
       return;
     }
     if (useAppStore.getState().playMode !== "jukebox") {
+      return;
+    }
+    if (
+      useAppStore.getState().customAnchorEdit &&
+      handleCustomAnchorKeydown(context, event)
+    ) {
       return;
     }
     if ((event.key === "h" || event.key === "H") && !event.repeat) {
@@ -670,6 +699,7 @@ export function setPlayMode(mode: PlayMode): void {
       // The extras tab disappears outside jukebox mode, so force the stored
       // tab back to "tuning".
       useAppStore.setState({ tuningModalTab: "tuning" });
+      exitCustomAnchorEdit(context);
     }
     autocanonizer.setVisible(mode === "autocanonizer");
     wubmachine.setVisible(mode === "wubmachine");

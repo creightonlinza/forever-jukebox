@@ -258,7 +258,17 @@
     "wubMachineReady": "Wub Machine remix ready.",
     "wubMachineFailed": "The Wub Machine remix failed. Press play to try again.",
     "wubMachineFailedStatus": "Wub Machine remix failed.",
-    "loopTrack": "Loop the track"
+    "loopTrack": "Loop the track",
+    "setCustomAnchor": "Set custom anchor",
+    "customAnchorTitle": "Custom anchor",
+    "customAnchorFrom": "Jump from",
+    "customAnchorTo": "Land on",
+    "customAnchorBeat": "Beat {{beat}} · {{time}}",
+    "customAnchorLoop": "Loop: {{beats}} beats · {{time}}",
+    "customAnchorHint": "Drag the dots. Arrow keys move the selected end; Shift moves a bar.",
+    "customAnchorReset": "Reset",
+    "customAnchorDone": "Done",
+    "customAnchorStatsTitle": "Custom anchor stats"
   },
   "audioModes": {
     "nightcore": "Nightcore",
@@ -296,7 +306,8 @@
     "audioMode": "Audio Mode",
     "audioIntensity": "Intensity",
     "playbackStyles": "Playback Styles",
-    "remixToys": "Remix Toys"
+    "remixToys": "Remix Toys",
+    "customAnchor": "Custom anchor editor"
   },
   "settings": {
     "title": "Settings",

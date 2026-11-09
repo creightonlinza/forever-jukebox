@@ -7,6 +7,7 @@ import {
   canonicalizeTuningParams,
   clearTuningParamsFromUrl,
   getAnchorBranchIdFromUrl,
+  getCustomAnchorFromUrl,
   getDeletedEdgeIdsFromUrl,
   getTuningParamsFromEngine,
   savedTuningParamsEquivalent,
@@ -346,6 +347,28 @@ describe("tuning params", () => {
     expect(params.get("ab")).toBe("7");
   });
 
+  it("serializes a custom anchor as ca and drops the pinned id", () => {
+    const context = createContext();
+    const engine = context.engine as unknown as {
+      getUserAnchorEdgeId: () => number | null;
+      getCustomAnchor: () => { src: number; dest: number } | null;
+    };
+    engine.getUserAnchorEdgeId = () => -1;
+    engine.getCustomAnchor = () => ({ src: 120, dest: 40 });
+    const params = getTuningParamsFromEngine(context);
+    expect(params.get("ca")).toBe("120-40");
+    expect(params.get("ab")).toBeNull();
+  });
+
+  it("parses a custom anchor from url and rejects bad pairs", () => {
+    setWindowUrl("http://localhost/listen/abc?ca=120-40");
+    expect(getCustomAnchorFromUrl()).toEqual({ src: 120, dest: 40 });
+    for (const raw of ["40-120", "10-8", "-5-1", "12", "1e3-2", "12-4-1"]) {
+      setWindowUrl(`http://localhost/listen/abc?ca=${raw}`);
+      expect(getCustomAnchorFromUrl()).toBeNull();
+    }
+  });
+
   it("parses deleted edge ids from url", () => {
     setWindowUrl("http://localhost/listen/abc?d=3,5,notanumber,7");
     expect(getDeletedEdgeIdsFromUrl()).toEqual([3, 5, 7]);
@@ -475,6 +498,12 @@ describe("canonical tuning params", () => {
   const canon = (raw: string | null) => canonicalizeTuningParams(raw, defaults);
   const equiv = (a: string | null, b: string | null) =>
     savedTuningParamsEquivalent(a, b, defaults);
+
+  it("keeps a custom anchor over a pinned id", () => {
+    expect(canon("ab=7&ca=120-40")).toBe("ca=120-40");
+    expect(canon("ca=40-120&ab=7")).toBe("ab=7");
+    expect(equiv("ca=120-40", "ca=120-41")).toBe(false);
+  });
 
   it("normalizes key order", () => {
     expect(canon("thresh=45&jb=1")).toBe("jb=1&thresh=45");

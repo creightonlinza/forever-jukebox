@@ -16,6 +16,7 @@ import {
 } from "../../playback-ui";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { CustomAnchorButton, CustomAnchorToolbar } from "./CustomAnchorEditor";
 
 function getVisualizationLabel(index: number, t: TFunction) {
   return VISUALIZATION_LABELS[index] ??
@@ -33,6 +34,7 @@ function getVisualizationSelectEntries(count: number, t: TFunction) {
 
 // The viz-top controls: play-mode select, visualization select, the
 // autocanonizer finish-out checkbox and the Wub Machine loop checkbox. Rendered into the .viz-top container.
+// The custom anchor toolbar replaces them while it is open.
 export function VizTop() {
   const { t } = useTranslation();
   const playMode = useAppStore((s) => s.playMode);
@@ -40,6 +42,7 @@ export function VizTop() {
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const audioModePreparing = useAppStore((s) => s.audioModePreparing);
+  const anchorEditing = useAppStore((s) => s.customAnchorEdit !== null);
   const [finishOutSong, setFinishOutSong] = useState(
     () => localStorage.getItem(CANONIZER_FINISH_KEY) === "true",
   );
@@ -57,6 +60,10 @@ export function VizTop() {
     getAppContext().jukebox?.getCount() ?? VISUALIZATION_LABELS.length,
     t,
   );
+
+  if (anchorEditing) {
+    return <CustomAnchorToolbar />;
+  }
 
   return (
     <>
@@ -82,6 +89,7 @@ export function VizTop() {
             </span>
           </span>
         </label>
+        <CustomAnchorButton />
       </div>
       <div className="viz-controls">
         <label className="viz-select-group" htmlFor="viz-select">

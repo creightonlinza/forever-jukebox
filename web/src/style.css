@@ -2492,6 +2492,74 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   white-space: nowrap;
 }
 
+.custom-anchor-button {
+  border: 1px solid var(--border-control);
+  background: var(--surface-panel);
+  color: var(--text);
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.custom-anchor-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Matches the viz-select box so the viz-top row, and with it the canvas, keeps its height. */
+.custom-anchor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.custom-anchor-end,
+.custom-anchor-actions button {
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--surface-panel);
+  color: var(--text);
+  font-size: 12px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.custom-anchor-end.is-active,
+.custom-anchor-actions button.is-primary {
+  border-color: var(--accent);
+}
+
+.custom-anchor-label {
+  color: var(--muted);
+}
+
+.custom-anchor-loop {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-anchor-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* No room for the loop readout beside the end buttons on a phone. */
+@media (max-width: 600px) {
+  .custom-anchor-loop {
+    display: none;
+  }
+}
+
 .canonizer-layer,
 .wubmachine-layer {
   position: relative;

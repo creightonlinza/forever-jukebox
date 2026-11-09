@@ -86,6 +86,9 @@ Instrumental and Swing renders are kept in Cache Storage (`fj-rendered-tracks`,
 - Left/Right: cycle selected branch.
 - A: set/reset the selected backward branch as the anchor branch.
 - Delete: remove a selected branch (click a branch in the visualization first).
+- Custom anchor editor (turn on in Extras, then "Set custom anchor"): drag the two dots
+  to any beats; Left/Right move the selected end by a beat, Shift+Left/Right by a bar;
+  Enter or Escape closes the editor. Shared as `ca=<from>-<to>` beat indexes.
 
 ## Analysis format (inferred)
 This app expects a JSON object with top-level arrays matching the analysis schema:

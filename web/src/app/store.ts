@@ -1,5 +1,6 @@
 import { create, type StateCreator } from "zustand";
 import type { ToastQueueItem } from "@forever-jukebox/shared/ui/toastQueue";
+import type { AnchorEditState } from "@forever-jukebox/shared/viz/JukeboxViz";
 import i18n from "./i18n";
 import type { SpotifySearchItem, YoutubeSearchItem } from "./api";
 import type { AppState, SleepTimerState, TabId } from "./context";
@@ -140,6 +141,8 @@ type ShellSlice = {
   beatsPlayedText: string;
   playlistLoadBusy: boolean;
   branchStats: BranchStatsState | null;
+  // Non-null while the custom anchor editor is open on the viz.
+  customAnchorEdit: AnchorEditState | null;
 };
 
 type Actions = {
@@ -235,6 +238,7 @@ const createUiSlice: Slice<
     | "beatsPlayedText"
     | "playlistLoadBusy"
     | "branchStats"
+    | "customAnchorEdit"
   > &
     Actions
 > = (set, get) => {
@@ -298,6 +302,7 @@ const createUiSlice: Slice<
     beatsPlayedText: "0",
     playlistLoadBusy: false,
     branchStats: null,
+    customAnchorEdit: null,
     setActiveTab: (activeTabId) => set({ activeTabId }),
     setTheme: (theme) => set({ theme }),
     setPlayTabPulsing: (isPlayTabPulsing) => set({ isPlayTabPulsing }),
@@ -466,12 +471,14 @@ const createTuningSlice: Slice<
     | "deletedEdgeIds"
     | "highlightAnchorBranch"
     | "branchStatsEnabled"
+    | "customAnchorEnabled"
   >
 > = () => ({
   tuningParams: null,
   deletedEdgeIds: [],
   highlightAnchorBranch: false,
   branchStatsEnabled: false,
+  customAnchorEnabled: false,
 });
 
 const createLibrarySlice: Slice<

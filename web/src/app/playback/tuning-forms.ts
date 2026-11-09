@@ -1,11 +1,13 @@
 import type { AppContext } from "../context";
 import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { storeAnchorHighlight } from "../anchorHighlight";
-import { storeBranchStatsEnabled } from "../extrasMode";
+import { storeBranchStatsEnabled, storeCustomAnchorEnabled } from "../extrasMode";
+import { discardCustomAnchorEdit, exitCustomAnchorEdit } from "./custom-anchor";
 import { useAppStore } from "../store";
 import {
   appendAudioModeParams,
   getAnchorBranchIdFromUrl,
+  getCustomAnchorFromUrl,
   getDeletedEdgeIdsFromUrl,
   resetAudioModeToOff,
   syncTuningParamsState,
@@ -85,6 +87,11 @@ export function applyDeletedEdgesFromUrl(context: AppContext) {
 }
 
 export function applyAnchorBranchFromUrl(context: AppContext) {
+  const customAnchor = getCustomAnchorFromUrl();
+  // An invalid pair for this track is ignored without a message, like an unknown ab id.
+  if (customAnchor && context.engine.setCustomAnchor(customAnchor.src, customAnchor.dest)) {
+    return;
+  }
   const anchorBranchId = getAnchorBranchIdFromUrl();
   if (anchorBranchId === null) {
     return;
@@ -122,6 +129,7 @@ export type ExtrasApplyResult = {
 export type ExtrasFormValues = {
   bringItHomeMode: boolean;
   branchStatsEnabled: boolean;
+  customAnchorEnabled: boolean;
   audioMode: JukeboxAudioMode;
   audioIntensity: number;
 };
@@ -133,11 +141,13 @@ export function getExtrasFormValues(): ExtrasFormValues {
     branchStatsEnabled,
     jukeboxAudioMode,
     audioIntensity,
+    customAnchorEnabled,
   } = useAppStore.getState();
   const inJukeboxMode = playMode === "jukebox";
   return {
     bringItHomeMode: inJukeboxMode && bringItHomeMode,
     branchStatsEnabled: inJukeboxMode && branchStatsEnabled,
+    customAnchorEnabled,
     audioMode: jukeboxAudioMode,
     audioIntensity,
   };
@@ -160,6 +170,12 @@ export function applyExtrasChanges(
     engine.setForceBranch(false);
   }
   engine.setBringItHomeMode(useAppStore.getState().bringItHomeMode);
+  // The toggle only shows the editor button; an anchor already set keeps playing.
+  useAppStore.setState({ customAnchorEnabled: values.customAnchorEnabled });
+  storeCustomAnchorEnabled(values.customAnchorEnabled);
+  if (!values.customAnchorEnabled) {
+    exitCustomAnchorEdit(context);
+  }
   useAppStore.setState({
     branchStatsEnabled:
       useAppStore.getState().playMode === "jukebox" && values.branchStatsEnabled,
@@ -416,6 +432,7 @@ export function hasNonDefaultTuning(context: AppContext): boolean {
 
 export function resetTuningDefaults(context: AppContext) {
   const { engine, jukebox } = context;
+  discardCustomAnchorEdit(context);
   engine.clearDeletedEdges();
   engine.updateConfig(context.defaultConfig);
   engine.rebuildGraph();

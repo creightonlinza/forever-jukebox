@@ -66,6 +66,7 @@ export type AppState = {
   tuningParams: string | null;
   deletedEdgeIds: number[];
   highlightAnchorBranch: boolean;
+  customAnchorEnabled: boolean;
 };
 
 export type SleepTimerState = {
