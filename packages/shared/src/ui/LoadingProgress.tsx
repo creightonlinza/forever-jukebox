@@ -316,8 +316,8 @@ export function LoadingProgress({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
-      // Screen readers announce the step change and the queue message, not every percent.
-      aria-valuetext={shownMessage ? `${activeStep.label}, ${shownMessage}` : activeStep.label}
+      // Screen readers announce the step change, or its fuller message, not every percent.
+      aria-valuetext={shownMessage ?? activeStep.label}
     >
       {ring ? (
       <svg className="loading-progress__ring" viewBox="-104 -104 208 208" aria-hidden="true">
