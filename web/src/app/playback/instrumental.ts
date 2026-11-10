@@ -44,9 +44,8 @@ export function prepareInstrumentalMode(context: AppContext) {
   const renderToken = useAppStore.getState().audioModeRenderToken + 1;
   useAppStore.setState({ audioModeRenderToken: renderToken });
   useAppStore.setState({ audioModePreparing: true });
-  useAppStore.setState({
-    loadingStep: { task: "instrumental", activeId: "model", progress: null },
-  });
+  // The steps appear with the first progress event, which tells whether the model is downloaded.
+  useAppStore.setState({ analysisStatusText: () => "" });
   updateVizVisibility();
   updatePlayButton();
 
@@ -54,6 +53,7 @@ export function prepareInstrumentalMode(context: AppContext) {
     useAppStore.getState().audioModeRenderToken !== renderToken ||
     useAppStore.getState().jukeboxAudioMode !== "instrumental";
 
+  let modelDownloaded = false;
   renderInstrumentalBuffer(
     sourceBuffer,
     getCurrentTrackId(),
@@ -61,8 +61,10 @@ export function prepareInstrumentalMode(context: AppContext) {
       if (isStale()) {
         return;
       }
+      modelDownloaded ||= phase === "download";
+      const task = modelDownloaded ? "instrumentalWithModel" : "instrumental";
       const activeId = phase === "download" ? "model" : "separate";
-      useAppStore.setState({ loadingStep: { task: "instrumental", activeId, progress } });
+      useAppStore.setState({ loadingStep: { task, activeId, progress } });
     },
   )
     .then((buffer) => {

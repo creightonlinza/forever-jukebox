@@ -153,7 +153,7 @@ export async function startYoutubeAnalysisFlow(
     const progress =
       typeof response.progress === "number" ? response.progress : null;
     deps.setLoadingStep(jobLoadingStep(response.status, progress, response.message));
-  } else {
+  } else if (isAnalysisComplete(response)) {
     deps.setLoadingStep(TRACK_STEP);
   }
   await deps.pollAnalysis(jobId);

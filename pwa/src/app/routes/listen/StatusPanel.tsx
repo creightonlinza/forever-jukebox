@@ -28,6 +28,7 @@ const TITLE_KEYS = {
   track: "loading.loadingTrack",
   swing: "listen.preparingSwing",
   instrumental: "listen.preparingInstrumental",
+  instrumentalWithModel: "listen.preparingInstrumental",
   wubmachine: "listen.preparingWubMachine",
 } as const;
 
@@ -41,6 +42,7 @@ export function liveLoading({
   preparingMode,
   preparingPhase,
   preparingProgress,
+  modelDownloaded,
 }: {
   fileKey: string;
   isAnalyzing: boolean;
@@ -50,12 +52,15 @@ export function liveLoading({
   preparingMode: PreparingAudioMode;
   preparingPhase: PreparingPhase;
   preparingProgress: number;
+  modelDownloaded: boolean;
 }): LiveLoading | null {
-  if (!isAnalyzing && preparingMode) {
+  // Instrumental shows its steps from the first progress event, which tells whether the model is downloaded.
+  if (!isAnalyzing && preparingMode && !(preparingMode === "instrumental" && preparingPhase === null)) {
+    const task = preparingMode === "instrumental" && modelDownloaded ? "instrumentalWithModel" : preparingMode;
     return {
-      task: preparingMode,
+      task,
       key: fileKey,
-      activeId: preparingPhase === "separate" ? "separate" : LOADING_STEPS[preparingMode][0],
+      activeId: preparingPhase === "separate" ? "separate" : LOADING_STEPS[task][0],
       progress: preparingProgress / 100,
       finished: false,
     };

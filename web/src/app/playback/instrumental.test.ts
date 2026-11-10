@@ -140,7 +140,11 @@ describe("prepareInstrumentalMode", () => {
     prepareInstrumentalMode(createContext());
 
     reportProgress({ phase: "download", progress: 0.256 });
-    expect(useAppStore.getState().loadingStep).toMatchObject({ activeId: "model", progress: 0.256 });
+    expect(useAppStore.getState().loadingStep).toMatchObject({
+      task: "instrumentalWithModel",
+      activeId: "model",
+      progress: 0.256,
+    });
 
     reportProgress({ phase: "separate", progress: 0.5 });
     expect(useAppStore.getState().loadingStep).toMatchObject({ activeId: "separate", progress: 0.5 });
@@ -157,7 +161,8 @@ describe("prepareInstrumentalMode", () => {
     resolveRender(renderedBuffer);
     await flushMicrotasks();
 
-    expect(useAppStore.getState().loadingStep?.activeId).toBe("model");
+    // No step appears before a current render reports progress.
+    expect(useAppStore.getState().loadingStep).toBeNull();
     expect(context.player.setRenderedJukeboxAudioBuffer).not.toHaveBeenCalled();
     expect(startJukeboxPlayback).not.toHaveBeenCalled();
   });

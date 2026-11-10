@@ -16,6 +16,7 @@ const LOADING_TITLE_KEYS = {
   track: "loading.loadingTrack",
   swing: "playback.preparingSwing",
   instrumental: "playback.preparingInstrumental",
+  instrumentalWithModel: "playback.preparingInstrumental",
   wubmachine: "playback.preparingWubMachine",
 } as const;
 

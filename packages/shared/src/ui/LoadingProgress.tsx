@@ -34,12 +34,14 @@ export const LOADING_STEPS = {
   track: ["track"],
   swing: ["swing"],
   wubmachine: ["remix"],
-  instrumental: ["model", "separate"],
+  // The model step shows only when the model is really downloaded.
+  instrumental: ["separate"],
+  instrumentalWithModel: ["model", "separate"],
 } as const satisfies Record<string, readonly LoadingStepId[]>;
 
 export type LoadingTask = keyof typeof LOADING_STEPS;
 
-const MODE_TASKS = new Set<LoadingTask>(["swing", "wubmachine", "instrumental"]);
+const MODE_TASKS = new Set<LoadingTask>(["swing", "wubmachine", "instrumental", "instrumentalWithModel"]);
 // Only a real analysis shows the beat ring; a load of an analyzed track ("track") shows as little as possible.
 const ANALYSIS_TASKS = new Set<LoadingTask>(["serverAnalysis", "localAnalysis"]);
 
@@ -96,34 +98,31 @@ const BRANCHES = (() => {
 // Plays out one task at a time: a finished load stays on screen until its steps have played out,
 // an audio-mode render for the same track waits behind it, and any other new task replaces it.
 export function usePresentedLoading(live: LiveLoading | null) {
-  const [shownId, setShownId] = useState<string | null>(null);
+  const [shown, setShown] = useState<{ task: LoadingTask; key: string } | null>(null);
   const latest = useRef(live);
   const lastShown = useRef<LiveLoading | null>(null);
   latest.current = live;
-  const liveId = live ? `${live.task}:${live.key}` : null;
-  let nextId = shownId;
+  let next = shown;
   if (!live) {
-    nextId = null;
-  } else if (shownId === null || (liveId !== shownId && !MODE_TASKS.has(live.task))) {
-    nextId = live.finished ? null : liveId;
-  } else if (!shownId.endsWith(`:${live.key}`)) {
-    nextId = live.finished ? null : liveId;
+    next = null;
+  } else if (!shown || shown.key !== live.key || (shown.task !== live.task && !MODE_TASKS.has(live.task))) {
+    next = live.finished ? null : { task: live.task, key: live.key };
   }
-  if (nextId !== shownId) {
-    setShownId(nextId);
+  if (next?.task !== shown?.task || next?.key !== shown?.key) {
+    setShown(next);
   }
-  if (live && liveId === nextId) {
+  const showingLive = Boolean(live && next && next.task === live.task && next.key === live.key);
+  if (showingLive) {
     lastShown.current = live;
   }
   const done = useCallback(() => {
-    const next = latest.current;
-    setShownId(next && !next.finished ? `${next.task}:${next.key}` : null);
+    const upcoming = latest.current;
+    setShown(upcoming && !upcoming.finished ? { task: upcoming.task, key: upcoming.key } : null);
   }, []);
-  if (nextId === null || !lastShown.current) {
+  if (!next || !lastShown.current) {
     return { shown: null, done };
   }
-  const shown = liveId === nextId ? lastShown.current : { ...lastShown.current, finished: true };
-  return { shown, done };
+  return { shown: showingLive ? lastShown.current : { ...lastShown.current, finished: true }, done };
 }
 
 type View = { index: number; fill: number; since: number; doneAt: number | null };
@@ -154,14 +153,24 @@ function advanceView(view: View, real: Real, count: number, now: number, dt: num
 }
 
 // The on-screen step trails the real one so that every step stays visible long enough to read.
-function usePacedView(count: number, real: Omit<Real, "seen">, ring: boolean, onFinished: () => void) {
+function usePacedView(
+  count: number,
+  real: Omit<Real, "seen">,
+  ring: boolean,
+  paced: boolean,
+  onFinished: () => void,
+) {
   const [view, setView] = useState<View>(() => ({ index: 0, fill: 0, since: performance.now(), doneAt: null }));
   const realRef = useRef<Real>({ ...real, seen: new Set() });
   realRef.current = { ...real, seen: realRef.current.seen };
   realRef.current.seen.add(real.index);
   const finishedRef = useRef(onFinished);
   finishedRef.current = onFinished;
+  const settled = !paced || view.doneAt !== null;
   useEffect(() => {
+    if (settled) {
+      return undefined;
+    }
     let last = performance.now();
     const id = window.setInterval(() => {
       const now = performance.now();
@@ -170,7 +179,7 @@ function usePacedView(count: number, real: Omit<Real, "seen">, ring: boolean, on
       setView((v) => advanceView(v, realRef.current, count, now, dt, ring ? FINAL_STEP_MS : 0));
     }, TICK_MS);
     return () => window.clearInterval(id);
-  }, [count, ring]);
+  }, [count, ring, settled]);
   useEffect(() => {
     if (view.doneAt === null) {
       return undefined;
@@ -212,8 +221,8 @@ function useSecondTick(enabled: boolean) {
 }
 
 // A finished step shows its check, then slides out to the left while the next one slides in from the right.
-const CHECK_MS = 150;
-// Matches the row transition in the CSS; with CHECK_MS it fits inside SKIPPED_STEP_MS.
+const CHECK_MS = 120;
+// Matches the row transition in the CSS; with CHECK_MS it ends before SKIPPED_STEP_MS can start the next hand-off.
 const SLIDE_MS = 300;
 
 function useLeavingStep(index: number) {
@@ -255,7 +264,8 @@ export function LoadingProgress({
   const progress = rawProgress === null ? null : Math.min(1, Math.max(0, rawProgress));
   const realIndex = Math.max(0, steps.findIndex((s) => s.id === activeId));
   const ring = ANALYSIS_TASKS.has(task);
-  const view = usePacedView(steps.length, { index: realIndex, progress, finished }, ring, onFinished);
+  // A cached track ("track") skips the pacing and ends as soon as its work does.
+  const view = usePacedView(steps.length, { index: realIndex, progress, finished }, ring, task !== "track", onFinished);
   useEffect(() => {
     if (task === "track" && finished) {
       onFinished();
@@ -294,7 +304,8 @@ export function LoadingProgress({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
-      aria-valuetext={`${percent}% ${activeStep.label}`}
+      // Screen readers announce the step change, not every percent.
+      aria-valuetext={activeStep.label}
     >
       {ring ? (
       <svg className="loading-progress__ring" viewBox="-104 -104 208 208" aria-hidden="true">

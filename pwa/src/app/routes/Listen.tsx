@@ -184,6 +184,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [preparingPhase, setPreparingPhase] =
     React.useState<PreparingPhase>(null);
   const [preparingProgress, setPreparingProgress] = React.useState(0);
+  const [modelDownloaded, setModelDownloaded] = React.useState(false);
   // A failed or cancelled render hides the loading panel instead of playing it out.
   const [prepAborted, setPrepAborted] = React.useState(false);
   const [tuningActiveTab, setTuningActiveTab] =
@@ -329,6 +330,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setPreparingMode(mode);
     setPreparingPhase(null);
     setPreparingProgress(0);
+    setModelDownloaded(false);
   }
 
   // Invalidates any render in flight; its completion is then ignored.
@@ -573,13 +575,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     storeFinishOutSong(finishOutSong);
     autocanonizerRef.current?.setFinishOutSong(finishOutSong);
   }, [finishOutSong]);
-
-  React.useEffect(() => {
-    setIsListenLoading(isAnalyzing);
-    return () => {
-      setIsListenLoading(false);
-    };
-  }, [isAnalyzing, setIsListenLoading]);
 
   React.useEffect(() => {
     if (!file || !playerRef.current) {
@@ -1208,6 +1203,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         setPreparingPhase(phase);
+        if (phase === "download") {
+          setModelDownloaded(true);
+        }
         setPreparingProgress(Math.max(0, Math.min(100, Math.round(progress * 100))));
       },
     )
@@ -1751,8 +1749,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       preparingMode,
       preparingPhase,
       preparingProgress,
+      modelDownloaded,
     }),
   );
+  // The tabs stay hidden until the analysis steps have played out.
+  const analysisShown = loading.shown?.task === "localAnalysis" || loading.shown?.task === "track";
+  React.useEffect(() => {
+    setIsListenLoading(isAnalyzing || analysisShown);
+    return () => {
+      setIsListenLoading(false);
+    };
+  }, [isAnalyzing, analysisShown, setIsListenLoading]);
   const showPlaybackUi =
     !loading.shown &&
     Boolean(analysis) &&
