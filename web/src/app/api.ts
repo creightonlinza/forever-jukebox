@@ -1,3 +1,4 @@
+import { readWithProgress } from "@forever-jukebox/shared/net/readWithProgress";
 import type { TrackMeta } from "@forever-jukebox/shared/types";
 import type { FavoriteTrack } from "./favorites";
 import { maxFavorites } from "./favorites";
@@ -257,21 +258,7 @@ export async function fetchAudio(
     (error as Error & { status?: number }).status = response.status;
     throw error;
   }
-  const total = onProgress && response.body ? Number(response.headers.get("content-length")) : 0;
-  if (!onProgress || !response.body || !total) {
-    return response.arrayBuffer();
-  }
-  let received = 0;
-  const counted = response.body.pipeThrough(
-    new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        received += chunk.length;
-        onProgress(Math.min(1, received / total));
-        controller.enqueue(chunk);
-      },
-    }),
-  );
-  return new Response(counted).arrayBuffer();
+  return readWithProgress(response, onProgress);
 }
 
 export async function startYoutubeAnalysis(payload: {

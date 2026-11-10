@@ -16,6 +16,7 @@
     "./ui/SocialLinks": "./src/ui/SocialLinks.tsx",
     "./ui/LoadingProgress": "./src/ui/LoadingProgress.tsx",
     "./ui/jobProgress": "./src/ui/jobProgress.ts",
+    "./net/readWithProgress": "./src/net/readWithProgress.ts",
     "./ui/useModalKeyboard": "./src/ui/useModalKeyboard.ts"
   },
   "scripts": {
