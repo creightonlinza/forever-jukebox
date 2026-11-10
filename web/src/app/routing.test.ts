@@ -29,7 +29,7 @@ function createDeps(): PlaybackDeps {
     navigateToTab: vi.fn(),
     updateTrackUrl: vi.fn(),
     setAnalysisStatus: vi.fn(),
-    setLoadingProgress: vi.fn(),
+    setLoadingStep: vi.fn(),
   };
 }
 

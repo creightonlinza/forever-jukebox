@@ -22,6 +22,7 @@ vi.mock("@forever-jukebox/shared/wubmachine/wubMachineRender", () => ({
 const showToast = vi.fn();
 vi.mock("../ui", () => ({
   showToast: (...args: unknown[]) => showToast(...args),
+  clearModeLoadingStep: vi.fn(),
 }));
 vi.mock("./status-ui", () => ({
   updatePlayButton: vi.fn(),

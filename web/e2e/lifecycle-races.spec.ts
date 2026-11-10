@@ -12,7 +12,7 @@ import {
 // track — audio and the eventual completed payload come from the real
 // backend.
 
-const POLL_INTERVAL_MS = 3_000; // ANALYSIS_POLL_INTERVAL_MS
+const POLL_INTERVAL_MS = 1_000; // ANALYSIS_POLL_INTERVAL_MS
 
 test.describe("analysis poll lifecycle", () => {
   test("in-progress analysis shows progress, preloads audio, then completes", async ({
@@ -47,12 +47,11 @@ test.describe("analysis poll lifecycle", () => {
     });
 
     await page.goto(`/listen/${track.id}`);
-    // #analysis-status is a localized label derived from status+progress
-    // (see translateJobProgress), not the raw API `message`.
-    await expect(page.locator("#analysis-status")).toHaveText("Analyzing");
-    await expect(page.locator("#analysis-progress")).toHaveText("42%");
-    await expect(page.locator("#analysis-spinner")).not.toHaveClass(
-      /\bhidden\b/,
+    // The active loading step comes from status+progress (see jobLoadingStep),
+    // not the raw API `message`.
+    await expect(page.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuetext",
+      /Detecting beats/,
     );
 
     // the poll keeps going and picks up the (real) completed analysis
@@ -95,7 +94,7 @@ test.describe("analysis poll lifecycle", () => {
       "Beat detection exploded",
       { timeout: 20_000 },
     );
-    await expect(page.locator("#analysis-spinner")).toHaveClass(/\bhidden\b/);
+    await expect(page.getByRole("progressbar")).toHaveCount(0);
     await expect(page.locator("#viz-panel")).toHaveClass(/\bhidden\b/);
 
     // polling must stop after a terminal failure. A superseded load (e.g. a
@@ -127,7 +126,7 @@ test.describe("analysis poll lifecycle", () => {
         message: "Analyzing beats",
       });
       // requests 1-2 (initial load + first poll) answer fast so the
-      // "Analyzing" status renders promptly...
+      // loading steps render promptly...
       if (aHits <= 2) {
         return route.fulfill({
           status: 200,
@@ -149,7 +148,10 @@ test.describe("analysis poll lifecycle", () => {
     });
 
     await page.goto(`/listen/${trackA.id}`);
-    await expect(page.locator("#analysis-status")).toHaveText("Analyzing");
+    await expect(page.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuetext",
+      /Detecting beats/,
+    );
     // the third request is a poll the route handler holds open; waiting for it
     // to be issued (rather than sleeping one interval) keeps the mid-fetch
     // precondition intact when the machine is loaded.
@@ -160,7 +162,7 @@ test.describe("analysis poll lifecycle", () => {
     // record every status text from here on; switching tracks must never
     // flash an error from the cancelled load
     await page.evaluate(() => {
-      const target = document.getElementById("analysis-status")!;
+      const target = document.getElementById("play-status")!;
       const log: string[] = [];
       (window as unknown as { __statusLog: string[] }).__statusLog = log;
       new MutationObserver(() => {
@@ -226,9 +228,9 @@ test.describe("swing render token", () => {
     await page.keyboard.press("e");
     await page.locator("#audio-mode-swing").check();
     await page.locator("#tuning-apply").click();
-    await expect(page.locator("#analysis-status")).toHaveText(
-      "Adding swing to the track...",
-    );
+    await expect(
+      page.getByRole("progressbar", { name: "Preparing Swing mode" }),
+    ).toBeVisible();
     await expect(page).toHaveURL(/am=swing/);
 
     // switch back off while the swing buffer is still rendering
@@ -252,9 +254,9 @@ test.describe("swing render token", () => {
     await page.keyboard.press("e");
     await page.locator("#audio-mode-swing").check();
     await page.locator("#tuning-apply").click();
-    await expect(page.locator("#analysis-status")).toHaveText(
-      "Adding swing to the track...",
-    );
+    await expect(
+      page.getByRole("progressbar", { name: "Preparing Swing mode" }),
+    ).toBeVisible();
     // (Play being blocked while the buffer renders is pinned by unit tests —
     // playback.test.ts swing-block cases; the render can finish faster than
     // an e2e click, so asserting it here would be racy.)

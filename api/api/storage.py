@@ -78,7 +78,8 @@ class LocalStore:
             return None
         from fastapi.responses import FileResponse
 
-        return FileResponse(path=str(path))
+        # Identity encoding keeps GZipMiddleware off the audio, so the client gets a Content-Length for progress.
+        return FileResponse(path=str(path), headers={"Content-Encoding": "identity"})
 
     def analysis_output_path(self, job_id: str) -> Path:
         return analysis_path_for(self.root, job_id)

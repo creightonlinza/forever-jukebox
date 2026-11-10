@@ -46,11 +46,7 @@ export function prepareSwingMode(context: AppContext) {
   const renderToken = useAppStore.getState().audioModeRenderToken + 1;
   useAppStore.setState({ audioModeRenderToken: renderToken });
   useAppStore.setState({ audioModePreparing: true });
-  useAppStore.setState({
-    analysisStatusText: () => i18n.t("playback.swingAdding"),
-    analysisSpinning: true,
-    analysisProgressText: "0%",
-  });
+  useAppStore.setState({ loadingStep: { task: "swing", activeId: "swing", progress: 0 } });
   updateVizVisibility();
   updatePlayButton();
 
@@ -65,8 +61,7 @@ export function prepareSwingMode(context: AppContext) {
         ) {
           return;
         }
-        const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
-        useAppStore.setState({ analysisProgressText: `${percent}%` });
+        useAppStore.setState({ loadingStep: { task: "swing", activeId: "swing", progress } });
       },
     }),
   )
@@ -82,8 +77,6 @@ export function prepareSwingMode(context: AppContext) {
       context.player.setJukeboxAudioMode("swing");
       useAppStore.setState({
         analysisStatusText: () => i18n.t("playback.swingReady"),
-        analysisSpinning: false,
-        analysisProgressText: "",
       });
       updateVizVisibility();
       if (useAppStore.getState().isRunning || useAppStore.getState().isPaused) {
@@ -109,8 +102,7 @@ export function prepareSwingMode(context: AppContext) {
       resetAudioModeToOff(context.player);
       useAppStore.setState({
         analysisStatusText: () => i18n.t("playback.swingFailedStatus"),
-        analysisSpinning: false,
-        analysisProgressText: "",
+        loadingStep: null,
       });
       updateVizVisibility();
       syncTuningParamsState(context);

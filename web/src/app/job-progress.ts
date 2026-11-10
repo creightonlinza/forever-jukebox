@@ -1,30 +1,29 @@
+import type { LoadingStepId } from "@forever-jukebox/shared/ui/LoadingProgress";
+import { jobStep } from "@forever-jukebox/shared/ui/jobProgress";
 import i18n from "./i18n";
+import type { LoadingState } from "./store";
 
-export function translateJobProgress(
-  status: string | null | undefined,
-  progress: number | null | undefined,
-  fallback?: string | null,
-): string {
-  if (status === "downloading") {
-    return i18n.t("common.fetchingAudio");
+// A load starts as a single step and switches to the analysis steps only if the server reports analysis work.
+export const TRACK_STEP: LoadingState = { task: "track", activeId: "track", progress: null };
+
+export function analysisStep(activeId: LoadingStepId, progress: number | null = null): LoadingState {
+  return { task: "serverAnalysis", activeId, progress };
+}
+
+export function jobLoadingStep(
+  status: string,
+  progress: number | null,
+  serverMessage?: string | null,
+): LoadingState {
+  const { activeId, progress: stepProgress, queuedAhead } = jobStep(status, progress, serverMessage);
+  if (activeId !== "queued") {
+    return analysisStep(activeId, stepProgress);
   }
-  if (status === "processing") {
-    if (progress === null || progress === undefined || progress < 10) {
-      return i18n.t("status.processing");
-    }
-    if (progress < 90) {
-      return i18n.t("status.analyzing");
-    }
-    return i18n.t("status.wrappingUp");
-  }
-  if (status === "queued") {
-    const aheadMatch = fallback?.match(/(\d{1,9})\s+ahead/i);
-    if (aheadMatch) {
-      return i18n.t("status.queuedAhead", {
-        count: Number(aheadMatch[1]),
-      });
-    }
-    return i18n.t("status.queuedNext");
-  }
-  return fallback || i18n.t("common.processing");
+  return {
+    ...analysisStep("queued"),
+    message: () =>
+      queuedAhead === null
+        ? i18n.t("status.queuedNext")
+        : i18n.t("status.queuedAhead", { count: queuedAhead }),
+  };
 }

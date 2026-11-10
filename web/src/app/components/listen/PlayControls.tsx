@@ -57,6 +57,7 @@ export function PlayControls() {
   const audioModePreparing = useAppStore((s) => s.audioModePreparing);
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
+  const loadingShown = useAppStore((s) => s.loadingShown);
   const audioLoadInFlight = useAppStore((s) => s.audioLoadInFlight);
   const analysisPollInFlight = useAppStore((s) => s.analysisPollInFlight);
   const playlistLoadBusy = useAppStore((s) => s.playlistLoadBusy);
@@ -78,7 +79,7 @@ export function PlayControls() {
     t,
   });
   const playIcon = playButtonIcon(isBlocked, isRunning);
-  const playHidden = !(audioLoaded && analysisLoaded) || audioModePreparing;
+  const playHidden = !(audioLoaded && analysisLoaded) || audioModePreparing || loadingShown;
 
   const active = hasActivePlaylistControls(playlist);
   const playlistBusy =

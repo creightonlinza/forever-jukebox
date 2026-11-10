@@ -1,19 +1,8 @@
 import type { TFunction } from "i18next";
-import type { AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
-import type { ProgressStep } from "@/ui/components/ProgressSteps";
 import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { VISUALIZATION_LABELS } from "@forever-jukebox/shared/constants/visualization";
 import { formatAudioModeTitleLabel } from "./audioMode";
 import type { PlayMode } from "./types";
-
-export const STEP_ORDER: AnalyzeStage[] = [
-  "loading",
-  "decoding",
-  "beats",
-  "features",
-  "building",
-  "ready",
-];
 
 export function getVisualizationLabel(index: number, t: TFunction) {
   return VISUALIZATION_LABELS[index] ??
@@ -36,37 +25,6 @@ export function formatTrackTitle(
     return `${baseTitle} (${formatAudioModeTitleLabel(audioMode, t)})`;
   }
   return baseTitle;
-}
-
-export function progressStepStatus(index: number, activeIndex: number): ProgressStep["status"] {
-  if (index < activeIndex) {
-    return "done";
-  }
-  return index === activeIndex ? "active" : "pending";
-}
-
-export function analysisStageLabel(stage: AnalyzeStage, t: TFunction) {
-  const keys: Record<
-    Exclude<AnalyzeStage, "cached">,
-    | "analysis.loading"
-    | "analysis.decoding"
-    | "analysis.beats"
-    | "analysis.features"
-    | "analysis.segments"
-    | "analysis.building"
-    | "analysis.ready"
-  > = {
-    loading: "analysis.loading",
-    decoding: "analysis.decoding",
-    beats: "analysis.beats",
-    features: "analysis.features",
-    segments: "analysis.segments",
-    building: "analysis.building",
-    ready: "analysis.ready",
-  };
-  const normalizedStage: Exclude<AnalyzeStage, "cached"> =
-    stage === "cached" ? "ready" : stage;
-  return t(keys[normalizedStage]);
 }
 
 export type PreparingAudioMode = "swing" | "instrumental" | "wubmachine" | null;

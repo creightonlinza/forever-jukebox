@@ -1,4 +1,5 @@
 import type { AppContext, TabId } from "../context";
+import { PENDING_STEP, setTrackStepProgress } from "../ui";
 import {
   fetchAnalysis,
   fetchAudio,
@@ -24,7 +25,7 @@ import { ANALYSIS_POLL_INTERVAL_MS } from "../constants";
 import { formatErrorForDisplay } from "../errorDisplay";
 import i18n from "../i18n";
 import { isLikelyJobId } from "../identity";
-import { translateJobProgress } from "../job-progress";
+import { TRACK_STEP, analysisStep, jobLoadingStep } from "../job-progress";
 import {
   activatePlaylistTrack,
   emptyPlaylist,
@@ -36,7 +37,7 @@ import {
   type PlaylistSourceType,
   type PlaylistTrack,
 } from "../playlist";
-import { useAppStore, type LocalizedText } from "../store";
+import { useAppStore, type LoadingState, type LocalizedText } from "../store";
 import {
   bumpLoadGeneration,
   getLoadGeneration,
@@ -100,11 +101,8 @@ export type PlaybackDeps = {
     options?: { replace?: boolean; trackId?: string | null },
   ) => void;
   updateTrackUrl: (trackId: string, replace?: boolean) => void;
-  setAnalysisStatus: (message: LocalizedText, spinning: boolean) => void;
-  setLoadingProgress: (
-    progress: number | null,
-    message?: LocalizedText | null,
-  ) => void;
+  setAnalysisStatus: (message: LocalizedText) => void;
+  setLoadingStep: (step: LoadingState) => void;
   onTrackChange?: (trackId: string | null) => void;
   onAnalysisLoaded?: (response: AnalysisComplete) => void;
   onPlaylistChange?: () => void;
@@ -226,8 +224,7 @@ export function resetForNewTrack(
   syncVolumeUI(context);
   useAppStore.setState({
     analysisStatusText: () => i18n.t("status.noTrack"),
-    analysisSpinning: false,
-    analysisProgressText: "",
+    loadingStep: null,
   });
   useAppStore.setState({ trackDurationSec: null });
   useAppStore.setState({ trackTitle: null });
@@ -261,7 +258,11 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
   const { autocanonizer, player } = context;
   const generation = getLoadGeneration();
   try {
-    const buffer = await fetchAudio(jobId);
+    const buffer = await fetchAudio(jobId, undefined, (fraction) => {
+      if (!isStaleLoad(generation)) {
+        setTrackStepProgress(fraction);
+      }
+    });
     // A newer load started while this download was in flight: its audio
     // must not reach the player, the store, or the cache (where it would
     // persist under the newer track's id).
@@ -401,7 +402,7 @@ export async function pollAnalysis(
         throw err;
       }
       if (!response) {
-        deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
+        deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE);
         return;
       }
       const previousTrackId = normalizeTrackIdentityFromResponse(deps, response);
@@ -413,11 +414,7 @@ export async function pollAnalysis(
       if (isAnalysisInProgress(response)) {
         const progress =
           typeof response.progress === "number" ? response.progress : null;
-        deps.setLoadingProgress(
-          progress,
-          () =>
-            translateJobProgress(response.status, progress, response.message),
-        );
+        deps.setLoadingStep(jobLoadingStep(response.status, progress, response.message));
         if (
           response.status !== "downloading" &&
           !useAppStore.getState().audioLoaded &&
@@ -437,11 +434,13 @@ export async function pollAnalysis(
               errorCode: response.error_code,
               fallback: i18n.t("status.loadingFailed"),
             }),
-          false,
         );
         offerRetryLinkForFailure(response, jobId);
         return;
       } else if (isAnalysisComplete(response)) {
+        if (useAppStore.getState().loadingStep?.task === "serverAnalysis") {
+          deps.setLoadingStep(analysisStep("track"));
+        }
         if (!useAppStore.getState().audioLoaded) {
           const audioLoaded = await loadAudioFromJob(context, jobId);
           if (isStaleLoad(generation)) {
@@ -452,9 +451,6 @@ export async function pollAnalysis(
             continue;
           }
         }
-        deps.setLoadingProgress(100, () =>
-          i18n.t("status.calculatingPathways"),
-        );
         if (applyAnalysisResult(context, response, deps.onAnalysisLoaded)) {
           return;
         }
@@ -479,7 +475,7 @@ async function continueTrackLoadWithResponse(
 ): Promise<boolean> {
   const generation = getLoadGeneration();
   if (!response?.id) {
-    deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE, false);
+    deps.setAnalysisStatus(GENERIC_LOAD_ERROR_MESSAGE);
     return false;
   }
   const previousTrackId = normalizeTrackIdentityFromResponse(deps, response);
@@ -500,7 +496,6 @@ async function continueTrackLoadWithResponse(
           errorCode: response.error_code,
           fallback: i18n.t("status.loadingFailed"),
         }),
-      false,
     );
     offerRetryLinkForFailure(response, response.id);
     return false;
@@ -595,7 +590,12 @@ async function loadTrack(
   handlePlaylistForNormalTrackLoad(deps, source, options);
   resetForNewTrack(context, { clearTuning: shouldClear });
   deps.setActiveTab("play");
-  deps.setLoadingProgress(null, () => i18n.t("common.fetchingAudio"));
+  // With a job id the track is assumed analyzed until the server says otherwise; without one, the load is pending.
+  if (source.type === "job") {
+    deps.setLoadingStep(TRACK_STEP);
+  } else {
+    deps.setLoadingStep(PENDING_STEP);
+  }
   if (source.type === "source") {
     useAppStore.setState({ lastSourceProvider: source.provider });
     useAppStore.setState({ lastSourceId: source.id });
@@ -636,12 +636,14 @@ async function loadTrack(
         return false;
       }
     }
+    if (source.type === "source" && isAnalysisComplete(response)) {
+      deps.setLoadingStep(TRACK_STEP);
+    }
     return await continueTrackLoadWithResponse(context, deps, response);
   } catch (err) {
     if (!isStaleLoad(generation)) {
       deps.setAnalysisStatus(
         () => i18n.t("status.loadFailed", { error: formatErrorForDisplay(err) }),
-        false,
       );
     }
     return false;

@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Callable, Dict
 
 import numpy as np
 
@@ -9,7 +9,11 @@ class FeatureExtractionError(RuntimeError):
     pass
 
 
-def compute_frame_features(audio: np.ndarray, config: FeatureConfig) -> Dict[str, np.ndarray]:
+def compute_frame_features(
+    audio: np.ndarray,
+    config: FeatureConfig,
+    progress_cb: Callable[[float], None] | None = None,
+) -> Dict[str, np.ndarray]:
     try:
         import essentia.standard as es
     except ImportError as exc:
@@ -30,7 +34,11 @@ def compute_frame_features(audio: np.ndarray, config: FeatureConfig) -> Dict[str
     mfccs = []
     hpcps = []
     rms_db = []
-    for start in range(0, max(len(audio) - frame_size, 0) + 1, hop_size):
+    starts = range(0, max(len(audio) - frame_size, 0) + 1, hop_size)
+    report_every = max(len(starts) // 50, 1)
+    for index, start in enumerate(starts):
+        if progress_cb and index % report_every == 0:
+            progress_cb(index / len(starts))
         frame = audio[start : start + frame_size]
         if len(frame) < frame_size:
             frame = np.pad(frame, (0, frame_size - len(frame)), mode="constant")

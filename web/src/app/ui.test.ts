@@ -4,7 +4,7 @@ import {
   blurMouseActivatedControl,
   isEditableTarget,
   setAnalysisStatus,
-  setLoadingProgress,
+  setLoadingStep,
   showToast,
 } from "./ui";
 import { useAppStore } from "./store";
@@ -45,23 +45,13 @@ describe("ui helpers", () => {
     (globalThis as any).HTMLElement = MockElement;
   });
 
-  it("sets analysis status and spinner", () => {
+  it("switches between a loading step and a status message", () => {
     const context = createContext();
-    setAnalysisStatus(context, () => "Working", true);
-    expect(useAppStore.getState().analysisStatusText()).toBe("Working");
-    expect(useAppStore.getState().analysisSpinning).toBe(true);
-    setAnalysisStatus(context, () => "Done", false);
-    expect(useAppStore.getState().analysisSpinning).toBe(false);
-    expect(useAppStore.getState().analysisProgressText).toBe("");
-  });
-
-  it("sets loading progress message and percentage", () => {
-    const context = createContext();
-    setLoadingProgress(context, 55.4, () => "Loading");
-    expect(useAppStore.getState().analysisProgressText).toBe("55%");
-    expect(useAppStore.getState().analysisStatusText()).toBe("Loading");
-    setLoadingProgress(context, null, null);
-    expect(useAppStore.getState().analysisProgressText).toBe("");
+    setLoadingStep(context, { task: "serverAnalysis", activeId: "beats", progress: 0.5 });
+    expect(useAppStore.getState().loadingStep?.activeId).toBe("beats");
+    setAnalysisStatus(context, () => "Done");
+    expect(useAppStore.getState().analysisStatusText()).toBe("Done");
+    expect(useAppStore.getState().loadingStep).toBeNull();
   });
 
   it("detects editable targets", () => {

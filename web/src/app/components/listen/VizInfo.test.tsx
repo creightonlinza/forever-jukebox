@@ -169,8 +169,7 @@ describe("StatusPanel", () => {
     act(() => {
       useAppStore.setState({
         analysisStatusText: () => "No track selected.",
-        analysisSpinning: false,
-        analysisProgressText: "",
+        loadingStep: null,
         audioLoaded: false,
         analysisLoaded: false,
         audioLoadInFlight: false,
@@ -187,30 +186,20 @@ describe("StatusPanel", () => {
     cleanup();
   });
 
-  it("renders status text, spinner and progress from the store", () => {
+  it("renders the status text, then the loading steps while loading", () => {
     render(<StatusPanel />);
     expect(document.getElementById("analysis-status")?.textContent).toBe(
       "No track selected.",
     );
-    expect(
-      document.getElementById("analysis-spinner")?.classList.contains("hidden"),
-    ).toBe(true);
     act(() => {
       useAppStore.setState({
-        analysisStatusText: () => "Loading",
-        analysisSpinning: true,
-        analysisProgressText: "55%",
+        loadingStep: { task: "serverAnalysis", activeId: "beats", progress: 0.5 },
       });
     });
-    expect(document.getElementById("analysis-status")?.textContent).toBe(
-      "Loading",
-    );
-    expect(
-      document.getElementById("analysis-spinner")?.classList.contains("hidden"),
-    ).toBe(false);
-    expect(document.getElementById("analysis-progress")?.textContent).toBe(
-      "55%",
-    );
+    expect(document.getElementById("analysis-status")).toBeNull();
+    // The steps play out from the first one, even when the real load is further along.
+    const progress = document.querySelector("[role=progressbar]");
+    expect(progress?.getAttribute("aria-valuetext")).toContain("Fetching audio");
   });
 
   it("hides the container once the track is loaded", () => {
