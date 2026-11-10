@@ -2221,7 +2221,7 @@ describe("playback loading", () => {
       navigateToTab: vi.fn(),
       updateTrackUrl: vi.fn(),
       setAnalysisStatus: vi.fn(),
-      setLoadingProgress: vi.fn(),
+      setLoadingStep: vi.fn(),
       onTrackChange: vi.fn(),
       onPlaylistChange: vi.fn(),
     };
@@ -2325,7 +2325,6 @@ describe("playback loading", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(lastLocalizedCall(deps.setAnalysisStatus)).toEqual([
       "SoundCloud fetch failed.",
-      false,
     ]);
   });
 
@@ -2443,7 +2442,6 @@ describe("playback loading", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/jobs/${jobId}/retry`);
     expect(lastLocalizedCall(deps.setAnalysisStatus)).toEqual([
       "No beats or downbeats were detected in this audio.",
-      false,
     ]);
   });
 
@@ -2476,7 +2474,6 @@ describe("playback loading", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/jobs/${jobId}/retry`);
     expect(lastLocalizedCall(deps.setAnalysisStatus)).toEqual([
       "Engine exited with status 1",
-      false,
     ]);
   });
 
@@ -2772,10 +2769,10 @@ describe("playback loading", () => {
     expect(context.engine.loadAnalysis).toHaveBeenCalled();
     expect(useAppStore.getState().audioLoaded).toBe(true);
     expect(useAppStore.getState().analysisLoaded).toBe(true);
-    expect(localizedCalls(deps.setLoadingProgress)).toContainEqual([
-      100,
-      "Calculating pathways",
-    ]);
+    // Only a load that showed the analysis steps switches to their last step.
+    expect(deps.setLoadingStep).not.toHaveBeenCalledWith(
+      expect.objectContaining({ task: "serverAnalysis", activeId: "track" }),
+    );
     // finishing a load never switches tabs; only selection does
     expect(deps.setActiveTab).not.toHaveBeenCalled();
   });
@@ -2793,7 +2790,6 @@ describe("playback loading", () => {
 
     expect(localizedCalls(deps.setAnalysisStatus)).toContainEqual([
       "Something went wrong. Please try again or report an issue on GitHub.",
-      false,
     ]);
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
   });
@@ -2912,7 +2908,6 @@ describe("playback loading", () => {
 
     expect(localizedCalls(deps.setAnalysisStatus)).toContainEqual([
       "YouTube fetch failed.",
-      false,
     ]);
     expect(context.engine.loadAnalysis).not.toHaveBeenCalled();
     expect(useAppStore.getState().analysisLoaded).toBe(false);

@@ -1,3 +1,4 @@
+import type { LoadingStepId, LoadingTask } from "@forever-jukebox/shared/ui/LoadingProgress";
 import { create, type StateCreator } from "zustand";
 import type { ToastQueueItem } from "@forever-jukebox/shared/ui/toastQueue";
 import i18n from "./i18n";
@@ -53,6 +54,14 @@ export type NavigationRequest = {
 // Persistent store text is kept as a thunk so it re-translates when the
 // language changes; components evaluate it on render.
 export type LocalizedText = () => string;
+
+// The active step of a load or mode render; null when nothing is loading.
+export type LoadingState = {
+  task: LoadingTask;
+  activeId: LoadingStepId;
+  progress: number | null;
+  message?: LocalizedText;
+};
 
 export type SearchResultsState =
   | { kind: "message"; text: LocalizedText }
@@ -127,8 +136,9 @@ type ShellSlice = {
   volumePct: number;
   isFullscreen: boolean;
   analysisStatusText: LocalizedText;
-  analysisSpinning: boolean;
-  analysisProgressText: string;
+  loadingStep: LoadingState | null;
+  // True while the loading steps play out on screen.
+  loadingShown: boolean;
   // Job id offered for a one-click retry when a load failed with a
   // transient source fetch error; null hides the retry link.
   analysisRetryJobId: string | null;
@@ -227,8 +237,8 @@ const createUiSlice: Slice<
     | "volumePct"
     | "isFullscreen"
     | "analysisStatusText"
-    | "analysisSpinning"
-    | "analysisProgressText"
+    | "loadingStep"
+    | "loadingShown"
     | "analysisRetryJobId"
     | "retryInFlightJobId"
     | "listenTimeText"
@@ -290,8 +300,8 @@ const createUiSlice: Slice<
     volumePct: 100,
     isFullscreen: false,
     analysisStatusText: () => i18n.t("status.noTrack"),
-    analysisSpinning: false,
-    analysisProgressText: "",
+    loadingStep: null,
+    loadingShown: false,
     analysisRetryJobId: null,
     retryInFlightJobId: null,
     listenTimeText: "00:00:00",

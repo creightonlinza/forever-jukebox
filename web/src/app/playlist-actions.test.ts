@@ -91,7 +91,7 @@ function createDeps(overrides?: Partial<AppState>) {
     navigateToTab: vi.fn(),
     updateTrackUrl: vi.fn(),
     setAnalysisStatus: vi.fn(),
-    setLoadingProgress: vi.fn(),
+    setLoadingStep: vi.fn(),
   };
   setAppRuntime(context);
   setPlaybackDeps(playbackDeps);

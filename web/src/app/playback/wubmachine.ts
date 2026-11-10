@@ -2,7 +2,7 @@ import { renderWubMachineBuffer } from "@forever-jukebox/shared/wubmachine/wubMa
 import type { AppContext } from "../context";
 import i18n from "../i18n";
 import { useAppStore } from "../store";
-import { showToast } from "../ui";
+import { clearModeLoadingStep, showToast } from "../ui";
 import { updatePlayButton, updateVizVisibility } from "./status-ui";
 
 // Raw analysis of the loaded track, kept for rendering its remix on demand.
@@ -21,6 +21,7 @@ export function cancelWubMachineRender() {
   activeRender.abort();
   activeRender = null;
   useAppStore.setState({ audioModePreparing: false });
+  clearModeLoadingStep();
 }
 
 export function resetWubMachine(context: AppContext) {
@@ -53,9 +54,7 @@ export function maybePrepareWubMachine(context: AppContext) {
   activeRender = render;
   useAppStore.setState({
     audioModePreparing: true,
-    analysisStatusText: () => i18n.t("playback.preparingWubMachineEllipsis"),
-    analysisSpinning: true,
-    analysisProgressText: "0%",
+    loadingStep: { task: "wubmachine", activeId: "remix", progress: 0 },
   });
   updateVizVisibility();
   updatePlayButton();
@@ -66,8 +65,8 @@ export function maybePrepareWubMachine(context: AppContext) {
     useAppStore.setState({
       audioModePreparing: false,
       analysisStatusText: () => i18n.t(`playback.${statusKey}`),
-      analysisSpinning: false,
-      analysisProgressText: "",
+      // A finished remix keeps its step so the panel can play it out.
+      ...(statusKey === "wubMachineFailedStatus" ? { loadingStep: null } : {}),
     });
     updateVizVisibility();
     updatePlayButton();
@@ -78,9 +77,7 @@ export function maybePrepareWubMachine(context: AppContext) {
       useAppStore.getState().lastTrackId ?? useAppStore.getState().lastJobId,
     onProgress: (progress) => {
       if (activeRender === render) {
-        useAppStore.setState({
-          analysisProgressText: `${Math.round(progress * 100)}%`,
-        });
+        useAppStore.setState({ loadingStep: { task: "wubmachine", activeId: "remix", progress } });
       }
     },
   })

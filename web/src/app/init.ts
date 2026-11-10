@@ -10,7 +10,7 @@ import { resolveStoredBranchStatsEnabled } from "./extrasMode";
 import { resolveStoredVolumePct } from "./volume";
 import {
   setAnalysisStatus,
-  setLoadingProgress,
+  setLoadingStep,
   showToast,
 } from "./ui";
 import { handleRouteChange } from "./routing";
@@ -55,7 +55,7 @@ import {
   handleNormalTrackSelected,
 } from "./playlist-actions";
 import { bootstrapAppConfig } from "./app-config";
-import { useAppStore, type LocalizedText } from "./store";
+import { useAppStore, type LoadingState, type LocalizedText } from "./store";
 import {
   loadFavorites,
   loadFavoritesSyncCode,
@@ -130,12 +130,8 @@ export function initRuntime(): void {
         tuningParams: useAppStore.getState().tuningParams,
         playMode: useAppStore.getState().playMode,
       }),
-    setAnalysisStatus: (message: LocalizedText, spinning: boolean) =>
-      setAnalysisStatus(context, message, spinning),
-    setLoadingProgress: (
-      progress: number | null,
-      message?: LocalizedText | null,
-    ) => setLoadingProgress(context, progress, message),
+    setAnalysisStatus: (message: LocalizedText) => setAnalysisStatus(context, message),
+    setLoadingStep: (step: LoadingState) => setLoadingStep(context, step),
   };
   const playbackDeps: PlaybackDeps = { ...sharedFlowDeps };
   setPlaybackDeps(playbackDeps);
@@ -207,7 +203,7 @@ export function initRuntime(): void {
   };
   setAttachViz(attachViz);
 
-  setAnalysisStatus(context, () => i18n.t("status.noTrack"), false);
+  setAnalysisStatus(context, () => i18n.t("status.noTrack"));
   void bootstrapAppConfig(loadAppConfig, fetchAppConfig, saveAppConfig);
 
   // Runs on initial load and browser back/forward, driven by the React

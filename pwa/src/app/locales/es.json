@@ -42,21 +42,24 @@
     "cachedTrack": "Pista en caché {{id}}"
   },
   "analysis": {
-    "progress": "Progreso del Análisis",
-    "progressPercent": "Progreso del Análisis: {{percent}}%",
-    "loading": "Cargando archivo",
-    "decoding": "Decodificando audio",
+    "failed": "No fue posible analizar este archivo de audio."
+  },
+  "loading": {
+    "analyzing": "Analizando pista",
+    "loadingTrack": "Cargando pista",
+    "fetch": "Obteniendo audio",
+    "queued": "En cola",
     "beats": "Detectando beats",
     "features": "Extrayendo características",
-    "segments": "Extrayendo segmentos",
-    "building": "Construyendo análisis",
-    "ready": "Listo",
-    "failed": "No fue posible analizar este archivo de audio."
+    "track": "Preparando la pista",
+    "swing": "Añadiendo swing",
+    "remix": "Creando remix",
+    "model": "Descargando modelo",
+    "separate": "Separando voces"
   },
   "listen": {
     "noFile": "No se ha seleccionado ningún archivo.",
     "goBack": "Volver",
-    "addingSwing": "Agregando swing a la pista...",
     "bringingHome": "Buscando el final de la canción...",
     "tune": "Ajustar",
     "info": "Info",
@@ -98,8 +101,6 @@
     "preparingInstrumentalEllipsis": "Preparando el modo Instrumental...",
     "instrumentalFailed": "El modo Instrumental falló. Usando el modo Normal.",
     "instrumentalWhenLoaded": "El modo Instrumental se preparará cuando el audio esté cargado",
-    "instrumentalDownloading": "Descargando el modelo instrumental...",
-    "instrumentalSeparating": "Eliminando las voces de la pista...",
     "anchorSet": "Rama ancla establecida",
     "anchorReset": "Rama ancla reiniciada",
     "anchorRequiresBackward": "El ancla requiere una rama hacia atrás",
@@ -113,8 +114,6 @@
     "forward": "Avanzar",
     "sameBeat": "Mismo beat",
     "autocanonized": "autocanonizado",
-    "preparingSwingPercent": "Preparando modo Swing: {{percent}}%",
-    "preparingInstrumentalPercent": "Preparando modo Instrumental: {{percent}}%",
     "closeExportDialog": "Cerrar diálogo de exportación",
     "closeTuningDialog": "Cerrar diálogo de ajuste",
     "closeTrackInfoDialog": "Cerrar diálogo de información de pista",
@@ -122,8 +121,6 @@
     "wubMachineRemix": "remix de Wub Machine",
     "preparingWubMachine": "Creando el remix de Wub Machine",
     "preparingWubMachineEllipsis": "Creando el remix de Wub Machine...",
-    "preparingWubMachinePercent": "Creando el remix de Wub Machine: {{percent}}%",
-    "buildingWubMachine": "Troceando la pista en drops y breaks...",
     "wubMachineFailed": "El remix de Wub Machine falló. Pulsa reproducir para reintentar.",
     "loopTrack": "Repetir la canción"
   },

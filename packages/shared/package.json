@@ -14,6 +14,7 @@
     "./constants/visualization": "./src/constants/visualization.ts",
     "./ui/toastQueue": "./src/ui/toastQueue.ts",
     "./ui/SocialLinks": "./src/ui/SocialLinks.tsx",
+    "./ui/LoadingProgress": "./src/ui/LoadingProgress.tsx",
     "./ui/useModalKeyboard": "./src/ui/useModalKeyboard.ts"
   },
   "scripts": {

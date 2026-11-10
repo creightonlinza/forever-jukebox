@@ -17,7 +17,7 @@ import {
 vi.mock("./ui", async (importActual) => ({
   ...(await importActual<typeof import("./ui")>()),
   showToast: vi.fn(),
-  setLoadingProgress: vi.fn(),
+  setLoadingStep: vi.fn(),
 }));
 vi.mock("./api", async (importActual) => ({
   ...(await importActual<typeof import("./api")>()),

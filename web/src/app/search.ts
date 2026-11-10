@@ -21,11 +21,12 @@ import {
   DEFAULT_SEARCH_HINT,
   DEFAULT_SEARCH_RESULTS,
   useAppStore,
+  type LoadingState,
   type LocalizedText,
   type SearchResultsState,
 } from "./store";
 import i18n from "./i18n";
-import { translateJobProgress } from "./job-progress";
+import { TRACK_STEP, jobLoadingStep } from "./job-progress";
 
 export type SearchDeps = {
   setActiveTab: (tabId: TabId) => void;
@@ -34,12 +35,9 @@ export type SearchDeps = {
     options?: { replace?: boolean; trackId?: string | null }
   ) => void;
   updateTrackUrl: (trackId: string, replace?: boolean) => void;
-  setAnalysisStatus: (message: LocalizedText, spinning: boolean) => void;
+  setAnalysisStatus: (message: LocalizedText) => void;
   showToast: (message: string, options?: ToastOptions) => void;
-  setLoadingProgress: (
-    progress: number | null,
-    message?: LocalizedText | null,
-  ) => void;
+  setLoadingStep: (step: LoadingState) => void;
   pollAnalysis: (jobId: string) => Promise<void>;
   applyAnalysisResult: (response: AnalysisComplete) => boolean;
   loadAudioFromJob: (jobId: string) => Promise<boolean>;
@@ -110,7 +108,8 @@ export async function startYoutubeAnalysisFlow(
   useAppStore.setState({ analysisLoaded: false });
   deps.updateVizVisibility();
   deps.setActiveTab("play");
-  deps.setLoadingProgress(null, () => i18n.t("common.fetchingAudio"));
+  // No job id yet, so nothing shows until the server answers.
+  deps.setAnalysisStatus(() => "");
   useAppStore.setState({ lastTrackId: youtubeId });
   useAppStore.setState({ lastSourceId: youtubeId });
   useAppStore.setState({ lastSourceProvider: "youtube" });
@@ -153,10 +152,9 @@ export async function startYoutubeAnalysisFlow(
   if (isAnalysisInProgress(response)) {
     const progress =
       typeof response.progress === "number" ? response.progress : null;
-    deps.setLoadingProgress(
-      progress,
-      () => translateJobProgress(response.status, progress, response.message),
-    );
+    deps.setLoadingStep(jobLoadingStep(response.status, progress, response.message));
+  } else {
+    deps.setLoadingStep(TRACK_STEP);
   }
   await deps.pollAnalysis(jobId);
 }
@@ -243,7 +241,7 @@ export async function tryLoadExistingTrackByName(
     useAppStore.setState({ analysisLoaded: false });
     deps.updateVizVisibility();
     deps.setActiveTab("play");
-    deps.setLoadingProgress(null, () => i18n.t("common.fetchingAudio"));
+    deps.setLoadingStep(TRACK_STEP);
     useAppStore.setState({ lastTrackId: jobId });
     deps.onTrackChange?.(jobId);
     deps.updateTrackUrl(jobId);
@@ -260,7 +258,6 @@ export async function tryLoadExistingTrackByName(
             errorCode: response.error_code,
             fallback: i18n.t("status.loadingFailed"),
           }),
-        false,
       );
       if (isRetryableFetchFailure(response)) {
         // A fresh search always re-offers the retry link and starts a new
@@ -343,7 +340,7 @@ export function selectYoutubeMatch(
 ) {
   const { youtubeId, name, artist, duration } = selection;
   if (!youtubeId) {
-    deps.setAnalysisStatus(() => i18n.t("search.noYoutubeId"), false);
+    deps.setAnalysisStatus(() => i18n.t("search.noYoutubeId"));
     return;
   }
   if (!isTrackLengthAllowed(deps, duration)) {
@@ -360,7 +357,6 @@ export function selectYoutubeMatch(
         i18n.t("search.youtubeAnalysisFailed", {
           error: formatErrorForDisplay(err, { sourceProvider: "youtube" }),
         }),
-      false,
     );
   });
 }
@@ -386,7 +382,7 @@ export function selectSpotifyMatch(
       return;
     }
     if (!Number.isFinite(duration)) {
-      deps.setAnalysisStatus(() => i18n.t("search.noDuration"), false);
+      deps.setAnalysisStatus(() => i18n.t("search.noDuration"));
       return;
     }
     showYoutubeMatches(context, deps, name, artist, duration).catch((err) => {

@@ -1,17 +1,30 @@
+import { useEffect } from "react";
+import {
+  LOADING_STEPS,
+  LoadingProgress,
+  usePresentedLoading,
+} from "@forever-jukebox/shared/ui/LoadingProgress";
 import { getResumeIndex, hasInactiveSavedPlaylist } from "../../playlist";
 import { loadPlaylistIndex } from "../../playlist-actions";
 import { useAppStore } from "../../store";
 import { retryTrack } from "../../track-select";
 import { useTranslation } from "react-i18next";
 
-// The Listen-panel status row: spinner, loading progress, analysis status
-// text and the saved-playlist shortcut. Hidden once a track is fully
-// loaded.
+const LOADING_TITLE_KEYS = {
+  serverAnalysis: "loading.analyzing",
+  localAnalysis: "loading.analyzing",
+  track: "loading.loadingTrack",
+  swing: "playback.preparingSwing",
+  instrumental: "playback.preparingInstrumental",
+  wubmachine: "playback.preparingWubMachine",
+} as const;
+
+// The Listen panel: loading steps while a track or audio mode loads, otherwise
+// the status text and the saved-playlist shortcuts. Hidden once a track is fully loaded.
 export function StatusPanel() {
   const { t } = useTranslation();
   const statusText = useAppStore((s) => s.analysisStatusText);
-  const spinning = useAppStore((s) => s.analysisSpinning);
-  const progressText = useAppStore((s) => s.analysisProgressText);
+  const loadingStep = useAppStore((s) => s.loadingStep);
   const retryJobId = useAppStore((s) => s.analysisRetryJobId);
   const playlist = useAppStore((s) => s.playlist);
   const audioLoaded = useAppStore((s) => s.audioLoaded);
@@ -23,6 +36,19 @@ export function StatusPanel() {
   const audioModePreparing = useAppStore((s) => s.audioModePreparing);
 
   const panelHidden = audioLoaded && analysisLoaded && !audioModePreparing;
+  const { shown, done } = usePresentedLoading(
+    loadingStep && {
+      ...loadingStep,
+      message: loadingStep.message?.(),
+      key: lastTrackId ?? lastJobId ?? "",
+      finished: panelHidden,
+    },
+  );
+  // Playback controls stay hidden until the loading steps have played out.
+  const loadingShown = shown !== null;
+  useEffect(() => {
+    useAppStore.setState({ loadingShown });
+  }, [loadingShown]);
   const noTrackLoaded =
     !audioLoaded &&
     !analysisLoaded &&
@@ -35,19 +61,24 @@ export function StatusPanel() {
   const showContinue = resumeTrack !== null && noTrackLoaded;
 
   return (
-    <div className={panelHidden ? "panel hidden" : "panel"} id="play-status">
+    <div className={panelHidden && !shown ? "panel hidden" : "panel"} id="play-status">
+      {shown ? (
+        <LoadingProgress
+          key={`${shown.task}:${shown.key}`}
+        task={shown.task}
+          title={t(LOADING_TITLE_KEYS[shown.task])}
+          steps={LOADING_STEPS[shown.task].map((id) => ({ id, label: t(`loading.${id}`) }))}
+          activeId={shown.activeId}
+          progress={shown.progress}
+          message={shown.message}
+          finished={shown.finished}
+          onFinished={done}
+        />
+      ) : (
       <div className="status-row">
-      <div
-        className={spinning ? "spinner" : "spinner hidden"}
-        id="analysis-spinner"
-        aria-hidden="true"
-      ></div>
-      <div className="status-progress" id="analysis-progress">
-        {progressText}
-      </div>
       <div className="status-text" id="analysis-status">
         {statusText()}
-        {retryJobId && !spinning ? (
+        {retryJobId ? (
           <>
             {" "}
             <button
@@ -89,6 +120,7 @@ export function StatusPanel() {
         {t("playlist.continueListening", { title: resumeTrack?.title ?? "" })}
       </button>
       </div>
+      )}
     </div>
   );
 }

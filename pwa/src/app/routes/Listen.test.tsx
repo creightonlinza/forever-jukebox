@@ -511,9 +511,21 @@ vi.mock("@forever-jukebox/shared/autocanonizer/AutocanonizerController", () => (
   },
 }));
 
-vi.mock("@/ui/components/ProgressSteps", () => ({
-  ProgressSteps: () => <div data-testid="progress-steps" />,
-}));
+// The pacing of the loading steps is not under test here; finish as soon as the work does.
+vi.mock("@forever-jukebox/shared/ui/LoadingProgress", async (importOriginal) => {
+  const { useEffect } = await import("react");
+  return {
+    ...(await importOriginal<object>()),
+    LoadingProgress: ({ finished, onFinished }: { finished: boolean; onFinished: () => void }) => {
+      useEffect(() => {
+        if (finished) {
+          onFinished();
+        }
+      }, [finished, onFinished]);
+      return null;
+    },
+  };
+});
 
 vi.mock("@/ui/components/SymbolIcon", () => ({
   SymbolIcon: ({ name, className }: { name: string; className?: string }) => (

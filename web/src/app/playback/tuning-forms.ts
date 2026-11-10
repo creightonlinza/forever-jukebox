@@ -11,7 +11,7 @@ import {
   syncTuningParamsState,
   writeTuningParamsToUrl,
 } from "../tuning";
-import { showToast } from "../ui";
+import { clearModeLoadingStep, showToast } from "../ui";
 import {
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
   hasNonDefaultTuning as engineHasNonDefaultTuning,
@@ -205,6 +205,7 @@ export function applyExtrasChanges(
       audioModeRenderToken: useAppStore.getState().audioModeRenderToken + (1),
     });
     useAppStore.setState({ audioModePreparing: false });
+    clearModeLoadingStep();
     player.setJukeboxAudioMode(nextAudioMode, nextAudioIntensity);
     if (
       audioModeChangeAffectsPlayback(
@@ -246,6 +247,7 @@ export function resetExtrasDefaults(context: AppContext) {
     audioModeRenderToken: useAppStore.getState().audioModeRenderToken + (1),
   });
   useAppStore.setState({ audioModePreparing: false });
+  clearModeLoadingStep();
   resetAudioModeToOff(player);
   if (previousAudioMode !== "off") {
     trackAudioModeChange("off", useAppStore.getState().audioIntensity);

@@ -1,8 +1,7 @@
 import { createToastQueue } from "@forever-jukebox/shared/ui/toastQueue";
 import type { AppContext } from "./context";
 import type { MaterialSymbolIconName } from "./material-icons";
-import { useAppStore, type LocalizedText, type ToastState } from "./store";
-import i18n from "./i18n";
+import { useAppStore, type LoadingState, type LocalizedText, type ToastState } from "./store";
 
 export type ToastOptions = {
   icon?: MaterialSymbolIconName;
@@ -13,39 +12,19 @@ export type ToastOptions = {
 };
 
 // The React status panel renders these store values.
-export function setAnalysisStatus(
-  _context: AppContext,
-  message: LocalizedText,
-  spinning: boolean
-) {
-  useAppStore.setState(
-    spinning
-      ? {
-          analysisStatusText: message,
-          analysisSpinning: true,
-          analysisRetryJobId: null,
-        }
-      : {
-          analysisStatusText: message,
-          analysisSpinning: false,
-          analysisProgressText: "",
-          analysisRetryJobId: null,
-        },
-  );
+export function setAnalysisStatus(_context: AppContext, message: LocalizedText) {
+  useAppStore.setState({ analysisStatusText: message, loadingStep: null, analysisRetryJobId: null });
 }
 
-export function setLoadingProgress(
-  _context: AppContext,
-  progress: number | null,
-  message?: LocalizedText | null
-) {
-  useAppStore.setState({
-    analysisStatusText: () => message?.().trim() || i18n.t("common.loading"),
-    analysisSpinning: true,
-    analysisProgressText:
-      typeof progress === "number" ? `${Math.round(progress)}%` : "",
-    analysisRetryJobId: null,
-  });
+// A cancelled audio-mode render hides its steps; a track load in progress keeps its own.
+export function clearModeLoadingStep() {
+  if (useAppStore.getState().loadingStep?.task !== "serverAnalysis") {
+    useAppStore.setState({ loadingStep: null });
+  }
+}
+
+export function setLoadingStep(_context: AppContext, loadingStep: LoadingState) {
+  useAppStore.setState({ loadingStep, analysisRetryJobId: null });
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {

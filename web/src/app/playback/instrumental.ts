@@ -6,10 +6,7 @@ import {
   writeTuningParamsToUrl,
 } from "../tuning";
 import { showToast } from "../ui";
-import {
-  renderInstrumentalBuffer,
-  type InstrumentalProgress,
-} from "@forever-jukebox/shared/audio/instrumentalRenderer";
+import { renderInstrumentalBuffer } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { updatePlayButton, updateVizVisibility } from "./status-ui";
 import { pausePlayback, startJukeboxPlayback } from "./transport";
 import i18n from "../i18n";
@@ -30,12 +27,6 @@ export function canPrepareInstrumentalMode(context: AppContext) {
   );
 }
 
-function phaseStatusText(phase: InstrumentalProgress["phase"]) {
-  return phase === "download"
-    ? () => i18n.t("playback.instrumentalDownloading")
-    : () => i18n.t("playback.instrumentalSeparating");
-}
-
 export function prepareInstrumentalMode(context: AppContext) {
   if (useAppStore.getState().jukeboxAudioMode !== "instrumental") {
     return;
@@ -54,9 +45,7 @@ export function prepareInstrumentalMode(context: AppContext) {
   useAppStore.setState({ audioModeRenderToken: renderToken });
   useAppStore.setState({ audioModePreparing: true });
   useAppStore.setState({
-    analysisStatusText: () => i18n.t("playback.preparingInstrumental"),
-    analysisSpinning: true,
-    analysisProgressText: "",
+    loadingStep: { task: "instrumental", activeId: "model", progress: null },
   });
   updateVizVisibility();
   updatePlayButton();
@@ -72,11 +61,8 @@ export function prepareInstrumentalMode(context: AppContext) {
       if (isStale()) {
         return;
       }
-      const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
-      useAppStore.setState({
-        analysisStatusText: phaseStatusText(phase),
-        analysisProgressText: `${percent}%`,
-      });
+      const activeId = phase === "download" ? "model" : "separate";
+      useAppStore.setState({ loadingStep: { task: "instrumental", activeId, progress } });
     },
   )
     .then((buffer) => {
@@ -86,10 +72,6 @@ export function prepareInstrumentalMode(context: AppContext) {
       useAppStore.setState({ audioModePreparing: false });
       context.player.setRenderedJukeboxAudioBuffer("instrumental", buffer);
       context.player.setJukeboxAudioMode("instrumental");
-      useAppStore.setState({
-        analysisSpinning: false,
-        analysisProgressText: "",
-      });
       updateVizVisibility();
       if (useAppStore.getState().isRunning || useAppStore.getState().isPaused) {
         context.engine.syncToPlaybackPosition();
@@ -113,8 +95,7 @@ export function prepareInstrumentalMode(context: AppContext) {
       resetAudioModeToOff(context.player);
       useAppStore.setState({
         analysisStatusText: () => i18n.t("playback.instrumentalFailed"),
-        analysisSpinning: false,
-        analysisProgressText: "",
+        loadingStep: null,
       });
       updateVizVisibility();
       syncTuningParamsState(context);
