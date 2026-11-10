@@ -55,8 +55,8 @@ export function liveLoading({
   preparingProgress: number;
   modelDownloaded: boolean;
 }): LiveLoading | null {
-  // Instrumental shows its steps from the first progress event, which tells whether the model is downloaded.
-  if (!isAnalyzing && preparingMode && !(preparingMode === "instrumental" && preparingPhase === null)) {
+  // A model download, when one starts, switches instrumental to the task that shows its step.
+  if (!isAnalyzing && preparingMode) {
     const task = preparingMode === "instrumental" && modelDownloaded ? "instrumentalWithModel" : preparingMode;
     return {
       task,

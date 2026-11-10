@@ -100,7 +100,7 @@ const BRANCHES = (() => {
 })();
 
 // Plays out one task at a time: a finished load stays on screen until its steps have played out,
-// an audio-mode render for the same track waits behind it, and any other new task replaces it.
+// an audio-mode render for the same track waits behind a track load, and any other new task replaces it.
 export function usePresentedLoading(live: LiveLoading | null) {
   const [shown, setShown] = useState<{ task: LoadingTask; key: string } | null>(null);
   const latest = useRef(live);
@@ -109,7 +109,11 @@ export function usePresentedLoading(live: LiveLoading | null) {
   let next = shown;
   if (!live) {
     next = null;
-  } else if (!shown || shown.key !== live.key || (shown.task !== live.task && !MODE_TASKS.has(live.task))) {
+  } else if (
+    !shown ||
+    shown.key !== live.key ||
+    (shown.task !== live.task && !(MODE_TASKS.has(live.task) && !MODE_TASKS.has(shown.task)))
+  ) {
     next = live.finished ? null : { task: live.task, key: live.key };
   }
   if (next?.task !== shown?.task || next?.key !== shown?.key) {
@@ -297,6 +301,7 @@ export function LoadingProgress({
   const lead = view.doneAt === null ? Math.floor((percent / 100) * DOTS) : DOTS;
   const count = `${view.index + 1} / ${steps.length}${elapsed ? ` · ${elapsed}` : ""}`;
   const done = view.doneAt !== null;
+  const shownMessage = message && view.index === realIndex && !done ? message : null;
   const leaving = useLeavingStep(view.index);
   const duration = (id: LoadingStepId) => {
     const time = times.get(id);
@@ -311,8 +316,8 @@ export function LoadingProgress({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
-      // Screen readers announce the step change, not every percent.
-      aria-valuetext={activeStep.label}
+      // Screen readers announce the step change and the queue message, not every percent.
+      aria-valuetext={shownMessage ? `${activeStep.label}, ${shownMessage}` : activeStep.label}
     >
       {ring ? (
       <svg className="loading-progress__ring" viewBox="-104 -104 208 208" aria-hidden="true">
@@ -368,7 +373,7 @@ export function LoadingProgress({
           <span className="loading-progress__meta">
             {done ? duration(activeStep.id) : sweeping ? elapsed : `${Math.floor(fill * 100)}%`}
           </span>
-          {message && view.index === realIndex && !done ? <p className="loading-progress__message">{message}</p> : null}
+          {shownMessage ? <p className="loading-progress__message">{shownMessage}</p> : null}
           <div className={`loading-progress__bar${sweeping ? " is-sweep" : ""}`}>
             <i style={sweeping ? undefined : { transform: `scaleX(${done ? 1 : fill})` }} />
           </div>

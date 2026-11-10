@@ -161,8 +161,8 @@ describe("prepareInstrumentalMode", () => {
     resolveRender(renderedBuffer);
     await flushMicrotasks();
 
-    // No step appears before a current render reports progress.
-    expect(useAppStore.getState().loadingStep).toBeNull();
+    // The superseded render's progress leaves the start step unchanged.
+    expect(useAppStore.getState().loadingStep).toEqual({ task: "instrumental", activeId: "separate", progress: null });
     expect(context.player.setRenderedJukeboxAudioBuffer).not.toHaveBeenCalled();
     expect(startJukeboxPlayback).not.toHaveBeenCalled();
   });

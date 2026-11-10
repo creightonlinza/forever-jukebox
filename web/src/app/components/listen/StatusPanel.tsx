@@ -67,7 +67,7 @@ export function StatusPanel() {
       {shown ? (
         <LoadingProgress
           key={`${shown.task}:${shown.key}`}
-        task={shown.task}
+          task={shown.task}
           title={t(LOADING_TITLE_KEYS[shown.task])}
           steps={LOADING_STEPS[shown.task].map((id) => ({ id, label: t(`loading.${id}`) }))}
           activeId={shown.activeId}

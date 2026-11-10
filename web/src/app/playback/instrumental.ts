@@ -44,8 +44,11 @@ export function prepareInstrumentalMode(context: AppContext) {
   const renderToken = useAppStore.getState().audioModeRenderToken + 1;
   useAppStore.setState({ audioModeRenderToken: renderToken });
   useAppStore.setState({ audioModePreparing: true });
-  // The steps appear with the first progress event, which tells whether the model is downloaded.
-  useAppStore.setState({ analysisStatusText: () => "" });
+  // A model download, when one starts, switches the task to show its step.
+  useAppStore.setState({
+    analysisStatusText: () => "",
+    loadingStep: { task: "instrumental", activeId: "separate", progress: null },
+  });
   updateVizVisibility();
   updatePlayButton();
 
