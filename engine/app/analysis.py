@@ -180,8 +180,11 @@ def analyze_audio(
     if not beat_times:
         raise NoBeatsDetectedError(NO_BEATS_DETECTED_MESSAGE)
 
-    report(90, "features")
-    frame_features = compute_frame_features(audio, config.features)
+    frame_features = compute_frame_features(
+        audio,
+        config.features,
+        progress_cb=(lambda fraction: report(85 + 9 * fraction, "features")) if progress_cb else None,
+    )
     novelty = compute_novelty(
         frame_features["mfcc"],
         frame_features["hpcp"],
@@ -198,6 +201,7 @@ def analyze_audio(
     if len(boundaries) < 2:
         boundaries = [0.0, float(duration)]
 
+    report(95, "building")
     segments = []
     total_segments = max(len(boundaries) - 1, 1)
     for i in range(total_segments):
@@ -322,7 +326,7 @@ def analyze_audio(
         },
     }
 
-    report(100, "features")
+    report(100, "building")
     return analysis
 
 
