@@ -3,6 +3,7 @@ import { createRng } from "../engine/random";
 import "./LoadingProgress.css";
 
 export type LoadingStepId =
+  | "pending"
   | "fetch"
   | "queued"
   | "beats"
@@ -15,6 +16,7 @@ export type LoadingStepId =
 
 // Share of the overall percent.
 const STEP_WEIGHTS: Record<LoadingStepId, number> = {
+  pending: 1,
   fetch: 10,
   queued: 0,
   beats: 55,
@@ -32,6 +34,8 @@ export const LOADING_STEPS = {
   serverAnalysis: ["fetch", "queued", "beats", "features", "track"],
   localAnalysis: ["beats", "features", "track"],
   track: ["track"],
+  // A load waiting for its first reply, before the app knows which steps it has.
+  pending: ["pending"],
   swing: ["swing"],
   wubmachine: ["remix"],
   // The model step shows only when the model is really downloaded.
@@ -264,20 +268,23 @@ export function LoadingProgress({
   const progress = rawProgress === null ? null : Math.min(1, Math.max(0, rawProgress));
   const realIndex = Math.max(0, steps.findIndex((s) => s.id === activeId));
   const ring = ANALYSIS_TASKS.has(task);
-  // A cached track ("track") skips the pacing and ends as soon as its work does.
-  const view = usePacedView(steps.length, { index: realIndex, progress, finished }, ring, task !== "track", onFinished);
+  // A cached track and a load still waiting for its first reply skip the pacing.
+  const paced = task !== "track" && task !== "pending";
+  const view = usePacedView(steps.length, { index: realIndex, progress, finished }, ring, paced, onFinished);
+  // Without pacing the view never advances, so its bar follows the real progress directly.
+  const fill = paced ? view.fill : (progress ?? 0);
   useEffect(() => {
-    if (task === "track" && finished) {
+    if (!paced && finished) {
       onFinished();
     }
-  }, [task, finished, onFinished]);
+  }, [paced, finished, onFinished]);
   const times = useStepTimes(activeId, finished);
   const sweeping = view.index === realIndex && progress === null && !finished;
   useSecondTick(sweeping);
 
   const total = steps.reduce((sum, s) => sum + STEP_WEIGHTS[s.id], 0) || 1;
   const weighted = steps.reduce(
-    (sum, s, i) => sum + STEP_WEIGHTS[s.id] * (i < view.index ? 1 : i === view.index ? view.fill : 0),
+    (sum, s, i) => sum + STEP_WEIGHTS[s.id] * (i < view.index ? 1 : i === view.index ? fill : 0),
     0,
   );
   const percent = Math.floor((weighted / total) * 100);
@@ -359,11 +366,11 @@ export function LoadingProgress({
           <span className="loading-progress__icon">{CHECK}</span>
           <span className="loading-progress__label">{activeStep.label}</span>
           <span className="loading-progress__meta">
-            {done ? duration(activeStep.id) : sweeping ? elapsed : `${Math.floor(view.fill * 100)}%`}
+            {done ? duration(activeStep.id) : sweeping ? elapsed : `${Math.floor(fill * 100)}%`}
           </span>
           {message && view.index === realIndex && !done ? <p className="loading-progress__message">{message}</p> : null}
           <div className={`loading-progress__bar${sweeping ? " is-sweep" : ""}`}>
-            <i style={sweeping ? undefined : { transform: `scaleX(${done ? 1 : view.fill})` }} />
+            <i style={sweeping ? undefined : { transform: `scaleX(${done ? 1 : fill})` }} />
           </div>
         </div>
       </div>

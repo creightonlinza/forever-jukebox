@@ -15,6 +15,7 @@
     "./ui/toastQueue": "./src/ui/toastQueue.ts",
     "./ui/SocialLinks": "./src/ui/SocialLinks.tsx",
     "./ui/LoadingProgress": "./src/ui/LoadingProgress.tsx",
+    "./ui/jobProgress": "./src/ui/jobProgress.ts",
     "./ui/useModalKeyboard": "./src/ui/useModalKeyboard.ts"
   },
   "scripts": {

@@ -244,7 +244,11 @@ export async function retryJob(jobId: string) {
   return parseAnalysisResponse(data);
 }
 
-export async function fetchAudio(jobId: string, signal?: AbortSignal) {
+export async function fetchAudio(
+  jobId: string,
+  signal?: AbortSignal,
+  onProgress?: (fraction: number) => void,
+) {
   const response = await fetch(`/api/audio/${encodeURIComponent(jobId)}`, {
     signal,
   });
@@ -253,7 +257,21 @@ export async function fetchAudio(jobId: string, signal?: AbortSignal) {
     (error as Error & { status?: number }).status = response.status;
     throw error;
   }
-  return response.arrayBuffer();
+  const total = onProgress && response.body ? Number(response.headers.get("content-length")) : 0;
+  if (!onProgress || !response.body || !total) {
+    return response.arrayBuffer();
+  }
+  let received = 0;
+  const counted = response.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        received += chunk.length;
+        onProgress(Math.min(1, received / total));
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+  return new Response(counted).arrayBuffer();
 }
 
 export async function startYoutubeAnalysis(payload: {

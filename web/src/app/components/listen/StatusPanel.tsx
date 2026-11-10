@@ -14,6 +14,7 @@ const LOADING_TITLE_KEYS = {
   serverAnalysis: "loading.analyzing",
   localAnalysis: "loading.analyzing",
   track: "loading.loadingTrack",
+  pending: "loading.loadingTrack",
   swing: "playback.preparingSwing",
   instrumental: "playback.preparingInstrumental",
   instrumentalWithModel: "playback.preparingInstrumental",

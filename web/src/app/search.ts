@@ -8,7 +8,7 @@ import {
   startYoutubeAnalysis,
   type AnalysisComplete,
 } from "./api";
-import type { ToastOptions } from "./ui";
+import { PENDING_STEP, type ToastOptions } from "./ui";
 import type { PlaylistTrack } from "./playlist";
 import {
   isAnalysisComplete,
@@ -108,8 +108,7 @@ export async function startYoutubeAnalysisFlow(
   useAppStore.setState({ analysisLoaded: false });
   deps.updateVizVisibility();
   deps.setActiveTab("play");
-  // No job id yet, so nothing shows until the server answers.
-  deps.setAnalysisStatus(() => "");
+  deps.setLoadingStep(PENDING_STEP);
   useAppStore.setState({ lastTrackId: youtubeId });
   useAppStore.setState({ lastSourceId: youtubeId });
   useAppStore.setState({ lastSourceProvider: "youtube" });

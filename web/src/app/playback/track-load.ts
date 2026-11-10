@@ -1,4 +1,5 @@
 import type { AppContext, TabId } from "../context";
+import { PENDING_STEP, setTrackStepProgress } from "../ui";
 import {
   fetchAnalysis,
   fetchAudio,
@@ -257,7 +258,11 @@ export async function loadAudioFromJob(context: AppContext, jobId: string) {
   const { autocanonizer, player } = context;
   const generation = getLoadGeneration();
   try {
-    const buffer = await fetchAudio(jobId);
+    const buffer = await fetchAudio(jobId, undefined, (fraction) => {
+      if (!isStaleLoad(generation)) {
+        setTrackStepProgress(fraction);
+      }
+    });
     // A newer load started while this download was in flight: its audio
     // must not reach the player, the store, or the cache (where it would
     // persist under the newer track's id).
@@ -585,11 +590,11 @@ async function loadTrack(
   handlePlaylistForNormalTrackLoad(deps, source, options);
   resetForNewTrack(context, { clearTuning: shouldClear });
   deps.setActiveTab("play");
-  // With a job id the track is assumed analyzed until the server says otherwise; without one, show nothing yet.
+  // With a job id the track is assumed analyzed until the server says otherwise; without one, the load is pending.
   if (source.type === "job") {
     deps.setLoadingStep(TRACK_STEP);
   } else {
-    deps.setAnalysisStatus(() => "");
+    deps.setLoadingStep(PENDING_STEP);
   }
   if (source.type === "source") {
     useAppStore.setState({ lastSourceProvider: source.provider });

@@ -47,6 +47,7 @@
   "loading": {
     "analyzing": "Analizando pista",
     "loadingTrack": "Cargando pista",
+    "pending": "Cargando…",
     "fetch": "Obteniendo audio",
     "queued": "En cola",
     "beats": "Detectando beats",

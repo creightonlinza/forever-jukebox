@@ -23,6 +23,18 @@ export function clearModeLoadingStep() {
   }
 }
 
+// A load waiting for its first reply, before the app knows whether the track needs analysis.
+export const PENDING_STEP: LoadingState = { task: "pending", activeId: "pending", progress: null };
+
+// Audio download progress drives the last step, where loading the audio is most of the wait.
+export function setTrackStepProgress(progress: number) {
+  const step = useAppStore.getState().loadingStep;
+  // Whole-percent changes only, so a download does not re-render the panel on every chunk.
+  if (step?.activeId === "track" && Math.floor(progress * 100) !== Math.floor((step.progress ?? -1) * 100)) {
+    useAppStore.setState({ loadingStep: { ...step, progress } });
+  }
+}
+
 export function setLoadingStep(_context: AppContext, loadingStep: LoadingState) {
   useAppStore.setState({ loadingStep, analysisRetryJobId: null });
 }
