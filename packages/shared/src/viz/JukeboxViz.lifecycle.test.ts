@@ -36,24 +36,10 @@ function createMockCanvas(ctx: CanvasRenderingContext2D) {
 function setMockDocument() {
   const ctx = createMockCtx();
   const canvases: HTMLCanvasElement[] = [];
-  let rafId = 0;
-  const rafTimers = new Map<number, ReturnType<typeof setTimeout>>();
   (globalThis as any).window = {
     devicePixelRatio: 1,
-    requestAnimationFrame: (cb: () => void) => {
-      rafId += 1;
-      const id = rafId;
-      const timer = setTimeout(cb, 0);
-      rafTimers.set(id, timer);
-      return id;
-    },
-    cancelAnimationFrame: (id: number) => {
-      const timer = rafTimers.get(id);
-      if (timer) {
-        clearTimeout(timer);
-        rafTimers.delete(id);
-      }
-    },
+    setTimeout: (cb: () => void, ms: number) => setTimeout(cb, ms),
+    clearTimeout: (id: ReturnType<typeof setTimeout>) => clearTimeout(id),
   };
   (globalThis as any).document = {
     documentElement: {},

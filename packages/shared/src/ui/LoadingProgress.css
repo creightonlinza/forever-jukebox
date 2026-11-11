@@ -1,0 +1,249 @@
+/* Only transform and opacity animate, so Cast devices and the Android port stay cheap. */
+.loading-progress {
+  display: grid;
+  gap: 14px;
+}
+
+.loading-progress__ring {
+  justify-self: center;
+  width: min(200px, 100%);
+  height: auto;
+  overflow: visible;
+}
+
+.loading-progress__dot {
+  fill: var(--border-control);
+  transition: fill 0.2s;
+}
+
+.loading-progress__dot.is-on,
+.loading-progress__dot.is-lead {
+  fill: var(--beat-fill);
+}
+
+.loading-progress__dot.is-lead {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(1.6);
+}
+
+.loading-progress__branch {
+  fill: none;
+  stroke: var(--edge-stroke);
+  stroke-width: 1.5;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 0.45s ease-out;
+}
+
+.loading-progress__branch.is-selected {
+  stroke: var(--edge-selected);
+  stroke-width: 2.2;
+}
+
+.loading-progress__branch.is-shown {
+  stroke-dashoffset: 0;
+}
+
+.loading-progress__hub {
+  fill: var(--surface-panel);
+  opacity: 0.88;
+}
+
+.loading-progress__ring text {
+  text-anchor: middle;
+}
+
+.loading-progress__count {
+  fill: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.loading-progress__percent {
+  fill: var(--text);
+  font-family: "Tilt Neon", sans-serif;
+  font-size: 34px;
+}
+
+.loading-progress__step {
+  fill: var(--muted);
+  font-size: 13px;
+}
+
+.loading-progress__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.loading-progress__title span {
+  margin-left: 8px;
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rows share one grid cell, so a leaving row and an entering row overlap while they slide. */
+.loading-progress__slot {
+  display: grid;
+  overflow: hidden;
+}
+
+.loading-progress__row {
+  grid-area: 1 / 1;
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  column-gap: 12px;
+  align-content: start;
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.3s ease-out;
+}
+
+.loading-progress__row.is-entering {
+  transform: translateX(56px);
+  opacity: 0;
+}
+
+.loading-progress__row.is-leaving {
+  transform: translateX(-56px);
+  opacity: 0;
+}
+
+.loading-progress__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border-control);
+  border-radius: 50%;
+  background: var(--surface-panel);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.loading-progress__icon svg {
+  width: 13px;
+  height: 13px;
+  opacity: 0;
+}
+
+.loading-progress__icon path {
+  fill: none;
+  stroke: var(--surface-panel);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+}
+
+.loading-progress__row.is-active .loading-progress__icon::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  border-radius: 50%;
+  animation: loading-progress-spin 0.9s linear infinite;
+}
+
+.loading-progress__row.is-done .loading-progress__icon {
+  border-color: var(--accent);
+  background: var(--accent);
+  animation: loading-progress-pop 0.35s ease-out;
+}
+
+.loading-progress__row.is-done .loading-progress__icon svg {
+  opacity: 1;
+}
+
+.loading-progress__row.is-done .loading-progress__icon path {
+  animation: loading-progress-draw 0.35s 0.1s ease-out forwards;
+}
+
+.loading-progress__label {
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.loading-progress__meta {
+  line-height: 22px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.loading-progress__message {
+  grid-column: 2 / 4;
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.loading-progress__bar {
+  grid-column: 2 / 4;
+  height: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--border-control);
+}
+
+.loading-progress__bar i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.1s linear;
+}
+
+.loading-progress__bar.is-sweep i {
+  width: 35%;
+  transition: none;
+  animation: loading-progress-sweep 1.3s ease-in-out infinite;
+}
+
+@keyframes loading-progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loading-progress-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes loading-progress-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes loading-progress-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-progress *,
+  .loading-progress *::before,
+  .loading-progress *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

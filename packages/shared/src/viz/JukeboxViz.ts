@@ -49,11 +49,15 @@ const TILE_MIN_LINE_LENGTH_PX = 0.01;
 // A tile with n visits is n + TILE_BASE_STEPS steps long, of TILE_MAX_STEPS at full height.
 const TILE_BASE_STEPS = 4;
 const TILE_MAX_STEPS = 12;
+// The jump line fades in fixed alpha steps, one overlay redraw per step.
+const JUMP_FADE_MS = 1000;
+const JUMP_FADE_STEPS = 12;
 
 interface JumpLine {
   from: number;
   to: number;
   at: number;
+  control: [number, number] | null;
 }
 
 export type AnchorEditState = CustomAnchor & { active: CustomAnchorEnd };
@@ -86,6 +90,7 @@ type CanvasVizOptions = {
   forceBendEdges?: boolean;
   edgeControlPointResolver?: EdgeControlPointResolver;
   beatTiles?: boolean;
+  background?: { inner: string; outer: string };
 };
 
 type VisualizationDefinition = {
@@ -112,7 +117,10 @@ class CanvasViz {
   private currentIndex = -1;
   private jumpLine: JumpLine | null = null;
   private selectedEdge: Edge | null = null;
-  private overlayRafId: number | null = null;
+  private overlayTimerId: number | null = null;
+  private jumpFadeColors: string[] = [];
+  private readonly background: CanvasVizOptions["background"];
+  private backgroundFill: CanvasGradient | null = null;
   private paintedVisits: number[] = [];
   private tileScale = 1;
   private hoveredBeat: number | null = null;
@@ -152,9 +160,10 @@ class CanvasViz {
     this.positioner = positioner;
     this.forceBendEdges = options.forceBendEdges ?? false;
     this.edgeControlPointResolver = options.edgeControlPointResolver ?? null;
+    this.background = options.background;
     this.baseCanvas = document.createElement("canvas");
     this.overlayCanvas = document.createElement("canvas");
-    const baseCtx = this.baseCanvas.getContext("2d");
+    const baseCtx = this.baseCanvas.getContext("2d", { alpha: !this.background });
     const overlayCtx = this.overlayCanvas.getContext("2d");
     if (!baseCtx || !overlayCtx) {
       throw new Error("Canvas not supported");
@@ -196,6 +205,8 @@ class CanvasViz {
       this.drawBase();
       this.drawTiles();
       this.drawOverlay();
+    } else if (visible) {
+      this.drawBase();
     } else {
       this.clearHoveredBeat();
       this.cancelOverlayAnimation();
@@ -233,6 +244,7 @@ class CanvasViz {
         from: previousIndex,
         to: currentIndex,
         at: performance.now(),
+        control: this.resolveJumpControl(previousIndex, currentIndex),
       };
     }
     this.drawOverlay();
@@ -352,12 +364,21 @@ class CanvasViz {
     this.baseCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.tileCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (this.background) {
+      const x = rect.width / 2;
+      const y = rect.height / 2;
+      this.backgroundFill = this.baseCtx.createRadialGradient(x, y, 0, x, y, Math.min(x, y));
+      this.backgroundFill.addColorStop(0, this.background.inner);
+      this.backgroundFill.addColorStop(1, this.background.outer);
+    }
     if (this.data) {
       this.computePositions();
       this.computeEdgeGeometry();
       this.drawBase();
       this.drawTiles();
       this.drawOverlay();
+    } else {
+      this.drawBase();
     }
   }
 
@@ -369,6 +390,9 @@ class CanvasViz {
     this.positions = this.positioner(this.data, width, height);
     this.center = { x: width / 2, y: height / 2 };
     this.bendCache.clear();
+    if (this.jumpLine) {
+      this.jumpLine.control = this.resolveJumpControl(this.jumpLine.from, this.jumpLine.to);
+    }
   }
 
   private computeEdgeGeometry() {
@@ -405,6 +429,9 @@ class CanvasViz {
       styles.getPropertyValue("--beat-highlight").trim() ||
       this.theme.beatHighlight;
     this.theme.beatHighlightRgb = this.parseThemeColor(this.theme.beatHighlight);
+    this.jumpFadeColors = Array.from({ length: JUMP_FADE_STEPS }, (_, step) =>
+      this.resolveBeatHighlightColor(1 - step / JUMP_FADE_STEPS)
+    );
   }
 
   private parseThemeColor(color: string) {
@@ -439,12 +466,21 @@ class CanvasViz {
     return null;
   }
 
+  // An opaque base starts black, so its background is painted even before data arrives.
   private drawBase() {
-    if (!this.data || !this.visible) {
+    if (!this.visible || (!this.data && !this.backgroundFill)) {
       return;
     }
     const { width, height } = this.size;
-    this.baseCtx.clearRect(0, 0, width, height);
+    if (this.backgroundFill) {
+      this.baseCtx.fillStyle = this.backgroundFill;
+      this.baseCtx.fillRect(0, 0, width, height);
+    } else {
+      this.baseCtx.clearRect(0, 0, width, height);
+    }
+    if (!this.data) {
+      return;
+    }
     this.baseCtx.save();
     this.baseCtx.lineWidth = 1;
 
@@ -454,7 +490,9 @@ class CanvasViz {
         ? Math.ceil(edges.length / MAX_EDGES_BASE)
         : 1;
 
+    // One path and one stroke for all edges, so overlapping edges composite once.
     this.baseCtx.strokeStyle = this.theme.edgeStroke;
+    this.baseCtx.beginPath();
     for (let i = 0; i < edges.length; i += step) {
       const edge = edges[i];
       if (edge.deleted) {
@@ -466,22 +504,20 @@ class CanvasViz {
         continue;
       }
       const geometry = this.getEdgeGeometry(edge);
+      this.baseCtx.moveTo(from.x, from.y);
       if (geometry?.bend && geometry.control) {
-        this.baseCtx.beginPath();
-        this.baseCtx.moveTo(from.x, from.y);
         this.baseCtx.quadraticCurveTo(
           geometry.control[0],
           geometry.control[1],
           to.x,
           to.y
         );
-        this.baseCtx.stroke();
       } else {
-        this.baseCtx.beginPath();
-        this.baseCtx.moveTo(from.x, from.y);
         this.baseCtx.lineTo(to.x, to.y);
-        this.baseCtx.stroke();
       }
+    }
+    if (edges.length > 0) {
+      this.baseCtx.stroke();
     }
 
     const highlightedAnchorEdgeId =
@@ -499,11 +535,12 @@ class CanvasViz {
 
     if (!this.tileCanvas) {
       this.baseCtx.fillStyle = this.theme.beatFill;
+      this.baseCtx.beginPath();
       for (const p of this.positions) {
-        this.baseCtx.beginPath();
+        this.baseCtx.moveTo(p.x + BEAT_DOT_RADIUS_PX, p.y);
         this.baseCtx.arc(p.x, p.y, BEAT_DOT_RADIUS_PX, 0, Math.PI * 2);
-        this.baseCtx.fill();
       }
+      this.baseCtx.fill();
     }
     this.baseCtx.restore();
   }
@@ -666,9 +703,9 @@ class CanvasViz {
 
   private drawOverlay() {
     const { width, height } = this.size;
+    this.cancelOverlayAnimation();
     this.overlayCtx.clearRect(0, 0, width, height);
     if (!this.data || !this.visible) {
-      this.cancelOverlayAnimation();
       return;
     }
     if (this.selectedEdge && !this.selectedEdge.deleted) {
@@ -711,24 +748,18 @@ class CanvasViz {
     }
     if (this.jumpLine) {
       const age = performance.now() - this.jumpLine.at;
-      if (age < 1000) {
+      const step = Math.floor((age * JUMP_FADE_STEPS) / JUMP_FADE_MS);
+      if (step < JUMP_FADE_STEPS) {
         const from = this.positions[this.jumpLine.from];
         const to = this.positions[this.jumpLine.to];
         if (from && to) {
-          const alpha = 1 - age / 1000;
-          const jumpColor = this.resolveBeatHighlightColor(alpha);
-          if (this.shouldBendEdge(from, to, this.jumpLine.from, this.jumpLine.to)) {
-            const control = this.resolveControlPointForPair(
-              from,
-              to,
-              this.jumpLine.from,
-              this.jumpLine.to
-            );
+          const jumpColor = this.jumpFadeColors[step];
+          if (this.jumpLine.control) {
             this.drawBentLineWithControl(
               this.overlayCtx,
               from,
               to,
-              control,
+              this.jumpLine.control,
               jumpColor,
               2
             );
@@ -741,32 +772,27 @@ class CanvasViz {
             this.overlayCtx.stroke();
           }
         }
-        this.requestOverlayAnimation();
+        this.requestOverlayAnimation(((step + 1) * JUMP_FADE_MS) / JUMP_FADE_STEPS - age);
       } else {
         this.jumpLine = null;
-        this.cancelOverlayAnimation();
       }
-    } else {
-      this.cancelOverlayAnimation();
     }
   }
 
-  private requestOverlayAnimation() {
-    if (this.overlayRafId !== null) {
-      return;
-    }
-    this.overlayRafId = window.requestAnimationFrame(() => {
-      this.overlayRafId = null;
+  // Redraws the overlay at the next fade step boundary.
+  private requestOverlayAnimation(delayMs: number) {
+    this.overlayTimerId = window.setTimeout(() => {
+      this.overlayTimerId = null;
       this.drawOverlay();
-    });
+    }, Math.ceil(delayMs));
   }
 
   private cancelOverlayAnimation() {
-    if (this.overlayRafId === null) {
+    if (this.overlayTimerId === null) {
       return;
     }
-    window.cancelAnimationFrame(this.overlayRafId);
-    this.overlayRafId = null;
+    window.clearTimeout(this.overlayTimerId);
+    this.overlayTimerId = null;
   }
 
   private resolveBeatHighlightColor(alpha: number) {
@@ -1127,16 +1153,11 @@ class CanvasViz {
     };
   }
 
-  private resolveControlPointForPair(
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-    fromIndex: number,
-    toIndex: number
-  ): [number, number] {
-    return this.resolveEdgeGeometry(null, from, to, fromIndex, toIndex).control ?? [
-      (from.x + to.x) / 2,
-      (from.y + to.y) / 2,
-    ];
+  // Control point of the jump line, or null for a straight line.
+  private resolveJumpControl(fromIndex: number, toIndex: number) {
+    const from = this.positions[fromIndex];
+    const to = this.positions[toIndex];
+    return from && to ? this.resolveEdgeGeometry(null, from, to, fromIndex, toIndex).control : null;
   }
 
   private shouldBendEdge(
@@ -1488,6 +1509,7 @@ export class JukeboxViz {
   private readonly vizLayer: HTMLElement;
   private readonly definitions: VisualizationDefinition[];
   private readonly enableInteraction: boolean;
+  private readonly background: CanvasVizOptions["background"];
   private activeViz: CanvasViz | null = null;
   private activeIndex = 0;
   private visible = true;
@@ -1522,14 +1544,20 @@ export class JukeboxViz {
     options?: {
       positioners?: Positioner[];
       enableInteraction?: boolean;
+      // Paints this radial gradient into an opaque base canvas.
+      background?: { inner: string; outer: string };
+      initialIndex?: number;
     }
   ) {
     this.vizLayer = vizLayer;
     this.enableInteraction = options?.enableInteraction ?? true;
+    this.background = options?.background;
     this.definitions = options?.positioners
       ? options.positioners.map((positioner) => ({ positioner }))
       : getDefaultVisualizationDefinitions();
-    this.mountActiveVisualization(0);
+    const initialIndex = options?.initialIndex ?? 0;
+    this.activeIndex = this.definitions[initialIndex] ? initialIndex : 0;
+    this.mountActiveVisualization(this.activeIndex);
   }
 
   getCount() {
@@ -1543,6 +1571,7 @@ export class JukeboxViz {
     }
     const viz = new CanvasViz(this.vizLayer, definition.positioner, {
       enableInteraction: this.enableInteraction,
+      background: this.background,
       ...definition.options,
     });
     viz.setAnchorHighlightEnabled(this.anchorHighlightEnabled);

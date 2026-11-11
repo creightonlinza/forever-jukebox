@@ -20,9 +20,11 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import TYPE_CHECKING, Any, Iterable, Iterator
 
-from fastapi.responses import FileResponse, RedirectResponse, Response
+# The worker imports this module from the engine venv, which has no fastapi.
+if TYPE_CHECKING:
+    from fastapi.responses import Response
 
 from .utils import (
     analysis_path_for,
@@ -74,7 +76,10 @@ class LocalStore:
         path = audio_path_for(self.root, job_id)
         if path is None or not path.exists():
             return None
-        return FileResponse(path=str(path))
+        from fastapi.responses import FileResponse
+
+        # Identity encoding keeps GZipMiddleware off the audio, so the client gets a Content-Length for progress.
+        return FileResponse(path=str(path), headers={"Content-Encoding": "identity"})
 
     def analysis_output_path(self, job_id: str) -> Path:
         return analysis_path_for(self.root, job_id)
@@ -224,6 +229,8 @@ class S3Store:
             Params={"Bucket": self.bucket, "Key": audio_key(job_id)},
             ExpiresIn=PRESIGNED_URL_TTL_S,
         )
+        from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url, status_code=307, headers={"Cache-Control": "no-store"})
 
     def analysis_output_path(self, job_id: str) -> Path:

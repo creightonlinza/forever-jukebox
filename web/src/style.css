@@ -2870,13 +2870,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
   color: var(--muted);
 }
 
-.status-progress {
-  min-width: 48px;
-  font-weight: 600;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-
 .status-text {
   flex: 1;
   color: var(--muted);
@@ -2894,15 +2887,6 @@ body.playlist-add-enabled .favorite-row:focus-within .playlist-add-button {
 
 .status-retry-button:hover {
   text-decoration: underline;
-}
-
-.spinner {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid rgba(var(--text-rgb), 0.2);
-  border-top-color: var(--text);
-  animation: spin 0.9s linear infinite;
 }
 
 @keyframes spin {

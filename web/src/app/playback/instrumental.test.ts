@@ -140,16 +140,14 @@ describe("prepareInstrumentalMode", () => {
     prepareInstrumentalMode(createContext());
 
     reportProgress({ phase: "download", progress: 0.256 });
-    expect(useAppStore.getState().analysisProgressText).toBe("26%");
-    expect(useAppStore.getState().analysisStatusText()).toBe(
-      "Downloading the instrumental model...",
-    );
+    expect(useAppStore.getState().loadingStep).toMatchObject({
+      task: "instrumentalWithModel",
+      activeId: "model",
+      progress: 0.256,
+    });
 
-    reportProgress({ phase: "separate", progress: 2 });
-    expect(useAppStore.getState().analysisProgressText).toBe("100%");
-    expect(useAppStore.getState().analysisStatusText()).toBe(
-      "Removing vocals from the track...",
-    );
+    reportProgress({ phase: "separate", progress: 0.5 });
+    expect(useAppStore.getState().loadingStep).toMatchObject({ activeId: "separate", progress: 0.5 });
   });
 
   it("ignores a render superseded by a newer token", async () => {
@@ -163,7 +161,8 @@ describe("prepareInstrumentalMode", () => {
     resolveRender(renderedBuffer);
     await flushMicrotasks();
 
-    expect(useAppStore.getState().analysisProgressText).toBe("");
+    // The superseded render's progress leaves the start step unchanged.
+    expect(useAppStore.getState().loadingStep).toEqual({ task: "instrumental", activeId: "separate", progress: null });
     expect(context.player.setRenderedJukeboxAudioBuffer).not.toHaveBeenCalled();
     expect(startJukeboxPlayback).not.toHaveBeenCalled();
   });
@@ -188,7 +187,7 @@ describe("prepareInstrumentalMode", () => {
 
     expect(resetAudioModeToOff).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().audioModePreparing).toBe(false);
-    expect(useAppStore.getState().analysisSpinning).toBe(false);
+    expect(useAppStore.getState().loadingStep).toBeNull();
     expect(showToast).toHaveBeenCalledWith(
       "Instrumental mode failed. Using Normal mode.",
       { icon: "error", tone: "error" },

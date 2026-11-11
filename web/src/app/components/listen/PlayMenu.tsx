@@ -202,6 +202,7 @@ export function PlayMenu() {
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
   const audioModePreparing = useAppStore((s) => s.audioModePreparing);
+  const loadingShown = useAppStore((s) => s.loadingShown);
   const playMode = useAppStore((s) => s.playMode);
   const audioMode = useAppStore((s) => s.jukeboxAudioMode);
   const trackTitle = useAppStore((s) => s.trackTitle);
@@ -226,7 +227,7 @@ export function PlayMenu() {
   const reportButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleRef = useRef<HTMLDivElement | null>(null);
 
-  const hidden = !(audioLoaded && analysisLoaded) || audioModePreparing;
+  const hidden = !(audioLoaded && analysisLoaded) || audioModePreparing || loadingShown;
   // Tuning and track info describe the jukebox graph.
   const hideJukeboxTools = playMode !== "jukebox";
   const adminMode = isAdminMode();

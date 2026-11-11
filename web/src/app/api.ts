@@ -1,3 +1,4 @@
+import { readWithProgress } from "@forever-jukebox/shared/net/readWithProgress";
 import type { TrackMeta } from "@forever-jukebox/shared/types";
 import type { FavoriteTrack } from "./favorites";
 import { maxFavorites } from "./favorites";
@@ -244,7 +245,11 @@ export async function retryJob(jobId: string) {
   return parseAnalysisResponse(data);
 }
 
-export async function fetchAudio(jobId: string, signal?: AbortSignal) {
+export async function fetchAudio(
+  jobId: string,
+  signal?: AbortSignal,
+  onProgress?: (fraction: number) => void,
+) {
   const response = await fetch(`/api/audio/${encodeURIComponent(jobId)}`, {
     signal,
   });
@@ -253,7 +258,7 @@ export async function fetchAudio(jobId: string, signal?: AbortSignal) {
     (error as Error & { status?: number }).status = response.status;
     throw error;
   }
-  return response.arrayBuffer();
+  return readWithProgress(response, onProgress);
 }
 
 export async function startYoutubeAnalysis(payload: {

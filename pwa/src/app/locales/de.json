@@ -42,21 +42,25 @@
     "cachedTrack": "Gecachter Track {{id}}"
   },
   "analysis": {
-    "progress": "Analysefortschritt",
-    "progressPercent": "Analysefortschritt: {{percent}}%",
-    "loading": "Lade Datei",
-    "decoding": "Dekodiere Audio",
+    "failed": "Diese Audiodatei konnte nicht analysiert werden."
+  },
+  "loading": {
+    "analyzing": "Analysiere Track",
+    "loadingTrack": "Lade Track",
+    "pending": "Lade…",
+    "fetch": "Lade Audio",
+    "queued": "In der Warteschlange",
     "beats": "Erkenne Beats",
     "features": "Extrahiere Merkmale",
-    "segments": "Extrahiere Segmente",
-    "building": "Erstelle Analyse",
-    "ready": "Bereit",
-    "failed": "Diese Audiodatei konnte nicht analysiert werden."
+    "track": "Lege den Track auf",
+    "swing": "Füge Swing hinzu",
+    "remix": "Erstelle Remix",
+    "model": "Lade Modell herunter",
+    "separate": "Trenne Gesang"
   },
   "listen": {
     "noFile": "Keine Datei ausgewählt.",
     "goBack": "Zurück",
-    "addingSwing": "Swing wird zum Song hinzugefügt...",
     "bringingHome": "Spielt zu Ende",
     "tune": "Tuning",
     "info": "Info",
@@ -98,8 +102,6 @@
     "preparingInstrumentalEllipsis": "Instrumental-Modus wird vorbereitet...",
     "instrumentalFailed": "Instrumental-Modus fehlgeschlagen. Normaler Modus wird verwendet.",
     "instrumentalWhenLoaded": "Instrumental-Modus wird vorbereitet, sobald die Audiodaten geladen sind",
-    "instrumentalDownloading": "Instrumental-Modell wird heruntergeladen...",
-    "instrumentalSeparating": "Gesang wird aus dem Song entfernt...",
     "anchorSet": "Anker-Sprungpfad festgelegt",
     "anchorReset": "Anker-Sprungpfad zurückgesetzt",
     "anchorRequiresBackward": "Anker benötigt einen rückwärtsgerichteten Sprungpfad",
@@ -113,8 +115,6 @@
     "forward": "Vorwärts",
     "sameBeat": "Selber Beat",
     "autocanonized": "autokanonisiert",
-    "preparingSwingPercent": "Bereite Swing-Modus vor: {{percent}}%",
-    "preparingInstrumentalPercent": "Bereite Instrumental-Modus vor: {{percent}}%",
     "closeExportDialog": "Export-Panel schließen",
     "closeTuningDialog": "Tuning-Panel schließen",
     "closeTrackInfoDialog": "Song-Info-Panel schließen",
@@ -122,8 +122,6 @@
     "wubMachineRemix": "Wub-Machine-Remix",
     "preparingWubMachine": "Wub-Machine-Remix wird erstellt",
     "preparingWubMachineEllipsis": "Wub-Machine-Remix wird erstellt...",
-    "preparingWubMachinePercent": "Wub-Machine-Remix wird erstellt: {{percent}}%",
-    "buildingWubMachine": "Der Song wird in Drops und Breaks zerlegt...",
     "wubMachineFailed": "Wub-Machine-Remix fehlgeschlagen. Zum erneuten Versuch auf Play drücken.",
     "loopTrack": "Song wiederholen"
   },

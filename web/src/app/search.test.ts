@@ -50,7 +50,7 @@ function createDeps(): SearchDeps {
     updateTrackUrl: vi.fn(),
     setAnalysisStatus: vi.fn(),
     showToast: vi.fn(),
-    setLoadingProgress: vi.fn(),
+    setLoadingStep: vi.fn(),
     pollAnalysis: vi.fn(),
     applyAnalysisResult: vi.fn(() => true),
     loadAudioFromJob: vi.fn(() => Promise.resolve(true)),
@@ -178,10 +178,9 @@ describe("search flows", () => {
     );
 
     expect(result).toBe(true);
-    expect(localizedCalls(deps.setLoadingProgress)).toContainEqual([
-      null,
-      "Fetching audio",
-    ]);
+    expect(deps.setLoadingStep).toHaveBeenCalledWith(
+      expect.objectContaining({ activeId: "track" }),
+    );
     expect(deps.pollAnalysis).toHaveBeenCalledWith("job-processing");
     expect(deps.applyAnalysisResult).not.toHaveBeenCalled();
   });
@@ -206,7 +205,6 @@ describe("search flows", () => {
     expect(result).toBe(true);
     expect(localizedCalls(deps.setAnalysisStatus)).toContainEqual([
       "YouTube fetch failed.",
-      false,
     ]);
     expect(useAppStore.getState().analysisRetryJobId).toBe("job-f");
     expect(deps.pollAnalysis).not.toHaveBeenCalled();
@@ -227,7 +225,6 @@ describe("search flows", () => {
     await tryLoadExistingTrackByName(context, deps, "Song", "Artist");
     expect(localizedCalls(deps.setAnalysisStatus)).toContainEqual([
       "YouTube is temporarily blocking this server. Please try again later.",
-      false,
     ]);
     expect(useAppStore.getState().analysisRetryJobId).toBeNull();
   });

@@ -8,7 +8,8 @@ import {
   inferSourceProviderFromUrl,
 } from "./errorDisplay";
 import type { PlaylistTrack } from "./playlist";
-import { setLoadingProgress, showToast } from "./ui";
+import { setLoadingStep, showToast } from "./ui";
+import { analysisStep } from "./job-progress";
 import i18n from "./i18n";
 
 // Upload flows. The React Search panel owns the inputs/busy state and calls
@@ -181,7 +182,7 @@ export async function uploadAudioFile(
     });
     onAccepted?.();
     useAppStore.getState().setActiveTab("play");
-    setLoadingProgress(context, null, () => i18n.t("common.queued"));
+    setLoadingStep(context, analysisStep("queued"));
     await deps.pollAnalysisJob(response.id);
   } catch (err) {
     const trackTooLong =
@@ -285,7 +286,7 @@ export async function uploadFromUrl(
       tuningParams: null,
     });
     useAppStore.getState().setActiveTab("play");
-    setLoadingProgress(context, null, () => i18n.t("common.fetchingAudio"));
+    setLoadingStep(context, analysisStep("fetch"));
     await deps.pollAnalysisJob(response.id);
   } catch (err) {
     const trackTooLong =

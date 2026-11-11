@@ -455,7 +455,8 @@ def message_for_progress(status: str, progress: int | None) -> str | None:
         return None
     if progress is None or progress < 10:
         return "Processing"
-    if progress < 90:
+    # The engine reports building the output from 95.
+    if progress < 95:
         return "Analyzing"
     return "Wrapping up"
 

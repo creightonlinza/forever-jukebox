@@ -54,7 +54,6 @@ import {
 } from "@forever-jukebox/shared/wubmachine/wubMachineRender";
 import { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import { useAppState } from "../state/AppState";
-import type { ProgressStep } from "@/ui/components/ProgressSteps";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useMarquee } from "./listen/useMarquee";
 import { useTranslation } from "react-i18next";
@@ -80,12 +79,9 @@ import {
   storeWubMachineLoop,
 } from "./listen/preferences";
 import {
-  STEP_ORDER,
-  analysisStageLabel,
   formatTrackTitle,
   playControlIcon,
   playControlText,
-  progressStepStatus,
   type PreparingAudioMode,
 } from "./listen/labels";
 import {
@@ -106,7 +102,8 @@ import { InfoModal } from "./listen/InfoModal";
 import { PanPopover } from "./listen/PanPopover";
 import { PlayMenu } from "./listen/PlayMenu";
 import { SettingsModal } from "./listen/SettingsModal";
-import { StatusPanel, type PreparingPhase } from "./listen/StatusPanel";
+import { StatusPanel, liveLoading, type PreparingPhase } from "./listen/StatusPanel";
+import { usePresentedLoading } from "@forever-jukebox/shared/ui/LoadingProgress";
 import { TuningModal } from "./listen/TuningModal";
 import { VizInfo } from "./listen/VizInfo";
 import { VizTop } from "./listen/VizTop";
@@ -140,8 +137,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [analysis, setAnalysis] = React.useState<AnalysisOutput | null>(null);
   const [readyFileKey, setReadyFileKey] = React.useState<string | null>(null);
   const [progressStage, setProgressStage] = React.useState<AnalyzeStage>("loading");
-  const [progressMessage, setProgressMessage] = React.useState<string | null>(null);
-  const [progressPercent, setProgressPercent] = React.useState<number | null>(0);
+  const [stageProgress, setStageProgress] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
@@ -188,6 +184,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [preparingPhase, setPreparingPhase] =
     React.useState<PreparingPhase>(null);
   const [preparingProgress, setPreparingProgress] = React.useState(0);
+  const [modelDownloaded, setModelDownloaded] = React.useState(false);
+  // A failed or cancelled render hides the loading panel instead of playing it out.
+  const [prepAborted, setPrepAborted] = React.useState(false);
   const [tuningActiveTab, setTuningActiveTab] =
     React.useState<TuningModalTab>("tuning");
   const [tuneFormBaseline, setTuneFormBaseline] =
@@ -325,11 +324,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     [shortcutToastQueue],
   );
 
-  function setPreparingState(mode: PreparingAudioMode) {
+  function setPreparingState(mode: PreparingAudioMode, completed = false) {
+    setPrepAborted(mode === null && !completed && preparingModeRef.current !== null);
     preparingModeRef.current = mode;
     setPreparingMode(mode);
     setPreparingPhase(null);
     setPreparingProgress(0);
+    setModelDownloaded(false);
   }
 
   // Invalidates any render in flight; its completion is then ignored.
@@ -576,13 +577,6 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }, [finishOutSong]);
 
   React.useEffect(() => {
-    setIsListenLoading(isAnalyzing);
-    return () => {
-      setIsListenLoading(false);
-    };
-  }, [isAnalyzing, setIsListenLoading]);
-
-  React.useEffect(() => {
     if (!file || !playerRef.current) {
       return;
     }
@@ -618,8 +612,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setBringItHomeMode(false);
 
     setIsAnalyzing(true);
+    setPrepAborted(false);
     setError(null);
-    setProgressPercent(0);
+    setStageProgress(null);
     setAnalysis(null);
     setReadyFileKey(null);
     analysisRef.current = null;
@@ -634,15 +629,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           if (cancelled) {
             return;
           }
-          if (progress.stage === "segments") {
-            setProgressStage("features");
-          } else if (progress.stage === "cached") {
-            setProgressStage("ready");
-          } else {
-            setProgressStage(progress.stage);
-          }
-          setProgressPercent(progress.progress);
-          setProgressMessage(analysisStageLabel(progress.stage, t));
+          setProgressStage(progress.stage);
+          setStageProgress(progress.progress);
         },
       })
       .then((result) => {
@@ -1057,7 +1045,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         );
         setWubMachineSeconds(0);
         setWubMachineDurationSeconds(render.buffer.duration);
-        setPreparingState(null);
+        setPreparingState(null, true);
       })
       .catch((err: unknown) => {
         if (isStale()) {
@@ -1145,7 +1133,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         ) {
           return;
         }
-        setPreparingState(null);
+        setPreparingState(null, true);
         player.setRenderedJukeboxAudioBuffer("swing", buffer);
         player.setJukeboxAudioMode("swing");
         if (
@@ -1215,6 +1203,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           return;
         }
         setPreparingPhase(phase);
+        if (phase === "download") {
+          setModelDownloaded(true);
+        }
         setPreparingProgress(Math.max(0, Math.min(100, Math.round(progress * 100))));
       },
     )
@@ -1222,7 +1213,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         if (isStale()) {
           return;
         }
-        setPreparingState(null);
+        setPreparingState(null, true);
         player.setRenderedJukeboxAudioBuffer("instrumental", buffer);
         player.setJukeboxAudioMode("instrumental");
         if (
@@ -1742,22 +1733,35 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     toggleSelectedAnchorBranch,
   });
 
-  const steps = React.useMemo<ProgressStep[]>(() => {
-    const stageIndex = STEP_ORDER.indexOf(progressStage);
-    return STEP_ORDER.map((step, idx) => ({
-      id: step,
-      label: analysisStageLabel(step, t),
-      status: progressStepStatus(idx, stageIndex),
-    }));
-  }, [progressStage, t]);
-
   const graph = engineRef.current?.getGraphState();
   const totalBeats = graph?.totalBeats ?? analysis?.beats.length ?? 0;
   const totalBranches = engineRef.current?.getVisualizationData()?.edges.length ?? 0;
   const deletedBranches = graph?.allEdges.filter((edge) => edge.deleted).length ?? 0;
   const vizCount = vizControllerRef.current?.getCount() ?? 1;
   const currentFileKey = file ? `${file.name}:${file.size}:${file.lastModified}` : null;
+  const loading = usePresentedLoading(
+    liveLoading({
+      fileKey: currentFileKey ?? "",
+      isAnalyzing,
+      analysisDone: Boolean(analysis) && !error && !prepAborted,
+      stage: progressStage,
+      stageProgress,
+      preparingMode,
+      preparingPhase,
+      preparingProgress,
+      modelDownloaded,
+    }),
+  );
+  // The tabs stay hidden until the analysis steps have played out.
+  const analysisShown = loading.shown?.task === "localAnalysis" || loading.shown?.task === "track";
+  React.useEffect(() => {
+    setIsListenLoading(isAnalyzing || analysisShown);
+    return () => {
+      setIsListenLoading(false);
+    };
+  }, [isAnalyzing, analysisShown, setIsListenLoading]);
   const showPlaybackUi =
+    !loading.shown &&
     Boolean(analysis) &&
     !isAnalyzing &&
     preparingMode === null &&
@@ -1826,13 +1830,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     <>
       <section className="listen-page">
       <StatusPanel
-        isAnalyzing={isAnalyzing}
-        steps={steps}
-        progressMessage={progressMessage}
-        progressPercent={progressPercent}
-        preparingMode={preparingMode}
-        preparingPhase={preparingPhase}
-        preparingProgress={preparingProgress}
+        shown={loading.shown}
+        onFinished={loading.done}
       />
 
       {error ? <div className="error">{error}</div> : null}

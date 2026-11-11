@@ -618,7 +618,6 @@ export function copyShortUrl(): void {
       setAnalysisStatus(
         context,
         () => i18n.t("playback.selectTrackForUrl"),
-        false,
       );
       return;
     }
@@ -644,7 +643,6 @@ export function copyShortUrl(): void {
       setAnalysisStatus(
         context,
         () => i18n.t("status.copyFailed", { error: formatErrorForDisplay(err) }),
-        false,
       );
     }
   }

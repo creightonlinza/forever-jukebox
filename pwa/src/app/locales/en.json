@@ -42,21 +42,25 @@
     "cachedTrack": "Cached track {{id}}"
   },
   "analysis": {
-    "progress": "Analysis Progress",
-    "progressPercent": "Analysis Progress: {{percent}}%",
-    "loading": "Loading file",
-    "decoding": "Decoding audio",
+    "failed": "Unable to analyze this audio file."
+  },
+  "loading": {
+    "analyzing": "Analyzing track",
+    "loadingTrack": "Loading track",
+    "pending": "Loading…",
+    "fetch": "Fetching audio",
+    "queued": "Queued",
     "beats": "Detecting beats",
     "features": "Extracting features",
-    "segments": "Extracting segments",
-    "building": "Building analysis",
-    "ready": "Ready",
-    "failed": "Unable to analyze this audio file."
+    "track": "Spinning up the track",
+    "swing": "Adding swing",
+    "remix": "Building remix",
+    "model": "Downloading model",
+    "separate": "Separating vocals"
   },
   "listen": {
     "noFile": "No file selected.",
     "goBack": "Go back",
-    "addingSwing": "Adding swing to the track...",
     "bringingHome": "Bringing it on home",
     "tune": "Tune",
     "info": "Info",
@@ -98,8 +102,6 @@
     "preparingInstrumentalEllipsis": "Preparing Instrumental mode...",
     "instrumentalFailed": "Instrumental mode failed. Using Normal mode.",
     "instrumentalWhenLoaded": "Instrumental mode will prepare once audio is loaded",
-    "instrumentalDownloading": "Downloading the instrumental model...",
-    "instrumentalSeparating": "Removing vocals from the track...",
     "anchorSet": "Anchor branch set",
     "anchorReset": "Anchor branch reset",
     "anchorRequiresBackward": "Anchor requires a backward branch",
@@ -113,8 +115,6 @@
     "forward": "Forward",
     "sameBeat": "Same beat",
     "autocanonized": "autocanonized",
-    "preparingSwingPercent": "Preparing Swing mode: {{percent}}%",
-    "preparingInstrumentalPercent": "Preparing Instrumental mode: {{percent}}%",
     "closeExportDialog": "Close export dialog",
     "closeTuningDialog": "Close tuning dialog",
     "closeTrackInfoDialog": "Close track info dialog",
@@ -122,8 +122,6 @@
     "wubMachineRemix": "wub machine remix",
     "preparingWubMachine": "Building the Wub Machine remix",
     "preparingWubMachineEllipsis": "Building the Wub Machine remix...",
-    "preparingWubMachinePercent": "Building the Wub Machine remix: {{percent}}%",
-    "buildingWubMachine": "Chopping the track into drops and breaks...",
     "wubMachineFailed": "The Wub Machine remix failed. Press play to try again.",
     "loopTrack": "Loop the track"
   },

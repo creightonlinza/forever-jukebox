@@ -17,8 +17,8 @@ export type AnalyzeStage =
 
 export type AnalyzeProgress = {
   stage: AnalyzeStage;
-  progress: number;
-  message?: string;
+  // 0..1 within the stage; null when the stage reports no progress.
+  progress: number | null;
 };
 
 export type AnalyzeAudioResult = {
@@ -41,35 +41,23 @@ export class AnalyzeAudioUseCase {
     onProgress?: (progress: AnalyzeProgress) => void;
   }): Promise<AnalyzeAudioResult> {
     const { file, force = false, onProgress } = options;
-    let lastProgress = 0;
-    const reportProgress = (
-      stage: AnalyzeStage,
-      progress: number,
-      message?: string
-    ) => {
-      const clamped = Math.max(lastProgress, Math.min(100, progress));
-      lastProgress = clamped;
-      onProgress?.({ stage, progress: clamped, message });
+    const reportProgress = (stage: AnalyzeStage, progress: number | null = null) => {
+      onProgress?.({ stage, progress });
     };
 
-    reportProgress("loading", 0, "Loading file");
+    reportProgress("loading");
 
     const fingerprint = await computeFingerprint(file);
 
-    const decodePromise = (async () => {
-      reportProgress("decoding", 2, "Decoding audio");
-      const decoded = await this.decoder.decode(file);
-      reportProgress("decoding", 10, "Decoding audio");
-      return decoded;
-    })();
+    const decodePromise = this.decoder.decode(file);
 
     if (!force) {
       const cached = await this.cache.get(fingerprint);
       if (cached) {
         try {
+          reportProgress("cached");
           const { audioBuffer } = await decodePromise;
           const analysis = validateAnalysis(cached);
-          reportProgress("cached", 100, "Loaded cached analysis");
           return { analysis, audioBuffer, fingerprint, fromCache: true };
         } catch {
           // Fall back to re-analysis if cached data is invalid.
@@ -77,6 +65,7 @@ export class AnalyzeAudioUseCase {
       }
     }
 
+    reportProgress("decoding");
     const decoded = await decodePromise;
     const audioBuffer = decoded.audioBuffer;
     const analysisAudio = decoded.analysisAudio;
@@ -90,11 +79,9 @@ export class AnalyzeAudioUseCase {
       mono44100: analysisAudio.mono44100,
       duration: analysisAudio.duration,
       trackMeta,
-      onProgress: (progress) => {
-        const stage = mapStage(progress.stage);
-        const message = progress.message;
-        const pct = mapToOverallProgress(stage, progress.progress);
-        reportProgress(stage, pct, message);
+      onProgress: ({ stage, progress }) => {
+        // The worker reports the beats stage in [0, 0.4].
+        reportProgress(stage, stage === "beats" ? Math.min(1, progress / 0.4) : progress);
       },
     });
 
@@ -105,7 +92,7 @@ export class AnalyzeAudioUseCase {
       // Caching is best-effort; a storage failure must not discard the analysis.
       console.warn(`Analysis cache save failed: ${String(err)}`);
     }
-    reportProgress("ready", 100, "Ready");
+    reportProgress("ready");
 
     return { analysis: validated, audioBuffer, fingerprint, fromCache: false };
   }
@@ -119,32 +106,3 @@ function inferTitle(name: string) {
   return name;
 }
 
-function mapStage(stage: "beats" | "features" | "segments" | "building"): AnalyzeStage {
-  return stage;
-}
-
-function clamp01(value: number) {
-  return Math.min(1, Math.max(0, value));
-}
-
-function mapToOverallProgress(stage: AnalyzeStage, progress: number): number {
-  const p = clamp01(progress);
-  if (stage === "beats") {
-    // Worker reports beats stage in [0, 0.4], map it to 10..40.
-    const normalized = Math.min(1, p / 0.4);
-    return 10 + normalized * 30;
-  }
-  if (stage === "features" || stage === "segments") {
-    return 45 + p * 40;
-  }
-  if (stage === "building") {
-    return 85 + p * 15;
-  }
-  if (stage === "ready" || stage === "cached") {
-    return 100;
-  }
-  if (stage === "decoding") {
-    return p * 10;
-  }
-  return 0;
-}
