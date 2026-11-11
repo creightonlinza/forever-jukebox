@@ -71,8 +71,7 @@ export class BufferedAudioPlayer {
   private audioMode: JukeboxAudioMode = "off";
   private intensityPct = DEFAULT_AUDIO_MODE_INTENSITY;
   private playbackRate = AUDIO_MODE_SETTINGS.off.rate;
-  private panAngle = 0;
-  private panFrameId: number | null = null;
+  private panOscillator: OscillatorNode | null = null;
   private renderedModeBuffers: Partial<Record<JukeboxAudioMode, AudioBuffer>> =
     {};
 
@@ -920,34 +919,24 @@ export class BufferedAudioPlayer {
       this.stopPanMotion();
       return;
     }
-    if (typeof globalThis.requestAnimationFrame !== "function") {
-      this.stereoPanner.pan.value = 0;
+    if (this.panOscillator) {
       return;
     }
-    if (this.panFrameId !== null) {
-      return;
-    }
-    const tick = () => {
-      const currentSettings = this.getActiveModeSettings();
-      if (!this.playing || !currentSettings.pan || !this.stereoPanner) {
-        this.stopPanMotion();
-        return;
-      }
-      this.stereoPanner.pan.value = Math.sin(this.panAngle);
-      this.panAngle += PAN_STEP;
-      this.panFrameId = globalThis.requestAnimationFrame(tick);
-    };
-    this.panFrameId = globalThis.requestAnimationFrame(tick);
+    // The oscillator drives pan on the audio thread; its -1..1 output is the pan position.
+    const oscillator = this.context.createOscillator();
+    oscillator.frequency.value = (PAN_STEP * 60) / (2 * Math.PI);
+    this.stereoPanner.pan.value = 0;
+    oscillator.connect(this.stereoPanner.pan);
+    oscillator.start();
+    this.panOscillator = oscillator;
   }
 
   private stopPanMotion() {
-    if (
-      this.panFrameId !== null &&
-      typeof globalThis.cancelAnimationFrame === "function"
-    ) {
-      globalThis.cancelAnimationFrame(this.panFrameId);
+    if (this.panOscillator) {
+      this.panOscillator.stop();
+      this.panOscillator.disconnect();
+      this.panOscillator = null;
     }
-    this.panFrameId = null;
     if (this.stereoPanner) {
       this.stereoPanner.pan.value = 0;
     }

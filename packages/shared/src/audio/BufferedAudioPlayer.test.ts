@@ -42,6 +42,14 @@ class MockStereoPannerNode {
   disconnect = vi.fn();
 }
 
+class MockOscillatorNode {
+  frequency = { value: 440 };
+  start = vi.fn();
+  stop = vi.fn();
+  connect = vi.fn();
+  disconnect = vi.fn();
+}
+
 class MockWaveShaperNode {
   curve: Float32Array | null = null;
   oversample: OverSampleType = "none";
@@ -68,6 +76,7 @@ class MockAudioContext {
   createdBiquads: MockBiquadNode[] = [];
   createdConvolvers: MockConvolverNode[] = [];
   createdPanners: MockStereoPannerNode[] = [];
+  createdOscillators: MockOscillatorNode[] = [];
   createdWaveShapers: MockWaveShaperNode[] = [];
   createdCompressors: MockDynamicsCompressorNode[] = [];
   createdBuffers: AudioBuffer[] = [];
@@ -90,6 +99,11 @@ class MockAudioContext {
     const panner = new MockStereoPannerNode();
     this.createdPanners.push(panner);
     return panner;
+  }
+  createOscillator() {
+    const oscillator = new MockOscillatorNode();
+    this.createdOscillators.push(oscillator);
+    return oscillator;
   }
   createWaveShaper() {
     const shaper = new MockWaveShaperNode();
@@ -155,8 +169,6 @@ async function flushMicrotasks(count = 5) {
 describe("BufferedAudioPlayer", () => {
   beforeEach(() => {
     (globalThis as any).AudioContext = MockAudioContext;
-    (globalThis as any).requestAnimationFrame = vi.fn(() => 1);
-    (globalThis as any).cancelAnimationFrame = vi.fn();
   });
 
   afterEach(() => {
@@ -695,11 +707,17 @@ describe("BufferedAudioPlayer", () => {
     player.setJukeboxAudioMode("eight_d");
     player.play();
 
-    expect(globalThis.requestAnimationFrame).toHaveBeenCalled();
+    const oscillator = context.createdOscillators[0];
+    expect(oscillator?.start).toHaveBeenCalled();
+    expect(oscillator?.connect).toHaveBeenCalledWith(
+      context.createdPanners[0]?.pan,
+    );
+    expect(oscillator?.frequency.value).toBeCloseTo((0.007 * 60) / (2 * Math.PI));
     expect(context.createdPanners[0]?.pan.value).toBe(0);
 
     player.setJukeboxAudioMode("off");
-    expect(globalThis.cancelAnimationFrame).toHaveBeenCalled();
+    expect(oscillator?.stop).toHaveBeenCalled();
+    expect(oscillator?.disconnect).toHaveBeenCalled();
     expect(context.createdPanners[0]?.pan.value).toBe(0);
   });
 

@@ -36,7 +36,7 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
     "--viz-overlay": "rgba(10, 12, 16, 0.6)",
 
     // Graph/Beat
-    "--edge-stroke": "rgba(74, 199, 255, 0.5)",
+    "--edge-stroke": "rgba(74, 199, 255, 0.75)",
     "--edge-selected": "#B48CFF",
     "--beat-fill": "#FFD46A",
     "--beat-highlight": "#FFD46A",
@@ -76,7 +76,7 @@ export const themeConfig: Record<ThemeName, Record<string, string>> = {
     "--viz-overlay": "rgba(250, 246, 255, 0.74)",
 
     // Graph/Beat
-    "--edge-stroke": "rgba(77, 48, 120, 0.44)",
+    "--edge-stroke": "rgba(77, 48, 120, 0.66)",
     "--edge-selected": "#7F39FB",
     "--beat-fill": "#B144FF",
     "--beat-highlight": "#B144FF",
