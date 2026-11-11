@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createRng } from "../engine/random";
 import "./LoadingProgress.css";
 
@@ -98,6 +98,27 @@ const BRANCHES = (() => {
     return { path, showAt: 0.6 + k * 0.03, selected: k === 7 };
   });
 })();
+
+// The ring parts re-render only when their own input changes, not on every paced tick.
+const RingDots = memo(function RingDots({ lead }: { lead: number }) {
+  return Array.from({ length: DOTS }, (_, i) => {
+    const [cx, cy] = ringPoint(i);
+    const state = i === lead ? " is-lead" : i < lead ? " is-on" : "";
+    return <circle key={i} className={`loading-progress__dot${state}`} cx={cx} cy={cy} r={3.2} />;
+  });
+});
+
+// showAt rises with the arc index, so the shown arcs are always the first `shown`.
+const RingBranches = memo(function RingBranches({ shown }: { shown: number }) {
+  return BRANCHES.map((b, k) => (
+    <path
+      key={b.path}
+      className={`loading-progress__branch${b.selected ? " is-selected" : ""}${k < shown ? " is-shown" : ""}`}
+      pathLength={1}
+      d={b.path}
+    />
+  ));
+});
 
 // Plays out one task at a time: a finished load stays on screen until its steps have played out,
 // an audio-mode render for the same track waits behind a track load, and any other new task replaces it.
@@ -298,6 +319,7 @@ export function LoadingProgress({
   const activeStep = steps[view.index];
   const activeStart = times.get(activeStep.id)?.start;
   const elapsed = sweeping && activeStart !== undefined ? `${Math.floor((performance.now() - activeStart) / 1000)}s` : "";
+  const shownBranches = BRANCHES.filter((b) => percent >= b.showAt * lastStepStart).length;
   const lead = view.doneAt === null ? Math.floor((percent / 100) * DOTS) : DOTS;
   const count = `${view.index + 1} / ${steps.length}${elapsed ? ` · ${elapsed}` : ""}`;
   const done = view.doneAt !== null;
@@ -321,19 +343,8 @@ export function LoadingProgress({
     >
       {ring ? (
       <svg className="loading-progress__ring" viewBox="-104 -104 208 208" aria-hidden="true">
-        {BRANCHES.map((b) => (
-          <path
-            key={b.path}
-            className={`loading-progress__branch${b.selected ? " is-selected" : ""}${percent >= b.showAt * lastStepStart ? " is-shown" : ""}`}
-            pathLength={1}
-            d={b.path}
-          />
-        ))}
-        {Array.from({ length: DOTS }, (_, i) => {
-          const [cx, cy] = ringPoint(i);
-          const state = i === lead ? " is-lead" : i < lead ? " is-on" : "";
-          return <circle key={i} className={`loading-progress__dot${state}`} cx={cx} cy={cy} r={3.2} />;
-        })}
+        <RingBranches shown={shownBranches} />
+        <RingDots lead={lead} />
         <circle className="loading-progress__hub" r={50} />
         <text className="loading-progress__count" y={-30}>
           {count}

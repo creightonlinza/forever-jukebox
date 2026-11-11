@@ -51,7 +51,7 @@
   --viz-bg: radial-gradient(circle closest-side at 50% 50%, #232B3D 0%, #0F1115 100%);
   --viz-shadow: rgba(74, 199, 255, 0.14);
   --viz-overlay: rgba(10, 12, 16, 0.6);
-  --edge-stroke: rgba(74, 199, 255, 0.5);
+  --edge-stroke: rgba(74, 199, 255, 0.75);
   --edge-selected: #B48CFF;
   --beat-fill: #FFD46A;
   --beat-highlight: #FFD46A;
