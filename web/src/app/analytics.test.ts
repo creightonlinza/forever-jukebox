@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   resetAnalyticsForTests,
   trackEvent,
+  trackModeEnabled,
   trackPageView,
   trackPlay,
 } from "./analytics";
@@ -33,6 +34,17 @@ describe("analytics", () => {
   it("forwards events with params", () => {
     trackEvent("share", { track_id: "abc" });
     expect(gtag).toHaveBeenCalledWith("event", "share", { track_id: "abc" });
+  });
+
+  it("reports a mode only when it turns on", () => {
+    trackModeEnabled("branch_stats_mode", false, true);
+    trackModeEnabled("branch_stats_mode", true, true);
+    trackModeEnabled("branch_stats_mode", true, false);
+    trackModeEnabled("bring_it_home_mode", false, true, { ui_source: "hotkey" });
+    expect(gtag.mock.calls).toEqual([
+      ["event", "branch_stats_mode", {}],
+      ["event", "bring_it_home_mode", { ui_source: "hotkey" }],
+    ]);
   });
 
   it("forwards numeric params unquoted for custom metrics", () => {

@@ -183,6 +183,9 @@ export function FaqPanel() {
         <h4>November 2026</h4>
         <ul>
           <li>
+            New <strong>Custom anchor editor</strong> in Extras: drag where the anchor jump starts and lands, with a match score and a Snap button to land on the best beat.
+          </li>
+          <li>
             The <strong>Classic</strong> visualization moves closer to its roots: beats are tiles colored by their musical timbre that grow as they replay.
           </li>
           <li>

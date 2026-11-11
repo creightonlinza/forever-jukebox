@@ -10,7 +10,7 @@ import {
   WUB_MACHINE_LOOP_KEY,
   visualizationSeparatesPairedEdges,
 } from "./constants";
-import { trackEvent } from "./analytics";
+import { trackEvent, trackModeEnabled } from "./analytics";
 import { formatErrorForDisplay } from "./errorDisplay";
 import { formatDuration } from "./format";
 import type { AppContext, PlayMode } from "./context";
@@ -452,6 +452,7 @@ export function handleKeydown(event: KeyboardEvent): void {
       event.preventDefault();
       const enabled = !useAppStore.getState().bringItHomeMode;
       setBringItHomeMode(enabled);
+      trackModeEnabled("bring_it_home_mode", !enabled, enabled, { ui_source: "hotkey" });
       showToast(
         enabled
           ? i18n.t("playback.bringHomeEnabled")

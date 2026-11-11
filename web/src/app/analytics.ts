@@ -33,6 +33,18 @@ export function trackEvent(name: string, params: EventParams = {}): void {
   gtagEvent(name, params);
 }
 
+// Reports a mode only when it turns on, so each event counts one enable.
+export function trackModeEnabled(
+  name: string,
+  wasEnabled: boolean,
+  isEnabled: boolean,
+  params: EventParams = {},
+): void {
+  if (isEnabled && !wasEnabled) {
+    gtagEvent(name, params);
+  }
+}
+
 export function trackPageView(pathname: string): void {
   if (pathname === lastPageViewPath) {
     return;

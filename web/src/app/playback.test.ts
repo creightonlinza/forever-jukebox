@@ -555,6 +555,40 @@ describe("playback tuning", () => {
     expect(context.engine.syncToPlaybackPosition).toHaveBeenCalledTimes(1);
   });
 
+  it("reports turning on custom anchor mode once, and not turning it off", () => {
+    const context = createContext();
+    useAppStore.setState({ playMode: "jukebox", customAnchorEnabled: false });
+    const gtag = vi.fn();
+    vi.stubGlobal("window", { ...globalThis.window, gtag });
+
+    applyExtrasChanges(context, { ...getExtrasFormValues(), customAnchorEnabled: true });
+    applyExtrasChanges(context, { ...getExtrasFormValues(), customAnchorEnabled: true });
+    applyExtrasChanges(context, { ...getExtrasFormValues(), customAnchorEnabled: false });
+
+    const anchorEvents = gtag.mock.calls.filter((call) => call[1] === "custom_anchor_mode");
+    expect(anchorEvents).toEqual([["event", "custom_anchor_mode", {}]]);
+  });
+
+  it("reports turning on branch stats and Bring It Home from Extras once each", () => {
+    const context = createContext();
+    useAppStore.setState({ playMode: "jukebox", branchStatsEnabled: false, bringItHomeMode: false });
+    const gtag = vi.fn();
+    vi.stubGlobal("window", { ...globalThis.window, gtag });
+
+    const on = { ...getExtrasFormValues(), branchStatsEnabled: true, bringItHomeMode: true };
+    applyExtrasChanges(context, on);
+    applyExtrasChanges(context, on);
+    applyExtrasChanges(context, { ...on, branchStatsEnabled: false, bringItHomeMode: false });
+
+    const modeEvents = gtag.mock.calls.filter(
+      (call) => call[1] === "branch_stats_mode" || call[1] === "bring_it_home_mode",
+    );
+    expect(modeEvents).toEqual([
+      ["event", "bring_it_home_mode", { ui_source: "extras" }],
+      ["event", "branch_stats_mode", {}],
+    ]);
+  });
+
   it("shows stats for the already-selected branch once stats are enabled", () => {
     const context = createContext();
     useAppStore.setState({ playMode: "jukebox" });
@@ -2238,6 +2272,20 @@ describe("playback branch shortcuts", () => {
     expect(useAppStore.getState().shiftBranching).toBe(false);
     expect(context.engine.setBringItHomeMode).toHaveBeenCalledWith(true);
     expect(context.engine.setForceBranch).toHaveBeenLastCalledWith(false);
+  });
+
+  it("reports Bring It Home turned on by hotkey, and not turned off", () => {
+    const context = createContext();
+    useAppStore.setState({ playMode: "jukebox", deleteConfirmOpen: false, bringItHomeMode: false });
+    const gtag = vi.fn();
+    vi.stubGlobal("window", { ...globalThis.window, gtag });
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("h"));
+    handlers.handleKeydown(keyEvent("h"));
+
+    const events = gtag.mock.calls.filter((call) => call[1] === "bring_it_home_mode");
+    expect(events).toEqual([["event", "bring_it_home_mode", { ui_source: "hotkey" }]]);
   });
 });
 

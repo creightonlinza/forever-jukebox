@@ -22,7 +22,7 @@ import {
   audioModeSupportsIntensity,
   clampAudioModeIntensity,
 } from "@forever-jukebox/shared/audio/audioModes";
-import { trackEvent } from "../analytics";
+import { trackEvent, trackModeEnabled } from "../analytics";
 import {
   closeTuning,
   updatePlayButton,
@@ -146,15 +146,24 @@ export function applyExtrasChanges(
   const previousBranchStatsEnabled = useAppStore.getState().branchStatsEnabled;
   const previousAudioMode = useAppStore.getState().jukeboxAudioMode;
   const previousAudioIntensity = useAppStore.getState().audioIntensity;
+  const previousBringItHomeMode = useAppStore.getState().bringItHomeMode;
   useAppStore.setState({
     bringItHomeMode:
       useAppStore.getState().playMode === "jukebox" && values.bringItHomeMode,
+  });
+  trackModeEnabled("bring_it_home_mode", previousBringItHomeMode, useAppStore.getState().bringItHomeMode, {
+    ui_source: "extras",
   });
   if (useAppStore.getState().bringItHomeMode && useAppStore.getState().shiftBranching) {
     useAppStore.setState({ shiftBranching: false });
     engine.setForceBranch(false);
   }
   engine.setBringItHomeMode(useAppStore.getState().bringItHomeMode);
+  trackModeEnabled(
+    "custom_anchor_mode",
+    useAppStore.getState().customAnchorEnabled,
+    values.customAnchorEnabled,
+  );
   // The toggle only shows the editor button; an anchor already set keeps playing.
   useAppStore.setState({ customAnchorEnabled: values.customAnchorEnabled });
   storeCustomAnchorEnabled(values.customAnchorEnabled);
@@ -165,6 +174,7 @@ export function applyExtrasChanges(
     branchStatsEnabled:
       useAppStore.getState().playMode === "jukebox" && values.branchStatsEnabled,
   });
+  trackModeEnabled("branch_stats_mode", previousBranchStatsEnabled, useAppStore.getState().branchStatsEnabled);
   if (!useAppStore.getState().branchStatsEnabled) {
     useAppStore.setState({ branchStats: null });
   }
