@@ -1,6 +1,14 @@
 import type { JukeboxEngine } from "../engine";
 import type { Edge, QuantumBase } from "../engine/types";
 import {
+  moveCustomAnchorEnd,
+  type CustomAnchor,
+  type CustomAnchorEnd,
+} from "../engine/selection";
+import { beatPairMatch } from "../engine/graph";
+import {
+  ANCHOR_HIGHLIGHT_COLOR,
+  ANCHOR_MATCH_COLORS,
   BEAT_AVOID_RADIUS_PX,
   BEAT_SELECT_RADIUS_PX,
   EDGE_SELECT_RADIUS_PX,
@@ -28,7 +36,6 @@ interface VisualizationData {
   userAnchorEdgeId: number | null;
 }
 
-const ANCHOR_HIGHLIGHT_COLOR = "#ff2d2d";
 const BEAT_DOT_RADIUS_PX = 2;
 const BEAT_CURSOR_RADIUS_PX = 10;
 
@@ -54,6 +61,15 @@ interface JumpLine {
   at: number;
   control: [number, number] | null;
 }
+
+export type AnchorEditState = CustomAnchor & { active: CustomAnchorEnd };
+type AnchorEditHandler = (state: AnchorEditState) => void;
+
+const ANCHOR_HANDLE_RADIUS_PX = 7;
+const ANCHOR_ACTIVE_RING_RADIUS_PX = 12;
+const ANCHOR_ARROW_LENGTH_PX = 11;
+const ANCHOR_HANDLE_HIT_MOUSE_PX = 12;
+const ANCHOR_HANDLE_HIT_TOUCH_PX = 22;
 
 type Positioner = (
   data: VisualizationData,
@@ -113,6 +129,11 @@ class CanvasViz {
 
   private onSelect: ((index: number) => void) | null = null;
   private onEdgeSelect: ((edge: Edge | null) => void) | null = null;
+  // Non-null while the user edits the custom anchor; holds beat indexes, never pixels.
+  private anchorEdit: AnchorEditState | null = null;
+  private anchorDrag: { pointerId: number; origin: AnchorEditState } | null = null;
+  private onAnchorEditChange: AnchorEditHandler | null = null;
+  private onAnchorEditCommit: AnchorEditHandler | null = null;
 
   private readonly positioner: Positioner;
   private readonly forceBendEdges: boolean;
@@ -167,6 +188,10 @@ class CanvasViz {
       this.overlayCanvas.addEventListener("click", this.handleCanvasClick);
       this.overlayCanvas.addEventListener("pointermove", this.handlePointerMove);
       this.overlayCanvas.addEventListener("pointerleave", this.handlePointerLeave);
+      this.overlayCanvas.addEventListener("pointerdown", this.handlePointerDown);
+      this.overlayCanvas.addEventListener("pointerup", this.handlePointerUp);
+      this.overlayCanvas.addEventListener("pointercancel", this.handlePointerCancel);
+      this.overlayCanvas.addEventListener("touchstart", this.handleTouchStart, { passive: false });
     }
   }
 
@@ -238,9 +263,15 @@ class CanvasViz {
   }
 
   destroy() {
+    // An unfinished drag reverts, so a layout switch never leaves an uncommitted pair.
+    this.cancelAnchorDrag();
     this.overlayCanvas.removeEventListener("click", this.handleCanvasClick);
     this.overlayCanvas.removeEventListener("pointermove", this.handlePointerMove);
     this.overlayCanvas.removeEventListener("pointerleave", this.handlePointerLeave);
+    this.overlayCanvas.removeEventListener("pointerdown", this.handlePointerDown);
+    this.overlayCanvas.removeEventListener("pointerup", this.handlePointerUp);
+    this.overlayCanvas.removeEventListener("pointercancel", this.handlePointerCancel);
+    this.overlayCanvas.removeEventListener("touchstart", this.handleTouchStart);
     // Removed canvases hold their bitmaps until GC, too long on low-memory devices.
     for (const canvas of this.canvases) {
       canvas.width = 0;
@@ -273,6 +304,37 @@ class CanvasViz {
     }
     this.anchorHighlightEnabled = enabled;
     this.drawBase();
+  }
+
+  setOnAnchorEditChange(handler: AnchorEditHandler) {
+    this.onAnchorEditChange = handler;
+  }
+
+  setOnAnchorEditCommit(handler: AnchorEditHandler) {
+    this.onAnchorEditCommit = handler;
+  }
+
+  // Apps echo each drag step back here, so hover and cursor reset only when edit mode turns on or off.
+  setAnchorEdit(state: AnchorEditState | null) {
+    const current = this.anchorEdit;
+    if (
+      state &&
+      current &&
+      state.src === current.src &&
+      state.dest === current.dest &&
+      state.active === current.active
+    ) {
+      return;
+    }
+    const modeChanged = (state === null) !== (current === null);
+    this.anchorEdit = state ? { ...state } : null;
+    if (!state) {
+      this.anchorDrag = null;
+    }
+    if (modeChanged) {
+      this.clearHoveredBeat();
+    }
+    this.drawOverlay();
   }
 
   resizeNow() {
@@ -670,6 +732,9 @@ class CanvasViz {
         2.5
       );
     }
+    if (this.anchorEdit) {
+      this.drawAnchorEditor(this.anchorEdit);
+    }
     if (this.hoveredBeat !== null) {
       for (const edge of this.data.beats[this.hoveredBeat].neighbors) {
         if (!edge.deleted) {
@@ -754,8 +819,196 @@ class CanvasViz {
     return this.theme.beatHighlight;
   }
 
+  private drawAnchorEditor(state: AnchorEditState) {
+    const from = this.positions[state.src];
+    const to = this.positions[state.dest];
+    if (!from || !to) {
+      return;
+    }
+    const ctx = this.overlayCtx;
+    const beats = this.data?.beats;
+    const lineColor =
+      beats?.[state.src] && beats[state.dest]
+        ? ANCHOR_MATCH_COLORS[beatPairMatch(beats[state.src], beats[state.dest]).quality]
+        : ANCHOR_HIGHLIGHT_COLOR;
+    const geometry = this.resolveEdgeGeometry(null, from, to, state.src, state.dest);
+    if (geometry.bend && geometry.control) {
+      this.drawBentLineWithControl(ctx, from, to, geometry.control, lineColor, 3);
+    } else {
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+    // The arrowhead marks the landing end, along the curve's final tangent, tip at the handle edge.
+    const tail = geometry.control ? { x: geometry.control[0], y: geometry.control[1] } : from;
+    const angle = Math.atan2(to.y - tail.y, to.x - tail.x);
+    const tipX = to.x - Math.cos(angle) * (ANCHOR_HANDLE_RADIUS_PX + 1);
+    const tipY = to.y - Math.sin(angle) * (ANCHOR_HANDLE_RADIUS_PX + 1);
+    ctx.fillStyle = lineColor;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    for (const side of [-1, 1]) {
+      ctx.lineTo(
+        tipX - Math.cos(angle + side * 0.45) * ANCHOR_ARROW_LENGTH_PX,
+        tipY - Math.sin(angle + side * 0.45) * ANCHOR_ARROW_LENGTH_PX,
+      );
+    }
+    ctx.fill();
+    const ends: Array<[CustomAnchorEnd, Point, string]> = [
+      ["src", from, ANCHOR_HIGHLIGHT_COLOR],
+      ["dest", to, this.theme.beatHighlight],
+    ];
+    for (const [end, point, color] of ends) {
+      if (end === state.active) {
+        ctx.strokeStyle = this.theme.beatHighlight;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, ANCHOR_ACTIVE_RING_RADIUS_PX, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = color;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, ANCHOR_HANDLE_RADIUS_PX, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  private pointerPosition(event: { clientX: number; clientY: number }): Point {
+    const rect = this.overlayCanvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  private anchorHandleAt(point: Point, pointerType: string): CustomAnchorEnd | null {
+    if (!this.anchorEdit) {
+      return null;
+    }
+    const radius =
+      pointerType === "mouse" ? ANCHOR_HANDLE_HIT_MOUSE_PX : ANCHOR_HANDLE_HIT_TOUCH_PX;
+    let best: CustomAnchorEnd | null = null;
+    let bestDist = radius;
+    for (const end of ["src", "dest"] as const) {
+      const p = this.positions[this.anchorEdit[end]];
+      const d = p ? Math.hypot(p.x - point.x, p.y - point.y) : Infinity;
+      if (d <= bestDist) {
+        bestDist = d;
+        best = end;
+      }
+    }
+    return best;
+  }
+
+  // Snaps to the nearest beat with no radius limit, so a drag never loses its handle.
+  private nearestBeatIndex(point: Point): number | null {
+    let bestIndex: number | null = null;
+    let bestDist = Infinity;
+    for (let i = 0; i < this.positions.length; i += 1) {
+      const p = this.positions[i];
+      const d = Math.hypot(p.x - point.x, p.y - point.y);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
+  }
+
+  private readonly handlePointerDown = (event: PointerEvent) => {
+    if (!this.anchorEdit || !this.data || !this.visible || this.anchorDrag) {
+      return;
+    }
+    const end = this.anchorHandleAt(this.pointerPosition(event), event.pointerType);
+    if (!end) {
+      return;
+    }
+    event.preventDefault();
+    try {
+      this.overlayCanvas.setPointerCapture(event.pointerId);
+    } catch {
+      // Capture is best effort; the drag still works while the pointer stays on the canvas.
+    }
+    this.anchorDrag = { pointerId: event.pointerId, origin: { ...this.anchorEdit } };
+    this.anchorEdit = { ...this.anchorEdit, active: end };
+    this.overlayCanvas.style.cursor = "grabbing";
+    this.drawOverlay();
+    this.onAnchorEditChange?.({ ...this.anchorEdit });
+  };
+
+  // A touch on a handle must not scroll the page; a swipe anywhere else still does.
+  private readonly handleTouchStart = (event: TouchEvent) => {
+    const touch = event.touches[0];
+    if (
+      this.anchorEdit &&
+      this.visible &&
+      touch &&
+      this.anchorHandleAt(this.pointerPosition(touch), "touch")
+    ) {
+      event.preventDefault();
+    }
+  };
+
+  private readonly handlePointerUp = (event: PointerEvent) => {
+    if (!this.anchorDrag || event.pointerId !== this.anchorDrag.pointerId || !this.anchorEdit) {
+      return;
+    }
+    this.releaseAnchorPointer(event.pointerId);
+    this.anchorDrag = null;
+    this.overlayCanvas.style.cursor = "grab";
+    this.onAnchorEditCommit?.({ ...this.anchorEdit });
+  };
+
+  private readonly handlePointerCancel = (event: PointerEvent) => {
+    if (this.anchorDrag && event.pointerId === this.anchorDrag.pointerId) {
+      this.releaseAnchorPointer(event.pointerId);
+      this.cancelAnchorDrag();
+    }
+  };
+
+  private releaseAnchorPointer(pointerId: number) {
+    try {
+      this.overlayCanvas.releasePointerCapture(pointerId);
+    } catch {
+      // Capture may already be gone.
+    }
+  }
+
+  private cancelAnchorDrag() {
+    if (!this.anchorDrag) {
+      return;
+    }
+    const origin = this.anchorDrag.origin;
+    this.anchorDrag = null;
+    this.anchorEdit = { ...origin };
+    this.overlayCanvas.style.cursor = "";
+    this.drawOverlay();
+    this.onAnchorEditChange?.({ ...origin });
+  }
+
+  private moveAnchorDrag(event: PointerEvent) {
+    const state = this.anchorEdit;
+    if (!state || !this.data) {
+      return;
+    }
+    const index = this.nearestBeatIndex(this.pointerPosition(event));
+    if (index === null) {
+      return;
+    }
+    const next = moveCustomAnchorEnd(this.data.beats.length, state, state.active, index);
+    if (next.src === state.src && next.dest === state.dest) {
+      return;
+    }
+    this.anchorEdit = { ...next, active: state.active };
+    this.drawOverlay();
+    this.onAnchorEditChange?.({ ...this.anchorEdit });
+  }
+
   private readonly handleCanvasClick = (event: MouseEvent) => {
-    if (!this.data || !this.visible) {
+    if (!this.data || !this.visible || this.anchorEdit) {
       return;
     }
     const rect = this.overlayCanvas.getBoundingClientRect();
@@ -815,6 +1068,17 @@ class CanvasViz {
 
   private readonly handlePointerMove = (event: PointerEvent) => {
     if (!this.data || !this.visible) {
+      return;
+    }
+    if (this.anchorDrag) {
+      if (event.pointerId === this.anchorDrag.pointerId) {
+        this.moveAnchorDrag(event);
+      }
+      return;
+    }
+    if (this.anchorEdit) {
+      const over = this.anchorHandleAt(this.pointerPosition(event), event.pointerType);
+      this.overlayCanvas.style.cursor = over ? "grab" : "";
       return;
     }
     if (event.pointerType === "touch") {
@@ -1289,6 +1553,9 @@ export class JukeboxViz {
   private anchorHighlightEnabled = false;
   private onSelectHandler: ((index: number) => void) | null = null;
   private onEdgeSelectHandler: ((edge: Edge | null) => void) | null = null;
+  private anchorEdit: AnchorEditState | null = null;
+  private onAnchorEditChangeHandler: AnchorEditHandler | null = null;
+  private onAnchorEditCommitHandler: AnchorEditHandler | null = null;
 
   static createClassicPositioner(): Positioner {
     return (data: VisualizationData, width: number, height: number) => {
@@ -1355,6 +1622,16 @@ export class JukeboxViz {
     if (this.selectedEdge) {
       viz.setSelectedEdge(this.selectedEdge);
     }
+    // The wrapper tracks drag changes, so a layout switch keeps the pair on screen.
+    viz.setOnAnchorEditChange((state) => {
+      this.anchorEdit = state;
+      this.onAnchorEditChangeHandler?.(state);
+    });
+    viz.setOnAnchorEditCommit((state) => {
+      this.anchorEdit = state;
+      this.onAnchorEditCommitHandler?.(state);
+    });
+    viz.setAnchorEdit(this.anchorEdit);
     if (this.lastUpdate) {
       viz.update(
         this.lastUpdate.index,
@@ -1432,11 +1709,27 @@ export class JukeboxViz {
     this.activeIndex = 0;
     this.onSelectHandler = null;
     this.onEdgeSelectHandler = null;
+    this.anchorEdit = null;
+    this.onAnchorEditChangeHandler = null;
+    this.onAnchorEditCommitHandler = null;
   }
 
   setOnSelect(handler: (index: number) => void) {
     this.onSelectHandler = handler;
     this.activeViz?.setOnSelect(handler);
+  }
+
+  setOnAnchorEditChange(handler: AnchorEditHandler) {
+    this.onAnchorEditChangeHandler = handler;
+  }
+
+  setOnAnchorEditCommit(handler: AnchorEditHandler) {
+    this.onAnchorEditCommitHandler = handler;
+  }
+
+  setAnchorEdit(state: AnchorEditState | null) {
+    this.anchorEdit = state;
+    this.activeViz?.setAnchorEdit(state);
   }
 
   setOnEdgeSelect(handler: (edge: Edge | null) => void) {

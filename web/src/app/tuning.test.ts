@@ -2,11 +2,12 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { useAppStore } from "./store";
 import type { AppContext } from "./context";
 import type { JukeboxConfig } from "@forever-jukebox/shared/types";
+import type { AnchorParam } from "@forever-jukebox/shared";
 import {
   applyTuningParamsToEngine,
   canonicalizeTuningParams,
   clearTuningParamsFromUrl,
-  getAnchorBranchIdFromUrl,
+  getAnchorParamFromUrl,
   getDeletedEdgeIdsFromUrl,
   getTuningParamsFromEngine,
   savedTuningParamsEquivalent,
@@ -45,7 +46,7 @@ function createContext(
       config = { ...config, ...partial };
     },
     getGraphState: () => null,
-    getUserAnchorEdgeId: () => null,
+    getAnchorParam: () => null,
   };
   return {
     defaultConfig,
@@ -338,12 +339,18 @@ describe("tuning params", () => {
     expect(params.get("d")).toBe("1,5");
   });
 
-  it("serializes user anchor branch id when present", () => {
+  it("serializes a pinned branch id as ab", () => {
     const context = createContext();
-    (context.engine as { getUserAnchorEdgeId: () => number | null }).getUserAnchorEdgeId =
-      () => 7;
-    const params = getTuningParamsFromEngine(context);
-    expect(params.get("ab")).toBe("7");
+    (context.engine as { getAnchorParam: () => AnchorParam | null }).getAnchorParam =
+      () => ({ edgeId: 7 });
+    expect(getTuningParamsFromEngine(context).get("ab")).toBe("7");
+  });
+
+  it("serializes a custom anchor as an ab beat pair", () => {
+    const context = createContext();
+    (context.engine as { getAnchorParam: () => AnchorParam | null }).getAnchorParam =
+      () => ({ custom: { src: 120, dest: 40 } });
+    expect(getTuningParamsFromEngine(context).get("ab")).toBe("120-40");
   });
 
   it("parses deleted edge ids from url", () => {
@@ -351,9 +358,15 @@ describe("tuning params", () => {
     expect(getDeletedEdgeIdsFromUrl()).toEqual([3, 5, 7]);
   });
 
-  it("parses anchor branch id from url", () => {
+  it("parses both ab forms from url and rejects malformed values", () => {
     setWindowUrl("http://localhost/listen/abc?ab=12");
-    expect(getAnchorBranchIdFromUrl()).toBe(12);
+    expect(getAnchorParamFromUrl()).toEqual({ edgeId: 12 });
+    setWindowUrl("http://localhost/listen/abc?ab=120-40");
+    expect(getAnchorParamFromUrl()).toEqual({ custom: { src: 120, dest: 40 } });
+    for (const raw of ["40-120", "10-8", "-5-1", "1e3-2", "12-4-1", "12abc", "", "-3"]) {
+      setWindowUrl(`http://localhost/listen/abc?ab=${raw}`);
+      expect(getAnchorParamFromUrl()).toBeNull();
+    }
   });
 
   it("syncs tuning params state from engine config", () => {
@@ -475,6 +488,13 @@ describe("canonical tuning params", () => {
   const canon = (raw: string | null) => canonicalizeTuningParams(raw, defaults);
   const equiv = (a: string | null, b: string | null) =>
     savedTuningParamsEquivalent(a, b, defaults);
+
+  it("keeps both ab forms and drops a malformed one", () => {
+    expect(canon("ab=120-40")).toBe("ab=120-40");
+    expect(canon("ab=7")).toBe("ab=7");
+    expect(canon("ab=40-120")).toBeNull();
+    expect(equiv("ab=120-40", "ab=120-41")).toBe(false);
+  });
 
   it("normalizes key order", () => {
     expect(canon("thresh=45&jb=1")).toBe("jb=1&thresh=45");

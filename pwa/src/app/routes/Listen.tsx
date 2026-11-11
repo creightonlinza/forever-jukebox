@@ -38,6 +38,7 @@ import {
   findBackwardTwin,
   hasNonDefaultExtras,
   hasNonDefaultTuning,
+  isCustomAnchorEdge,
   JukeboxEngine,
 } from "@forever-jukebox/shared";
 import {
@@ -67,12 +68,14 @@ import {
 import {
   resolveStoredAnchorHighlight,
   resolveStoredBranchStatsEnabled,
+  resolveStoredCustomAnchorEnabled,
   resolveStoredFinishOutSong,
   resolveStoredVisualizationIndex,
   resolveStoredVolume,
   resolveStoredWubMachineLoop,
   storeAnchorHighlight,
   storeBranchStatsEnabled,
+  storeCustomAnchorEnabled,
   storeFinishOutSong,
   storeVisualizationIndex,
   storeVolume,
@@ -97,6 +100,12 @@ import {
   type ShortcutToastQueue,
 } from "./listen/ShortcutToastStack";
 import { BranchStatsPopup } from "./listen/BranchStatsPopup";
+import {
+  CustomAnchorButton,
+  CustomAnchorInfo,
+  CustomAnchorToolbar,
+} from "@forever-jukebox/shared/ui/CustomAnchorEditor";
+import { customAnchorLabels, useCustomAnchorEditor } from "./listen/useCustomAnchorEditor";
 import { ExportModal } from "./listen/ExportModal";
 import { InfoModal } from "./listen/InfoModal";
 import { PanPopover } from "./listen/PanPopover";
@@ -173,6 +182,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [branchStatsEnabled, setBranchStatsEnabled] = React.useState<boolean>(
     () => resolveStoredBranchStatsEnabled(),
   );
+  const [customAnchorEnabled, setCustomAnchorEnabled] = React.useState<boolean>(
+    () => resolveStoredCustomAnchorEnabled(),
+  );
   const [jukeboxAudioMode, setJukeboxAudioMode] =
     React.useState<JukeboxAudioMode>(initialAudioMode);
   const [audioIntensity, setAudioIntensity] = React.useState(
@@ -223,6 +235,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const [extrasForm, setExtrasForm] = React.useState<ExtrasFormState>({
     branchStatsEnabled: resolveStoredBranchStatsEnabled(),
     bringItHomeMode: false,
+    customAnchorEnabled: resolveStoredCustomAnchorEnabled(),
     audioMode: initialAudioMode,
     audioIntensity: initialAudioIntensity,
   });
@@ -238,6 +251,16 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   const wubMachineRenderRef = React.useRef<WubMachineRender | null>(null);
   const wubMachineAbortRef = React.useRef<AbortController | null>(null);
   const engineRef = React.useRef<JukeboxEngine | null>(null);
+  const customAnchor = useCustomAnchorEditor({
+    engineRef,
+    vizControllerRef,
+    getBeats: () => vizDataRef.current?.beats ?? [],
+    onAnchorChanged: () => {
+      syncVizDataFromEngine();
+      syncTuneFormFromEngine();
+      persistCurrentTuning();
+    },
+  });
   const playerRef = React.useRef<BufferedAudioPlayer | null>(null);
   const cowbellOverlayRef = React.useRef<CowbellOverlayService | null>(null);
   const isRunningRef = React.useRef(false);
@@ -518,6 +541,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       wubmachine.resizeNow();
     });
     resizeObserver.observe(vizPanelRef.current ?? vizLayerRef.current);
+    // The viz-top row changes height when the anchor toolbar replaces it.
+    resizeObserver.observe(vizLayerRef.current);
 
     return () => {
       resizeObserver.disconnect();
@@ -619,6 +644,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setReadyFileKey(null);
     analysisRef.current = null;
     fingerprintRef.current = null;
+    customAnchor.discard();
     clearSelectedBranch();
     resetExport();
 
@@ -767,6 +793,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       setIsTuningOpen(false);
       setIsInfoOpen(false);
       setTuningActiveTab("tuning");
+      customAnchor.exit();
       clearSelectedBranch();
     }
     if (mode === "wubmachine") {
@@ -835,6 +862,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       setSelectedEdge(edge);
       vizControllerRef.current?.setSelectedEdgeActive(edge);
     });
+    vizControllerRef.current?.setOnAnchorEditChange(customAnchor.dragChanged);
+    vizControllerRef.current?.setOnAnchorEditCommit(customAnchor.dragCommitted);
     const count = vizControllerRef.current?.getCount() ?? 1;
     setActiveVizIndex((prev) => Math.max(0, Math.min(prev, count - 1)));
 
@@ -903,7 +932,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         minLongBranchPercent: config.minLongBranchPercent,
       },
       deletedEdgeIds,
-      anchorEdgeId: engine.getUserAnchorEdgeId(),
+      anchor: engine.getAnchorParam(),
     });
   };
 
@@ -926,14 +955,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         engine.deleteEdge(edge);
       }
     }
-    if (saved.anchorEdgeId !== null) {
-      const anchorEdge = allEdges.find(
-        (candidate) => candidate.id === saved.anchorEdgeId,
-      );
-      if (anchorEdge) {
-        engine.setUserAnchorEdge(anchorEdge);
-      }
-    }
+    engine.applyAnchorParam(saved.anchor);
     syncVizDataFromEngine();
     syncTuneFormFromEngine();
   };
@@ -942,10 +964,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     setExtrasForm({
       branchStatsEnabled,
       bringItHomeMode,
+      customAnchorEnabled,
       audioMode: jukeboxAudioMode,
       audioIntensity,
     });
-  }, [branchStatsEnabled, bringItHomeMode, jukeboxAudioMode, audioIntensity]);
+  }, [branchStatsEnabled, bringItHomeMode, customAnchorEnabled, jukeboxAudioMode, audioIntensity]);
 
   function getCurrentSourceIdentity() {
     return file ? `${file.name}:${file.size}:${file.lastModified}` : null;
@@ -1454,7 +1477,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     clearSelectedBranch();
     syncTuneFormFromEngine();
     persistCurrentTuning();
-    showShortcutToast(t("listen.branchDeleted"));
+    // Deleting the custom anchor's edge resets the anchor; the toast says which.
+    showShortcutToast(
+      isCustomAnchorEdge(edge) ? t("listen.anchorReset") : t("listen.branchDeleted"),
+    );
   };
 
   const selectAdjacentBranch = (direction: -1 | 1) => {
@@ -1555,6 +1581,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (!engine || !player) {
       return;
     }
+    customAnchor.discard();
     engine.clearDeletedEdges();
     engine.updateConfig(DEFAULT_JUKEBOX_CONFIG);
     rebuildGraphAndSyncViz();
@@ -1587,6 +1614,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     engineRef.current?.setBringItHomeMode(nextBringItHomeMode);
     setBranchStatsEnabled(nextBranchStatsEnabled);
     storeBranchStatsEnabled(nextBranchStatsEnabled);
+    // The toggle only shows the editor button; an anchor already set keeps playing.
+    setCustomAnchorEnabled(extrasForm.customAnchorEnabled);
+    storeCustomAnchorEnabled(extrasForm.customAnchorEnabled);
+    if (!extrasForm.customAnchorEnabled) {
+      customAnchor.exit();
+    }
     setJukeboxAudioMode(nextAudioMode);
     setAudioIntensity(nextAudioIntensity);
     if (nextAudioMode === "cowbell") {
@@ -1731,11 +1764,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     selectAdjacentBranch,
     deleteSelectedBranch,
     toggleSelectedAnchorBranch,
+    customAnchor,
   });
 
   const graph = engineRef.current?.getGraphState();
   const totalBeats = graph?.totalBeats ?? analysis?.beats.length ?? 0;
-  const totalBranches = engineRef.current?.getVisualizationData()?.edges.length ?? 0;
+  // The custom anchor's synthetic edge is drawn with the branches but is not one.
+  const totalBranches =
+    engineRef.current?.getVisualizationData()?.edges.filter((edge) => !isCustomAnchorEdge(edge))
+      .length ?? 0;
   const deletedBranches = graph?.allEdges.filter((edge) => edge.deleted).length ?? 0;
   const vizCount = vizControllerRef.current?.getCount() ?? 1;
   const currentFileKey = file ? `${file.name}:${file.size}:${file.lastModified}` : null;
@@ -1785,6 +1822,17 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           t,
         )
       : null;
+
+  const anchorLabels = customAnchorLabels(t);
+  const anchorBeats = customAnchor.edit ? vizDataRef.current?.beats : undefined;
+  // Edge selection is off while editing, so a stale selection would only confuse.
+  const startCustomAnchorEdit = () => {
+    if (playModeRef.current !== "jukebox") {
+      return;
+    }
+    clearSelectedBranch();
+    customAnchor.start();
+  };
 
   const closeSettings = () => setIsSettingsOpen(false);
   const settingsModal = isSettingsOpen ? (
@@ -1858,17 +1906,43 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               onDelete={deleteSelectedBranch}
             />
           ) : null}
-          <VizTop
-            playMode={playMode}
-            onPlayModeChange={onSetPlayMode}
-            activeVizIndex={activeVizIndex}
-            vizCount={vizCount}
-            onActiveVizChange={onSetActiveViz}
-            finishOutSong={finishOutSong}
-            onFinishOutSongChange={setFinishOutSong}
-            loopTrack={loopTrack}
-            onLoopTrackChange={setLoopTrack}
-          />
+          {customAnchor.edit && anchorBeats ? (
+            <CustomAnchorInfo edit={customAnchor.edit} beats={anchorBeats} labels={anchorLabels} />
+          ) : null}
+          {customAnchor.edit && anchorBeats ? (
+            <div className="viz-top">
+              <CustomAnchorToolbar
+                edit={customAnchor.edit}
+                beats={anchorBeats}
+                labels={anchorLabels}
+                onSelectEnd={customAnchor.selectEnd}
+                onSnap={customAnchor.snap}
+                onReset={customAnchor.reset}
+                onDone={customAnchor.exit}
+              />
+            </div>
+          ) : (
+            <VizTop
+              playMode={playMode}
+              onPlayModeChange={onSetPlayMode}
+              activeVizIndex={activeVizIndex}
+              vizCount={vizCount}
+              onActiveVizChange={onSetActiveViz}
+              finishOutSong={finishOutSong}
+              onFinishOutSongChange={setFinishOutSong}
+              loopTrack={loopTrack}
+              onLoopTrackChange={setLoopTrack}
+              action={
+                customAnchorEnabled && playMode === "jukebox" ? (
+                  <CustomAnchorButton
+                    labels={anchorLabels}
+                    disabled={!analysis}
+                    onStart={startCustomAnchorEdit}
+                  />
+                ) : null
+              }
+            />
+          )}
           {forceBranchActive || freezeBeatActive ? (
             <div className="modifier-badges" role="status" aria-live="polite">
               {forceBranchActive ? (

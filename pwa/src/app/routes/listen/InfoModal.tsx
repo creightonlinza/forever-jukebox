@@ -92,6 +92,10 @@ export function InfoModal({
             <span>{t("info.anchorAction")}</span>
           </div>
           <div className="info-row">
+            <span className="info-label">{t("info.customAnchor")}</span>
+            <span>{t("info.customAnchorAction")}</span>
+          </div>
+          <div className="info-row">
             <span className="info-label">{t("info.delete")}</span>
             <span>{t("info.deleteAction")}</span>
           </div>

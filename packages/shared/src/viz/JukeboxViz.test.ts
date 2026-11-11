@@ -800,4 +800,107 @@ describe("JukeboxViz", () => {
 
     expect(canvases.length).toBe(2);
   });
+
+  describe("custom anchor editing", () => {
+    // Arc layout on a 300px canvas: beat i sits at x = 30 + 10 * i, y = 150.
+    const beatX = (index: number) => 30 + 10 * index;
+
+    function mountEditor() {
+      const viz = new JukeboxViz(createContainer());
+      viz.setData({
+        beats: Array.from({ length: 25 }, (_, which) => ({
+          which,
+          start: which,
+          duration: 1,
+          neighbors: [],
+          overlappingSegments: [],
+        })),
+        beatVisits: [],
+        beatColors: [],
+        edges: [],
+        lastBranchPoint: -1,
+        anchorEdgeId: null,
+        userAnchorEdgeId: null,
+      } as any);
+      const onChange = vi.fn();
+      const onCommit = vi.fn();
+      viz.setOnAnchorEditChange(onChange);
+      viz.setOnAnchorEditCommit(onCommit);
+      viz.setAnchorEdit({ src: 20, dest: 5, active: "dest" });
+      return { viz, active: (viz as any).activeViz, onChange, onCommit };
+    }
+
+    function pointer(x: number, pointerType = "mouse") {
+      return { pointerId: 1, pointerType, clientX: x, clientY: 150, preventDefault: vi.fn() };
+    }
+
+    it("drags an end to the nearest beat and commits on release", () => {
+      const { active, onChange, onCommit } = mountEditor();
+      active.handlePointerDown(pointer(beatX(20)));
+      active.handlePointerMove(pointer(beatX(22) + 3));
+      active.handlePointerUp(pointer(beatX(22) + 3));
+      expect(onChange).toHaveBeenLastCalledWith({ src: 22, dest: 5, active: "src" });
+      expect(onCommit).toHaveBeenCalledWith({ src: 22, dest: 5, active: "src" });
+    });
+
+    it("stops a dragged end at the minimum gap", () => {
+      const { active, onCommit } = mountEditor();
+      active.handlePointerDown(pointer(beatX(20)));
+      active.handlePointerMove(pointer(beatX(2)));
+      active.handlePointerUp(pointer(beatX(2)));
+      expect(onCommit).toHaveBeenCalledWith({ src: 9, dest: 5, active: "src" });
+    });
+
+    it("reverts the pair when the pointer is cancelled", () => {
+      const { active, onChange, onCommit } = mountEditor();
+      active.handlePointerDown(pointer(beatX(5), "touch"));
+      active.handlePointerMove(pointer(beatX(0), "touch"));
+      active.handlePointerCancel(pointer(beatX(0), "touch"));
+      expect(onChange).toHaveBeenLastCalledWith({ src: 20, dest: 5, active: "dest" });
+      expect(onCommit).not.toHaveBeenCalled();
+    });
+
+    it("ignores a press away from both handles", () => {
+      const { active, onChange } = mountEditor();
+      active.handlePointerDown(pointer(beatX(12)));
+      expect(onChange).not.toHaveBeenCalled();
+      expect(active.anchorDrag).toBeNull();
+    });
+
+    it("blocks page scroll only for a touch that starts on a handle", () => {
+      const { active } = mountEditor();
+      const onHandle = { touches: [{ clientX: beatX(20), clientY: 150 }], preventDefault: vi.fn() };
+      const offHandle = { touches: [{ clientX: beatX(12), clientY: 150 }], preventDefault: vi.fn() };
+      active.handleTouchStart(onHandle);
+      active.handleTouchStart(offHandle);
+      expect(onHandle.preventDefault).toHaveBeenCalled();
+      expect(offHandle.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("ignores an echo of the pair it already shows", () => {
+      const { viz, active } = mountEditor();
+      const draw = vi.spyOn(active, "drawOverlay");
+      viz.setAnchorEdit({ src: 20, dest: 5, active: "dest" });
+      expect(draw).not.toHaveBeenCalled();
+      viz.setAnchorEdit({ src: 21, dest: 5, active: "dest" });
+      expect(draw).toHaveBeenCalledTimes(1);
+    });
+
+    it("suppresses click-to-seek while editing", () => {
+      const { viz, active } = mountEditor();
+      const onSelect = vi.fn();
+      viz.setOnSelect(onSelect);
+      active.handleCanvasClick({ clientX: beatX(12), clientY: 150 } as MouseEvent);
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
+    it("reverts an unfinished drag on a layout switch and keeps editing", () => {
+      const { viz, active, onChange } = mountEditor();
+      active.handlePointerDown(pointer(beatX(20)));
+      active.handlePointerMove(pointer(beatX(23)));
+      viz.setActiveIndex(2);
+      expect(onChange).toHaveBeenLastCalledWith({ src: 20, dest: 5, active: "dest" });
+      expect((viz as any).activeViz.anchorEdit).toEqual({ src: 20, dest: 5, active: "dest" });
+    });
+  });
 });

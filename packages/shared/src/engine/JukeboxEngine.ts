@@ -11,9 +11,13 @@ import {
   backgroundSetTimeout,
 } from "../background/backgroundTimer";
 import {
+  AnchorParam,
   BranchState,
+  CUSTOM_ANCHOR_EDGE_ID,
+  CustomAnchor,
   getBestLastBranchNeighborIndex,
   isActiveUserAnchorEdge,
+  createCustomAnchorEdge,
   selectNextBeatIndex,
   UserAnchorSelection,
 } from "./selection";
@@ -122,6 +126,8 @@ export class JukeboxEngine {
   private pendingAdvance: PendingAdvance | null = null;
   private readonly deletedEdgeKeys = new Set<string>();
   private userAnchorEdgeId: number | null = null;
+  // Lives only in its source beat's neighbors, never in allEdges, so deletion keys skip it.
+  private customAnchorEdge: Edge | null = null;
   private readonly rng: () => number;
   private listener: UpdateListener | null = null;
   private readonly branchState: BranchState = {
@@ -165,6 +171,7 @@ export class JukeboxEngine {
   loadAnalysis(data: unknown) {
     this.deletedEdgeKeys.clear();
     this.userAnchorEdgeId = null;
+    this.customAnchorEdge = null;
     this.resetPlaybackControls();
     this.analysis = normalizeAnalysis(data);
     this.resolveMinLongBranch();
@@ -190,9 +197,71 @@ export class JukeboxEngine {
   }
 
   setUserAnchorEdge(edge: Edge | null) {
+    this.removeCustomAnchorEdge();
     this.userAnchorEdgeId = edge ? edge.id : null;
     this.clearPendingAdvance(true);
     this.syncAnchorJump();
+  }
+
+  // Returns false and changes nothing when the pair is not a valid backward loop.
+  setCustomAnchor(src: number, dest: number): boolean {
+    const edge = this.graph ? createCustomAnchorEdge(this.beats, { src, dest }) : null;
+    if (!edge) {
+      return false;
+    }
+    this.removeCustomAnchorEdge();
+    this.userAnchorEdgeId = null;
+    this.customAnchorEdge = edge;
+    this.injectCustomAnchorEdge();
+    this.clearPendingAdvance(true);
+    this.syncAnchorJump();
+    return true;
+  }
+
+  clearCustomAnchor() {
+    if (!this.customAnchorEdge) {
+      return;
+    }
+    this.removeCustomAnchorEdge();
+    this.clearPendingAdvance(true);
+    this.syncAnchorJump();
+  }
+
+  getCustomAnchor(): CustomAnchor | null {
+    const edge = this.customAnchorEdge;
+    return edge ? { src: edge.src.which, dest: edge.dest.which } : null;
+  }
+
+  // The user's anchor as an `ab` value, or null when the track default is in force.
+  getAnchorParam(): AnchorParam | null {
+    const custom = this.getCustomAnchor();
+    if (custom) {
+      return { custom };
+    }
+    const edgeId = this.getUserAnchorEdgeId();
+    return edgeId === null ? null : { edgeId };
+  }
+
+  // Applies a stored `ab` value; one that does not fit this track changes nothing.
+  applyAnchorParam(param: AnchorParam | null): boolean {
+    if (!param || !this.graph) {
+      return false;
+    }
+    if ("custom" in param) {
+      return this.setCustomAnchor(param.custom.src, param.custom.dest);
+    }
+    const edge = this.graph.allEdges.find((candidate) => candidate.id === param.edgeId);
+    if (!edge || edge.deleted || edge.dest.which >= edge.src.which) {
+      return false;
+    }
+    this.setUserAnchorEdge(edge);
+    return true;
+  }
+
+  // The anchor the engine forces right now: the user's choice, else the track default.
+  getActiveAnchor(): CustomAnchor | null {
+    const edge = this.getActiveAnchorEdge();
+    return edge ? { src: edge.src.which, dest: edge.dest.which } : null;
   }
 
   getUserAnchorEdgeId(): number | null {
@@ -210,6 +279,7 @@ export class JukeboxEngine {
     this.curRandomBranchChance = this.config.minRandomBranchChance;
     this.branchState.curRandomBranchChance = this.curRandomBranchChance;
     this.applyDeletedEdges();
+    this.injectCustomAnchorEdge();
     this.syncAnchorJump();
   }
 
@@ -222,6 +292,11 @@ export class JukeboxEngine {
       return null;
     }
     const edgeMap = new Map<string, (typeof this.graph.allEdges)[number]>();
+    // The custom edge goes first so it wins the src-dest key over a real twin.
+    const custom = this.customAnchorEdge;
+    if (custom) {
+      edgeMap.set(`${custom.src.which}-${custom.dest.which}`, custom);
+    }
     for (const beat of this.analysis.beats) {
       for (const edge of beat.neighbors) {
         if (edge.deleted) {
@@ -237,7 +312,9 @@ export class JukeboxEngine {
     const defaultAnchorEdge = this.getDefaultAnchorEdge();
     const anchorEdgeId = userAnchorEdge?.id ?? defaultAnchorEdge?.id ?? null;
     const userAnchorEdgeId =
-      userAnchorEdge && userAnchorEdge.id !== defaultAnchorEdge?.id
+      userAnchorEdge &&
+      (userAnchorEdge === this.customAnchorEdge ||
+        userAnchorEdge.id !== defaultAnchorEdge?.id)
         ? userAnchorEdge.id
         : null;
     return {
@@ -337,12 +414,17 @@ export class JukeboxEngine {
   clearDeletedEdges() {
     this.deletedEdgeKeys.clear();
     this.userAnchorEdgeId = null;
+    this.removeCustomAnchorEdge();
     this.clearPendingAdvance(true);
     this.clearEdgeDeletionFlags();
     this.syncAnchorJump();
   }
 
   deleteEdge(edge: { src: QuantumBase; dest: QuantumBase; deleted: boolean }) {
+    if (edge === this.customAnchorEdge) {
+      this.clearCustomAnchor();
+      return;
+    }
     const srcIndex = edge.src.which;
     const destIndex = edge.dest.which;
     this.deletedEdgeKeys.add(this.edgeKey(srcIndex, destIndex));
@@ -429,6 +511,9 @@ export class JukeboxEngine {
   }
 
   getUserAnchorEdge(): Edge | null {
+    if (this.customAnchorEdge) {
+      return this.customAnchorEdge;
+    }
     if (!this.graph || this.userAnchorEdgeId === null) {
       return null;
     }
@@ -478,6 +563,30 @@ export class JukeboxEngine {
     if (!this.player.setAnchorJump?.(targetTime, sourceStartTime)) {
       this.player.clearAnchorJump?.();
     }
+  }
+
+  // Graph rebuilds replace every neighbors list, so the custom edge goes back after each one.
+  private injectCustomAnchorEdge() {
+    const edge = this.customAnchorEdge;
+    if (!edge) {
+      return;
+    }
+    const source = edge.src;
+    source.neighbors = source.neighbors.filter(
+      (candidate) => candidate.id !== CUSTOM_ANCHOR_EDGE_ID,
+    );
+    source.neighbors.push(edge);
+  }
+
+  private removeCustomAnchorEdge() {
+    const edge = this.customAnchorEdge;
+    if (!edge) {
+      return;
+    }
+    edge.src.neighbors = edge.src.neighbors.filter(
+      (candidate) => candidate !== edge,
+    );
+    this.customAnchorEdge = null;
   }
 
   private ensureAnchorSourceHasNeighbors() {

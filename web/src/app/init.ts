@@ -6,7 +6,14 @@ import { WubMachineController } from "@forever-jukebox/shared/wubmachine/WubMach
 import { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import { applyThemeVariables, resolveStoredTheme } from "./theme";
 import { resolveStoredAnchorHighlight } from "./anchorHighlight";
-import { resolveStoredBranchStatsEnabled } from "./extrasMode";
+import {
+  resolveStoredBranchStatsEnabled,
+  resolveStoredCustomAnchorEnabled,
+} from "./extrasMode";
+import {
+  handleAnchorEditChange,
+  handleAnchorEditCommit,
+} from "./playback/custom-anchor";
 import { resolveStoredVolumePct } from "./volume";
 import {
   setAnalysisStatus,
@@ -92,6 +99,7 @@ export function initRuntime(): void {
     favoritesSyncCode: loadFavoritesSyncCode(),
     branchStatsEnabled,
     highlightAnchorBranch,
+    customAnchorEnabled: resolveStoredCustomAnchorEnabled(),
     volumePct,
   });
   // Controllers need their DOM nodes, which exist only after <VizContainer>
@@ -200,6 +208,8 @@ export function initRuntime(): void {
     updateFullscreenButton(Boolean(document.fullscreenElement));
     jukebox.setOnSelect(handleBeatSelect);
     jukebox.setOnEdgeSelect(handleEdgeSelect);
+    jukebox.setOnAnchorEditChange((state) => handleAnchorEditChange(context, state));
+    jukebox.setOnAnchorEditCommit((state) => handleAnchorEditCommit(context, state));
   };
   setAttachViz(attachViz);
 

@@ -2,6 +2,7 @@ import type { AnalysisOutput } from "@/shared/analysis-schema";
 import {
   buildJumpGraph,
   calculateMinLongBranch,
+  createCustomAnchorEdge,
   createRng,
   isActiveUserAnchorEdge,
   normalizeAnalysis,
@@ -17,6 +18,11 @@ import {
 export interface EdgeRef {
   src: number;
   dest: number;
+}
+
+// A custom anchor has no edge in the graph; the planner adds the engine's synthetic one.
+export interface AnchorRef extends EdgeRef {
+  custom?: boolean;
 }
 
 export interface PlannedJukeboxSegment {
@@ -36,7 +42,7 @@ export interface PlanJukeboxPathOptions {
   deletedEdges?: EdgeRef[];
   randomMode?: RandomMode;
   seed?: number;
-  userAnchorEdge?: EdgeRef | null;
+  userAnchorEdge?: AnchorRef | null;
 }
 
 export interface PlannedJukeboxPath {
@@ -81,10 +87,19 @@ function applyDeletedEdges(
 
 function resolveUserAnchor(
   graph: JukeboxGraphState,
-  ref: EdgeRef | null | undefined,
+  beats: QuantumBase[],
+  ref: AnchorRef | null | undefined,
 ): UserAnchorSelection | null {
   if (!ref) {
     return null;
+  }
+  if (ref.custom) {
+    const custom = createCustomAnchorEdge(beats, ref);
+    if (!custom) {
+      return null;
+    }
+    custom.src.neighbors.push(custom);
+    return { edgeId: custom.id, sourceIndex: custom.src.which };
   }
   const edge = graph.allEdges.find(
     (candidate) =>
@@ -122,7 +137,7 @@ export function planJukeboxPath(options: PlanJukeboxPathOptions): PlannedJukebox
 
   const graph = buildJumpGraph(normalized, config);
   applyDeletedEdges(graph, beats, options.deletedEdges, config.minLongBranch);
-  const userAnchor = resolveUserAnchor(graph, options.userAnchorEdge);
+  const userAnchor = resolveUserAnchor(graph, beats, options.userAnchorEdge);
 
   const rng = createRng(options.randomMode ?? "random", options.seed);
   const branchState = { curRandomBranchChance: config.minRandomBranchChance };

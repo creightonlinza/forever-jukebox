@@ -13,6 +13,7 @@ import type { CanonizerRenderPlan } from "@forever-jukebox/shared/autocanonizer/
 import { renderCanonizerAudio } from "./canonizer";
 import {
   planJukeboxPath,
+  type AnchorRef,
   type EdgeRef,
   type PlannedJukeboxSegment,
 } from "./plan";
@@ -45,7 +46,7 @@ export interface ExportJukeboxAudioOptions {
   sourceBuffer: AudioBuffer;
   config: JukeboxConfig;
   deletedEdges?: EdgeRef[];
-  userAnchorEdge?: EdgeRef | null;
+  userAnchorEdge?: AnchorRef | null;
   durationSeconds: number;
   format: EncodedAudioFormat;
   bitrateKbps?: number;

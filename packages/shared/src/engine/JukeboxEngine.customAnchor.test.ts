@@ -1,0 +1,292 @@
+import { describe, expect, it, vi } from "vitest";
+import { JukeboxEngine, type JukeboxPlayer } from "./JukeboxEngine";
+import {
+  CUSTOM_ANCHOR_EDGE_ID,
+  isValidCustomAnchor,
+  formatAnchorParam,
+  MIN_CUSTOM_ANCHOR_GAP,
+  parseAnchorParam,
+  selectNextBeatIndex,
+  snapCustomAnchorEnd,
+} from "./selection";
+import { beatPairDistance, beatPairMatch } from "./graph";
+
+function makePlayer(): JukeboxPlayer & {
+  setAnchorJump: ReturnType<typeof vi.fn>;
+  clearAnchorJump: ReturnType<typeof vi.fn>;
+} {
+  return {
+    play: vi.fn(),
+    pause: vi.fn(),
+    stop: vi.fn(),
+    seek: vi.fn(),
+    scheduleJump: vi.fn(() => true),
+    cancelScheduledJump: vi.fn(),
+    setAnchorJump: vi.fn(() => true),
+    clearAnchorJump: vi.fn(),
+    getCurrentTime: () => 0,
+    getAudioTime: () => 0,
+    getPlaybackRate: () => 1,
+    isPlaying: () => false,
+  };
+}
+
+function makeAnalysisPayload(count: number) {
+  const beats = Array.from({ length: count }, (_, i) => ({
+    start: i,
+    duration: 1,
+    confidence: 1,
+  }));
+  const segments = Array.from({ length: count }, (_, i) => ({
+    start: i,
+    duration: 1,
+    confidence: 1,
+    loudness_start: -20,
+    loudness_max: -10,
+    loudness_max_time: 0.1,
+    pitches: Array.from({ length: 12 }, (_v, p) => ((i + p) % 12) / 12),
+    timbre: Array.from({ length: 12 }, (_v, t) => ((i * 7 + t) % 13) * 3),
+  }));
+  return {
+    sections: [{ start: 0, duration: count, confidence: 1 }],
+    bars: beats,
+    beats,
+    tatums: beats,
+    segments,
+    track: { duration: count },
+  };
+}
+
+function loadedEngine(count = 32) {
+  const player = makePlayer();
+  const engine = new JukeboxEngine(player);
+  engine.loadAnalysis(makeAnalysisPayload(count));
+  return { engine, player };
+}
+
+describe("isValidCustomAnchor", () => {
+  it("accepts a backward pair at the minimum gap", () => {
+    expect(isValidCustomAnchor(32, 10, 10 - MIN_CUSTOM_ANCHOR_GAP)).toBe(true);
+  });
+
+  it("rejects forward, short, out-of-range and non-integer pairs", () => {
+    expect(isValidCustomAnchor(32, 4, 20)).toBe(false);
+    expect(isValidCustomAnchor(32, 10, 10 - MIN_CUSTOM_ANCHOR_GAP + 1)).toBe(false);
+    expect(isValidCustomAnchor(32, 32, 0)).toBe(false);
+    expect(isValidCustomAnchor(32, 10, -1)).toBe(false);
+    expect(isValidCustomAnchor(32, 10.5, 2)).toBe(false);
+    expect(isValidCustomAnchor(32, Number.NaN, 2)).toBe(false);
+  });
+});
+
+describe("ab anchor param", () => {
+  it("parses a branch id and a beat pair, and formats them back", () => {
+    expect(parseAnchorParam("12")).toEqual({ edgeId: 12 });
+    expect(parseAnchorParam("289-23")).toEqual({ custom: { src: 289, dest: 23 } });
+    expect(formatAnchorParam({ edgeId: 12 })).toBe("12");
+    expect(formatAnchorParam({ custom: { src: 289, dest: 23 } })).toBe("289-23");
+  });
+
+  it("rejects forward, short, signed, partial and oversized values", () => {
+    for (const raw of ["23-289", "10-8", "-3", "3-", "12abc", "1e3", "1.5", "", null, "1234567890"]) {
+      expect(parseAnchorParam(raw)).toBeNull();
+    }
+  });
+
+  it("round-trips the engine anchor through ab", () => {
+    const { engine } = loadedEngine();
+    expect(engine.getAnchorParam()).toBeNull();
+    expect(engine.applyAnchorParam(parseAnchorParam("20-5"))).toBe(true);
+    expect(engine.getAnchorParam()).toEqual({ custom: { src: 20, dest: 5 } });
+    const backward = engine
+      .getGraphState()!
+      .allEdges.find((edge) => edge.dest.which < edge.src.which && edge.src.neighbors.includes(edge));
+    expect(backward).toBeDefined();
+    expect(engine.applyAnchorParam({ edgeId: backward!.id })).toBe(true);
+    expect(engine.getAnchorParam()).toEqual({ edgeId: backward!.id });
+    expect(engine.getCustomAnchor()).toBeNull();
+  });
+
+  it("refuses an ab value that does not fit this track", () => {
+    const { engine } = loadedEngine();
+    const forward = engine
+      .getGraphState()!
+      .allEdges.find((edge) => edge.dest.which > edge.src.which);
+    expect(engine.applyAnchorParam({ custom: { src: 99, dest: 5 } })).toBe(false);
+    expect(engine.applyAnchorParam({ edgeId: 999999 })).toBe(false);
+    if (forward) {
+      expect(engine.applyAnchorParam({ edgeId: forward.id })).toBe(false);
+    }
+    expect(engine.getAnchorParam()).toBeNull();
+  });
+});
+
+describe("beatPairMatch", () => {
+  it("uses the branch distance on the branch-stats scale, and scores a different bar position as poor", () => {
+    const { engine } = loadedEngine();
+    const beats = engine.getVisualizationData()!.beats;
+    const real = engine.getGraphState()!.allEdges[0];
+    const match = beatPairMatch(real.src, real.dest);
+    expect(match.distance).toBe(real.distance);
+    expect(match.percent).toBe(Math.round(Math.max(0, 1 - real.distance / 80) * 100));
+    expect(match.sameBarPosition).toBe(true);
+    beats[9].indexInParent = 1;
+    beats[3].indexInParent = 2;
+    const off = beatPairMatch(beats[9], beats[3]);
+    expect(off.sameBarPosition).toBe(false);
+    expect(off.percent).toBe(0);
+    expect(off.quality).toBe("poor");
+  });
+});
+
+describe("snapCustomAnchorEnd", () => {
+  it("moves the end to the lowest distance within a bar and keeps the gap", () => {
+    const beats = loadedEngine().engine.getVisualizationData()!.beats;
+    const anchor = { src: 20, dest: 10 };
+    const snapped = snapCustomAnchorEnd(beats, anchor, "dest");
+    const radius = beats[10].parent?.children?.length || 4;
+    expect(Math.abs(snapped.dest - 10)).toBeLessThanOrEqual(radius);
+    expect(snapped.src).toBe(20);
+    for (let dest = 10 - radius; dest <= 10 + radius; dest += 1) {
+      expect(beatPairDistance(beats[20], beats[snapped.dest])).toBeLessThanOrEqual(
+        beatPairDistance(beats[20], beats[dest]),
+      );
+    }
+  });
+
+  it("keeps the end when no nearby beat matches better", () => {
+    const beats = loadedEngine().engine.getVisualizationData()!.beats;
+    const first = snapCustomAnchorEnd(beats, { src: 20, dest: 10 }, "dest");
+    expect(snapCustomAnchorEnd(beats, first, "dest")).toEqual(first);
+  });
+
+  it("never moves the source closer than the minimum gap", () => {
+    const beats = loadedEngine().engine.getVisualizationData()!.beats;
+    const snapped = snapCustomAnchorEnd(beats, { src: 14, dest: 10 }, "src");
+    expect(snapped.src - snapped.dest).toBeGreaterThanOrEqual(MIN_CUSTOM_ANCHOR_GAP);
+  });
+});
+
+describe("JukeboxEngine custom anchor", () => {
+  it("rejects invalid input without changing the anchor", () => {
+    const { engine } = loadedEngine();
+    expect(engine.setCustomAnchor(20, 5)).toBe(true);
+    expect(engine.setCustomAnchor(5, 20)).toBe(false);
+    expect(engine.setCustomAnchor(99, 5)).toBe(false);
+    expect(engine.getCustomAnchor()).toEqual({ src: 20, dest: 5 });
+  });
+
+  it("returns false before an analysis is loaded", () => {
+    const engine = new JukeboxEngine(makePlayer());
+    expect(engine.setCustomAnchor(20, 5)).toBe(false);
+  });
+
+  it("arms the player jump at the custom pair", () => {
+    const { engine, player } = loadedEngine();
+    engine.setCustomAnchor(20, 5);
+    expect(player.setAnchorJump).toHaveBeenLastCalledWith(5, 20);
+    expect(engine.getActiveAnchor()).toEqual({ src: 20, dest: 5 });
+  });
+
+  it("exposes the custom edge to the visualization as the user anchor", () => {
+    const { engine } = loadedEngine();
+    engine.setCustomAnchor(20, 5);
+    const data = engine.getVisualizationData();
+    expect(data?.userAnchorEdgeId).toBe(CUSTOM_ANCHOR_EDGE_ID);
+    expect(data?.anchorEdgeId).toBe(CUSTOM_ANCHOR_EDGE_ID);
+    const edge = data?.edges.find((candidate) => candidate.id === CUSTOM_ANCHOR_EDGE_ID);
+    expect(edge?.src.which).toBe(20);
+    expect(edge?.dest.which).toBe(5);
+  });
+
+  it("forces the jump when playback reaches the custom source", () => {
+    const { engine } = loadedEngine();
+    engine.setCustomAnchor(20, 5);
+    const graph = engine.getGraphState()!;
+    const seed = engine.getVisualizationData()!.beats[20];
+    const result = selectNextBeatIndex(
+      seed,
+      graph,
+      engine.getConfig(),
+      () => 0.99,
+      { curRandomBranchChance: 0 },
+      false,
+      { edgeId: CUSTOM_ANCHOR_EDGE_ID, sourceIndex: 20 },
+    );
+    expect(result).toEqual({ index: 5, jumped: true });
+  });
+
+  it("survives a graph rebuild after a tuning change", () => {
+    const { engine } = loadedEngine();
+    engine.setCustomAnchor(20, 5);
+    engine.updateConfig({ justBackwards: true, currentThreshold: 1 });
+    engine.rebuildGraph();
+    expect(engine.getUserAnchorEdgeId()).toBe(CUSTOM_ANCHOR_EDGE_ID);
+    const neighbors = engine.getVisualizationData()?.beats[20].neighbors ?? [];
+    expect(neighbors.filter((edge) => edge.id === CUSTOM_ANCHOR_EDGE_ID)).toHaveLength(1);
+  });
+
+  it("stays out of allEdges, so deleted ids never include it", () => {
+    const { engine } = loadedEngine();
+    engine.setCustomAnchor(20, 5);
+    const ids = engine.getGraphState()?.allEdges.map((edge) => edge.id) ?? [];
+    expect(ids).not.toContain(CUSTOM_ANCHOR_EDGE_ID);
+  });
+
+  it("replaces the previous custom edge instead of stacking it", () => {
+    const { engine } = loadedEngine();
+    engine.setCustomAnchor(20, 5);
+    engine.setCustomAnchor(24, 8);
+    const beats = engine.getVisualizationData()?.beats ?? [];
+    expect(beats[20].neighbors.some((edge) => edge.id === CUSTOM_ANCHOR_EDGE_ID)).toBe(false);
+    expect(beats[24].neighbors.some((edge) => edge.id === CUSTOM_ANCHOR_EDGE_ID)).toBe(true);
+  });
+
+  it("clears on delete, on a pinned anchor, on tuning reset and on a new analysis", () => {
+    const { engine } = loadedEngine();
+    engine.setCustomAnchor(20, 5);
+    const custom = engine.getUserAnchorEdge();
+    expect(custom).not.toBeNull();
+    engine.deleteEdge(custom!);
+    expect(engine.getCustomAnchor()).toBeNull();
+    expect(engine.getGraphState()?.allEdges.some((edge) => edge.deleted)).toBe(false);
+
+    engine.setCustomAnchor(20, 5);
+    engine.setUserAnchorEdge(null);
+    expect(engine.getCustomAnchor()).toBeNull();
+
+    engine.setCustomAnchor(20, 5);
+    engine.clearDeletedEdges();
+    expect(engine.getCustomAnchor()).toBeNull();
+
+    engine.setCustomAnchor(20, 5);
+    engine.loadAnalysis(makeAnalysisPayload(32));
+    expect(engine.getCustomAnchor()).toBeNull();
+  });
+
+  it("scores the custom edge with the same distance a real branch gets", () => {
+    const { engine } = loadedEngine();
+    const real = engine
+      .getGraphState()
+      ?.allEdges.find((edge) => edge.dest.which < edge.src.which - MIN_CUSTOM_ANCHOR_GAP);
+    expect(real).toBeDefined();
+    engine.setCustomAnchor(real!.src.which, real!.dest.which);
+    expect(engine.getUserAnchorEdge()?.distance).toBe(real!.distance);
+  });
+
+  it("keeps the custom edge when the real edge for the same pair is deleted", () => {
+    const { engine } = loadedEngine();
+    const real = engine
+      .getGraphState()
+      ?.allEdges.find((edge) => edge.dest.which < edge.src.which - MIN_CUSTOM_ANCHOR_GAP);
+    expect(real).toBeDefined();
+    engine.deleteEdge(real!);
+    engine.rebuildGraph();
+    expect(engine.setCustomAnchor(real!.src.which, real!.dest.which)).toBe(true);
+    engine.rebuildGraph();
+    expect(engine.getCustomAnchor()).toEqual({
+      src: real!.src.which,
+      dest: real!.dest.which,
+    });
+  });
+});

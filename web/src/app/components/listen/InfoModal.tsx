@@ -54,6 +54,7 @@ export function InfoModal() {
           [t("info.velocityReset"), t("info.velocityResetAction")],
           [t("info.freeze"), t("info.freezeAction")],
           [t("info.anchor"), t("info.anchorAction")],
+          [t("info.customAnchor"), t("info.customAnchorAction")],
           [t("info.delete"), t("info.deleteAction")],
           [t("info.extras"), t("info.extrasAction")],
           [t("info.home"), t("info.homeAction")],

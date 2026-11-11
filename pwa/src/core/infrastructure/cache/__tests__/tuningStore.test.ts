@@ -20,7 +20,7 @@ const sample: SavedTuning = {
     minLongBranchPercent: 10,
   },
   deletedEdgeIds: [3, 7, 11],
-  anchorEdgeId: 5,
+  anchor: { edgeId: 5 },
 };
 
 afterEach(() => {
@@ -31,6 +31,23 @@ describe("tuningStore", () => {
   it("round-trips saved tuning by fingerprint", () => {
     saveTuning("fp-1", sample);
     expect(loadTuning("fp-1")).toEqual(sample);
+  });
+
+  it("round-trips a custom anchor as its ab string", () => {
+    const custom: SavedTuning = { ...sample, anchor: { custom: { src: 120, dest: 40 } } };
+    saveTuning("fp-1", custom);
+    expect(JSON.parse(window.localStorage.getItem("fj-tuning:fp-1")!).anchor).toBe("120-40");
+    expect(loadTuning("fp-1")).toEqual(custom);
+  });
+
+  it("reads the legacy numeric anchorEdgeId and drops bad anchors", () => {
+    const { anchor: _anchor, ...rest } = sample;
+    window.localStorage.setItem("fj-tuning:legacy", JSON.stringify({ ...rest, anchorEdgeId: 9 }));
+    expect(loadTuning("legacy")?.anchor).toEqual({ edgeId: 9 });
+    for (const bad of [{ anchor: "40-120" }, { anchor: 7 }, { anchorEdgeId: -2 }, { anchorEdgeId: 1.5 }]) {
+      window.localStorage.setItem("fj-tuning:bad", JSON.stringify({ ...rest, ...bad }));
+      expect(loadTuning("bad")?.anchor).toBeNull();
+    }
   });
 
   it("returns null for an unknown fingerprint", () => {

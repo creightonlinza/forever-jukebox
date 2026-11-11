@@ -22,7 +22,7 @@ import {
   renderInstrumentalBuffer,
 } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { isStoredCopy } from "@forever-jukebox/shared/audio/renderedTrackCache";
-import type { JukeboxEngine } from "@forever-jukebox/shared";
+import { isCustomAnchorEdge, type JukeboxEngine } from "@forever-jukebox/shared";
 import type { CanonizerRenderPlan } from "@forever-jukebox/shared/autocanonizer/canonizerRenderPlan";
 import type { WubMachineRender } from "@forever-jukebox/shared/wubmachine/wubMachineRender";
 import { createSessionSeed, waitForNextPaint } from "./browser";
@@ -321,7 +321,11 @@ export function useAudioExport({
         config: engine.getConfig(),
         deletedEdges,
         userAnchorEdge: anchorEdge
-          ? { src: anchorEdge.src.which, dest: anchorEdge.dest.which }
+          ? {
+              src: anchorEdge.src.which,
+              dest: anchorEdge.dest.which,
+              custom: isCustomAnchorEdge(anchorEdge),
+            }
           : null,
         durationSeconds,
         format: exportForm.format,

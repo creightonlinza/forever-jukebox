@@ -68,6 +68,7 @@ import {
   setWubMachineAnalysis,
 } from "./wubmachine";
 import { stopPlayback } from "./transport";
+import { discardCustomAnchorEdit } from "./custom-anchor";
 import {
   applyAnchorBranchFromUrl,
   applyDeletedEdgesFromUrl,
@@ -150,6 +151,7 @@ export function resetForNewTrack(
   options?: { clearTuning?: boolean },
 ) {
   bumpLoadGeneration();
+  discardCustomAnchorEdit(context);
   const {
     autocanonizer,
     cowbellOverlay,

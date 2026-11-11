@@ -261,7 +261,23 @@
     "wubMachineReady": "Remix de Wub Machine listo.",
     "wubMachineFailed": "El remix de Wub Machine falló. Pulsa reproducir para reintentar.",
     "wubMachineFailedStatus": "El remix de Wub Machine falló.",
-    "loopTrack": "Repetir la canción"
+    "loopTrack": "Repetir la canción",
+    "setCustomAnchor": "Fijar ancla personalizada",
+    "customAnchorTitle": "Ancla personalizada",
+    "customAnchorFrom": "Salta desde",
+    "customAnchorTo": "Aterriza en",
+    "customAnchorBeat": "Pulso {{beat}} · {{time}}",
+    "customAnchorLoop": "{{beats}} pulsos · {{time}}",
+    "customAnchorHint": "Arrastra los puntos. Las flechas mueven el extremo seleccionado; Shift mueve un compás.",
+    "customAnchorReset": "Restablecer",
+    "customAnchorDone": "Listo",
+    "customAnchorStatsTitle": "Estadísticas del ancla personalizada",
+    "customAnchorLoopBars": "{{bars}} compases · {{beats}} pulsos · {{time}}",
+    "customAnchorLoopLabel": "Bucle",
+    "customAnchorMatch": "Coincidencia",
+    "customAnchorBarPosition": "Posición en el compás",
+    "customAnchorSnap": "Ajustar",
+    "customAnchorSnapHint": "Mueve el extremo seleccionado al pulso más parecido dentro de un compás"
   },
   "audioModes": {
     "nightcore": "Nightcore",
@@ -299,7 +315,8 @@
     "audioMode": "Modo de audio",
     "audioIntensity": "Intensidad",
     "playbackStyles": "Estilos de reproducción",
-    "remixToys": "Herramientas de remix"
+    "remixToys": "Herramientas de remix",
+    "customAnchor": "Editor de ancla personalizada"
   },
   "settings": {
     "title": "Configuración",
@@ -353,6 +370,8 @@
     "freezeAction": "Congelar en el beat actual",
     "anchor": "A:",
     "anchorAction": "Establecer/restablecer rama ancla seleccionada",
+    "customAnchor": "Editor de ancla:",
+    "customAnchorAction": "Izquierda/Derecha mueven el extremo seleccionado, Shift mueve un compás; Enter o Esc lo cierran",
     "delete": "Eliminar:",
     "deleteAction": "Eliminar rama seleccionada",
     "extras": "E:",

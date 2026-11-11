@@ -3,6 +3,13 @@ export const EDGE_SELECT_RADIUS_PX = 8;
 export const MAX_EDGE_SAMPLES = 300;
 export const MAX_EDGES_BASE = 2500;
 export const BEAT_AVOID_RADIUS_PX = 6;
+export const ANCHOR_HIGHLIGHT_COLOR = "#ff2d2d";
+// Custom anchor match quality; poor keeps the anchor red.
+export const ANCHOR_MATCH_COLORS = {
+  good: "#3ddc84",
+  fair: "#ffb020",
+  poor: ANCHOR_HIGHLIGHT_COLOR,
+} as const;
 export const VISUALIZATION_LABELS = [
   "Arc",
   "Classic",

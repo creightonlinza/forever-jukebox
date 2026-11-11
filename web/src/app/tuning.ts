@@ -3,7 +3,10 @@ import { isInstrumentalModeAvailable } from "@forever-jukebox/shared/audio/instr
 import { useAppStore } from "./store";
 import {
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
+  formatAnchorParam,
+  parseAnchorParam,
   parsePinnedThreshold,
+  type AnchorParam,
   type JukeboxConfig,
 } from "@forever-jukebox/shared";
 import {
@@ -103,21 +106,14 @@ function parseDeletedEdgeIds(raw: string | null): number[] {
     .filter((value) => Number.isFinite(value) && value >= 0);
 }
 
-function parseAnchorBranchId(raw: string | null): number | null {
-  const parsed = Number.parseInt(raw ?? "", 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-}
-
 export function getDeletedEdgeIdsFromUrl(): number[] {
   return parseDeletedEdgeIds(
     new URLSearchParams(window.location.search).get("d"),
   );
 }
 
-export function getAnchorBranchIdFromUrl(): number | null {
-  return parseAnchorBranchId(
-    new URLSearchParams(window.location.search).get("ab"),
-  );
+export function getAnchorParamFromUrl(): AnchorParam | null {
+  return parseAnchorParam(new URLSearchParams(window.location.search).get("ab"));
 }
 
 export function getTuningParamsStringFromUrl(): string | null {
@@ -136,7 +132,7 @@ type ParsedTuning = {
   audioMode: JukeboxAudioMode | null;
   audioIntensity: number;
   deletedEdgeIds: number[];
-  anchorBranchId: number | null;
+  anchor: AnchorParam | null;
 };
 
 // The one parser for stored/URL tuning params: absent fields fall back to the
@@ -196,7 +192,7 @@ function parseTuningParams(
     audioMode,
     audioIntensity,
     deletedEdgeIds: parseDeletedEdgeIds(params.get("d")),
-    anchorBranchId: parseAnchorBranchId(params.get("ab")),
+    anchor: parseAnchorParam(params.get("ab")),
   };
 }
 
@@ -247,7 +243,7 @@ function buildTuningParams(state: {
   config: JukeboxConfig;
   defaults: JukeboxConfig;
   deletedEdgeIds: number[];
-  anchorBranchId: number | null;
+  anchor: AnchorParam | null;
   audioMode: JukeboxAudioMode;
   audioIntensity: number;
 }): URLSearchParams {
@@ -298,8 +294,8 @@ function buildTuningParams(state: {
   if (deletedIds.length > 0) {
     params.set("d", deletedIds.join(","));
   }
-  if (state.anchorBranchId !== null) {
-    params.set("ab", `${state.anchorBranchId}`);
+  if (state.anchor !== null) {
+    params.set("ab", formatAnchorParam(state.anchor));
   }
   appendAudioModeParams(params, state.audioMode, state.audioIntensity);
   return params;
@@ -314,7 +310,7 @@ export function getTuningParamsFromEngine(context: AppContext): URLSearchParams 
     deletedEdgeIds: graph
       ? graph.allEdges.filter((edge) => edge.deleted).map((edge) => edge.id)
       : useAppStore.getState().deletedEdgeIds,
-    anchorBranchId: context.engine.getUserAnchorEdgeId?.() ?? null,
+    anchor: context.engine.getAnchorParam?.() ?? null,
     audioMode: jukeboxAudioMode,
     audioIntensity,
   });
@@ -336,7 +332,7 @@ export function canonicalizeTuningParams(
     config: parsed.config,
     defaults,
     deletedEdgeIds: parsed.deletedEdgeIds,
-    anchorBranchId: parsed.anchorBranchId,
+    anchor: parsed.anchor,
     audioMode: parsed.audioMode ?? "off",
     audioIntensity: parsed.audioIntensity,
   });

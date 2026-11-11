@@ -1,3 +1,4 @@
+import { beatPairDistance } from "./graph";
 import { Edge, JukeboxConfig, JukeboxGraphState, QuantumBase } from "./types";
 
 export interface BranchState {
@@ -8,6 +9,156 @@ export interface BranchState {
 export interface UserAnchorSelection {
   edgeId: number;
   sourceIndex: number;
+}
+
+// Real edge ids are array indexes, so a negative id never collides with one.
+export const CUSTOM_ANCHOR_EDGE_ID = -1;
+export function isCustomAnchorEdge(edge: Pick<Edge, "id">): boolean {
+  return edge.id === CUSTOM_ANCHOR_EDGE_ID;
+}
+
+// Shorter loops sit next to freeze-beat territory and restart the player too often.
+export const MIN_CUSTOM_ANCHOR_GAP = 4;
+
+export interface CustomAnchor {
+  src: number;
+  dest: number;
+}
+
+// A custom anchor always jumps backward, so it always closes a loop.
+export function isValidCustomAnchor(
+  beatCount: number,
+  src: number,
+  dest: number,
+): boolean {
+  return (
+    Number.isInteger(src) &&
+    Number.isInteger(dest) &&
+    dest >= 0 &&
+    src < beatCount &&
+    src - dest >= MIN_CUSTOM_ANCHOR_GAP
+  );
+}
+
+// The synthetic edge for a custom pair; it lives only in its source beat's neighbors.
+export function createCustomAnchorEdge(
+  beats: readonly QuantumBase[],
+  anchor: CustomAnchor,
+): Edge | null {
+  if (!isValidCustomAnchor(beats.length, anchor.src, anchor.dest)) {
+    return null;
+  }
+  const src = beats[anchor.src];
+  const dest = beats[anchor.dest];
+  return {
+    id: CUSTOM_ANCHOR_EDGE_ID,
+    src,
+    dest,
+    distance: beatPairDistance(src, dest),
+    deleted: false,
+  };
+}
+
+// The `ab` tuning value: a pinned branch id ("12") or a custom beat pair ("289-23").
+export type AnchorParam = { edgeId: number } | { custom: CustomAnchor };
+
+export function parseAnchorParam(raw: string | null | undefined): AnchorParam | null {
+  const value = raw?.trim() ?? "";
+  if (/^\d{1,9}$/.test(value)) {
+    return { edgeId: Number.parseInt(value, 10) };
+  }
+  const pair = /^(\d{1,7})-(\d{1,7})$/.exec(value);
+  if (!pair) {
+    return null;
+  }
+  const src = Number.parseInt(pair[1], 10);
+  const dest = Number.parseInt(pair[2], 10);
+  // Beat count is unknown here; the engine checks the range against the loaded track.
+  return isValidCustomAnchor(Number.MAX_SAFE_INTEGER, src, dest)
+    ? { custom: { src, dest } }
+    : null;
+}
+
+export function formatAnchorParam(param: AnchorParam): string {
+  return "edgeId" in param
+    ? `${param.edgeId}`
+    : `${param.custom.src}-${param.custom.dest}`;
+}
+
+export type CustomAnchorEnd = "src" | "dest";
+
+// Moves one end toward index, stopping at the minimum gap so the ends never cross.
+export function moveCustomAnchorEnd(
+  beatCount: number,
+  anchor: CustomAnchor,
+  end: CustomAnchorEnd,
+  index: number,
+): CustomAnchor {
+  if (end === "src") {
+    const min = anchor.dest + MIN_CUSTOM_ANCHOR_GAP;
+    return { src: Math.max(min, Math.min(index, beatCount - 1)), dest: anchor.dest };
+  }
+  const max = anchor.src - MIN_CUSTOM_ANCHOR_GAP;
+  return { src: anchor.src, dest: Math.max(0, Math.min(index, max)) };
+}
+
+const DEFAULT_BEATS_PER_BAR = 4;
+
+function beatsPerBarAt(beats: readonly QuantumBase[], index: number): number {
+  return beats[index]?.parent?.children?.length || DEFAULT_BEATS_PER_BAR;
+}
+
+// The pair an editor opens on: the anchor in force, else the widest loop; null when the track is too short.
+export function startingCustomAnchor(
+  active: CustomAnchor | null,
+  beatCount: number,
+): CustomAnchor | null {
+  if (active && isValidCustomAnchor(beatCount, active.src, active.dest)) {
+    return active;
+  }
+  return beatCount > MIN_CUSTOM_ANCHOR_GAP ? { src: beatCount - 1, dest: 0 } : null;
+}
+
+// Moves one end by one beat, or by one bar of the beat it starts on.
+export function nudgeCustomAnchorEnd(
+  beats: readonly QuantumBase[],
+  anchor: CustomAnchor,
+  end: CustomAnchorEnd,
+  direction: -1 | 1,
+  byBar: boolean,
+): CustomAnchor {
+  const from = anchor[end];
+  const step = byBar ? beatsPerBarAt(beats, from) : 1;
+  return moveCustomAnchorEnd(beats.length, anchor, end, from + direction * step);
+}
+
+// Moves one end to its lowest-distance beat within one bar either side; ties keep the nearer beat.
+export function snapCustomAnchorEnd(
+  beats: readonly QuantumBase[],
+  anchor: CustomAnchor,
+  end: CustomAnchorEnd,
+): CustomAnchor {
+  const from = anchor[end];
+  const radius = beatsPerBarAt(beats, from);
+  let best = anchor;
+  let bestDistance = beatPairDistance(beats[anchor.src], beats[anchor.dest]);
+  let bestOffset = 0;
+  for (let offset = -radius; offset <= radius; offset += 1) {
+    const candidate = moveCustomAnchorEnd(beats.length, anchor, end, from + offset);
+    if (candidate[end] !== from + offset) {
+      continue;
+    }
+    const distance = beatPairDistance(beats[candidate.src], beats[candidate.dest]);
+    if (
+      distance < bestDistance ||
+      (distance === bestDistance && Math.abs(offset) < Math.abs(bestOffset))
+    ) {
+      best = candidate;
+      bestDistance = distance;
+      bestOffset = offset;
+    }
+  }
+  return best;
 }
 
 // A pinned anchor edge only takes effect while it survives deletion and

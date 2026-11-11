@@ -71,6 +71,8 @@ type MockJukeboxControllerInstance = {
   setSelectedEdgeActive: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
   refresh: ReturnType<typeof vi.fn>;
+  setAnchorEdit: ReturnType<typeof vi.fn>;
+  setOnAnchorEditCommit: ReturnType<typeof vi.fn>;
 };
 const jukeboxControllerInstances: MockJukeboxControllerInstance[] = [];
 type MockEngineInstance = {
@@ -102,6 +104,8 @@ const engineInstances: MockEngineInstance[] = [];
 // Edges the mock engine reports from getVisualizationData; set before
 // renderListen so they are picked up when the route syncs viz data on load.
 let mockVizEdges: unknown[] = [];
+// Beats the engine mock reports to the viz; null falls back to the analysis beats.
+let mockVizBeats: typeof mockAnalysis.beats | null = null;
 
 const ARC_VIZ_INDEX = VISUALIZATION_LABELS.indexOf("Arc");
 
@@ -374,6 +378,10 @@ vi.mock("@forever-jukebox/shared", async (importOriginal) => ({
     setUserAnchorEdge = vi.fn();
     getUserAnchorEdgeId = vi.fn(() => null);
     getUserAnchorEdge = vi.fn(() => null);
+    getAnchorParam = vi.fn((): unknown => null);
+    applyAnchorParam = vi.fn(() => false);
+    getActiveAnchor = vi.fn((): unknown => null);
+    setCustomAnchor = vi.fn(() => true);
     deleteEdge = vi.fn();
     rebuildGraph = vi.fn();
     clearDeletedEdges = vi.fn();
@@ -405,7 +413,7 @@ vi.mock("@forever-jukebox/shared", async (importOriginal) => ({
     }
     getVisualizationData() {
       return {
-        beats: this.analysis?.beats ?? [],
+        beats: mockVizBeats ?? this.analysis?.beats ?? [],
         edges: mockVizEdges,
       };
     }
@@ -434,6 +442,9 @@ vi.mock("@forever-jukebox/shared/viz/JukeboxController", () => ({
     }
     setSelectedEdge = vi.fn((_edge: unknown) => undefined);
     setSelectedEdgeActive = vi.fn((_edge: unknown) => undefined);
+    setAnchorEdit = vi.fn((_state: unknown) => undefined);
+    setOnAnchorEditChange = vi.fn((_handler: unknown) => undefined);
+    setOnAnchorEditCommit = vi.fn((_handler: unknown) => undefined);
     update = vi.fn(
       (_index: number, _animate: boolean, _jumpFrom: number | null) => undefined,
     );
@@ -704,6 +715,7 @@ describe("Listen route behavior", () => {
     jukeboxControllerInstances.length = 0;
     engineInstances.length = 0;
     mockVizEdges = [];
+    mockVizBeats = null;
     mockAppState.file = new File([new Uint8Array([1, 2, 3])], "song.wav", {
       lastModified: 1234,
     });
@@ -2290,6 +2302,81 @@ describe("Listen route behavior", () => {
     const toasts = rendered.container.querySelectorAll(".toast");
     expect(toasts).toHaveLength(1);
     expect(toasts[0]?.textContent).toBe("Play velocity: +3");
+    rendered.unmount();
+  });
+
+  async function openCustomAnchorEditor() {
+    window.localStorage.setItem("fj-custom-anchor-enabled", "1");
+    mockVizBeats = Array.from({ length: 32 }, (_, which) => ({
+      which,
+      start: which,
+      duration: 1,
+      confidence: 1,
+      neighbors: [],
+      overlappingSegments: [],
+    }));
+    const rendered = renderListen();
+    await settleEffects();
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0] as unknown as {
+      getActiveAnchor: ReturnType<typeof vi.fn>;
+      getAnchorParam: ReturnType<typeof vi.fn>;
+      setCustomAnchor: ReturnType<typeof vi.fn>;
+      setForceBranch: ReturnType<typeof vi.fn>;
+    };
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
+    engine.getActiveAnchor.mockReturnValue({ src: 20, dest: 5 });
+    await click(getRequired<HTMLButtonElement>(rendered.container, "#custom-anchor-start"));
+    return { rendered, controller, engine };
+  }
+
+  it("opens the custom anchor editor, saves a dragged pair as ab, and closes on Escape", async () => {
+    const { rendered, controller, engine } = await openCustomAnchorEditor();
+    expect(controller.setAnchorEdit).toHaveBeenLastCalledWith({ src: 20, dest: 5, active: "src" });
+    expect(rendered.container.querySelector("#custom-anchor-toolbar")).not.toBeNull();
+    expect(rendered.container.querySelector("#viz-select")).toBeNull();
+
+    engine.getAnchorParam.mockReturnValue({ custom: { src: 24, dest: 5 } });
+    const commit = controller.setOnAnchorEditCommit.mock.calls.at(-1)?.[0] as (state: unknown) => void;
+    await act(async () => {
+      commit({ src: 24, dest: 5, active: "src" });
+    });
+    expect(engine.setCustomAnchor).toHaveBeenCalledWith(24, 5);
+    const savedKey = Object.keys(window.localStorage).find((key) => key.startsWith("fj-tuning:"));
+    expect(savedKey).toBeDefined();
+    expect(JSON.parse(window.localStorage.getItem(savedKey!)!).anchor).toBe("24-5");
+
+    await keydown("Escape", "Escape");
+    expect(rendered.container.querySelector("#custom-anchor-toolbar")).toBeNull();
+    expect(controller.setAnchorEdit).toHaveBeenLastCalledWith(null);
+    rendered.unmount();
+  });
+
+  it("nudges the selected end with arrows and keeps Shift from force-branching while editing", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { rendered, controller, engine } = await openCustomAnchorEditor();
+
+    await keydown("ArrowRight", "ArrowRight");
+    expect(controller.setAnchorEdit).toHaveBeenLastCalledWith({ src: 21, dest: 5, active: "src" });
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowLeft", code: "ArrowLeft", shiftKey: true }),
+      );
+    });
+    expect(controller.setAnchorEdit).toHaveBeenLastCalledWith({ src: 17, dest: 5, active: "src" });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(engine.setCustomAnchor).toHaveBeenLastCalledWith(17, 5);
+
+    engine.setForceBranch.mockClear();
+    await keydown("Shift", "ShiftLeft");
+    expect(engine.setForceBranch).not.toHaveBeenCalledWith(true);
+
+    await keydown("Enter", "Enter");
+    expect(rendered.container.querySelector("#custom-anchor-toolbar")).toBeNull();
     rendered.unmount();
   });
 

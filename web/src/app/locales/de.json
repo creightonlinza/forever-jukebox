@@ -261,7 +261,23 @@
     "wubMachineReady": "Wub-Machine-Remix bereit.",
     "wubMachineFailed": "Wub-Machine-Remix fehlgeschlagen. Zum erneuten Versuch auf Play drücken.",
     "wubMachineFailedStatus": "Wub-Machine-Remix fehlgeschlagen.",
-    "loopTrack": "Song wiederholen"
+    "loopTrack": "Song wiederholen",
+    "setCustomAnchor": "Eigenen Anker setzen",
+    "customAnchorTitle": "Eigener Anker",
+    "customAnchorFrom": "Springt von",
+    "customAnchorTo": "Landet auf",
+    "customAnchorBeat": "Beat {{beat}} · {{time}}",
+    "customAnchorLoop": "{{beats}} Beats · {{time}}",
+    "customAnchorHint": "Ziehe die Punkte. Pfeiltasten bewegen das gewählte Ende; Shift bewegt einen Takt.",
+    "customAnchorReset": "Zurücksetzen",
+    "customAnchorDone": "Fertig",
+    "customAnchorStatsTitle": "Statistik des eigenen Ankers",
+    "customAnchorLoopBars": "{{bars}} Takte · {{beats}} Beats · {{time}}",
+    "customAnchorLoopLabel": "Schleife",
+    "customAnchorMatch": "Übereinstimmung",
+    "customAnchorBarPosition": "Position im Takt",
+    "customAnchorSnap": "Einrasten",
+    "customAnchorSnapHint": "Setzt das gewählte Ende auf den passendsten Beat innerhalb eines Takts"
   },
   "audioModes": {
     "nightcore": "Nightcore",
@@ -299,7 +315,8 @@
     "audioMode": "Audio-Modus",
     "audioIntensity": "Intensität",
     "playbackStyles": "Wiedergabestile",
-    "remixToys": "Remix-Spielzeuge"
+    "remixToys": "Remix-Spielzeuge",
+    "customAnchor": "Editor für eigenen Anker"
   },
   "settings": {
     "title": "Einstellungen",
@@ -353,6 +370,8 @@
     "freezeAction": "Auf dem aktuellen Beat einfrieren",
     "anchor": "A:",
     "anchorAction": "Ausgewählten Anker-Sprungpfad festlegen/zurücksetzen",
+    "customAnchor": "Anker-Editor:",
+    "customAnchorAction": "Links/Rechts bewegen das gewählte Ende, Shift einen Takt; Enter oder Esc schließt",
     "delete": "Entf:",
     "deleteAction": "Einen ausgewählten Sprungpfad entfernen",
     "extras": "E:",

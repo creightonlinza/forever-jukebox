@@ -203,6 +203,49 @@ describe("planJukeboxPath", () => {
     ).toBe(true);
   });
 
+  it("forces a custom anchor pair that has no edge in the graph", () => {
+    const analysis = createAnalysis(48, 0.5);
+    const noRandomConfig: JukeboxConfig = {
+      ...baseConfig,
+      minRandomBranchChance: 0,
+      maxRandomBranchChance: 0,
+      randomBranchChanceDelta: 0,
+    };
+    const planned = planJukeboxPath({
+      analysis,
+      bufferDurationSeconds: 24,
+      durationSeconds: 30,
+      config: noRandomConfig,
+      randomMode: "seeded",
+      seed: 5,
+      userAnchorEdge: { src: 30, dest: 9, custom: true },
+    });
+
+    const anchorJumps = planned.segments.filter(
+      (segment) => segment.jumped && segment.jumpFromIndex === 30,
+    );
+    expect(anchorJumps.length).toBeGreaterThan(0);
+    expect(anchorJumps.every((segment) => segment.beatIndex === 9)).toBe(true);
+  });
+
+  it("ignores a custom anchor pair that is not a backward loop", () => {
+    const analysis = createAnalysis(48, 0.5);
+    const options = {
+      analysis,
+      bufferDurationSeconds: 24,
+      durationSeconds: 10,
+      config: baseConfig,
+      randomMode: "seeded" as const,
+      seed: 5,
+    };
+    const baseline = planJukeboxPath(options);
+    const forward = planJukeboxPath({
+      ...options,
+      userAnchorEdge: { src: 9, dest: 30, custom: true },
+    });
+    expect(forward.segments).toEqual(baseline.segments);
+  });
+
   it("repoints the forced anchor branch when its edges are deleted", () => {
     const analysis = createAnalysis(48, 0.5);
     const noRandomConfig: JukeboxConfig = {

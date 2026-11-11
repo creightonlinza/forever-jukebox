@@ -1,7 +1,10 @@
 import {
   DEFAULT_JUKEBOX_CONFIG,
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
+  formatAnchorParam,
+  parseAnchorParam,
   parsePinnedThreshold,
+  type AnchorParam,
   type JukeboxConfig,
 } from "@forever-jukebox/shared";
 
@@ -28,8 +31,24 @@ export type SavedTuning = {
   v: 1;
   config: SavedTuningConfig;
   deletedEdgeIds: number[];
-  anchorEdgeId: number | null;
+  anchor: AnchorParam | null;
 };
+
+// Stored form: the anchor as its `ab` string; older saves carry a numeric anchorEdgeId instead.
+type StoredTuning = Omit<SavedTuning, "anchor"> & {
+  anchor?: unknown;
+  anchorEdgeId?: unknown;
+};
+
+function readAnchor(stored: Partial<StoredTuning>): AnchorParam | null {
+  if (typeof stored.anchor === "string") {
+    return parseAnchorParam(stored.anchor);
+  }
+  const legacyId = stored.anchorEdgeId;
+  return typeof legacyId === "number" && Number.isInteger(legacyId) && legacyId >= 0
+    ? { edgeId: legacyId }
+    : null;
+}
 
 function keyFor(fingerprint: string) {
   return `${PREFIX}${fingerprint}`;
@@ -114,7 +133,7 @@ export function loadTuning(fingerprint: string): SavedTuning | null {
     return null;
   }
   try {
-    const parsed = JSON.parse(raw) as Partial<SavedTuning>;
+    const parsed = JSON.parse(raw) as Partial<StoredTuning>;
     if (
       parsed?.v !== 1 ||
       typeof parsed.config !== "object" ||
@@ -127,16 +146,11 @@ export function loadTuning(fingerprint: string): SavedTuning | null {
           (id): id is number => typeof id === "number" && Number.isFinite(id),
         )
       : [];
-    const anchorEdgeId =
-      typeof parsed.anchorEdgeId === "number" &&
-      Number.isFinite(parsed.anchorEdgeId)
-        ? parsed.anchorEdgeId
-        : null;
     return {
       v: 1,
       config: normalizeConfig(parsed.config as Record<string, unknown>),
       deletedEdgeIds,
-      anchorEdgeId,
+      anchor: readAnchor(parsed),
     };
   } catch {
     return null;
@@ -145,7 +159,11 @@ export function loadTuning(fingerprint: string): SavedTuning | null {
 
 export function saveTuning(fingerprint: string, tuning: SavedTuning): void {
   try {
-    window.localStorage.setItem(keyFor(fingerprint), JSON.stringify(tuning));
+    const stored: StoredTuning = {
+      ...tuning,
+      anchor: tuning.anchor ? formatAnchorParam(tuning.anchor) : null,
+    };
+    window.localStorage.setItem(keyFor(fingerprint), JSON.stringify(stored));
   } catch {
     // Ignore storage failures.
   }

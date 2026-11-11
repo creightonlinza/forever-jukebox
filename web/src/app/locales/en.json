@@ -261,7 +261,23 @@
     "wubMachineReady": "Wub Machine remix ready.",
     "wubMachineFailed": "The Wub Machine remix failed. Press play to try again.",
     "wubMachineFailedStatus": "Wub Machine remix failed.",
-    "loopTrack": "Loop the track"
+    "loopTrack": "Loop the track",
+    "setCustomAnchor": "Set custom anchor",
+    "customAnchorTitle": "Custom anchor",
+    "customAnchorFrom": "Jump from",
+    "customAnchorTo": "Land on",
+    "customAnchorBeat": "Beat {{beat}} · {{time}}",
+    "customAnchorLoop": "{{beats}} beats · {{time}}",
+    "customAnchorHint": "Drag the dots. Arrow keys move the selected end; Shift moves a bar.",
+    "customAnchorReset": "Reset",
+    "customAnchorDone": "Done",
+    "customAnchorStatsTitle": "Custom anchor stats",
+    "customAnchorLoopBars": "{{bars}} bars · {{beats}} beats · {{time}}",
+    "customAnchorLoopLabel": "Loop",
+    "customAnchorMatch": "Match",
+    "customAnchorBarPosition": "Bar position",
+    "customAnchorSnap": "Snap",
+    "customAnchorSnapHint": "Move the selected end to the best-matching beat within one bar"
   },
   "audioModes": {
     "nightcore": "Nightcore",
@@ -299,7 +315,8 @@
     "audioMode": "Audio Mode",
     "audioIntensity": "Intensity",
     "playbackStyles": "Playback Styles",
-    "remixToys": "Remix Toys"
+    "remixToys": "Remix Toys",
+    "customAnchor": "Custom anchor editor"
   },
   "settings": {
     "title": "Settings",
@@ -353,6 +370,8 @@
     "freezeAction": "Freeze on the current beat",
     "anchor": "A:",
     "anchorAction": "Set/reset selected anchor branch",
+    "customAnchor": "Anchor editor:",
+    "customAnchorAction": "Left/Right move the selected end, Shift moves a bar; Enter or Esc closes",
     "delete": "Delete:",
     "deleteAction": "Remove a selected branch",
     "extras": "E:",

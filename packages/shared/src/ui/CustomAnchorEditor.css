@@ -1,0 +1,116 @@
+/* Custom anchor editor controls; theme variables come from each app. */
+.custom-anchor-button {
+  border: 1px solid var(--border-control);
+  background: var(--surface-panel);
+  color: var(--text);
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.custom-anchor-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Matches the viz-select box so the viz-top row, and with it the canvas, keeps its height. */
+.custom-anchor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.custom-anchor-end,
+.custom-anchor-actions button {
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  background: var(--surface-panel);
+  color: var(--text);
+  font-size: 12px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.custom-anchor-end.is-active,
+.custom-anchor-actions button.is-primary {
+  border-color: var(--accent);
+}
+
+.custom-anchor-label {
+  color: var(--muted);
+}
+
+/* Same colours as the handles on the canvas. */
+.custom-anchor-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 50%;
+  vertical-align: 0;
+}
+
+.custom-anchor-dot.is-dest {
+  background: var(--beat-highlight);
+}
+
+/* The dot alone names each end on a phone, so the row fits without wrapping. */
+@media (max-width: 600px) {
+  .custom-anchor-label {
+    display: none;
+  }
+
+  .custom-anchor-end,
+  .custom-anchor-actions button {
+    padding: 4px 8px;
+  }
+}
+
+.custom-anchor-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* Sits in the branch-stats corner (cleared while editing) and passes pointer events to the canvas. */
+.custom-anchor-info {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  z-index: 4;
+  min-width: 160px;
+  border: 1px solid var(--border-panel);
+  border-left: 3px solid;
+  border-radius: 8px;
+  background: var(--viz-overlay);
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.custom-anchor-info-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.custom-anchor-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.custom-anchor-info-label {
+  color: var(--muted);
+}
+
+.custom-anchor-info-warn {
+  color: var(--danger);
+}

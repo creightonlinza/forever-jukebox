@@ -79,6 +79,59 @@ function getSegmentDistance(seg1: Segment, seg2: Segment): number {
   );
 }
 
+// The branch distance between two beats: segment likeness plus 100 when their positions in the bar differ.
+export function beatPairDistance(q1: QuantumBase, q2: QuantumBase): number {
+  if (q1.overlappingSegments.length === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  let sum = 0;
+  for (let j = 0; j < q1.overlappingSegments.length; j += 1) {
+    const seg1 = q1.overlappingSegments[j];
+    let distance = 100;
+    if (j < q2.overlappingSegments.length) {
+      const seg2 = q2.overlappingSegments[j];
+      if (seg1.which !== seg2.which) {
+        distance = getSegmentDistance(seg1, seg2);
+      }
+    }
+    sum += distance;
+  }
+  const pdistance =
+    q1.indexInParent !== undefined &&
+    q2.indexInParent !== undefined &&
+    q1.indexInParent === q2.indexInParent
+      ? 0
+      : 100;
+  return sum / q1.overlappingSegments.length + pdistance;
+}
+
+export type BeatPairMatch = {
+  distance: number;
+  // Branch-stats scale: 100 at distance 0, 0 at MAX_THRESHOLD or beyond.
+  percent: number;
+  sameBarPosition: boolean;
+  quality: "good" | "fair" | "poor";
+};
+
+const GOOD_MATCH_PERCENT = 50;
+const FAIR_MATCH_PERCENT = 25;
+
+export function beatPairMatch(q1: QuantumBase, q2: QuantumBase): BeatPairMatch {
+  const distance = beatPairDistance(q1, q2);
+  const percent = Number.isFinite(distance)
+    ? Math.round(Math.max(0, 1 - distance / MAX_THRESHOLD) * 100)
+    : 0;
+  const sameBarPosition =
+    q1.indexInParent !== undefined && q1.indexInParent === q2.indexInParent;
+  let quality: BeatPairMatch["quality"] = "poor";
+  if (sameBarPosition && percent >= GOOD_MATCH_PERCENT) {
+    quality = "good";
+  } else if (sameBarPosition && percent >= FAIR_MATCH_PERCENT) {
+    quality = "fair";
+  }
+  return { distance, percent, sameBarPosition, quality };
+}
+
 function calculateNearestNeighborsForQuantum(
   quanta: QuantumBase[],
   maxNeighbors: number,
@@ -98,27 +151,7 @@ function calculateNearestNeighborsForQuantum(
     }
 
     const q2 = quanta[i];
-    let sum = 0;
-    for (let j = 0; j < q1.overlappingSegments.length; j += 1) {
-      const seg1 = q1.overlappingSegments[j];
-      let distance = 100;
-      if (j < q2.overlappingSegments.length) {
-        const seg2 = q2.overlappingSegments[j];
-        if (seg1.which !== seg2.which) {
-          distance = getSegmentDistance(seg1, seg2);
-        }
-      }
-      sum += distance;
-    }
-
-    const pdistance =
-      q1.indexInParent !== undefined &&
-      q2.indexInParent !== undefined &&
-      q1.indexInParent === q2.indexInParent
-        ? 0
-        : 100;
-
-    const totalDistance = sum / q1.overlappingSegments.length + pdistance;
+    const totalDistance = beatPairDistance(q1, q2);
     if (totalDistance < maxThreshold) {
       edges.push({
         id: -1,

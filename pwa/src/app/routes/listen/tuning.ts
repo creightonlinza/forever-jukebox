@@ -8,6 +8,7 @@ export const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
 export type ExtrasFormState = {
   branchStatsEnabled: boolean;
   bringItHomeMode: boolean;
+  customAnchorEnabled: boolean;
   audioMode: JukeboxAudioMode;
   audioIntensity: number;
 };

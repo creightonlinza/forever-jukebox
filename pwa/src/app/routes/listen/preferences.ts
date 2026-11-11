@@ -16,6 +16,7 @@ const WUB_MACHINE_LOOP_STORAGE_KEY = "fj-wub-machine-loop";
 const VISUALIZATION_STORAGE_KEY = "fj-viz";
 const ANCHOR_HIGHLIGHT_STORAGE_KEY = "fj-highlight-anchor-branch";
 const BRANCH_STATS_STORAGE_KEY = "fj-branch-stats-enabled";
+const CUSTOM_ANCHOR_STORAGE_KEY = "fj-custom-anchor-enabled";
 
 export function coerceVisualizationIndex(index: number) {
   if (
@@ -73,6 +74,14 @@ export function storeAnchorHighlight(enabled: boolean) {
 
 export function storeBranchStatsEnabled(enabled: boolean) {
   safeLocalStorageSet(BRANCH_STATS_STORAGE_KEY, enabled ? "1" : "0");
+}
+
+export function resolveStoredCustomAnchorEnabled(): boolean {
+  return safeLocalStorageGet(CUSTOM_ANCHOR_STORAGE_KEY) === "1";
+}
+
+export function storeCustomAnchorEnabled(enabled: boolean) {
+  safeLocalStorageSet(CUSTOM_ANCHOR_STORAGE_KEY, enabled ? "1" : "0");
 }
 
 export function resolveStoredVolume(): number {

@@ -4,6 +4,7 @@ import type { Edge, JukeboxEngine } from "@forever-jukebox/shared";
 import { isEditableTarget } from "./browser";
 import { formatPlayVelocity } from "./labels";
 import type { PlayMode, TuningModalTab } from "./types";
+import type { CustomAnchorEditor } from "./useCustomAnchorEditor";
 
 // Global keyboard shortcuts for the listen route. The effect re-registers
 // on every dep change and its cleanup releases the held modifier modes.
@@ -26,6 +27,7 @@ export function useListenHotkeys({
   selectAdjacentBranch,
   deleteSelectedBranch,
   toggleSelectedAnchorBranch,
+  customAnchor,
 }: {
   isActive: boolean;
   playMode: PlayMode;
@@ -45,6 +47,8 @@ export function useListenHotkeys({
   selectAdjacentBranch: (direction: -1 | 1) => void;
   deleteSelectedBranch: () => void;
   toggleSelectedAnchorBranch: () => boolean;
+  // Its methods read refs, so a stale copy in the listener still acts on the current edit.
+  customAnchor: Pick<CustomAnchorEditor, "isEditing" | "nudge" | "exit">;
 }) {
   const [forceBranchActive, setForceBranchActive] = React.useState(false);
   const [freezeBeatActive, setFreezeBeatActive] = React.useState(false);
@@ -77,6 +81,23 @@ export function useListenHotkeys({
         event.preventDefault();
         togglePlayback();
         return;
+      }
+      // Arrows nudge the selected end (Shift moves a bar); Escape or Enter closes the editor.
+      if (playMode === "jukebox" && customAnchor.isEditing()) {
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          event.preventDefault();
+          customAnchor.nudge(event.key === "ArrowRight" ? 1 : -1, event.shiftKey);
+          return;
+        }
+        if (event.key === "Escape" || event.key === "Enter") {
+          event.preventDefault();
+          customAnchor.exit();
+          return;
+        }
+        // Shift is the bar modifier here, so it must not start force-branching.
+        if (event.key === "Shift") {
+          return;
+        }
       }
       if (
         playMode === "jukebox" &&

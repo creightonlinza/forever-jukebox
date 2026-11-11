@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppContext, AppState } from "./context";
+import type { AnchorParam } from "@forever-jukebox/shared";
 import type { AnalysisComplete } from "./api";
 import {
   applyExtrasChanges,
@@ -168,6 +169,31 @@ type TestAppContext = AppContext & {
   jukebox: NonNullable<AppContext["jukebox"]>;
 };
 
+// Engine mocks pin branches by id; these mirror JukeboxEngine's `ab` mapping on top of them.
+function addAnchorParamMethods(engine: AppContext["engine"]) {
+  const mock = engine as unknown as {
+    getAnchorParam?: () => AnchorParam | null;
+    applyAnchorParam?: (param: AnchorParam | null) => boolean;
+  };
+  mock.getAnchorParam ??= () => {
+    const edgeId = engine.getUserAnchorEdgeId?.() ?? null;
+    return edgeId === null ? null : { edgeId };
+  };
+  mock.applyAnchorParam ??= (param) => {
+    if (!param || !("edgeId" in param)) {
+      return false;
+    }
+    const edge = engine
+      .getGraphState?.()
+      ?.allEdges.find((candidate) => candidate.id === param.edgeId);
+    if (!edge || edge.deleted || edge.dest.which >= edge.src.which) {
+      return false;
+    }
+    engine.setUserAnchorEdge(edge);
+    return true;
+  };
+}
+
 function createContext(overrides?: Partial<AppContext>): TestAppContext {
   // the old plain-object harness defaulted the active tab to "play"
   useAppStore.setState({ activeTabId: "play" });
@@ -295,6 +321,7 @@ function createContext(overrides?: Partial<AppContext>): TestAppContext {
     defaultConfig: engineConfig as unknown as AppContext["defaultConfig"],
     ...overrides,
   } as TestAppContext;
+  addAnchorParamMethods(context.engine);
   // Flows that read the runtime singleton (e.g. setSleepTimer) resolve to this
   // test's context.
   setAppRuntime(context);

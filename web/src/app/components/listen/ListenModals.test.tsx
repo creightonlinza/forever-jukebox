@@ -60,6 +60,7 @@ const TUNING_FORM: TuningFormValues = {
 const EXTRAS_FORM: ExtrasFormValues = {
   bringItHomeMode: false,
   branchStatsEnabled: false,
+  customAnchorEnabled: false,
   audioMode: "off",
   audioIntensity: 100,
 };
