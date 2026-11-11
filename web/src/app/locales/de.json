@@ -267,11 +267,17 @@
     "customAnchorFrom": "Springt von",
     "customAnchorTo": "Landet auf",
     "customAnchorBeat": "Beat {{beat}} · {{time}}",
-    "customAnchorLoop": "Schleife: {{beats}} Beats · {{time}}",
+    "customAnchorLoop": "{{beats}} Beats · {{time}}",
     "customAnchorHint": "Ziehe die Punkte. Pfeiltasten bewegen das gewählte Ende; Shift bewegt einen Takt.",
     "customAnchorReset": "Zurücksetzen",
     "customAnchorDone": "Fertig",
-    "customAnchorStatsTitle": "Statistik des eigenen Ankers"
+    "customAnchorStatsTitle": "Statistik des eigenen Ankers",
+    "customAnchorLoopBars": "{{bars}} Takte · {{beats}} Beats · {{time}}",
+    "customAnchorLoopLabel": "Schleife",
+    "customAnchorMatch": "Übereinstimmung",
+    "customAnchorBarPosition": "Position im Takt",
+    "customAnchorSnap": "Einrasten",
+    "customAnchorSnapHint": "Setzt das gewählte Ende auf den passendsten Beat innerhalb eines Takts"
   },
   "audioModes": {
     "nightcore": "Nightcore",
@@ -364,6 +370,8 @@
     "freezeAction": "Auf dem aktuellen Beat einfrieren",
     "anchor": "A:",
     "anchorAction": "Ausgewählten Anker-Sprungpfad festlegen/zurücksetzen",
+    "customAnchor": "Anker-Editor:",
+    "customAnchorAction": "Links/Rechts bewegen das gewählte Ende, Shift einen Takt; Enter oder Esc schließt",
     "delete": "Entf:",
     "deleteAction": "Einen ausgewählten Sprungpfad entfernen",
     "extras": "E:",

@@ -3,9 +3,13 @@ import { JukeboxEngine, type JukeboxPlayer } from "./JukeboxEngine";
 import {
   CUSTOM_ANCHOR_EDGE_ID,
   isValidCustomAnchor,
+  formatAnchorParam,
   MIN_CUSTOM_ANCHOR_GAP,
+  parseAnchorParam,
   selectNextBeatIndex,
+  snapCustomAnchorEnd,
 } from "./selection";
+import { beatPairDistance, beatPairMatch } from "./graph";
 
 function makePlayer(): JukeboxPlayer & {
   setAnchorJump: ReturnType<typeof vi.fn>;
@@ -72,6 +76,94 @@ describe("isValidCustomAnchor", () => {
     expect(isValidCustomAnchor(32, 10, -1)).toBe(false);
     expect(isValidCustomAnchor(32, 10.5, 2)).toBe(false);
     expect(isValidCustomAnchor(32, Number.NaN, 2)).toBe(false);
+  });
+});
+
+describe("ab anchor param", () => {
+  it("parses a branch id and a beat pair, and formats them back", () => {
+    expect(parseAnchorParam("12")).toEqual({ edgeId: 12 });
+    expect(parseAnchorParam("289-23")).toEqual({ custom: { src: 289, dest: 23 } });
+    expect(formatAnchorParam({ edgeId: 12 })).toBe("12");
+    expect(formatAnchorParam({ custom: { src: 289, dest: 23 } })).toBe("289-23");
+  });
+
+  it("rejects forward, short, signed, partial and oversized values", () => {
+    for (const raw of ["23-289", "10-8", "-3", "3-", "12abc", "1e3", "1.5", "", null, "1234567890"]) {
+      expect(parseAnchorParam(raw)).toBeNull();
+    }
+  });
+
+  it("round-trips the engine anchor through ab", () => {
+    const { engine } = loadedEngine();
+    expect(engine.getAnchorParam()).toBeNull();
+    expect(engine.applyAnchorParam(parseAnchorParam("20-5"))).toBe(true);
+    expect(engine.getAnchorParam()).toEqual({ custom: { src: 20, dest: 5 } });
+    const backward = engine
+      .getGraphState()!
+      .allEdges.find((edge) => edge.dest.which < edge.src.which && edge.src.neighbors.includes(edge));
+    expect(backward).toBeDefined();
+    expect(engine.applyAnchorParam({ edgeId: backward!.id })).toBe(true);
+    expect(engine.getAnchorParam()).toEqual({ edgeId: backward!.id });
+    expect(engine.getCustomAnchor()).toBeNull();
+  });
+
+  it("refuses an ab value that does not fit this track", () => {
+    const { engine } = loadedEngine();
+    const forward = engine
+      .getGraphState()!
+      .allEdges.find((edge) => edge.dest.which > edge.src.which);
+    expect(engine.applyAnchorParam({ custom: { src: 99, dest: 5 } })).toBe(false);
+    expect(engine.applyAnchorParam({ edgeId: 999999 })).toBe(false);
+    if (forward) {
+      expect(engine.applyAnchorParam({ edgeId: forward.id })).toBe(false);
+    }
+    expect(engine.getAnchorParam()).toBeNull();
+  });
+});
+
+describe("beatPairMatch", () => {
+  it("uses the branch distance on the branch-stats scale, and scores a different bar position as poor", () => {
+    const { engine } = loadedEngine();
+    const beats = engine.getVisualizationData()!.beats;
+    const real = engine.getGraphState()!.allEdges[0];
+    const match = beatPairMatch(real.src, real.dest);
+    expect(match.distance).toBe(real.distance);
+    expect(match.percent).toBe(Math.round(Math.max(0, 1 - real.distance / 80) * 100));
+    expect(match.sameBarPosition).toBe(true);
+    beats[9].indexInParent = 1;
+    beats[3].indexInParent = 2;
+    const off = beatPairMatch(beats[9], beats[3]);
+    expect(off.sameBarPosition).toBe(false);
+    expect(off.percent).toBe(0);
+    expect(off.quality).toBe("poor");
+  });
+});
+
+describe("snapCustomAnchorEnd", () => {
+  it("moves the end to the lowest distance within a bar and keeps the gap", () => {
+    const beats = loadedEngine().engine.getVisualizationData()!.beats;
+    const anchor = { src: 20, dest: 10 };
+    const snapped = snapCustomAnchorEnd(beats, anchor, "dest");
+    const radius = beats[10].parent?.children?.length || 4;
+    expect(Math.abs(snapped.dest - 10)).toBeLessThanOrEqual(radius);
+    expect(snapped.src).toBe(20);
+    for (let dest = 10 - radius; dest <= 10 + radius; dest += 1) {
+      expect(beatPairDistance(beats[20], beats[snapped.dest])).toBeLessThanOrEqual(
+        beatPairDistance(beats[20], beats[dest]),
+      );
+    }
+  });
+
+  it("keeps the end when no nearby beat matches better", () => {
+    const beats = loadedEngine().engine.getVisualizationData()!.beats;
+    const first = snapCustomAnchorEnd(beats, { src: 20, dest: 10 }, "dest");
+    expect(snapCustomAnchorEnd(beats, first, "dest")).toEqual(first);
+  });
+
+  it("never moves the source closer than the minimum gap", () => {
+    const beats = loadedEngine().engine.getVisualizationData()!.beats;
+    const snapped = snapCustomAnchorEnd(beats, { src: 14, dest: 10 }, "src");
+    expect(snapped.src - snapped.dest).toBeGreaterThanOrEqual(MIN_CUSTOM_ANCHOR_GAP);
   });
 });
 
@@ -170,6 +262,16 @@ describe("JukeboxEngine custom anchor", () => {
     engine.setCustomAnchor(20, 5);
     engine.loadAnalysis(makeAnalysisPayload(32));
     expect(engine.getCustomAnchor()).toBeNull();
+  });
+
+  it("scores the custom edge with the same distance a real branch gets", () => {
+    const { engine } = loadedEngine();
+    const real = engine
+      .getGraphState()
+      ?.allEdges.find((edge) => edge.dest.which < edge.src.which - MIN_CUSTOM_ANCHOR_GAP);
+    expect(real).toBeDefined();
+    engine.setCustomAnchor(real!.src.which, real!.dest.which);
+    expect(engine.getUserAnchorEdge()?.distance).toBe(real!.distance);
   });
 
   it("keeps the custom edge when the real edge for the same pair is deleted", () => {

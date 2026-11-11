@@ -5,7 +5,10 @@ import {
   type CustomAnchor,
   type CustomAnchorEnd,
 } from "../engine/selection";
+import { beatPairMatch } from "../engine/graph";
 import {
+  ANCHOR_HIGHLIGHT_COLOR,
+  ANCHOR_MATCH_COLORS,
   BEAT_AVOID_RADIUS_PX,
   BEAT_SELECT_RADIUS_PX,
   EDGE_SELECT_RADIUS_PX,
@@ -33,7 +36,6 @@ interface VisualizationData {
   userAnchorEdgeId: number | null;
 }
 
-const ANCHOR_HIGHLIGHT_COLOR = "#ff2d2d";
 const BEAT_DOT_RADIUS_PX = 2;
 const BEAT_CURSOR_RADIUS_PX = 10;
 
@@ -189,6 +191,7 @@ class CanvasViz {
       this.overlayCanvas.addEventListener("pointerdown", this.handlePointerDown);
       this.overlayCanvas.addEventListener("pointerup", this.handlePointerUp);
       this.overlayCanvas.addEventListener("pointercancel", this.handlePointerCancel);
+      this.overlayCanvas.addEventListener("touchstart", this.handleTouchStart, { passive: false });
     }
   }
 
@@ -268,6 +271,7 @@ class CanvasViz {
     this.overlayCanvas.removeEventListener("pointerdown", this.handlePointerDown);
     this.overlayCanvas.removeEventListener("pointerup", this.handlePointerUp);
     this.overlayCanvas.removeEventListener("pointercancel", this.handlePointerCancel);
+    this.overlayCanvas.removeEventListener("touchstart", this.handleTouchStart);
     // Removed canvases hold their bitmaps until GC, too long on low-memory devices.
     for (const canvas of this.canvases) {
       canvas.width = 0;
@@ -310,14 +314,26 @@ class CanvasViz {
     this.onAnchorEditCommit = handler;
   }
 
+  // Apps echo each drag step back here, so hover and cursor reset only when edit mode turns on or off.
   setAnchorEdit(state: AnchorEditState | null) {
+    const current = this.anchorEdit;
+    if (
+      state &&
+      current &&
+      state.src === current.src &&
+      state.dest === current.dest &&
+      state.active === current.active
+    ) {
+      return;
+    }
+    const modeChanged = (state === null) !== (current === null);
     this.anchorEdit = state ? { ...state } : null;
     if (!state) {
       this.anchorDrag = null;
     }
-    // Without touch-action none, a touch drag on the handles scrolls the page.
-    this.overlayCanvas.style.touchAction = state ? "none" : "";
-    this.clearHoveredBeat();
+    if (modeChanged) {
+      this.clearHoveredBeat();
+    }
     this.drawOverlay();
   }
 
@@ -810,11 +826,16 @@ class CanvasViz {
       return;
     }
     const ctx = this.overlayCtx;
+    const beats = this.data?.beats;
+    const lineColor =
+      beats?.[state.src] && beats[state.dest]
+        ? ANCHOR_MATCH_COLORS[beatPairMatch(beats[state.src], beats[state.dest]).quality]
+        : ANCHOR_HIGHLIGHT_COLOR;
     const geometry = this.resolveEdgeGeometry(null, from, to, state.src, state.dest);
     if (geometry.bend && geometry.control) {
-      this.drawBentLineWithControl(ctx, from, to, geometry.control, ANCHOR_HIGHLIGHT_COLOR, 3);
+      this.drawBentLineWithControl(ctx, from, to, geometry.control, lineColor, 3);
     } else {
-      ctx.strokeStyle = ANCHOR_HIGHLIGHT_COLOR;
+      ctx.strokeStyle = lineColor;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
@@ -826,7 +847,7 @@ class CanvasViz {
     const angle = Math.atan2(to.y - tail.y, to.x - tail.x);
     const tipX = to.x - Math.cos(angle) * (ANCHOR_HANDLE_RADIUS_PX + 1);
     const tipY = to.y - Math.sin(angle) * (ANCHOR_HANDLE_RADIUS_PX + 1);
-    ctx.fillStyle = ANCHOR_HIGHLIGHT_COLOR;
+    ctx.fillStyle = lineColor;
     ctx.beginPath();
     ctx.moveTo(tipX, tipY);
     for (const side of [-1, 1]) {
@@ -916,6 +937,19 @@ class CanvasViz {
     this.overlayCanvas.style.cursor = "grabbing";
     this.drawOverlay();
     this.onAnchorEditChange?.({ ...this.anchorEdit });
+  };
+
+  // A touch on a handle must not scroll the page; a swipe anywhere else still does.
+  private readonly handleTouchStart = (event: TouchEvent) => {
+    const touch = event.touches[0];
+    if (
+      this.anchorEdit &&
+      this.visible &&
+      touch &&
+      this.anchorHandleAt(this.pointerPosition(touch), "touch")
+    ) {
+      event.preventDefault();
+    }
   };
 
   private readonly handlePointerUp = (event: PointerEvent) => {

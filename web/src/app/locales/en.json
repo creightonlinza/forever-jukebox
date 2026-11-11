@@ -267,11 +267,17 @@
     "customAnchorFrom": "Jump from",
     "customAnchorTo": "Land on",
     "customAnchorBeat": "Beat {{beat}} · {{time}}",
-    "customAnchorLoop": "Loop: {{beats}} beats · {{time}}",
+    "customAnchorLoop": "{{beats}} beats · {{time}}",
     "customAnchorHint": "Drag the dots. Arrow keys move the selected end; Shift moves a bar.",
     "customAnchorReset": "Reset",
     "customAnchorDone": "Done",
-    "customAnchorStatsTitle": "Custom anchor stats"
+    "customAnchorStatsTitle": "Custom anchor stats",
+    "customAnchorLoopBars": "{{bars}} bars · {{beats}} beats · {{time}}",
+    "customAnchorLoopLabel": "Loop",
+    "customAnchorMatch": "Match",
+    "customAnchorBarPosition": "Bar position",
+    "customAnchorSnap": "Snap",
+    "customAnchorSnapHint": "Move the selected end to the best-matching beat within one bar"
   },
   "audioModes": {
     "nightcore": "Nightcore",
@@ -364,6 +370,8 @@
     "freezeAction": "Freeze on the current beat",
     "anchor": "A:",
     "anchorAction": "Set/reset selected anchor branch",
+    "customAnchor": "Anchor editor:",
+    "customAnchorAction": "Left/Right move the selected end, Shift moves a bar; Enter or Esc closes",
     "delete": "Delete:",
     "deleteAction": "Remove a selected branch",
     "extras": "E:",

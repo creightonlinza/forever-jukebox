@@ -8,6 +8,7 @@ import {
   handleAnchorEditCommit,
   nudgeCustomAnchor,
   resetCustomAnchor,
+  snapCustomAnchor,
   startCustomAnchorEdit,
 } from "./custom-anchor";
 
@@ -109,7 +110,7 @@ describe("custom anchor editor", () => {
     startCustomAnchorEdit(context);
     handleAnchorEditCommit(context, { src: 30, dest: 10, active: "dest" });
     expect(engine.getCustomAnchor()).toEqual({ src: 30, dest: 10 });
-    expect(window.location.search).toContain("ca=30-10");
+    expect(window.location.search).toContain("ab=30-10");
   });
 
   it("commits key nudges once they settle, by beat or by bar", () => {
@@ -137,6 +138,16 @@ describe("custom anchor editor", () => {
     expect(jukebox.setAnchorEdit).toHaveBeenLastCalledWith(null);
   });
 
+  it("snaps the selected end and commits it at once", () => {
+    const { context, engine } = makeContext();
+    startCustomAnchorEdit(context);
+    handleAnchorEditCommit(context, { src: 30, dest: 10, active: "dest" });
+    snapCustomAnchor(context);
+    const edit = useAppStore.getState().customAnchorEdit;
+    expect(edit?.src).toBe(30);
+    expect(engine.getCustomAnchor()).toEqual({ src: 30, dest: edit?.dest });
+  });
+
   it("ignores a commit after the editor has closed", () => {
     const { context, engine } = makeContext();
     handleAnchorEditCommit(context, { src: 30, dest: 10, active: "src" });
@@ -149,7 +160,7 @@ describe("custom anchor editor", () => {
     handleAnchorEditCommit(context, { src: 30, dest: 10, active: "src" });
     resetCustomAnchor(context);
     expect(engine.getCustomAnchor()).toBeNull();
-    expect(window.location.search).not.toContain("ca=");
+    expect(window.location.search).not.toContain("ab=");
     expect(useAppStore.getState().customAnchorEdit).not.toBeNull();
   });
 });

@@ -11,12 +11,13 @@ import {
   backgroundSetTimeout,
 } from "../background/backgroundTimer";
 import {
+  AnchorParam,
   BranchState,
   CUSTOM_ANCHOR_EDGE_ID,
   CustomAnchor,
   getBestLastBranchNeighborIndex,
   isActiveUserAnchorEdge,
-  isValidCustomAnchor,
+  createCustomAnchorEdge,
   selectNextBeatIndex,
   UserAnchorSelection,
 } from "./selection";
@@ -204,18 +205,13 @@ export class JukeboxEngine {
 
   // Returns false and changes nothing when the pair is not a valid backward loop.
   setCustomAnchor(src: number, dest: number): boolean {
-    if (!this.graph || !isValidCustomAnchor(this.beats.length, src, dest)) {
+    const edge = this.graph ? createCustomAnchorEdge(this.beats, { src, dest }) : null;
+    if (!edge) {
       return false;
     }
     this.removeCustomAnchorEdge();
     this.userAnchorEdgeId = null;
-    this.customAnchorEdge = {
-      id: CUSTOM_ANCHOR_EDGE_ID,
-      src: this.beats[src],
-      dest: this.beats[dest],
-      distance: 0,
-      deleted: false,
-    };
+    this.customAnchorEdge = edge;
     this.injectCustomAnchorEdge();
     this.clearPendingAdvance(true);
     this.syncAnchorJump();
@@ -234,6 +230,32 @@ export class JukeboxEngine {
   getCustomAnchor(): CustomAnchor | null {
     const edge = this.customAnchorEdge;
     return edge ? { src: edge.src.which, dest: edge.dest.which } : null;
+  }
+
+  // The user's anchor as an `ab` value, or null when the track default is in force.
+  getAnchorParam(): AnchorParam | null {
+    const custom = this.getCustomAnchor();
+    if (custom) {
+      return { custom };
+    }
+    const edgeId = this.getUserAnchorEdgeId();
+    return edgeId === null ? null : { edgeId };
+  }
+
+  // Applies a stored `ab` value; one that does not fit this track changes nothing.
+  applyAnchorParam(param: AnchorParam | null): boolean {
+    if (!param || !this.graph) {
+      return false;
+    }
+    if ("custom" in param) {
+      return this.setCustomAnchor(param.custom.src, param.custom.dest);
+    }
+    const edge = this.graph.allEdges.find((candidate) => candidate.id === param.edgeId);
+    if (!edge || edge.deleted || edge.dest.which >= edge.src.which) {
+      return false;
+    }
+    this.setUserAnchorEdge(edge);
+    return true;
   }
 
   // The anchor the engine forces right now: the user's choice, else the track default.

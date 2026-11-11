@@ -208,7 +208,7 @@ export function initRuntime(): void {
     updateFullscreenButton(Boolean(document.fullscreenElement));
     jukebox.setOnSelect(handleBeatSelect);
     jukebox.setOnEdgeSelect(handleEdgeSelect);
-    jukebox.setOnAnchorEditChange(handleAnchorEditChange);
+    jukebox.setOnAnchorEditChange((state) => handleAnchorEditChange(context, state));
     jukebox.setOnAnchorEditCommit((state) => handleAnchorEditCommit(context, state));
   };
   setAttachViz(attachViz);

@@ -268,6 +268,21 @@ export function TuningModal({
                 />
                 <span>{t("tuning.bringItHome")}</span>
               </label>
+              <label>
+                <input
+                  id="custom-anchor-enabled"
+                  type="checkbox"
+                  checked={extrasForm.customAnchorEnabled}
+                  onChange={(event) =>
+                    setExtrasForm((prev) => ({
+                      ...prev,
+                      customAnchorEnabled: event.target.checked,
+                    }))
+                  }
+                  disabled={playMode !== "jukebox"}
+                />
+                <span>{t("tuning.customAnchor")}</span>
+              </label>
             </div>
             <div id="jukebox-audio-mode-group" className="audio-mode-group">
               <div className="label-line">{t("tuning.audioMode")}</div>

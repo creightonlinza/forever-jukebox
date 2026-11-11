@@ -4,6 +4,7 @@ import { attachViz, getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { ModifierBadges } from "../ModifierBadges";
 import { BranchStatsPopup } from "./BranchStatsPopup";
+import { CustomAnchorInfo } from "./CustomAnchorEditor";
 import { PlayControls } from "./PlayControls";
 import { VizBottomRight } from "./VizBottomRight";
 import { VizInfo } from "./VizInfo";
@@ -111,6 +112,7 @@ export function VizContainer() {
         className={VIZ_CLASS_NAMES[playMode]}
       >
         <BranchStatsPopup />
+        <CustomAnchorInfo />
         <ModifierBadges />
         <div className="viz-top">
           <VizTop />

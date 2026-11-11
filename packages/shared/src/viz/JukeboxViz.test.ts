@@ -813,6 +813,7 @@ describe("JukeboxViz", () => {
           start: which,
           duration: 1,
           neighbors: [],
+          overlappingSegments: [],
         })),
         beatVisits: [],
         beatColors: [],
@@ -864,6 +865,25 @@ describe("JukeboxViz", () => {
       active.handlePointerDown(pointer(beatX(12)));
       expect(onChange).not.toHaveBeenCalled();
       expect(active.anchorDrag).toBeNull();
+    });
+
+    it("blocks page scroll only for a touch that starts on a handle", () => {
+      const { active } = mountEditor();
+      const onHandle = { touches: [{ clientX: beatX(20), clientY: 150 }], preventDefault: vi.fn() };
+      const offHandle = { touches: [{ clientX: beatX(12), clientY: 150 }], preventDefault: vi.fn() };
+      active.handleTouchStart(onHandle);
+      active.handleTouchStart(offHandle);
+      expect(onHandle.preventDefault).toHaveBeenCalled();
+      expect(offHandle.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("ignores an echo of the pair it already shows", () => {
+      const { viz, active } = mountEditor();
+      const draw = vi.spyOn(active, "drawOverlay");
+      viz.setAnchorEdit({ src: 20, dest: 5, active: "dest" });
+      expect(draw).not.toHaveBeenCalled();
+      viz.setAnchorEdit({ src: 21, dest: 5, active: "dest" });
+      expect(draw).toHaveBeenCalledTimes(1);
     });
 
     it("suppresses click-to-seek while editing", () => {

@@ -6,8 +6,7 @@ import { discardCustomAnchorEdit, exitCustomAnchorEdit } from "./custom-anchor";
 import { useAppStore } from "../store";
 import {
   appendAudioModeParams,
-  getAnchorBranchIdFromUrl,
-  getCustomAnchorFromUrl,
+  getAnchorParamFromUrl,
   getDeletedEdgeIdsFromUrl,
   resetAudioModeToOff,
   syncTuningParamsState,
@@ -87,21 +86,7 @@ export function applyDeletedEdgesFromUrl(context: AppContext) {
 }
 
 export function applyAnchorBranchFromUrl(context: AppContext) {
-  const customAnchor = getCustomAnchorFromUrl();
-  // An invalid pair for this track is ignored without a message, like an unknown ab id.
-  if (customAnchor && context.engine.setCustomAnchor(customAnchor.src, customAnchor.dest)) {
-    return;
-  }
-  const anchorBranchId = getAnchorBranchIdFromUrl();
-  if (anchorBranchId === null) {
-    return;
-  }
-  const graph = context.engine.getGraphState();
-  const edge = graph?.allEdges.find((candidate) => candidate.id === anchorBranchId);
-  if (!edge || edge.deleted || edge.dest.which >= edge.src.which) {
-    return;
-  }
-  context.engine.setUserAnchorEdge(edge);
+  context.engine.applyAnchorParam(getAnchorParamFromUrl());
 }
 
 export function syncDeletedEdgeState(context: AppContext) {

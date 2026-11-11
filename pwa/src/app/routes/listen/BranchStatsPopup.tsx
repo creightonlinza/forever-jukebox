@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { isCustomAnchorEdge } from "@forever-jukebox/shared";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import type { BranchStats } from "./branches";
 
@@ -16,7 +17,9 @@ export function BranchStatsPopup({
     <div className="branch-stats-popup">
       <div className="branch-stats-popup-header">
         <div className="branch-stats-popup-title">
-          Branch #{stats.id} stats
+          {isCustomAnchorEdge(stats)
+            ? t("listen.customAnchorStatsTitle")
+            : `Branch #${stats.id} stats`}
         </div>
         <button
           id="branch-stats-delete"

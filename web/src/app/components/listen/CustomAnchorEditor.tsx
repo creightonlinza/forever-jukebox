@@ -1,6 +1,10 @@
-import type { MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
-import type { CustomAnchorEnd } from "@forever-jukebox/shared";
+import {
+  CustomAnchorButton as SharedButton,
+  CustomAnchorInfo as SharedInfo,
+  CustomAnchorToolbar as SharedToolbar,
+  type CustomAnchorLabels,
+} from "@forever-jukebox/shared/ui/CustomAnchorEditor";
 import { formatDuration } from "../../format";
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
@@ -8,19 +12,39 @@ import {
   exitCustomAnchorEdit,
   resetCustomAnchor,
   selectCustomAnchorEnd,
+  snapCustomAnchor,
   startCustomAnchorEdit,
 } from "../../playback/custom-anchor";
 
-// The hotkey handler skips focused buttons, so a mouse click must not leave focus behind.
-function releaseMouseFocus(event: MouseEvent<HTMLButtonElement>) {
-  if (event.detail > 0) {
-    event.currentTarget.blur();
-  }
+function useCustomAnchorLabels(): CustomAnchorLabels {
+  const { t } = useTranslation();
+  return {
+    setCustomAnchor: t("playback.setCustomAnchor"),
+    title: t("playback.customAnchorTitle"),
+    hint: t("playback.customAnchorHint"),
+    from: t("playback.customAnchorFrom"),
+    to: t("playback.customAnchorTo"),
+    beat: (beat, seconds) =>
+      t("playback.customAnchorBeat", { beat, time: formatDuration(seconds) }),
+    snap: t("playback.customAnchorSnap"),
+    snapHint: t("playback.customAnchorSnapHint"),
+    reset: t("playback.customAnchorReset"),
+    done: t("playback.customAnchorDone"),
+    match: t("playback.customAnchorMatch"),
+    barPosition: t("playback.customAnchorBarPosition"),
+    loopLabel: t("playback.customAnchorLoopLabel"),
+    loop: (beats, seconds, bars) => {
+      const time = formatDuration(seconds);
+      return bars === null
+        ? t("playback.customAnchorLoop", { beats, time })
+        : t("playback.customAnchorLoopBars", { bars, beats, time });
+    },
+  };
 }
 
 // The viz-top button that opens the editor; the Extras toggle shows it.
 export function CustomAnchorButton() {
-  const { t } = useTranslation();
+  const labels = useCustomAnchorLabels();
   const enabled = useAppStore((s) => s.customAnchorEnabled);
   const playMode = useAppStore((s) => s.playMode);
   const editing = useAppStore((s) => s.customAnchorEdit !== null);
@@ -29,88 +53,40 @@ export function CustomAnchorButton() {
     return null;
   }
   return (
-    <button
-      type="button"
-      id="custom-anchor-start"
-      className="custom-anchor-button"
+    <SharedButton
+      labels={labels}
       disabled={!analysisLoaded}
-      onClick={(event) => {
-        releaseMouseFocus(event);
-        startCustomAnchorEdit(getAppContext());
-      }}
-    >
-      {t("playback.setCustomAnchor")}
-    </button>
+      onStart={() => startCustomAnchorEdit(getAppContext())}
+    />
   );
 }
 
-// Takes over the viz-top row while editing, so it never covers a beat in any layout.
 export function CustomAnchorToolbar() {
-  const { t } = useTranslation();
+  const labels = useCustomAnchorLabels();
   const edit = useAppStore((s) => s.customAnchorEdit);
   const beats = useAppStore((s) => s.vizData?.beats);
   if (!edit || !beats) {
     return null;
   }
-  const time = (index: number) => formatDuration(beats[index]?.start ?? 0);
-  const loopSeconds = (beats[edit.src]?.start ?? 0) - (beats[edit.dest]?.start ?? 0);
-  const ends: Array<[CustomAnchorEnd, string]> = [
-    ["src", t("playback.customAnchorFrom")],
-    ["dest", t("playback.customAnchorTo")],
-  ];
   return (
-    <div
-      id="custom-anchor-toolbar"
-      className="custom-anchor-toolbar"
-      role="toolbar"
-      aria-label={t("playback.customAnchorTitle")}
-      title={t("playback.customAnchorHint")}
-    >
-      {ends.map(([end, label]) => (
-        <button
-          key={end}
-          type="button"
-          className={
-            edit.active === end
-              ? "custom-anchor-end is-active"
-              : "custom-anchor-end"
-          }
-          aria-pressed={edit.active === end}
-          title={t("playback.customAnchorBeat", { beat: edit[end], time: time(edit[end]) })}
-          onClick={(event) => {
-            releaseMouseFocus(event);
-            selectCustomAnchorEnd(getAppContext(), end);
-          }}
-        >
-          <span className="custom-anchor-label">{label}</span> {edit[end]}
-        </button>
-      ))}
-      <span className="custom-anchor-loop">
-        {t("playback.customAnchorLoop", {
-          beats: edit.src - edit.dest,
-          time: formatDuration(Math.max(0, loopSeconds)),
-        })}
-      </span>
-      <span className="custom-anchor-actions">
-        <button
-          type="button"
-          id="custom-anchor-reset"
-          onClick={(event) => {
-            releaseMouseFocus(event);
-            resetCustomAnchor(getAppContext());
-          }}
-        >
-          {t("playback.customAnchorReset")}
-        </button>
-        <button
-          type="button"
-          id="custom-anchor-done"
-          className="is-primary"
-          onClick={() => exitCustomAnchorEdit(getAppContext())}
-        >
-          {t("playback.customAnchorDone")}
-        </button>
-      </span>
-    </div>
+    <SharedToolbar
+      edit={edit}
+      beats={beats}
+      labels={labels}
+      onSelectEnd={(end) => selectCustomAnchorEnd(getAppContext(), end)}
+      onSnap={() => snapCustomAnchor(getAppContext())}
+      onReset={() => resetCustomAnchor(getAppContext())}
+      onDone={() => exitCustomAnchorEdit(getAppContext())}
+    />
   );
+}
+
+export function CustomAnchorInfo() {
+  const labels = useCustomAnchorLabels();
+  const edit = useAppStore((s) => s.customAnchorEdit);
+  const beats = useAppStore((s) => s.vizData?.beats);
+  if (!edit || !beats) {
+    return null;
+  }
+  return <SharedInfo edit={edit} beats={beats} labels={labels} />;
 }

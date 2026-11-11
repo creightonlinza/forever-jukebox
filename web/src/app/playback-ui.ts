@@ -1,4 +1,4 @@
-import { CUSTOM_ANCHOR_EDGE_ID, findBackwardTwin } from "@forever-jukebox/shared";
+import { findBackwardTwin, isCustomAnchorEdge } from "@forever-jukebox/shared";
 import {
   exitCustomAnchorEdit,
   nudgeCustomAnchor,
@@ -101,7 +101,7 @@ function syncExtrasPopup(edge: Edge | null) {
     useAppStore.setState({
       branchStats: {
         title: () =>
-          edge.id === CUSTOM_ANCHOR_EDGE_ID
+          isCustomAnchorEdge(edge)
             ? i18n.t("playback.customAnchorStatsTitle")
             : i18n.t("playback.branchStatsTitle", { id: edge.id }),
         startText: formatDuration(startDisplaySeconds),
@@ -141,6 +141,8 @@ export function deleteSelectedBranch(): void {
     if (!selectedEdge || selectedEdge.deleted) {
       return;
     }
+    // Deleting the custom anchor's edge resets the anchor; the toast says which.
+    const resetsAnchor = isCustomAnchorEdge(selectedEdge);
     engine.deleteEdge(selectedEdge);
     engine.rebuildGraph();
     useAppStore.setState({ vizData: engine.getVisualizationData() });
@@ -156,7 +158,9 @@ export function deleteSelectedBranch(): void {
     useAppStore.setState({ selectedEdge: null });
     jukebox.setSelectedEdge(null);
     syncExtrasPopup(null);
-    showToast(i18n.t("playback.branchDeleted"));
+    showToast(
+      resetsAnchor ? i18n.t("playback.anchorReset") : i18n.t("playback.branchDeleted"),
+    );
   }
 
 export function initializePlayback(): void {

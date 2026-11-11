@@ -13,6 +13,7 @@
     "./background": "./src/background/backgroundTimer.ts",
     "./constants/visualization": "./src/constants/visualization.ts",
     "./ui/toastQueue": "./src/ui/toastQueue.ts",
+    "./ui/CustomAnchorEditor": "./src/ui/CustomAnchorEditor.tsx",
     "./ui/SocialLinks": "./src/ui/SocialLinks.tsx",
     "./ui/LoadingProgress": "./src/ui/LoadingProgress.tsx",
     "./ui/jobProgress": "./src/ui/jobProgress.ts",

@@ -3,9 +3,10 @@ import { isInstrumentalModeAvailable } from "@forever-jukebox/shared/audio/instr
 import { useAppStore } from "./store";
 import {
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
-  isValidCustomAnchor,
+  formatAnchorParam,
+  parseAnchorParam,
   parsePinnedThreshold,
-  type CustomAnchor,
+  type AnchorParam,
   type JukeboxConfig,
 } from "@forever-jukebox/shared";
 import {
@@ -28,7 +29,6 @@ const TUNING_PARAM_KEYS = [
   "am",
   "ai",
   "ab",
-  "ca",
 ];
 const MIN_LONG_BRANCH_PERCENT_OPTIONS = new Set([5, 10, 20, 30]);
 
@@ -106,38 +106,14 @@ function parseDeletedEdgeIds(raw: string | null): number[] {
     .filter((value) => Number.isFinite(value) && value >= 0);
 }
 
-function parseAnchorBranchId(raw: string | null): number | null {
-  const parsed = Number.parseInt(raw ?? "", 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-}
-
-// "src-dest" beat indexes; the engine checks them against the loaded track.
-function parseCustomAnchor(raw: string | null): CustomAnchor | null {
-  const match = /^(\d{1,6})-(\d{1,6})$/.exec(raw ?? "");
-  if (!match) {
-    return null;
-  }
-  const src = Number.parseInt(match[1], 10);
-  const dest = Number.parseInt(match[2], 10);
-  return isValidCustomAnchor(Number.MAX_SAFE_INTEGER, src, dest) ? { src, dest } : null;
-}
-
-export function getCustomAnchorFromUrl(): CustomAnchor | null {
-  return parseCustomAnchor(
-    new URLSearchParams(window.location.search).get("ca"),
-  );
-}
-
 export function getDeletedEdgeIdsFromUrl(): number[] {
   return parseDeletedEdgeIds(
     new URLSearchParams(window.location.search).get("d"),
   );
 }
 
-export function getAnchorBranchIdFromUrl(): number | null {
-  return parseAnchorBranchId(
-    new URLSearchParams(window.location.search).get("ab"),
-  );
+export function getAnchorParamFromUrl(): AnchorParam | null {
+  return parseAnchorParam(new URLSearchParams(window.location.search).get("ab"));
 }
 
 export function getTuningParamsStringFromUrl(): string | null {
@@ -156,8 +132,7 @@ type ParsedTuning = {
   audioMode: JukeboxAudioMode | null;
   audioIntensity: number;
   deletedEdgeIds: number[];
-  anchorBranchId: number | null;
-  customAnchor: CustomAnchor | null;
+  anchor: AnchorParam | null;
 };
 
 // The one parser for stored/URL tuning params: absent fields fall back to the
@@ -217,8 +192,7 @@ function parseTuningParams(
     audioMode,
     audioIntensity,
     deletedEdgeIds: parseDeletedEdgeIds(params.get("d")),
-    anchorBranchId: parseAnchorBranchId(params.get("ab")),
-    customAnchor: parseCustomAnchor(params.get("ca")),
+    anchor: parseAnchorParam(params.get("ab")),
   };
 }
 
@@ -269,8 +243,7 @@ function buildTuningParams(state: {
   config: JukeboxConfig;
   defaults: JukeboxConfig;
   deletedEdgeIds: number[];
-  anchorBranchId: number | null;
-  customAnchor: CustomAnchor | null;
+  anchor: AnchorParam | null;
   audioMode: JukeboxAudioMode;
   audioIntensity: number;
 }): URLSearchParams {
@@ -321,11 +294,8 @@ function buildTuningParams(state: {
   if (deletedIds.length > 0) {
     params.set("d", deletedIds.join(","));
   }
-  // One anchor at a time: a custom pair replaces a pinned branch id.
-  if (state.customAnchor !== null) {
-    params.set("ca", `${state.customAnchor.src}-${state.customAnchor.dest}`);
-  } else if (state.anchorBranchId !== null) {
-    params.set("ab", `${state.anchorBranchId}`);
+  if (state.anchor !== null) {
+    params.set("ab", formatAnchorParam(state.anchor));
   }
   appendAudioModeParams(params, state.audioMode, state.audioIntensity);
   return params;
@@ -334,17 +304,13 @@ function buildTuningParams(state: {
 export function getTuningParamsFromEngine(context: AppContext): URLSearchParams {
   const graph = context.engine.getGraphState();
   const { jukeboxAudioMode, audioIntensity } = useAppStore.getState();
-  const customAnchor = context.engine.getCustomAnchor?.() ?? null;
   return buildTuningParams({
     config: context.engine.getConfig(),
     defaults: context.defaultConfig,
     deletedEdgeIds: graph
       ? graph.allEdges.filter((edge) => edge.deleted).map((edge) => edge.id)
       : useAppStore.getState().deletedEdgeIds,
-    anchorBranchId: customAnchor
-      ? null
-      : (context.engine.getUserAnchorEdgeId?.() ?? null),
-    customAnchor,
+    anchor: context.engine.getAnchorParam?.() ?? null,
     audioMode: jukeboxAudioMode,
     audioIntensity,
   });
@@ -366,8 +332,7 @@ export function canonicalizeTuningParams(
     config: parsed.config,
     defaults,
     deletedEdgeIds: parsed.deletedEdgeIds,
-    anchorBranchId: parsed.anchorBranchId,
-    customAnchor: parsed.customAnchor,
+    anchor: parsed.anchor,
     audioMode: parsed.audioMode ?? "off",
     audioIntensity: parsed.audioIntensity,
   });

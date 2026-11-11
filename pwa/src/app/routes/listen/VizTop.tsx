@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { getVisualizationLabel } from "./labels";
@@ -13,6 +14,7 @@ export function VizTop({
   onFinishOutSongChange,
   loopTrack,
   onLoopTrackChange,
+  action,
 }: {
   playMode: PlayMode;
   onPlayModeChange: (mode: PlayMode) => void;
@@ -23,6 +25,8 @@ export function VizTop({
   onFinishOutSongChange: (checked: boolean) => void;
   loopTrack: boolean;
   onLoopTrackChange: (checked: boolean) => void;
+  // Shown after the play-mode select, such as the custom anchor button.
+  action?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -46,6 +50,7 @@ export function VizTop({
             <SymbolIcon className="viz-select-arrow" name="arrow_drop_down" />
           </span>
         </label>
+        {action}
       </div>
       <div className="viz-controls">
         <label className="viz-select-group" htmlFor="viz-select">
