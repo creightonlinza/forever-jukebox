@@ -80,6 +80,21 @@ const DONE_HOLD_MS = 300;
 const DOTS = 72;
 const RING_RADIUS = 92;
 
+function dotState(index: number, lead: number) {
+  if (index === lead) {
+    return " is-lead";
+  }
+  return index < lead ? " is-on" : "";
+}
+
+// Share of a step's weight that counts as done: 1 before the shown step, `fill` on it, 0 after.
+function stepFill(index: number, shownIndex: number, fill: number) {
+  if (index < shownIndex) {
+    return 1;
+  }
+  return index === shownIndex ? fill : 0;
+}
+
 function ringPoint(index: number) {
   const angle = (index / DOTS) * 2 * Math.PI - Math.PI / 2;
   return [Math.cos(angle) * RING_RADIUS, Math.sin(angle) * RING_RADIUS];
@@ -103,8 +118,7 @@ const BRANCHES = (() => {
 const RingDots = memo(function RingDots({ lead }: { lead: number }) {
   return Array.from({ length: DOTS }, (_, i) => {
     const [cx, cy] = ringPoint(i);
-    const state = i === lead ? " is-lead" : i < lead ? " is-on" : "";
-    return <circle key={i} className={`loading-progress__dot${state}`} cx={cx} cy={cy} r={3.2} />;
+    return <circle key={i} className={`loading-progress__dot${dotState(i, lead)}`} cx={cx} cy={cy} r={3.2} />;
   });
 });
 
@@ -309,7 +323,7 @@ export function LoadingProgress({
 
   const total = steps.reduce((sum, s) => sum + STEP_WEIGHTS[s.id], 0) || 1;
   const weighted = steps.reduce(
-    (sum, s, i) => sum + STEP_WEIGHTS[s.id] * (i < view.index ? 1 : i === view.index ? fill : 0),
+    (sum, s, i) => sum + STEP_WEIGHTS[s.id] * stepFill(i, view.index, fill),
     0,
   );
   const percent = Math.floor((weighted / total) * 100);
@@ -321,7 +335,8 @@ export function LoadingProgress({
   const elapsed = sweeping && activeStart !== undefined ? `${Math.floor((performance.now() - activeStart) / 1000)}s` : "";
   const shownBranches = BRANCHES.filter((b) => percent >= b.showAt * lastStepStart).length;
   const lead = view.doneAt === null ? Math.floor((percent / 100) * DOTS) : DOTS;
-  const count = `${view.index + 1} / ${steps.length}${elapsed ? ` · ${elapsed}` : ""}`;
+  const position = `${view.index + 1} / ${steps.length}`;
+  const count = elapsed ? `${position} · ${elapsed}` : position;
   const done = view.doneAt !== null;
   const shownMessage = message && view.index === realIndex && !done ? message : null;
   const leaving = useLeavingStep(view.index);
@@ -329,6 +344,12 @@ export function LoadingProgress({
     const time = times.get(id);
     return time?.end === undefined ? "" : `${((time.end - time.start) / 1000).toFixed(1)}s`;
   };
+  let meta = `${Math.floor(fill * 100)}%`;
+  if (done) {
+    meta = duration(activeStep.id);
+  } else if (sweeping) {
+    meta = elapsed;
+  }
 
   return (
     <div
@@ -359,7 +380,7 @@ export function LoadingProgress({
       ) : null}
       <p className="loading-progress__title">
         {title}
-        {!ring && steps.length > 1 ? <span>{`${view.index + 1} / ${steps.length}`}</span> : null}
+        {!ring && steps.length > 1 ? <span>{position}</span> : null}
       </p>
       <div className="loading-progress__slot">
         {leaving ? (
@@ -381,9 +402,7 @@ export function LoadingProgress({
         >
           <span className="loading-progress__icon">{CHECK}</span>
           <span className="loading-progress__label">{activeStep.label}</span>
-          <span className="loading-progress__meta">
-            {done ? duration(activeStep.id) : sweeping ? elapsed : `${Math.floor(fill * 100)}%`}
-          </span>
+          <span className="loading-progress__meta">{meta}</span>
           {shownMessage ? <p className="loading-progress__message">{shownMessage}</p> : null}
           <div className={`loading-progress__bar${sweeping ? " is-sweep" : ""}`}>
             <i style={sweeping ? undefined : { transform: `scaleX(${done ? 1 : fill})` }} />
