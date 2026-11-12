@@ -1,8 +1,8 @@
 {
   "name": "madmom_beats_port_wasm",
   "type": "module",
-  "version": "4.2.0",
-  "license": "BSD-2-Clause",
+  "version": "5.0.0",
+  "license": "BSD-2-Clause AND BSD-3-Clause",
   "files": [
     "madmom_beats_port_wasm_bg.wasm",
     "madmom_beats_port_wasm.js",

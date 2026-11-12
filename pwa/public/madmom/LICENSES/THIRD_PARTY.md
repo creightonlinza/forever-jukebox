@@ -24,3 +24,20 @@ model-bearing distributions non-commercial.
 - Usage: source for exported model artifacts stored under `models/`. These
   artifacts are non-commercial only and are not covered by the BSD 2-Clause
   source-code license.
+
+## NumPy
+
+- Project: https://github.com/numpy/numpy
+- License: BSD 3-Clause License - Copyright (c) 2005-2025, NumPy Developers
+  (full notice reproduced in `NOTICE`).
+- Usage: `rust/madmom_beats_port_core/src/numeric.rs` reproduces NumPy's
+  float32 `tanh` algorithm and coefficient table, so the port's network
+  activations follow madmom's.
+
+## libm (Rust crate)
+
+- Project: https://github.com/rust-lang/libm
+- License: MIT License - Copyright (c) 2018 Jorge Aparicio, with portions from
+  musl libc and CORE-MATH (full notice reproduced in `NOTICE`).
+- Usage: linked into the Rust core for all math functions, so every platform
+  computes the same results.
