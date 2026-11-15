@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppContext } from "./context";
 import type { PlaybackDeps } from "./playback";
 import { handleRouteChange } from "./routing";
+import { useAppStore } from "./store";
 import { setWindowUrl } from "./__tests__/test-utils";
 
 vi.mock("./playback", () => ({
@@ -24,20 +25,18 @@ function createContext(): AppContext {
 }
 
 function createDeps(): PlaybackDeps {
-  return {
-    setActiveTab: vi.fn(),
-    navigateToTab: vi.fn(),
-    updateTrackUrl: vi.fn(),
-    setAnalysisStatus: vi.fn(),
-    setLoadingStep: vi.fn(),
-  };
+  return {};
 }
+
+const navigateToTabWithState = vi.fn();
+const setActiveTab = vi.fn();
 
 describe("routing", () => {
   beforeEach(async () => {
     setWindowUrl("http://localhost/");
     playbackModule = await import("./playback");
     vi.clearAllMocks();
+    useAppStore.setState({ navigateToTabWithState, setActiveTab });
   });
 
   it("loads youtube id from /listen and preserves tuning params", async () => {
@@ -45,7 +44,7 @@ describe("routing", () => {
     const context = createContext();
     const deps = createDeps();
     await handleRouteChange(context, deps, "/listen/abc123def45");
-    expect(deps.navigateToTab).toHaveBeenCalledWith("play", {
+    expect(navigateToTabWithState).toHaveBeenCalledWith("play", {
       replace: true,
       trackId: "abc123def45",
     });
@@ -75,22 +74,22 @@ describe("routing", () => {
     const context = createContext();
     const deps = createDeps();
     await handleRouteChange(context, deps, "/search");
-    expect(deps.navigateToTab).toHaveBeenCalledWith("search", { replace: true });
+    expect(navigateToTabWithState).toHaveBeenCalledWith("search", { replace: true });
   });
 
   it("routes /faq to FAQ tab without rewriting path", async () => {
     const context = createContext();
     const deps = createDeps();
     await handleRouteChange(context, deps, "/faq");
-    expect(deps.setActiveTab).toHaveBeenCalledWith("faq");
-    expect(deps.navigateToTab).not.toHaveBeenCalledWith("faq", { replace: true });
+    expect(setActiveTab).toHaveBeenCalledWith("faq");
+    expect(navigateToTabWithState).not.toHaveBeenCalledWith("faq", { replace: true });
   });
 
   it("routes /whats-new to FAQ tab without rewriting path", async () => {
     const context = createContext();
     const deps = createDeps();
     await handleRouteChange(context, deps, "/whats-new");
-    expect(deps.setActiveTab).toHaveBeenCalledWith("faq");
-    expect(deps.navigateToTab).not.toHaveBeenCalledWith("faq", { replace: true });
+    expect(setActiveTab).toHaveBeenCalledWith("faq");
+    expect(navigateToTabWithState).not.toHaveBeenCalledWith("faq", { replace: true });
   });
 });

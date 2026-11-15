@@ -128,7 +128,7 @@ export function initRuntime(): void {
   ) => useAppStore.getState().navigateToTabWithState(tabId, options);
   const setActiveTabWithRefresh = (tabId: TabId) =>
     useAppStore.getState().setActiveTab(tabId);
-  // Navigation + status closures shared by the playback and search flows.
+  // Navigation + status closures for the search flow.
   const sharedFlowDeps = {
     setActiveTab: setActiveTabWithRefresh,
     navigateToTab: navigateToTabWithState,
@@ -141,7 +141,7 @@ export function initRuntime(): void {
     setAnalysisStatus: (message: LocalizedText) => setAnalysisStatus(context, message),
     setLoadingStep: (step: LoadingState) => setLoadingStep(context, step),
   };
-  const playbackDeps: PlaybackDeps = { ...sharedFlowDeps };
+  const playbackDeps: PlaybackDeps = {};
   setPlaybackDeps(playbackDeps);
   setAdvancePlaylistOnAutocanonizerEnded(advanceAutocanonizerOnEnded);
   playbackDeps.onAnalysisLoaded = (response) => {
