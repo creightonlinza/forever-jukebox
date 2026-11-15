@@ -184,6 +184,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   );
   const [jukeboxAudioMode, setJukeboxAudioMode] =
     React.useState<JukeboxAudioMode>(initialAudioMode);
+  // Mirrors jukeboxAudioMode for async callbacks that outlive their render.
+  const jukeboxAudioModeRef = React.useRef<JukeboxAudioMode>(initialAudioMode);
   const [audioIntensity, setAudioIntensity] = React.useState(
     initialAudioIntensity,
   );
@@ -368,6 +370,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   function resetAudioModeToOff(player: BufferedAudioPlayer) {
     cowbellOverlayRef.current?.disable();
     stopPreparing();
+    jukeboxAudioModeRef.current = "off";
     setJukeboxAudioMode("off");
     setAudioIntensity(DEFAULT_AUDIO_MODE_INTENSITY);
     setExtrasForm((prev) =>
@@ -681,14 +684,15 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
         );
         initializeEngine(result.analysis);
         restoreSavedTuning(result.fingerprint);
-        if (jukeboxAudioMode === "cowbell") {
+        const audioMode = jukeboxAudioModeRef.current;
+        if (audioMode === "cowbell") {
           cowbellOverlayRef.current?.enable();
         }
-        if (jukeboxAudioMode === "swing") {
+        if (audioMode === "swing") {
           playerRef.current?.setJukeboxAudioMode("swing");
           maybePrepareSwingMode();
         }
-        if (jukeboxAudioMode === "instrumental") {
+        if (audioMode === "instrumental") {
           playerRef.current?.setJukeboxAudioMode("instrumental");
           maybePrepareInstrumentalMode();
         }
@@ -1111,7 +1115,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }
 
   function maybePrepareSwingMode() {
-    if (jukeboxAudioMode !== "swing" || !canPrepareSwingMode()) {
+    if (jukeboxAudioModeRef.current !== "swing" || !canPrepareSwingMode()) {
       return;
     }
     prepareSwingMode();
@@ -1196,7 +1200,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
   }
 
   function maybePrepareInstrumentalMode() {
-    if (jukeboxAudioMode !== "instrumental" || !canPrepareInstrumentalMode()) {
+    if (jukeboxAudioModeRef.current !== "instrumental" || !canPrepareInstrumentalMode()) {
       return;
     }
     prepareInstrumentalMode();
@@ -1626,6 +1630,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     if (!extrasForm.customAnchorEnabled) {
       customAnchor.exit();
     }
+    jukeboxAudioModeRef.current = nextAudioMode;
     setJukeboxAudioMode(nextAudioMode);
     setAudioIntensity(nextAudioIntensity);
     if (nextAudioMode === "cowbell") {
