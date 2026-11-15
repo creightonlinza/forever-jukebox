@@ -28,24 +28,7 @@ import { TopTracksPanel } from "./TopTracksPanel";
 import { PlayMenu } from "./listen/PlayMenu";
 import { StatusPanel } from "./listen/StatusPanel";
 import { VizContainer } from "./listen/VizContainer";
-
-export const lazyImports = {
-  faq: () => import("./FaqPanel").then((m) => ({ default: m.FaqPanel })),
-  search: () =>
-    import("./SearchPanel").then((m) => ({ default: m.SearchPanel })),
-  tuning: () =>
-    import("./listen/TuningModal").then((m) => ({ default: m.TuningModal })),
-  settings: () =>
-    import("./SettingsModal").then((m) => ({ default: m.SettingsModal })),
-  feedback: () =>
-    import("./FeedbackModal").then((m) => ({ default: m.FeedbackModal })),
-  info: () =>
-    import("./listen/InfoModal").then((m) => ({ default: m.InfoModal })),
-  playlist: () =>
-    import("./listen/PlaylistModal").then((m) => ({
-      default: m.PlaylistModal,
-    })),
-};
+import { lazyImports } from "./lazyImports";
 
 const FaqPanel = lazy(lazyImports.faq);
 const SearchPanel = lazy(lazyImports.search);

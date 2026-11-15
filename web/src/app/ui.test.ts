@@ -24,11 +24,9 @@ function createContext(): AppContext {
 
 class MockElement {
   tagName: string;
-  isContentEditable: boolean;
 
-  constructor(tagName: string, isContentEditable = false) {
+  constructor(tagName: string) {
     this.tagName = tagName;
-    this.isContentEditable = isContentEditable;
   }
   blur = vi.fn();
   addEventListener = vi.fn();
