@@ -1,9 +1,10 @@
 import React from "react";
 import type { TFunction } from "i18next";
 import type { Edge, JukeboxEngine } from "@forever-jukebox/shared";
-import { isEditableTarget } from "./browser";
+import { isEditableTarget } from "@forever-jukebox/shared/ui/editableTarget";
 import { formatPlayVelocity } from "./labels";
-import type { PlayMode, TuningModalTab } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
+import type { TuningModalTab } from "./types";
 import type { CustomAnchorEditor } from "./useCustomAnchorEditor";
 
 // Global keyboard shortcuts for the listen route. The effect re-registers

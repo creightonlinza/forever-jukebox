@@ -35,8 +35,7 @@ import {
 import { cancelInstrumentalRender } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import { canPrepareSwingMode, prepareSwingMode } from "./swing";
 import i18n from "../i18n";
-
-const MAX_RANDOM_BRANCH_DELTA = 0.2;
+import { MAX_RANDOM_BRANCH_DELTA } from "@forever-jukebox/shared/constants/playback";
 
 const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 

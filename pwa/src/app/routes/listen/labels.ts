@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
 import { VISUALIZATION_LABELS } from "@forever-jukebox/shared/constants/visualization";
 import { formatAudioModeTitleLabel } from "./audioMode";
-import type { PlayMode } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 
 export function getVisualizationLabel(index: number, t: TFunction) {
   return VISUALIZATION_LABELS[index] ??

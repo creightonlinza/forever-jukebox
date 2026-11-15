@@ -26,7 +26,7 @@ import { isCustomAnchorEdge, type JukeboxEngine } from "@forever-jukebox/shared"
 import type { CanonizerRenderPlan } from "@forever-jukebox/shared/autocanonizer/canonizerRenderPlan";
 import type { WubMachineRender } from "@forever-jukebox/shared/wubmachine/wubMachineRender";
 import { createSessionSeed, waitForNextPaint } from "./browser";
-import type { PlayMode } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import {
   MAX_EXPORT_DURATION_SECONDS,
   buildAudioExportName,

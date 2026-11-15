@@ -60,7 +60,8 @@ import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useMarquee } from "./listen/useMarquee";
 import { useTranslation } from "react-i18next";
 import { applyTheme, resolveStoredTheme, type ThemeName } from "../theme";
-import type { PlayMode, TuningModalTab } from "./listen/types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
+import type { TuningModalTab } from "./listen/types";
 import {
   resolveAudioIntensityFromUrl,
   resolveAudioModeFromUrl,

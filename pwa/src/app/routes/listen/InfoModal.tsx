@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "@forever-jukebox/shared/ui/useModalKeyboard";
-import { formatDuration } from "@/shared/utils/format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 
 export function InfoModal({

@@ -1,5 +1,5 @@
 import React from "react";
-import type { PlayMode } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 
 // Volume and pan popovers: mutually exclusive, closed by outside clicks.
 export function useVizPopovers({ playMode }: { playMode: PlayMode }) {

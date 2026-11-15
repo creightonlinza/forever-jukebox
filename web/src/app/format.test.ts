@@ -1,17 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   formatCursorTime,
-  formatDuration,
   formatTrackDuration,
 } from "./format";
 
 describe("format", () => {
-  it("formats duration as hh:mm:ss", () => {
-    expect(formatDuration(0)).toBe("00:00:00");
-    expect(formatDuration(61)).toBe("00:01:01");
-    expect(formatDuration(3661)).toBe("01:01:01");
-  });
-
   it("formats track duration as m:ss, adding hours only when needed", () => {
     expect(formatTrackDuration("nope")).toBe("-");
     expect(formatTrackDuration(Number.NaN)).toBe("-");

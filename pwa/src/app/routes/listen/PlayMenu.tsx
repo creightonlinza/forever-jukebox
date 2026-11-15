@@ -1,7 +1,7 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
-import type { PlayMode } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 
 export function PlayMenu({
   playTitleRef,

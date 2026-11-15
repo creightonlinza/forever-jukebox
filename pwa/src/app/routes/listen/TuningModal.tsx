@@ -9,7 +9,8 @@ import {
   type ExtrasFormState,
   type TuneFormState,
 } from "./tuning";
-import type { PlayMode, TuningModalTab } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
+import type { TuningModalTab } from "./types";
 
 export function TuningModal({
   playMode,

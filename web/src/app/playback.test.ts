@@ -51,13 +51,15 @@ vi.mock("./ui", async (importActual) => {
   return {
     ...actual,
     showToast: vi.fn(),
-    // The real isEditableTarget references HTMLElement, undefined in this
-    // DOM-less test env; the keyboard handlers only need a falsy result.
-    isEditableTarget: vi.fn(() => false),
     setAnalysisStatus: vi.fn(actual.setAnalysisStatus),
     setLoadingStep: vi.fn(actual.setLoadingStep),
   };
 });
+// The real isEditableTarget references HTMLElement, undefined in this
+// DOM-less test env; the keyboard handlers only need a falsy result.
+vi.mock("@forever-jukebox/shared/ui/editableTarget", () => ({
+  isEditableTarget: vi.fn(() => false),
+}));
 vi.mock("./playback", async (importActual) => ({
   ...(await importActual<typeof import("./playback")>()),
   syncDeletedEdgeState: vi.fn(),

@@ -15,9 +15,9 @@ import {
   setAudioModeIntensityParam,
   type JukeboxAudioMode,
 } from "@forever-jukebox/shared/audio/audioModes";
+import { MAX_RANDOM_BRANCH_DELTA } from "@forever-jukebox/shared/constants/playback";
 
 const MIN_RANDOM_BRANCH_DELTA = 0;
-const MAX_RANDOM_BRANCH_DELTA = 0.2;
 const TUNING_PARAM_KEYS = [
   "jb",
   "lg",

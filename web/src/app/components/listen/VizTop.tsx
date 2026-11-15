@@ -6,7 +6,7 @@ import {
 } from "../../constants";
 import { trackEvent } from "../../analytics";
 import { getAppContext } from "../../runtime";
-import type { PlayMode } from "../../context";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import { useAppStore } from "../../store";
 import {
   setActiveVisualization,
