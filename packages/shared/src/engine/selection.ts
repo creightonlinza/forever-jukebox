@@ -13,6 +13,17 @@ export interface UserAnchorSelection {
 
 // Real edge ids are array indexes, so a negative id never collides with one.
 export const CUSTOM_ANCHOR_EDGE_ID = -1;
+// Branches the current tuning offers. The custom anchor's synthetic edge and a pin
+// the tuning filters out are drawn with the branches but are not counted.
+export function countTuningBranches(data: {
+  edges: Pick<Edge, "id">[];
+  putBackAnchorEdgeId?: number | null;
+}): number {
+  return data.edges.filter(
+    (edge) => !isCustomAnchorEdge(edge) && edge.id !== data.putBackAnchorEdgeId,
+  ).length;
+}
+
 export function isCustomAnchorEdge(edge: Pick<Edge, "id">): boolean {
   return edge.id === CUSTOM_ANCHOR_EDGE_ID;
 }
@@ -161,8 +172,18 @@ export function snapCustomAnchorEnd(
   return best;
 }
 
-// A pinned anchor edge only takes effect while it survives deletion and
-// branch filtering (i.e. is still offered by its source beat).
+// Puts a pinned edge back into its source beat's neighbors when a tuning filter
+// dropped it. Returns whether it was added; a deleted edge is never offered.
+export function putBackPinnedEdge(edge: Edge): boolean {
+  if (edge.deleted || edge.src.neighbors.some((candidate) => candidate.id === edge.id)) {
+    return false;
+  }
+  edge.src.neighbors.push(edge);
+  return true;
+}
+
+// A pinned anchor edge takes effect while it is not deleted and its source beat
+// offers it; putBackPinnedEdge keeps a filtered pin offered.
 export function isActiveUserAnchorEdge(edge: Edge): boolean {
   if (edge.deleted) {
     return false;

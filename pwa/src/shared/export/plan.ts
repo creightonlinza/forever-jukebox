@@ -4,8 +4,8 @@ import {
   calculateMinLongBranch,
   createCustomAnchorEdge,
   createRng,
-  isActiveUserAnchorEdge,
   normalizeAnalysis,
+  putBackPinnedEdge,
   selectExistingAnchorSource,
   selectNextBeatIndex,
   type JukeboxConfig,
@@ -105,9 +105,12 @@ function resolveUserAnchor(
     (candidate) =>
       candidate.src.which === ref.src && candidate.dest.which === ref.dest,
   );
-  return edge && isActiveUserAnchorEdge(edge)
-    ? { edgeId: edge.id, sourceIndex: edge.src.which }
-    : null;
+  if (!edge || edge.deleted) {
+    return null;
+  }
+  // Mirrors JukeboxEngine: a pin stays offered whatever the tuning filters drop.
+  putBackPinnedEdge(edge);
+  return { edgeId: edge.id, sourceIndex: edge.src.which };
 }
 
 function sanitizeDuration(value: number, fallback: number): number {

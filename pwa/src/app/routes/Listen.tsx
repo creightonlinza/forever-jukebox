@@ -32,6 +32,7 @@ import {
   renderInstrumentalBuffer,
 } from "@forever-jukebox/shared/audio/instrumentalRenderer";
 import {
+  countTuningBranches,
   DEFAULT_JUKEBOX_CONFIG,
   DEFAULT_MIN_LONG_BRANCH_PERCENT,
   Edge,
@@ -1523,8 +1524,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     const nextAnchor = engine.getUserAnchorEdgeId() === edge.id ? null : edge;
     engine.setUserAnchorEdge(nextAnchor);
-    syncVizDataFromEngine();
-    vizControllerRef.current?.setSelectedEdgeActive(edge);
+    const data = syncVizDataFromEngine();
+    // Unpinning a branch the tuning filters out removes it from the viz, so the selection is cleared.
+    if (data && !data.edges.includes(edge)) {
+      clearSelectedBranch();
+    } else {
+      vizControllerRef.current?.setSelectedEdgeActive(edge);
+    }
     persistCurrentTuning();
     showShortcutToast(
       nextAnchor ? t("listen.anchorSet") : t("listen.anchorReset"),
@@ -1769,10 +1775,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
   const graph = engineRef.current?.getGraphState();
   const totalBeats = graph?.totalBeats ?? analysis?.beats.length ?? 0;
-  // The custom anchor's synthetic edge is drawn with the branches but is not one.
-  const totalBranches =
-    engineRef.current?.getVisualizationData()?.edges.filter((edge) => !isCustomAnchorEdge(edge))
-      .length ?? 0;
+  const vizDataForCount = engineRef.current?.getVisualizationData();
+  const totalBranches = vizDataForCount ? countTuningBranches(vizDataForCount) : 0;
   const deletedBranches = graph?.allEdges.filter((edge) => edge.deleted).length ?? 0;
   const vizCount = vizControllerRef.current?.getCount() ?? 1;
   const currentFileKey = file ? `${file.name}:${file.size}:${file.lastModified}` : null;

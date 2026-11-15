@@ -67,6 +67,23 @@ test.describe("engine output lock", () => {
     expect(await readBranchCount(page)).toBe(target.activeEdgeCount);
   });
 
+  // Branch 901 (beat 254 to 174, distance 25) is offered at the auto threshold and filtered at 20.
+  test("a pinned anchor branch stays in the link below its threshold", async ({
+    page,
+  }) => {
+    await loadFixtureTrack(page, "?ab=901");
+
+    await page.locator("#tuning").click();
+    await setRangeValue(page, "#threshold", "20");
+    await page.locator("#tuning-apply").click();
+    await expect(page.locator("#tuning-modal")).not.toHaveClass(/\bopen\b/);
+
+    await expect(page).toHaveURL(/thresh=20/);
+    await expect(page).toHaveURL(/[?&]ab=901(?:&|$)/);
+    // The put-back pin is drawn but not counted.
+    expect(await readBranchCount(page)).toBe(expected("threshold_20").activeEdgeCount);
+  });
+
   test("the threshold sweep reproduces the pinned branch counts", async ({
     page,
   }) => {

@@ -17,6 +17,7 @@ import {
   CustomAnchor,
   getBestLastBranchNeighborIndex,
   isActiveUserAnchorEdge,
+  putBackPinnedEdge,
   createCustomAnchorEdge,
   selectNextBeatIndex,
   UserAnchorSelection,
@@ -126,6 +127,8 @@ export class JukeboxEngine {
   private pendingAdvance: PendingAdvance | null = null;
   private readonly deletedEdgeKeys = new Set<string>();
   private userAnchorEdgeId: number | null = null;
+  // The pinned edge when a tuning filter dropped it and the engine put it back.
+  private insertedUserAnchorEdge: Edge | null = null;
   // Lives only in its source beat's neighbors, never in allEdges, so deletion keys skip it.
   private customAnchorEdge: Edge | null = null;
   private readonly rng: () => number;
@@ -171,6 +174,7 @@ export class JukeboxEngine {
   loadAnalysis(data: unknown) {
     this.deletedEdgeKeys.clear();
     this.userAnchorEdgeId = null;
+    this.insertedUserAnchorEdge = null;
     this.customAnchorEdge = null;
     this.resetPlaybackControls();
     this.analysis = normalizeAnalysis(data);
@@ -198,7 +202,9 @@ export class JukeboxEngine {
 
   setUserAnchorEdge(edge: Edge | null) {
     this.removeCustomAnchorEdge();
+    this.removeInsertedUserAnchorEdge();
     this.userAnchorEdgeId = edge ? edge.id : null;
+    this.insertUserAnchorEdge();
     this.clearPendingAdvance(true);
     this.syncAnchorJump();
   }
@@ -210,6 +216,7 @@ export class JukeboxEngine {
       return false;
     }
     this.removeCustomAnchorEdge();
+    this.removeInsertedUserAnchorEdge();
     this.userAnchorEdgeId = null;
     this.customAnchorEdge = edge;
     this.injectCustomAnchorEdge();
@@ -276,10 +283,12 @@ export class JukeboxEngine {
     this.clearEdgeDeletionFlags();
     this.resolveMinLongBranch();
     this.graph = buildJumpGraph(this.analysis, this.config);
+    this.insertedUserAnchorEdge = null;
     this.curRandomBranchChance = this.config.minRandomBranchChance;
     this.branchState.curRandomBranchChance = this.curRandomBranchChance;
     this.applyDeletedEdges();
     this.injectCustomAnchorEdge();
+    this.insertUserAnchorEdge();
     this.syncAnchorJump();
   }
 
@@ -326,6 +335,8 @@ export class JukeboxEngine {
       lastBranchPoint: this.graph.lastBranchPoint,
       anchorEdgeId,
       userAnchorEdgeId,
+      // A pin the tuning filters out is drawn but not counted as a branch.
+      putBackAnchorEdgeId: this.insertedUserAnchorEdge?.id ?? null,
     };
   }
 
@@ -413,6 +424,7 @@ export class JukeboxEngine {
 
   clearDeletedEdges() {
     this.deletedEdgeKeys.clear();
+    this.removeInsertedUserAnchorEdge();
     this.userAnchorEdgeId = null;
     this.removeCustomAnchorEdge();
     this.clearPendingAdvance(true);
@@ -578,14 +590,34 @@ export class JukeboxEngine {
     source.neighbors.push(edge);
   }
 
+  // A pin stays offered by its source beat whatever the tuning filters drop; deletion still unpins.
+  private insertUserAnchorEdge() {
+    if (!this.graph || this.userAnchorEdgeId === null) {
+      return;
+    }
+    const edge = this.graph.allEdges.find(
+      (candidate) => candidate.id === this.userAnchorEdgeId,
+    );
+    if (edge && putBackPinnedEdge(edge)) {
+      this.insertedUserAnchorEdge = edge;
+    }
+  }
+
+  private removeInsertedUserAnchorEdge() {
+    const edge = this.insertedUserAnchorEdge;
+    if (!edge) {
+      return;
+    }
+    detachFromSource(edge);
+    this.insertedUserAnchorEdge = null;
+  }
+
   private removeCustomAnchorEdge() {
     const edge = this.customAnchorEdge;
     if (!edge) {
       return;
     }
-    edge.src.neighbors = edge.src.neighbors.filter(
-      (candidate) => candidate !== edge,
-    );
+    detachFromSource(edge);
     this.customAnchorEdge = null;
   }
 
@@ -1115,4 +1147,8 @@ export class JukeboxEngine {
       });
     }
   }
+}
+
+function detachFromSource(edge: Edge) {
+  edge.src.neighbors = edge.src.neighbors.filter((candidate) => candidate !== edge);
 }

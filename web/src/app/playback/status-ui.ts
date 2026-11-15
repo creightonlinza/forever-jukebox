@@ -1,4 +1,4 @@
-import { isCustomAnchorEdge } from "@forever-jukebox/shared";
+import { countTuningBranches } from "@forever-jukebox/shared";
 import type { AppContext } from "../context";
 import { formatDuration } from "../format";
 import { useAppStore } from "../store";
@@ -30,11 +30,9 @@ export function updateTrackInfo(context: AppContext) {
     typeof resolvedDuration === "number" && Number.isFinite(resolvedDuration)
       ? formatDuration(resolvedDuration)
       : "00:00:00";
-  // The custom anchor's synthetic edge is drawn with the branches but is not one.
-  const branchCount =
-    vizData?.edges.filter((edge) => !isCustomAnchorEdge(edge)).length ??
-    graph?.allEdges.filter((edge) => !edge.deleted).length ??
-    0;
+  const branchCount = vizData
+    ? countTuningBranches(vizData)
+    : (graph?.allEdges.filter((edge) => !edge.deleted).length ?? 0);
   const deletedCount = graph
     ? graph.allEdges.filter((edge) => edge.deleted).length
     : deletedEdgeIds.length;

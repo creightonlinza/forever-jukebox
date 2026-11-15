@@ -11,7 +11,8 @@ import {
   selectNextBeatIndex,
   type BranchState,
 } from "./selection";
-import type { JukeboxConfig } from "./types";
+import { JukeboxEngine, type JukeboxPlayer } from "./JukeboxEngine";
+import type { Edge, JukeboxConfig, QuantumBase } from "./types";
 
 // The `ab` wire format and custom anchor playback, shared with forever-jukebox-android:
 // both repos parse the same strings and replay the same seeded sequences.
@@ -32,13 +33,27 @@ type SequenceCase = {
   };
 };
 
+type PinnedSequenceCase = Omit<SequenceCase, "expected"> & {
+  expected: {
+    filteredOut: boolean;
+    jumpCount: number;
+    jumps: Array<[number, number, number]>;
+    beatSequence: number[];
+  };
+};
+
 const fixtureDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../../test-fixtures/engine-parity",
 );
 const fixture = JSON.parse(
   fs.readFileSync(path.join(fixtureDir, "custom-anchor-cases.json"), "utf8"),
-) as { analysis_source: string; param_cases: ParamCase[]; sequence_cases: SequenceCase[] };
+) as {
+  analysis_source: string;
+  param_cases: ParamCase[];
+  sequence_cases: SequenceCase[];
+  pinned_sequence_cases: PinnedSequenceCase[];
+};
 const analysisDoc = JSON.parse(
   fs.readFileSync(path.join(fixtureDir, fixture.analysis_source), "utf8"),
 ) as { analysis: unknown };
@@ -51,10 +66,59 @@ function replay(testCase: SequenceCase) {
   expect(parsed && "custom" in parsed, `${testCase.id}: anchor parses as a pair`).toBe(true);
   const edge = createCustomAnchorEdge(analysis.beats, (parsed as { custom: { src: number; dest: number } }).custom)!;
   edge.src.neighbors.push(edge);
+  return {
+    pairDistance: Math.round(beatPairDistance(edge.src, edge.dest) * 1_000_000) / 1_000_000,
+    sameBarPosition: edge.src.indexInParent === edge.dest.indexInParent,
+    ...replaySequence(testCase, analysis.beats, graph, edge),
+  };
+}
+
+// Runs the pin through JukeboxEngine, which puts back a pinned edge that a tuning filter dropped.
+function replayPinned(testCase: PinnedSequenceCase) {
+  const parsed = parseAnchorParam(testCase.anchor);
+  expect(parsed && "edgeId" in parsed, `${testCase.id}: anchor parses as a branch id`).toBe(true);
+  const plain = buildJumpGraph(normalizeAnalysis(analysisDoc.analysis), testCase.config);
+  const plainEdge = plain.allEdges.find((candidate) => candidate.id === (parsed as { edgeId: number }).edgeId)!;
+  const filteredOut = !plainEdge.src.neighbors.some((candidate) => candidate.id === plainEdge.id);
+
+  const engine = new JukeboxEngine(silentPlayer());
+  engine.loadAnalysis(analysisDoc.analysis);
+  engine.updateConfig(testCase.config);
+  engine.rebuildGraph();
+  expect(engine.getConfig().minLongBranch, `${testCase.id}: minLongBranch`).toBe(testCase.config.minLongBranch);
+  expect(engine.applyAnchorParam(parsed), `${testCase.id}: pin applies`).toBe(true);
+  const graph = engine.getGraphState()!;
+  const edge = graph.allEdges.find((candidate) => candidate.id === plainEdge.id)!;
+  const beats = engine.getVisualizationData()!.beats;
+  return { filteredOut, ...replaySequence(testCase, beats, graph, edge) };
+}
+
+function silentPlayer(): JukeboxPlayer {
+  return {
+    play: () => {},
+    pause: () => {},
+    stop: () => {},
+    seek: () => {},
+    scheduleJump: () => true,
+    cancelScheduledJump: () => {},
+    setAnchorJump: () => true,
+    clearAnchorJump: () => {},
+    getCurrentTime: () => 0,
+    getAudioTime: () => 0,
+    getPlaybackRate: () => 1,
+    isPlaying: () => false,
+  };
+}
+
+function replaySequence(
+  testCase: { seed: number; steps: number; config: JukeboxConfig },
+  beats: QuantumBase[],
+  graph: ReturnType<typeof buildJumpGraph>,
+  edge: Edge,
+) {
   const userAnchor = { edgeId: edge.id, sourceIndex: edge.src.which };
   const rng = createRng("seeded", testCase.seed);
   const state: BranchState = { curRandomBranchChance: testCase.config.minRandomBranchChance };
-  const beats = analysis.beats;
   const beatSequence: number[] = [];
   const jumps: Array<[number, number, number]> = [];
   let current = 0;
@@ -69,13 +133,7 @@ function replay(testCase: SequenceCase) {
     }
     beatSequence.push(current);
   }
-  return {
-    pairDistance: Math.round(beatPairDistance(edge.src, edge.dest) * 1_000_000) / 1_000_000,
-    sameBarPosition: edge.src.indexInParent === edge.dest.indexInParent,
-    jumpCount: jumps.length,
-    jumps,
-    beatSequence,
-  };
+  return { jumpCount: jumps.length, jumps, beatSequence };
 }
 
 describe("custom anchor parity fixtures", () => {
@@ -99,6 +157,13 @@ describe("custom anchor parity fixtures", () => {
         testCase.expected.jumps.some(([, from, to]) => `${from}-${to}` === testCase.anchor),
         `${testCase.id}: the anchor jump is taken`,
       ).toBe(true);
+    }
+  });
+
+  it("replays the seeded sequence with a pinned edge a tuning filter drops", () => {
+    for (const testCase of fixture.pinned_sequence_cases) {
+      expect(replayPinned(testCase), testCase.id).toEqual(testCase.expected);
+      expect(testCase.expected.filteredOut, `${testCase.id}: the filter drops the pin`).toBe(true);
     }
   });
 });

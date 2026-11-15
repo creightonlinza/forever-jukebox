@@ -2274,6 +2274,25 @@ describe("playback branch shortcuts", () => {
     expect(context.engine.setForceBranch).toHaveBeenLastCalledWith(false);
   });
 
+  it("clears the selection when A unpins a branch the tuning filters out", () => {
+    const context = createContext();
+    const edge = { id: 7, deleted: false, src: { which: 12 }, dest: { which: 4 } };
+    context.engine.setUserAnchorEdge(edge as Parameters<AppContext["engine"]["setUserAnchorEdge"]>[0]);
+    useAppStore.setState({
+      playMode: "jukebox",
+      deleteConfirmOpen: false,
+      selectedEdge: edge as never,
+    });
+    const { handlers } = makeHandlers(context);
+
+    handlers.handleKeydown(keyEvent("a"));
+
+    expect(context.engine.setUserAnchorEdge).toHaveBeenLastCalledWith(null);
+    expect(useAppStore.getState().selectedEdge).toBeNull();
+    expect(context.jukebox.setSelectedEdge).toHaveBeenLastCalledWith(null);
+    expect(context.jukebox.setSelectedEdgeActive).not.toHaveBeenCalled();
+  });
+
   it("reports Bring It Home turned on by hotkey, and not turned off", () => {
     const context = createContext();
     useAppStore.setState({ playMode: "jukebox", deleteConfirmOpen: false, bringItHomeMode: false });

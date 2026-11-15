@@ -68,6 +68,7 @@ const playerInstances: MockPlayerInstance[] = [];
 type MockJukeboxControllerInstance = {
   emitEdgeSelect: (edge: unknown) => void;
   setData: ReturnType<typeof vi.fn>;
+  setSelectedEdge: ReturnType<typeof vi.fn>;
   setSelectedEdgeActive: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
   refresh: ReturnType<typeof vi.fn>;
@@ -2105,6 +2106,14 @@ describe("Listen route behavior", () => {
   });
 
   it("sets and clears the selected backward branch as the user anchor with A", async () => {
+    const edge = {
+      id: 7,
+      deleted: false,
+      src: { start: 12, which: 12 },
+      dest: { start: 4, which: 4 },
+      distance: 8,
+    };
+    mockVizEdges = [edge];
     const rendered = renderListen();
     await settleEffects();
 
@@ -2113,13 +2122,6 @@ describe("Listen route behavior", () => {
     if (!controller || !engine) {
       throw new Error("Expected jukebox controller and engine instances");
     }
-    const edge = {
-      id: 7,
-      deleted: false,
-      src: { start: 12, which: 12 },
-      dest: { start: 4, which: 4 },
-      distance: 8,
-    };
     controller.setData.mockClear();
     controller.setSelectedEdgeActive.mockClear();
     await act(async () => {
@@ -2138,6 +2140,39 @@ describe("Listen route behavior", () => {
 
     expect(engine.setUserAnchorEdge).toHaveBeenLastCalledWith(null);
     expect(rendered.container.textContent).toContain("Anchor branch reset");
+    rendered.unmount();
+  });
+
+  it("clears the selection when A unpins a branch the tuning filters out", async () => {
+    const edge = {
+      id: 7,
+      deleted: false,
+      src: { start: 12, which: 12 },
+      dest: { start: 4, which: 4 },
+      distance: 8,
+    };
+    mockVizEdges = [edge];
+    const rendered = renderListen();
+    await settleEffects();
+
+    const controller = jukeboxControllerInstances[0];
+    const engine = engineInstances[0];
+    if (!controller || !engine) {
+      throw new Error("Expected jukebox controller and engine instances");
+    }
+    await act(async () => {
+      controller.emitEdgeSelect(edge);
+    });
+    engine.getUserAnchorEdgeId.mockReturnValue(edge.id);
+    mockVizEdges = [];
+    controller.setSelectedEdge.mockClear();
+    controller.setSelectedEdgeActive.mockClear();
+
+    await keydown("a", "KeyA");
+
+    expect(engine.setUserAnchorEdge).toHaveBeenLastCalledWith(null);
+    expect(controller.setSelectedEdge).toHaveBeenLastCalledWith(null);
+    expect(controller.setSelectedEdgeActive).not.toHaveBeenCalled();
     rendered.unmount();
   });
 
