@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
-import pkg from "./package.json";
 import { fileURLToPath } from "node:url";
 import en from "./src/app/locales/en.json";
 
@@ -27,9 +26,6 @@ export default defineConfig(({ command }) => {
     server: {
       port: 5174,
       strictPort: true,
-    },
-    define: {
-      __APP_VERSION__: JSON.stringify(pkg.version),
     },
     optimizeDeps: {
       // Only imported inside the essentia worker; pre-bundle them so the dev

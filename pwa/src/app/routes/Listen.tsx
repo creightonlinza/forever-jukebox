@@ -116,6 +116,7 @@ import { StatusPanel, liveLoading, type PreparingPhase } from "./listen/StatusPa
 import { usePresentedLoading } from "@forever-jukebox/shared/ui/LoadingProgress";
 import { TuningModal } from "./listen/TuningModal";
 import { VizInfo } from "./listen/VizInfo";
+import { createPlaybackCounters } from "./listen/playbackCounters";
 import { VizTop } from "./listen/VizTop";
 import { VolumePopover } from "./listen/VolumePopover";
 import { useAudioExport } from "./listen/useAudioExport";
@@ -153,15 +154,9 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
 
   const [isRunning, setIsRunning] = React.useState(false);
   const [isPaused, setIsPaused] = React.useState(false);
-  const [beatsPlayed, setBeatsPlayed] = React.useState(0);
-  const [listenSeconds, setListenSeconds] = React.useState(0);
-  const [autocanonizerMainSeconds, setAutocanonizerMainSeconds] =
-    React.useState(0);
-  const [autocanonizerOtherSeconds, setAutocanonizerOtherSeconds] =
-    React.useState(0);
+  const [counters] = React.useState(createPlaybackCounters);
   const [autocanonizerMainPan, setAutocanonizerMainPan] = React.useState(0);
   const [autocanonizerOtherPan, setAutocanonizerOtherPan] = React.useState(0);
-  const [wubMachineSeconds, setWubMachineSeconds] = React.useState(0);
   const [wubMachineDurationSeconds, setWubMachineDurationSeconds] =
     React.useState(0);
   const [loopTrack, setLoopTrack] = React.useState<boolean>(() =>
@@ -393,11 +388,13 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     lastPlayStampRef.current = null;
     lastBeatRef.current = null;
     lastCowbellBeatsPlayedRef.current = null;
-    setListenSeconds(0);
-    setBeatsPlayed(0);
-    setAutocanonizerMainSeconds(0);
-    setAutocanonizerOtherSeconds(0);
-    setWubMachineSeconds(0);
+    counters.set({
+      listenSeconds: 0,
+      beatsPlayed: 0,
+      autocanonizerMainSeconds: 0,
+      autocanonizerOtherSeconds: 0,
+      wubMachineSeconds: 0,
+    });
   }
 
   function clearSelectedBranch() {
@@ -488,10 +485,12 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     );
     autocanonizer.setVolume(playerRef.current?.getVolume() ?? 1);
     autocanonizer.setOnBeat((index, _beat, cursorTimes) => {
-      setBeatsPlayed(index + 1);
       lastBeatRef.current = index;
-      setAutocanonizerMainSeconds(cursorTimes.mainSeconds);
-      setAutocanonizerOtherSeconds(cursorTimes.otherSeconds);
+      counters.set({
+        beatsPlayed: index + 1,
+        autocanonizerMainSeconds: cursorTimes.mainSeconds,
+        autocanonizerOtherSeconds: cursorTimes.otherSeconds,
+      });
     });
     autocanonizer.setOnEnded(() => {
       if (!isRunningRef.current) {
@@ -510,10 +509,8 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     wubmachine.setLoop(loopTrack);
     wubmachine.setVolume(playerRef.current?.getVolume() ?? 1);
     wubmachine.setOnTick((seconds) => {
-      // Fires every frame; the display only changes once a second.
-      setWubMachineSeconds((prev) =>
-        prev === Math.floor(seconds) ? prev : Math.floor(seconds),
-      );
+      // Fires every frame; floored so subscribers run once a second.
+      counters.set({ wubMachineSeconds: Math.floor(seconds) });
     });
     wubmachine.setOnEnded(() => {
       if (!isRunningRef.current) {
@@ -720,7 +717,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       const totalMs =
         playTimerMsRef.current +
         (lastPlayStampRef.current !== null ? now - lastPlayStampRef.current : 0);
-      setListenSeconds(totalMs / 1000);
+      counters.set({ listenSeconds: totalMs / 1000 });
     }, 200);
 
     return () => {
@@ -787,9 +784,11 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
     }
     playModeRef.current = mode;
     setPlayMode(mode);
-    setAutocanonizerMainSeconds(0);
-    setAutocanonizerOtherSeconds(0);
-    setWubMachineSeconds(0);
+    counters.set({
+      autocanonizerMainSeconds: 0,
+      autocanonizerOtherSeconds: 0,
+      wubMachineSeconds: 0,
+    });
     if (mode !== "jukebox") {
       setIsTuningOpen(false);
       setIsInfoOpen(false);
@@ -816,7 +815,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
       engine.getSectionStartBeatIndices(),
     );
     engine.onUpdate((state) => {
-      setBeatsPlayed(state.beatsPlayed);
+      counters.set({ beatsPlayed: state.beatsPlayed });
       if (state.currentBeatIndex >= 0) {
         if (state.beatsPlayed !== lastCowbellBeatsPlayedRef.current) {
           lastCowbellBeatsPlayedRef.current = state.beatsPlayed;
@@ -1067,7 +1066,7 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
           player.getContext(),
           render.parts,
         );
-        setWubMachineSeconds(0);
+        counters.set({ wubMachineSeconds: 0 });
         setWubMachineDurationSeconds(render.buffer.duration);
         setPreparingState(null, true);
       })
@@ -1983,14 +1982,10 @@ export function Listen({ isActive = true }: { isActive?: boolean }) {
               <VizInfo
                 vizTitleRef={vizTitleRef}
                 playMode={playMode}
-                autocanonizerMainSeconds={autocanonizerMainSeconds}
-                autocanonizerOtherSeconds={autocanonizerOtherSeconds}
-                wubMachineSeconds={wubMachineSeconds}
+                counters={counters}
                 wubMachineDurationSeconds={wubMachineDurationSeconds}
                 trackDurationSeconds={analysis?.track?.duration ?? 0}
-                listenSeconds={listenSeconds}
                 beatsLabel={beatsLabel}
-                beatsPlayed={beatsPlayed}
                 bringItHomeMode={bringItHomeMode}
               />
             </div>

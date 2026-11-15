@@ -1,11 +1,3 @@
-import { AnalysisOutput } from "../analysis-schema/schema";
-
-export type ExportMetadata = {
-  createdAt: string;
-  appVersion: string;
-  fingerprint: string;
-};
-
 export interface ExportBinaryOptions {
   mimeType: string;
   description: string;
@@ -18,23 +10,6 @@ type SaveFileHandle = {
     close: () => Promise<void>;
   }>;
 };
-
-function buildExportPayload(
-  analysis: AnalysisOutput,
-  metadata: ExportMetadata
-) {
-  return {
-    ...analysis,
-    metadata,
-  };
-}
-
-export function formatExportJson(
-  analysis: AnalysisOutput,
-  metadata: ExportMetadata
-) {
-  return JSON.stringify(buildExportPayload(analysis, metadata), null, 2);
-}
 
 export async function saveExportBinary(
   filename: string,
