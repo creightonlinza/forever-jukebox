@@ -54,7 +54,12 @@ export function ExportModal({
     }
   });
   return (
-    <div className="modal open">
+    <div
+      className="modal open"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="export-title"
+    >
       <button
         className="modal-backdrop"
         type="button"
@@ -64,7 +69,7 @@ export function ExportModal({
       />
       <div ref={panelRef} className="modal-panel">
         <div className="modal-header">
-          <h2>{t("export.title")}</h2>
+          <h2 id="export-title">{t("export.title")}</h2>
           <button
             className="modal-close"
             type="button"
