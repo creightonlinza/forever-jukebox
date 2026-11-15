@@ -11,7 +11,7 @@ import {
   readFileFromHandle,
 } from "@/core/infrastructure/cache/fileHandleStore";
 import { computeFingerprint } from "@/shared/utils/fingerprint";
-import { formatDuration } from "@/shared/utils/format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 import { DropZone, useAudioFilePicker } from "@/ui/components/DropZone";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { useAppState } from "../state/AppState";

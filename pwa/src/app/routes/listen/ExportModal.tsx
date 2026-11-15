@@ -2,9 +2,9 @@ import React from "react";
 import { useModalKeyboard } from "@forever-jukebox/shared/ui/useModalKeyboard";
 import { useTranslation } from "react-i18next";
 import type { JukeboxExportProgress } from "@/shared/export/exporter";
-import { formatDuration } from "@/shared/utils/format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
-import type { PlayMode } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import {
   MAX_EXPORT_DURATION_SECONDS,
   exportProgressMessage,

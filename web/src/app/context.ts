@@ -11,10 +11,9 @@ import type { AutocanonizerController } from "@forever-jukebox/shared/autocanoni
 import type { WubMachineController } from "@forever-jukebox/shared/wubmachine/WubMachineController";
 import type { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import type { CowbellOverlayService } from "@forever-jukebox/shared/audio/CowbellOverlayService";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 
 export type TabId = "top" | "search" | "play" | "faq";
-
-export type PlayMode = "jukebox" | "autocanonizer" | "wubmachine";
 
 export type AppState = {
   activeTabId: TabId;

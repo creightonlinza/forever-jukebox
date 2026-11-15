@@ -5,7 +5,7 @@ import {
   CustomAnchorToolbar as SharedToolbar,
   type CustomAnchorLabels,
 } from "@forever-jukebox/shared/ui/CustomAnchorEditor";
-import { formatDuration } from "../../format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 import { getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import {

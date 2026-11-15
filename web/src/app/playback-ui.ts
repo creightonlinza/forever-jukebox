@@ -12,8 +12,9 @@ import {
 } from "./constants";
 import { trackEvent, trackModeEnabled } from "./analytics";
 import { formatErrorForDisplay } from "./errorDisplay";
-import { formatDuration } from "./format";
-import type { AppContext, PlayMode } from "./context";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
+import type { AppContext } from "./context";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import {
   applyExtrasChanges,
   cancelWubMachineRender,
@@ -40,7 +41,8 @@ import {
   serializeParams,
   writeTuningParamsToUrl,
 } from "./tuning";
-import { isEditableTarget, setAnalysisStatus, showToast } from "./ui";
+import { setAnalysisStatus, showToast } from "./ui";
+import { isEditableTarget } from "@forever-jukebox/shared/ui/editableTarget";
 import i18n from "./i18n";
 
 let lastCowbellBeatsPlayed = 0;

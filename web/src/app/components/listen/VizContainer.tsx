@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { PlayMode } from "../../context";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import { attachViz, getAppContext } from "../../runtime";
 import { useAppStore } from "../../store";
 import { ModifierBadges } from "../ModifierBadges";

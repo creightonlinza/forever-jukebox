@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from "react";
-import { setAutoMarqueeText } from "../marquee";
+import { setAutoMarqueeText } from "@forever-jukebox/shared/ui/marquee";
 
 // Wraps the imperative marquee controller (WeakMap of per-element
 // controllers in marquee.ts). Idempotent, so StrictMode double-effects are

@@ -1,12 +1,13 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { formatDuration, formatTime } from "@/shared/utils/format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
+import { formatTime } from "@/shared/utils/format";
 import {
   AUTOCANONIZER_MAIN_COLOR,
   AUTOCANONIZER_OTHER_COLOR,
 } from "@forever-jukebox/shared/autocanonizer/AutocanonizerViz";
 import type { PlaybackCounters, PlaybackCounterValues } from "./playbackCounters";
-import type { PlayMode } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 
 function setText(node: HTMLSpanElement | null, text: string) {
   if (node && node.textContent !== text) {

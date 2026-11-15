@@ -2,7 +2,7 @@ import React from "react";
 import type { AutocanonizerController } from "@forever-jukebox/shared/autocanonizer/AutocanonizerController";
 import type { JukeboxController } from "@forever-jukebox/shared/viz/JukeboxController";
 import type { WubMachineController } from "@forever-jukebox/shared/wubmachine/WubMachineController";
-import type { PlayMode } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import { useWakeLock } from "./useWakeLock";
 
 // Fullscreen state for the viz panel plus the wake lock that is only held

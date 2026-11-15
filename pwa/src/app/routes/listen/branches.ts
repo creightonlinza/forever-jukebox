@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import type { Edge } from "@forever-jukebox/shared";
-import { formatDuration } from "@/shared/utils/format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 
 export type BranchStats = {
   id: Edge["id"];

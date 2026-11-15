@@ -18,7 +18,11 @@
     "./ui/LoadingProgress": "./src/ui/LoadingProgress.tsx",
     "./ui/jobProgress": "./src/ui/jobProgress.ts",
     "./net/readWithProgress": "./src/net/readWithProgress.ts",
-    "./ui/useModalKeyboard": "./src/ui/useModalKeyboard.ts"
+    "./ui/useModalKeyboard": "./src/ui/useModalKeyboard.ts",
+    "./ui/marquee": "./src/ui/marquee.ts",
+    "./ui/format": "./src/ui/format.ts",
+    "./ui/editableTarget": "./src/ui/editableTarget.ts",
+    "./constants/playback": "./src/constants/playback.ts"
   },
   "scripts": {
     "test": "vitest run",
