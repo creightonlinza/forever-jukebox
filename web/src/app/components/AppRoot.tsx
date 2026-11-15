@@ -1,4 +1,5 @@
 import {
+  Component,
   lazy,
   Suspense,
   useEffect,
@@ -28,27 +29,68 @@ import { PlayMenu } from "./listen/PlayMenu";
 import { StatusPanel } from "./listen/StatusPanel";
 import { VizContainer } from "./listen/VizContainer";
 
-const FaqPanel = lazy(() =>
-  import("./FaqPanel").then((m) => ({ default: m.FaqPanel })),
-);
-const SearchPanel = lazy(() =>
-  import("./SearchPanel").then((m) => ({ default: m.SearchPanel })),
-);
-const TuningModal = lazy(() =>
-  import("./listen/TuningModal").then((m) => ({ default: m.TuningModal })),
-);
-const SettingsModal = lazy(() =>
-  import("./SettingsModal").then((m) => ({ default: m.SettingsModal })),
-);
-const FeedbackModal = lazy(() =>
-  import("./FeedbackModal").then((m) => ({ default: m.FeedbackModal })),
-);
-const InfoModal = lazy(() =>
-  import("./listen/InfoModal").then((m) => ({ default: m.InfoModal })),
-);
-const PlaylistModal = lazy(() =>
-  import("./listen/PlaylistModal").then((m) => ({ default: m.PlaylistModal })),
-);
+export const lazyImports = {
+  faq: () => import("./FaqPanel").then((m) => ({ default: m.FaqPanel })),
+  search: () =>
+    import("./SearchPanel").then((m) => ({ default: m.SearchPanel })),
+  tuning: () =>
+    import("./listen/TuningModal").then((m) => ({ default: m.TuningModal })),
+  settings: () =>
+    import("./SettingsModal").then((m) => ({ default: m.SettingsModal })),
+  feedback: () =>
+    import("./FeedbackModal").then((m) => ({ default: m.FeedbackModal })),
+  info: () =>
+    import("./listen/InfoModal").then((m) => ({ default: m.InfoModal })),
+  playlist: () =>
+    import("./listen/PlaylistModal").then((m) => ({
+      default: m.PlaylistModal,
+    })),
+};
+
+const FaqPanel = lazy(lazyImports.faq);
+const SearchPanel = lazy(lazyImports.search);
+const TuningModal = lazy(lazyImports.tuning);
+const SettingsModal = lazy(lazyImports.settings);
+const FeedbackModal = lazy(lazyImports.feedback);
+const InfoModal = lazy(lazyImports.info);
+const PlaylistModal = lazy(lazyImports.playlist);
+
+// Suspense for one lazy component; a chunk that fails to load renders nothing
+// and leaves the rest of the app running.
+class LazyBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? null : (
+      <Suspense fallback={null}>{this.props.children}</Suspense>
+    );
+  }
+}
+
+// Fetches every lazy chunk once the browser is idle after mount, so chunks
+// from this build stay loadable after a later deploy removes them.
+function useWarmLazyChunks() {
+  useEffect(() => {
+    const warm = () => {
+      for (const load of Object.values(lazyImports)) {
+        load().catch(() => {});
+      }
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(warm);
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(warm, 2000);
+    return () => window.clearTimeout(timer);
+  }, []);
+}
 
 // Mounts a lazy modal on its first open and keeps it mounted after close.
 function LazyModal({
@@ -63,9 +105,7 @@ function LazyModal({
   if (open && !opened) {
     setOpened(true);
   }
-  return opened || open ? (
-    <Suspense fallback={null}>{children}</Suspense>
-  ) : null;
+  return opened || open ? <LazyBoundary>{children}</LazyBoundary> : null;
 }
 
 // Derives activeTab from the URL on every location change and runs the
@@ -180,15 +220,16 @@ export function AppRoot() {
   useGlobalHotkeys();
   usePlaylistAddEnabled();
   useDocumentTitle();
+  useWarmLazyChunks();
   return (
     <>
       <NavigationDriver />
       <Hero />
       {activeTab === "top" ? <TopTracksPanel /> : null}
       {activeTab === "search" ? (
-        <Suspense fallback={null}>
+        <LazyBoundary>
           <SearchPanel />
-        </Suspense>
+        </LazyBoundary>
       ) : null}
       {/* The Listen panel. It persists in the DOM permanently — visibility is
           class-only, driven by the shell. */}
@@ -201,9 +242,9 @@ export function AppRoot() {
         <VizContainer />
       </section>
       {activeTab === "faq" ? (
-        <Suspense fallback={null}>
+        <LazyBoundary>
           <FaqPanel />
-        </Suspense>
+        </LazyBoundary>
       ) : null}
       <Footer />
       <Toast />
