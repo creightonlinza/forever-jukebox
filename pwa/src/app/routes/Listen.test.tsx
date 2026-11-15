@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, Profiler } from "react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
@@ -1486,6 +1486,56 @@ describe("Listen route behavior", () => {
     expect(jukebox?.update.mock.calls[0]?.[0]).toBe(2);
     expect(jukebox?.update.mock.calls[0]?.[1]).toBe(false);
     rendered.unmount();
+  });
+
+  it("updates beat and listen counters in the DOM without a React commit", async () => {
+    let nowMs = 1000;
+    let listenTimer: (() => void) | null = null;
+    vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+    vi.mocked(window.setInterval).mockImplementation(
+      ((callback: TimerHandler) => {
+        if (typeof callback === "function") {
+          listenTimer = () => callback();
+        }
+        return 1 as unknown as ReturnType<typeof window.setInterval>;
+      }) as unknown as typeof window.setInterval,
+    );
+    let commits = 0;
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <Profiler id="listen" onRender={() => (commits += 1)}>
+          <MemoryRouter
+            future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+          >
+            <Listen />
+          </MemoryRouter>
+        </Profiler>,
+      );
+    });
+    await settleEffects();
+    await click(getRequired<HTMLButtonElement>(container, "#viz-play"));
+    const listenTime = getRequired(container, ".viz-meta-stats span:nth-child(2)");
+    const beatsPlayed = getRequired(container, ".viz-meta-stats span:nth-child(5)");
+    expect(listenTime.textContent).toBe("00:00:00");
+    expect(beatsPlayed.textContent).toBe("0");
+
+    commits = 0;
+    nowMs = 6000;
+    await act(async () => {
+      engineInstances[0]?.emitUpdate({ beatsPlayed: 12, currentBeatIndex: 2 });
+      listenTimer?.();
+    });
+
+    expect(beatsPlayed.textContent).toBe("12");
+    expect(listenTime.textContent).toBe("00:00:05");
+    expect(commits).toBe(0);
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
   });
 
   it("keeps jukebox running when audio ended fires during normal looping", async () => {
