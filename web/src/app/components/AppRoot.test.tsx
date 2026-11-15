@@ -197,8 +197,44 @@ describe("AppRoot tab lifecycle", () => {
     await userEvent.click(button!);
 
     expect(useAppStore.getState().settingsModalOpen).toBe(true);
-    expect(document.getElementById("settings-modal")?.className).toBe(
-      "modal open",
-    );
+    await waitFor(() => {
+      expect(document.getElementById("settings-modal")?.className).toBe(
+        "modal open",
+      );
+    });
+    expect(document.activeElement?.id).toBe("settings-close");
+  });
+
+  it("mounts each modal on its first open and keeps it mounted after close", async () => {
+    renderApp("/");
+    const modalIds = [
+      "tuning-modal",
+      "settings-modal",
+      "feedback-modal",
+      "info-modal",
+      "playlist-modal",
+    ];
+    for (const id of modalIds) {
+      expect(document.getElementById(id)).toBeNull();
+    }
+
+    act(() => {
+      useAppStore.setState({ infoModalOpen: true });
+    });
+    await waitFor(() => {
+      expect(document.getElementById("info-modal")?.className).toBe(
+        "modal open",
+      );
+    });
+    const infoModal = document.getElementById("info-modal");
+
+    act(() => {
+      useAppStore.setState({ infoModalOpen: false });
+    });
+    expect(document.getElementById("info-modal")).toBe(infoModal);
+    expect(infoModal?.className).toBe("modal");
+    for (const id of modalIds.filter((id) => id !== "info-modal")) {
+      expect(document.getElementById(id)).toBeNull();
+    }
   });
 });

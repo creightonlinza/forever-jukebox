@@ -1,9 +1,16 @@
-import { useEffect, useRef } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigationType } from "react-router-dom";
 import { trackPageView } from "../analytics";
 import { getAppContext, handleRoute } from "../runtime";
-import { useAppStore } from "../store";
+import { useAppStore, type AppStoreState } from "../store";
 import { tabFromPathname } from "../tabs";
 import { applyTheme } from "../theme";
 import { titleForAppView } from "../document-title";
@@ -12,21 +19,54 @@ import {
   handleKeyup as playbackHandleKeyup,
   handleWindowBlur as playbackHandleWindowBlur,
 } from "../playback-ui";
-import { FaqPanel } from "./FaqPanel";
-import { FeedbackModal } from "./FeedbackModal";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
 import { NavigationDriver } from "./NavigationDriver";
-import { SearchPanel } from "./SearchPanel";
-import { SettingsModal } from "./SettingsModal";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
-import { InfoModal } from "./listen/InfoModal";
 import { PlayMenu } from "./listen/PlayMenu";
-import { PlaylistModal } from "./listen/PlaylistModal";
 import { StatusPanel } from "./listen/StatusPanel";
-import { TuningModal } from "./listen/TuningModal";
 import { VizContainer } from "./listen/VizContainer";
+
+const FaqPanel = lazy(() =>
+  import("./FaqPanel").then((m) => ({ default: m.FaqPanel })),
+);
+const SearchPanel = lazy(() =>
+  import("./SearchPanel").then((m) => ({ default: m.SearchPanel })),
+);
+const TuningModal = lazy(() =>
+  import("./listen/TuningModal").then((m) => ({ default: m.TuningModal })),
+);
+const SettingsModal = lazy(() =>
+  import("./SettingsModal").then((m) => ({ default: m.SettingsModal })),
+);
+const FeedbackModal = lazy(() =>
+  import("./FeedbackModal").then((m) => ({ default: m.FeedbackModal })),
+);
+const InfoModal = lazy(() =>
+  import("./listen/InfoModal").then((m) => ({ default: m.InfoModal })),
+);
+const PlaylistModal = lazy(() =>
+  import("./listen/PlaylistModal").then((m) => ({ default: m.PlaylistModal })),
+);
+
+// Mounts a lazy modal on its first open and keeps it mounted after close.
+function LazyModal({
+  isOpen,
+  children,
+}: {
+  isOpen: (state: AppStoreState) => boolean;
+  children: ReactNode;
+}) {
+  const open = useAppStore(isOpen);
+  const [opened, setOpened] = useState(open);
+  if (open && !opened) {
+    setOpened(true);
+  }
+  return opened || open ? (
+    <Suspense fallback={null}>{children}</Suspense>
+  ) : null;
+}
 
 // Derives activeTab from the URL on every location change and runs the
 // route handler (mode-from-URL, track loading, FAQ subtab sync) on
@@ -145,7 +185,11 @@ export function AppRoot() {
       <NavigationDriver />
       <Hero />
       {activeTab === "top" ? <TopTracksPanel /> : null}
-      {activeTab === "search" ? <SearchPanel /> : null}
+      {activeTab === "search" ? (
+        <Suspense fallback={null}>
+          <SearchPanel />
+        </Suspense>
+      ) : null}
       {/* The Listen panel. It persists in the DOM permanently — visibility is
           class-only, driven by the shell. */}
       <section
@@ -156,14 +200,28 @@ export function AppRoot() {
         <PlayMenu />
         <VizContainer />
       </section>
-      {activeTab === "faq" ? <FaqPanel /> : null}
+      {activeTab === "faq" ? (
+        <Suspense fallback={null}>
+          <FaqPanel />
+        </Suspense>
+      ) : null}
       <Footer />
       <Toast />
-      <TuningModal />
-      <SettingsModal />
-      <FeedbackModal />
-      <InfoModal />
-      <PlaylistModal />
+      <LazyModal isOpen={(s) => s.tuningModalOpen}>
+        <TuningModal />
+      </LazyModal>
+      <LazyModal isOpen={(s) => s.settingsModalOpen}>
+        <SettingsModal />
+      </LazyModal>
+      <LazyModal isOpen={(s) => s.feedbackModalOpen}>
+        <FeedbackModal />
+      </LazyModal>
+      <LazyModal isOpen={(s) => s.infoModalOpen}>
+        <InfoModal />
+      </LazyModal>
+      <LazyModal isOpen={(s) => s.playlistModalOpen}>
+        <PlaylistModal />
+      </LazyModal>
     </>
   );
 }
