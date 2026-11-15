@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { AppRoot } from "./AppRoot";
 import { lazyImports } from "./lazyImports";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
 import { handleWindowBlur } from "../playback-ui";
+import { navigate } from "../history";
+import { loadUrl } from "../__tests__/test-utils";
 
 const h = vi.hoisted(() => ({
   attachViz: vi.fn(),
@@ -73,12 +74,8 @@ function renderApp(initialPath = "/") {
   act(() => {
     useAppStore.getState().setActiveTab(tabFromPathname(initialPath));
   });
-  const router = createMemoryRouter(
-    [{ path: "*", element: <AppRoot /> }],
-    { initialEntries: [initialPath] },
-  );
-  render(<RouterProvider router={router} />);
-  return router;
+  loadUrl(initialPath);
+  render(<AppRoot />);
 }
 
 describe("AppRoot tab lifecycle", () => {
@@ -98,7 +95,7 @@ describe("AppRoot tab lifecycle", () => {
   });
 
   it("unmounts inactive regular tabs while keeping Listen mounted", async () => {
-    const router = renderApp("/");
+    renderApp("/");
     const listenPanel = document.querySelector('[data-tab-panel="play"]');
     const vizLayer = document.getElementById("viz-layer");
 
@@ -110,7 +107,7 @@ describe("AppRoot tab lifecycle", () => {
       useAppStore.getState().selectTab("search");
     });
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/search");
+      expect(window.location.pathname).toBe("/search");
       expect(document.querySelector('[data-tab-panel="top"]')).toBeNull();
       expect(document.querySelector('[data-tab-panel="search"]')).not.toBeNull();
     });
@@ -121,7 +118,7 @@ describe("AppRoot tab lifecycle", () => {
       useAppStore.getState().selectTab("play");
     });
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/listen");
+      expect(window.location.pathname).toBe("/listen");
       expect(document.querySelector('[data-tab-panel="search"]')).toBeNull();
       expect(
         document
@@ -134,7 +131,7 @@ describe("AppRoot tab lifecycle", () => {
   });
 
   it("syncs the browser title from route and track state", async () => {
-    const router = renderApp("/");
+    renderApp("/");
     await waitFor(() => {
       expect(document.title).toBe("Forever Jukebox");
     });
@@ -160,8 +157,8 @@ describe("AppRoot tab lifecycle", () => {
       expect(document.title).toBe("Song - Artist | Forever Jukebox");
     });
 
-    await act(async () => {
-      await router.navigate("/whats-new");
+    act(() => {
+      navigate("/whats-new");
     });
     await waitFor(() => {
       expect(document.title).toBe("What's New | Forever Jukebox");
@@ -290,11 +287,8 @@ describe("AppRoot tab lifecycle", () => {
       act(() => {
         freshStore.getState().setActiveTab("faq");
       });
-      const router = createMemoryRouter(
-        [{ path: "*", element: <FreshAppRoot /> }],
-        { initialEntries: ["/faq"] },
-      );
-      render(<RouterProvider router={router} />);
+      loadUrl("/faq");
+      render(<FreshAppRoot />);
       const listenPanel = document.querySelector('[data-tab-panel="play"]');
       expect(listenPanel).not.toBeNull();
 

@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { navigate } from "../history";
 import { useAppStore } from "../store";
 
 export function NavigationDriver() {
-  const navigate = useNavigate();
   const request = useAppStore((s) => s.navigationRequest);
   const handledRequestIdRef = useRef<number | null>(null);
 
@@ -12,8 +11,8 @@ export function NavigationDriver() {
       return;
     }
     handledRequestIdRef.current = request.id;
-    navigate(request.to, { replace: request.replace });
-  }, [navigate, request]);
+    navigate(request.to, request.replace);
+  }, [request]);
 
   return null;
 }

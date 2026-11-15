@@ -160,9 +160,8 @@ type Actions = {
   setTheme: (theme: ThemeName) => void;
   setPlayTabPulsing: (pulsing: boolean) => void;
   setFooterCredit: (credit: FooterCredit | null) => void;
-  // Navigation requests are consumed by the React router boundary in
-  // <NavigationDriver>; non-React flows enqueue requests here instead of
-  // reaching into react-router directly.
+  // Navigation requests are applied to browser history by <NavigationDriver>
+  // after the caller's synchronous URL writes.
   navigateToTabWithState: (
     tabId: TabId,
     options?: {

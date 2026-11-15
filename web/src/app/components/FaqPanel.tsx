@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { trackEvent } from "../analytics";
+import { getLocation, navigate, subscribeLocation } from "../history";
 import { pathForFaqSubtab, type FaqSubtabId } from "../tabs";
 import { Trans, useTranslation } from "react-i18next";
 import { HeroSocials } from "./Hero";
@@ -30,8 +30,7 @@ function FaqItem({
 
 export function FaqPanel() {
   const { t } = useTranslation();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location = useSyncExternalStore(subscribeLocation, getLocation);
   const subtab: FaqSubtabId = location.pathname.startsWith("/whats-new")
     ? "whats-new"
     : "faq";

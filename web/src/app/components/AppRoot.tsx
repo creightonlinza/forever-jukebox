@@ -5,11 +5,12 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigationType } from "react-router-dom";
 import { trackPageView } from "../analytics";
+import { getLocation, subscribeLocation } from "../history";
 import { getAppContext, handleRoute } from "../runtime";
 import { useAppStore, type AppStoreState } from "../store";
 import { tabFromPathname } from "../tabs";
@@ -96,17 +97,16 @@ function LazyModal({
 // initial load and browser back/forward. The location.key guard keeps
 // StrictMode's double-invoked effects from loading a track twice.
 function useRouteSync() {
-  const location = useLocation();
-  const navigationType = useNavigationType();
+  const location = useSyncExternalStore(subscribeLocation, getLocation);
   const handledKeyRef = useRef<string | null>(null);
   useEffect(() => {
     trackPageView(location.pathname);
     useAppStore.getState().setActiveTab(tabFromPathname(location.pathname));
-    if (navigationType === "POP" && handledKeyRef.current !== location.key) {
+    if (location.type === "POP" && handledKeyRef.current !== location.key) {
       handledKeyRef.current = location.key;
       handleRoute(location.pathname);
     }
-  }, [location, navigationType]);
+  }, [location]);
 }
 
 // Side effects keyed on the derived activeTab. Listen stays DOM-mounted;
@@ -133,7 +133,7 @@ function useTabEffects() {
 
 function useDocumentTitle() {
   const { i18n } = useTranslation();
-  const location = useLocation();
+  const location = useSyncExternalStore(subscribeLocation, getLocation);
   const activeTab = useAppStore((s) => s.activeTabId);
   const trackTitle = useAppStore((s) => s.trackTitle);
   const trackArtist = useAppStore((s) => s.trackArtist);

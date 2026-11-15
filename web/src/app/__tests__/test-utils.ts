@@ -17,3 +17,9 @@ export function setWindowUrl(url: string) {
     },
   } as unknown as Window;
 }
+
+// Puts jsdom at `path` the way a fresh page load does: a POP with no entry key.
+export function loadUrl(path: string) {
+  window.history.replaceState(null, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}

@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { NavigationDriver } from "../components/NavigationDriver";
 import { useAppStore } from "../store";
 import {
@@ -10,10 +9,11 @@ import {
   tabFromPathname,
   urlForTrack,
 } from "../tabs";
+import { loadUrl } from "./test-utils";
 
 // The frozen URL contract (see e2e/README.md and git history of the
 // migration plan). These tests pin the exact paths/search strings queued for
-// React Router plus the pure URL helpers used for links.
+// browser history plus the pure URL helpers used for links.
 
 const initialStoreState = useAppStore.getState();
 
@@ -141,14 +141,9 @@ describe("URL contract", () => {
     expect(pathForTab("play", "a b/c")).toBe("/listen/a%20b%2Fc");
   });
 
-  it("drives React Router from queued navigation requests", async () => {
-    const router = createMemoryRouter(
-      [{ path: "*", element: <NavigationDriver /> }],
-      {
-        initialEntries: ["/listen/abc?jb=1"],
-      },
-    );
-    render(<RouterProvider router={router} />);
+  it("drives browser history from queued navigation requests", async () => {
+    loadUrl("/listen/abc?jb=1");
+    render(<NavigationDriver />);
 
     act(() => {
       useAppStore
@@ -161,8 +156,8 @@ describe("URL contract", () => {
     });
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/listen/xyz");
-      expect(router.state.location.search).toBe("?lg=1");
+      expect(window.location.pathname).toBe("/listen/xyz");
+      expect(window.location.search).toBe("?lg=1");
     });
   });
 });
