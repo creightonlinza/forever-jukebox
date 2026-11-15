@@ -36,7 +36,7 @@ export function formatTrackDuration(seconds: unknown) {
   return `${minutes}:${secs}`;
 }
 
-export function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
+function formatAudioModeLabel(audioMode: JukeboxAudioMode) {
   const labels: Record<JukeboxAudioMode, string> = {
     off: i18n.t("common.off"),
     nightcore: i18n.t("audioModes.nightcore"),

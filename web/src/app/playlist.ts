@@ -87,7 +87,7 @@ export function canMovePlaylistNext(playlist: PlaylistState) {
   );
 }
 
-export function normalizePlaylistTrack(track: PlaylistTrack): PlaylistTrack | null {
+function normalizePlaylistTrack(track: PlaylistTrack): PlaylistTrack | null {
   const id = typeof track.id === "string" ? track.id.trim() : "";
   if (!id || !isPlaylistSourceType(track.sourceType)) {
     return null;

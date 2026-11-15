@@ -292,7 +292,7 @@ export async function tryLoadExistingTrackByName(
   }
 }
 
-export async function runSearch(_context: AppContext, _deps: SearchDeps) {
+async function runSearch(_context: AppContext, _deps: SearchDeps) {
   const query = useAppStore.getState().searchQuery.trim().slice(0, 100);
   if (useAppStore.getState().searchQuery !== query) {
     useAppStore.setState({ searchQuery: query });
@@ -318,7 +318,7 @@ export async function runSearch(_context: AppContext, _deps: SearchDeps) {
   }
 }
 
-export function resetSearchUI(_context: AppContext) {
+function resetSearchUI(_context: AppContext) {
   useAppStore.setState({
     searchQuery: "",
     searchResults: DEFAULT_SEARCH_RESULTS,
@@ -327,7 +327,7 @@ export function resetSearchUI(_context: AppContext) {
 }
 
 // Result selection — the React panel passes item data instead of DOM events.
-export function selectYoutubeMatch(
+function selectYoutubeMatch(
   context: AppContext,
   deps: SearchDeps,
   selection: {
@@ -360,7 +360,7 @@ export function selectYoutubeMatch(
   });
 }
 
-export function selectSpotifyMatch(
+function selectSpotifyMatch(
   context: AppContext,
   deps: SearchDeps,
   selection: { name: string; artist: string; duration: number },

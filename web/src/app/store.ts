@@ -13,7 +13,7 @@ import { emptyPlaylist } from "./playlist";
 import { buildSearchParams, pathForTab, pathForTrack } from "./tabs";
 import { getTuningParamsStringFromUrl } from "./tuning";
 
-export type FooterCredit = {
+type FooterCredit = {
   hostedByName: string | null;
   hostedByUrl: string | null;
 };
@@ -24,9 +24,9 @@ export type ToastState = {
   tone: "default" | "error";
 };
 
-export type ToastItem = ToastQueueItem<ToastState>;
+type ToastItem = ToastQueueItem<ToastState>;
 
-export type BranchStatsState = {
+type BranchStatsState = {
   title: LocalizedText;
   startText: string;
   endText: string;
@@ -39,14 +39,14 @@ export type BranchStatsState = {
   deleteDisabled: boolean;
 };
 
-export type TrackInfoState = {
+type TrackInfoState = {
   durationText: string;
   totalBeats: number;
   branchCount: number;
   deletedCount: number;
 };
 
-export type NavigationRequest = {
+type NavigationRequest = {
   id: number;
   to: string;
   replace?: boolean;

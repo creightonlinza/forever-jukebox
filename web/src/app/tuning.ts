@@ -92,7 +92,7 @@ function filterTuningParams(params: URLSearchParams): URLSearchParams {
   return filtered;
 }
 
-export function getTuningParamsFromUrl(): URLSearchParams {
+function getTuningParamsFromUrl(): URLSearchParams {
   return filterTuningParams(new URLSearchParams(window.location.search));
 }
 
