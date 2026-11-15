@@ -1,4 +1,4 @@
-import { AnalysisOutput } from "../analysis-schema";
+import { AnalysisOutput } from "../analysis-schema/schema";
 
 export type ExportMetadata = {
   createdAt: string;
@@ -19,7 +19,7 @@ type SaveFileHandle = {
   }>;
 };
 
-export function buildExportPayload(
+function buildExportPayload(
   analysis: AnalysisOutput,
   metadata: ExportMetadata
 ) {
@@ -34,36 +34,6 @@ export function formatExportJson(
   metadata: ExportMetadata
 ) {
   return JSON.stringify(buildExportPayload(analysis, metadata), null, 2);
-}
-
-export async function saveExportJson(
-  filename: string,
-  json: string
-): Promise<void> {
-  if ("showSaveFilePicker" in window) {
-    const handle = await (window as any).showSaveFilePicker({
-      suggestedName: filename,
-      types: [
-        {
-          description: "JSON",
-          accept: { "application/json": [".json"] },
-        },
-      ],
-    });
-    const writable = await handle.createWritable();
-    await writable.write(json);
-    await writable.close();
-    return;
-  }
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 export async function saveExportBinary(

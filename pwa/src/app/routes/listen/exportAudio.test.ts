@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TFunction } from "i18next";
-import type { JukeboxExportProgress } from "@/shared/export";
+import type { JukeboxExportProgress } from "@/shared/export/exporter";
 import {
   buildAudioExportName,
   exportErrorMessage,

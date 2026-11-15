@@ -8,7 +8,7 @@ import {
   setAudioModeIntensityParam,
 } from "@forever-jukebox/shared/audio/audioModes";
 
-export const AUDIO_MODE_QUERY_KEY = "am";
+const AUDIO_MODE_QUERY_KEY = "am";
 
 export type AudioModeSection = {
   titleKey: "audioModes.playbackStyles" | "audioModes.remixToys";

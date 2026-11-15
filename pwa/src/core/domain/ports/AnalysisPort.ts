@@ -1,4 +1,4 @@
-import { AnalysisOutput } from "@/shared/analysis-schema";
+import { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import { TrackMeta } from "@forever-jukebox/shared/types";
 
 export type AnalysisProgress = {

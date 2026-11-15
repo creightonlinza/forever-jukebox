@@ -14,7 +14,7 @@ import {
   saveTuning,
 } from "@/core/infrastructure/cache/tuningStore";
 import { AnalyzeAudioUseCase, AnalyzeStage } from "@/core/application/usecases/analyzeAudio";
-import { AnalysisOutput } from "@/shared/analysis-schema";
+import { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import {
   BufferedAudioPlayer,
   type JukeboxAudioMode,

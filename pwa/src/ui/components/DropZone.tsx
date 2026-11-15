@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 // iOS WebKit maps the "audio/*" wildcard to a video UTI, greying out audio files in
 // the Files picker, so list explicit MIME types + extensions (webkit.org/b/242110).
-export const AUDIO_FILE_ACCEPT =
+const AUDIO_FILE_ACCEPT =
   "audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/flac,audio/x-flac,audio/ogg,audio/opus,audio/webm,audio/aiff,audio/x-aiff,audio/x-ms-wma,audio/x-matroska,audio/amr,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.webm,.weba,.aiff,.aif,.wma,.mka,.amr";
 
 // The handle is null where the browser can't hand one out (no File System Access).
