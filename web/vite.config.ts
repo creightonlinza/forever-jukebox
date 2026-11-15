@@ -17,7 +17,18 @@ export default defineConfig(() => {
       react(),
       legacy({
         targets: ["chrome 63"],
-        additionalLegacyPolyfills: ["regenerator-runtime/runtime"],
+        // Loaded only by the nomodule bundle; main.ts loads the AbortController polyfill.
+        additionalLegacyPolyfills: [
+          "core-js/es/promise",
+          "core-js/es/array/includes",
+          "core-js/es/object/assign",
+          "core-js/es/set",
+          "core-js/es/map",
+          "core-js/es/symbol",
+          "core-js/web/url",
+          "core-js/web/url-search-params",
+          "regenerator-runtime/runtime",
+        ],
       }),
     ],
     server: {

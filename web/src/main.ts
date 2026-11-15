@@ -1,4 +1,5 @@
-import "./polyfills";
+// Some module-capable browsers (Chrome < 66, Safari < 12.1) lack AbortController.
+import "abortcontroller-polyfill/dist/polyfill-patch-fetch";
 import "./style.css";
 import "./app/i18n";
 import { initRuntime } from "./app/init";
