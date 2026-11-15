@@ -23,8 +23,8 @@ export function navigate(to: string, replace?: boolean) {
     window.history[replace ? "replaceState" : "pushState"](state, "", to);
   } catch {
     // Safari throws past its history rate limit: a push falls back to a full load.
-    if (replace) return;
-    window.location.assign(to);
+    if (!replace) window.location.assign(to);
+    return;
   }
   update(replace ? "REPLACE" : "PUSH");
 }
