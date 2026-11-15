@@ -1,9 +1,17 @@
-import { useEffect, useRef } from "react";
+import {
+  Component,
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigationType } from "react-router-dom";
 import { trackPageView } from "../analytics";
 import { getAppContext, handleRoute } from "../runtime";
-import { useAppStore } from "../store";
+import { useAppStore, type AppStoreState } from "../store";
 import { tabFromPathname } from "../tabs";
 import { applyTheme } from "../theme";
 import { titleForAppView } from "../document-title";
@@ -12,21 +20,93 @@ import {
   handleKeyup as playbackHandleKeyup,
   handleWindowBlur as playbackHandleWindowBlur,
 } from "../playback-ui";
-import { FaqPanel } from "./FaqPanel";
-import { FeedbackModal } from "./FeedbackModal";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
 import { NavigationDriver } from "./NavigationDriver";
-import { SearchPanel } from "./SearchPanel";
-import { SettingsModal } from "./SettingsModal";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
-import { InfoModal } from "./listen/InfoModal";
 import { PlayMenu } from "./listen/PlayMenu";
-import { PlaylistModal } from "./listen/PlaylistModal";
 import { StatusPanel } from "./listen/StatusPanel";
-import { TuningModal } from "./listen/TuningModal";
 import { VizContainer } from "./listen/VizContainer";
+
+export const lazyImports = {
+  faq: () => import("./FaqPanel").then((m) => ({ default: m.FaqPanel })),
+  search: () =>
+    import("./SearchPanel").then((m) => ({ default: m.SearchPanel })),
+  tuning: () =>
+    import("./listen/TuningModal").then((m) => ({ default: m.TuningModal })),
+  settings: () =>
+    import("./SettingsModal").then((m) => ({ default: m.SettingsModal })),
+  feedback: () =>
+    import("./FeedbackModal").then((m) => ({ default: m.FeedbackModal })),
+  info: () =>
+    import("./listen/InfoModal").then((m) => ({ default: m.InfoModal })),
+  playlist: () =>
+    import("./listen/PlaylistModal").then((m) => ({
+      default: m.PlaylistModal,
+    })),
+};
+
+const FaqPanel = lazy(lazyImports.faq);
+const SearchPanel = lazy(lazyImports.search);
+const TuningModal = lazy(lazyImports.tuning);
+const SettingsModal = lazy(lazyImports.settings);
+const FeedbackModal = lazy(lazyImports.feedback);
+const InfoModal = lazy(lazyImports.info);
+const PlaylistModal = lazy(lazyImports.playlist);
+
+// Suspense for one lazy component; a chunk that fails to load renders nothing
+// and leaves the rest of the app running.
+class LazyBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? null : (
+      <Suspense fallback={null}>{this.props.children}</Suspense>
+    );
+  }
+}
+
+// Fetches every lazy chunk once the browser is idle after mount, so chunks
+// from this build stay loadable after a later deploy removes them.
+function useWarmLazyChunks() {
+  useEffect(() => {
+    const warm = () => {
+      for (const load of Object.values(lazyImports)) {
+        load().catch(() => {});
+      }
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(warm);
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(warm, 2000);
+    return () => window.clearTimeout(timer);
+  }, []);
+}
+
+// Mounts a lazy modal on its first open and keeps it mounted after close.
+function LazyModal({
+  isOpen,
+  children,
+}: {
+  isOpen: (state: AppStoreState) => boolean;
+  children: ReactNode;
+}) {
+  const open = useAppStore(isOpen);
+  const [opened, setOpened] = useState(open);
+  if (open && !opened) {
+    setOpened(true);
+  }
+  return opened || open ? <LazyBoundary>{children}</LazyBoundary> : null;
+}
 
 // Derives activeTab from the URL on every location change and runs the
 // route handler (mode-from-URL, track loading, FAQ subtab sync) on
@@ -140,12 +220,17 @@ export function AppRoot() {
   useGlobalHotkeys();
   usePlaylistAddEnabled();
   useDocumentTitle();
+  useWarmLazyChunks();
   return (
     <>
       <NavigationDriver />
       <Hero />
       {activeTab === "top" ? <TopTracksPanel /> : null}
-      {activeTab === "search" ? <SearchPanel /> : null}
+      {activeTab === "search" ? (
+        <LazyBoundary>
+          <SearchPanel />
+        </LazyBoundary>
+      ) : null}
       {/* The Listen panel. It persists in the DOM permanently — visibility is
           class-only, driven by the shell. */}
       <section
@@ -156,14 +241,28 @@ export function AppRoot() {
         <PlayMenu />
         <VizContainer />
       </section>
-      {activeTab === "faq" ? <FaqPanel /> : null}
+      {activeTab === "faq" ? (
+        <LazyBoundary>
+          <FaqPanel />
+        </LazyBoundary>
+      ) : null}
       <Footer />
       <Toast />
-      <TuningModal />
-      <SettingsModal />
-      <FeedbackModal />
-      <InfoModal />
-      <PlaylistModal />
+      <LazyModal isOpen={(s) => s.tuningModalOpen}>
+        <TuningModal />
+      </LazyModal>
+      <LazyModal isOpen={(s) => s.settingsModalOpen}>
+        <SettingsModal />
+      </LazyModal>
+      <LazyModal isOpen={(s) => s.feedbackModalOpen}>
+        <FeedbackModal />
+      </LazyModal>
+      <LazyModal isOpen={(s) => s.infoModalOpen}>
+        <InfoModal />
+      </LazyModal>
+      <LazyModal isOpen={(s) => s.playlistModalOpen}>
+        <PlaylistModal />
+      </LazyModal>
     </>
   );
 }

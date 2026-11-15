@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { AppRoot } from "./AppRoot";
+import { AppRoot, lazyImports } from "./AppRoot";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
 import { handleWindowBlur } from "../playback-ui";
@@ -197,8 +197,126 @@ describe("AppRoot tab lifecycle", () => {
     await userEvent.click(button!);
 
     expect(useAppStore.getState().settingsModalOpen).toBe(true);
-    expect(document.getElementById("settings-modal")?.className).toBe(
-      "modal open",
+    await waitFor(() => {
+      expect(document.getElementById("settings-modal")?.className).toBe(
+        "modal open",
+      );
+    });
+    expect(document.activeElement?.id).toBe("settings-close");
+  });
+
+  it("mounts each modal on its first open and keeps it mounted after close", async () => {
+    renderApp("/");
+    const modalIds = [
+      "tuning-modal",
+      "settings-modal",
+      "feedback-modal",
+      "info-modal",
+      "playlist-modal",
+    ];
+    for (const id of modalIds) {
+      expect(document.getElementById(id)).toBeNull();
+    }
+
+    act(() => {
+      useAppStore.setState({ infoModalOpen: true });
+    });
+    await waitFor(() => {
+      expect(document.getElementById("info-modal")?.className).toBe(
+        "modal open",
+      );
+    });
+    const infoModal = document.getElementById("info-modal");
+
+    act(() => {
+      useAppStore.setState({ infoModalOpen: false });
+    });
+    expect(document.getElementById("info-modal")).toBe(infoModal);
+    expect(infoModal?.className).toBe("modal");
+    for (const id of modalIds.filter((id) => id !== "info-modal")) {
+      expect(document.getElementById(id)).toBeNull();
+    }
+  });
+
+  it("warms every lazy chunk once idle after mount and cancels on unmount", () => {
+    let onIdle: (() => void) | undefined;
+    const requestIdle = vi.fn((callback: () => void) => {
+      onIdle = callback;
+      return 7;
+    });
+    const cancelIdle = vi.fn();
+    vi.stubGlobal("requestIdleCallback", requestIdle);
+    vi.stubGlobal("cancelIdleCallback", cancelIdle);
+    const imports = lazyImports as Record<string, () => Promise<unknown>>;
+    const loads = Object.keys(imports).map((key) =>
+      vi.spyOn(imports, key).mockResolvedValue({}),
     );
+    try {
+      renderApp("/");
+      expect(requestIdle).toHaveBeenCalledTimes(1);
+      expect(loads).toHaveLength(7);
+      for (const load of loads) {
+        expect(load).not.toHaveBeenCalled();
+      }
+
+      onIdle?.();
+      for (const load of loads) {
+        expect(load).toHaveBeenCalledTimes(1);
+      }
+
+      cleanup();
+      expect(cancelIdle).toHaveBeenCalledWith(7);
+    } finally {
+      for (const load of loads) {
+        load.mockRestore();
+      }
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders nothing for a lazy chunk that fails to load and keeps the app running", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    vi.resetModules();
+    vi.doMock("./FaqPanel", () => {
+      throw new Error("chunk not found");
+    });
+    try {
+      // Fresh modules give AppRoot a lazy FaqPanel that has not resolved yet.
+      const { AppRoot: FreshAppRoot } = await import("./AppRoot");
+      const { useAppStore: freshStore } = await import("../store");
+      act(() => {
+        freshStore.getState().setActiveTab("faq");
+      });
+      const router = createMemoryRouter(
+        [{ path: "*", element: <FreshAppRoot /> }],
+        { initialEntries: ["/faq"] },
+      );
+      render(<RouterProvider router={router} />);
+      const listenPanel = document.querySelector('[data-tab-panel="play"]');
+      expect(listenPanel).not.toBeNull();
+
+      await waitFor(() => {
+        expect(consoleError).toHaveBeenCalled();
+      });
+      expect(document.querySelector('[data-tab-panel="faq"]')).toBeNull();
+      expect(document.querySelector('[data-tab-panel="play"]')).toBe(
+        listenPanel,
+      );
+      expect(document.getElementById("settings-open")).not.toBeNull();
+
+      act(() => {
+        freshStore.getState().selectTab("search");
+      });
+      await waitFor(() => {
+        expect(
+          document.querySelector('[data-tab-panel="search"]'),
+        ).not.toBeNull();
+      });
+    } finally {
+      vi.doUnmock("./FaqPanel");
+      consoleError.mockRestore();
+    }
   });
 });
