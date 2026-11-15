@@ -1972,6 +1972,101 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it.each(["swing", "instrumental"] as const)(
+    "prepares %s from the url once the track is analyzed",
+    async (mode) => {
+      window.history.replaceState({}, "", `/?am=${mode}`);
+      const rendered = renderListen();
+      await settleEffects();
+
+      const render =
+        mode === "swing" ? renderSwingBuffer : renderInstrumentalBuffer;
+      expect(vi.mocked(render)).toHaveBeenCalled();
+      const player = playerInstances.at(-1) as unknown as {
+        setRenderedJukeboxAudioBuffer: ReturnType<typeof vi.fn>;
+      };
+      expect(player.setRenderedJukeboxAudioBuffer).toHaveBeenCalledWith(mode, {
+        duration: 4,
+      });
+      expect(
+        getRequired<HTMLButtonElement>(rendered.container, "#viz-play").getAttribute(
+          "aria-label",
+        ),
+      ).toBe("Play");
+      rendered.unmount();
+    },
+  );
+
+  it("blocks play with a toast while instrumental is preparing", async () => {
+    vi.mocked(renderInstrumentalBuffer).mockImplementationOnce(
+      () => new Promise<AudioBuffer>(() => {}),
+    );
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-instrumental"));
+    await click(
+      getRequired<HTMLButtonElement>(rendered.container, ".tuning-footer .tab-btn:last-child"),
+    );
+    await settleEffects();
+
+    await keydown(" ", "Space");
+    expect(rendered.container.textContent).toContain("Preparing Instrumental mode...");
+    expect(engineInstances[0]?.play).not.toHaveBeenCalled();
+    expect(getRequired<HTMLButtonElement>(rendered.container, "#viz-play").getAttribute("aria-label")).toBe(
+      "Preparing Instrumental mode",
+    );
+    rendered.unmount();
+  });
+
+  it("drops an instrumental render that finishes after a track change", async () => {
+    let finishRender: (buffer: AudioBuffer) => void = () => {};
+    vi.mocked(renderInstrumentalBuffer).mockImplementationOnce(
+      () =>
+        new Promise<AudioBuffer>((resolve) => {
+          finishRender = resolve;
+        }),
+    );
+    const rendered = renderListen();
+    await settleEffects();
+
+    await openTuningModal(rendered.container);
+    await switchToExtrasTab(rendered.container);
+    await click(getRequired<HTMLInputElement>(rendered.container, "#audio-mode-instrumental"));
+    await click(
+      getRequired<HTMLButtonElement>(rendered.container, ".tuning-footer .tab-btn:last-child"),
+    );
+    await settleEffects();
+    vi.mocked(cancelInstrumentalRender).mockClear();
+
+    mockAppState.file = new File([new Uint8Array([9, 9, 9])], "song-two.wav", {
+      lastModified: 9999,
+    });
+    rendered.rerender();
+    await settleEffects();
+    expect(vi.mocked(cancelInstrumentalRender)).toHaveBeenCalled();
+
+    const staleBuffer = { duration: 1 } as AudioBuffer;
+    await act(async () => {
+      finishRender(staleBuffer);
+    });
+    await settleEffects();
+
+    const player = playerInstances.at(-1) as unknown as {
+      setRenderedJukeboxAudioBuffer: ReturnType<typeof vi.fn>;
+    };
+    expect(player.setRenderedJukeboxAudioBuffer).not.toHaveBeenCalledWith(
+      "instrumental",
+      staleBuffer,
+    );
+    expect(getRequired<HTMLButtonElement>(rendered.container, "#viz-play").getAttribute("aria-label")).toBe(
+      "Play",
+    );
+    rendered.unmount();
+  });
+
   it("opens extras tab with E keyboard shortcut", async () => {
     const rendered = renderListen();
     await settleEffects();
