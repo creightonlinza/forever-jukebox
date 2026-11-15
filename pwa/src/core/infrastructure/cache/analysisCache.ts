@@ -1,5 +1,5 @@
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
-import { AnalysisOutput } from "@/shared/analysis-schema/schema";
+import type { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import { clearAllTuning, removeTuning } from "./tuningStore";
 import { clearFileHandles, deleteFileHandle } from "./fileHandleStore";
 import { createIndexedDbStore } from "./indexedDbStore";

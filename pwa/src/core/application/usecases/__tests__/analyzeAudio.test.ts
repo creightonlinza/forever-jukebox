@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { AnalyzeAudioUseCase } from "../analyzeAudio";
-import { AnalysisPort } from "@/core/domain/ports/AnalysisPort";
+import { ZodError } from "zod";
+import { AnalyzeAudioUseCase, type AnalysisPort, type AudioDecoderPort } from "../analyzeAudio";
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
-import { AudioDecoderPort } from "@/core/domain/ports/AudioDecoderPort";
 import { createTestAnalysis } from "@/shared/analysis-schema/testData";
 
 const analysis = createTestAnalysis();
@@ -104,6 +103,27 @@ describe("AnalyzeAudioUseCase", () => {
 
     expect(result.fromCache).toBe(true);
     expect(analysisPort.analyze).not.toHaveBeenCalled();
+  });
+
+  it("re-analyzes an invalid cached analysis and rejects an invalid fresh one", async () => {
+    const invalid = { ...analysis, beats: "not-an-array" };
+    const analysisPort: AnalysisPort = {
+      analyze: vi.fn(async () => invalid as unknown as typeof analysis),
+    };
+    const cache: AnalysisCachePort = {
+      get: vi.fn(async () => invalid as unknown as typeof analysis),
+      set: vi.fn(async () => undefined),
+      clear: vi.fn(async () => undefined),
+    };
+    const decoder: AudioDecoderPort = {
+      decode: vi.fn(async () => makeDecodedAudio()),
+    };
+
+    const usecase = new AnalyzeAudioUseCase(analysisPort, cache, decoder);
+    await expect(usecase.execute({ file: makeFile() })).rejects.toThrow(ZodError);
+
+    expect(analysisPort.analyze).toHaveBeenCalledTimes(1);
+    expect(cache.set).not.toHaveBeenCalled();
   });
 
   it("reports progress within each stage", async () => {
