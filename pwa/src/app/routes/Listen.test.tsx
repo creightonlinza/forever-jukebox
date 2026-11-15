@@ -2819,6 +2819,48 @@ describe("Listen route behavior", () => {
     rendered.unmount();
   });
 
+  it.each(["swing", "instrumental"] as const)(
+    "keeps %s off for the next track once a track change resets it",
+    async (mode) => {
+      const rendered = renderListen();
+      await settleEffects();
+
+      await openTuningModal(rendered.container);
+      await switchToExtrasTab(rendered.container);
+      await click(getRequired<HTMLInputElement>(rendered.container, `#audio-mode-${mode}`));
+      await click(
+        getRequired<HTMLButtonElement>(rendered.container, ".tuning-footer .tab-btn:last-child"),
+      );
+      await settleEffects();
+
+      const render = mode === "swing" ? renderSwingBuffer : renderInstrumentalBuffer;
+      const player = playerInstances.at(-1) as unknown as {
+        setJukeboxAudioMode: ReturnType<typeof vi.fn>;
+        setRenderedJukeboxAudioBuffer: ReturnType<typeof vi.fn>;
+        getJukeboxAudioMode: () => string;
+      };
+      expect(player.setRenderedJukeboxAudioBuffer).toHaveBeenCalledWith(mode, {
+        duration: 4,
+      });
+      vi.mocked(render).mockClear();
+      player.setJukeboxAudioMode.mockClear();
+      player.setRenderedJukeboxAudioBuffer.mockClear();
+
+      mockAppState.file = new File([new Uint8Array([9, 9, 9])], "song-two.wav", {
+        lastModified: 9999,
+      });
+      rendered.rerender();
+      await settleEffects();
+
+      expect(vi.mocked(render)).not.toHaveBeenCalled();
+      expect(player.setRenderedJukeboxAudioBuffer).not.toHaveBeenCalled();
+      expect(player.setJukeboxAudioMode).not.toHaveBeenCalledWith(mode);
+      expect(player.getJukeboxAudioMode()).toBe("off");
+      expect(window.location.search).not.toContain(`am=${mode}`);
+      rendered.unmount();
+    },
+  );
+
   it("keeps tuning changes unapplied when applying extras tab only", async () => {
     const rendered = renderListen();
     await settleEffects();
