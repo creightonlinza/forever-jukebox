@@ -1,9 +1,38 @@
-import { AnalysisPort } from "@/core/domain/ports/AnalysisPort";
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
-import { AudioDecoderPort } from "@/core/domain/ports/AudioDecoderPort";
 import type { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import { computeFingerprint } from "@/shared/utils/fingerprint";
 import { TrackMeta } from "@forever-jukebox/shared/types";
+
+export type AnalysisProgress = {
+  stage: "beats" | "features" | "segments" | "building";
+  progress: number;
+  message?: string;
+};
+
+export interface AnalysisPort {
+  analyze(options: {
+    mono22050: Float32Array;
+    mono44100: Float32Array;
+    duration: number;
+    trackMeta?: TrackMeta;
+    onProgress?: (progress: AnalysisProgress) => void;
+  }): Promise<AnalysisOutput>;
+}
+
+export type PreparedAnalysisAudio = {
+  mono22050: Float32Array;
+  mono44100: Float32Array;
+  duration: number;
+};
+
+export type DecodedAudio = {
+  audioBuffer: AudioBuffer;
+  analysisAudio: PreparedAnalysisAudio;
+};
+
+export interface AudioDecoderPort {
+  decode(file: File): Promise<DecodedAudio>;
+}
 
 export type AnalyzeStage =
   | "loading"

@@ -1,4 +1,4 @@
-import { AnalysisPort, AnalysisProgress } from "@/core/domain/ports/AnalysisPort";
+import type { AnalysisPort, AnalysisProgress } from "@/core/application/usecases/analyzeAudio";
 import type { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import { TrackMeta } from "@forever-jukebox/shared/types";
 

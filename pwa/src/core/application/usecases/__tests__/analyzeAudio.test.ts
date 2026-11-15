@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
-import { AnalyzeAudioUseCase } from "../analyzeAudio";
-import { AnalysisPort } from "@/core/domain/ports/AnalysisPort";
+import { AnalyzeAudioUseCase, type AnalysisPort, type AudioDecoderPort } from "../analyzeAudio";
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
-import { AudioDecoderPort } from "@/core/domain/ports/AudioDecoderPort";
 import { createTestAnalysis } from "@/shared/analysis-schema/testData";
 
 const analysis = createTestAnalysis();

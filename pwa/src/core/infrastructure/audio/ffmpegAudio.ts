@@ -3,7 +3,7 @@ import { fetchFile } from "@ffmpeg/util";
 import coreURL from "@ffmpeg/core?url";
 import wasmURL from "@ffmpeg/core/wasm?url";
 import classWorkerURL from "@ffmpeg/ffmpeg/worker?url";
-import type { PreparedAnalysisAudio } from "@/core/domain/ports/AudioDecoderPort";
+import type { PreparedAnalysisAudio } from "@/core/application/usecases/analyzeAudio";
 
 const SR_FEATURES = 22050;
 const SR_BEATS = 44100;
