@@ -1737,6 +1737,47 @@ describe("playback controls", () => {
     expect(context.jukebox.update).toHaveBeenCalledTimes(1);
     expect(context.jukebox.update).toHaveBeenCalledWith(2, false, 9);
   });
+
+  it("skips store writes on a tick with no beat or counter change", () => {
+    const context = createContext();
+    useAppStore.setState({ lastBeatIndex: 2, beatsPlayedText: "12" });
+
+    initializePlayback();
+    const onUpdate = context.engine.onUpdate as ReturnType<typeof vi.fn>;
+    const listener = onUpdate.mock.calls[0]?.[0] as
+      | ((state: {
+          beatsPlayed: number;
+          currentBeatIndex: number;
+          currentTime: number;
+          lastJumped: boolean;
+          lastJumpTime: number | null;
+          lastJumpFromIndex: number | null;
+          lastJumpToIndex: number | null;
+          currentThreshold: number;
+          lastBranchPoint: number;
+          curRandomBranchChance: number;
+        }) => void)
+      | undefined;
+    const storeListener = vi.fn();
+    const unsubscribe = useAppStore.subscribe(storeListener);
+
+    listener?.({
+      beatsPlayed: 12,
+      currentBeatIndex: 2,
+      currentTime: 1.2,
+      lastJumped: false,
+      lastJumpTime: null,
+      lastJumpFromIndex: null,
+      lastJumpToIndex: null,
+      currentThreshold: 20,
+      lastBranchPoint: 1,
+      curRandomBranchChance: 0.2,
+    });
+    unsubscribe();
+
+    expect(context.jukebox.update).toHaveBeenCalledWith(2, false, 2);
+    expect(storeListener).not.toHaveBeenCalled();
+  });
 });
 
 describe("playback branch shortcuts", () => {

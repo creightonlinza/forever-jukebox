@@ -288,7 +288,9 @@ export function initializePlayback(): void {
         if (jumpTo !== engineState.currentBeatIndex) {
           jukebox.update(engineState.currentBeatIndex, false, jumpTo);
         }
-        useAppStore.setState({ lastBeatIndex: engineState.currentBeatIndex });
+        if (lastBeatIndex !== engineState.currentBeatIndex) {
+          useAppStore.setState({ lastBeatIndex: engineState.currentBeatIndex });
+        }
       }
     });
   }

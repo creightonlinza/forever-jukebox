@@ -1,7 +1,5 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
-export const IS_REMOTE = Boolean(process.env.E2E_BASE_URL);
-
 export type TopTrack = {
   id: string;
   source_id?: string;

@@ -6,7 +6,7 @@ import { waitForTrackLoaded } from "./helpers";
 
 // The CC0 analysis that packages/shared replays in realAnalysisParityFixtures, served
 // through mocked routes so specs can rely on its exact beats and branches.
-export const FIXTURE_JOB_ID = "0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e";
+const FIXTURE_JOB_ID = "0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e";
 
 export type FixtureCase = {
   id: string;

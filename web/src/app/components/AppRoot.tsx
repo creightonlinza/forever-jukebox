@@ -22,9 +22,11 @@ import { SettingsModal } from "./SettingsModal";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
 import { InfoModal } from "./listen/InfoModal";
-import { ListenPanel } from "./listen/ListenPanel";
+import { PlayMenu } from "./listen/PlayMenu";
 import { PlaylistModal } from "./listen/PlaylistModal";
+import { StatusPanel } from "./listen/StatusPanel";
 import { TuningModal } from "./listen/TuningModal";
+import { VizContainer } from "./listen/VizContainer";
 
 // Derives activeTab from the URL on every location change and runs the
 // route handler (mode-from-URL, track loading, FAQ subtab sync) on
@@ -144,7 +146,16 @@ export function AppRoot() {
       <Hero />
       {activeTab === "top" ? <TopTracksPanel /> : null}
       {activeTab === "search" ? <SearchPanel /> : null}
-      <ListenPanel visible={activeTab === "play"} />
+      {/* The Listen panel. It persists in the DOM permanently — visibility is
+          class-only, driven by the shell. */}
+      <section
+        className={activeTab === "play" ? "panel tab-panel" : "panel tab-panel hidden"}
+        data-tab-panel="play"
+      >
+        <StatusPanel />
+        <PlayMenu />
+        <VizContainer />
+      </section>
       {activeTab === "faq" ? <FaqPanel /> : null}
       <Footer />
       <Toast />
