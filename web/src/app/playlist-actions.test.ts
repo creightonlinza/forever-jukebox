@@ -86,13 +86,7 @@ function createDeps(overrides?: Partial<AppState>) {
   const context = {
     defaultConfig: { ...DEFAULT_JUKEBOX_CONFIG },
   } as unknown as AppContext;
-  const playbackDeps: PlaybackDeps = {
-    setActiveTab: vi.fn(),
-    navigateToTab: vi.fn(),
-    updateTrackUrl: vi.fn(),
-    setAnalysisStatus: vi.fn(),
-    setLoadingStep: vi.fn(),
-  };
+  const playbackDeps: PlaybackDeps = {};
   setAppRuntime(context);
   setPlaybackDeps(playbackDeps);
   return { context, playbackDeps };
