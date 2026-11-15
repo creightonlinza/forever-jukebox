@@ -1,7 +1,7 @@
 import { AnalysisPort } from "@/core/domain/ports/AnalysisPort";
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
 import { AudioDecoderPort } from "@/core/domain/ports/AudioDecoderPort";
-import { AnalysisOutput, validateAnalysis } from "@/shared/analysis-schema/schema";
+import type { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import { computeFingerprint } from "@/shared/utils/fingerprint";
 import { TrackMeta } from "@forever-jukebox/shared/types";
 
@@ -57,7 +57,7 @@ export class AnalyzeAudioUseCase {
         try {
           reportProgress("cached");
           const { audioBuffer } = await decodePromise;
-          const analysis = validateAnalysis(cached);
+          const analysis = await validateAnalysis(cached);
           return { analysis, audioBuffer, fingerprint, fromCache: true };
         } catch {
           // Fall back to re-analysis if cached data is invalid.
@@ -85,7 +85,7 @@ export class AnalyzeAudioUseCase {
       },
     });
 
-    const validated = validateAnalysis(analysis);
+    const validated = await validateAnalysis(analysis);
     try {
       await this.cache.set(fingerprint, validated);
     } catch (err) {
@@ -96,6 +96,12 @@ export class AnalyzeAudioUseCase {
 
     return { analysis: validated, audioBuffer, fingerprint, fromCache: false };
   }
+}
+
+// Loads zod and the schema on first use, in a chunk apart from the entry chunk.
+async function validateAnalysis(input: unknown): Promise<AnalysisOutput> {
+  const schema = await import("@/shared/analysis-schema/schema");
+  return schema.validateAnalysis(input);
 }
 
 function inferTitle(name: string) {
