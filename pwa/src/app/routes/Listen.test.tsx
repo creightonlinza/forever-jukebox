@@ -280,7 +280,7 @@ vi.mock("@forever-jukebox/shared/audio/instrumentalRenderer", () => ({
   cancelInstrumentalRender: vi.fn(),
 }));
 
-vi.mock("@/shared/export", () => ({
+vi.mock("@/shared/export/exporter", () => ({
   exportJukeboxAudio: exportMocks.exportJukeboxAudio,
   exportCanonizerAudio: exportMocks.exportCanonizerAudio,
   exportRenderedAudio: exportMocks.exportRenderedAudio,

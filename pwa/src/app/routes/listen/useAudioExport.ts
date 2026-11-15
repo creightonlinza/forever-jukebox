@@ -1,12 +1,12 @@
 import React from "react";
 import type { TFunction } from "i18next";
-import type { AnalysisOutput } from "@/shared/analysis-schema";
+import type { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import {
   exportJukeboxAudio,
   exportCanonizerAudio,
   exportRenderedAudio,
   type JukeboxExportProgress,
-} from "@/shared/export";
+} from "@/shared/export/exporter";
 import {
   pickBinaryExportFile,
   saveExportBinary,

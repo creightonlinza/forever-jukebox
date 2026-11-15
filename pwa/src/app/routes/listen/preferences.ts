@@ -18,7 +18,7 @@ const ANCHOR_HIGHLIGHT_STORAGE_KEY = "fj-highlight-anchor-branch";
 const BRANCH_STATS_STORAGE_KEY = "fj-branch-stats-enabled";
 const CUSTOM_ANCHOR_STORAGE_KEY = "fj-custom-anchor-enabled";
 
-export function coerceVisualizationIndex(index: number) {
+function coerceVisualizationIndex(index: number) {
   if (
     Number.isFinite(index) &&
     index >= 0 &&

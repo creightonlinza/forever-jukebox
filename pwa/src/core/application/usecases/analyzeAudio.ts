@@ -1,7 +1,7 @@
 import { AnalysisPort } from "@/core/domain/ports/AnalysisPort";
 import { AnalysisCachePort } from "@/core/domain/ports/AnalysisCachePort";
 import { AudioDecoderPort } from "@/core/domain/ports/AudioDecoderPort";
-import { AnalysisOutput, validateAnalysis } from "@/shared/analysis-schema";
+import { AnalysisOutput, validateAnalysis } from "@/shared/analysis-schema/schema";
 import { computeFingerprint } from "@/shared/utils/fingerprint";
 import { TrackMeta } from "@forever-jukebox/shared/types";
 

@@ -1,4 +1,4 @@
-import { AnalysisOutput } from "@/shared/analysis-schema";
+import { AnalysisOutput } from "@/shared/analysis-schema/schema";
 
 export interface AnalysisCachePort {
   get(fingerprint: string): Promise<AnalysisOutput | null>;

@@ -32,7 +32,7 @@ const engineOriginSchema = z.enum([
   "forever-jukebox-pwa",
 ]);
 
-export const analysisSchema = z.object({
+const analysisSchema = z.object({
   engine_version: engineVersionSchema.optional(),
   engine_origin: engineOriginSchema.optional(),
   sections: z.array(quantumSchema),

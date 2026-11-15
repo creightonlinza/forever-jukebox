@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AnalysisOutput } from "@/shared/analysis-schema";
+import type { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import type { JukeboxConfig } from "@forever-jukebox/shared";
 import {
   exportJukeboxAudio,

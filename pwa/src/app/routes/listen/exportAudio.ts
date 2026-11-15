@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { JukeboxExportProgress } from "@/shared/export";
+import type { JukeboxExportProgress } from "@/shared/export/exporter";
 
 export const MAX_EXPORT_DURATION_SECONDS = 60 * 60 * 2;
 export type AudioExportFormat = "mp3" | "wav";
