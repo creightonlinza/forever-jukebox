@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { clearCachedAudio, getCachedAudioBytes } from "../cache";
-import { formatDuration } from "../format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 import {
   resolveSupportedLanguage,
   supportedLanguageOptions,

@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import { formatDuration } from "@/shared/utils/format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 
 export type SleepTimerOption = {
   durationMs: number | null;

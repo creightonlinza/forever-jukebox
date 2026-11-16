@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigationType } from "react-router-dom";
 import { trackPageView } from "../analytics";
+import { getLocation, subscribeLocation } from "../history";
 import { getAppContext, handleRoute } from "../runtime";
 import { useAppStore } from "../store";
 import { tabFromPathname } from "../tabs";
@@ -22,26 +22,27 @@ import { SettingsModal } from "./SettingsModal";
 import { Toast } from "./Toast";
 import { TopTracksPanel } from "./TopTracksPanel";
 import { InfoModal } from "./listen/InfoModal";
-import { ListenPanel } from "./listen/ListenPanel";
+import { PlayMenu } from "./listen/PlayMenu";
 import { PlaylistModal } from "./listen/PlaylistModal";
+import { StatusPanel } from "./listen/StatusPanel";
 import { TuningModal } from "./listen/TuningModal";
+import { VizContainer } from "./listen/VizContainer";
 
 // Derives activeTab from the URL on every location change and runs the
 // route handler (mode-from-URL, track loading, FAQ subtab sync) on
 // initial load and browser back/forward. The location.key guard keeps
 // StrictMode's double-invoked effects from loading a track twice.
 function useRouteSync() {
-  const location = useLocation();
-  const navigationType = useNavigationType();
+  const location = useSyncExternalStore(subscribeLocation, getLocation);
   const handledKeyRef = useRef<string | null>(null);
   useEffect(() => {
     trackPageView(location.pathname);
     useAppStore.getState().setActiveTab(tabFromPathname(location.pathname));
-    if (navigationType === "POP" && handledKeyRef.current !== location.key) {
+    if (location.type === "POP" && handledKeyRef.current !== location.key) {
       handledKeyRef.current = location.key;
       handleRoute(location.pathname);
     }
-  }, [location, navigationType]);
+  }, [location]);
 }
 
 // Side effects keyed on the derived activeTab. Listen stays DOM-mounted;
@@ -68,7 +69,7 @@ function useTabEffects() {
 
 function useDocumentTitle() {
   const { i18n } = useTranslation();
-  const location = useLocation();
+  const location = useSyncExternalStore(subscribeLocation, getLocation);
   const activeTab = useAppStore((s) => s.activeTabId);
   const trackTitle = useAppStore((s) => s.trackTitle);
   const trackArtist = useAppStore((s) => s.trackArtist);
@@ -144,7 +145,16 @@ export function AppRoot() {
       <Hero />
       {activeTab === "top" ? <TopTracksPanel /> : null}
       {activeTab === "search" ? <SearchPanel /> : null}
-      <ListenPanel visible={activeTab === "play"} />
+      {/* The Listen panel. It persists in the DOM permanently — visibility is
+          class-only, driven by the shell. */}
+      <section
+        className={activeTab === "play" ? "panel tab-panel" : "panel tab-panel hidden"}
+        data-tab-panel="play"
+      >
+        <StatusPanel />
+        <PlayMenu />
+        <VizContainer />
+      </section>
       {activeTab === "faq" ? <FaqPanel /> : null}
       <Footer />
       <Toast />

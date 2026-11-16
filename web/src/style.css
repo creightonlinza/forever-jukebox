@@ -138,81 +138,47 @@ button,
   }
 }
 
+/* Animates opacity only (composited): box-shadow or border-color keyframes
+   repaint the frame on every animation frame. */
 @keyframes neon-flicker {
   0%,
+  4%,
+  7%,
+  13%,
+  29%,
+  46%,
+  59%,
+  77%,
+  90%,
   100% {
     opacity: 1;
-    border-color: var(--title-accent);
-    box-shadow:
-      0 0 12px var(--title-glow),
-      inset 0 0 10px color-mix(in srgb, var(--title-glow) 55%, transparent);
   }
   2% {
     opacity: 0.95;
-    box-shadow:
-      0 0 9px var(--title-glow),
-      inset 0 0 7px color-mix(in srgb, var(--title-glow) 45%, transparent);
   }
   3% {
     opacity: 0.75;
-    border-color: color-mix(in srgb, var(--title-accent) 78%, var(--bg));
-    box-shadow:
-      0 0 5px color-mix(in srgb, var(--title-glow) 78%, transparent),
-      inset 0 0 3px color-mix(in srgb, var(--title-glow) 35%, transparent);
-  }
-  4% {
-    opacity: 1;
-    border-color: var(--title-accent);
   }
   6% {
     opacity: 0.85;
   }
-  7% {
-    opacity: 1;
-  }
   12% {
     opacity: 0.92;
-  }
-  13% {
-    opacity: 1;
   }
   28% {
     opacity: 0.88;
   }
-  29% {
-    opacity: 1;
-  }
   44% {
     opacity: 0.7;
-    border-color: color-mix(in srgb, var(--title-accent) 74%, var(--bg));
-    box-shadow:
-      0 0 4px color-mix(in srgb, var(--title-glow) 72%, transparent),
-      inset 0 0 3px color-mix(in srgb, var(--title-glow) 30%, transparent);
-  }
-  46% {
-    opacity: 1;
-    border-color: var(--title-accent);
   }
   58% {
     opacity: 0.9;
   }
-  59% {
-    opacity: 1;
-  }
   76% {
     opacity: 0.8;
-    box-shadow:
-      0 0 7px color-mix(in srgb, var(--title-glow) 86%, transparent),
-      inset 0 0 5px color-mix(in srgb, var(--title-glow) 40%, transparent);
-  }
-  77% {
-    opacity: 1;
   }
   89% {
     opacity: 0.86;
-  }
-  90% {
-    opacity: 1;
   }
 }
 

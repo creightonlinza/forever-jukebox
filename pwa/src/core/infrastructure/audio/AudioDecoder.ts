@@ -1,7 +1,7 @@
 import type {
   AudioDecoderPort,
   DecodedAudio,
-} from "@/core/domain/ports/AudioDecoderPort";
+} from "@/core/application/usecases/analyzeAudio";
 import { prepareAudioWithFfmpeg } from "./ffmpegAudio";
 
 export class AudioDecoder implements AudioDecoderPort {

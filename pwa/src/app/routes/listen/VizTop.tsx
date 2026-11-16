@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
 import { getVisualizationLabel } from "./labels";
-import type { PlayMode } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 
 export function VizTop({
   playMode,

@@ -1,4 +1,5 @@
-import type { PlayMode, TabId } from "./context";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
+import type { TabId } from "./context";
 import { serializeParams } from "./tuning";
 
 export type FaqSubtabId = "faq" | "whats-new";

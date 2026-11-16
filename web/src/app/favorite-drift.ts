@@ -1,5 +1,5 @@
 import type { JukeboxConfig } from "@forever-jukebox/shared";
-import type { PlayMode } from "./context";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import type { FavoriteTrack } from "./favorites";
 import { savedTuningParamsEquivalent } from "./tuning";
 

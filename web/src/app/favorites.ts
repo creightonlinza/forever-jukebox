@@ -1,4 +1,4 @@
-import type { PlayMode } from "./context";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import type { PlaylistTrack } from "./playlist";
 import i18n from "./i18n";
 

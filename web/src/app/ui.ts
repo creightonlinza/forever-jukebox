@@ -39,21 +39,6 @@ export function setLoadingStep(_context: AppContext, loadingStep: LoadingState) 
   useAppStore.setState({ loadingStep, analysisRetryJobId: null });
 }
 
-export function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-  const tag = target.tagName.toLowerCase();
-  return (
-    tag === "input" ||
-    tag === "textarea" ||
-    tag === "button" ||
-    tag === "select" ||
-    tag === "a" ||
-    target.isContentEditable
-  );
-}
-
 export function blurMouseActivatedControl(event: Event) {
   const detail =
     "detail" in event && typeof event.detail === "number" ? event.detail : 0;

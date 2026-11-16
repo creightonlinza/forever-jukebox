@@ -1,17 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { loadUrl } from "../__tests__/test-utils";
 import { useAppStore } from "../store";
 import { FaqPanel } from "./FaqPanel";
 
 function renderFaqPanel(initialPath = "/faq") {
-  const router = createMemoryRouter(
-    [{ path: "*", element: <FaqPanel /> }],
-    { initialEntries: [initialPath] },
-  );
-  render(<RouterProvider router={router} />);
-  return { router };
+  loadUrl(initialPath);
+  render(<FaqPanel />);
 }
 
 describe("FaqPanel", () => {
@@ -55,7 +51,7 @@ describe("FaqPanel", () => {
   });
 
   it("navigates between subtabs on click", async () => {
-    const { router } = renderFaqPanel("/faq");
+    renderFaqPanel("/faq");
     const whatsNewButton = document.querySelector<HTMLButtonElement>(
       '[data-faq-subtab="whats-new"]',
     );
@@ -63,13 +59,13 @@ describe("FaqPanel", () => {
       '[data-faq-subtab="faq"]',
     );
     await userEvent.click(whatsNewButton!);
-    expect(router.state.location.pathname).toBe("/whats-new");
+    expect(window.location.pathname).toBe("/whats-new");
     await waitFor(() => {
       expect(document.getElementById("faq-panel-title")?.textContent).toBe(
         "What's New",
       );
     });
     await userEvent.click(faqButton!);
-    expect(router.state.location.pathname).toBe("/faq");
+    expect(window.location.pathname).toBe("/faq");
   });
 });

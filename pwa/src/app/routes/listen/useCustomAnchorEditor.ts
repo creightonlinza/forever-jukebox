@@ -8,7 +8,7 @@ import {
 } from "@forever-jukebox/shared/viz/CustomAnchorEditing";
 import type { AnchorEditState } from "@forever-jukebox/shared/viz/JukeboxViz";
 import type { CustomAnchorLabels } from "@forever-jukebox/shared/ui/CustomAnchorEditor";
-import { formatDuration } from "@/shared/utils/format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 
 export function customAnchorLabels(t: TFunction): CustomAnchorLabels {
   return {

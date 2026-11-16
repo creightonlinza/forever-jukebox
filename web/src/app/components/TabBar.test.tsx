@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { loadUrl } from "../__tests__/test-utils";
 import { useAppStore } from "../store";
 import { NavigationDriver } from "./NavigationDriver";
 import { TabBar } from "./TabBar";
@@ -9,22 +9,13 @@ import { TabBar } from "./TabBar";
 const initialStoreState = useAppStore.getState();
 
 function renderTabBar() {
-  const router = createMemoryRouter(
-    [
-      {
-        path: "*",
-        element: (
-          <>
-            <NavigationDriver />
-            <TabBar />
-          </>
-        ),
-      },
-    ],
-    { initialEntries: ["/"] },
+  loadUrl("/");
+  render(
+    <>
+      <NavigationDriver />
+      <TabBar />
+    </>,
   );
-  render(<RouterProvider router={router} />);
-  return { router };
 }
 
 describe("TabBar", () => {
@@ -82,16 +73,16 @@ describe("TabBar", () => {
   });
 
   it("navigates via the store's selectTab action on click", async () => {
-    const { router } = renderTabBar();
+    renderTabBar();
     await userEvent.click(screen.getByText("Search"));
     expect(useAppStore.getState().activeTabId).toBe("search");
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/search");
+      expect(window.location.pathname).toBe("/search");
     });
     await userEvent.click(screen.getByText("FAQ"));
     expect(useAppStore.getState().activeTabId).toBe("faq");
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/faq");
+      expect(window.location.pathname).toBe("/faq");
     });
   });
 });

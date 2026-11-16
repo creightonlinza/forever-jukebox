@@ -1,6 +1,6 @@
 import { countTuningBranches } from "@forever-jukebox/shared";
 import type { AppContext } from "../context";
-import { formatDuration } from "../format";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 import { useAppStore } from "../store";
 
 export type TuningModalTab = "tuning" | "extras";

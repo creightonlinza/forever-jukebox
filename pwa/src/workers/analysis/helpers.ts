@@ -15,45 +15,6 @@ export type Segment = {
   timbre: number[];
 };
 
-export function downmixToMono(channels: Float32Array[]): Float32Array {
-  if (channels.length === 1) {
-    return channels[0].slice();
-  }
-  const length = channels[0]?.length ?? 0;
-  const out = new Float32Array(length);
-  if (length === 0) {
-    return out;
-  }
-  for (const channel of channels) {
-    for (let i = 0; i < length; i += 1) {
-      out[i] += (channel[i] ?? 0) / channels.length;
-    }
-  }
-  return out;
-}
-
-export function resampleLinear(
-  samples: Float32Array,
-  fromRate: number,
-  toRate: number
-): Float32Array {
-  if (fromRate === toRate || samples.length === 0) {
-    return samples.slice();
-  }
-  const ratio = toRate / fromRate;
-  const outLength = Math.max(1, Math.floor(samples.length * ratio));
-  const output = new Float32Array(outLength);
-  for (let i = 0; i < outLength; i += 1) {
-    const srcIndex = i / ratio;
-    const idx = Math.floor(srcIndex);
-    const frac = srcIndex - idx;
-    const s0 = samples[idx] ?? 0;
-    const s1 = samples[idx + 1] ?? s0;
-    output[i] = s0 + (s1 - s0) * frac;
-  }
-  return output;
-}
-
 export function makeQuanta(starts: number[], duration: number, confidences?: number[]) {
   const out: Quantum[] = [];
   for (let i = 0; i < starts.length; i += 1) {

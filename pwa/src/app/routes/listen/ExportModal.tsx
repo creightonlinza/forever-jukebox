@@ -1,10 +1,10 @@
 import React from "react";
 import { useModalKeyboard } from "@forever-jukebox/shared/ui/useModalKeyboard";
 import { useTranslation } from "react-i18next";
-import type { JukeboxExportProgress } from "@/shared/export";
-import { formatDuration } from "@/shared/utils/format";
+import type { JukeboxExportProgress } from "@/shared/export/exporter";
+import { formatDuration } from "@forever-jukebox/shared/ui/format";
 import { SymbolIcon } from "@/ui/components/SymbolIcon";
-import type { PlayMode } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import {
   MAX_EXPORT_DURATION_SECONDS,
   exportProgressMessage,
@@ -54,7 +54,12 @@ export function ExportModal({
     }
   });
   return (
-    <div className="modal open">
+    <div
+      className="modal open"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="export-title"
+    >
       <button
         className="modal-backdrop"
         type="button"
@@ -64,7 +69,7 @@ export function ExportModal({
       />
       <div ref={panelRef} className="modal-panel">
         <div className="modal-header">
-          <h2>{t("export.title")}</h2>
+          <h2 id="export-title">{t("export.title")}</h2>
           <button
             className="modal-close"
             type="button"

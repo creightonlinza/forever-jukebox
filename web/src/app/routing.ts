@@ -10,11 +10,11 @@ export async function handleRouteChange(
   pathname: string
 ) {
   if (pathname.startsWith("/search")) {
-    deps.navigateToTab("search", { replace: true });
+    useAppStore.getState().navigateToTabWithState("search", { replace: true });
     return;
   }
   if (pathname.startsWith("/faq") || pathname.startsWith("/whats-new")) {
-    deps.setActiveTab("faq");
+    useAppStore.getState().setActiveTab("faq");
     return;
   }
   if (pathname.startsWith("/listen")) {
@@ -37,18 +37,18 @@ export async function handleRouteChange(
           useAppStore.getState().audioLoadInFlight ||
           useAppStore.getState().isRunning)
       ) {
-        deps.navigateToTab("play", { replace: true, trackId });
+        useAppStore.getState().navigateToTabWithState("play", { replace: true, trackId });
         return;
       }
-      deps.navigateToTab("play", { replace: true, trackId });
+      useAppStore.getState().navigateToTabWithState("play", { replace: true, trackId });
       await loadTrackById(context, deps, trackId, {
         preserveUrlTuning,
         preservePlaylist: true,
       });
       return;
     }
-    deps.navigateToTab("top", { replace: true });
+    useAppStore.getState().navigateToTabWithState("top", { replace: true });
     return;
   }
-  deps.navigateToTab("top", { replace: true });
+  useAppStore.getState().navigateToTabWithState("top", { replace: true });
 }

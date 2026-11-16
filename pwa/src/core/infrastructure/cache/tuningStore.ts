@@ -15,7 +15,7 @@ const PREFIX = "fj-tuning:";
 
 // The subset of engine config that represents user tuning (everything except
 // the fixed structural limits maxBranches / maxBranchThreshold).
-export type SavedTuningConfig = Pick<
+type SavedTuningConfig = Pick<
   JukeboxConfig,
   | "currentThreshold"
   | "justBackwards"

@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppContext } from "./context";
 import {
   blurMouseActivatedControl,
-  isEditableTarget,
   setAnalysisStatus,
   setLoadingStep,
   showToast,
@@ -25,11 +24,9 @@ function createContext(): AppContext {
 
 class MockElement {
   tagName: string;
-  isContentEditable: boolean;
 
-  constructor(tagName: string, isContentEditable = false) {
+  constructor(tagName: string) {
     this.tagName = tagName;
-    this.isContentEditable = isContentEditable;
   }
   blur = vi.fn();
   addEventListener = vi.fn();
@@ -52,13 +49,6 @@ describe("ui helpers", () => {
     setAnalysisStatus(context, () => "Done");
     expect(useAppStore.getState().analysisStatusText()).toBe("Done");
     expect(useAppStore.getState().loadingStep).toBeNull();
-  });
-
-  it("detects editable targets", () => {
-    expect(isEditableTarget(null)).toBe(false);
-    expect(isEditableTarget(new MockElement("DIV"))).toBe(false);
-    expect(isEditableTarget(new MockElement("INPUT"))).toBe(true);
-    expect(isEditableTarget(new MockElement("SPAN", true))).toBe(true);
   });
 
   it("blurs mouse-activated controls", () => {

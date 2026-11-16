@@ -1,4 +1,4 @@
-import type { PlayMode } from "./context";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
 import { storedPlayMode } from "./favorites";
 import i18n from "./i18n";
 
@@ -87,7 +87,7 @@ export function canMovePlaylistNext(playlist: PlaylistState) {
   );
 }
 
-export function normalizePlaylistTrack(track: PlaylistTrack): PlaylistTrack | null {
+function normalizePlaylistTrack(track: PlaylistTrack): PlaylistTrack | null {
   const id = typeof track.id === "string" ? track.id.trim() : "";
   if (!id || !isPlaylistSourceType(track.sourceType)) {
     return null;

@@ -1,4 +1,4 @@
-import type { AnalysisOutput } from "@/shared/analysis-schema";
+import type { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import {
   buildJumpGraph,
   calculateMinLongBranch,

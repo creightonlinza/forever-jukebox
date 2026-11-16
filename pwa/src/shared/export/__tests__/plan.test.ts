@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AnalysisOutput } from "@/shared/analysis-schema";
+import type { AnalysisOutput } from "@/shared/analysis-schema/schema";
 import {
   buildJumpGraph,
   calculateMinLongBranch,

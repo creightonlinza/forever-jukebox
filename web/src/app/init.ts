@@ -120,16 +120,16 @@ export function initRuntime(): void {
   // mutates this same `context`, so the viz controllers become visible through
   // getAppContext() once they're attached.
   setAppRuntime(context);
-  // Navigation lives in the store now; the flows still take it as a dep (so
-  // they stay unit-testable), resolved at call time via these thin wrappers.
+  // Navigation lives in the store; the search flow takes it as a dep (so it
+  // stays unit-testable), resolved at call time via these thin wrappers.
   const navigateToTabWithState = (
     tabId: TabId,
     options?: { replace?: boolean; trackId?: string | null },
   ) => useAppStore.getState().navigateToTabWithState(tabId, options);
   const setActiveTabWithRefresh = (tabId: TabId) =>
     useAppStore.getState().setActiveTab(tabId);
-  // Navigation + status closures shared by the playback and search flows.
-  const sharedFlowDeps = {
+  // Navigation + status closures for the search flow.
+  const searchFlowDeps = {
     setActiveTab: setActiveTabWithRefresh,
     navigateToTab: navigateToTabWithState,
     updateTrackUrl: (trackId: string, replace?: boolean) =>
@@ -141,14 +141,14 @@ export function initRuntime(): void {
     setAnalysisStatus: (message: LocalizedText) => setAnalysisStatus(context, message),
     setLoadingStep: (step: LoadingState) => setLoadingStep(context, step),
   };
-  const playbackDeps: PlaybackDeps = { ...sharedFlowDeps };
+  const playbackDeps: PlaybackDeps = {};
   setPlaybackDeps(playbackDeps);
   setAdvancePlaylistOnAutocanonizerEnded(advanceAutocanonizerOnEnded);
   playbackDeps.onAnalysisLoaded = (response) => {
     maybeAutoFavoriteUserSupplied(response);
   };
   const searchDeps: SearchDeps = {
-    ...sharedFlowDeps,
+    ...searchFlowDeps,
     showToast: (message, options) => showToast(message, options),
     pollAnalysis: (jobId: string) => pollAnalysis(context, playbackDeps, jobId),
     applyAnalysisResult: (response) =>

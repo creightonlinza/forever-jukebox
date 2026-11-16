@@ -9,7 +9,8 @@ import {
   type ExtrasFormState,
   type TuneFormState,
 } from "./tuning";
-import type { PlayMode, TuningModalTab } from "./types";
+import type { PlayMode } from "@forever-jukebox/shared/constants/playback";
+import type { TuningModalTab } from "./types";
 
 export function TuningModal({
   playMode,
@@ -40,7 +41,13 @@ export function TuningModal({
   const panelRef = React.useRef<HTMLDivElement>(null);
   useModalKeyboard(panelRef, true, onClose);
   return (
-    <div id="tuning-modal" className="modal open">
+    <div
+      id="tuning-modal"
+      className="modal open"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tuning-title"
+    >
       <button
         className="modal-backdrop"
         type="button"

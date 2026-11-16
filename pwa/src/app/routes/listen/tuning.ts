@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { JukeboxAudioMode } from "@forever-jukebox/shared/audio/BufferedAudioPlayer";
+import { MAX_RANDOM_BRANCH_DELTA } from "@forever-jukebox/shared/constants/playback";
 
-export const MAX_RANDOM_BRANCH_DELTA = 0.2;
 export const RANDOM_BRANCH_DELTA_PERCENT_SCALE = 100 / MAX_RANDOM_BRANCH_DELTA;
 export const MIN_JUMP_DISTANCE_OPTIONS = [0, 5, 10, 20, 30] as const;
 
