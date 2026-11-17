@@ -333,7 +333,7 @@
   },
   "feedback": {
     "title": "Feedback & Bug Reporting",
-    "description": "Tell us what's broken, what's confusing, or what you'd like to see. Your app version and browser details are included automatically.",
+    "description": "Tell us what's broken, what's confusing, or what you'd like to see. Your app version, browser details, and a link to the current track are included automatically.",
     "placeholder": "What's on your mind?",
     "send": "Send",
     "sent": "Thanks — your feedback was sent.",

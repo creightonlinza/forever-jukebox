@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { submitFeedback } from "./feedback";
+import { useAppStore } from "./store";
+
+const HOST_ENTRY = "entry.2053321578";
+const ORIGIN = "https://jukebox.example";
 
 function lastCall() {
   const [url, init] = (fetch as any).mock.calls[0] as [string, RequestInit];
@@ -9,10 +13,18 @@ function lastCall() {
 describe("submitFeedback", () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response(null));
+    vi.stubGlobal("location", { origin: ORIGIN });
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+    useAppStore.setState({
+      lastTrackId: null,
+      lastJobId: null,
+      tuningParams: null,
+      playMode: "jukebox",
+    });
   });
 
   it("posts the four form fields to the form response endpoint", async () => {
@@ -26,6 +38,34 @@ describe("submitFeedback", () => {
     expect(params.get("entry.921237093")).toMatch(/^Web /);
     expect(params.get("entry.1749929406")).not.toBeNull();
     expect(params.get("entry.2053321578")).not.toBeNull();
+  });
+
+  it("sends the origin as host when no track is in context", async () => {
+    await submitFeedback("hi");
+    const params = new URLSearchParams(lastCall().body);
+    expect(params.get(HOST_ENTRY)).toBe(ORIGIN);
+  });
+
+  it("sends the listen URL with tuning as host when a track is in context", async () => {
+    useAppStore.setState({ lastTrackId: "abc 123", tuningParams: "thresh=40&d=1,2" });
+    await submitFeedback("hi");
+    const params = new URLSearchParams(lastCall().body);
+    expect(params.get(HOST_ENTRY)).toBe(
+      `${ORIGIN}/listen/abc%20123?thresh=40&d=1,2`,
+    );
+  });
+
+  it("sends the play mode in place of tuning outside jukebox mode", async () => {
+    useAppStore.setState({
+      lastTrackId: "abc",
+      tuningParams: "thresh=40",
+      playMode: "autocanonizer",
+    });
+    await submitFeedback("hi");
+    const params = new URLSearchParams(lastCall().body);
+    expect(params.get(HOST_ENTRY)).toBe(
+      `${ORIGIN}/listen/abc?mode=autocanonizer`,
+    );
   });
 
   it("encodes spaces as + rather than %20", async () => {

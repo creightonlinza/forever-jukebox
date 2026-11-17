@@ -1,3 +1,6 @@
+import { getCurrentTrackId, useAppStore } from "./store";
+import { urlForTrack } from "./tabs";
+
 // In-app feedback posts straight to a Google Form: no backend, no auth, no
 // accounts. The same form receives the Android app's reports, so the version
 // field is prefixed to keep the two platforms apart in the response sheet.
@@ -29,8 +32,17 @@ function deviceSummary(): string {
 
 // The app is self-hosted by others too, so reports arrive from deployments
 // whose code may have drifted; the origin identifies which one sent this.
+// With a track in context the value is its listen URL, tuning included.
 function hostSummary(): string {
-  return typeof location === "undefined" ? "" : location.origin;
+  if (typeof location === "undefined") {
+    return "";
+  }
+  const trackId = getCurrentTrackId();
+  if (!trackId) {
+    return location.origin;
+  }
+  const { tuningParams, playMode } = useAppStore.getState();
+  return urlForTrack(trackId, location.origin, tuningParams, playMode);
 }
 
 // Google Forms sends no CORS headers, so the response is opaque: a resolved

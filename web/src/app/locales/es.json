@@ -333,7 +333,7 @@
   },
   "feedback": {
     "title": "Comentarios y errores",
-    "description": "Cuéntanos qué falla, qué resulta confuso o qué te gustaría ver. La versión de la app y los datos del navegador se incluyen automáticamente.",
+    "description": "Cuéntanos qué falla, qué resulta confuso o qué te gustaría ver. La versión de la app, los datos del navegador y un enlace a la pista actual se incluyen automáticamente.",
     "placeholder": "¿Qué tienes en mente?",
     "send": "Enviar",
     "sent": "Gracias, tu comentario se ha enviado.",

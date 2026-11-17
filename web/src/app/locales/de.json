@@ -333,7 +333,7 @@
   },
   "feedback": {
     "title": "Feedback & Fehlerberichte",
-    "description": "Sag uns, was kaputt ist, was verwirrt oder was du dir wünschst. App-Version und Browser-Details werden automatisch mitgesendet.",
+    "description": "Sag uns, was kaputt ist, was verwirrt oder was du dir wünschst. App-Version, Browser-Details und ein Link zum aktuellen Song werden automatisch mitgesendet.",
     "placeholder": "Was beschäftigt dich?",
     "send": "Senden",
     "sent": "Danke — dein Feedback wurde gesendet.",
