@@ -42,14 +42,6 @@ class MockStereoPannerNode {
   disconnect = vi.fn();
 }
 
-class MockOscillatorNode {
-  frequency = { value: 440 };
-  start = vi.fn();
-  stop = vi.fn();
-  connect = vi.fn();
-  disconnect = vi.fn();
-}
-
 class MockWaveShaperNode {
   curve: Float32Array | null = null;
   oversample: OverSampleType = "none";
@@ -76,7 +68,6 @@ class MockAudioContext {
   createdBiquads: MockBiquadNode[] = [];
   createdConvolvers: MockConvolverNode[] = [];
   createdPanners: MockStereoPannerNode[] = [];
-  createdOscillators: MockOscillatorNode[] = [];
   createdWaveShapers: MockWaveShaperNode[] = [];
   createdCompressors: MockDynamicsCompressorNode[] = [];
   createdBuffers: AudioBuffer[] = [];
@@ -99,11 +90,6 @@ class MockAudioContext {
     const panner = new MockStereoPannerNode();
     this.createdPanners.push(panner);
     return panner;
-  }
-  createOscillator() {
-    const oscillator = new MockOscillatorNode();
-    this.createdOscillators.push(oscillator);
-    return oscillator;
   }
   createWaveShaper() {
     const shaper = new MockWaveShaperNode();
@@ -700,25 +686,29 @@ describe("BufferedAudioPlayer", () => {
     expect(context.createdSources[0]?.start).toHaveBeenCalledWith(0, 0, 2);
   });
 
-  it("starts panning loop for eight_d mode and resets on mode change", async () => {
+  it("pans on a timer for eight_d mode and resets on mode change", async () => {
     const context = new MockAudioContext();
     const player = new BufferedAudioPlayer(context as unknown as AudioContext);
     await player.loadBuffer({ duration: 20 } as AudioBuffer);
     player.setJukeboxAudioMode("eight_d");
-    player.play();
+    vi.useFakeTimers();
+    try {
+      player.play();
+      const pan = context.createdPanners[0]?.pan;
+      expect(pan?.value).toBe(0);
 
-    const oscillator = context.createdOscillators[0];
-    expect(oscillator?.start).toHaveBeenCalled();
-    expect(oscillator?.connect).toHaveBeenCalledWith(
-      context.createdPanners[0]?.pan,
-    );
-    expect(oscillator?.frequency.value).toBeCloseTo((0.007 * 60) / (2 * Math.PI));
-    expect(context.createdPanners[0]?.pan.value).toBe(0);
+      context.currentTime += 1;
+      vi.advanceTimersByTime(50);
+      expect(pan?.value).toBeCloseTo(Math.sin(0.007 * 60));
 
-    player.setJukeboxAudioMode("off");
-    expect(oscillator?.stop).toHaveBeenCalled();
-    expect(oscillator?.disconnect).toHaveBeenCalled();
-    expect(context.createdPanners[0]?.pan.value).toBe(0);
+      player.setJukeboxAudioMode("off");
+      expect(pan?.value).toBe(0);
+      context.currentTime += 1;
+      vi.advanceTimersByTime(200);
+      expect(pan?.value).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("waits for resume before starting playback", async () => {

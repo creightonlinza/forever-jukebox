@@ -15,6 +15,13 @@ import {
   type JukeboxAudioMode,
 } from "./audioModes";
 import { clampVolume } from "./volume";
+import {
+  backgroundClearTimeout,
+  backgroundSetTimeout,
+} from "../background/backgroundTimer";
+
+const PAN_TICK_MS = 50;
+const PAN_RADIANS_PER_SECOND = PAN_STEP * 60;
 
 export type { JukeboxAudioMode } from "./audioModes";
 
@@ -71,7 +78,7 @@ export class BufferedAudioPlayer {
   private audioMode: JukeboxAudioMode = "off";
   private intensityPct = DEFAULT_AUDIO_MODE_INTENSITY;
   private playbackRate = AUDIO_MODE_SETTINGS.off.rate;
-  private panOscillator: OscillatorNode | null = null;
+  private panTimerId: number | null = null;
   private renderedModeBuffers: Partial<Record<JukeboxAudioMode, AudioBuffer>> =
     {};
 
@@ -919,23 +926,26 @@ export class BufferedAudioPlayer {
       this.stopPanMotion();
       return;
     }
-    if (this.panOscillator) {
+    if (this.panTimerId !== null) {
       return;
     }
-    // The oscillator drives pan on the audio thread; its -1..1 output is the pan position.
-    const oscillator = this.context.createOscillator();
-    oscillator.frequency.value = (PAN_STEP * 60) / (2 * Math.PI);
-    this.stereoPanner.pan.value = 0;
-    oscillator.connect(this.stereoPanner.pan);
-    oscillator.start();
-    this.panOscillator = oscillator;
+    // A timer sets the pan; the angle follows the context clock, so late ticks do not slow it.
+    const startTime = this.context.currentTime;
+    const tick = () => {
+      if (!this.stereoPanner) {
+        return;
+      }
+      const elapsed = this.context.currentTime - startTime;
+      this.stereoPanner.pan.value = Math.sin(elapsed * PAN_RADIANS_PER_SECOND);
+      this.panTimerId = backgroundSetTimeout(tick, PAN_TICK_MS);
+    };
+    this.panTimerId = backgroundSetTimeout(tick, PAN_TICK_MS);
   }
 
   private stopPanMotion() {
-    if (this.panOscillator) {
-      this.panOscillator.stop();
-      this.panOscillator.disconnect();
-      this.panOscillator = null;
+    if (this.panTimerId !== null) {
+      backgroundClearTimeout(this.panTimerId);
+      this.panTimerId = null;
     }
     if (this.stereoPanner) {
       this.stereoPanner.pan.value = 0;
