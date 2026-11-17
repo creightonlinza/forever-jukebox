@@ -700,6 +700,9 @@ describe("BufferedAudioPlayer", () => {
       context.currentTime += 1;
       vi.advanceTimersByTime(50);
       expect(pan?.value).toBeCloseTo(Math.sin(0.007 * 60));
+      context.currentTime += 1;
+      vi.advanceTimersByTime(50);
+      expect(pan?.value).toBeCloseTo(Math.sin(0.007 * 60 * 2));
 
       player.setJukeboxAudioMode("off");
       expect(pan?.value).toBe(0);

@@ -933,6 +933,7 @@ export class BufferedAudioPlayer {
     const startTime = this.context.currentTime;
     const tick = () => {
       if (!this.stereoPanner) {
+        this.panTimerId = null;
         return;
       }
       const elapsed = this.context.currentTime - startTime;
