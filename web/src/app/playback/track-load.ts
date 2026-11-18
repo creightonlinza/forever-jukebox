@@ -13,7 +13,6 @@ import {
   isAnalysisComplete,
   isAnalysisFailed,
   isAnalysisInProgress,
-  isRetryableFetchFailure,
 } from "../analysisStatus";
 import {
   moveCachedTrack,
@@ -77,23 +76,6 @@ import {
 
 const GENERIC_LOAD_ERROR_MESSAGE = () => i18n.t("errors.generic");
 let pollController: AbortController | null = null;
-
-// Show the retry link for a transient fetch failure, unless this failure is
-// the result of a retry the user already triggered for the same job — in
-// which case the offer is consumed so the button only appears once.
-function offerRetryLinkForFailure(
-  response: AnalysisResponse | null,
-  jobId: string,
-): void {
-  const retried = useAppStore.getState().retryInFlightJobId === jobId;
-  if (retried) {
-    useAppStore.setState({ retryInFlightJobId: null });
-  }
-  if (retried || !isRetryableFetchFailure(response)) {
-    return;
-  }
-  useAppStore.setState({ analysisRetryJobId: jobId });
-}
 
 export type PlaybackDeps = {
   onTrackChange?: (trackId: string | null) => void;
@@ -431,7 +413,6 @@ export async function pollAnalysis(
               fallback: i18n.t("status.loadingFailed"),
             }),
         );
-        offerRetryLinkForFailure(response, jobId);
         return;
       } else if (isAnalysisComplete(response)) {
         if (useAppStore.getState().loadingStep?.task === "serverAnalysis") {
@@ -494,7 +475,6 @@ async function continueTrackLoadWithResponse(
           fallback: i18n.t("status.loadingFailed"),
         }),
     );
-    offerRetryLinkForFailure(response, response.id);
     return false;
   }
   if (isAnalysisComplete(response)) {

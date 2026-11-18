@@ -18,17 +18,14 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 from ..db import (
-    claim_notify_state,
-    first_youtube_success_after,
     get_job,
     get_notify_state,
     latest_youtube_success,
     restart_stalled_download,
     set_job_progress,
     set_job_status,
-    set_notify_state,
     update_job_track_metadata,
-    youtube_jobs_finished_between,
+    update_notify_state,
 )
 from ..env import env_positive_float
 from ..paths import DB_PATH, STORAGE_ROOT
@@ -168,6 +165,8 @@ def source_info_is_live(info: dict) -> bool:
 
 
 def resolve_source_info(source_url: str) -> SourceInfo:
+    if _provider_for_host(urlsplit(source_url).hostname) == "youtube" and youtube_cooldown_active():
+        raise ValueError(ERROR_YOUTUBE_COOLDOWN)
     try:
         from yt_dlp import YoutubeDL
     except Exception as exc:
@@ -225,22 +224,12 @@ def normalize_job_error(raw: str | None) -> str:
         return ERROR_ENGINE
     if "video unavailable" in lowered or "this video is not available" in lowered:
         return ERROR_YOUTUBE_UNAVAILABLE
-    if (
-        HTTP_403_ERROR_TEXT in lowered
-        or "[download]" in lowered
-        or "unable to download video data" in lowered
-        or "premieres in" in lowered
-    ):
-        return ERROR_DOWNLOAD_UNAVAILABLE
-    if (
-        "sign in to confirm your age" in lowered
-        or "inappropriate for some users" in lowered
-        or "age-restricted" in lowered
-        or "age restriction" in lowered
-    ):
+    if any(pattern in lowered for pattern in AGE_RESTRICTED_PATTERNS):
         return ERROR_YOUTUBE_AGE_RESTRICTED
-    if "sign in to confirm" in lowered or "not a bot" in lowered:
+    if raw == ERROR_YOUTUBE_COOLDOWN or youtube_block_signal(raw) not in (None, "network"):
         return ERROR_YOUTUBE_UNREACHABLE
+    if "[download]" in lowered or "premieres in" in lowered:
+        return ERROR_DOWNLOAD_UNAVAILABLE
     if "live youtube videos are not supported" in lowered:
         return ERROR_YOUTUBE_LIVE
     if "max_track_length" in lowered or "track exceeds max track length" in lowered:
@@ -475,23 +464,19 @@ YOUTUBE_BLOCK_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
 # Age restriction is a property of the video, not a block signal.
 AGE_RESTRICTED_PATTERNS = (
     "sign in to confirm your age",
+    "please sign in",
     "inappropriate for some users",
     "age-restricted",
     "age restriction",
 )
 
-NOTIFY_DIGEST_INTERVAL_S = 6 * 3600.0
-NOTIFY_FAILURE_THRESHOLD = 3
-NOTIFY_CHECK_INTERVAL_S = 60.0
-# Instant the last digest period closed; the next period starts there.
-NOTIFY_PERIOD_START_KEY = "youtube_digest_period_start"
-# "<newest failure>|<last success before it>" from a digest with no success after it;
-# empty once recovery is reported.
-NOTIFY_RECOVERY_PENDING_KEY = "youtube_recovery_pending"
+YOUTUBE_BLOCK_THRESHOLD = 3
+YOUTUBE_COOLDOWN_S = 600.0
+# JSON record of the current run of blocked YouTube downloads; empty after a download succeeds.
+YOUTUBE_BLOCK_KEY = "youtube_block"
+ERROR_YOUTUBE_COOLDOWN = "YouTube cooldown: download refused"
 # curl caps itself; subprocess gets a wider guard so curl exits on its own first.
 NTFY_TIMEOUT_S = 10.0
-
-_next_notify_check_monotonic = 0.0
 
 
 def youtube_block_signal(raw: str | None) -> str | None:
@@ -551,104 +536,116 @@ def _fmt_utc(iso: str) -> str:
     return f"{_fmt_moment(moment)} UTC" if moment else iso
 
 
-def _fmt_span(first_iso: str, last_iso: str) -> str:
-    first = _utc_moment(first_iso)
-    last = _utc_moment(last_iso)
-    if first is None or last is None:
-        return f"{first_iso}\u2013{last_iso}"
-    if first.date() != last.date():
-        return f"{_fmt_moment(first)}\u2013{_fmt_moment(last)} UTC"
-    if _fmt_clock(first) == _fmt_clock(last):
-        return f"{_fmt_moment(first)} UTC"
-    return f"{_fmt_moment(first)}\u2013{_fmt_clock(last)} UTC"
+def _block_state(raw: str | None) -> dict | None:
+    return json.loads(raw) if raw else None
 
 
-def _notify_youtube_recovery(db_path: Path, topic_key: str, now: datetime) -> None:
-    """Report the first YouTube success after a digest that had none to report."""
-    pending = get_notify_state(db_path, NOTIFY_RECOVERY_PENDING_KEY)
-    if not pending:
-        return
-    newest_failure, _, previous_success = pending.partition("|")
-    first_success = first_youtube_success_after(db_path, newest_failure, now.isoformat())
-    if first_success is None:
-        return
-    if not claim_notify_state(db_path, NOTIFY_RECOVERY_PENDING_KEY, pending, ""):
-        return
-    message = f"[Forever Jukebox] YouTube recovered: download succeeded {_fmt_utc(first_success)}"
-    if previous_success:
-        message += f", first since {_fmt_utc(previous_success)}"
-    if not _send_ntfy(topic_key, f"{message}."):
-        # Re-arm so a later check retries the ping.
-        claim_notify_state(db_path, NOTIFY_RECOVERY_PENDING_KEY, "", pending)
-        return
-    log_event("ntfy_youtube_recovered")
+def _cooldown_active(state: dict | None, now: datetime) -> bool:
+    until = _utc_moment(state.get("until")) if state else None
+    return until is not None and now < until
 
 
-def maybe_notify_youtube_failures(db_path: Path = DB_PATH) -> None:
-    """Close a digest period every NOTIFY_DIGEST_INTERVAL_S and report its blocked YouTube failures.
+def youtube_cooldown_active() -> bool:
+    try:
+        state = _block_state(get_notify_state(DB_PATH, YOUTUBE_BLOCK_KEY))
+    except sqlite3.Error:
+        return False
+    return _cooldown_active(state, datetime.now(timezone.utc))
 
-    A period runs from the close of the previous one to now. Its digest goes
-    out only when at least NOTIFY_FAILURE_THRESHOLD failures in it are still
-    marked failed. A digest with no success after its newest failure is
-    followed by one recovery ping at the first success. Safe to call every
-    worker-loop iteration; the DB is only queried every
-    NOTIFY_CHECK_INTERVAL_S, and concurrent workers claim each send.
-    """
-    global _next_notify_check_monotonic
+
+def _swap_block_state(
+    update: Callable[[dict | None], dict | None],
+) -> tuple[dict | None, dict | None]:
+    """Apply update to the block record; returns (previous, new). A DB error reads as no record."""
+
+    def raw_update(raw: str | None) -> str:
+        state = update(_block_state(raw))
+        return json.dumps(state) if state else ""
+
+    try:
+        previous, current = update_notify_state(DB_PATH, YOUTUBE_BLOCK_KEY, raw_update)
+    except sqlite3.Error as exc:
+        log_event("youtube_block_state_failed", error=str(exc))
+        return None, None
+    return _block_state(previous), _block_state(current)
+
+
+def _send_block_message(state: dict, now: datetime, recovered: bool) -> bool:
     topic_key = os.environ.get(NTFY_TOPIC_ENV)
     if not topic_key:
-        return
-    mono = time.monotonic()
-    if mono < _next_notify_check_monotonic:
-        return
-    _next_notify_check_monotonic = mono + NOTIFY_CHECK_INTERVAL_S
-    now = datetime.now(timezone.utc)
-    try:
-        _notify_youtube_recovery(db_path, topic_key, now)
-    except sqlite3.Error as exc:
-        log_event("ntfy_youtube_recovery_check_failed", error=str(exc))
-    stored_start = get_notify_state(db_path, NOTIFY_PERIOD_START_KEY)
-    period_start = _utc_moment(stored_start)
-    if period_start is not None and (now - period_start).total_seconds() < NOTIFY_DIGEST_INTERVAL_S:
-        return
-    since = period_start or now - timedelta(seconds=NOTIFY_DIGEST_INTERVAL_S)
-    finished = youtube_jobs_finished_between(db_path, since.isoformat(), now.isoformat())
-    if not claim_notify_state(db_path, NOTIFY_PERIOD_START_KEY, stored_start, now.isoformat()):
-        return
-    blocked = [
-        (updated_at, label)
-        for updated_at, status, error in finished
-        if status == "failed" and (label := youtube_block_signal(error)) is not None
-    ]
-    if len(blocked) < NOTIFY_FAILURE_THRESHOLD:
-        return
-    first_failure = blocked[0][0]
-    newest_failure = blocked[-1][0]
-    completes = [updated_at for updated_at, status, _ in finished if status == "complete"]
-    attempts = len(blocked) + sum(1 for at in completes if first_failure <= at <= newest_failure)
-    recovered = sum(1 for at in completes if at > newest_failure)
-    last_success = max(completes) if completes else latest_youtube_success(db_path, now.isoformat())
+        return True
+    last_success = latest_youtube_success(DB_PATH, now.isoformat())
+    by_count = Counter(state["labels"]).most_common()
+    labels = ", ".join(f"{label} x{count}" for label, count in by_count)
+    counts = f"{sum(state['labels'].values())} failed ({labels}), {state['refused']} refused"
     if recovered:
-        noun = "success" if recovered == 1 else "successes"
-        recovery = f"Recovered: {recovered} {noun} since, last {_fmt_utc(last_success)}."
-    elif last_success:
-        recovery = f"No successful download since {_fmt_utc(last_success)}."
+        since = f", first since {_fmt_utc(last_success)}" if last_success else ""
+        message = f"YouTube recovered: download succeeded {_fmt_moment(now)} UTC{since}. {counts}."
     else:
-        recovery = "No successful download on record."
-    if not recovered:
-        set_notify_state(
-            db_path, NOTIFY_RECOVERY_PENDING_KEY, f"{newest_failure}|{last_success or ''}"
-        )
-    counts = Counter(label for _, label in blocked)
-    breakdown = ", ".join(f"{label} x{count}" for label, count in counts.most_common())
-    message = (
-        f"[Forever Jukebox] YouTube: {len(blocked)} of {attempts} failed "
-        f"{_fmt_span(first_failure, newest_failure)} ({breakdown}). {recovery}"
-    )
-    _send_ntfy(topic_key, message)
-    log_event(
-        "ntfy_youtube_failures", count=len(blocked), attempts=attempts, recovered=recovered
-    )
+        since = f"since {_fmt_utc(last_success)}" if last_success else "on record"
+        start = _fmt_utc(state["since"])
+        message = f"YouTube blocked since {start}: {counts}. No successful download {since}."
+    return _send_ntfy(topic_key, f"[Forever Jukebox] {message}")
+
+
+def refuse_youtube_download() -> bool:
+    """True while the cooldown runs; counts the refusal."""
+    now = datetime.now(timezone.utc)
+
+    def count(state: dict | None) -> dict | None:
+        if _cooldown_active(state, now):
+            state["refused"] += 1
+        return state
+
+    previous, _ = _swap_block_state(count)
+    return _cooldown_active(previous, now)
+
+
+def record_youtube_failure(error: str, job_id: str) -> None:
+    """Count a blocked download: 3 failing videos start a cooldown, a failed test request alerts."""
+    label = youtube_block_signal(error)
+    if label is None:
+        return
+    now = datetime.now(timezone.utc)
+
+    def count(state: dict | None) -> dict:
+        state = state or {"since": now.isoformat(), "labels": {}, "refused": 0, "jobs": []}
+        state["labels"][label] = state["labels"].get(label, 0) + 1
+        if job_id not in state["jobs"] and len(state["jobs"]) < YOUTUBE_BLOCK_THRESHOLD:
+            state["jobs"].append(job_id)
+        # A failure after a cooldown ran out came from a test request.
+        if "until" in state and not _cooldown_active(state, now):
+            state["alerted"] = True
+        if len(state["jobs"]) >= YOUTUBE_BLOCK_THRESHOLD:
+            state["until"] = (now + timedelta(seconds=YOUTUBE_COOLDOWN_S)).isoformat()
+        return state
+
+    previous, current = _swap_block_state(count)
+    if not current or not current.get("alerted") or (previous or {}).get("alerted"):
+        return
+    if not _send_block_message(current, now, recovered=False):
+        # The next failed test request sends the message.
+        _swap_block_state(lambda state: state and {**state, "alerted": False})
+
+
+def record_youtube_success() -> None:
+    """Clear the block record; report recovery when the block was alerted."""
+    previous, _ = _swap_block_state(lambda state: None)
+    if not previous or not previous.get("alerted"):
+        return
+    if not _send_block_message(previous, datetime.now(timezone.utc), recovered=True):
+        log_event("youtube_recovered_send_failed")
+
+
+def youtube_block_status() -> dict:
+    now = datetime.now(timezone.utc)
+    state = _block_state(get_notify_state(DB_PATH, YOUTUBE_BLOCK_KEY)) or {}
+    status = "ok"
+    if state:
+        status = "blocked" if _cooldown_active(state, now) or state.get("alerted") else "failing"
+    last_success = latest_youtube_success(DB_PATH, now.isoformat())
+    state.pop("jobs", None)
+    return {"status": status, "last_success": last_success, **state}
 
 
 def _write_failure_log(job_id: str, message: str) -> None:
@@ -760,6 +757,9 @@ def download_source_audio(
     source_provider: str | None = None,
     owner: str | None = None,
 ) -> None:
+    if source_provider == "youtube" and refuse_youtube_download():
+        cleanup_failure(job_id, ERROR_YOUTUBE_COOLDOWN, source_provider, owner)
+        return
     try:
         from yt_dlp import YoutubeDL
     except Exception:
@@ -843,6 +843,8 @@ def download_source_audio(
         )
     except Exception as exc:  # pragma: no cover - network call
         cleanup_failure(job_id, str(exc), source_provider, owner)
+        if source_provider == "youtube":
+            record_youtube_failure(str(exc), job_id)
         return
 
     job = get_job(DB_PATH, job_id)
@@ -901,6 +903,8 @@ def download_source_audio(
         logger.info("Discarded stale download for job %s", job_id)
         return
     set_job_status(DB_PATH, job_id, "queued", None, owner)
+    if source_provider == "youtube":
+        record_youtube_success()
 
 
 def download_youtube_audio(job_id: str, youtube_id: str, owner: str | None = None) -> None:

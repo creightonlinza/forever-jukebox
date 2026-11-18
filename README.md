@@ -57,7 +57,7 @@ Optional:
 
 - `YOUTUBE_API_KEY`: optional fallback for `/api/search/youtube` when `yt-dlp` search fails.
 - `ADMIN_KEY`: optional; required only for admin-only actions (play-count updates, and deletes outside the 30-minute grace window). Send it via `X-Admin-Key` request header.
-- `NTFY_TOPIC_KEY`: optional; sends an ntfy digest, at most every 6 hours, when YouTube downloads are being blocked (403 / bot-check / rate-limit errors), plus one follow-up when downloads succeed again.
+- `NTFY_TOPIC_KEY`: optional; sends one ntfy message when YouTube blocks downloads (403 / bot-check / rate-limit errors) and one when a download succeeds again. `GET /api/status/youtube` shows the current state.
 - `WORKER_COUNT`: optional; defaults to `1` and controls worker concurrency. A single
   instance on a local/container volume supports modest concurrency such as `6`; do not
   point multiple running app instances at the same `jobs.db`.

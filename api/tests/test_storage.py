@@ -522,7 +522,6 @@ class S3IngestTests(unittest.TestCase):
         with (
             patch.dict(worker_module._storage_failures, clear=True),
             patch.object(worker_module, "init_db"),
-            patch.object(worker_module, "maybe_notify_youtube_failures"),
             patch.object(
                 worker_module, "claim_next_job", side_effect=lambda db: get_job(self.db_path, "job1")
             ),

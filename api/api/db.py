@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from collections.abc import Callable
 from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
 
@@ -389,81 +390,23 @@ def get_notify_state(db_path: Path, key: str) -> Optional[str]:
     return str(row[0]) if row else None
 
 
-def claim_notify_state(db_path: Path, key: str, expected: Optional[str], value: str) -> bool:
-    """Set the key to value only if it still holds expected; True when this caller won.
-
-    Lets concurrent workers agree on which one sends a notification.
-    """
+def update_notify_state(
+    db_path: Path, key: str, update: Callable[[Optional[str]], str]
+) -> tuple[Optional[str], str]:
+    """Replace the key's value with update(current) under the write lock; returns (previous, new)"""
     with _connect(db_path) as conn:
-        if expected is None:
-            cur = conn.execute(
-                "INSERT OR IGNORE INTO notify_state (key, value) VALUES (?, ?)",
+        conn.execute(BEGIN_IMMEDIATE)
+        row = conn.execute("SELECT value FROM notify_state WHERE key = ?", (key,)).fetchone()
+        previous = str(row[0]) if row else None
+        value = update(previous)
+        if value != previous:
+            conn.execute(
+                "INSERT INTO notify_state (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (key, value),
             )
-        else:
-            cur = conn.execute(
-                "UPDATE notify_state SET value = ? WHERE key = ? AND value = ?",
-                (value, key, expected),
-            )
         conn.commit()
-    return int(cur.rowcount or 0) > 0
-
-
-def set_notify_state(db_path: Path, key: str, value: str) -> None:
-    with _connect(db_path) as conn:
-        conn.execute(
-            "INSERT INTO notify_state (key, value) VALUES (?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (key, value),
-        )
-        conn.commit()
-
-
-def first_youtube_success_after(db_path: Path, after_iso: str, through_iso: str) -> Optional[str]:
-    """Earliest completion in (after, through] of a YouTube job also requested after `after`.
-
-    Requiring the request to be newer leaves out re-analysis of audio already on disk.
-    """
-    with _connect(db_path) as conn:
-        row = conn.execute(
-            """
-            SELECT MIN(j.updated_at)
-            FROM jobs j
-            JOIN sources s ON s.id = j.source_ref
-            WHERE s.provider = 'youtube'
-              AND j.status = 'complete'
-              AND j.created_at > ?
-              AND j.updated_at > ?
-              AND j.updated_at <= ?
-            """,
-            (after_iso, after_iso, through_iso),
-        ).fetchone()
-    return str(row[0]) if row and row[0] else None
-
-
-def youtube_jobs_finished_between(
-    db_path: Path, after_iso: str, through_iso: str
-) -> list[tuple[str, str, Optional[str]]]:
-    """(updated_at, status, error) of YouTube jobs that completed or failed in (after, through].
-
-    Retried jobs reuse their row, so a failure the user retried to success no
-    longer appears as one.
-    """
-    with _connect(db_path) as conn:
-        rows = conn.execute(
-            """
-            SELECT j.updated_at, j.status, j.error
-            FROM jobs j
-            JOIN sources s ON s.id = j.source_ref
-            WHERE s.provider = 'youtube'
-              AND j.status IN ('complete', 'failed')
-              AND j.updated_at > ?
-              AND j.updated_at <= ?
-            ORDER BY j.updated_at
-            """,
-            (after_iso, through_iso),
-        ).fetchall()
-    return [(str(row[0]), str(row[1]), row[2]) for row in rows]
+    return previous, value
 
 
 def latest_youtube_success(db_path: Path, through_iso: str) -> Optional[str]:

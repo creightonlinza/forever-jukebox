@@ -17,21 +17,6 @@ export function isAnalysisFailed(
   return response?.status === "failed";
 }
 
-// Only intermittent YouTube 403s get a retry link; bot-check blocks and
-// permanent failures would fail again.
-const RETRYABLE_FETCH_ERROR_CODES = new Set(["download_unavailable"]);
-
-export function isRetryableFetchFailure(
-  response: AnalysisResponse | null,
-): boolean {
-  return (
-    isAnalysisFailed(response) &&
-    typeof response.error_code === "string" &&
-    RETRYABLE_FETCH_ERROR_CODES.has(response.error_code) &&
-    response.source_provider === "youtube"
-  );
-}
-
 export function isAnalysisInProgress(
   response: AnalysisResponse | null,
 ): response is AnalysisInProgress {

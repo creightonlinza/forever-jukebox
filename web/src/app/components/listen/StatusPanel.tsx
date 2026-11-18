@@ -7,7 +7,6 @@ import {
 import { getResumeIndex, hasInactiveSavedPlaylist } from "../../playlist";
 import { loadPlaylistIndex } from "../../playlist-actions";
 import { useAppStore } from "../../store";
-import { retryTrack } from "../../track-select";
 import { useTranslation } from "react-i18next";
 
 const LOADING_TITLE_KEYS = {
@@ -27,7 +26,6 @@ export function StatusPanel() {
   const { t } = useTranslation();
   const statusText = useAppStore((s) => s.analysisStatusText);
   const loadingStep = useAppStore((s) => s.loadingStep);
-  const retryJobId = useAppStore((s) => s.analysisRetryJobId);
   const playlist = useAppStore((s) => s.playlist);
   const audioLoaded = useAppStore((s) => s.audioLoaded);
   const analysisLoaded = useAppStore((s) => s.analysisLoaded);
@@ -80,18 +78,6 @@ export function StatusPanel() {
       <div className="status-row">
       <div className="status-text" id="analysis-status">
         {statusText()}
-        {retryJobId ? (
-          <>
-            {" "}
-            <button
-              type="button"
-              className="status-retry-button"
-              onClick={() => retryTrack(retryJobId)}
-            >
-              {t("common.retry")}
-            </button>
-          </>
-        ) : null}
       </div>
       <button
         id="saved-playlist"

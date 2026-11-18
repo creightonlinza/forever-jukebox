@@ -21,7 +21,7 @@ from api.db import (
     set_job_progress,
     set_job_status,
 )
-from api.routes.jobs_runtime import failure_code_for, log_event, maybe_notify_youtube_failures
+from api.routes.jobs_runtime import failure_code_for, log_event
 from api.storage import S3Store, StorageError, backup_databases, discard_job_files, get_store
 from api.utils import get_logger
 
@@ -259,7 +259,6 @@ def run_worker_loop() -> None:
     (STORAGE_ROOT / "logs").mkdir(parents=True, exist_ok=True)
 
     while True:
-        maybe_notify_youtube_failures(DB_PATH)
         job = claim_next_job(DB_PATH)
         if not job:
             time.sleep(1.0)

@@ -14,7 +14,6 @@ import {
   isAnalysisComplete,
   isAnalysisFailed,
   isAnalysisInProgress,
-  isRetryableFetchFailure,
 } from "./analysisStatus";
 import { formatErrorForDisplay } from "./errorDisplay";
 import {
@@ -258,14 +257,6 @@ export async function tryLoadExistingTrackByName(
             fallback: i18n.t("status.loadingFailed"),
           }),
       );
-      if (isRetryableFetchFailure(response)) {
-        // A fresh search always re-offers the retry link and starts a new
-        // retry cycle, even for a job the user retried earlier.
-        useAppStore.setState({
-          analysisRetryJobId: jobId,
-          retryInFlightJobId: null,
-        });
-      }
       return true;
     }
     if (isAnalysisComplete(response)) {

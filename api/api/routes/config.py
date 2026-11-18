@@ -9,7 +9,7 @@ from ..admin_auth import admin_key_configured
 from ..env import env_flag, env_positive_float, env_string
 from ..favorites_config import max_favorites
 from ..models import AppConfigResponse
-from .jobs_runtime import ALLOWED_UPLOAD_EXTS, max_upload_bytes
+from .jobs_runtime import ALLOWED_UPLOAD_EXTS, max_upload_bytes, youtube_block_status
 
 router = APIRouter()
 
@@ -33,3 +33,8 @@ def get_app_config() -> JSONResponse:
         hosted_by_url=env_string("HOSTED_BY_URL"),
     )
     return JSONResponse(payload.model_dump(), status_code=200)
+
+
+@router.get("/api/status/youtube")
+def get_youtube_status() -> dict:
+    return youtube_block_status()

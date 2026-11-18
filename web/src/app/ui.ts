@@ -13,7 +13,7 @@ export type ToastOptions = {
 
 // The React status panel renders these store values.
 export function setAnalysisStatus(_context: AppContext, message: LocalizedText) {
-  useAppStore.setState({ analysisStatusText: message, loadingStep: null, analysisRetryJobId: null });
+  useAppStore.setState({ analysisStatusText: message, loadingStep: null });
 }
 
 // A cancelled audio-mode render hides its steps; a track load in progress keeps its own.
@@ -36,7 +36,7 @@ export function setTrackStepProgress(progress: number) {
 }
 
 export function setLoadingStep(_context: AppContext, loadingStep: LoadingState) {
-  useAppStore.setState({ loadingStep, analysisRetryJobId: null });
+  useAppStore.setState({ loadingStep });
 }
 
 export function blurMouseActivatedControl(event: Event) {
