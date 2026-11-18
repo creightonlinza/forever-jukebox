@@ -54,6 +54,8 @@ const TILE_MAX_STEPS = 12;
 // The jump line fades in fixed alpha steps, one overlay redraw per step.
 const JUMP_FADE_MS = 1000;
 const JUMP_FADE_STEPS = 12;
+// Base edges are stroked in this many layers; overlaps across layers build up alpha.
+const EDGE_LAYERS = 4;
 
 interface JumpLine {
   from: number;
@@ -506,34 +508,38 @@ class CanvasViz {
         ? Math.ceil(edges.length / MAX_EDGES_BASE)
         : 1;
 
-    // One path and one stroke for all edges, so overlapping edges composite once.
+    // Edges are split into layers by source beat, one path each, so overlapping edges build up alpha.
     this.baseCtx.strokeStyle = this.theme.edgeStroke;
-    this.baseCtx.beginPath();
-    for (let i = 0; i < edges.length; i += step) {
-      const edge = edges[i];
-      if (edge.deleted) {
-        continue;
+    for (let layer = 0; layer < EDGE_LAYERS; layer += 1) {
+      let drawn = false;
+      this.baseCtx.beginPath();
+      for (let i = 0; i < edges.length; i += step) {
+        const edge = edges[i];
+        if (edge.deleted || edge.src.which % EDGE_LAYERS !== layer) {
+          continue;
+        }
+        const from = this.positions[edge.src.which];
+        const to = this.positions[edge.dest.which];
+        if (!from || !to) {
+          continue;
+        }
+        const geometry = this.getEdgeGeometry(edge);
+        this.baseCtx.moveTo(from.x, from.y);
+        if (geometry?.bend && geometry.control) {
+          this.baseCtx.quadraticCurveTo(
+            geometry.control[0],
+            geometry.control[1],
+            to.x,
+            to.y
+          );
+        } else {
+          this.baseCtx.lineTo(to.x, to.y);
+        }
+        drawn = true;
       }
-      const from = this.positions[edge.src.which];
-      const to = this.positions[edge.dest.which];
-      if (!from || !to) {
-        continue;
+      if (drawn) {
+        this.baseCtx.stroke();
       }
-      const geometry = this.getEdgeGeometry(edge);
-      this.baseCtx.moveTo(from.x, from.y);
-      if (geometry?.bend && geometry.control) {
-        this.baseCtx.quadraticCurveTo(
-          geometry.control[0],
-          geometry.control[1],
-          to.x,
-          to.y
-        );
-      } else {
-        this.baseCtx.lineTo(to.x, to.y);
-      }
-    }
-    if (edges.length > 0) {
-      this.baseCtx.stroke();
     }
 
     const highlightedAnchorEdgeId =

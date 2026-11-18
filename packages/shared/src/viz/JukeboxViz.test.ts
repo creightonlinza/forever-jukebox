@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { JukeboxViz } from "./JukeboxViz";
+import { MAX_EDGES_BASE } from "../constants/visualization";
 
 function createMockCtx() {
   return {
@@ -562,6 +563,36 @@ describe("JukeboxViz", () => {
 
       expect(ctx.stroke).toHaveBeenCalledTimes(1);
       expect(widthSets()).toEqual([300, 300]);
+    });
+
+    function drawEdges(edgeCount: number) {
+      const { viz, ctx } = mountWithEdge();
+      const beats = Array.from({ length: 9 }, (_, which) => ({ which, start: which, duration: 1 }));
+      const edges = Array.from({ length: edgeCount }, (_, i) => ({
+        src: beats[i % 9],
+        dest: beats[i % 9 === 8 ? 0 : 8],
+        deleted: false,
+        id: i,
+      }));
+      const mock = ctx as unknown as Record<string, ReturnType<typeof vi.fn>>;
+      mock.lineTo.mockClear();
+      mock.quadraticCurveTo.mockClear();
+      viz.setData({ beats, beatVisits: beats.map(() => 0), beatColors: [], edges } as any);
+      return {
+        strokes: ctx.stroke.mock.calls.length,
+        segments: mock.lineTo.mock.calls.length + mock.quadraticCurveTo.mock.calls.length,
+      };
+    }
+
+    it("draws each edge once, in one stroke per source-beat layer", () => {
+      expect(drawEdges(9)).toEqual({ strokes: 4, segments: 9 });
+    });
+
+    it("draws each sampled edge once above the edge cap", () => {
+      expect(drawEdges(MAX_EDGES_BASE + 1)).toEqual({
+        strokes: 4,
+        segments: Math.ceil((MAX_EDGES_BASE + 1) / 2),
+      });
     });
 
     it("releases the previous layout's canvas bitmaps", () => {
